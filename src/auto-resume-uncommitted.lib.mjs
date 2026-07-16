@@ -7,14 +7,16 @@
  * enabled `--auto-resume-on-uncommitted-changes`, we want to call the
  * agent again with `--resume <sessionId>` (preserving context) instead
  * of starting a fresh session — but only when the previous session has
- * not already filled most of its context window. The threshold defaults
- * to 50% of the model's context limit and is configurable via
+ * not already filled most of its usable pre-compaction context. The threshold
+ * defaults to 50% of that usable limit and is configurable via
  * `--auto-resume-on-uncommitted-changes-maximum-context-window-usage`.
  *
  * This module is intentionally tool-agnostic. It does not perform the
  * resume itself — it just decides whether resuming is viable and
  * computes the percentage that the caller can log.
  */
+
+import { parseSubSessionSize } from './sub-session-size.lib.mjs';
 
 export const DEFAULT_MAX_CONTEXT_USAGE_PERCENT = 50;
 
@@ -56,17 +58,31 @@ export const isAutoResumeOnUncommittedChangesEnabled = (argv = {}) => {
  * for the model that has the smallest remaining headroom.
  *
  * @param {Object|null} tokenUsage - shape returned by calculateSessionTokens
- * @returns {{peak: number, limit: number}|null} null when no model with a known limit was found
+ * @returns {{peak: number, limit: number, contextLimit: number, ratio: number}|null} null when no model with verified usage and a known limit was found
  */
-export const pickWorstContextUtilisation = tokenUsage => {
+export const pickWorstContextUtilisation = (tokenUsage, argv = {}) => {
   if (!tokenUsage || !tokenUsage.modelUsage) return null;
   let worst = null;
   for (const usage of Object.values(tokenUsage.modelUsage)) {
-    const limit = usage?.modelInfo?.limit?.context;
-    if (!limit || limit <= 0) continue;
-    const peak = usage.peakContextUsage || 0;
+    const contextLimit = usage?.modelInfo?.limit?.context;
+    if (!contextLimit || contextLimit <= 0) continue;
+    let limit = contextLimit;
+    try {
+      const configured = argv.subSessionSize ?? argv['sub-session-size'];
+      const subSession = parseSubSessionSize(configured, { contextWindow: contextLimit });
+      if (subSession.kind === 'tokens' && subSession.tokens > 0) {
+        limit = Math.min(contextLimit, subSession.tokens);
+      } else if (subSession.kind === 'percent' && subSession.tokens > 0) {
+        limit = Math.min(contextLimit, subSession.tokens);
+      }
+    } catch {
+      // Invalid values are reported by normal CLI validation. Programmatic
+      // callers still get a conservative decision against the model limit.
+    }
+    const peak = usage.peakContextUsage;
+    if (!Number.isFinite(peak) || peak <= 0) continue;
     const ratio = peak / limit;
-    if (!worst || ratio > worst.ratio) worst = { peak, limit, ratio };
+    if (!worst || ratio > worst.ratio) worst = { peak, limit, contextLimit, ratio };
   }
   return worst;
 };
@@ -80,8 +96,7 @@ export const pickWorstContextUtilisation = tokenUsage => {
  *   - no auto-resume flag → 'disabled'
  *   - flag set, no session ID known → 'no_session_id'
  *   - flag set, session id known, no usable context-stat data → 'no_context_data'
- *     (we still return resume=true because the user explicitly opted in;
- *      they can lower the threshold or rely on calculateSessionTokens fixes)
+ *     (fall back to a fresh run because available headroom cannot be verified)
  *   - flag set, peak >= threshold → 'context_too_full'
  *   - flag set, peak <  threshold → 'ok'
  *
@@ -99,14 +114,9 @@ export const decideAutoResumeOnUncommittedChanges = ({ argv = {}, sessionId = nu
   if (!sessionId) {
     return { resume: false, reason: 'no_session_id', threshold, usedPercent: null, peak: null, limit: null };
   }
-  const worst = pickWorstContextUtilisation(tokenUsage);
+  const worst = pickWorstContextUtilisation(tokenUsage, argv);
   if (!worst) {
-    // Honour the flag even when context stats are unavailable — the user
-    // explicitly asked for resume; falling back to restart silently here
-    // would defeat the purpose of the flag on early sessions where JSONL
-    // hasn't yet been parsed. We surface 'no_context_data' so callers can
-    // log a warning.
-    return { resume: true, reason: 'no_context_data', threshold, usedPercent: null, peak: null, limit: null };
+    return { resume: false, reason: 'no_context_data', threshold, usedPercent: null, peak: null, limit: null };
   }
   const usedPercent = (worst.peak / worst.limit) * 100;
   if (usedPercent >= threshold) {

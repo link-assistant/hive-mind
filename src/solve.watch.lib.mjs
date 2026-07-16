@@ -332,16 +332,43 @@ export const watchForFeedback = async params => {
 
         let restartFeedbackLines = feedbackLines;
         let restartArgv = argv;
-        const shouldUseSessionResume = Boolean(isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode) && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']) && (argv.tool === 'claude' || !argv.tool) && global.previousSessionId);
+        const isUncommittedChangesRestart = isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode);
+        const isClaudeTool = argv.tool === 'claude' || !argv.tool;
+        const autoResumeOnUncommittedChanges = isUncommittedChangesRestart && isClaudeTool && isAutoResumeOnUncommittedChangesEnabled(argv);
+        let autoResumeDecision = null;
+
+        if (autoResumeOnUncommittedChanges) {
+          let tokenUsage = null;
+          if (latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, latestResultModelUsage);
+            } catch (tokenError) {
+              await log(`   ⚠️  Could not calculate token usage for auto-resume decision: ${tokenError.message}`, { verbose: true });
+            }
+          }
+          autoResumeDecision = decideAutoResumeOnUncommittedChanges({ argv, sessionId: latestSessionId, tokenUsage });
+        }
+
+        // Keep the older issue #661 experiment working independently. The issue
+        // #1056 option takes precedence when enabled because it adds the required
+        // context-headroom safety check.
+        const legacyResumeRequested = isUncommittedChangesRestart && isClaudeTool && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']);
+        const shouldUseSessionResume = autoResumeOnUncommittedChanges ? autoResumeDecision?.resume === true : Boolean(legacyResumeRequested && global.previousSessionId);
+        const resumeSessionId = autoResumeOnUncommittedChanges ? latestSessionId : global.previousSessionId;
 
         if (shouldUseSessionResume) {
           await log(formatAligned('', 'Experimental session resume: using minimal auto-restart prompt', '', 2));
-          await log(formatAligned('', `Resuming session: ${global.previousSessionId}`, '', 2));
+          await log(formatAligned('', `Resuming session: ${resumeSessionId}`, '', 2));
 
-          if (argv.verbose) {
+          if (autoResumeDecision?.reason === 'ok') {
+            await log(formatAligned('', `Peak context usage: ${autoResumeDecision.peak.toLocaleString()} / ${autoResumeDecision.limit.toLocaleString()} usable tokens (${autoResumeDecision.usedPercent.toFixed(1)}%, threshold ${autoResumeDecision.threshold}%)`, '', 2));
+          }
+
+          if (!autoResumeOnUncommittedChanges && argv.verbose) {
             try {
               const { calculateSessionTokens } = await import('./claude.lib.mjs');
-              const tokenUsage = await calculateSessionTokens(global.previousSessionId, tempDir);
+              const tokenUsage = await calculateSessionTokens(resumeSessionId, tempDir);
               if (tokenUsage?.totalTokens) {
                 await log(formatAligned('', `Previous session tokens: ${tokenUsage.totalTokens.toLocaleString()}`, '', 2));
               }
@@ -355,11 +382,14 @@ export const watchForFeedback = async params => {
           restartFeedbackLines = [minimalPrompt];
           restartArgv = {
             ...argv,
-            resume: global.previousSessionId,
+            resume: resumeSessionId,
             minimalRestartContext: true,
           };
 
           await log(formatAligned('', `Minimal restart prompt size: ${minimalPrompt.length} characters`, '', 2));
+        } else if (autoResumeOnUncommittedChanges) {
+          const skipReason = autoResumeDecision?.reason === 'context_too_full' ? `peak context usage ${autoResumeDecision.usedPercent.toFixed(1)}% reached the ${autoResumeDecision.threshold}% threshold` : autoResumeDecision?.reason === 'no_session_id' ? 'no previous session ID is available' : 'context usage could not be verified';
+          await log(formatAligned('', 'Auto-resume skipped:', `${skipReason}; starting a fresh session`, 2));
         }
 
         // Execute tool using shared utility

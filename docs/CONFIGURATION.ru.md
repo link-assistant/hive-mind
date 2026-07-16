@@ -471,6 +471,11 @@ solve <issue-url> [options]
 | `--gemini-include-directories`                                   |           | string  |                | Дополнительные каталоги, доступные gemini-cli (передаёт флаг include-directories в gemini-cli, в дополнение к `tempDir`/`workspaceTmpDir`, которые включены всегда). Используется только при `--tool gemini`.                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `--gemini-allowed-mcp-servers`                                   |           | string  |                | Список имён MCP-серверов через запятую, которые gemini-cli разрешено вызывать (передаёт флаг allowed-mcp-server-names в gemini-cli). Используется только при `--tool gemini`.                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
+Экспериментальные параметры возобновления при незакоммиченных изменениях:
+
+- `--auto-resume-on-uncommitted-changes` (boolean, по умолчанию `false`) возобновляет предыдущую сессию Claude с минимальным запросом вместо запуска новой. `--no-auto-resume-on-uncommitted-changes` явно сохраняет запуск новой сессии. Если идентификатор сессии или использование контекста нельзя проверить, запускается новая сессия.
+- `--auto-resume-on-uncommitted-changes-maximum-context-window-usage` (number, по умолчанию `50`) задаёт максимальный процент доступного до компактификации контекста, при котором разрешено возобновление. Доступный лимит учитывает `--sub-session-size`; при достижении порога запускается новая сессия.
+
 ### Параметры hive
 
 ```bash

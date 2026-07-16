@@ -13,6 +13,8 @@
  */
 
 import { DEFAULT_MAX_CONTEXT_USAGE_PERCENT, decideAutoResumeOnUncommittedChanges, getAutoResumeMaxContextUsage, isAutoResumeOnUncommittedChangesEnabled, pickWorstContextUtilisation } from '../src/auto-resume-uncommitted.lib.mjs';
+import { readFileSync } from 'node:fs';
+import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -86,6 +88,15 @@ runTest('getAutoResumeMaxContextUsage: parses numeric strings', () => {
 
 // === isAutoResumeOnUncommittedChangesEnabled ===
 
+runTest('CLI options preserve explicit opt-in and the 50% default', () => {
+  const enabled = SOLVE_OPTION_DEFINITIONS['auto-resume-on-uncommitted-changes'];
+  const threshold = SOLVE_OPTION_DEFINITIONS['auto-resume-on-uncommitted-changes-maximum-context-window-usage'];
+  assertEqual(enabled.type, 'boolean', 'feature option is boolean');
+  assertFalse(enabled.default, 'feature is disabled unless explicitly enabled');
+  assertTrue(enabled.description.includes('--no-auto-resume-on-uncommitted-changes'), 'description documents explicit opt-out');
+  assertEqual(threshold.default, 50, 'maximum usable context defaults to 50%');
+});
+
 runTest('isAutoResumeOnUncommittedChangesEnabled: false by default', () => {
   assertFalse(isAutoResumeOnUncommittedChangesEnabled({}), 'no flag → disabled');
   assertFalse(isAutoResumeOnUncommittedChangesEnabled({ autoResumeOnUncommittedChanges: false }), 'explicit false → disabled');
@@ -117,6 +128,15 @@ runTest('pickWorstContextUtilisation: skips models without context limit', () =>
   assertEqual(pickWorstContextUtilisation(usage), null, 'no usable limits → null');
 });
 
+runTest('pickWorstContextUtilisation: treats an untracked zero peak as unavailable', () => {
+  const usage = {
+    modelUsage: {
+      'claude-sonnet-4': { peakContextUsage: 0, modelInfo: { limit: { context: 200000 } } },
+    },
+  };
+  assertEqual(pickWorstContextUtilisation(usage), null, 'zero peak does not masquerade as verified 0% usage');
+});
+
 runTest('pickWorstContextUtilisation: picks the highest-utilisation model', () => {
   const usage = {
     modelUsage: {
@@ -142,6 +162,19 @@ runTest('pickWorstContextUtilisation: handles single model', () => {
   assertClose(worst.ratio, 0.5, 'ratio is 0.5');
 });
 
+runTest('pickWorstContextUtilisation: measures against usable pre-compaction context', () => {
+  const usage = {
+    modelUsage: {
+      'claude-sonnet-4-5': { peakContextUsage: 75000, modelInfo: { limit: { context: 200000 } } },
+    },
+  };
+  const worst = pickWorstContextUtilisation(usage, { subSessionSize: '150k' });
+  assertEqual(worst.peak, 75000, 'peak preserved');
+  assertEqual(worst.limit, 150000, 'usable limit follows --sub-session-size');
+  assertEqual(worst.contextLimit, 200000, 'raw model limit remains available');
+  assertClose(worst.ratio, 0.5, 'ratio uses usable pre-compaction limit');
+});
+
 // === decideAutoResumeOnUncommittedChanges ===
 
 runTest('decide: disabled when flag not set', () => {
@@ -158,10 +191,10 @@ runTest('decide: no_session_id when session ID missing', () => {
   assertEqual(result.threshold, 50, 'default threshold preserved');
 });
 
-runTest('decide: no_context_data still resumes when flag honoured', () => {
+runTest('decide: no_context_data falls back safely when headroom cannot be verified', () => {
   const argv = { autoResumeOnUncommittedChanges: true };
   const result = decideAutoResumeOnUncommittedChanges({ argv, sessionId: 'abc', tokenUsage: null });
-  assertTrue(result.resume, 'resume even without context data');
+  assertFalse(result.resume, 'start fresh without verified context data');
   assertEqual(result.reason, 'no_context_data', 'reason: no_context_data');
 });
 
@@ -240,6 +273,13 @@ runTest('decide: multi-model picks worst utilisation', () => {
   const result = decideAutoResumeOnUncommittedChanges({ argv, sessionId: 'abc', tokenUsage });
   assertFalse(result.resume, 'multi-model conservative — worst wins');
   assertEqual(result.peak, 120000, 'reports worst peak');
+});
+
+runTest('watch loop wires the safe decision into the resumed minimal-prompt path', () => {
+  const source = readFileSync(new URL('../src/solve.watch.lib.mjs', import.meta.url), 'utf8');
+  assertTrue(source.includes('decideAutoResumeOnUncommittedChanges({ argv, sessionId: latestSessionId, tokenUsage })'), 'watch loop evaluates token usage before resume');
+  assertTrue(source.includes('resume: resumeSessionId'), 'approved session ID is passed to the tool');
+  assertTrue(source.includes("autoResumeDecision?.reason === 'context_too_full'"), 'context threshold produces an explicit fresh-session fallback');
 });
 
 console.log('');

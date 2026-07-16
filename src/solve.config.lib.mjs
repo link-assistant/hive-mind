@@ -203,12 +203,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'auto-resume-on-uncommitted-changes': {
     type: 'boolean',
-    description: 'EXPERIMENTAL: Automatically resume the previous AI session (--resume) when uncommitted changes are detected, preserving context. Falls back to restart when context window is too full or session ID is unavailable. Disabled by default.',
+    description: 'EXPERIMENTAL: Automatically resume the previous Claude session when uncommitted changes are detected. Falls back to a fresh session when usable context headroom cannot be verified or is too low. Disabled by default; use --no-auto-resume-on-uncommitted-changes to switch it off explicitly.',
     default: false,
   },
   'auto-resume-on-uncommitted-changes-maximum-context-window-usage': {
     type: 'number',
-    description: 'When --auto-resume-on-uncommitted-changes is enabled, the maximum context window usage (in percent of model context limit) that still allows resuming. Above this threshold the tool falls back to a fresh restart (default: 50).',
+    description: 'Maximum usable pre-compaction context usage (percent) that still allows --auto-resume-on-uncommitted-changes to resume. The usable limit respects --sub-session-size. At or above this threshold the tool starts a fresh session (default: 50).',
     default: 50,
   },
   'auto-restart-max-iterations': {

@@ -12,7 +12,6 @@ const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import(
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
-// Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
@@ -1334,10 +1333,6 @@ try {
     prBranch,
     branchName,
     tempDir,
-    // Issue #1056: Pass initial session ID + token usage so the watch loop
-    // can decide whether `--auto-resume-on-uncommitted-changes` may resume
-    // the previous Claude session (preserving context) or must fall back
-    // to a fresh restart when the context window is too full.
     initialSessionId: sessionId,
     initialResultModelUsage: resultModelUsage,
     argv: {
@@ -1347,7 +1342,6 @@ try {
     },
   });
 
-  // Update session data with latest from watch mode for accurate pricing
   if (watchResult && watchResult.latestSessionId) {
     sessionId = watchResult.latestSessionId;
     anthropicTotalCostUSD = watchResult.latestAnthropicCost;

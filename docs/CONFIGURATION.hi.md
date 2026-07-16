@@ -469,6 +469,11 @@ solve <issue-url> [options]
 | `--gemini-include-directories`                                   |       | string  |               | gemini-cli को expose करने के लिए अतिरिक्त directories (gemini-cli को include-directories flag pass करता है, `tempDir`/`workspaceTmpDir` के अतिरिक्त जो हमेशा शामिल होते हैं)। केवल `--tool gemini` के साथ उपयोग होता है।                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `--gemini-allowed-mcp-servers`                                   |       | string  |               | MCP server नामों की comma-separated list जिन्हें gemini-cli call करने की अनुमति है (gemini-cli को allowed-mcp-server-names flag pass करता है)। केवल `--tool gemini` के साथ उपयोग होता है।                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
+Uncommitted changes पर resume करने के experimental विकल्प:
+
+- `--auto-resume-on-uncommitted-changes` (boolean, default `false`) नई session शुरू करने के बजाय minimal prompt के साथ पिछली Claude session resume करता है। नई session का व्यवहार स्पष्ट रूप से बनाए रखने के लिए `--no-auto-resume-on-uncommitted-changes` उपयोग करें। Session ID या context usage verify न हो पाने पर नई session सुरक्षित रूप से शुरू होती है।
+- `--auto-resume-on-uncommitted-changes-maximum-context-window-usage` (number, default `50`) pre-compaction usable context का अधिकतम प्रतिशत तय करता है जिस पर resume की अनुमति है। Usable limit `--sub-session-size` का सम्मान करती है; threshold पर या उससे ऊपर solve नई session शुरू करता है।
+
 ### hive विकल्प
 
 ```bash

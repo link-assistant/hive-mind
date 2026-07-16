@@ -3,23 +3,36 @@
   "pull_request": "https://github.com/link-assistant/hive-mind/pull/1929",
   "branch": "issue-1733-2f309a19e44b",
   "captured": "2026-06-15",
+  "recaptured": "2026-07-16",
+  "recapture_reason": "Issue #1733 was re-described (title/description must be reused exactly, minus the parts --development-log and --deep-analysis provide; the solve chain gained --development-log --deep-analysis) and web-capture#139 was re-titled. PR #1929 review also widened the scope to the whole repository.",
   "template_issue": {
-    "title": "web-capture#139 — Check for all false positives and errors in CI/CD and fix them all",
+    "title": "web-capture#139 — Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all",
     "url": "https://github.com/link-assistant/web-capture/issues/139",
-    "local_copy": "data/web-capture-issue-139.txt",
-    "used_for": "Source of the standard remediation prompt reproduced by buildStandardPrompt(); defines the 'compare full file tree, report upstream template issues, compile case study to docs/case-studies/issue-{id}, single PR' instructions."
+    "local_copy": "data/web-capture-issue-139.json",
+    "original_capture": "data/web-capture-issue-139.txt",
+    "used_for": "Source of the title (CI_CD_ISSUE_TITLE, pinned verbatim by a test) and of the standard remediation prompt reproduced by buildStandardPrompt(); defines the 'compare full file tree, report upstream template issues, compile case study to docs/case-studies/issue-{id}, single PR' instructions that carry providedBy tags."
   },
-  "repository_sources": ["src/fix.mjs", "src/fix.ci-cd.lib.mjs", "src/task.issue-creation.lib.mjs", "src/solve.config.lib.mjs", "src/hive.mjs", "docs/CI-CD-BEST-PRACTICES.md", "docs/case-studies/issue-1823/research-sources.json"],
+  "repository_sources": ["src/fix.mjs", "src/fix.ci-cd.lib.mjs", "src/task.issue-creation.lib.mjs", "src/solve.config.lib.mjs", "src/hive.mjs", "src/development-log.lib.mjs", "src/deep-analysis.lib.mjs", "src/telegram-fix-command.lib.mjs", "src/telegram.config.lib.mjs", "src/telegram-task-command.lib.mjs", "src/solve.keep-working.detect.lib.mjs", "docs/CI-CD-BEST-PRACTICES.md", "docs/case-studies/issue-1823/research-sources.json"],
   "data_files": [
     {
       "path": "data/hive-mind-issue-1733.json",
       "source": "gh issue view 1733 --repo link-assistant/hive-mind --json ...",
-      "description": "The issue itself (title, body, state, no comments at capture)."
+      "description": "The issue itself (title, body, state), re-captured 2026-07-16 after the description was updated."
     },
     {
       "path": "data/hive-mind-issue-1733-comments.json",
       "source": "gh api repos/link-assistant/hive-mind/issues/1733/comments --paginate",
-      "description": "Issue comments — empty array at capture time."
+      "description": "Issue comments — still an empty array at re-capture; all feedback arrived on the PR instead."
+    },
+    {
+      "path": "data/hive-mind-pr-1929-comments.json",
+      "source": "gh api repos/link-assistant/hive-mind/issues/1929/comments --paginate",
+      "description": "PR #1929 conversation comments — the source of the re-analysis request and of the whole-repository scope (Telegram /fix)."
+    },
+    {
+      "path": "data/web-capture-issue-139.json",
+      "source": "gh issue view 139 --repo link-assistant/web-capture --json ...",
+      "description": "The prompt template, re-captured with its updated title so CI_CD_ISSUE_TITLE can be diffed against the live source."
     },
     {
       "path": "data/hive-mind-languages.json",

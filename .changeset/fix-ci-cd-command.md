@@ -12,22 +12,23 @@ a target repository:
 - inspects the latest default-branch commit and lists its CI/CD runs in the issue
   (falling back to the most recent default-branch runs when a release/tag commit
   has none of its own);
-- creates the remediation issue using the standard prompt from web-capture#139,
-  including a link to `docs/CI-CD-BEST-PRACTICES.md`;
-- hands the issue off to `/solve --auto-merge`, forwarding every option `/fix`
-  does not consume itself (e.g. `--tool`, `--model`, `--think`);
+- creates the remediation issue reusing the title and description of the standard
+  prompt (web-capture#139) exactly, minus the paragraphs that `--development-log`
+  and `--deep-analysis` already inject into the AI prompt — a paragraph is dropped
+  only when every option providing it is passed, so a partial overlap never
+  silently removes an instruction. The issue is created as type `Bug`
+  (best-effort, since issue types are org-scoped) because that is what makes the
+  deep-analysis omission valid, and links to `docs/CI-CD-BEST-PRACTICES.md`;
+- hands the issue off to `/solve --development-log --deep-analysis --auto-merge`,
+  forwarding every option `/fix` does not consume itself (e.g. `--tool`,
+  `--model`, `--think`);
 - supports `--dry-run` (preview the issue) and `--no-solve` (create only).
+
+The command is also available from the Telegram bot as `/fix <repository>`
+(`--ci-cd` is implied), toggleable with `--no-fix` / `TELEGRAM_FIX=false` and
+documented in all four locales.
 
 Also adds the PHP template
 (`link-foundation/php-ai-driven-development-pipeline-template`) to
 `docs/CI-CD-BEST-PRACTICES.md` and documents the new "Automatic CI/CD
 Remediation" flow in all four languages (en/zh/hi/ru).
-
-Additionally hardens the use-m bootstrap: `use-m@8.14.0` relocated its eval
-bundle from `use.js` (package root) to `src/use.js`, so the unversioned
-`https://unpkg.com/use-m/use.js` URL began returning a `404 Not found` body that
-was then `eval()`'d, crashing every command with `SyntaxError: Unexpected
-identifier 'found'`. `loadUseMCode()` now tries a prioritized list of candidate
-URLs (unpkg root → unpkg `src/` → jsdelivr root → jsdelivr `src/`), validating
-the HTTP status and rejecting obvious error-page bodies so a single upstream/CDN
-hiccup no longer breaks the whole CLI.

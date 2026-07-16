@@ -16,6 +16,9 @@ import { classifyCodexRateLimitWindows } from './codex-rate-limit-windows.lib.mj
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
 import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+export { getProgressBar } from './progress-bar.lib.mjs';
+import { getProgressBar } from './progress-bar.lib.mjs';
+import { formatTelegramLimitsSection } from './telegram-limits-section.lib.mjs';
 import { getTelegramRateLimits } from './telegram-rate-limit.lib.mjs';
 export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
@@ -985,40 +988,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
 }
 
 /**
- * Generate a text-based progress bar for usage percentage
- * @param {number} percentage - Usage percentage (0-100)
- * @param {number|null} thresholdPercentage - Optional threshold position to show in the bar (0-100)
- * @returns {string} Text-based progress bar
- * @see https://github.com/link-assistant/hive-mind/issues/1242
- */
-export function getProgressBar(percentage, thresholdPercentage = null) {
-  const totalBlocks = 30;
-  const filledBlocks = Math.round((percentage / 100) * totalBlocks);
-
-  if (thresholdPercentage === null) {
-    // No threshold - original behavior
-    const emptyBlocks = totalBlocks - filledBlocks;
-    return '\u2593'.repeat(filledBlocks) + '\u2591'.repeat(emptyBlocks);
-  }
-
-  // With threshold marker
-  const thresholdPos = Math.round((thresholdPercentage / 100) * totalBlocks);
-  let bar = '';
-
-  for (let i = 0; i < totalBlocks; i++) {
-    if (i === thresholdPos) {
-      bar += '│'; // Threshold marker (U+2502 Box Drawings Light Vertical)
-    } else if (i < filledBlocks) {
-      bar += '▓'; // Filled (U+2593)
-    } else {
-      bar += '░'; // Empty (U+2591)
-    }
-  }
-
-  return bar;
-}
-
-/**
  * Calculate the percentage of time that has passed in a period
  * @param {string} resetsAt - ISO date string when the period resets
  * @param {number} periodHours - Total duration of the period in hours (5 for session, 168 for week)
@@ -1125,24 +1094,8 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     sections.push(section);
   }
 
-  const telegramRateLimit = options?.telegramRateLimit || null;
-  if (telegramRateLimit) {
-    let section = `${lt('telegram_api', {}, { locale })}\n`;
-    const global = telegramRateLimit.global;
-    const group = telegramRateLimit.busiestGroup;
-    // Prefer the longer-lived group window on ties so an idle snapshot does
-    // not default to the one-second window that prompted issue #2070.
-    const mostConstraining = group.usedPercentage >= global.usedPercentage ? { ...group, scope: lt('telegram_group_scope', {}, { locale }) } : { ...global, scope: lt('telegram_global_scope', {}, { locale }) };
-    section += `${getProgressBar(mostConstraining.usedPercentage)} ${mostConstraining.usedPercentage}% ${lt('used', {}, { locale })} (${mostConstraining.scope})\n`;
-    section += `${lt('telegram_requests', { used: mostConstraining.used, limit: mostConstraining.limit }, { locale })}\n`;
-    section += `${lt('telegram_rate_limit_responses', { count: telegramRateLimit.rateLimitResponses }, { locale })}\n`;
-    if (telegramRateLimit.lastRateLimit) {
-      const retry = telegramRateLimit.lastRateLimit.retryRemainingSeconds;
-      const retryText = retry === null ? '' : `, ${lt('telegram_retry_in', { seconds: retry }, { locale })}`;
-      section += `${lt('telegram_last_rate_limit', { method: telegramRateLimit.lastRateLimit.method }, { locale })}${retryText}\n`;
-    }
-    sections.push(section);
-  }
+  const telegramSection = formatTelegramLimitsSection(options?.telegramRateLimit, { locale });
+  if (telegramSection) sections.push(telegramSection);
 
   const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
   const useShortClaudeLabels = Boolean(claudeHeading);

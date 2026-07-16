@@ -336,19 +336,25 @@ en
       status "Subscription: {{status}}"
     telegram
       api "Telegram Bot API"
-      global
-        scope "global, 1s"
-      group
-        scope "busiest group, 1m"
+      flood
+        control "flood control"
       last
         rate
           limit "Last 429: {{method}}"
+      observed
+        limit "observed limit"
+      peak "peak {{peak}}"
       rate
         limit
           responses "429 responses since startup: {{count}}"
       requests "{{used}}/{{limit}} requests"
       retry
-        in "retry in {{seconds}}s"
+        in "retry in {{duration}}"
+      scope
+        broadcast "messages to all chats, 1s"
+        chat "messages per chat, 1m"
+        group "messages per group, 1m"
+        other "other API requests, 1s"
     trial
       ends
         label "Trial ends {{time}}"

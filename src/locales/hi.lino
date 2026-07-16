@@ -336,19 +336,25 @@ hi
       status "सदस्यता: {{status}}"
     telegram
       api "Telegram Bot API"
-      global
-        scope "वैश्विक, 1 सेकंड"
-      group
-        scope "सबसे व्यस्त समूह, 1 मिनट"
+      flood
+        control "फ्लड नियंत्रण"
       last
         rate
           limit "अंतिम 429: {{method}}"
+      observed
+        limit "मापी गई सीमा"
+      peak "शिखर {{peak}}"
       rate
         limit
           responses "स्टार्टअप के बाद 429 प्रतिक्रियाएँ: {{count}}"
       requests "{{used}}/{{limit}} अनुरोध"
       retry
-        in "{{seconds}} सेकंड में पुनः प्रयास"
+        in "{{duration}} में पुनः प्रयास"
+      scope
+        broadcast "सभी चैट में संदेश, 1 सेकंड"
+        chat "प्रति चैट संदेश, 1 मिनट"
+        group "प्रति समूह संदेश, 1 मिनट"
+        other "अन्य API अनुरोध, 1 सेकंड"
     trial
       ends
         label "ट्रायल समाप्त होगा {{time}}"

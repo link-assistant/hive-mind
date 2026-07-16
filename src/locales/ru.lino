@@ -336,19 +336,25 @@ ru
       status "Подписка: {{status}}"
     telegram
       api "Telegram Bot API"
-      global
-        scope "глобально, 1 с"
-      group
-        scope "самая активная группа, 1 мин"
+      flood
+        control "контроль флуда"
       last
         rate
           limit "Последний ответ 429: {{method}}"
+      observed
+        limit "измеренный лимит"
+      peak "пик {{peak}}"
       rate
         limit
           responses "Ответов 429 с момента запуска: {{count}}"
       requests "{{used}}/{{limit}} запросов"
       retry
-        in "повтор через {{seconds}} с"
+        in "повтор через {{duration}}"
+      scope
+        broadcast "сообщения во все чаты, 1 с"
+        chat "сообщения в чат, 1 мин"
+        group "сообщения в группу, 1 мин"
+        other "другие запросы API, 1 с"
     trial
       ends
         label "Пробный период заканчивается {{time}}"

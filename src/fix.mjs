@@ -5,7 +5,7 @@
  *
  * Currently implements `--ci-cd`: automatically generate a CI/CD remediation
  * issue for a target repository and (optionally) hand it off to
- * `/solve --auto-merge`.
+ * `/solve --development-log --deep-analysis --auto-merge`.
  *
  *   fix.mjs <github-repository-url> --ci-cd [solve options...]
  *
@@ -16,7 +16,7 @@
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildSolveArgs, partitionFixArgs, summarizeRunFailures } from './fix.ci-cd.lib.mjs';
+import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle, buildSolveArgs, partitionFixArgs, summarizeRunFailures } from './fix.ci-cd.lib.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -24,7 +24,7 @@ function printHelp() {
   console.log(`Usage: fix.mjs <github-repository-url> --ci-cd [options]
 
 Automatically generate a CI/CD remediation issue for a repository and hand it
-off to /solve --auto-merge.
+off to /solve --development-log --deep-analysis --auto-merge.
 
 Options:
   --ci-cd            Generate a CI/CD remediation issue (required mode)
@@ -188,7 +188,7 @@ async function main() {
   console.log(`   Latest commit:  ${commit?.sha ? commit.sha.slice(0, 7) : 'unknown'}`);
   console.log(`   CI/CD runs:     ${total} (${failing} not passing)${runsSource === 'branch' ? ' [recent branch runs]' : ''}`);
 
-  const title = buildCiCdIssueTitle(repository);
+  const title = buildCiCdIssueTitle();
   const body = buildCiCdIssueBody({ repository, defaultBranch, commit, runs, languages, runsSource });
 
   if (parsed.dryRun) {
@@ -200,12 +200,22 @@ async function main() {
 
   console.log('\n📝 Creating remediation issue...');
   const { createTaskIssue } = await import('./task.issue-creation.lib.mjs');
-  const issue = await createTaskIssue({ repository, title, body, run: runCommand });
+  const issue = await createTaskIssue({
+    repository,
+    title,
+    body,
+    // The Bug type is what makes /solve --deep-analysis emit the root-cause
+    // instructions this body omits (issue #1733).
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+    run: runCommand,
+    log: message => console.log(message),
+  });
   console.log(`✅ Created issue: ${issue.url}`);
 
   if (!parsed.runSolve) {
     console.log('ℹ️  --no-solve set; skipping /solve. Run it manually with:');
-    console.log(`   solve ${issue.url} --auto-merge`);
+    console.log(`   solve ${buildSolveArgs({ issueUrl: issue.url, passthrough: parsed.passthrough }).join(' ')}`);
     return;
   }
 

@@ -7,12 +7,21 @@
  *   3. creates a remediation issue (mirroring the `/task` issue-creation flow)
  *      that links the language-appropriate CI/CD pipeline templates and the
  *      CI/CD best-practices guide, and
- *   4. hands the issue off to `/solve --auto-merge`, forwarding every option
- *      that `/fix` itself does not consume (e.g. --tool, --model, --think).
+ *   4. hands the issue off to
+ *      `/solve --development-log --deep-analysis --auto-merge`, forwarding every
+ *      option that `/fix` itself does not consume (e.g. --tool, --model,
+ *      --think).
+ *
+ * The issue title and body are taken from the standard prompt in
+ * https://github.com/link-assistant/web-capture/issues/139, omitting the
+ * paragraphs that `--development-log` and `--deep-analysis` already inject into
+ * the AI prompt (issue #1733) — see STANDARD_PROMPT_PARAGRAPHS below.
  *
  * Everything that does not touch the network or the filesystem lives here so it
  * can be unit-tested without GitHub access.
  */
+
+import { KEEP_WORKING_PROMPT } from './solve.keep-working.detect.lib.mjs';
 
 /**
  * Canonical mapping from GitHub Linguist language names to the
@@ -181,10 +190,16 @@ export function mapLanguagesToTemplates(languages) {
   return { sortedTemplates, unmatchedLanguages };
 }
 
-/** Title for the auto-generated remediation issue. */
-export function buildCiCdIssueTitle(repository) {
-  const name = repository?.fullName || repository?.repo || 'repository';
-  return `Check for all false positives and errors in CI/CD and fix them all (${name})`;
+/**
+ * Title of the auto-generated remediation issue, taken exactly from the
+ * standard template issue https://github.com/link-assistant/web-capture/issues/139
+ * (issue #1733: "use title and description exactly"). The issue is created in
+ * the target repository itself, so it carries no repository suffix.
+ */
+export const CI_CD_ISSUE_TITLE = 'Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all';
+
+export function buildCiCdIssueTitle() {
+  return CI_CD_ISSUE_TITLE;
 }
 
 function shortSha(sha) {
@@ -263,33 +278,103 @@ export function summarizeRunFailures(runs) {
 }
 
 /**
- * The standard remediation prompt, adapted from
- * https://github.com/link-assistant/web-capture/issues/139.
+ * The `/solve` options that `/fix` always turns on, and whose instructions are
+ * therefore omitted from the generated issue body (issue #1733: "use title and
+ * description exactly with omission of parts provided by --development-log
+ * --deep-analysis options").
  */
-export function buildStandardPrompt({ repository, templatesSorted }) {
+export const SOLVE_OPTION_DEVELOPMENT_LOG = '--development-log';
+export const SOLVE_OPTION_DEEP_ANALYSIS = '--deep-analysis';
+export const FIX_FORWARDED_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS]);
+
+/**
+ * Paragraphs of the standard prompt, quoted from
+ * https://github.com/link-assistant/web-capture/issues/139.
+ *
+ * `providedBy` lists the `/solve` options that already inject an equivalent
+ * instruction into the AI prompt (see `buildDeepAnalysisPrompt` and
+ * `buildDevelopmentLogPrompt`). A paragraph is dropped from the issue body only
+ * when *every* option that provides it is passed to `/solve`, so the
+ * instruction is delivered exactly once and never silently lost.
+ *
+ * The deep-analysis wording below is the "bug" variant, which `/solve` emits
+ * only when the issue type is Bug — `/fix` therefore creates the issue with
+ * that type (see CI_CD_ISSUE_TYPE).
+ */
+export const CASE_STUDY_PARAGRAPH = 'We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).';
+export const DEBUG_OUTPUT_PARAGRAPH = 'If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.';
+export const REPORT_UPSTREAM_PARAGRAPH = 'If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.';
+
+/** Build the ordered, tagged paragraphs of the standard prompt. */
+export function buildStandardPromptParagraphs({ templatesSorted } = {}) {
   const templateLinks = (templatesSorted && templatesSorted.length > 0 ? templatesSorted.map(entry => entry.template.repo) : CI_CD_TEMPLATES.map(template => template.repo)).map(repo => `- ${templateUrl(repo)}`).join('\n');
 
-  return `Use all the best practices from the CI/CD templates (check the full file tree to compare all GitHub workflow and CI/CD script files). If the same issue is found in a template, report the issue in the template repository too:
-
-${templateLinks}
-
-We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.
-
-Download all logs and data related to this issue into this repository, and compile that data into the \`./docs/case-studies/issue-{id}\` folder. Use it to do a deep case-study analysis (search online for additional facts and data) in which you reconstruct the timeline/sequence of events, list each and every requirement from the issue, find the root cause of each problem, and propose possible solutions and solution plans for each requirement (also check known existing components/libraries that solve a similar problem or can help).
-
-If there is not enough data to find the actual root cause, add debug output and a verbose mode (if not already present) so the root cause can be found on the next iteration.
-
-If the issue is related to any other repository/project where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds, and suggestions for fixing the issue in code. Double-check that the requirements are fully applied to the entire codebase: if an issue exists in multiple places, fix it in all of them.
-
-Reference: [CI/CD Best Practices for AI-Driven Development](${CI_CD_BEST_PRACTICES_URL}).
-
-Target repository: ${repository?.fullName || 'the target repository'}.`;
+  return [
+    {
+      providedBy: [],
+      text: `Use all the best practices from CI/CD templates (check full file tree to compare for all GitHub workflow and CI/CD scripts file), if the same issue is found in template report issue also in templates:\n\n${templateLinks}`,
+    },
+    {
+      providedBy: [],
+      text: "We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.",
+    },
+    {
+      providedBy: [SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS],
+      text: CASE_STUDY_PARAGRAPH,
+    },
+    {
+      providedBy: [SOLVE_OPTION_DEEP_ANALYSIS],
+      text: DEBUG_OUTPUT_PARAGRAPH,
+    },
+    {
+      providedBy: [SOLVE_OPTION_DEEP_ANALYSIS],
+      text: REPORT_UPSTREAM_PARAGRAPH,
+    },
+    {
+      providedBy: [],
+      text: `Follow the CI/CD best practices collected in [${CI_CD_BEST_PRACTICES_URL}](${CI_CD_BEST_PRACTICES_URL}).`,
+    },
+    {
+      // Quoted verbatim from the template; identical to the reinforcement
+      // prompt /solve --keep-working-... reuses, so share the single constant.
+      providedBy: [],
+      text: KEEP_WORKING_PROMPT,
+    },
+  ];
 }
 
 /**
- * Build the full Markdown body of the auto-generated remediation issue.
+ * The standard remediation prompt, quoted from web-capture#139 with the
+ * paragraphs that `omittedOptions` already provide removed.
  */
-export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, languages, runsSource = 'commit' }) {
+export function buildStandardPrompt({ templatesSorted, omittedOptions = FIX_FORWARDED_SOLVE_OPTIONS } = {}) {
+  const omitted = new Set(omittedOptions || []);
+  return buildStandardPromptParagraphs({ templatesSorted })
+    .filter(paragraph => paragraph.providedBy.length === 0 || !paragraph.providedBy.every(option => omitted.has(option)))
+    .map(paragraph => paragraph.text)
+    .join('\n\n');
+}
+
+/**
+ * Issue type and label of the generated issue.
+ *
+ * `/solve --deep-analysis` only emits the root-cause / debug-output /
+ * report-upstream instructions — the paragraphs this body omits — when the
+ * issue type is Bug (see `isBugIssueType` in development-log.lib.mjs). Creating
+ * the issue as a Bug is therefore what makes the omission lossless.
+ */
+export const CI_CD_ISSUE_TYPE = 'Bug';
+export const CI_CD_ISSUE_LABELS = Object.freeze(['bug']);
+
+/**
+ * Build the full Markdown body of the auto-generated remediation issue.
+ *
+ * The body mirrors the template issue's own description: the CI/CD runs of the
+ * latest default-branch commit first, then the standard prompt. The data `/fix`
+ * collected to build it (commit, languages, template ranking) follows as a
+ * collapsed context block so it stays available without displacing the prompt.
+ */
+export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, languages, runsSource = 'commit', omittedOptions = FIX_FORWARDED_SOLVE_OPTIONS }) {
   const { sortedTemplates } = mapLanguagesToTemplates(languages);
   const { total, failing } = summarizeRunFailures(runs);
 
@@ -301,7 +386,7 @@ export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, la
   const runsHeading = runsSource === 'branch' ? `Recent CI/CD runs on \`${defaultBranch || 'default branch'}\`` : 'Latest default-branch CI/CD runs';
   const runsEmptyMessage = runsSource === 'branch' ? `No recent CI/CD runs were found on \`${defaultBranch || 'the default branch'}\`.` : 'No CI/CD runs were found for the latest default-branch commit.';
 
-  const sections = [`## Automatic CI/CD Remediation for ${repository?.fullName || 'repository'}`, '', 'This issue was generated automatically by `/fix --ci-cd` to detect and fix CI/CD false positives and errors.', '', '### Target', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', `### ${runsHeading}`, '', buildRunsSection(runs, { emptyMessage: runsEmptyMessage }), '', '### Detected languages', '', buildLanguagesSection(languages), '', '### Recommended CI/CD templates', '', buildTemplatesSection(languages), '', `See [CI/CD Best Practices for AI-Driven Development](${CI_CD_BEST_PRACTICES_URL}) for the full guidance behind these templates.`, '', '### Task', '', buildStandardPrompt({ repository, templatesSorted: sortedTemplates })];
+  const sections = [`### ${runsHeading}`, '', buildRunsSection(runs, { emptyMessage: runsEmptyMessage }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --ci-cd</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', '**Detected languages**', '', buildLanguagesSection(languages), '', '**Recommended CI/CD templates**', '', buildTemplatesSection(languages), '', '</details>'];
 
   return sections.join('\n');
 }
@@ -371,14 +456,24 @@ export function partitionFixArgs(rawArgs) {
 }
 
 /**
- * Build the argv passed to `solve.mjs`: the created issue URL, `--auto-merge`,
- * and every forwarded option. `--auto-merge` is not duplicated if already
- * present in the passthrough args.
+ * The options `/fix` always turns on when handing the issue to `/solve`
+ * (issue #1733: "do similar to what `/solve --development-log --deep-analysis
+ * --auto-merge`"). `--development-log` and `--deep-analysis` re-inject exactly
+ * the prompt paragraphs `buildCiCdIssueBody` omits from the issue text.
+ */
+export const FIX_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS, '--auto-merge']);
+
+/**
+ * Build the argv passed to `solve.mjs`: the created issue URL, the options
+ * `/fix` always enables, and every forwarded option. An option the caller
+ * already passed through is not duplicated.
  */
 export function buildSolveArgs({ issueUrl, passthrough = [] }) {
   const args = [issueUrl];
-  if (!passthrough.includes('--auto-merge')) {
-    args.push('--auto-merge');
+  for (const option of FIX_SOLVE_OPTIONS) {
+    if (!passthrough.includes(option)) {
+      args.push(option);
+    }
   }
   args.push(...passthrough);
   return args;

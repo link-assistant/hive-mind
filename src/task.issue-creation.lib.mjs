@@ -196,18 +196,44 @@ export function parseCreatedTaskIssueOutput(output) {
   throw new Error(`Could not parse created issue URL from gh output: ${String(output || '').trim()}`);
 }
 
-export async function createTaskIssue({ repository, title, body, run = runCommand }) {
+export function buildCreateIssueArgs({ repository, title, bodyFile, issueType = null, labels = [] }) {
+  const args = ['issue', 'create', '--repo', repository.fullName, '--title', title, '--body-file', bodyFile];
+  if (issueType) args.push('--type', issueType);
+  for (const label of labels) args.push('--label', label);
+  return args;
+}
+
+/**
+ * Create an issue via `gh issue create`.
+ *
+ * `issueType` and `labels` are optional and best-effort: issue types are
+ * configured per organization and labels per repository, so a target repo may
+ * not have them. Rather than failing the whole command, a rejected create is
+ * retried once without them (issue #1733).
+ */
+export async function createTaskIssue({ repository, title, body, issueType = null, labels = [], run = runCommand, log = null }) {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-task-issue-'));
   const bodyFile = path.join(tempDir, 'body.md');
 
   try {
     await fs.writeFile(bodyFile, body);
-    const result = await run('gh', ['issue', 'create', '--repo', repository.fullName, '--title', title, '--body-file', bodyFile]);
-    if (result.code !== 0) {
-      const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
+
+    const result = await run('gh', buildCreateIssueArgs({ repository, title, bodyFile, issueType, labels }));
+    if (result.code === 0) return parseCreatedTaskIssueOutput(result.stdout);
+
+    const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
+    const usedOptionalMetadata = Boolean(issueType) || labels.length > 0;
+    if (!usedOptionalMetadata) {
       throw new Error(output || `gh issue create exited with code ${result.code}`);
     }
-    return parseCreatedTaskIssueOutput(result.stdout);
+
+    await log?.(`⚠️  Could not create issue with type/labels (${output || `exit code ${result.code}`}); retrying without them`);
+    const retry = await run('gh', buildCreateIssueArgs({ repository, title, bodyFile }));
+    if (retry.code !== 0) {
+      const retryOutput = `${retry.stderr || ''}${retry.stdout || ''}`.trim();
+      throw new Error(retryOutput || `gh issue create exited with code ${retry.code}`);
+    }
+    return parseCreatedTaskIssueOutput(retry.stdout);
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
   }

@@ -7,7 +7,10 @@
  */
 
 import assert from 'assert/strict';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildTemplatesSection, CI_CD_TEMPLATES, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildTemplatesSection, CASE_STUDY_PARAGRAPH, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, DEBUG_OUTPUT_PARAGRAPH, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
+import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
+import { isBugIssueType } from '../src/development-log.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -106,10 +109,54 @@ await test('buildRunsSection renders a table or a no-runs message', () => {
   assert.match(table, /\| CI \| completed \| failure \| \[run\]\(https:\/\/example.com\/run\/1\) \|/);
 });
 
-await test('buildCiCdIssueTitle includes repository name', () => {
-  const title = buildCiCdIssueTitle({ fullName: 'owner/repo' });
-  assert.match(title, /owner\/repo/);
-  assert.match(title, /CI\/CD/);
+await test('buildCiCdIssueTitle is the web-capture#139 title verbatim (issue #1733)', () => {
+  // Issue #1733: "use title and description exactly". The issue is created in
+  // the target repository itself, so it carries no repository suffix.
+  assert.equal(buildCiCdIssueTitle(), 'Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all');
+  assert.equal(buildCiCdIssueTitle(), CI_CD_ISSUE_TITLE);
+});
+
+await test('buildStandardPrompt omits paragraphs provided by --development-log --deep-analysis', () => {
+  const prompt = buildStandardPrompt({ templatesSorted: [] });
+  // Omitted: /solve re-injects these once the two options are on.
+  assert.ok(!prompt.includes(CASE_STUDY_PARAGRAPH), 'case-study paragraph must be omitted');
+  assert.ok(!prompt.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output paragraph must be omitted');
+  assert.ok(!prompt.includes(REPORT_UPSTREAM_PARAGRAPH), 'report-upstream paragraph must be omitted');
+  // Retained: nothing else provides these.
+  assert.match(prompt, /Use all the best practices from CI\/CD templates/);
+  assert.match(prompt, /docs\/CI-CD-BEST-PRACTICES\.md/);
+  assert.ok(prompt.includes(KEEP_WORKING_PROMPT), 'keep-working paragraph must be retained');
+});
+
+await test('buildStandardPrompt keeps every template paragraph when no option is omitted', () => {
+  const prompt = buildStandardPrompt({ templatesSorted: [], omittedOptions: [] });
+  assert.ok(prompt.includes(CASE_STUDY_PARAGRAPH));
+  assert.ok(prompt.includes(DEBUG_OUTPUT_PARAGRAPH));
+  assert.ok(prompt.includes(REPORT_UPSTREAM_PARAGRAPH));
+  assert.ok(prompt.includes(KEEP_WORKING_PROMPT));
+});
+
+await test('buildStandardPrompt keeps a paragraph until every providing option is omitted', () => {
+  // The case-study paragraph is provided by BOTH options, so one alone must not
+  // drop it — otherwise the instruction would be silently lost.
+  const devLogOnly = buildStandardPrompt({ templatesSorted: [], omittedOptions: ['--development-log'] });
+  assert.ok(devLogOnly.includes(CASE_STUDY_PARAGRAPH), 'case-study needs both options to be omitted');
+  assert.ok(devLogOnly.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output is deep-analysis-only');
+
+  const deepOnly = buildStandardPrompt({ templatesSorted: [], omittedOptions: ['--deep-analysis'] });
+  assert.ok(deepOnly.includes(CASE_STUDY_PARAGRAPH), 'case-study needs both options to be omitted');
+  assert.ok(!deepOnly.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output is provided by --deep-analysis alone');
+});
+
+await test('buildStandardPrompt lists templates sorted by detected languages', () => {
+  const { sortedTemplates } = mapLanguagesToTemplates({ Python: 9000, JavaScript: 100 });
+  const prompt = buildStandardPrompt({ templatesSorted: sortedTemplates });
+  const pyIndex = prompt.indexOf('python-ai-driven-development-pipeline-template');
+  const jsIndex = prompt.indexOf('js-ai-driven-development-pipeline-template');
+  assert.ok(pyIndex >= 0 && jsIndex >= 0);
+  assert.ok(pyIndex < jsIndex, 'Python template link should come first');
+  // Unmatched languages fall back to the full template list.
+  assert.match(buildStandardPrompt({ templatesSorted: [] }), /php-ai-driven-development-pipeline-template/);
 });
 
 await test('buildCiCdIssueBody contains all required sections and best-practices link', () => {
@@ -125,10 +172,35 @@ await test('buildCiCdIssueBody contains all required sections and best-practices
   assert.match(body, /Latest default-branch CI\/CD runs/);
   assert.match(body, /docs\/CI-CD-BEST-PRACTICES\.md/);
   assert.match(body, /abcdef1/); // short sha
+  assert.match(body, /Context collected by <code>\/fix --ci-cd<\/code>/);
   // Templates sorted by detected languages: JS first
   const jsIndex = body.indexOf('js-ai-driven-development-pipeline-template');
   const pyIndex = body.indexOf('python-ai-driven-development-pipeline-template');
   assert.ok(jsIndex >= 0 && pyIndex >= 0 && jsIndex < pyIndex);
+  // The runs (the evidence) lead; the collected context follows the prompt.
+  assert.ok(body.indexOf('Latest default-branch CI/CD runs') < body.indexOf(KEEP_WORKING_PROMPT));
+  assert.ok(body.indexOf(KEEP_WORKING_PROMPT) < body.indexOf('<details>'));
+});
+
+await test('buildCiCdIssueBody omits the parts /fix re-provides via solve options (issue #1733)', () => {
+  const params = {
+    repository: { fullName: 'owner/repo', url: 'https://github.com/owner/repo' },
+    defaultBranch: 'main',
+    commit: { sha: 'abcdef1234567890' },
+    runs: [{ name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'https://example.com/run/1' }],
+    languages: { JavaScript: 9000 },
+  };
+
+  const body = buildCiCdIssueBody(params);
+  assert.ok(!body.includes(CASE_STUDY_PARAGRAPH), 'case-study paragraph must be omitted by default');
+  assert.ok(!body.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output paragraph must be omitted by default');
+  assert.ok(!body.includes(REPORT_UPSTREAM_PARAGRAPH), 'report-upstream paragraph must be omitted by default');
+
+  // With no options omitted the body is the full template text again.
+  const full = buildCiCdIssueBody({ ...params, omittedOptions: [] });
+  assert.ok(full.includes(CASE_STUDY_PARAGRAPH));
+  assert.ok(full.includes(DEBUG_OUTPUT_PARAGRAPH));
+  assert.ok(full.includes(REPORT_UPSTREAM_PARAGRAPH));
 });
 
 await test('buildCiCdIssueBody uses a branch-fallback heading when runsSource is branch', () => {
@@ -165,10 +237,82 @@ await test('partitionFixArgs honors --dry-run and --no-solve without forwarding 
   assert.ok(!parsed.passthrough.includes('--no-solve'));
 });
 
-await test('buildSolveArgs prepends issue URL and adds --auto-merge once', () => {
-  assert.deepEqual(buildSolveArgs({ issueUrl: 'https://github.com/o/r/issues/5', passthrough: ['--tool', 'codex'] }), ['https://github.com/o/r/issues/5', '--auto-merge', '--tool', 'codex']);
-  // does not duplicate --auto-merge
-  assert.deepEqual(buildSolveArgs({ issueUrl: 'https://github.com/o/r/issues/5', passthrough: ['--auto-merge', '--think', 'max'] }), ['https://github.com/o/r/issues/5', '--auto-merge', '--think', 'max']);
+await test('buildSolveArgs prepends issue URL and enables the three /fix options (issue #1733)', () => {
+  assert.deepEqual(FIX_SOLVE_OPTIONS, ['--development-log', '--deep-analysis', '--auto-merge']);
+  assert.deepEqual(buildSolveArgs({ issueUrl: 'https://github.com/o/r/issues/5', passthrough: ['--tool', 'codex'] }), ['https://github.com/o/r/issues/5', '--development-log', '--deep-analysis', '--auto-merge', '--tool', 'codex']);
+});
+
+await test('buildSolveArgs never duplicates an option the caller already passed', () => {
+  const args = buildSolveArgs({ issueUrl: 'https://github.com/o/r/issues/5', passthrough: ['--auto-merge', '--deep-analysis', '--think', 'max'] });
+  assert.deepEqual(args, ['https://github.com/o/r/issues/5', '--development-log', '--auto-merge', '--deep-analysis', '--think', 'max']);
+  for (const option of FIX_SOLVE_OPTIONS) {
+    assert.equal(args.filter(arg => arg === option).length, 1, `${option} must appear exactly once`);
+  }
+});
+
+await test('CI_CD_ISSUE_TYPE is a Bug type /solve recognizes (makes the omission lossless)', () => {
+  // /solve --deep-analysis only emits the root-cause / debug-output /
+  // report-upstream paragraphs when the issue type is a bug. Creating the issue
+  // as a Bug is what lets buildCiCdIssueBody omit them without losing them.
+  assert.equal(CI_CD_ISSUE_TYPE, 'Bug');
+  assert.ok(isBugIssueType(CI_CD_ISSUE_TYPE), '/solve must recognize the type as a bug');
+  assert.deepEqual([...CI_CD_ISSUE_LABELS], ['bug']);
+});
+
+await test('buildCreateIssueArgs passes the issue type and labels to gh', () => {
+  const args = buildCreateIssueArgs({
+    repository: { fullName: 'owner/repo' },
+    title: 'T',
+    bodyFile: '/tmp/body.md',
+    issueType: CI_CD_ISSUE_TYPE,
+    labels: [...CI_CD_ISSUE_LABELS],
+  });
+  assert.deepEqual(args, ['issue', 'create', '--repo', 'owner/repo', '--title', 'T', '--body-file', '/tmp/body.md', '--type', 'Bug', '--label', 'bug']);
+
+  // Without optional metadata the args stay exactly as /task builds them today.
+  assert.deepEqual(buildCreateIssueArgs({ repository: { fullName: 'owner/repo' }, title: 'T', bodyFile: '/tmp/body.md' }), ['issue', 'create', '--repo', 'owner/repo', '--title', 'T', '--body-file', '/tmp/body.md']);
+});
+
+await test('createTaskIssue retries without type/labels when the repo rejects them', async () => {
+  // Issue types are org-scoped and labels repo-scoped, so an arbitrary target
+  // repo may have neither. The issue must still be created (issue #1733).
+  const calls = [];
+  const logged = [];
+  const issue = await createTaskIssue({
+    repository: { fullName: 'owner/repo' },
+    title: 'T',
+    body: 'B',
+    issueType: 'Bug',
+    labels: ['bug'],
+    log: message => logged.push(message),
+    run: async (command, args) => {
+      calls.push(args);
+      if (args.includes('--type')) {
+        return { code: 1, stdout: '', stderr: "could not add label: 'bug' not found" };
+      }
+      return { code: 0, stdout: 'https://github.com/owner/repo/issues/7\n', stderr: '' };
+    },
+  });
+
+  assert.equal(calls.length, 2, 'first attempt with metadata, then a retry without it');
+  assert.ok(calls[0].includes('--type') && calls[0].includes('--label'));
+  assert.ok(!calls[1].includes('--type') && !calls[1].includes('--label'));
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/7');
+  assert.equal(issue.number, 7);
+  assert.equal(logged.length, 1);
+  assert.match(logged[0], /retrying without them/);
+});
+
+await test('createTaskIssue surfaces the error when no optional metadata was used', async () => {
+  await assert.rejects(
+    createTaskIssue({
+      repository: { fullName: 'owner/repo' },
+      title: 'T',
+      body: 'B',
+      run: async () => ({ code: 1, stdout: '', stderr: 'boom' }),
+    }),
+    /boom/
+  );
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

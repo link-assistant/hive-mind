@@ -339,8 +339,16 @@ fix https://github.com/owner/repo --ci-cd
 1. **repository की भाषाओं का पता लगाता है** GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) का उपयोग करके, प्रति भाषा bytes की संख्या के अनुसार क्रमबद्ध।
 2. **मेल खाते CI/CD templates का चयन करता है** ऊपर की table से, इस तरह क्रमबद्ध कि सबसे अधिक उपयोग की जाने वाली भाषा का template पहले आए।
 3. **latest default-branch commit का निरीक्षण करता है** और उसके CI/CD runs एकत्र करता है (जब latest commit के पास कोई run न हो तो default branch पर सबसे हाल के runs पर fall back करता है)।
-4. **एक remediation issue बनाता है** जो failing runs, पता लगाई गई भाषाओं, अनुशंसित templates, और इस दस्तावेज़ की वापसी link को सूचीबद्ध करता है।
-5. **issue को `/solve --auto-merge` को सौंपता है**, जो तब तक iterate करता है जब तक fixes merge न हो जाएँ। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को forward किया जाता है।
+4. **एक remediation issue बनाता है** जो failing runs, पता लगाई गई भाषाओं, अनुशंसित templates, और इस दस्तावेज़ की वापसी link को सूचीबद्ध करता है। यह issue **Bug** type के साथ (और `bug` label के साथ) बनाया जाता है, और इसका title तथा text [मानक remediation template](https://github.com/link-assistant/web-capture/issues/139) से लिया जाता है।
+5. **issue को `/solve --development-log --deep-analysis --auto-merge` को सौंपता है**, जो तब तक iterate करता है जब तक fixes merge न हो जाएँ। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को forward किया जाता है।
+
+### issue Bug type क्यों है, और उसमें से क्या छोड़ा जाता है
+
+`--development-log` और `--deep-analysis` options `/solve` से अपने स्वयं के निर्देश जुड़वाते हैं: logs को case-study folder में एकत्र करना, घटनाओं की timeline पुनर्निर्मित करना, हर समस्या का root cause खोजना, साक्ष्य अपर्याप्त होने पर debug output जोड़ना, और upstream projects में issues report करना। इन निर्देशों को issue के text में दोहराने से वे दो बार पहुँचेंगे, इसलिए `fix` ठीक उन्हीं paragraphs को छोड़ देता है जो ये दो options प्रदान करते हैं, और उन्हें `/solve` द्वारा उपलब्ध कराने देता है।
+
+यह omission केवल इसलिए सुरक्षित है क्योंकि `/solve` root-cause संबंधी शब्दावली **केवल Bug type के issues के लिए** उत्सर्जित करता है — यही कारण है कि `fix` issue को Bug के रूप में बनाता है। issue types संगठन स्तर पर और labels repository स्तर पर configure होते हैं, इसलिए यदि target repository इनमें से किसी को स्वीकार नहीं करता, तब भी issue उनके बिना बना दिया जाता है।
+
+कोई paragraph तभी हटाया जाता है जब उसे प्रदान करने वाले _सभी_ options सक्षम हों, इसलिए कोई भी निर्देश चुपचाप नहीं खोता।
 
 ### Language → Template Mapping
 

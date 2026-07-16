@@ -339,8 +339,16 @@ fix https://github.com/owner/repo --ci-cd
 1. **检测仓库使用的语言** — 使用 GitHub Linguist API（`GET /repos/{owner}/{repo}/languages`），按每种语言的字节数排序。
 2. **从上面的表格中选择匹配的 CI/CD 模板** — 经过排序，使最常用语言的模板排在最前面。
 3. **检查默认分支的最新提交** 并收集其 CI/CD 运行（当最新提交没有运行时，回退到默认分支上最近的运行）。
-4. **创建一个修复 issue**，列出失败的运行、检测到的语言、推荐的模板以及指向本文档的链接。
-5. **将该 issue 移交给 `/solve --auto-merge`**，它会持续迭代直到修复被合并。`fix` 自身不消费的每个选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
+4. **创建一个修复 issue**，列出失败的运行、检测到的语言、推荐的模板以及指向本文档的链接。该 issue 以 **Bug** 类型创建（并附带 `bug` 标签），其标题和正文取自[标准修复模板](https://github.com/link-assistant/web-capture/issues/139)。
+5. **将该 issue 移交给 `/solve --development-log --deep-analysis --auto-merge`**，它会持续迭代直到修复被合并。`fix` 自身不消费的每个选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。
+
+### 为什么该 issue 是 Bug 类型，以及它省略了什么
+
+`--development-log` 和 `--deep-analysis` 会让 `/solve` 注入自己的指令：将日志收集到 case-study 文件夹、重建事件时间线、找出每个问题的根本原因、在证据不足时添加调试输出，以及向上游项目报告 issue。在 issue 正文中重复这些指令会导致它们被传递两次，因此 `fix` 会精确省略这两个选项所提供的段落，交由 `/solve` 提供。
+
+这种省略之所以不会丢失信息，是因为 `/solve` **仅对 Bug 类型的 issue** 输出根本原因相关的措辞 —— 这正是 `fix` 将 issue 创建为 Bug 的原因。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会在不带它们的情况下被创建。
+
+只有当提供某个段落的*所有*选项都启用时，该段落才会被移除，因此任何指令都不会被悄悄丢失。
 
 ### 语言 → 模板映射
 

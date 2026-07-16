@@ -339,8 +339,16 @@ This command:
 1. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by the number of bytes per language.
 2. **Selects the matching CI/CD templates** from the table above, sorted so the template for the most-used language comes first.
 3. **Inspects the latest default-branch commit** and collects its CI/CD runs (falling back to the most recent runs on the default branch when the latest commit has none).
-4. **Creates a remediation issue** that lists the failing runs, the detected languages, the recommended templates, and a link back to this document.
-5. **Hands the issue off to `/solve --auto-merge`**, which iterates until the fixes are merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
+4. **Creates a remediation issue** that lists the failing runs, the detected languages, the recommended templates, and a link back to this document. The issue is created as a **Bug** (with a `bug` label) and its title and text are taken from the [standard remediation template](https://github.com/link-assistant/web-capture/issues/139).
+5. **Hands the issue off to `/solve --development-log --deep-analysis --auto-merge`**, which iterates until the fixes are merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
+
+### Why the issue is a Bug, and what it leaves out
+
+`--development-log` and `--deep-analysis` make `/solve` inject its own instructions to collect the logs into a case-study folder, reconstruct the timeline, find the root cause of each problem, add debug output when the evidence is insufficient, and report upstream issues. Repeating those instructions in the issue text would deliver them twice, so `fix` omits exactly the paragraphs those two options provide and lets `/solve` supply them.
+
+That omission is only lossless because `/solve` emits the root-cause wording **only for bug-typed issues** — which is why `fix` creates the issue as a Bug. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.
+
+A paragraph is dropped only when _every_ option that provides it is enabled, so no instruction is ever silently lost.
 
 ### Language → Template Mapping
 

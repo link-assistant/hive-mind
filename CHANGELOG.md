@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.7.0
+
+### Minor Changes
+
+- 0bac9fd: Add an issue-type-aware `--deep-analysis` option for every supported AI tool, with development-log collection gated by `--development-log`.
+
 ## 2.6.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.7.3
+
+### Patch Changes
+
+- e6c67c0: Reset Anthropic cost accounting between fresh auto-restart working sessions while preserving cumulative totals for true session resumes.
+
 ## 2.7.2
 
 ### Patch Changes

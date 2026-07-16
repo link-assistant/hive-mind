@@ -65,8 +65,14 @@ export async function waitForPRReady(processor, item, initialCheck, options) {
       await processor.onProgress(processor.getProgressUpdate());
     }
 
+    // Issue #2072: `processor.sleep` returns early on cancel. The poll interval defaults
+    // to 5 minutes, which previously kept `/merge` running long after Cancel was pressed.
     await processor.sleep(pollIntervalMs);
-    latestCheck = await processor.checkPRMergeable(processor.owner, processor.repo, item.pr.number, processor.verbose);
+    if (processor.isCancelled) {
+      return { success: false, status: 'cancelled', error: 'Cancelled' };
+    }
+
+    latestCheck = await processor.checkPRMergeable(processor.owner, processor.repo, item.pr.number, processor.verbose, { isCancelled: () => processor.isCancelled });
   }
 }
 

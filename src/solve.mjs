@@ -12,7 +12,6 @@ const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import(
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
-// Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
@@ -1334,6 +1333,8 @@ try {
     prBranch,
     branchName,
     tempDir,
+    initialSessionId: sessionId,
+    initialResultModelUsage: resultModelUsage,
     argv: {
       ...argv,
       watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
@@ -1341,7 +1342,6 @@ try {
     },
   });
 
-  // Update session data with latest from watch mode for accurate pricing
   if (watchResult && watchResult.latestSessionId) {
     sessionId = watchResult.latestSessionId;
     anthropicTotalCostUSD = watchResult.latestAnthropicCost;

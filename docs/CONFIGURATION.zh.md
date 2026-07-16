@@ -463,6 +463,11 @@ solve <issue-url> [options]
 | `--gemini-include-directories`                                   |      | string  |               | 暴露给 gemini-cli 的额外目录（向 gemini-cli 传递 include-directories 标志，`tempDir`/`workspaceTmpDir` 始终包含在内）。仅在 `--tool gemini` 时生效。                                                                                                                                                                                                                                                                                                                           |
 | `--gemini-allowed-mcp-servers`                                   |      | string  |               | gemini-cli 允许调用的 MCP 服务器名称列表（逗号分隔，向 gemini-cli 传递 allowed-mcp-server-names 标志）。仅在 `--tool gemini` 时生效。                                                                                                                                                                                                                                                                                                                                          |
 
+实验性未提交更改恢复选项：
+
+- `--auto-resume-on-uncommitted-changes`（布尔值，默认 `false`）使用最小提示恢复上一个 Claude 会话，而不是启动新会话。使用 `--no-auto-resume-on-uncommitted-changes` 可明确保持新会话行为。如果无法验证会话 ID 或上下文使用量，则安全地启动新会话。
+- `--auto-resume-on-uncommitted-changes-maximum-context-window-usage`（数字，默认 `50`）设置允许恢复的压缩前可用上下文最大百分比。可用限制遵循 `--sub-session-size`；达到或超过阈值时，solve 会启动新会话。
+
 ### hive 选项
 
 ```bash

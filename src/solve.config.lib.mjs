@@ -201,6 +201,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically restart when uncommitted changes are detected to allow the tool to handle them (default: true, use --no-auto-restart-on-uncommitted-changes to disable)',
     default: true,
   },
+  'auto-resume-on-uncommitted-changes': {
+    type: 'boolean',
+    description: 'EXPERIMENTAL: Automatically resume the previous Claude session when uncommitted changes are detected. Falls back to a fresh session when usable context headroom cannot be verified or is too low. Disabled by default; use --no-auto-resume-on-uncommitted-changes to switch it off explicitly.',
+    default: false,
+  },
+  'auto-resume-on-uncommitted-changes-maximum-context-window-usage': {
+    type: 'number',
+    description: 'Maximum usable pre-compaction context usage (percent) that still allows --auto-resume-on-uncommitted-changes to resume. The usable limit respects --sub-session-size. At or above this threshold the tool starts a fresh session (default: 50).',
+    default: 50,
+  },
   'auto-restart-max-iterations': {
     type: 'number',
     description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',

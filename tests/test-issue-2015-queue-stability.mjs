@@ -81,27 +81,34 @@ await test('queue startup interval defaults to a 10-minute minimum', async () =>
   assertEqual(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 10 * 60 * 1000, 'default startup interval should be 10 minutes');
 });
 
-await test('queue startup interval uses a 10-minute floor by default', async () => {
+await test('an explicit queue startup interval is authoritative', async () => {
   const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
     HIVE_MIND_MIN_START_INTERVAL_MS: '60000',
   });
-  assertEqual(value, 10 * 60 * 1000, 'configured startup interval should be clamped to 10 minutes');
+  assertEqual(value, 60 * 1000, 'configured startup interval should not be clamped to the default');
 });
 
-await test('queue startup interval floor can be lowered explicitly', async () => {
+await test('matching deprecated floor preserves existing configurations', async () => {
   const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
     HIVE_MIND_MIN_START_INTERVAL_MS: '300000',
     HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
   });
-  assertEqual(value, 5 * 60 * 1000, 'configured startup interval should use the operator-selected floor');
+  assertEqual(value, 5 * 60 * 1000, 'matching legacy configuration should retain its five-minute interval');
 });
 
-await test('queue startup interval is clamped to the configured floor', async () => {
+await test('queue startup interval takes precedence over the deprecated floor', async () => {
   const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
     HIVE_MIND_MIN_START_INTERVAL_MS: '60000',
     HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
   });
-  assertEqual(value, 5 * 60 * 1000, 'configured startup interval should not go below the operator-selected floor');
+  assertEqual(value, 60 * 1000, 'configured startup interval should be authoritative when both variables are present');
+});
+
+await test('deprecated floor remains a fallback for existing configurations', async () => {
+  const value = readSpawnedNumber('src/queue-config.lib.mjs', 'mod.QUEUE_CONFIG.MIN_START_INTERVAL_MS', {
+    HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS: '300000',
+  });
+  assertEqual(value, 5 * 60 * 1000, 'legacy floor should supply the interval when the authoritative variable is absent');
 });
 
 await test('minimum startup interval is global across tools', async () => {

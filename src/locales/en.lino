@@ -564,6 +564,11 @@ en
         enabled "*/split* - Split a GitHub issue into smaller issues"
         usage "Usage: `/split <github-issue-url> [options]` or `/task --split <github-issue-url>`"
         example "Example: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      fix
+        enabled "*/fix* - Create a CI/CD remediation issue for a repository and solve it"
+        usage "Usage: `/fix <github-repository-url> [options]`"
+        example "Example: `/fix https://github.com/owner/repo --model sonnet`"
+        disabled "*/fix* - ❌ Disabled"
       hive
         enabled "*/hive* - Run hive command"
         usage "Usage: `/hive <github-url> [options]`"
@@ -590,7 +595,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model

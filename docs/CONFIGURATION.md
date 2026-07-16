@@ -215,6 +215,7 @@ pull request target is not mergeable yet, the merge queue waits up to
 | `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                        |
 | `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                         |
 | `TELEGRAM_TASK`                            | true       | Enable /task and /split commands                                             |
+| `TELEGRAM_FIX`                             | true       | Enable /fix command                                                          |
 | `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners        |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                       |

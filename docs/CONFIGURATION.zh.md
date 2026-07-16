@@ -214,6 +214,7 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 | `TELEGRAM_SOLVE`                           | true     | 启用 /solve 命令                                                |
 | `TELEGRAM_HIVE`                            | true     | 启用 /hive 命令                                                 |
 | `TELEGRAM_TASK`                            | true     | 启用 /task 和 /split 命令                                       |
+| `TELEGRAM_FIX`                             | true     | 启用 /fix 命令                                                  |
 | `TELEGRAM_AUTH`                            | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                   |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息 |
 | `TELEGRAM_BOT_VERBOSE`                     | false    | 启用详细日志                                                    |

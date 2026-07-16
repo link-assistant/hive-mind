@@ -335,17 +335,18 @@ zh
         in "订阅将在 {{duration}} 后结束 ({{time}})"
       status "订阅: {{status}}"
     telegram
-      api "Telegram Bot API（本地滚动遥测）"
+      api "Telegram Bot API"
       global
-        window "1 秒内 {{used}}/{{limit}} 条消息"
+        scope "全局，1 秒"
       group
-        window "最繁忙群组 1 分钟内 {{used}}/{{limit}} 条消息"
+        scope "最繁忙群组，1 分钟"
       last
         rate
           limit "最近一次 429：{{method}}"
       rate
         limit
           responses "启动后的 429 响应：{{count}}"
+      requests "{{used}}/{{limit}} 个请求"
       retry
         in "{{seconds}} 秒后重试"
     trial

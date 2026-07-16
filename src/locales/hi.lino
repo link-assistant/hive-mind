@@ -335,17 +335,18 @@ hi
         in "सदस्यता {{duration}} में समाप्त होगी ({{time}})"
       status "सदस्यता: {{status}}"
     telegram
-      api "Telegram Bot API (स्थानीय रोलिंग टेलीमेट्री)"
+      api "Telegram Bot API"
       global
-        window "1 सेकंड में {{used}}/{{limit}} संदेश"
+        scope "वैश्विक, 1 सेकंड"
       group
-        window "सबसे व्यस्त समूह में 1 मिनट में {{used}}/{{limit}} संदेश"
+        scope "सबसे व्यस्त समूह, 1 मिनट"
       last
         rate
           limit "अंतिम 429: {{method}}"
       rate
         limit
           responses "स्टार्टअप के बाद 429 प्रतिक्रियाएँ: {{count}}"
+      requests "{{used}}/{{limit}} अनुरोध"
       retry
         in "{{seconds}} सेकंड में पुनः प्रयास"
     trial

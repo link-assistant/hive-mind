@@ -24,7 +24,7 @@ async function test(name, fn) {
   }
 }
 
-console.log('\nTelegram Bot API rate-limit telemetry tests (Issue #2060)\n');
+console.log('\nTelegram Bot API rate-limit telemetry tests (Issues #2060 and #2070)\n');
 
 await test('tracks global and busiest-group rolling message windows', () => {
   let now = 1_000_000;
@@ -79,7 +79,7 @@ await test('captures Telegram 429 retry_after responses without swallowing error
   assert.equal(tracker.getSnapshot().lastRateLimit.retryRemainingSeconds, 7);
 });
 
-await test('formats Telegram rolling usage and observed 429 state in /limits', () => {
+await test('formats only the most constraining Telegram window and observed 429 state in /limits', () => {
   const telegramRateLimit = {
     global: { used: 3, limit: 30, usedPercentage: 10 },
     busiestGroup: { used: 7, limit: 20, usedPercentage: 35, chatId: '-100123' },
@@ -93,14 +93,60 @@ await test('formats Telegram rolling usage and observed 429 state in /limits', (
     locale: 'ru',
     telegramRateLimit,
   });
+  const chineseMessage = formatUsageMessage(null, null, null, null, null, 'Claude unavailable', [], {
+    locale: 'zh',
+    telegramRateLimit,
+  });
+  const hindiMessage = formatUsageMessage(null, null, null, null, null, 'Claude unavailable', [], {
+    locale: 'hi',
+    telegramRateLimit,
+  });
 
-  assert.ok(message.includes('Telegram Bot API'));
-  assert.ok(message.includes('3/30 messages in 1s'));
-  assert.ok(message.includes('7/20 messages in busiest group over 1m'));
+  assert.ok(message.includes('Telegram Bot API\n'));
+  assert.ok(!message.includes('local rolling telemetry'));
+  assert.ok(message.includes('35% used (busiest group, 1m)'));
+  assert.ok(message.includes('7/20 requests'));
+  assert.ok(!message.includes('3/30'), 'The less-constraining global window should be hidden');
+  assert.equal((message.match(/% used/g) || []).length, 1, 'Telegram should render one progress bar');
   assert.ok(message.includes('429 responses since startup: 2'));
   assert.ok(message.includes('Last 429: sendMessage, retry in 8s'));
-  assert.ok(russianMessage.includes('локальная скользящая статистика'));
+  assert.ok(russianMessage.includes('35% использовано (самая активная группа, 1 мин)'));
+  assert.ok(russianMessage.includes('7/20 запросов'));
   assert.ok(russianMessage.includes('Ответов 429 с момента запуска: 2'));
+  assert.ok(chineseMessage.includes('35% 已用 (最繁忙群组，1 分钟)'));
+  assert.ok(chineseMessage.includes('7/20 个请求'));
+  assert.ok(hindiMessage.includes('35% उपयोग (सबसे व्यस्त समूह, 1 मिनट)'));
+  assert.ok(hindiMessage.includes('7/20 अनुरोध'));
+});
+
+await test('selects the global Telegram window when it is more constraining', () => {
+  const message = formatUsageMessage(null, null, null, null, null, 'Claude unavailable', [], {
+    telegramRateLimit: {
+      global: { used: 18, limit: 30, usedPercentage: 60 },
+      busiestGroup: { used: 4, limit: 20, usedPercentage: 20, chatId: '-100123' },
+      rateLimitResponses: 0,
+      lastRateLimit: null,
+    },
+  });
+
+  assert.ok(message.includes('60% used (global, 1s)'));
+  assert.ok(message.includes('18/30 requests'));
+  assert.ok(!message.includes('4/20'), 'The less-constraining group window should be hidden');
+});
+
+await test('prefers the longer Telegram group window when utilization is tied', () => {
+  const message = formatUsageMessage(null, null, null, null, null, 'Claude unavailable', [], {
+    telegramRateLimit: {
+      global: { used: 0, limit: 30, usedPercentage: 0 },
+      busiestGroup: { used: 0, limit: 20, usedPercentage: 0, chatId: null },
+      rateLimitResponses: 0,
+      lastRateLimit: null,
+    },
+  });
+
+  assert.ok(message.includes('0% used (busiest group, 1m)'));
+  assert.ok(message.includes('0/20 requests'));
+  assert.ok(!message.includes('0/30'));
 });
 
 console.log(`\nTests passed: ${passed}`);

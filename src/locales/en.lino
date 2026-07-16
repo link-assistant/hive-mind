@@ -335,17 +335,18 @@ en
         in "Subscription ends in {{duration}} ({{time}})"
       status "Subscription: {{status}}"
     telegram
-      api "Telegram Bot API (local rolling telemetry)"
+      api "Telegram Bot API"
       global
-        window "{{used}}/{{limit}} messages in 1s"
+        scope "global, 1s"
       group
-        window "{{used}}/{{limit}} messages in busiest group over 1m"
+        scope "busiest group, 1m"
       last
         rate
           limit "Last 429: {{method}}"
       rate
         limit
           responses "429 responses since startup: {{count}}"
+      requests "{{used}}/{{limit}} requests"
       retry
         in "retry in {{seconds}}s"
     trial

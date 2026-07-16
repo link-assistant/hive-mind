@@ -335,17 +335,18 @@ ru
         in "Подписка заканчивается через {{duration}} ({{time}})"
       status "Подписка: {{status}}"
     telegram
-      api "Telegram Bot API (локальная скользящая статистика)"
+      api "Telegram Bot API"
       global
-        window "{{used}}/{{limit}} сообщений за 1 с"
+        scope "глобально, 1 с"
       group
-        window "{{used}}/{{limit}} сообщений в самой активной группе за 1 мин"
+        scope "самая активная группа, 1 мин"
       last
         rate
           limit "Последний ответ 429: {{method}}"
       rate
         limit
           responses "Ответов 429 с момента запуска: {{count}}"
+      requests "{{used}}/{{limit}} запросов"
       retry
         in "повтор через {{seconds}} с"
     trial

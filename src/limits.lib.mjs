@@ -1129,11 +1129,12 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   if (telegramRateLimit) {
     let section = `${lt('telegram_api', {}, { locale })}\n`;
     const global = telegramRateLimit.global;
-    section += `${getProgressBar(global.usedPercentage)} ${global.usedPercentage}% ${lt('used', {}, { locale })}\n`;
-    section += `${lt('telegram_global_window', { used: global.used, limit: global.limit }, { locale })}\n`;
     const group = telegramRateLimit.busiestGroup;
-    section += `${getProgressBar(group.usedPercentage)} ${group.usedPercentage}% ${lt('used', {}, { locale })}\n`;
-    section += `${lt('telegram_group_window', { used: group.used, limit: group.limit }, { locale })}\n`;
+    // Prefer the longer-lived group window on ties so an idle snapshot does
+    // not default to the one-second window that prompted issue #2070.
+    const mostConstraining = group.usedPercentage >= global.usedPercentage ? { ...group, scope: lt('telegram_group_scope', {}, { locale }) } : { ...global, scope: lt('telegram_global_scope', {}, { locale }) };
+    section += `${getProgressBar(mostConstraining.usedPercentage)} ${mostConstraining.usedPercentage}% ${lt('used', {}, { locale })} (${mostConstraining.scope})\n`;
+    section += `${lt('telegram_requests', { used: mostConstraining.used, limit: mostConstraining.limit }, { locale })}\n`;
     section += `${lt('telegram_rate_limit_responses', { count: telegramRateLimit.rateLimitResponses }, { locale })}\n`;
     if (telegramRateLimit.lastRateLimit) {
       const retry = telegramRateLimit.lastRateLimit.retryRemainingSeconds;

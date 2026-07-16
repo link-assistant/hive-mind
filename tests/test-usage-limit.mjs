@@ -168,6 +168,35 @@ runTest('extractResetTime: prioritizes date+time over time-only patterns', () =>
   assertEqual(time, 'Jan 15, 8:00 AM', 'Should prioritize date+time pattern');
 });
 
+// === extractResetTime tests for Codex weekly limit with ordinal day + year (Issue #1869) ===
+
+runTest('extractResetTime: parses Codex weekly format "try again at Jun 11th, 2026 12:27 AM"', () => {
+  // Issue #1869: Codex reports the weekly limit reset as a full calendar date.
+  // Previously only "12:27 AM" was extracted, making a 2-days-out weekly reset
+  // look like a same-day 5-hour reset (false info + premature auto-resume).
+  const time = extractResetTime("You've hit your usage limit. Visit https://chatgpt.com/codex/settings/usage to purchase more credits or try again at Jun 11th, 2026 12:27 AM.");
+  assertEqual(time, 'Jun 11, 2026, 12:27 AM', 'Should keep month, day and year, not just the time');
+});
+
+runTest('extractResetTime: parses date+year with PM and various ordinals (Issue #1869)', () => {
+  assertEqual(extractResetTime('try again at Dec 3rd, 2026 9:05 PM'), 'Dec 3, 2026, 9:05 PM', 'Should handle 3rd ordinal + year');
+  assertEqual(extractResetTime('try again at Jan 1st, 2027 6am'), 'Jan 1, 2027, 6:00 AM', 'Should handle 1st ordinal + year, no minutes');
+  assertEqual(extractResetTime('try again at August 22nd, 2026 2:30pm'), 'August 22, 2026, 2:30 PM', 'Should handle full month + 22nd ordinal + year');
+});
+
+runTest('extractResetTime: ignores year so day-only weekly format still works (Issue #1869)', () => {
+  // Backward-compatibility: the no-year Claude weekly format must be unchanged.
+  assertEqual(extractResetTime('resets Jan 15, 8am'), 'Jan 15, 8:00 AM', 'No-year format must be unaffected');
+});
+
+runTest('extractResetTime to parseResetTime: Codex weekly date is anchored to its real day (Issue #1869)', () => {
+  // The parsed reset must land on Jun 11 (the weekly window), not roll to a
+  // nearby same-day time. We assert the formatted UTC output contains the date.
+  const time = extractResetTime('try again at Jun 11th, 2026 12:27 AM');
+  const formatted = formatResetTimeWithRelative(time);
+  assertTrue(formatted.includes('Jun 11'), `Formatted reset "${formatted}" should reference Jun 11`);
+});
+
 // === detectUsageLimit tests ===
 
 runTest('detectUsageLimit: returns combined info', () => {
@@ -222,6 +251,111 @@ runTest('formatUsageLimitMessage: handles missing session ID', () => {
 
   const message = lines.join('\n');
   assertFalse(message.includes('--resume'), 'Should not include resume command without session');
+});
+
+// === formatUsageLimitMessage tests for dual command format ===
+
+runTest('formatUsageLimitMessage: includes both interactive and autonomous commands', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+    autonomousResumeCommand: '(cd "/tmp/work" && claude --resume abc123 --output-format stream-json --dangerously-skip-permissions -p "Continue.")',
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertTrue(message.includes('Autonomous mode'), 'Should include Autonomous mode label');
+  assertTrue(message.includes('--dangerously-skip-permissions'), 'Should include autonomous command flags');
+});
+
+runTest('formatUsageLimitMessage: backwards compatible with legacy resumeCommand', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    resumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertTrue(message.includes('claude --resume'), 'Should include legacy resume command');
+});
+
+runTest('formatUsageLimitMessage: handles only interactive command', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+    autonomousResumeCommand: null,
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertFalse(message.includes('Autonomous mode'), 'Should NOT include Autonomous mode without command');
+});
+
+runTest('formatUsageLimitMessage: handles only autonomous command', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: null,
+    autonomousResumeCommand: '(cd "/tmp/work" && claude --resume abc123 --output-format stream-json --dangerously-skip-permissions -p "Continue.")',
+  });
+
+  const message = lines.join('\n');
+  assertFalse(message.includes('Interactive mode'), 'Should NOT include Interactive mode without command');
+  assertTrue(message.includes('Autonomous mode'), 'Should include Autonomous mode label');
+});
+
+// === formatUsageLimitMessage tests for solve resume (Issue #942 - 3rd option) ===
+
+runTest('formatUsageLimitMessage: includes all three resume options', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    interactiveResumeCommand: '(cd "/tmp/work" && claude --resume abc123)',
+    autonomousResumeCommand: '(cd "/tmp/work" && claude --resume abc123 --output-format stream-json --dangerously-skip-permissions -p "Continue.")',
+    solveResumeCommand: '"/usr/bin/node" "./solve.mjs" "https://example.com/issue/1" --resume "abc123"',
+  });
+
+  const message = lines.join('\n');
+  assertTrue(message.includes('Interactive mode'), 'Should include Interactive mode label');
+  assertTrue(message.includes('Autonomous mode'), 'Should include Autonomous mode label');
+  assertTrue(message.includes('Solve resume mode'), 'Should include Solve resume mode label');
+  assertTrue(message.includes('"./solve.mjs"'), 'Should include the solve.mjs invocation');
+});
+
+runTest('formatUsageLimitMessage: shows only solve resume when tool has no native interactive resume (codex/gemini)', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'OpenAI Codex',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+    solveResumeCommand: '"/usr/bin/node" "./solve.mjs" "https://example.com/issue/1" --resume "abc123" --tool "codex"',
+  });
+
+  const message = lines.join('\n');
+  assertFalse(message.includes('Interactive mode'), 'Should NOT include Interactive mode for codex');
+  assertFalse(message.includes('Autonomous mode'), 'Should NOT include Autonomous mode for codex');
+  assertTrue(message.includes('Solve resume mode'), 'Should include Solve resume mode label');
+  assertTrue(message.includes('--tool "codex"'), 'Should preserve --tool codex');
+});
+
+runTest('formatUsageLimitMessage: omits resume section when nothing is provided', () => {
+  const lines = formatUsageLimitMessage({
+    tool: 'Claude',
+    resetTime: '8:00 PM',
+    sessionId: 'abc123',
+  });
+
+  const message = lines.join('\n');
+  assertFalse(message.includes('Interactive mode'), 'Should NOT include Interactive mode label');
+  assertFalse(message.includes('Autonomous mode'), 'Should NOT include Autonomous mode label');
+  assertFalse(message.includes('Solve resume mode'), 'Should NOT include Solve resume mode label');
 });
 
 // === parseUsageLimitJson tests ===

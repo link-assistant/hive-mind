@@ -1,0 +1,54 @@
+
+📋 QUEUE_CONFIG Tests
+
+✅ QUEUE_CONFIG has all required threshold fields
+✅ QUEUE_CONFIG has all required timing fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ QUEUE_CONFIG has expected default values
+
+📋 DISPLAY_THRESHOLDS Tests
+
+✅ DISPLAY_THRESHOLDS has all required fields
+✅ DISPLAY_THRESHOLDS values are percentages (0 - 100)
+✅ DISPLAY_THRESHOLDS has expected default values
+
+📋 Consistency Tests (Issue #1242)
+
+✅ DISPLAY_THRESHOLDS are derived from QUEUE_CONFIG
+
+📋 thresholdToPercent Tests
+
+✅ thresholdToPercent converts ratios to percentages correctly
+✅ thresholdToPercent rounds correctly
+
+📋 Threshold Strategies Tests (Issue #1253)
+
+✅ THRESHOLD_STRATEGIES contains valid strategies
+✅ QUEUE_CONFIG.thresholds has all required metrics
+✅ Each threshold has value and strategy properties
+✅ Default strategies are correct
+✅ Legacy flat threshold values match thresholds.*.value
+
+📋 parseQueueConfig Tests (Issue #1253)
+
+✅ parseQueueConfig returns empty object for empty input
+✅ parseQueueConfig parses simple config
+✅ parseQueueConfig parses multiple thresholds
+✅ parseQueueConfig normalizes kebab-case metric names
+✅ parseQueueConfig defaults to enqueue for invalid strategy
+
+📋 Strategy Helper Functions Tests (Issue #1253)
+
+✅ getStrategy returns correct strategy for each metric
+✅ getStrategy returns enqueue for unknown metric
+✅ isRejectStrategy works correctly
+✅ isEnqueueStrategy works correctly
+✅ isOneAtATimeStrategy works correctly
+
+📊 Test Results
+
+Tests passed: 25
+Tests failed: 0
+Total tests: 25
+
+✅ All tests passed!

@@ -15,7 +15,13 @@
  */
 
 import assert from 'node:assert/strict';
-import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { getProgressBar, calculateTimePassedPercentage, formatUsageMessage, formatCodexLimitsSection, formatRetryAfterMessage, getCodexSubscriptionInfo, mapCodexRateLimitWindows, DISPLAY_THRESHOLDS } from '../src/limits.lib.mjs';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
+
+await preloadAllLocales();
 
 // Test utilities
 let testsPassed = 0;
@@ -164,7 +170,7 @@ test('DISPLAY_THRESHOLDS constants are defined', () => {
   assert.ok(DISPLAY_THRESHOLDS !== undefined, 'DISPLAY_THRESHOLDS should be defined');
   assert.equal(DISPLAY_THRESHOLDS.RAM, 65, 'RAM threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CPU, 65, 'CPU threshold should be 65');
-  assert.equal(DISPLAY_THRESHOLDS.DISK, 90, 'DISK threshold should be 90');
+  assert.equal(DISPLAY_THRESHOLDS.DISK, 65, 'DISK threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, 65, 'CLAUDE_5_HOUR_SESSION threshold should be 65');
   assert.equal(DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, 97, 'CLAUDE_WEEKLY threshold should be 97');
   assert.equal(DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, 65, 'CODEX_5_HOUR_SESSION threshold should be 65');
@@ -173,7 +179,7 @@ test('DISPLAY_THRESHOLDS constants are defined', () => {
   assert.equal(DISPLAY_THRESHOLDS.GITHUB_API, 50, 'GITHUB_API threshold should be 50');
 });
 
-test('formatCodexLimitsSection renders 5 hour and weekly sections', () => {
+test('formatCodexLimitsSection uses ChatGPT subscription heading and hides unused Codex details', () => {
   const now = Date.now();
   const section = formatCodexLimitsSection({
     usage: {
@@ -191,6 +197,11 @@ test('formatCodexLimitsSection renders 5 hour and weekly sections', () => {
     planType: 'pro',
     additionalRateLimits: [
       {
+        limitName: 'Zero Weekly Feature',
+        currentSession: { percentage: 10 },
+        allModels: { percentage: 0 },
+      },
+      {
         limitName: 'GPT-5.3-Codex-Spark',
         currentSession: { percentage: 1 },
         allModels: { percentage: 2 },
@@ -202,11 +213,66 @@ test('formatCodexLimitsSection renders 5 hour and weekly sections', () => {
     },
   });
 
-  assert.ok(section.includes('Codex limits'), 'Should include Codex limits header');
-  assert.ok(section.includes('Codex 5 hour session'), 'Should include Codex 5 hour session header');
-  assert.ok(section.includes('Current week (all models)'), 'Should include weekly header');
-  assert.ok(section.includes('Additional Codex limits'), 'Should include additional limits section');
-  assert.ok(section.includes('Codex credits'), 'Should include credits section');
+  assert.ok(section.includes('ChatGPT Pro subscription'), 'Should move Codex plan into ChatGPT subscription heading');
+  assert.ok(section.includes('5 hour session'), 'Should include shortened 5 hour session header');
+  assert.ok(!section.includes('Codex 5 hour session'), 'Should not repeat Codex in the section header when a heading is present');
+  assert.ok(section.includes('Current week'), 'Should include shortened weekly header');
+  assert.ok(!section.includes('Current week (all models)'), 'Should omit all-models suffix when no alternate weekly window is shown');
+  assert.ok(section.includes('Additional Codex limits'), 'Should include additional limits section when a weekly value is used');
+  assert.ok(section.includes('GPT-5.3-Codex-Spark'), 'Should keep additional limits with weekly usage above 0%');
+  assert.ok(!section.includes('Zero Weekly Feature'), 'Should hide additional limits with 0% weekly usage');
+  assert.ok(!section.includes('Plan: pro'), 'Should not render a separate Plan line');
+  assert.ok(!section.includes('Codex credits'), 'Should hide zero-balance Codex credits');
+});
+
+test('formatCodexLimitsSection omits the unavailable 5 hour window for weekly-only accounts', () => {
+  const section = formatCodexLimitsSection({
+    usage: {
+      currentSession: { percentage: null, resetTime: null, resetsAt: null },
+      allModels: {
+        percentage: 44,
+        resetTime: 'Jul 19, 6:58pm UTC',
+        resetsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+      },
+    },
+    planType: 'pro',
+  });
+
+  assert.ok(section.includes('Current week'), 'Should retain the available weekly window');
+  assert.ok(section.includes('44% used'), 'Should render weekly utilization');
+  assert.ok(!section.includes('5 hour session'), 'Should omit the unavailable session window');
+  assert.ok(!section.includes('N/A'), 'Should not emit a placeholder for an absent optional window');
+});
+
+test('mapCodexRateLimitWindows recognizes a weekly-only primary window by duration', () => {
+  const usage = mapCodexRateLimitWindows({
+    primary_window: {
+      used_percent: 44,
+      limit_window_seconds: 7 * 24 * 60 * 60,
+      reset_at: Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60,
+    },
+    secondary_window: null,
+  });
+
+  assert.equal(usage.currentSession.percentage, null, 'Should not mislabel a seven-day primary window as a session');
+  assert.equal(usage.allModels.percentage, 44, 'Should map the seven-day primary window to current week');
+});
+
+test('formatCodexLimitsSection omits N/A sessions from weekly-only additional limits', () => {
+  const section = formatCodexLimitsSection({
+    usage: { currentSession: { percentage: null }, allModels: { percentage: 44 } },
+    planType: 'pro',
+    additionalRateLimits: [
+      {
+        limitName: 'GPT-5.3-Codex-Spark',
+        currentSession: { percentage: null },
+        allModels: { percentage: 12 },
+      },
+    ],
+  });
+
+  assert.ok(section.includes('GPT-5.3-Codex-Spark: week 12%'));
+  assert.ok(!section.includes('session N/A'));
 });
 
 test('formatCodexLimitsSection renders error state', () => {
@@ -454,6 +520,309 @@ test('formatUsageMessage caps displayed CPU cores when load average exceeds CPU 
   assert.ok(message.includes('100% ⚠️'), 'Should still show saturated CPU warning');
   assert.ok(message.includes('6/6 CPU cores used (5m load avg 6.85)'), 'Should cap displayed CPU cores and keep raw load average for diagnostics');
   assert.ok(!message.includes('6.85/6 CPU cores'), 'Should not show raw load average as CPU cores used');
+});
+
+test('formatUsageMessage localizes Russian reset times and queue labels', () => {
+  const message = withFixedTime('2026-05-12T09:00:00.000Z', () =>
+    formatUsageMessage(
+      {
+        currentSession: {
+          percentage: 45,
+          resetTime: 'May 12, 12:38pm UTC',
+          resetsAt: '2026-05-12T12:38:00.000Z',
+        },
+        allModels: {
+          percentage: 30,
+          resetTime: 'May 13, 9:00am UTC',
+          resetsAt: '2026-05-13T09:00:00.000Z',
+        },
+        sonnetOnly: {
+          percentage: 10,
+          resetTime: 'May 13, 9:00am UTC',
+          resetsAt: '2026-05-13T09:00:00.000Z',
+        },
+      },
+      {
+        usedPercentage: 91,
+        usedBytes: 91 * 1024 * 1024 * 1024,
+        totalBytes: 100 * 1024 * 1024 * 1024,
+      },
+      {
+        usedPercentage: 10,
+        used: 500,
+        limit: 5000,
+        relativeReset: '4m',
+        resetTime: 'May 12, 9:04am UTC',
+        resetsAt: '2026-05-12T09:04:00.000Z',
+      },
+      { usagePercentage: 25, loadAvg5: 0.5, cpuCount: 2 },
+      {
+        usedPercentage: 40,
+        usedBytes: 4 * 1024 * 1024 * 1024,
+        totalBytes: 10 * 1024 * 1024 * 1024,
+      },
+      null,
+      ['Очереди\nclaude (ожидает: 1, выполняется: 0)\n'],
+      { locale: 'ru' }
+    )
+  );
+
+  assert.ok(message.includes('Текущее время:'), 'Should translate current time label');
+  assert.ok(message.includes('Сброс через'), 'Should translate reset-in label');
+  assert.ok(message.includes('Очереди'), 'Should include localized queue header');
+  assert.ok(message.includes('ожидает: 1'), 'Should include localized pending label');
+  assert.ok(message.includes('выполняется: 0'), 'Should include localized processing label');
+  assert.ok(!message.includes('Current time:'), 'Should not leak English current time label');
+  assert.ok(!message.includes('Resets in'), 'Should not leak English reset label');
+  assert.ok(!message.includes('May 12'), 'Should not reuse stale English reset time');
+  assert.ok(!message.includes('pending: 1'), 'Should not leak English queue pending label');
+});
+
+// ============================================================================
+// Subscription End-Date Tests (Issue #1793)
+// ============================================================================
+
+console.log('\n📋 Subscription End-Date Tests (Issue #1793)\n');
+
+function encodeJwt(payload) {
+  const header = { alg: 'none', typ: 'JWT' };
+  const enc = obj => Buffer.from(JSON.stringify(obj)).toString('base64url');
+  return `${enc(header)}.${enc(payload)}.`;
+}
+
+function makeCodexJwt(claims) {
+  return encodeJwt({
+    iss: 'https://auth.openai.com',
+    sub: 'auth0|test',
+    'https://api.openai.com/auth': claims,
+  });
+}
+
+test('formatCodexLimitsSection renders subscription end details in the ChatGPT heading', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: 12 },
+        allModels: { percentage: 34 },
+      },
+      planType: 'pro',
+    },
+    null,
+    {
+      subscription: {
+        planType: 'pro',
+        endsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+      },
+    }
+  );
+  assert.ok(section.includes('ChatGPT Pro subscription'), 'Should render ChatGPT subscription heading');
+  assert.ok(/ChatGPT Pro subscription \(ends in \d+d/.test(section), 'Should include relative duration in heading');
+  assert.ok(!section.includes('Subscription ends'), 'Should not render a separate Subscription ends line');
+});
+
+test('formatCodexLimitsSection does NOT render subscription line when endsAt is null', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: 12 },
+        allModels: { percentage: 34 },
+      },
+      planType: 'pro',
+    },
+    null,
+    { subscription: null }
+  );
+  assert.ok(!section.includes('Subscription ends'), 'Should not render Subscription ends line when subscription is null');
+  assert.ok(!section.includes('Trial ends'), 'Should not render Trial ends line when subscription is null');
+});
+
+test('formatUsageMessage renders trial details in the Claude subscription heading', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage, null, null, null, null, null, [], {
+    subscription: {
+      planType: 'max',
+      status: 'active',
+      trialEndsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+    },
+  });
+  assert.ok(message.includes('Claude Max subscription'), 'Should render Claude subscription heading');
+  assert.ok(/Claude Max subscription \(trial ends in \d+d/.test(message), 'Should include relative trial duration in heading');
+  assert.ok(!message.includes('Trial ends in'), 'Should not render a separate Trial ends line');
+});
+
+test('formatUsageMessage renders active status in the Claude subscription heading', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage, null, null, null, null, null, [], {
+    subscription: {
+      planType: 'max',
+      status: 'active',
+      // No endsAt, no trialEndsAt — the paid-plan case where Anthropic does not publish renewal date.
+    },
+  });
+  assert.ok(message.includes('Claude Max subscription (active)'), 'Should render active status in Claude subscription heading');
+  assert.ok(!message.includes('Subscription: active'), 'Should not render a separate Subscription: active line');
+  assert.ok(!message.includes('Subscription ends'), 'Should not render Subscription ends line without endsAt');
+  assert.ok(!message.includes('Trial ends'), 'Should not render Trial ends line without trialEndsAt');
+});
+
+test('formatCodexLimitsSection renders Codex credits only when balance is positive or unlimited', () => {
+  const base = {
+    usage: {
+      currentSession: { percentage: 12 },
+      allModels: { percentage: 34 },
+    },
+    planType: 'pro',
+  };
+
+  const zeroBalance = formatCodexLimitsSection({
+    ...base,
+    credits: { unlimited: false, balance: '0' },
+  });
+  assert.ok(!zeroBalance.includes('Codex credits'), 'Should not show Codex credits for zero balance');
+
+  const positiveBalance = formatCodexLimitsSection({
+    ...base,
+    credits: { unlimited: false, balance: '10' },
+  });
+  assert.ok(positiveBalance.includes('Codex credits'), 'Should show Codex credits for positive balance');
+  assert.ok(positiveBalance.includes('10 balance'), 'Should render positive credit balance');
+
+  const unlimited = formatCodexLimitsSection({
+    ...base,
+    credits: { unlimited: true, balance: '0' },
+  });
+  assert.ok(unlimited.includes('Codex credits'), 'Should keep unlimited Codex credit metadata');
+  assert.ok(unlimited.includes('unlimited'), 'Should render unlimited credit summary');
+});
+
+test('formatUsageMessage splits subscription and Codex sections into separate code blocks', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: null, resetTime: null, resetsAt: null },
+  };
+  const codexSection = formatCodexLimitsSection({
+    usage: {
+      currentSession: { percentage: 12 },
+      allModels: { percentage: 34 },
+    },
+    planType: 'pro',
+  });
+  const message = formatUsageMessage(usage, null, null, null, null, null, [codexSection, 'Queues\ncodex (pending: 0, processing: 0)\n'], {
+    subscription: {
+      planType: 'max',
+      status: 'active',
+    },
+  });
+
+  assert.ok(message.includes('Claude Max subscription (active)'), 'Should include Claude heading outside code block');
+  assert.ok(message.includes('ChatGPT Pro subscription'), 'Should include ChatGPT heading outside code block');
+  assert.ok(message.includes('\nQueues\n\n```\ncodex (pending: 0, processing: 0)\n```'), 'Should render queues as a titled code block in split layout');
+  assert.ok(!message.includes('Current week (Sonnet only)\nN/A'), 'Should omit unused Sonnet-only weekly section');
+  assert.ok(message.includes('Current week\n'), 'Should use shortened weekly label when no alternate weekly section is rendered');
+  assert.ok((message.match(/```/g) || []).length >= 6, 'Should render multiple code blocks for readability');
+});
+
+test('formatUsageMessage does NOT render any subscription line when subscription is null', () => {
+  const usage = {
+    currentSession: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 3600_000).toISOString() },
+    allModels: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+    sonnetOnly: { percentage: 10, resetTime: null, resetsAt: new Date(Date.now() + 86400_000).toISOString() },
+  };
+  const message = formatUsageMessage(usage);
+  assert.ok(!message.includes('Subscription'), 'Should not render any subscription line when no subscription option is passed');
+  assert.ok(!message.includes('Trial ends'), 'Should not render Trial ends line by default');
+});
+
+test('getCodexSubscriptionInfo decodes id_token and returns chatgpt_subscription_active_until', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  const idToken = makeCodexJwt({
+    chatgpt_account_id: 'acct-123',
+    chatgpt_plan_type: 'pro',
+    chatgpt_subscription_active_start: '2026-04-13T14:45:32+00:00',
+    chatgpt_subscription_active_until: '2026-05-13T14:45:32+00:00',
+    chatgpt_subscription_last_checked: '2026-04-15T04:56:24.221286+00:00',
+  });
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      auth_mode: 'chatgpt',
+      OPENAI_API_KEY: null,
+      tokens: {
+        id_token: idToken,
+        access_token: makeCodexJwt({ chatgpt_plan_type: 'pro' }),
+        refresh_token: 'refresh',
+        account_id: 'acct-123',
+      },
+    })
+  );
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, true, 'Should decode subscription claims');
+    assert.equal(result.subscription.planType, 'pro');
+    assert.equal(result.subscription.endsAt, '2026-05-13T14:45:32+00:00');
+    assert.equal(result.subscription.activeStart, '2026-04-13T14:45:32+00:00');
+    assert.equal(result.subscription.lastChecked, '2026-04-15T04:56:24.221286+00:00');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getCodexSubscriptionInfo falls back to access_token when id_token is missing', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  const accessToken = makeCodexJwt({
+    chatgpt_plan_type: 'plus',
+    chatgpt_subscription_active_until: '2026-06-01T00:00:00+00:00',
+  });
+  writeFileSync(
+    authPath,
+    JSON.stringify({
+      auth_mode: 'chatgpt',
+      tokens: { access_token: accessToken },
+    })
+  );
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, true);
+    assert.equal(result.subscription.planType, 'plus');
+    assert.equal(result.subscription.endsAt, '2026-06-01T00:00:00+00:00');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('getCodexSubscriptionInfo returns error for non-chatgpt auth mode', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-auth-'));
+  const authPath = join(dir, 'auth.json');
+  writeFileSync(authPath, JSON.stringify({ auth_mode: 'apikey', tokens: {} }));
+  try {
+    const result = await getCodexSubscriptionInfo({ authPath });
+    assert.equal(result.success, false);
+    assert.ok(/ChatGPT/.test(result.error), 'Error message should mention ChatGPT auth requirement');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('formatCodexLimitsSection renders subscription line in Russian locale', () => {
+  const section = formatCodexLimitsSection({ usage: { currentSession: { percentage: 5 }, allModels: { percentage: 5 } }, planType: 'pro' }, null, {
+    locale: 'ru',
+    subscription: {
+      planType: 'pro',
+      endsAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
+    },
+  });
+  assert.ok(section.includes('Подписка'), 'Should localize Subscription to Russian');
 });
 
 // ============================================================================
@@ -886,6 +1255,43 @@ test('formatRetryAfterMessage with positive retry-after in formatUsageMessage', 
   // Should contain "Resets in 5m"
   assert.ok(message.includes('Resets in 5m'), 'Should show "Resets in 5m" for retry-after: 300');
   assert.ok(message.includes('UTC'), 'Should include UTC timezone in reset time');
+});
+
+test('formatUsageMessage localizes core labels for Russian', () => {
+  const message = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'Ошибка авторизации', [], { locale: 'ru' });
+  assert.ok(message.includes('Текущее время:'), 'Should localize current time');
+  assert.ok(message.includes('Дисковое пространство'), 'Should localize disk section');
+  assert.ok(message.includes('Лимиты Claude'), 'Should localize Claude section');
+  assert.ok(!message.includes('Current time:'), 'Should not leave English current time label');
+});
+
+test('formatUsageMessage localizes core labels for Chinese and Hindi', () => {
+  const zh = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'auth failed', [], { locale: 'zh' });
+  const hi = formatUsageMessage(null, { usedPercentage: 91, usedBytes: 9, totalBytes: 10 }, null, null, null, 'auth failed', [], { locale: 'hi' });
+  assert.ok(zh.includes('当前时间:'), 'Should localize Chinese current time');
+  assert.ok(zh.includes('磁盘空间'), 'Should localize Chinese disk section');
+  assert.ok(hi.includes('वर्तमान समय:'), 'Should localize Hindi current time');
+  assert.ok(hi.includes('डिस्क स्थान'), 'Should localize Hindi disk section');
+});
+
+test('formatCodexLimitsSection localizes additional Codex labels', () => {
+  const section = formatCodexLimitsSection(
+    {
+      usage: {
+        currentSession: { percentage: null },
+        allModels: { percentage: null },
+      },
+      additionalRateLimits: [{ limitName: 'GPT-5', currentSession: { percentage: null }, allModels: { percentage: 42 } }],
+      credits: { unlimited: true },
+      planType: 'team',
+    },
+    null,
+    { locale: 'ru' }
+  );
+  assert.ok(section.includes('Подписка ChatGPT Team'), 'Should localize ChatGPT subscription heading');
+  assert.ok(section.includes('Дополнительные лимиты Codex'), 'Should localize additional limits header');
+  assert.ok(section.includes('без ограничений'), 'Should localize unlimited credits');
+  assert.ok(!section.includes('Additional Codex limits'), 'Should not leave English additional limits header');
 });
 
 // ============================================================================

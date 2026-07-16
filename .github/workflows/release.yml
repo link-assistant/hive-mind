@@ -115,7 +115,7 @@ jobs:
           node-version: '24.x'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Check for changesets
         env:
@@ -198,7 +198,7 @@ jobs:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm ci
+        run: node scripts/npm-install-with-retry.mjs ci
 
       - name: Run Prettier format check
         run: |
@@ -263,13 +263,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
@@ -301,13 +301,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Pre-install use-m packages (issue #1724)
         run: node scripts/preinstall-use-m-packages.mjs
@@ -389,13 +389,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: System info
         run: |
@@ -460,7 +460,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Use Node.js 20.x
+      - name: Use Node.js 24.x
         uses: actions/setup-node@v5
         with:
           node-version: 24.x
@@ -585,9 +585,7 @@ jobs:
             ${{ env.DIND_IMAGE_NAME }}:test \
             bash /verify-docker-image.sh
 
-          docker run --rm --privileged \
-            ${{ env.DIND_IMAGE_NAME }}:test \
-            bash -lc 'docker info && docker run hello-world'
+          bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"
 
           echo ""
           echo "All system, development, and nested Docker verification checks passed!"
@@ -606,7 +604,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -652,10 +650,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
+
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
 
       - name: Check for changesets
         id: check_changesets
@@ -801,7 +804,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -826,7 +829,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-*
+          pattern: hive-mind-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -946,7 +949,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-dind-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-dind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -968,7 +971,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-dind-*
+          pattern: hive-mind-dind-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1031,7 +1034,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -1068,10 +1071,15 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
+
+      - name: Sanitize npm user config
+        # Remove the deprecated always-auth entry setup-node writes, which npm 11
+        # warns about on every command (issue #2028).
+        run: node scripts/sanitize-npm-userconfig.mjs
 
       - name: Version packages and commit to main
         id: version
@@ -1186,7 +1194,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -1211,7 +1219,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-instant-*
+          pattern: hive-mind-instant-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1331,7 +1339,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v7
         with:
-          name: digests-dind-instant-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+          name: hive-mind-dind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
@@ -1353,7 +1361,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
-          pattern: digests-dind-instant-*
+          pattern: hive-mind-dind-instant-digests-*
           merge-multiple: true
 
       - name: Set up Docker Buildx
@@ -1416,7 +1424,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
         with:
           version: v3.14.0
 
@@ -1448,7 +1456,7 @@ jobs:
           node-version: '24.x'
 
       - name: Install dependencies
-        run: npm install
+        run: node scripts/npm-install-with-retry.mjs install
 
       - name: Create changeset file
         run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"

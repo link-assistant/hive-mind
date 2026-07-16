@@ -48,6 +48,14 @@ export function isUsageLimitError(message) {
     // Provider-specific phrasings we've seen in the wild
     'session limit reached', // Claude
     'weekly limit reached', // Claude
+    // Issue #1935: Claude surfaces 5-hour / weekly account limits as
+    //   "You've hit your session limit · resets 4pm (UTC)"
+    //   "You've hit your weekly limit · resets Jan 15, 8am (UTC)"
+    // These arrive with api_error_status === 429 but are real usage limits with an
+    // explicit reset time, so detect the "hit your <window> limit" phrasing directly
+    // (independent of whether a parseable reset time is present in the message).
+    'hit your session limit', // Claude 5-hour limit
+    'hit your weekly limit', // Claude weekly limit
     'daily limit reached',
     'monthly limit reached',
     'billing hard limit',
@@ -121,19 +129,33 @@ export function extractResetTime(message) {
   // Normalize whitespace for easier matching
   const normalized = message.replace(/\s+/g, ' ');
 
-  // Pattern 0: Weekly limit with date - "resets Jan 15, 8am" or "resets January 15, 8:00am"
-  // This pattern must come first to avoid partial matches by time-only patterns
+  // Pattern 0: Weekly/long-window limit with an explicit calendar date.
+  // This pattern must come FIRST so a date+time is never truncated to a bare
+  // time by the time-only patterns below (Issue #1869): Codex reports weekly
+  // limits as "try again at Jun 11th, 2026 12:27 AM" — keeping only "12:27 AM"
+  // makes a 2-days-out weekly reset look like a same-day 5-hour reset, which
+  // both mis-informs the user and triggers a far-too-early auto-resume.
+  //
+  // Handled shapes (keyword prefix like "resets"/"try again at" is optional —
+  // the month+day+time structure is specific enough on its own):
+  //   - "resets Jan 15, 8am"                 (no year, Claude weekly)
+  //   - "resets January 20, 10:30am"
+  //   - "try again at Jun 11th, 2026 12:27 AM" (ordinal day + year, Codex weekly)
   const monthPattern = '(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)';
-  const resetsWithDateRegex = new RegExp(`resets\\s+(${monthPattern})\\s+(\\d{1,2}),?\\s+([0-9]{1,2})(?::([0-9]{2}))?\\s*([ap]m)`, 'i');
-  const resetsWithDate = normalized.match(resetsWithDateRegex);
-  if (resetsWithDate) {
-    const month = resetsWithDate[1];
-    const day = resetsWithDate[2];
-    const hour = resetsWithDate[3];
-    const minute = resetsWithDate[4] || '00';
-    const ampm = resetsWithDate[5].toUpperCase();
-    // Return formatted date+time string for weekly limits
-    return `${month} ${day}, ${hour}:${minute} ${ampm}`;
+  // (month) (day)[ordinal] [, year] [,] (hour)[:minute] (am|pm)
+  const dateWithTimeRegex = new RegExp(`(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?,?\\s+([0-9]{1,2})(?::([0-9]{2}))?\\s*([ap]m)`, 'i');
+  const dateWithTime = normalized.match(dateWithTimeRegex);
+  if (dateWithTime) {
+    const month = dateWithTime[1];
+    const day = dateWithTime[2];
+    const year = dateWithTime[3]; // optional
+    const hour = dateWithTime[4];
+    const minute = dateWithTime[5] || '00';
+    const ampm = dateWithTime[6].toUpperCase();
+    // Return formatted date+time string for weekly limits, preserving the year
+    // when present so the reset is anchored to the correct day rather than
+    // being assumed to be "this year / next occurrence".
+    return year ? `${month} ${day}, ${year}, ${hour}:${minute} ${ampm}` : `${month} ${day}, ${hour}:${minute} ${ampm}`;
   }
 
   // Pattern 1: "try again at 12:16 PM"
@@ -244,8 +266,10 @@ export function parseResetTime(timeStr, tz = null) {
   const normalized = timeStr.replace(/\bSept\b/gi, 'Sep');
 
   // Try date+time formats using dayjs custom parse
-  // dayjs uses: MMM=Jan, MMMM=January, D=day, h=12-hour, mm=minutes, A=AM/PM
-  const dateTimeFormats = ['MMM D, h:mm A', 'MMMM D, h:mm A'];
+  // dayjs uses: MMM=Jan, MMMM=January, D=day, YYYY=year, h=12-hour, mm=minutes, A=AM/PM
+  // Year-bearing formats are tried first so an explicit year (Codex weekly
+  // limits, Issue #1869) is honored instead of being dropped to the current year.
+  const dateTimeFormats = ['MMM D, YYYY, h:mm A', 'MMMM D, YYYY, h:mm A', 'MMM D, h:mm A', 'MMMM D, h:mm A'];
 
   for (const format of dateTimeFormats) {
     let parsed;
@@ -261,9 +285,11 @@ export function parseResetTime(timeStr, tz = null) {
     }
 
     if (parsed.isValid()) {
-      // dayjs parses without year, so it defaults to current year
-      // If the date is in the past, assume next year
-      if (parsed.isBefore(now)) {
+      // When the format omits the year, dayjs defaults to the current year, so a
+      // past date should roll forward to next year. When an explicit year is
+      // present (Issue #1869), trust it verbatim and never bump it.
+      const hasExplicitYear = format.includes('YYYY');
+      if (!hasExplicitYear && parsed.isBefore(now)) {
         parsed = parsed.add(1, 'year');
       }
       return parsed;
@@ -394,10 +420,14 @@ export function formatResetTimeWithRelative(resetTime, timezone = null) {
  * @param {string} options.tool - Tool name (claude, codex, opencode, agent, gemini)
  * @param {string|null} options.resetTime - Time when limit resets
  * @param {string|null} options.sessionId - Session ID for resuming
- * @param {string|null} options.resumeCommand - Command to resume session
+ * @param {string|null} options.resumeCommand - Interactive resume command (legacy, for backward compatibility)
+ * @param {string|null} options.interactiveResumeCommand - Command to resume in interactive mode (claude)
+ * @param {string|null} options.autonomousResumeCommand - Command to resume in autonomous mode (claude)
+ * @param {string|null} options.solveResumeCommand - Command to resume the full solve.mjs flow
+ *   (works for every supported tool, including codex/gemini/etc.)
  * @returns {string[]} - Array of formatted message lines
  */
-export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
+export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand, interactiveResumeCommand, autonomousResumeCommand, solveResumeCommand }) {
   const lines = ['', '⏳ Usage Limit Reached!', '', `Your ${tool || 'AI tool'} usage limit has been reached.`];
 
   if (resetTime) {
@@ -406,12 +436,29 @@ export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeComm
     lines.push('Please wait for the limit to reset.');
   }
 
-  if (sessionId && resumeCommand) {
+  // Support both new (dual command) and legacy (single command) formats
+  const interactiveCmd = interactiveResumeCommand || resumeCommand;
+
+  if (sessionId && (interactiveCmd || autonomousResumeCommand || solveResumeCommand)) {
     lines.push('');
     lines.push(`📌 Session ID: ${sessionId}`);
     lines.push('');
-    lines.push('To resume this session after the limit resets, run:');
-    lines.push(`   ${resumeCommand}`);
+    lines.push('To resume this session after the limit resets:');
+    if (interactiveCmd) {
+      lines.push('');
+      lines.push('   Interactive mode (opens Claude Code for user interaction):');
+      lines.push(`   ${interactiveCmd}`);
+    }
+    if (autonomousResumeCommand) {
+      lines.push('');
+      lines.push('   Autonomous mode (continues work without user interaction):');
+      lines.push(`   ${autonomousResumeCommand}`);
+    }
+    if (solveResumeCommand) {
+      lines.push('');
+      lines.push('   Solve resume mode (re-enters the full solve flow, preserves tool/model/dir):');
+      lines.push(`   ${solveResumeCommand}`);
+    }
   }
 
   lines.push('');

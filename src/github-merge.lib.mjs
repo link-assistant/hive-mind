@@ -19,6 +19,7 @@ const execRaw = promisify(execCallback);
 import { parseGitHubUrl } from './github.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -41,6 +42,12 @@ const exec = (cmd, opts = {}) =>
 // to keep this file under the 1500 line limit
 import { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL } from './github-merge-ready-sync.lib.mjs';
 export { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL };
+
+// Issue #1895: After merging into a non-default branch, close the linked issue
+// explicitly (GitHub only auto-closes for default-branch merges). Extracted to a
+// separate module to keep this file under the 1500-line limit.
+import { closeLinkedIssueIfNotAutoClosed } from './github-merge-issue-close.lib.mjs';
+export { closeLinkedIssueIfNotAutoClosed };
 
 /**
  * Check if 'ready' label exists in repository
@@ -346,12 +353,14 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
         status: check.status,
         conclusion: check.conclusion,
         type: 'check_run',
+        description: check.output?.title || check.output?.summary || null,
       })),
       ...statuses.map(status => ({
         name: status.context,
         status: status.state === 'pending' ? 'in_progress' : 'completed',
         conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
         type: 'status',
+        description: status.description || null,
       })),
     ];
 
@@ -375,7 +384,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
 
     const hasPending = allChecks.some(c => c.status !== 'completed' || c.conclusion === null);
     const allPassed = !hasPending && allChecks.every(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
+    const hasFailed = allChecks.some(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'cancelled' || c.conclusion === 'timed_out');
 
     let status;
     if (hasPending) {
@@ -403,6 +412,17 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
       hasPending,
     };
   } catch (error) {
+    if (isTerminalGitHubEntityError(error)) {
+      const terminalError = getTerminalGitHubEntityErrorMessage(error);
+      if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while checking CI status for PR #${prNumber}: ${terminalError}`);
+      return {
+        status: 'terminal_github_entity_error',
+        checks: [],
+        allPassed: false,
+        hasPending: false,
+        error: terminalError,
+      };
+    }
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error checking CI status: ${error.message}`);
     }
@@ -426,7 +446,7 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{mergeable: boolean, reason: string|null}>}
+ * @returns {Promise<{mergeable: boolean, mergeableState?: string|null, mergeStateStatus?: string|null, reason: string|null, terminal?: boolean}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
   // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
@@ -453,7 +473,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
         if (verbose) {
           console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability still UNKNOWN after ${MAX_UNKNOWN_RETRIES} attempts`);
         }
-        return { mergeable: false, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
+        return { mergeable: false, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
 
       const mergeable = pr.mergeable === 'MERGEABLE';
@@ -485,8 +505,14 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
         console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
       }
 
-      return { mergeable, reason };
+      return { mergeable, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason };
     } catch (error) {
+      if (isTerminalGitHubEntityError(error)) {
+        const terminalError = getTerminalGitHubEntityErrorMessage(error);
+        if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while checking mergeability for PR #${prNumber}: ${terminalError}`);
+        return { mergeable: false, reason: terminalError, terminal: true };
+      }
+
       if (verbose) {
         console.log(`[VERBOSE] /merge: Error checking mergeability: ${error.message}`);
       }
@@ -642,6 +668,14 @@ export async function waitForCI(owner, repo, prNumber, options = {}, verbose = f
 
     if (ciStatus.status === 'failure') {
       return { success: false, status: 'failure', error: 'CI checks failed' };
+    }
+
+    if (ciStatus.status === 'terminal_github_entity_error') {
+      return {
+        success: false,
+        status: 'terminal_github_entity_error',
+        error: ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      };
     }
 
     if (ciStatus.status === 'pending') {
@@ -1126,6 +1160,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: check.conclusion, // success, failure, cancelled, timed_out, skipped, neutral, action_required, stale, null
         type: 'check_run',
         id: check.id,
+        description: check.output?.title || check.output?.summary || null,
         html_url: check.html_url || check.details_url || null,
       })),
       ...statuses.map(status => ({
@@ -1134,6 +1169,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
         conclusion: status.state === 'pending' ? null : status.state === 'success' ? 'success' : status.state === 'failure' ? 'failure' : status.state,
         type: 'status',
         id: null,
+        description: status.description || null,
         html_url: status.target_url || null,
       })),
     ];
@@ -1173,7 +1209,7 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
     // neutral, action_required, stale, null (not yet completed)
     // GitHub check run statuses include: queued, in_progress, completed, waiting, requested, pending
     const passedChecks = allChecks.filter(c => c.conclusion === 'success' || c.conclusion === 'skipped' || c.conclusion === 'neutral');
-    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
+    const failedChecks = allChecks.filter(c => c.conclusion === 'failure' || c.conclusion === 'error' || c.conclusion === 'timed_out' || c.conclusion === 'action_required');
     const cancelledChecks = allChecks.filter(c => c.conclusion === 'cancelled');
     const staleChecks = allChecks.filter(c => c.conclusion === 'stale');
     const pendingChecks = allChecks.filter(c => (c.status === 'in_progress' || c.status === 'waiting' || c.status === 'requested' || c.status === 'pending') && c.conclusion === null);
@@ -1230,6 +1266,28 @@ export async function getDetailedCIStatus(owner, repo, prNumber, verbose = false
       passedChecks,
     };
   } catch (error) {
+    if (isTerminalGitHubEntityError(error)) {
+      const terminalError = getTerminalGitHubEntityErrorMessage(error);
+      if (verbose) console.log(`[VERBOSE] /merge: Terminal GitHub entity error while getting detailed CI status for PR #${prNumber}: ${terminalError}`);
+      return {
+        status: 'terminal_github_entity_error',
+        checks: [],
+        sha: null,
+        hasFailures: false,
+        hasCancelled: false,
+        hasStale: false,
+        hasPending: false,
+        hasQueued: false,
+        allPassed: false,
+        failedChecks: [],
+        cancelledChecks: [],
+        staleChecks: [],
+        pendingChecks: [],
+        queuedChecks: [],
+        passedChecks: [],
+        error: terminalError,
+      };
+    }
     if (verbose) {
       console.log(`[VERBOSE] /merge: Error getting detailed CI status: ${error.message}`);
     }
@@ -1389,8 +1447,9 @@ import { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTrigger
 export { getCommitDate, checkPreviousPRCommitsHadCI, checkWorkflowsHavePRTriggers };
 
 // Issue #1341: Re-export post-merge CI functions from separate module
-import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha } from './github-merge-ci.lib.mjs';
-export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha };
+// Issue #1807: getPRStatus is used by the sequential auto-resolve pass to poll PR lifecycle state.
+import { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus } from './github-merge-ci.lib.mjs';
+export { waitForCommitCI, checkBranchCIHealth, getMergeCommitSha, getPRStatus };
 
 import { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns } from './github-merge-repo-actions.lib.mjs'; // Issue #1503, #1712
 export { getAllActiveRepoRuns, waitForAllRepoActions, checkCIConsensus, checkAllPRCommitsCI, getPRCommitShas, getActivePRWorkflowRuns };
@@ -1414,6 +1473,7 @@ export default {
   getActiveBranchRuns, // Issue #1307: New exports for target branch CI waiting
   waitForBranchCI,
   getDefaultBranch,
+  closeLinkedIssueIfNotAutoClosed, // Issue #1895: close linked issue after merge into non-default branch
   // Issue #1314: Billing limit detection and enhanced CI status and re-run capabilities
   getCheckRunAnnotations,
   getRepoVisibility,
@@ -1427,6 +1487,7 @@ export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  getPRStatus, // Issue #1807: sequential auto-resolve PR lifecycle polling
   getActiveRepoWorkflows,
   getCommitDate,
   checkPreviousPRCommitsHadCI,

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Qwen Code CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $ } = await use('command-stream');
@@ -12,15 +13,16 @@ const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
 const os = (await use('os')).default;
 
-import { log } from './lib.mjs';
+import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { qwenModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -597,15 +599,22 @@ export const executeQwenCommand = async params => {
             const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
             const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
             if (retryCount < maxRetries) {
-              const delay = getRetryDelayMs({
+              if (sessionId && !argv.resume) argv.resume = sessionId;
+              // Issue #2037: retry the same model on capacity errors before falling back;
+              // after a capacity-driven model switch, retry quickly instead of waiting the
+              // full transient backoff — the new model may be available now.
+              const retryPlan = await prepareRetryAfterError({
+                tool: 'qwen',
+                argv,
+                log,
+                errorMessage: retryableError.message,
                 retryCount,
                 initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
                 maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
               });
+              const delay = retryPlan.delay;
               const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
               await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-              if (sessionId && !argv.resume) argv.resume = sessionId;
-              await maybeSwitchToFallbackModel({ tool: 'qwen', argv, log, errorMessage: retryableError.message });
               await waitForRetryDelay(delay, log);
               await log('\n🔄 Retrying now...');
               retryCount++;
@@ -632,6 +641,50 @@ export const executeQwenCommand = async params => {
           limitResetTime: null,
           ...usageResult,
           resultSummary,
+          // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: combinedErrorText || errorMessage, exitCode, fallback: `Qwen Code command failed${exitCode !== 0 ? ` with exit code ${exitCode}` : ''}`, toolLabel: 'Qwen Code' }), exitCode },
+        };
+      }
+
+      // Issue #1990: exit 0 with no error event is necessary but NOT sufficient.
+      // qwen-code's stream-json ends with a terminal `result` event; a run that
+      // did work but never emitted it was cut off mid-run (e.g. the docker
+      // container ran out of disk) and must be registered as a failure so the
+      // session is preserved for a context-preserving restart and — under docker
+      // isolation — the container filesystem is kept for inspection.
+      const completionHealth = getTerminalEventCompletionHealth({
+        eventCounts: qwenState.eventCounts,
+        terminalEventTypes: ['result'],
+        hadActivity: (qwenState.parsedEvents?.length || 0) > 0,
+        diskEvidenceTexts: [
+          { source: 'output', text: allOutput },
+          { source: 'result-summary', text: resultSummary },
+        ],
+      });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Qwen Code exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+        return {
+          success: false,
+          sessionId,
+          limitReached: false,
+          limitResetTime: null,
+          ...usageResult,
+          resultSummary,
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          errorInfo: { message: completionHealth.reasons.join(' ') },
         };
       }
 
@@ -665,6 +718,8 @@ export const executeQwenCommand = async params => {
         publicPricingEstimate: null,
         tokenUsage: null,
         resultSummary: null,
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
     }
   };

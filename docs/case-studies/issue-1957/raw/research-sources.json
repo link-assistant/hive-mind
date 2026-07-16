@@ -1,0 +1,41 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1957",
+  "external_failure": "https://github.com/G-Ivan-A/mango_ba_prompts/issues/141#issuecomment-4757598725",
+  "sources": [
+    {
+      "title": "fetch-pack: unexpected disconnect while reading sideband packet (shorebird #2397)",
+      "url": "https://github.com/shorebirdtech/shorebird/issues/2397",
+      "note": "Confirms the error is a transient network/transfer interruption; recommends wrapping git clone in retry logic that catches this error and tries again."
+    },
+    {
+      "title": "git error fetch-pack unexpected disconnect inside container (microsoft/Windows-Containers #320)",
+      "url": "https://github.com/microsoft/Windows-Containers/issues/320",
+      "note": "Same sideband-disconnect error reproduced in containerized environments; root cause is interrupted pack transfer."
+    },
+    {
+      "title": "Fetch-pack: unexpected disconnect while reading sideband packet (Gitea forum)",
+      "url": "https://forum.gitea.com/t/fetch-pack-unexpected-disconnect-while-reading-sideband-packet/5903",
+      "note": "Server/proxy and large-transfer related; suggests http.postBuffer and compression workarounds."
+    },
+    {
+      "title": "Little Git Tricks: Fix Unexpected Disconnect on Sideband Packet",
+      "url": "https://improveandrepeat.com/2025/06/little-git-tricks-fix-unexpected-disconnect-on-sideband-packet/",
+      "note": "Workarounds: update git, increase http.postBuffer, disable core.compression, switch protocol, retry."
+    },
+    {
+      "title": "How can I resolve fetch-pack: unexpected disconnect (Atlassian community)",
+      "url": "https://community.atlassian.com/forums/Bitbucket-questions/How-can-I-resolve-fetch-pack-unexpected-disconnect-while-reading/qaq-p/2320953",
+      "note": "Network/packet-loss during large repo transfers; transient and retryable."
+    },
+    {
+      "title": "gh repo set-default --view returns exit code 0 upon failure (cli/cli #9398)",
+      "url": "https://github.com/cli/cli/issues/9398",
+      "note": "Documents a broader GitHub CLI pattern of returning exit code 0 on failure, reinforcing that the gh exit code cannot be trusted as the sole success signal."
+    }
+  ],
+  "key_findings": [
+    "The error 'fetch-pack: unexpected disconnect while reading sideband packet' is universally classified as a transient network / interrupted-transfer failure, NOT a permanent error.",
+    "The community-recommended fix is exactly retry-with-backoff plus, optionally, http.postBuffer / core.compression tuning.",
+    "GitHub CLI (gh) is known to return exit code 0 in failure scenarios, so an exit code of 0 from `gh repo clone` must be corroborated by verifying that a real .git working tree was produced."
+  ]
+}

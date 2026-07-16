@@ -4,7 +4,7 @@
  * Unit tests for issue #1497: Failed to send formatted message
  *
  * Tests verify that:
- * 1. The /solve_queue text in duplicate URL message has escaped underscore
+ * 1. Underscored command hints have escaped underscores
  * 2. Dynamic error messages are escaped before embedding in Markdown
  * 3. safeReply correctly falls back to plain text on Markdown parsing failure
  * 4. Messages with various special characters don't break Markdown parsing
@@ -12,6 +12,13 @@
 
 import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
+import { buildModelOptionDescription } from '../src/models/index.mjs';
+import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';
+import { buildTelegramHelpMessage } from '../src/telegram-ui-messages.lib.mjs';
+import { installTelegramFormattingFallback, isTelegramFormattingError, safeReply } from '../src/telegram-safe-reply.lib.mjs';
+
+await initI18n();
+await preloadAllLocales();
 
 let passed = 0;
 let failed = 0;
@@ -107,37 +114,37 @@ function checkTelegramMarkdown(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 1: Root cause - /solve_queue underscore (issue #1497)
+// Test Suite 1: Root cause - underscored commands in Markdown (issue #1497)
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 1: Root cause - /solve_queue underscore in Markdown');
+console.log('\n🧪 Test Suite 1: Root cause - underscored command in Markdown');
 console.log('─'.repeat(60));
 
-// Test: The EXACT failing message from issue #1497
+// Test: the Markdown failure mode from issue #1497
 {
   const normalizedUrl = 'https://github.com/MixaByk1996/elements-app/issues/14';
   const statusText = 'being processed';
 
   // OLD message (broken) - unescaped underscore
-  const oldMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /solve_queue to check the queue status.`;
+  const oldMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /accept_invites to accept pending invitations.`;
   const oldError = checkTelegramMarkdown(oldMsg);
-  assert(oldError !== null, 'OLD message with /solve_queue has Markdown parsing issue', oldError || 'No issue detected');
+  assert(oldError !== null, 'OLD message with underscored command has Markdown parsing issue', oldError || 'No issue detected');
 
   // NEW message (fixed) - escaped underscore
-  const newMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /solve\\_queue to check the queue status.`;
+  const newMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /accept\\_invites to accept pending invitations.`;
   const newError = checkTelegramMarkdown(newMsg);
-  assert(newError === null, 'NEW message with /solve\\_queue passes Markdown parsing', newError || '');
+  assert(newError === null, 'NEW message with escaped underscored command passes Markdown parsing', newError || '');
 }
 
-// Test: /solve_queue with underscore URL
+// Test: underscored command with underscore URL
 {
   const url = 'https://github.com/xlab2016/space_db_private/issues/17';
-  const oldMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /solve_queue to check the queue status.`;
+  const oldMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /accept_invites to accept pending invitations.`;
   const oldError = checkTelegramMarkdown(oldMsg);
-  assert(oldError !== null, 'Message with underscore URL + /solve_queue fails Markdown', oldError || 'No issue detected');
+  assert(oldError !== null, 'Message with underscore URL + underscored command fails Markdown', oldError || 'No issue detected');
 
-  const newMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /solve\\_queue to check the queue status.`;
+  const newMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /accept\\_invites to accept pending invitations.`;
   const newError = checkTelegramMarkdown(newMsg);
-  assert(newError === null, 'Fixed message with underscore URL + escaped /solve\\_queue passes', newError || '');
+  assert(newError === null, 'Fixed message with underscore URL + escaped underscored command passes', newError || '');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -262,9 +269,9 @@ function stripMarkdown(text) {
 
 // Test: Escaped underscores are unescaped
 {
-  const markdown = 'Use /solve\\_queue to check status';
+  const markdown = 'Use /accept\\_invites to accept invitations';
   const plain = stripMarkdown(markdown);
-  assertEqual(plain, 'Use /solve_queue to check status', 'Escaped underscores are restored in plain text');
+  assertEqual(plain, 'Use /accept_invites to accept invitations', 'Escaped underscores are restored in plain text');
 }
 
 // Test: Bold text stripping
@@ -287,6 +294,102 @@ function stripMarkdown(text) {
   const plain = stripMarkdown(markdown);
   assert(!plain.includes('\\_'), 'All escaped underscores restored in complex message', `Got: ${plain}`);
   assert(!plain.includes(']('), 'All links converted in complex message', `Got: ${plain}`);
+}
+
+// Test: safeReply warns and falls back to useful plain text on formatting errors
+{
+  const calls = [];
+  const ctx = {
+    reply: async (text, options = {}) => {
+      calls.push({ text, options });
+      if (calls.length === 1) throw new Error("400: Bad Request: can't parse entities: Can't find end of the entity");
+      return { ok: true };
+    },
+  };
+  await safeReply(ctx, '*Broken help message', { fallbackLocale: 'ru' });
+  assertEqual(calls.length, 2, 'safeReply retries once as plain text');
+  assertEqual(calls[0].options.parse_mode, 'Markdown', 'First attempt uses Markdown');
+  assertEqual(calls[1].options.parse_mode, undefined, 'Fallback removes parse mode');
+  assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'Fallback warns in user locale');
+  assert(calls[1].text.includes('Broken help message'), 'Fallback includes original message content as plain text');
+}
+
+// Test: message length errors are handled as Telegram length-limit errors, not formatting errors
+{
+  const error = new Error('400: Bad Request: message is too long');
+  assert(!isTelegramFormattingError(error), 'Telegram message length errors are not classified as formatting errors');
+}
+
+// Test: Russian /help exceeds Telegram's 4096-character sendMessage limit and is split safely
+{
+  const message = buildTelegramHelpMessage({
+    locale: 'ru',
+    chatId: -1002975819706,
+    chatType: 'supergroup',
+    chatTitle: 'Pull Request from Hive Mind',
+    topicId: 32470,
+    solveEnabled: true,
+    taskEnabled: true,
+    hiveEnabled: true,
+    solveOverrides: ['--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue'],
+    hiveOverrides: ['--all-issues', '--once', '--skip-issues-with-prs', '--attach-logs', '--verbose', '--no-tool-check', '--disable-report-issue'],
+    showLimitsEnabled: true,
+    isolationBackend: 'screen',
+    modelDescription: buildModelOptionDescription(),
+    restrictedMode: true,
+    authorized: true,
+  });
+  assert(message.length > 4096, 'Russian /help reproduces the Telegram message length limit');
+
+  const calls = [];
+  const ctx = {
+    reply: async (text, options = {}) => {
+      calls.push({ text, options });
+      if (text.length > 4096) throw new Error('400: Bad Request: message is too long');
+      return { message_id: calls.length };
+    },
+  };
+
+  await safeReply(ctx, message, { fallbackLocale: 'ru' });
+  assert(calls.length > 1, 'safeReply splits oversized localized help into multiple messages');
+  assert(
+    calls.every(call => call.text.length <= 4096),
+    'Every split help chunk stays within Telegram sendMessage limit'
+  );
+  assert(
+    calls.every(call => call.options.parse_mode === 'Markdown'),
+    'Split help chunks keep Markdown formatting'
+  );
+  assert(
+    calls.every(call => checkTelegramMarkdown(call.text) === null),
+    'Every split help chunk is valid Telegram Markdown'
+  );
+}
+
+// Test: automatic Telegram client wrapper retries sendMessage/editMessageText
+{
+  const calls = [];
+  const telegram = {
+    sendMessage: async (chatId, text, options = {}) => {
+      calls.push({ method: 'sendMessage', chatId, text, options });
+      if (calls.length === 1) throw new Error("400: Bad Request: can't parse entities");
+      return { ok: true };
+    },
+    editMessageText: async (chatId, messageId, inlineMessageId, text, options = {}) => {
+      calls.push({ method: 'editMessageText', chatId, messageId, inlineMessageId, text, options });
+      if (calls.length === 3) throw new Error("400: Bad Request: can't parse entities");
+      return { ok: true };
+    },
+  };
+  installTelegramFormattingFallback(telegram, { fallbackLocale: 'ru', verbose: true });
+  await telegram.sendMessage(1, '*Broken send', { parse_mode: 'Markdown' });
+  await telegram.editMessageText(1, 2, undefined, '*Broken edit', { parse_mode: 'Markdown' });
+
+  assertEqual(calls.length, 4, 'send and edit each retry once');
+  assertEqual(calls[1].options.parse_mode, undefined, 'send fallback removes parse mode');
+  assertEqual(calls[3].options.parse_mode, undefined, 'edit fallback removes parse mode');
+  assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'send fallback warns');
+  assert(calls[3].text.includes('Обнаружена ошибка форматирования'), 'edit fallback warns');
 }
 
 // ═══════════════════════════════════════════════════════════════════

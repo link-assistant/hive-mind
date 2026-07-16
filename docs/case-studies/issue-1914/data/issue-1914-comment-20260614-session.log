@@ -1,0 +1,18 @@
+=== Start Command Log ===
+Execution ID: e6599cf2-bbe2-449a-bd28-c1ab22b546f2
+Timestamp: 2026-06-14 16:43:55.703
+Command: 'solve' 'https://github.com/link-assistant/formal-ai/issues/461' '--model' 'opus' '--tool' 'claude' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'en'
+Environment: docker
+Mode: detached
+Session: 4c41b229-12d8-4fbe-a343-d500dd87143d
+Image: konard/hive-mind-dind:latest
+Platform: linux
+Node Version: v24.3.0
+Working Directory: /home/box
+==================================================
+
+Failed to pull Docker image: konard/hive-mind-dind:latest
+
+==================================================
+Finished: 2026-06-14 16:49:05.216
+Exit Code: 1

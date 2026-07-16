@@ -57,6 +57,69 @@ export function isChatAuthorized(chatId, allowedChats) {
 }
 
 /**
+ * Check if a message is a forwarded message.
+ *
+ * Unlike {@link isForwardedOrReply}, this function ONLY detects forwarded
+ * messages and intentionally ignores replies. It exists so command handlers
+ * that rely on the reply feature (e.g. `/task` issue creation, `/solve` URL
+ * extraction) can still reject forwarded commands — which must never be
+ * executed again — while continuing to accept genuine user replies.
+ *
+ * A forwarded command is dangerous because forwarding the bot's own response
+ * (or any message that starts with `/task`, `/solve`, ...) would otherwise
+ * trigger a brand-new execution that the user never intended.
+ *
+ * @param {Object} ctx - Telegraf context object
+ * @param {Object} [options] - Options
+ * @param {boolean} [options.verbose] - Enable verbose logging
+ * @returns {boolean} true if message is forwarded (and should be filtered)
+ * @see https://github.com/link-assistant/hive-mind/issues/1922
+ */
+export function isForwarded(ctx, options = {}) {
+  const message = ctx.message;
+  if (!message) {
+    if (options.verbose) {
+      console.log('[VERBOSE] isForwarded: No message object');
+    }
+    return false;
+  }
+
+  if (options.verbose) {
+    console.log('[VERBOSE] isForwarded: Checking forwarding fields...');
+    console.log('[VERBOSE]   message.forward_origin:', JSON.stringify(message.forward_origin));
+    console.log('[VERBOSE]   message.forward_origin?.type:', message.forward_origin?.type);
+    console.log('[VERBOSE]   message.forward_from:', JSON.stringify(message.forward_from));
+    console.log('[VERBOSE]   message.forward_from_chat:', JSON.stringify(message.forward_from_chat));
+    console.log('[VERBOSE]   message.forward_from_message_id:', message.forward_from_message_id);
+    console.log('[VERBOSE]   message.forward_signature:', message.forward_signature);
+    console.log('[VERBOSE]   message.forward_sender_name:', message.forward_sender_name);
+    console.log('[VERBOSE]   message.forward_date:', message.forward_date);
+  }
+
+  // Check if message is forwarded (has forward_origin field with actual content)
+  // Note: We check for .type because Telegram might send empty objects {}
+  // which are truthy in JavaScript but don't indicate a forwarded message
+  if (message.forward_origin && message.forward_origin.type) {
+    if (options.verbose) {
+      console.log('[VERBOSE] isForwarded: TRUE - forward_origin.type exists:', message.forward_origin.type);
+    }
+    return true;
+  }
+  // Also check old forwarding API fields for backward compatibility
+  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
+    if (options.verbose) {
+      console.log('[VERBOSE] isForwarded: TRUE - old forwarding API field detected');
+    }
+    return true;
+  }
+
+  if (options.verbose) {
+    console.log('[VERBOSE] isForwarded: FALSE - no forwarding detected');
+  }
+  return false;
+}
+
+/**
  * Check if a message is forwarded or a reply to another user's message.
  *
  * This function distinguishes between:
@@ -82,32 +145,13 @@ export function isForwardedOrReply(ctx, options = {}) {
 
   if (options.verbose) {
     console.log('[VERBOSE] isForwardedOrReply: Checking message fields...');
-    console.log('[VERBOSE]   message.forward_origin:', JSON.stringify(message.forward_origin));
-    console.log('[VERBOSE]   message.forward_origin?.type:', message.forward_origin?.type);
-    console.log('[VERBOSE]   message.forward_from:', JSON.stringify(message.forward_from));
-    console.log('[VERBOSE]   message.forward_from_chat:', JSON.stringify(message.forward_from_chat));
-    console.log('[VERBOSE]   message.forward_from_message_id:', message.forward_from_message_id);
-    console.log('[VERBOSE]   message.forward_signature:', message.forward_signature);
-    console.log('[VERBOSE]   message.forward_sender_name:', message.forward_sender_name);
-    console.log('[VERBOSE]   message.forward_date:', message.forward_date);
     console.log('[VERBOSE]   message.reply_to_message:', JSON.stringify(message.reply_to_message));
     console.log('[VERBOSE]   message.reply_to_message?.message_id:', message.reply_to_message?.message_id);
   }
 
-  // Check if message is forwarded (has forward_origin field with actual content)
-  // Note: We check for .type because Telegram might send empty objects {}
-  // which are truthy in JavaScript but don't indicate a forwarded message
-  if (message.forward_origin && message.forward_origin.type) {
-    if (options.verbose) {
-      console.log('[VERBOSE] isForwardedOrReply: TRUE - forward_origin.type exists:', message.forward_origin.type);
-    }
-    return true;
-  }
-  // Also check old forwarding API fields for backward compatibility
-  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
-    if (options.verbose) {
-      console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
-    }
+  // Forwarded messages are handled by the shared isForwarded() filter so the
+  // forwarding detection logic lives in exactly one place (issue #1922).
+  if (isForwarded(ctx, options)) {
     return true;
   }
   // Check if message is a reply (has reply_to_message field with actual content)

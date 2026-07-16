@@ -12,6 +12,10 @@
 
 import assert from 'node:assert/strict';
 import { SolveQueue, resetSolveQueue, formatDuration } from '../src/telegram-solve-queue.lib.mjs';
+import { formatWaitingReason } from '../src/telegram-solve-queue.helpers.lib.mjs';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
+
+await preloadAllLocales();
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -82,6 +86,15 @@ test('formatDuration handles negative values gracefully', () => {
   assert.equal(formatDuration(-1000), '0s', 'Negative should show 0s');
 });
 
+test('formatDuration localizes Russian compact units', () => {
+  assert.equal(formatDuration(90061000, { locale: 'ru' }), '1 д 1 ч 1 мин 1 с', 'Russian duration should use Russian unit labels');
+});
+
+test('formatWaitingReason localizes Russian threshold messages', () => {
+  assert.equal(formatWaitingReason('disk', 91, 0.9, { locale: 'ru' }), 'Использование диска 91% (порог: 90%)', 'Disk rejection reason should be Russian');
+  assert.equal(formatWaitingReason('min_interval', 0, 0, { locale: 'ru' }), 'Минимальный интервал между командами ещё не прошёл', 'Minimum interval reason should be Russian');
+});
+
 // ============================================================================
 // Queue Display Tests (per-queue grouping)
 // ============================================================================
@@ -99,6 +112,27 @@ await asyncTest('formatStatus shows all queues even when empty', async () => {
   assert.ok(status.includes('pending: 0'), 'Should show 0 pending for empty queues');
   // Processing count should come from pgrep (actual running processes)
   assert.ok(status.includes('processing:'), 'Should show processing count');
+
+  queue.stop();
+});
+
+await asyncTest('formatStatus localizes Russian queue labels', async () => {
+  beforeEach();
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
+
+  queue.enqueue({
+    url: 'https://github.com/test/repo/issues/1',
+    args: '',
+    requester: 'testuser',
+    infoBlock: 'Test',
+    tool: 'claude',
+  });
+
+  const status = await queue.formatStatus({ locale: 'ru' });
+  assert.ok(status.includes('Очереди'), 'Should show Russian Queues header');
+  assert.ok(status.includes('ожидает: 1'), 'Should show localized pending label');
+  assert.ok(status.includes('выполняется:'), 'Should show localized processing label');
+  assert.ok(!status.includes('pending: 1'), 'Should not show English pending label');
 
   queue.stop();
 });
@@ -131,20 +165,22 @@ await asyncTest('formatDetailedStatus groups items by tool queue', async () => {
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show both queues with correct counts
+  // Should show both queues with their counts on the list labels, not duplicated
+  // in the tool header.
   assert.ok(status.includes('claude'), 'Should include claude queue');
   assert.ok(status.includes('agent'), 'Should include agent queue');
-  assert.ok(status.includes('pending: 2'), 'Should show 2 pending for claude');
-  assert.ok(status.includes('pending: 1'), 'Should show 1 pending for agent');
-  // Processing count should come from pgrep (actual running processes)
-  assert.ok(status.includes('processing:'), 'Should show processing count');
+  assert.ok(status.includes('*Pending* (2):'), 'Should show 2 pending for claude');
+  assert.ok(status.includes('*Pending* (1):'), 'Should show 1 pending for agent');
+  assert.ok(!status.includes('pending: 2'), 'Should not duplicate claude pending count in the tool header');
+  assert.ok(!status.includes('pending: 1'), 'Should not duplicate agent pending count in the tool header');
+  assert.ok(!status.includes('processing:'), 'Should not duplicate processing count in the tool header');
   // Items should show human-readable time, not raw seconds
   assert.ok(!status.includes('s)') || status.includes('0s)'), 'Should use human-readable time format');
 
   queue.stop();
 });
 
-await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => {
+await asyncTest('formatDetailedStatus lists all pending items per queue (issue #1891)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false, autoStart: false });
 
@@ -161,11 +197,13 @@ await asyncTest('formatDetailedStatus shows max 5 items per queue', async () => 
 
   const status = await queue.formatDetailedStatus();
 
-  // Should show first 5 items and "... and 2 more"
-  assert.ok(status.includes('issues/1'), 'Should show first item');
-  assert.ok(status.includes('issues/5'), 'Should show fifth item');
-  assert.ok(!status.includes('issues/6'), 'Should not show sixth item');
-  assert.ok(status.includes('and 2 more'), 'Should show count of remaining items');
+  // Issue #1891: all queued items are listed (no per-queue truncation); the
+  // universal sender splits the message into multiple parts if it grows past
+  // Telegram's character limit.
+  for (let i = 1; i <= 7; i++) {
+    assert.ok(status.includes(`issues/${i}`), `Should show item ${i}`);
+  }
+  assert.ok(!status.includes('more'), 'Should not collapse pending items with "... and N more"');
 
   queue.stop();
 });

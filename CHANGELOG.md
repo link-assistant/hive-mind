@@ -1,5 +1,1955 @@
 # @link-assistant/hive-mind
 
+## 2.7.0
+
+### Minor Changes
+
+- 0bac9fd: Add an issue-type-aware `--deep-analysis` option for every supported AI tool, with development-log collection gated by `--development-log`.
+
+## 2.6.1
+
+### Patch Changes
+
+- 9ab8794: Make `HIVE_MIND_MIN_START_INTERVAL_MS` authoritative, warn when it is below the recommended 10-minute interval, and deprecate the redundant floor variable.
+
+## 2.6.0
+
+### Minor Changes
+
+- c031b7b: Handle weekly-only Codex usage windows and add Telegram Bot API rolling rate-limit telemetry to `/limits`.
+
+## 2.5.6
+
+### Patch Changes
+
+- e501237: Warn when malformed or safety-clamped numeric environment settings fall back to a different effective value.
+- 10ddbca: Document same-session live input support and the Codex app-server integration plan for issue #2057.
+
+## 2.5.5
+
+### Patch Changes
+
+- e6ccdc1: Allow operators to lower the queue startup interval safety floor with `HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS` while preserving the 10-minute default.
+
+## 2.5.4
+
+### Patch Changes
+
+- 2ebdb3d: Add dequeue-decision diagnostics to the Telegram solve queue so global FIFO ordering across the per-tool queues can be audited in production (issue #2051). The oldest startable task still wins the single, globally-paced startup slot; when an older task is skipped because it cannot start, the queue now logs a concise, deduplicated "FIFO queue-jump" line naming the older task and the exact reason it is blocked (Claude/Codex limits, RAM/CPU/disk, min-interval, or one-at-a-time), and records it on `stats.lastQueueJump`. Verbose mode additionally prints a per-tool head snapshot each cycle. No change to ordering, pacing, or the minimum start interval.
+
+## 2.5.3
+
+### Patch Changes
+
+- eb755b5: Recognize an operator-initiated `/stop` as "🛑 Work session stopped by user" instead of "killed — out of memory or forced kill (SIGKILL)" (issue #2052). The Telegram `/stop <uuid>` flow now records the stop via `markSessionStopRequested` before forwarding CTRL+C, so the resulting SIGTERM/SIGKILL exit (143/137) is reported as an intentional user stop. Adds `--verbose` interrupt timing traces (auto-commit vs log-upload) to make the `docker stop` grace-period race behind "no log uploaded on stop" measurable, plus a case study under `docs/case-studies/issue-2052`.
+
+## 2.5.2
+
+### Patch Changes
+
+- da84b0c: Lower the default disk queue-admission threshold to 65% so isolation tasks retain safer free-space headroom.
+
+## 2.5.1
+
+### Patch Changes
+
+- 4054bcf: Commit the `--development-log` artifacts before signalling pull request readiness (issue #2048), so the development-log commit is part of the diff that CI and `--auto-restart-until-mergeable` evaluate. Previously the log commit landed after the "Ready to merge" signal and could break CI (e.g. a missing changeset) with no readiness re-evaluation.
+
+## 2.5.0
+
+### Minor Changes
+
+- 152f55a: Add generation-relative `sol`, `terra`, and `luna` Codex aliases and accept `openai/` and `openai.` prefixes for every known OpenAI model.
+
+## 2.4.1
+
+### Patch Changes
+
+- c412790: Improve model capacity fallback handling (Issue #2037): when the requested model is temporarily unavailable, every tool now retries the originally-requested model up to 5 times with exponential backoff before switching, then walks a fallback chain ordered by intelligence/size tier (e.g. `gpt-5.6-sol → gpt-5.6-terra → gpt-5.5 → gpt-5.4 → gpt-5.2`, skipping the smaller `gpt-5.6-luna` variant), keeps the mismatch warning informative rather than alarming, retries quickly after a capacity-driven model switch, and reports the fallback model's share of output tokens. Includes a case study reconstructing the timeline and root causes.
+
+## 2.4.0
+
+### Minor Changes
+
+- dc28004: Fix `--think` validation asymmetry between `solve` and `hive` (Issue #2041). After the #2038 vocabulary refactor, `solve.config` only validated `--think` in the CLI `parseArguments()` path, so consumers that parse solve options directly through the yargs config — most notably the Telegram bot — silently accepted invalid `--think` values (a CI false-negative that failed `test-telegram-options-before-url`). `createYargsConfig` now runs the same `normalizeAndValidateThink` `.check()` that `hive.config` already used, and `parseArguments` propagates that validation error verbatim instead of swallowing it. Invalid `--think` values are now rejected consistently on the CLI and Telegram paths.
+- d92c772: `--think` now accepts a richer, provider-neutral vocabulary (Issue #2038): the off synonyms `off`/`disable`/`disabled`/`no`/`none` all mean disabled (or the closest safe equivalent when a model cannot truly disable thinking), a new `minimal` tier below `low` (Codex `minimal` reasoning; Claude lowest effort with a ~4000-token budget), a first-class `adaptive` mode that requests provider-managed adaptive thinking and fails fast for `solve`/`hive` on models/tools that do not support it (only adaptive-only Claude models: Opus 4.7+, Fable 5, Mythos 5, Sonnet 5), and numeric intensities for precision — percentages `0%`..`100%`, fractions `0.0`..`1.0`, and the integers `0` (off) and `1` (max). Normalization is applied consistently for both `solve` and `hive`.
+
+## 2.3.0
+
+### Minor Changes
+
+- 40cf185: Use Opus as the default model for the Claude tool while preserving explicit model overrides.
+
+## 2.2.3
+
+### Patch Changes
+
+- 37303d7: Stop auto-restarting for stale failed check-runs when GitHub reports the pull request as clean and mergeable
+
+## 2.2.2
+
+### Patch Changes
+
+- f9f30d6: Treat an omitted `--think` option as `--think off` across tools, using a zero budget or the lowest supported effort when reasoning cannot be disabled.
+
+## 2.2.1
+
+### Patch Changes
+
+- e86a40e: Add a `--development-log` solve option that prompts agents to collect issue data, then preserves and commits resumable tool sessions under per-session UUID directories.
+
+## 2.2.0
+
+### Minor Changes
+
+- d3b7c97: Default `--tool codex` to `gpt-5.6-sol` and make the `--think` levels map predictably to Codex reasoning efforts (`off`→`none`, `low`/`medium`/`high`/`xhigh`/`ultra`/`max` as an identity mapping). GPT-5.6 Sol's multi-agent `ultra` mode is always paired with a `rollout_token_budget` cap (default `500000`, overridable via `--rollout-token-budget`), and budget-derived effort stays capped at `xhigh`. Align `--tool claude` by adding the matching `ultra` level (equivalent to `ultracode`). By default both tools run the model as-is with no thinking level enforced.
+
+## 2.1.11
+
+### Patch Changes
+
+- 208e123: Fix false-positive npm releases (issue #2028). `setup-npm.mjs` now pins npm to the 11.x line and validates the result instead of installing `npm@latest` (which pulled in npm 12.0.0, whose sigstore regression crashes provenance publishes — npm/cli#9722). `publish-to-npm.mjs` no longer trusts the publish command's exit status alone: it observes the real exit code, scans output for failure patterns, and verifies the version is actually live on npm before reporting success, so a failed publish can no longer be reported as a successful release. Added `sanitize-npm-userconfig.mjs` to remove the deprecated `always-auth` npm warning from release logs.
+
+## 2.1.10
+
+### Patch Changes
+
+- 9964e69: Retry Claude stream-json sessions with `--resume` when the stream ends without a terminal result event after tool output.
+- afbc353: Avoid fetching `use-m` at isolation-runner import time when tests only use pure helper exports.
+
+## 2.1.9
+
+### Patch Changes
+
+- 5559c5e: Check all replacement repository branch tips before deleting a non-fork fork replacement, and report concrete branch-only commits when deletion is unsafe.
+
+## 2.1.8
+
+### Patch Changes
+
+- 11dab3c: Handle Telegram and CLI commands where a GitHub issue or pull request URL is immediately followed by a long option marker.
+
+## 2.1.7
+
+### Patch Changes
+
+- 0ce779b: Enforce the solve queue minimum start interval for immediate Telegram `/solve`
+  launches so direct starts consume the same global pacing slot as queued starts.
+
+## 2.1.6
+
+### Patch Changes
+
+- efcbcce: Handle Docker `oomKilled` status markers as terminal Telegram work-session failures, delay Docker backend-gone killed notifications long enough for start-command to publish a real terminal status or log footer, pace queued task startups at a minimum 10-minute interval, and cap system resource cache freshness at 1 minute.
+
+## 2.1.5
+
+### Patch Changes
+
+- 26b07f2: Extend Telegram `/merge` to accept repository, issue, and pull request targets, including reply-based GitHub link extraction, and wait for unfinished PRs to become mergeable before merging.
+
+## 2.1.4
+
+### Patch Changes
+
+- acc3ea1: Simplify the `/limits` output with subscription headings and hide unused Codex limits and credits.
+
+## 2.1.3
+
+### Patch Changes
+
+- 5c4150b: Make live issue/PR event input available for every tool via `--auto-input-until-mergeable` (issue #2007). Claude and Agent stream events into the live process through `--input-format stream-json`; codex, opencode, gemini, qwen, and unknown tools use a universal restart/resume fallback that waits for the current turn to finish in the JSON output, stops the process, and resumes the AI session with the new events. Adds issue title/description edit detection as a restart trigger, reworks the capability matrix to report each tool's delivery mode, and records the `@link-assistant/agent` 0.24.1 live stream-json contract.
+
+## 2.1.2
+
+### Patch Changes
+
+- 39164e5: Improve fork-divergence failure comments and logs with inspected branch state, actor-aware admin guidance, exact fork-only commit lists, and less generic repository setup wording.
+
+## 2.1.1
+
+### Patch Changes
+
+- 26e3410: Report estimated reclaimable space for `hive-cleanup --dry-run` system cleanup
+  commands and await system-cleanup logging so dry-run output stays in order.
+
+## 2.1.0
+
+### Minor Changes
+
+- 4e21d2a: Fix Docker task disk-usage reporting so Telegram completion messages use task container writable-layer samples instead of filesystem-capacity resource markers from the parent deployment.
+- fdbf448: Add full support for Claude Sonnet 5 (`claude-sonnet-5`) and make it the default model for `--tool claude`. The bare `sonnet` alias now resolves to `claude-sonnet-5` (previously `claude-sonnet-4-6`). Sonnet 5 supports 1M context (`[1m]`), the full effort ladder including `xhigh` and `max`, 128K max output tokens, and adaptive-thinking-only environment handling. The `sonnet-4-6`/`claude-sonnet-4-6` aliases are retained for backward compatibility. (Issue #2003)
+
+## 2.0.29
+
+### Patch Changes
+
+- 0cafc64: Add solve resource diagnostics and Docker disk-usage fallback markers so Telegram completion messages can show full container filesystem usage even when the task container cannot be inspected after exit.
+
+## 2.0.28
+
+### Patch Changes
+
+- 5b4f3df: Recommend and accept `/queue` instead of the legacy solve-prefixed queue commands, and recommend `/stop` for cancelling running sessions.
+
+## 2.0.27
+
+### Patch Changes
+
+- d3fdb7b: Respect explicit `--base-branch` through solve sessions by instructing agents not to retarget PRs and restoring the requested PR base before verification or auto-merge handling.
+
+## 2.0.26
+
+### Patch Changes
+
+- 13074f0: Add Codex model support for the GPT-5.6 preview family, Bedrock-prefixed OpenAI Codex model IDs, and the hidden `codex-auto-review` catalog entry while keeping `gpt-5.5` as the default.
+
+## 2.0.25
+
+### Patch Changes
+
+- 148ca23: Fix exit-0-but-incomplete runs being reported as success under docker isolation (#1990). A `solve` run whose AI tool exited 0 while its session was cut off mid-run (e.g. the container ran out of disk) is now registered as a failure instead of a false success: codex requires its paired `turn.started`/`turn.completed` lifecycle, and gemini and qwen now require their terminal `result` event (claude already gated on it). A flagged failure preserves the AI session for a context-preserving retry and returns a non-zero exit so the docker container filesystem is kept for inspection. Disk-exhaustion strings are surfaced only as diagnostics, never as an independent failure gate, to avoid the #1955 echo false positive.
+
+  This also refreshes dependencies and picks up the upstream half of the #1990 fix. The
+  `start-command` pin in `Dockerfile`/`Dockerfile.dind` is bumped `0.30.1 → 0.30.2`,
+  which delivers [link-foundation/start#144](https://github.com/link-foundation/start/issues/144):
+  detached/isolated docker runs now surface the container's `OOMKilled` status and
+  preserve an abnormally-terminated container's filesystem for inspection instead of
+  auto-removing it. npm dependencies and devDependencies are updated to their latest
+  compatible versions (notably ESLint 9 → 10, which enables the `no-useless-assignment`
+  and `preserve-caught-error` recommended rules — all newly-flagged sites were fixed).
+  `jscpd` is intentionally held at `^4.0.5` because its 5.x line changes the
+  duplication baseline (it analyzes a wider file set, reporting 12.2% vs 10.7% on the
+  same tree) and would otherwise force weakening the duplication gate; this is a tooling
+  behavior change, not new duplication.
+
+## 2.0.24
+
+### Patch Changes
+
+- 4cdff62: Improve task disk usage diagnostics for repository and Docker container filesystem reporting.
+
+## 2.0.23
+
+### Patch Changes
+
+- 4778963: Add `--sub-agent-model` for Claude Code subagents and agent teams. The option is accepted by solve, hive, and Telegram command parsing, validates Claude aliases/full IDs plus `inherit`, and maps to `CLAUDE_CODE_SUBAGENT_MODEL` only when explicitly provided so Claude Code defaults remain unchanged.
+
+## 2.0.22
+
+### Patch Changes
+
+- 4d65c05: Make disk admission safer by default: the disk usage queue gate now waits at 80%, the absolute free-space default is 10240 MB, and isolation defaults to Docker.
+
+## 2.0.21
+
+### Patch Changes
+
+- da88ee5: Add session-aware Docker-isolation container cleanup to hive-cleanup.
+
+## 2.0.20
+
+### Patch Changes
+
+- 078f346: Reap successful Docker-isolated task containers at session completion, keep failed containers with cleanup instructions by default, and update Docker images to start-command 0.30.1.
+
+## 2.0.19
+
+### Patch Changes
+
+- 8061979: Preserve per-command isolation overrides for queued Telegram solve commands.
+
+## 2.0.18
+
+### Patch Changes
+
+- 08c2f07: Clarify fork auto-recovery safety failures so terminal exits and failure comments explain the mismatched repository, expected upstream, safety-check result, and recovery options.
+
+## 2.0.17
+
+### Patch Changes
+
+- 1cec7b4: Allow bare indented LINO option/value links in .lenv configuration, matching parenthesized links.
+
+## 2.0.16
+
+### Patch Changes
+
+- a448b3d: Detect incomplete Claude stream-json runs that exit without a terminal result event, capture nested Claude tool/error events, and preserve compaction summaries for diagnostics.
+
+## 2.0.15
+
+### Patch Changes
+
+- 0d2f2bb: Fix "Cannot read properties of null (reading 'type')" crash that aborted Codex (and other agent) runs when the tool echoed a stream line that parsed to a bare `null` or non-object JSON primitive. All NDJSON stream parsers (Codex, Claude, Agent, OpenCode) now ignore non-object lines instead of dereferencing them.
+
+## 2.0.14
+
+### Patch Changes
+
+- 03954a9: Show fuzzy suggestions for mistyped CLI and Telegram command options, including the closest match plus up to four additional alternatives.
+
+## 2.0.13
+
+### Patch Changes
+
+- ca7c412: fix(branch): validate `--base-branch` existence up-front and stop misreporting a missing base branch as an empty repository (#1959)
+
+  A `/solve` run from the Telegram bot crashed with the unactionable message
+  `Branch operation failed`. Root cause: the user passed `--base-branch issue-375-8a4323e580780`
+  — a **one-character typo** of the real branch `issue-375-8a4323e58078`. The branch did not
+  exist, but nothing validated that before the run started. The solver cloned 72 MB, then
+  `git checkout -b … origin/issue-375-8a4323e580780` failed with
+  `fatal: 'origin/…' is not a commit`. Worse, the branch-creation error handler **misdiagnosed**
+  this as "the repository appears to be empty (no commits)" and suggested `--auto-init-repository`,
+  which is wrong for a non-empty repo. The top level then collapsed everything to the bare
+  `Branch operation failed` comment on GitHub.
+
+  Defense-in-depth fix applied across the codebase:
+  - `validateGitHubEntityExistence()` (`src/github-entity-validation.lib.mjs`) gains a new
+    base-branch step: when `--base-branch` is supplied, `checkBaseBranchExists()` verifies it
+    via `gh api repos/{owner}/{repo}/branches/{branch}` **before** cloning, in the same fail-fast
+    gate that already checks user/repo/issue/PR. A definitive 404 fails the run; transient
+    errors fail open so a network hiccup never blocks a valid run.
+  - New helpers `levenshteinDistance()` and `findClosestBranchName()` power a "did you mean
+    '<closest-existing-branch>'?" suggestion built from the repo's actual branch list, so the
+    exact real-world typo points the user straight at `issue-375-8a4323e58078`.
+  - Both entry points share the gate: `src/solve.mjs` (CLI + the GitHub comment path) and
+    `src/telegram-bot.mjs` (the bot pre-flight) now pass `baseBranch` in, so a missing base
+    branch fails immediately at every level — including in Telegram, before the solve command
+    is queued or spawned.
+  - `handleBranchCreationError()` (`src/solve.branch-errors.lib.mjs`) now receives `baseBranch`
+    and `branchSource`. When a custom base branch is the missing ref it reports the real root
+    cause instead of the bogus empty-repository advice; the genuine empty-repository path
+    (creating from the default branch) is preserved. `createOrCheckoutBranch()`
+    (`src/solve.branch.lib.mjs`) threads the base branch and its source into the handler.
+
+  Adds `tests/test-base-branch-existence.mjs` (17 offline assertions covering the helpers and
+  the misdiagnosis fix), `tests/test-base-branch-existence-integration.mjs`
+  (`@hive-mind-integration`, the real `gh` gate), and a deep case study in
+  `docs/case-studies/issue-1959/`.
+
+## 2.0.12
+
+### Patch Changes
+
+- f17bac4: fix(clone): detect interrupted clones that exit 0, retry them, and explain the failure instead of the bare "Failed to get current branch" (#1957)
+
+  A `/solve` run crashed with the unactionable message `Failed to get current branch`.
+  Root cause: `gh repo clone` (and the `git clone` it wraps) **exited 0 even though the
+  transfer was interrupted** mid-stream (`fetch-pack: unexpected disconnect while reading
+sideband packet`), leaving **no `.git` directory** (`size=0 B`). The solver trusted the
+  exit code, logged `✅ Cloned to:`, then every subsequent git command failed with
+  `fatal: not a git repository`; the first to propagate it (`git branch --show-current` in
+  `verifyDefaultBranchAndStatus`) threw the bare error with no clue about what went wrong
+  or how to recover.
+
+  Defense-in-depth fix applied across the codebase:
+  - `cloneRepository()` (`src/solve.repository.lib.mjs`) no longer trusts the exit code:
+    after `gh repo clone` it validates the result with `git rev-parse --is-inside-work-tree`
+    and only treats the clone as successful when the exit code is 0 **and** a real working
+    tree exists. In `--verbose` mode it logs why a 0-exit clone was rejected.
+  - New exported helper `cleanPartialClone()` empties the target directory before each
+    retry so a partial clone does not make `gh repo clone <dir>` fail with "directory
+    exists and is not empty".
+  - `classifyCloneError()` now classifies the interrupted-transfer vocabulary
+    (`unexpected disconnect`, `sideband`, `early eof`, `the remote end hung up`,
+    `rpc failed`, `fetch-pack`, `index-pack failed`, `transfer closed`) as a retryable
+    `NETWORK` error, so the existing 3× exponential-backoff retry loop recovers from it.
+    404 / ENOSPC / auth failures stay non-retryable.
+  - `isTransientNetworkError()` (`src/lib.mjs`, shared by many gh/git retry call sites)
+    gains the same vocabulary, so the fix propagates everywhere — not just the clone path.
+  - Both failure points now print concrete, root-cause-obvious guidance: the clone-failure
+    path adds NETWORK causes/fixes, and `verifyDefaultBranchAndStatus()`
+    (`src/solve.repo-setup.lib.mjs`) detects `not a git repository` and logs an
+    `INCOMPLETE CLONE DETECTED` block (What happened / Error details / How to fix:
+    check network·VPN·proxy, re-run — clones auto-retry, verify access, check GitHub
+    status) instead of the bare message.
+
+  Adds `tests/test-issue-1957-incomplete-clone.mjs` (26 assertions) and a deep case study
+  in `docs/case-studies/issue-1957/`.
+
+## 2.0.11
+
+### Patch Changes
+
+- a29902a: fix(codex): don't fail a completed turn on echoed fixture content; expand transient network auto-retry (#1955)
+
+  A `--tool codex` run failed with `❌ Codex emitted error event: Network lookup
+skipped in fixture` even though the codex session **succeeded** (`turn.completed=1`,
+  `turn.failed=0`, working tree clean, full pricing produced). The phrase was not a
+  real error: while building an unrelated NDJSON adapter, the codex agent printed a
+  **test fixture** to its terminal. In verbose mode (`RUST_LOG=debug`) the codex CLI
+  renders OTEL telemetry (`codex_otel.log_only`, `event.name="codex.tool_result"`)
+  to stderr, including a raw `Output:` dump of each command's stdout. Our line-by-line
+  parser — which consumes stderr as well as stdout — `JSON.parse`d the fixture line
+  `{"type":"error","message":"Network lookup skipped in fixture"}` and bucketed it as
+  a genuine codex stream error.
+  - `getCodexErrorEventSummary()` (`src/codex.lib.mjs`) now treats any stray
+    **non-`turn`** error event as non-fatal whenever the turn completed successfully
+    (a `turn.completed` with no `turn.failed`). `turn.failed` remains the authoritative
+    failure signal and is never suppressed; suppressed strays are still recorded in
+    `ignoredEvents` (and logged per-event in verbose mode) for observability. This is
+    transport-agnostic — it fixes the false positive regardless of how the echo
+    arrived.
+  - `classifyRetryableError()` (`src/tool-retry.lib.mjs`, shared by
+    claude/codex/gemini/qwen/opencode) now classifies the full set of genuinely
+    transient network faults as retryable (`isCapacity:false`): DNS failures
+    (`ENOTFOUND`, `EAI_AGAIN`, "temporary failure in name resolution"), connection
+    faults (`ETIMEDOUT`, `ECONNREFUSED`, `EHOSTUNREACH`, `ENETUNREACH`, `EPIPE`,
+    "no route to host", "network is unreachable"), and gateway errors (502/504 and
+    Cloudflare `52x`); the 503 branch was broadened to "service unavailable". Aligns
+    with AWS retry guidance, RFC 9110 §15.6, and the getaddrinfo(3) man-page. The
+    fixture phrase itself is explicitly guarded to stay non-retryable.
+
+  Adds `tests/test-issue-1955-codex-fixture-false-positive.mjs` (23 tests) and a deep
+  case study in `docs/case-studies/issue-1955/`.
+
+## 2.0.10
+
+### Patch Changes
+
+- e29c83e: Surface the docker-isolation session id + isolation backend immediately when the
+  Telegram bot launches a task, instead of only after the (potentially hour-long)
+  image pull / container startup finishes (#1946). `formatStartingWorkSessionMessage`
+  now renders the `Session:` and `🔒 Isolation:` lines on the `🔄 Starting...`
+  message, and `buildExecuteAndUpdateMessage` tracks the session up front (before
+  awaiting the launch) so the run is addressable by `/watch`, `/log` and `/status`
+  during the whole startup window. A new `untrackSession` helper removes the
+  optimistically-tracked session if the launch fails, so a phantom session is never
+  monitored or resumed. Fix applies to every caller of the shared execution path
+  (`/solve`, `/hive`, `/task`).
+
+  The image-preparation log gap and host-image re-download were reported upstream,
+  fixed there, and are now pinned in this repo's images: `Dockerfile` /
+  `Dockerfile.dind` bump `start-command` `0.29.1` → `0.29.2` (link-foundation/start#138
+  — the `docker pull`/dind-boot phase is now recorded in the `$` session log), and
+  `Dockerfile.dind` bumps its base from `konard/box-dind:2.3.2` → `2.3.5`
+  (link-foundation/box#106 — the dind entrypoint now verifies host-image passthrough
+  actually seeded the nested daemon instead of silently re-downloading ~30 GB). A
+  deep case study is in `docs/case-studies/issue-1946/`.
+
+- 4fcdb9a: fix(auto-merge): treat timeout-cancelled CI as a failure and never finish a session with no log when `--attach-logs` is enabled (#1952)
+
+  A job that hits its `timeout-minutes` limit surfaces as a **check-run** with
+  conclusion `cancelled`, but the **parent workflow run** concludes `failure`.
+  `getDetailedCIStatus` only inspects check-runs, so the auto-merge loop saw the
+  lone `cancelled` check, posted a **"Cancelled CI/CD Requires Review"** comment and
+  stopped — even though the workflow run had failed and other jobs in it had failed
+  too. The cancelled branch of `getMergeBlockers` now cross-references the workflow
+  runs for the commit SHA via a new pure helper
+  `classifyCancelledCIByWorkflowRuns` (`src/cancelled-ci-rerun.lib.mjs`):
+  - a run still queued/in-progress → `ci_pending` (wait until **all** checks reach a
+    terminal state before auto-restarting);
+  - any completed `failure`/`timed_out`/`startup_failure` run → `ci_failure` (the AI
+    is restarted to fix it, instead of stopping for human review);
+  - otherwise → the original re-triggerable `ci_cancelled` flow (genuine manual
+    cancellation). The "requires review" stop path is skipped whenever a `ci_failure`
+    blocker coexists, and `startup_failure` is now counted as a failing run in the
+    branch-health check too.
+
+  Separately, the same session finished with **no log attached** despite
+  `--attach-logs` being enabled, because every attach path in `solve.mjs` is
+  conditional and the stop-for-review exits can return before any iteration uploads.
+  `attachLogToGitHub` now records a process-global `logAttachedToGitHub` flag on
+  every successful upload, and a final safety net (`attachFinalLogIfMissing` in the
+  new `src/attach-logs-guarantee.lib.mjs`) attaches the cumulative session log at the
+  end of `solve.mjs` whenever `--attach-logs` is on, a PR exists, and nothing has
+  attached a log yet. A session can no longer finish with no log when `--attach-logs`
+  is enabled.
+
+  Adds `tests/test-cancelled-timeout-fail-1952.mjs` (13 tests) and
+  `tests/test-attach-logs-safety-net-1952.mjs` (9 tests), plus a deep case study in
+  `docs/case-studies/issue-1952/` reconstructed from the real-world trigger
+  (xlabtg/teleton-agent PR #670).
+
+## 2.0.9
+
+### Patch Changes
+
+- c8b241a: Fix Claude public cost estimates for 1-hour prompt-cache writes by pricing `cache_creation.ephemeral_1h_input_tokens` at the documented 2x input rate instead of the 5-minute cache-write rate.
+
+## 2.0.8
+
+### Patch Changes
+
+- 072e941: fix(retry): keep the requested `--model` on transient overloads instead of switching to the fallback (#1949)
+
+  A transient **HTTP 529 "Overloaded"** result used to be classified as a
+  model-_capacity_ error (`isCapacity: true`), which made the shared retry helper
+  switch the user's requested `--model` to the configured fallback
+  (`opus -> opus-4-7`) on every overload. A 529 is a server-wide, transient
+  overload — not a signal that the selected model is full — so the run should retry
+  the **same** model. The overload branch in `src/tool-retry.lib.mjs` now returns
+  `isCapacity: false`; only a genuine "the selected model is at capacity" message
+  still triggers a `--model` switch. The fix lives in the shared helper, so every
+  tool (claude, codex, gemini, qwen, opencode, agent) inherits it.
+
+  Per-request fallback is now delegated to Claude Code itself: the claude tool
+  forwards `--fallback-model <id>` so overloads fall back _inside_ the CLI while our
+  `--model` stays stable.
+
+  Two display fixes remove the ambiguity that made this hard to diagnose:
+  - Warnings now render the resolved model ID alongside the alias, e.g.
+    `opus (claude-opus-4-8) -> opus-4-7 (claude-opus-4-7)`, via a new
+    `formatModelWithResolvedId` helper.
+  - The verbose per-retry "execution context" block now uses a shared
+    `logExecutionContext` helper that prints the resolved model actually passed to
+    the CLI, replacing a broken `argv.model === 'opus' ? 'opus' : 'sonnet'`
+    heuristic that mislabelled every non-`opus` alias as `sonnet`.
+
+  The PR/issue comment now shows the requested model with its resolved ID and the
+  requested thinking level (e.g. `high (~23999 tokens)`) via a new
+  `describeRequestedThinking` helper.
+
+## 2.0.7
+
+### Patch Changes
+
+- 6d9a2bb: feat(solve): log working-tree size before/after the AI agent and warn on Telegram when disk usage exceeds 5 GB (#1945)
+
+  `/solve` now records the size of its temporary working tree at two checkpoints:
+  after the repository is cloned (before the AI agent starts) and after the AI
+  working session ends. Both checkpoints emit a structured `📊 [DISK]` marker into
+  the captured solve log, so the cloned-repo size, the AI-induced delta, and the
+  final total are visible in `tail -f`-style debugging.
+
+  The session monitor parses those markers from the captured log and appends a
+  `💾 Disk usage` block to the Telegram completion message. The block raises a
+  warning when the cloned repository exceeds 5 GB, when the working tree grew by
+  more than 5 GB during the run, or when the total disk usage for the task
+  exceeds 5 GB — exactly the three conditions called out in the issue.
+
+  Sizing uses `du -sb` (byte-accurate on Linux), falls back to `du -sk` on BSD/
+  macOS, and finally to `fs.statSync` for single-file targets — no new runtime
+  dependency. The threshold is 5 GiB and uses a strict `>` comparison, so a tree
+  that lands at exactly 5 GiB does not warn.
+
+## 2.0.6
+
+### Patch Changes
+
+- 0c63706: Stop surfacing meaningless stream fragments as tool errors (#1941). When a tool
+  run is interrupted mid-stream (CTRL+C / SIGINT, exit code 130), the last captured
+  stdout line could be a stray structural character such as a lone `}`, which leaked
+  into the GitHub failure comment as "CLAUDE execution failed with }". A new shared
+  `isMeaningfulErrorText` helper (any error with at least one Unicode letter or digit
+  is real; pure punctuation is not) now guards the `extractToolErrorCore` chokepoint,
+  and a new `buildToolErrorMessage` helper labels interruptions explicitly
+  ("Claude command interrupted (CTRL+C)") across the Claude and OpenCode runners.
+- d4efc82: fix(playwright-mcp): do not abort the solve when the Playwright MCP preflight probe is inconclusive (#1943)
+
+  A `solve` run aborted before creating a pull request with
+  `❌ Playwright MCP preflight failed for Claude Code`. The local preflight ran
+  `timeout 5 claude mcp list`, but that command performs a live health check that
+  launches a browser and can take longer than five seconds; when the `timeout`
+  killed the probe, `ensureConnectedPlaywrightMcpServer` treated the non-zero exit
+  as a failure and stopped the whole run.
+
+  An inconclusive `mcp list` probe (timeout / crash / missing CLI) now falls back
+  to the local `@playwright/mcp` package check instead of aborting: if the package
+  is installed, the server connects on demand via Tool Search (issue #1901), so the
+  working session proceeds. The probe timeout now defaults to 30s and is overridable
+  via `PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS`, and the preflight emits verbose
+  diagnostics (probe exit code, matched rows, decision branch) so failures are
+  diagnosable from the log. The preflight still fails only when `@playwright/mcp`
+  is genuinely unavailable.
+
+## 2.0.5
+
+### Patch Changes
+
+- d815c7d: Treat a Claude Code `pending` Playwright MCP `system.init` status as a normal
+  still-connecting state instead of a failure (#1901). Claude Code enables Tool
+  Search by default, so the deferred `mcp__playwright__*` browser tools load on
+  demand and Claude waits for the connecting server before using them. Hive Mind
+  no longer aborts the working session on a `pending` status; only a terminal
+  `failed`/`error` status surfaces a non-blocking diagnostic in the session-start
+  comment. See `docs/case-studies/issue-1901`.
+
+## 2.0.4
+
+### Patch Changes
+
+- f1f9b10: fix(telegram): detect OOM/SIGKILL-ed detached sessions and resume tracking after a bot restart (#1927)
+
+  A `/solve` running in a detached `screen` session was OOM-killed (exit `137`),
+  but the Telegram bot stayed alive and **never reported the failure** — the job
+  silently hung forever. Two compounding gaps caused this:
+
+  **Root cause (RC-1, upstream).** The external `start-command` CLI's
+  `enrichDetachedStatus` re-derives a detached session's status from backend
+  liveness (`screen -ls`). When a shell lingers after the wrapped command is
+  already dead, `$ <id> --status` flips an already-completed record
+  (`status: executed`, `exitCode: 137`) **back to `executing` and nulls the exit
+  code**, even though `start` itself wrote an authoritative `Exit Code: 137` footer
+  to the log. The bot's monitor only reacts to a _terminal_ status, so the kill is
+  never surfaced. Confirmed against upstream source and filed with a runnable repro
+  as [link-foundation/start#134](https://github.com/link-foundation/start/issues/134)
+  (a regression of the fix for upstream #60/#101).
+
+  **Root cause (RC-2/3/4).** The session monitor's registry was in-memory only, so
+  a bot restart orphaned every detached `/solve`; there was no "last alive" marker
+  to bound what to resume; and the bot log could be overwritten on restart,
+  destroying the evidence needed to reconstruct the failure.
+
+  **Fix (defensive, consumer side — correct regardless of when upstream lands):**
+  - **`src/session-status.lib.mjs`** — a shared, dependency-free status vocabulary
+    (`RUNNING`/`KILLED`/`FAILURE`, signal classification for 137/143/139/130) so
+    every call site agrees on what an exit code means.
+  - **`src/isolation-runner.lib.mjs`** — `parseSessionExitFooter` /
+    `readSessionExitFromLog` read the **authoritative log footer**, plus
+    `checkBackendSessionAlive` / `isSessionRunning` probe the real backend.
+  - **`src/session-monitor.lib.mjs`** — when `--status` says `executing`, cross-check
+    the footer (authoritative) and a backend-liveness probe gated by a 90s minimum
+    session age, so a SIGKILL is reported instead of hanging, while a just-started
+    session is never misread.
+  - **`src/session-store.lib.mjs`** — durable session registry (atomic
+    `sessions.json` snapshot + append-only, never-truncated `sessions-events.jsonl`)
+    so a restart can **resume** tracking and finally report sessions killed while
+    the bot was down — resuming only sessions started **before** the bot's start
+    time.
+  - **`src/bot-logger.lib.mjs`** — every log line is prefixed with an ISO-8601
+    millisecond timestamp; structured `event()`/`heartbeat()` markers record "last
+    alive"; logs **rotate, never overwrite** (prior log preserved as a timestamped
+    backup) so no evidence is destroyed.
+  - **`src/bot-lifecycle.lib.mjs`** — heartbeat / resume-on-launch / orderly
+    shutdown extracted from `telegram-bot.mjs` as pure injectable factories; a
+    timestamped `bot_shutdown` marker distinguishes a clean stop from a hard kill.
+  - **`src/work-session-formatting.lib.mjs`** + `telegram-bot.mjs` — completion
+    messages now call out a **killed** outcome (❌ killed / signal) distinctly from
+    an ordinary failure.
+  - **`src/telegram-terminal-watch-command.lib.mjs`** — the same fix applied to the
+    live `/terminal_watch` loop (req #8, "fix in all places"): it decided
+    "completed" purely from `--status`, so a session killed while `--status` still
+    read `executing` would be **polled forever** with a misleading "running"
+    snapshot — the #1927 silent-hang, in the watch path. It now cross-checks the
+    authoritative log footer (`reconcileWatchCompletion`), stops on a recorded exit,
+    corrects the displayed status to the real terminal one (e.g. `killed`), and a
+    completed-but-failed session renders a ❌ failure title instead of a ✅.
+  - **`src/cleanup.os.lib.mjs`** + `src/cleanup.lib.mjs` — review follow-up:
+    deduplicated `$` session-data access (cleanup no longer re-derives sessions
+    from `screen -ls`/`tmux ls` + per-session `$ --status`; a single
+    `listSessionTasks()` reads the whole catalog from `$ --list`, the same source
+    `/queue`, `/limits` and the monitor already funnel through), and the cleanup
+    listing now annotates **every** hive-mind folder — active _and_ finished — with
+    which PR/issue and which session it belongs (or belonged) to.
+  - **`src/session-resume.lib.mjs`** — review follow-up: when a detached `/solve`
+    is killed, the surviving parent (the bot, or `/hive`) now surfaces a
+    ready-to-run `solve <url> … --resume <lastSessionId>` command in the
+    killed-session notification. A single `/solve` run prints many `Session ID:`
+    markers (auto-continue, watch restarts, manual resume chains); the module reads
+    the **last** marker from the log tail (`selectLastSessionId` /
+    `readLastSessionIdFromLog`), with a filesystem fallback
+    (`findLatestSessionLogId`). The bot deliberately **surfaces** the command rather
+    than auto-relaunching (a job that reliably OOMs would storm);
+    `planKilledSessionResume` bounds any automatic resume (default `maxAttempts: 1`).
+    The section is additive (existing `extraSections` path), emitted only for
+    `killed` `/solve` sessions, and failure-isolated so it can never break the
+    notification. `args` was added to the persisted session fields so the resume
+    command reproduces the original invocation exactly.
+
+  A `verbose` flag is threaded through the new status/footer/liveness/resume paths
+  with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).
+
+  Added `tests/test-issue-1927-*.mjs` (9 suites, 266 assertions: status vocabulary,
+  log-footer parsing, completion labeling, killed-detection, session store, resume,
+  bot logger, bot lifecycle, terminal-watch kill). Full deep-dive in
+  `docs/case-studies/issue-1927`
+  (timeline, 8 requirements, 5 root causes, per-requirement solutions, preserved
+  source artifacts), plus a runnable upstream repro under `experiments/`.
+
+## 2.0.3
+
+### Patch Changes
+
+- 40fbf3d: fix(isolation): mount git identity into docker-isolated containers and stop trusting premature terminal status (#1939)
+
+  A `solve` task launched with `--isolation docker` inside a Docker-in-Docker host
+  (`konard/hive-mind-dind:2.0.2`) failed at the system-check stage with
+  `❌ Git identity not configured`, even though `gh` was fully authenticated
+  (account `konard`). The captured terminal log shows the native start-command
+  (`$`) invocation mounting only `~/.config/gh`, `~/.claude`, and `~/.claude.json`
+  — **no git identity** — so `git config user.name`/`user.email` were unset inside
+  the container and `solve` aborted before doing any work.
+
+  Root cause: `getDockerIsolationAuthMounts` (`src/isolation-runner.lib.mjs`)
+  mounted `gh` and the per-tool credentials but never the git identity. `gh`
+  authentication is not a git identity. The fix mounts the host git identity
+  (`~/.gitconfig` and the XDG `~/.config/git`, honoring `GIT_CONFIG_GLOBAL` /
+  `XDG_CONFIG_HOME`) for **every** tool, alongside `gh`, so the fix applies to all
+  isolation callers at once. A new self-healing preflight,
+  `ensureHostGitIdentityForIsolation`, gives the mount something to mount: when the
+  host has no git identity it derives one from the authenticated `gh` account
+  (`gh-setup-git-identity` / `repairGitIdentity`) and, if that is impossible, emits
+  one actionable warning naming the exact downstream failure.
+
+  The same run also exposed a second problem: `$ --list` reported the detached
+  session as `status executed` with `exitCode -1` (and no `containerId`) while the
+  container was still running, masking the live container and its real exit code.
+  `isUnknownDockerExitCode` plus a docker-only cross-check in `isSessionRunning`
+  and `getIsolationSessionState` (`src/session-monitor.lib.mjs`) keep an ambiguous
+  `terminal + -1` docker session "running" until `docker inspect` confirms the
+  container has actually exited; real exit codes and non-docker backends are
+  unaffected. A verbose post-launch diagnostic now records `$ --status`, container
+  state, and local image presence so the next iteration can confirm the premature
+  status and the image re-pull from data.
+
+  The premature-terminal-status behaviour was reported upstream to
+  link-foundation/start and fixed there in `start-command@0.29.1`
+  (link-foundation/start#136); `Dockerfile` and `Dockerfile.dind` now pin
+  `start-command@0.29.1` so the fixed `$` binary ships in the images, while the
+  downstream cross-check stays as defense-in-depth for older hosts.
+
+  Added `tests/test-issue-1939-docker-isolation.mjs` (25 assertions) and a full
+  case study with timeline, root-cause analysis, and the captured logs under
+  `docs/case-studies/issue-1939`.
+
+## 2.0.2
+
+### Patch Changes
+
+- 19aea85: fix(retry): auto-resume on "Stream idle timeout - partial response received" (#1937)
+
+  A long-running solve session (391 turns, ~$34.11) had its streaming response
+  stall mid-answer. The Claude CLI surfaced it as a `result` event with
+  `is_error: true`, `subtype: "success"`, and:
+
+  ```
+  API Error: Stream idle timeout - partial response received
+  ```
+
+  Instead of retrying with the session preserved, the harness fell straight
+  through to the generic failure path and exited with code 1 after **zero
+  retries** — abandoning the whole session even though it had a valid session ID
+  and printed the exact `--resume` command needed to continue.
+
+  Root cause: the shared retry classifier `classifyRetryableError()`
+  (`src/tool-retry.lib.mjs`) had no branch for the stream-idle-timeout family, so
+  `isRetryable` was false, `isTransientError` evaluated to false, and the unified
+  exponential-backoff retry block was never entered.
+
+  This error is a transient transport-level stall (a slow/stuck server-sent-events
+  socket), not a request-content rejection — the on-disk session transcript stays
+  valid, which is why a manual `--resume` works. The fix adds one branch to
+  `classifyRetryableError()` returning
+  `{ isRetryable: true, isCapacity: false, label: 'Stream idle timeout (partial response)' }`,
+  so the existing retry block resumes the session with the same context after an
+  exponential backoff. Because the classifier is shared, this fixes the behaviour
+  for **all** tools (claude/codex/gemini/opencode/qwen/agent) at once.
+
+  Added `tests/test-issue-1937-stream-idle-timeout-retry.mjs` (17 assertions) and a
+  full case study with timeline, root-cause analysis, upstream references, and the
+  captured logs under `docs/case-studies/issue-1937`.
+
+## 2.0.1
+
+### Patch Changes
+
+- 70e1542: fix(retry): treat 5-hour "session limit" and "weekly limit" 429s as account usage limits, not transient throttles (#1935)
+
+  A long-running solve session (588 turns, ~$70.62) hit Claude's **5-hour session
+  limit**. The Claude CLI surfaced it as a `result` event with `is_error: true`,
+  `api_error_status: 429`, and:
+
+  ```
+  You've hit your session limit · resets 4pm (UTC)
+  ```
+
+  Instead of being treated as an **account usage limit** (post a comment with the
+  reset time + wait until the exact reset moment), it was put through the transient
+  exponential-backoff retry loop:
+
+  ```
+  ⚠️ Server rate limited (429) detected. Retry 1/10 in 2 min (session preserved)...
+     Error: You've hit your session limit · resets 4pm (UTC)
+  ⚠️ Server rate limited (429) detected. Retry 2/10 in 4 min (session preserved)...
+  ```
+
+  Each retry re-hit the same limit because the quota only frees at the reset time —
+  so the harness burned ~10 futile retries and never told the user when the limit
+  resets.
+
+  Root cause (regression from #1924): `src/claude.lib.mjs` set
+  `isRateLimitError = true` for **every** structured `api_error_status === 429`,
+  without checking whether the message was an account usage limit. Claude reports
+  **both** a transient throttle ("...not your usage limit...") and account
+  session/weekly limits with `api_error_status: 429`, so the unconditional check
+  swept genuine usage limits into the transient-retry path — ahead of the
+  `detectUsageLimit()` reset-time wait, which was therefore never reached.
+
+  Fix: `src/claude.lib.mjs` now only flags a structured 429 as a transient rate
+  limit when the message is **not** a usage limit
+  (`api_error_status === 429 && !isUsageLimitError(lastMessage)`), so session/weekly
+  limits fall through to the usage-limit handler that immediately posts a comment
+  and waits until the exact reset time (auto-resuming there with
+  `--auto-continue-limit`). `src/usage-limit.lib.mjs` additionally recognises the
+  "hit your session limit" / "hit your weekly limit" phrasing as a backstop (the
+  reset-time regex already matched "resets 4pm").
+
+  Added `tests/test-issue-1935-session-limit-429.mjs` (15 assertions) and a full
+  case study with timeline, blame history (PR #1924), root-cause analysis, and the
+  captured logs under `docs/case-studies/issue-1935`.
+
+## 2.0.0
+
+### Major Changes
+
+- fd84e85: Rename the cleanup executable to `hive-cleanup` and harden destructive confirmation parsing against hidden terminal control input.
+
+## 1.78.13
+
+### Patch Changes
+
+- a8035e9: Fail fast when watched GitHub repositories, issues, pull requests, or branches are deleted, closed, or no longer accessible instead of retrying them as unknown CI states.
+
+  Also fall back to a pinned working `use-m` bootstrap when the upstream latest unpkg entry is missing, so local and CI test startup remains stable.
+
+## 1.78.12
+
+### Patch Changes
+
+- 5f60c04: fix(isolation): default nested Docker daemon to fuse-overlayfs so multi-GB images fit on disk + add storage-driver/disk preflight diagnostics (#1914)
+
+  `--isolation docker` was reopened after PR #1915: native Docker isolation and
+  host-image passthrough now work, but the first isolated task on the >30 GB
+  `konard/hive-mind-dind` image still died with:
+
+  ```
+  failed to register layer: no space left on device
+  ```
+
+  even though most layers reported `Already exists` (the daemon was correctly
+  seeded — passthrough is working). The failure was during layer **registration**,
+  not download.
+
+  **Root cause (in this repo).** `Dockerfile.dind` baked `ENV
+DIND_STORAGE_DRIVER="vfs"` (commit 44d2c29e). `vfs` performs **no copy-on-write**:
+  it materializes a full, independent copy of the entire filesystem for _every_
+  layer, so a multi-GB image's on-disk footprint becomes the _sum_ of all
+  cumulative layer sizes — many times the image size — and overflows the disk.
+  Worse, pinning the env var **defeated box-dind's storage-driver auto-detection**
+  (`overlay2 → fuse-overlayfs → vfs`, with graceful fallback): box would otherwise
+  have picked a copy-on-write driver here. `/dev/fuse` is present (the dind
+  container runs `--privileged`), the `fuse-overlayfs` binary ships in box-dind,
+  and `overlay` is in `/proc/filesystems` — so copy-on-write was available the
+  whole time but was being bypassed by the `vfs` pin.
+
+  **Fix.** `Dockerfile.dind` now pins `ENV DIND_STORAGE_DRIVER="fuse-overlayfs"` — a
+  copy-on-write driver that also works overlay-on-overlay (the compatibility reason
+  `vfs` was originally chosen; `overlay2` can fail on the overlay-backed hosts our
+  deploys run on). Under `fuse-overlayfs`, registering a 498 MB top layer on a
+  ~30 GB base costs ~498 MB instead of ~30 GB, so the image fits. Empirically
+  verified in the box-dind environment (`docs/case-studies/issue-1914/data/fuse-overlayfs-capability-proof.log`).
+
+  **Self-diagnosing preflight.** `src/isolation-runner.lib.mjs` gained two probes —
+  `checkDockerStorageDriver()` and `checkDockerDiskSpace()` — wired into
+  `preflightDockerIsolation()`. Before running an isolated task it now warns, with
+  an actionable remedy, when the nested daemon is on `vfs` (even if the image is
+  already present) or when free space at the Docker data root is below 40 GiB, so
+  the next operator hitting this gets a clear breadcrumb instead of a cryptic
+  `no space left on device`. Both probes are best-effort and never throw.
+
+  Added `tests/test-issue-1914-storage-driver-diagnostics.mjs` (34 assertions),
+  extended `tests/test-issue-1914-preflight-passthrough.mjs` and
+  `tests/test-docker-dind-variant.mjs`, refreshed `docs/DOCKER*.md`, and expanded
+  the `docs/case-studies/issue-1914` case study with the reopen timeline, refined
+  root-cause analysis, captured evidence, and an upstream observability request
+  (link-foundation/box#104: warn when the nested daemon lands on `vfs`).
+
+## 1.78.11
+
+### Patch Changes
+
+- 24fb17e: fix(retry): auto-resume on server-side 429 "Server is temporarily limiting requests" rate-limit errors (#1924)
+
+  A long-running solve session (177 turns, ~72 min) was thrown away when the Claude
+  CLI surfaced a **server-side temporary rate limit**:
+
+  ```
+  API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited
+  ```
+
+  The CLI reports this as a `result` event with `is_error: true` and
+  `api_error_status: 429`, and the HTTP response carries `x-should-retry: true`.
+  This is a transient throttle that clears on its own — distinct from an account
+  usage/quota limit (the message literally says "not your usage limit", and there
+  is no reset time to wait for).
+
+  Root cause: the error matched neither `classifyRetryableError` (no pattern for
+  the 429 throttle wording) nor `isUsageLimitError` (correctly, since it is not a
+  quota limit), so it fell through to a hard failure with exit code 1 and **no
+  auto-resume**, unlike every other transient class (overload 500/529, 503,
+  internal server error, request timeout, socket drops).
+
+  Fix: `classifyRetryableError` (in `src/tool-retry.lib.mjs`, the shared classifier
+  used by every tool wrapper — claude, codex, gemini, opencode, qwen, agent) now
+  recognises this throttle and marks it retryable (`isCapacity: false`, so no model
+  switch), so it retries with the session preserved (`--resume`) after a backoff.
+  `src/claude.lib.mjs` additionally detects the structured `api_error_status === 429`
+  directly (robust to wording changes) and logs a verbose diagnostic with the
+  `request_id`. The matcher is narrow so genuine account usage limits stay on the
+  usage-limit reset-time path.
+
+  Added `tests/test-issue-1924-rate-limit-retry.mjs` (18 assertions) and a full
+  case study with timeline, root-cause analysis, upstream references
+  (anthropics/claude-code#53915, #53922), and the captured logs under
+  `docs/case-studies/issue-1924`.
+
+## 1.78.10
+
+### Patch Changes
+
+- 02faadb: fix(auto-merge): stop `/merge` from hanging forever on fork PRs with external-only `success` checks (#1918)
+
+  The `/merge` auto-merge watch loop could spin on the same commit indefinitely
+  (observed 73 minutes, 72 identical iterations, before a human killed it). It
+  happened on a **fork pull request** whose only repo workflows trigger on `push`
+  (which never fires for fork commits in the base repo) while an external app
+  (CodeRabbit) reported CI status `success` with **0 workflow runs** for the head
+  SHA.
+
+  Root cause: the watch loop reset its consecutive "no workflow runs" safety-valve
+  counter (`consecutiveNoRunsChecks`) on every iteration whenever
+  `ciStatus.status !== 'no_checks'`. Because external-only checks make the status
+  `'success'`, the counter was pinned at `1` and never reached
+  `MAX_NO_RUNS_CHECKS`, so the valve that should have ended the wait never fired —
+  the loop logged `check 1/5` forever.
+
+  Fix: `getMergeBlockers()` now returns a `noWorkflowRunsForCommit` flag that is
+  true while it is still waiting for PR-triggered workflow runs to register, and a
+  new pure helper `shouldResetNoRunsCounter(ciStatus, noWorkflowRunsForCommit)`
+  only resets the counter when CI is **not** in that waiting state. The counter
+  now climbs `1 → 2 → … → 5`, trips the safety valve in a few minutes, and `/merge`
+  proceeds. The #1503 behaviors (reset on new push / on genuine CI runs) are
+  preserved and regression-guarded.
+
+  Added `tests/test-merge-stuck-no-workflow-runs-1918.mjs` and a full case study
+  with timeline, root-cause analysis, and the captured logs under
+  `docs/case-studies/issue-1918`.
+
+- 9e00f14: fix(telegram): never re-execute a forwarded command (`/task`, `/stop`, `/tokens`, `/log`, `/terminal_watch`) (#1922)
+
+  Forwarding a message that starts with a bot command (for example the bot's own
+  `/task <url>` reply, or any `/task https://github.com/owner/repo`) caused the
+  Telegram bot to execute the command again — creating a brand-new GitHub issue or
+  spawning a session the user never intended. `/task` and `/split` only checked
+  `isOldMessage` and never rejected forwarded messages, unlike `/help`, `/solve`,
+  `/hive`, `/merge`, etc.
+
+  Root cause: the existing `isForwardedOrReply` filter rejects _both_ forwards and
+  replies, so commands that use the reply feature (`/task` issue creation, `/solve`
+  URL extraction, targeted `/stop`) could not use it without breaking replies — and
+  were therefore left without any forwarded check at all.
+
+  Fix: a new dedicated `isForwarded(ctx)` filter detects _only_ forwarded messages
+  (new `forward_origin` API + legacy `forward_*` fields) and intentionally ignores
+  replies. It is now applied to every command that previously lacked a forwarded
+  guard — `/task`, `/split`, `/stop` (including targeted `/stop <uuid>`), `/tokens`,
+  `/log`, `/terminal_watch`/`/watch` — and `/solve` was refactored to reuse it
+  instead of its ad-hoc inline check. Genuine user replies keep working.
+
+  Added unit tests for `isForwarded` and for forwarded `/task`/`/split` rejection,
+  plus a full case study with timeline and per-command audit under
+  `docs/case-studies/issue-1922`.
+
+## 1.78.9
+
+### Patch Changes
+
+- a3d4d41: fix(isolation): use native Docker isolation and seed the nested daemon for `--isolation docker` (#1914)
+
+  Two problems made `--isolation docker` behave wrong on the Docker-in-Docker bot
+  host:
+  1. **It wasn't real Docker isolation.** Hive Mind launched isolated tasks as
+     `$ --isolated screen -- docker run …`, so `$ --status` reported
+     `options / isolated screen` — a screen wrapper around a raw `docker run`, not
+     the native Docker backend. Hive Mind now builds
+     `$ --isolated docker --image <img> [--privileged] --shell sh … --detached --session <uuid> -- '<cmd>'`,
+     so start-command owns the container lifecycle and `--status` reports real
+     Docker isolation.
+  2. **The 30+ GB image was re-downloaded for every task.** The bot runs inside a
+     DinD container whose nested `dockerd` starts with an empty image store. box
+     can seed that daemon from the host (host-image passthrough), but only when the
+     host Docker socket is bind-mounted — and when it isn't, passthrough is a
+     _silent_ no-op, so the first isolated task pulled the whole image from the
+     registry. Hive Mind now runs a startup preflight (`preflightDockerIsolation`)
+     that probes the nested daemon and, when the image is absent, prints the exact
+     remediation (mount `/var/run/docker.sock` + set `DIND_HOST_PASSTHROUGH_IMAGES`,
+     or run `scripts/preload-dind-isolation-image.mjs`). The production deploy
+     script was the real root cause — its `docker run` never mounted the host
+     socket — and has been fixed to pass `-v /var/run/docker.sock:…:ro` plus the
+     allowlist.
+
+  Also filed the silent-passthrough footgun upstream as link-foundation/box#102
+  (warn when an allowlist is set but no socket is mounted) — **now fixed and shipped
+  in box v2.3.2** — and bumped this repo's base images from `konard/box:2.3.1` /
+  `konard/box-dind:2.3.1` to `2.3.2` so the upstream warning ships at the source.
+  Added a deep case study with the full reproduction, timeline, and root-cause
+  analysis under `docs/case-studies/issue-1914`.
+
+## 1.78.8
+
+### Patch Changes
+
+- cb4986f: Close linked issues when a PR is merged into a non-default branch, and stop misreporting the cause (#1895).
+
+  GitHub only registers a PR's `closingIssuesReferences` and auto-closes the linked
+  issue when the PR targets the repository's **default branch**. PRs created against a
+  stacked / sub-issue branch (e.g. `issue-47-…` via `--base-branch`) therefore showed
+  an empty closing-reference connection and left their issues open after merge — the
+  exact failure reported for meta-language PRs #65/#66 / issues #49/#50.
+  - src/github-issue-auto-close.lib.mjs (new): `gitHubAutoClosesOnMerge`,
+    `classifyIssueLinkStatus`, `buildNonDefaultBranchExplanation`, and
+    `ensureLinkedIssueClosedAfterMerge` — diagnose why a closing reference is missing
+    and explicitly close the linked issue after a non-default-base merge (no-op when
+    GitHub already handles it, the keyword is absent, or the issue is already closed).
+  - src/solve.auto-pr.lib.mjs: replace the misleading "ISSUE LINK MISSING — add
+    Fixes #N" warning with an accurate "ISSUE LINK DEFERRED" explanation when the
+    keyword is present but the PR targets a non-default branch.
+  - src/solve.auto-continue.lib.mjs (`collectIssuePrCandidates`): detect the existing
+    PR for an issue by BOTH GitHub's `linked:issue` search (legacy, preserved) and the
+    deterministic `head:issue-N-` branch search. A PR targeting a non-default base
+    branch never appears in `linked:issue`, so `--auto-continue` previously failed to
+    resume it and risked creating a duplicate; the head-branch search guarantees the
+    PR↔issue association regardless of base branch.
+  - src/solve.auto-merge.lib.mjs (watchUntilMergeable + attemptAutoMerge),
+    src/github-merge.lib.mjs / src/github-merge-issue-close.lib.mjs
+    (`closeLinkedIssueIfNotAutoClosed`, used by the /merge queue), and
+    src/telegram-merge-queue.lib.mjs: close the linked issue explicitly after a merge
+    into a non-default branch. All gh calls route through the rate-limit-aware wrappers.
+  - tests/github-issue-auto-close.test.mjs: 14 cases reproducing the non-default-base
+    bug and verifying the diagnosis + fallback.
+  - tests/solve-auto-continue-detection-1895.test.mjs: 7 cases proving non-default-base
+    PRs are detected for auto-continue (head-branch search), legacy linked detection is
+    preserved, results are deduped/merged, and search failures degrade gracefully.
+  - docs/case-studies/issue-1895: deep case study with downloaded GraphQL/PR/issue
+    evidence, reconstructed timeline, root-cause analysis, requirement mapping, and the
+    external-reporting decision. Includes `github-api-linking-research.md` — a
+    definitive, introspection-backed answer to "is there an API to link a PR to an
+    issue?" (no: confirmed via live GraphQL schema introspection), with the gap
+    reported upstream (GitHub Community discussions #112224 / #155339 / #179613).
+
+## 1.78.7
+
+### Patch Changes
+
+- c1617ae: Fix `/task` issue creation when replying to a message: combine the inline command (e.g. the repository URL) with the replied-to message (the issue text) instead of dropping the reply, so replying with `/task <repository-url>` now creates the GitHub issue (issue #1916).
+
+## 1.78.6
+
+### Patch Changes
+
+- cf85feb: Fix Codex sub-session budget display by parsing compact diagnostics and preserving compact-derived sub-session rows.
+
+## 1.78.5
+
+### Patch Changes
+
+- b3d6588: Remove Hive Mind's npm global prefix workaround now that use-m handles non-writable npm global roots upstream.
+
+## 1.78.4
+
+### Patch Changes
+
+- 798c352: Fix Playwright MCP availability detection so pending or unavailable server status no longer enables browser automation hints, surface pending status in interactive session comments, and harden Docker verification so Playwright MCP/CLI availability is checked instead of only grepping for a registration.
+
+## 1.78.3
+
+### Patch Changes
+
+- b346808: Use the latest gh-upload-log package for attached log uploads and rely on its default auto mode/shared repository fallback instead of passing explicit strategy flags.
+
+## 1.78.2
+
+### Patch Changes
+
+- 70db26f: Ensure Telegram work-session completion messages recover pull request links from completed solve logs when linked-issue lookup does not return a PR.
+
+## 1.78.1
+
+### Patch Changes
+
+- dc8bb99: Group interactive `system.thinking_tokens` events into one editable PR comment and handle observed system lifecycle events without unrecognized-event noise.
+- d704dfc: fix(install): redirect npm global prefix when root-owned to avoid EACCES at startup (#1897)
+
+  `use-m` loads runtime dependencies (command-stream, getenv, yargs, …) by shelling
+  out to `npm install -g <alias>@npm:<pkg>@latest`, which installs into the global
+  prefix reported by `npm root -g`. When the CLI was launched under a system-wide
+  Node.js whose global `node_modules` is owned by root (e.g.
+  `/opt/node-v24.16.0-linux-x64/lib/node_modules`), that install failed with
+  `npm error code EACCES … rename … command-stream-v-latest` and the whole process
+  crashed at the very first `use()` call (`Error: Failed to install
+command-stream@latest globally.`). This commonly happens when hive-mind was
+  installed with `bun add -g` (user-owned `~/.bun/...`) but invoked under a system
+  Node whose global prefix needs root.
+
+  The new `src/npm-global-prefix.lib.mjs` preflight mirrors npm's own documented
+  EACCES remedy: before any real `use-m` bootstrap runs, it detects a non-writable
+  npm global prefix and redirects `npm_config_prefix` (honoured by both
+  `npm install -g` and `npm root -g`) to a user-writable `~/.npm-global`,
+  prepending its `bin` to `PATH`. The common case where the prefix is already
+  writable stays a no-op with no extra `npm` spawn.
+
+  Hive Mind now routes direct repository `use-m` bootstraps through
+  `src/use-m-bootstrap.lib.mjs`, including CLI entry points, shared source modules,
+  scripts, and executable tests. The workaround skips Windows' different global
+  layout, skips Bun/Deno runtimes, and respects explicitly preset
+  `npm_config_prefix` or `NPM_CONFIG_PREFIX` values.
+
+## 1.78.0
+
+### Minor Changes
+
+- 9506f03: fix(telegram): de-duplicate `/queue` display and split long messages without breaking markdown (#1891)
+
+  The `/queue` (alias `/solve_queue`) detailed display repeated the same words on every
+  line — every executing row said `(processing, …)`, every waiting row said
+  `(waiting, …)`, and the (almost always identical) per-item waiting reason was printed
+  once per item. Empty queues were also still printed. This wasted vertical space and
+  pushed real data off screen.
+
+  Display changes (`formatDetailedStatus` + queue helpers):
+  - Executing rows now render compactly as `• owner/repo#number (▶️ <dur>)` and pending
+    rows as `• owner/repo#number (⏳ <dur>)` — the status word is replaced by the emoji
+    marker inside the duration parenthesis.
+  - Processing, pending, completed, and failed entries are split into distinct
+    compact lists per tool, with counts only on those list labels instead of a
+    duplicated `(pending: n, processing: n)` tool-header summary.
+  - The shared waiting reason is shown **once per tool** (only when all pending items
+    agree on it) instead of once per item.
+  - Empty queues are skipped entirely.
+  - All queued items are listed (no per-queue truncation on the active lists).
+
+  Message-splitting changes (`splitTelegramMessageText` in `telegram-safe-reply.lib.mjs`,
+  the single universal splitter every Telegram send path funnels through):
+  - Splitting now happens only on line boundaries, so inline Markdown entities
+    (bold/italic/links) are never cut in half.
+  - Fenced code blocks stay balanced per chunk: a split inside a code block closes the
+    fence at the end of one chunk and reopens it — repeating the language — at the start
+    of the next. The original fence marker (```vs`~~~`) and indentation are preserved.
+  - Pathologically long single lines are hard-split as a fallback.
+
+  Both behaviours are covered by extensive new tests
+  (`tests/test-telegram-message-split-1891.mjs`, `tests/test-queue-compact-display-1891.mjs`).
+
+## 1.77.1
+
+### Patch Changes
+
+- 3f9dd61: fix(ci): retry `npm install`/`npm ci` on transient registry network errors (#1903)
+
+  CI run 27332260596 failed in the `test-execution` job when `npm install` aborted
+  mid-download with `npm error code ECONNRESET` / `npm error network aborted` — a
+  transient GitHub-runner ↔ npm-registry network drop, not a code defect. The bare
+  install step had no retry, so a single dropped socket failed the whole job (a
+  false positive).
+  - Add `scripts/npm-install-with-retry.mjs`: a Node-builtin-only wrapper that runs
+    `npm install`/`npm ci` and retries the whole command with exponential backoff on
+    transient failures only, reusing the `isRetryableNpmError`/`computeBackoffMs`
+    helpers introduced for issue #1724 (no code duplication). Verbose mode via
+    `NPM_INSTALL_RETRY_VERBOSE=1`; tunable via `NPM_INSTALL_MAX_ATTEMPTS` /
+    `NPM_INSTALL_BASE_DELAY_MS`.
+  - Route all 8 dependency-install steps in `.github/workflows/release.yml` through
+    the wrapper (fixing the bug in every place it existed).
+  - Add `.npmrc` raising npm's built-in `fetch-retries` budget, hardening local,
+    CI, and Docker installs as defense in depth.
+  - Unit test `tests/test-npm-install-with-retry-1903.mjs` (mocked npm runner) and a
+    deep case study under `docs/case-studies/issue-1903/`.
+
+## 1.77.0
+
+### Minor Changes
+
+- a50d201: feat(solve): experimental `--escalate` mode (#1885)
+
+  Add an experimental `solve` option family that solves a task cheaply first and
+  escalates to a more capable (more expensive) model only while unfinished work
+  remains. The model ladder, cheapest → most capable, is `haiku < sonnet < opus <
+fable`.
+  - `--escalate` (bare) → the default range `sonnet-fable`.
+  - `--escalate sonnet-opus` → an explicit `<lower>-<upper>` range (`-` delimits the
+    bounds; only the short ladder names are allowed inside a range).
+  - `--escalate-from haiku` → shortcut for `--escalate haiku-fable` (aliases such as
+    `opus-4-8` accepted here, since a single value is unambiguous).
+  - `--escalate-steps N` (default 1) → keep each tier for N working sessions before
+    escalating (e.g. `2` → two sonnet sessions, then two opus, then two fable).
+
+  The first regular solve session runs on the range's lower bound (unless `--model`
+  is explicitly pinned). After it finishes, the escalate loop re-scans the pull
+  request for deferred/unfinished-work indicators — reusing the detector from issue
+  #1883 — and escalates to the next tier only if work remains; otherwise it stops
+  early so the expensive tiers are never invoked. Restarts are capped at 3
+  consecutive errors and stop on a usage limit. Escalate is Claude-only and runs
+  before `--finalize` / `--keep-working`.
+
+  Pure parsing/planning helpers live in a network-free module
+  (`src/solve.escalate.lib.mjs`) with full unit-test coverage
+  (`tests/test-escalate-1885.mjs`); a deep case study is compiled under
+  `docs/case-studies/issue-1885/`.
+
+- 53a0544: Update Hive Mind Docker images to `konard/box` and `konard/box-dind` 2.3.1 so Docker-in-Docker deployments can use the upstream host-image passthrough allowlist.
+
+## 1.76.2
+
+### Patch Changes
+
+- 5d8d6c1: fix(cost): accumulate Anthropic cost across limit-reset resumes (#1886)
+
+  The session cost summary could report a large negative "Difference" (e.g.
+  `$-11.422796 (-31.66%)`) between the public pricing estimate and the Anthropic
+  figure. Root cause: the public estimate is computed from the session JSONL,
+  which accumulates the **entire** session across every limit-reset resume, while
+  the Anthropic `total_cost_usd` from the stream-json `result` event is scoped to a
+  **single** Claude process (only the resumed run). Comparing a full-session
+  estimate against a single-process figure produced a misleading gap even though
+  both numbers were individually correct.
+
+  The per-token math (`calculateModelCost`) was audited and is correct; this is a
+  scope mismatch, not a pricing error.
+
+  Fix:
+  - New `src/anthropic-cost-accumulator.lib.mjs` keeps a model-agnostic running
+    total of Anthropic's per-process `total_cost_usd` (it sums dollars, never
+    inspecting per-token prices, so it is correct for all models).
+  - `runClaude` seeds from and returns the cumulative total on every terminal path;
+    the cross-process limit-reset resume threads it via a new hidden
+    `--previous-anthropic-cost` option (`autoContinueWhenLimitResets`).
+  - A usage-limit hit ends as `is_error` with no `success` result event, so its
+    cost was previously discarded. The cost from a non-success terminal `result`
+    event is now kept as a fallback and folded into the accumulator, closing the
+    gap in the reported scenario.
+  - `displayCostComparison` / `displaySessionTokenUsage` print a verbose
+    accumulation breakdown ("cumulative across resume iterations: this run … +
+    carried forward … = …") so the figure is never mysterious again.
+
+  A deep case study (timeline, proven root causes, exact reproduced numbers, online
+  prior art incl. `anthropics/claude-code#13088`) is compiled under
+  `docs/case-studies/issue-1886/`.
+
+## 1.76.1
+
+### Patch Changes
+
+- 13e7e6a: Docker isolation: reuse the host image instead of re-downloading a copy inside the (nested) Docker daemon (#1879).
+  - src/isolation-runner.lib.mjs: add `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` to pin the
+    isolation image tag, and `HIVE_MIND_DOCKER_ISOLATION_PULL` (always|missing|never) to emit a
+    `docker run --pull` policy. Verbose mode now logs the resolved image and pull policy.
+  - scripts/preload-dind-isolation-image.mjs: seed a DinD container's nested daemon from the
+    host (`docker save | docker exec -i … docker load`) so isolated tasks reuse the host image.
+  - .env.example: document the Docker isolation image/pull controls.
+  - Dockerfile / Dockerfile.dind / coolify/Dockerfile: bump the box base images to
+    `konard/box:2.2.0` / `konard/box-dind:2.2.0` (and the `docs/UBUNTU-SERVER*.md` examples).
+    v2.2.0 ships box's native host-image passthrough (box#94/#95), so the DinD deployment can seed
+    the nested daemon from the host automatically with
+    `-v /var/run/docker.sock:/var/run/host-docker.sock:ro -e DIND_HOST_PASSTHROUGH=public`.
+  - tests/test-issue-1879-docker-image-reuse.mjs: regression coverage.
+  - docs/case-studies/issue-1879: deep case study with logs, timeline, root causes, and runbook;
+    records that box#94 shipped in v2.2.0 and reports two upstream follow-ups — box#96
+    (public-mode passthrough test false positive) and box#97 (per-repository passthrough allowlist).
+
+- 7335a73: Continue fork PRs with "Allow edits by maintainers" instead of halting on a misclassified fork divergence (#1893).
+
+  When the solver continues a cross-repository PR opened from another contributor's fork, it
+  synced the upstream default branch and then tried to push it back to `origin` — the
+  contributor's fork, which the operating maintainer does not own. GitHub rejected the push
+  with `! [remote rejected] main -> main (permission denied)`, and the solver misclassified
+  that permission error as a fork divergence (the heuristic matched the substring `rejected`),
+  halting with `Repository setup halted - fork divergence requires user decision` and advising
+  `--allow-fork-divergence-resolution-using-force-push-with-lease` — a flag that cannot help,
+  since force-push also requires fork write access.
+  - src/solve.branch-divergence.lib.mjs: add two pure helpers —
+    `shouldPushDefaultBranchToFork({currentUser, forkedRepo})` (skip the push when the user does
+    not own the fork; fail-open when owner/user is unknown) and `isPermissionDeniedPushError()`
+    (recognize a permission-denied rejection so it is never treated as divergence).
+  - src/solve.fork-sync.lib.mjs: new module holding `setupUpstreamAndSync` (extracted from
+    solve.repository.lib.mjs to stay under the 1500-line limit, re-exported unchanged). It now
+    resolves the current user, skips the fork's default-branch push when the user is not the fork
+    owner, and on a permission-denied push warns and continues on the PR branch instead of
+    halting. Genuine non-fast-forward divergence still triggers the original guidance. Adds
+    verbose diagnostics explaining each skip/continue decision.
+  - tests/test-issue-1893-fork-pr-permission-denied.mjs: regression coverage (9 cases) using the
+    exact failure output from the run log.
+  - docs/case-studies/issue-1893: deep case study with downloaded logs/data, timeline, root
+    causes, fix, codebase-wide audit, and existing-components review.
+
+## 1.76.0
+
+### Minor Changes
+
+- 80c56fa: Add experimental `--use-handoff` HANDOFF.md continuity **Agent Skill** (issue
+  #1877). When enabled, Hive Mind deploys a real `SKILL.md` (the Agent Skills open
+  standard created by Anthropic) into the session working directory for both tools
+  natively — `.claude/skills/handoff/SKILL.md` for `--tool claude` and
+  `.agents/skills/handoff/SKILL.md` for `--tool codex` — so the very same skill
+  teaches each tool to read `HANDOFF.md` (repository root) first when present and
+  keep it updated with task, current state, decisions, next steps, gotchas, and
+  critical files. A minimal activation nudge in the system prompt ensures the
+  read-at-session-start behavior fires reliably. Because each Hive Mind working
+  session runs in an ephemeral working directory cloned from the PR branch, the
+  handoff file is committed to the branch — making it the shared cross-session,
+  cross-tool memory so Claude and Codex can continue each other's work in a single
+  pull request. The deployed `SKILL.md` is tooling (re-deployed every session) and
+  is kept out of the target repository via `.git/info/exclude`, so it never appears
+  in the PR. Disabled by default; auto-forwarded by `hive`. Includes a case study
+  in `docs/case-studies/issue-1877/` and tests in `tests/handoff-prompt.test.mjs`.
+
+## 1.75.0
+
+### Minor Changes
+
+- d2adf6b: feat(solve): experimental `--keep-working-until-all-requirements-are-fully-done` (#1883)
+
+  Add an experimental `solve` option that, after the main run (and any `--finalize`
+  pass), scans three cheap sources — the pull request description, the AI solution
+  summary, and the added lines of changed markdown documents — for strong
+  indicators of deferred work ("out of scope", "future work", "follow-up PR",
+  "deferred", "delayed", "TODO"/"TBD", etc.) using ~14 regular expressions. When
+  indicators are found it auto-restarts the AI tool with the concrete detected
+  reasons plus a verbatim reinforcement prompt, and repeats until the scan is clean
+  or the restart limit is reached.
+
+  Limit semantics:
+  - `--keep-working-until-all-requirements-are-fully-done` (bare) → 5 restarts
+  - `... 3` → an explicit count
+  - `... forever` / `unlimited` / `infinite` / `0` → no limit (with a hard cap of 3
+    consecutive errors as a safety net)
+
+  Aliases: `--keep-going-until-all-requirements-are-fully-done`, `--keep-working`,
+  `--keep-going`.
+
+  Detection lives in a pure, network-free module
+  (`src/solve.keep-working.detect.lib.mjs`) for full unit-test coverage;
+  orchestration lives in `src/solve.keep-working.lib.mjs`. A deep case study is
+  compiled under `docs/case-studies/issue-1883/`.
+
+## 1.74.12
+
+### Patch Changes
+
+- e921b34: fix(retry): treat "socket connection was closed unexpectedly" as a transient, retryable error (#1881)
+
+  The Claude/Codex CLI surfaces transient network disconnects (the Anthropic SDK's
+  underlying `fetch()` socket dropping mid-stream) as a synthetic error:
+  `API Error: The socket connection was closed unexpectedly.` Previously
+  `classifyRetryableError()` did not recognise this family of errors, so a single
+  dropped socket aborted the entire solve session (exit code 1, zero retries) and
+  discarded all in-progress work. These socket/connection drops
+  (`socket connection was closed unexpectedly`, `socket hang up`, `ECONNRESET`,
+  `connection reset`, `Connection error`, `fetch failed`, `network connection lost`)
+  are now classified as retryable, so the session is retried with `--resume`
+  (context preserved) via the existing exponential-backoff path. Because
+  `classifyRetryableError` is the shared classifier, the fix covers the Claude,
+  Codex and Agent execution loops at once.
+
+## 1.74.11
+
+### Patch Changes
+
+- faa10c5: Add support for Claude Fable 5 (`claude-fable-5`) and its un-classified sibling Claude Mythos 5 (`claude-mythos-5`) as selectable models for `--tool claude` (Issue #1875). New aliases `fable`, `fable-5`, `claude-fable-5`, `mythos-5`, and `claude-mythos-5` resolve in the centralized model registry, support the `[1m]` 1M-context suffix, the full effort ladder including `xhigh` and `max` (default `high`), and 128K max output tokens. Both models are adaptive-thinking-only, so `getClaudeEnv` removes `MAX_THINKING_TOKENS` for them (the API rejects disabled thinking), mirroring Opus 4.7/4.8. Documented default fallbacks are registered (`claude-fable-5 -> opus` reflecting Fable 5's safety-classifier hand-off to Opus 4.8; `claude-mythos-5 -> fable`). Existing defaults (`opus`, `sonnet`, `haiku`, `opusplan`) are unchanged — this adds Fable 5 as an option without altering current behavior. `fable` is surfaced in `--model` help. Includes `tests/test-fable-5-model-support.mjs` (127 tests) and a full case study under `docs/case-studies/issue-1875/`.
+
+## 1.74.10
+
+### Patch Changes
+
+- 88adc75: Fix the auto-resume wait calculation for weekly `--tool codex` usage limits (Issue #1869, phase 2). After the display parser was fixed to keep the full reset date, the separate auto-resume parser in `solve.validation.lib.mjs` still crashed with `Invalid time format: Jun 11, 2026, 12:27 AM` and, even when it parsed, discarded the date and scheduled for today/tomorrow — so auto-resume woke up far too early. `calculateWaitTime` now delegates to the robust date-aware `parseResetTime` from `usage-limit.lib.mjs` (honoring explicit year, weekly date, and timezone) and returns the real time-until-reset, and all three call sites now forward the timezone. This consolidates onto a single reset-time parser.
+
+## 1.74.9
+
+### Patch Changes
+
+- c4070e1: Fix incorrect usage-limit reset time for `--tool codex`. Codex reports weekly limits as a full calendar date (e.g. "try again at Jun 11th, 2026 12:27 AM"), but the reset-time parser dropped the month/day/year and kept only the time, making a multi-day weekly reset look like a same-day 5-hour reset. This both mis-informed users and made auto-resume fire far too early. `extractResetTime` now parses ordinal days and explicit years (keyword-independent), `parseResetTime` honors an explicit year, and Codex now traces the raw limit message and parsed reset under verbose mode.
+  </content>
+
+## 1.74.8
+
+### Patch Changes
+
+- c132ce0: Fix `/stop <issue-or-pr-url>` so it can stop tasks that started immediately
+  (empty queue) or were already dispatched to a detached isolation session. The
+  URL lookup now also consults the session-monitor registry and forwards CTRL+C
+  to the tracked start-command UUID, so all three stop modes (issue URL, PR URL,
+  and session UUID) work end-to-end (#1871).
+
+## 1.74.7
+
+### Patch Changes
+
+- 8ea7110: Document the issue #1858 case study and add an experimental private Telegram
+  `/auth` command for allowlisted chat owners to check or start GitHub, Claude,
+  and Codex auth flows.
+
+## 1.74.6
+
+### Patch Changes
+
+- e07b243: Split oversized Telegram text messages in the safe reply/edit helper so localized `/help` output cannot exceed Telegram's 4096-character limit.
+
+## 1.74.5
+
+### Patch Changes
+
+- c20c2ec: Stop auto-restart-until-mergeable from restarting on CodeRabbit review quota/credit failures, and report them as Ready for review with skipped checks instead.
+
+## 1.74.4
+
+### Patch Changes
+
+- 9b88700: Fix Telegram Docker isolation to use Hive Mind images with scoped GitHub, Claude, and Codex auth mounts.
+
+## 1.74.3
+
+### Patch Changes
+
+- 741752e: Bump the Docker-in-Docker base image to `konard/box-dind:2.1.4` so `docker exec` sessions default to the `box` user with `/home/box` while dockerd still starts correctly.
+
+## 1.74.2
+
+### Patch Changes
+
+- d726744: Add cleanup process diagnostics for mapping agent PIDs to task sessions and stopping orphaned terminal-session agents.
+
+## 1.74.1
+
+### Patch Changes
+
+- 59eee9a: feat(interactive-mode): display images the AI reads/writes inline in PR comments (#1843)
+
+  When `--interactive-mode` posts Claude/Codex tool activity as PR comments, any
+  images the AI reads or produces (the `Read` tool on a screenshot, Playwright
+  captures, MCP image results) were previously serialized as multi-kilobyte
+  base64 blobs inside the "Raw JSON" section — unreadable and pushing comments
+  toward GitHub's size limit.
+
+  Those base64 payloads are now uploaded to hidden custom Git refs
+  (`refs/hive-mind-media/pr-...`) via the Git Data API and embedded inline in the
+  comment as commit-SHA `![](…?raw=true)` blob URLs, so reviewers see the actual
+  image (GitHub's Camo proxy renders `?raw=true` blob URLs inline for both public
+  and private repos, whereas `data:` URIs are stripped by the comment sanitizer).
+  Uploads are content-hashed (SHA-256) for dedup, and the base64 is redacted from
+  the Raw JSON section with a `<image data: N base64 chars>` placeholder.
+
+  Enabled by default; use `--no-interactive-image-upload` to opt out, in which
+  case each image degrades to a compact metadata note instead of being embedded.
+  All comment bodies continue to pass through the token sanitizer (#1745).
+
+## 1.74.0
+
+### Minor Changes
+
+- b00a51c: feat(cleanup): add a task-aware `cleanup` command to free disk space safely (#1848)
+
+  Adds a new `cleanup` bin that removes stale hive-mind temporary
+  directories/files under the system temp dir while preserving folders that belong
+  to currently-running tasks, protected system paths, and any clone with
+  uncommitted or unpushed work.
+
+  Highlights:
+  - `--dry-run` / `-n` prints the full list of kept folders and folders that would
+    be deleted (with sizes and reasons), deleting nothing.
+  - `--keep-active-tasks-folders` (default on) detects active tasks from running
+    processes (`/proc`) and live isolation sessions (`screen`/`tmux` +
+    `$ --status`), and matches clones to tasks by branch name using the same logic
+    as `solve` (issue → `issue-{n}-{hex}` scoped to the repo; PR → its resolved
+    head branch). Disable with `--no-keep-active-tasks-folders`.
+  - Keeps `/tmp/start-command/` and system-owned temp entries by default;
+    `--force-start-command` allows deleting `/tmp/start-command` when needed.
+  - Optional Ubuntu/system cleanup behind explicit flags: `--apt`, `--journal`,
+    `--docker`, `--npm` (and `--system` shorthand), with `--sudo`.
+  - Safe by default: keeps unrecognised entries unless `--all`, never deletes
+    paths held open by a running process or used by the cleanup process itself,
+    and requires confirmation unless `--force`.
+
+## 1.73.9
+
+### Patch Changes
+
+- 0a5b615: fix(telegram): list currently-executing tasks in `/solve_queue` (`/queue`), not just count them (#1837)
+
+  After the original #1837 work added clickable lists, the detailed status still
+  showed only a `processing: N` **count** for in-flight work — the executing task
+  itself was never rendered as a clickable link, which is exactly the case the
+  issue cares most about ("search tasks that are stuck or yet executing").
+
+  Root cause: the processing **count** comes from the external snapshot
+  (`max(pgrep, tracked-isolation-session count)`), but the processing **list**
+  iterated the queue's own in-memory `processing` Map. `executeItem()` deletes an
+  item from that Map the moment the work is dispatched to a detached
+  screen/isolation session, so while a task is actually executing the Map is empty
+  — count says `1`, list shows nothing.
+
+  The fix sources the executing items from the same place the count comes from. A
+  new `getRunningSessionItems()` in `session-monitor.lib.mjs` returns the
+  currently-running detached sessions (with their GitHub `url`, `tool`, `status`,
+  `startTime`), reusing the existing isolation `$ --status` / non-isolation
+  screen-liveness checks. New helpers `collectExecutingItems` and
+  `formatQueueProcessingItems` merge those sessions with the in-memory Map (deduped
+  by normalized GitHub URL, filtered by tool) and render them as the `▶️
+[owner/repo#n](url) (status, duration)` lines, capped with `... and N more`.
+  `formatDetailedStatus()` now lists executing tasks from this merged source.
+
+  Adds `tests/test-issue-1837-executing-list.mjs` plus new `solve-queue.test.mjs`
+  cases, and documents the root cause and fix in `docs/case-studies/issue-1837`.
+
+## 1.73.8
+
+### Patch Changes
+
+- 324ed89: fix(solve): surface the core tool error instead of bare `CLAUDE execution failed` (#1845)
+
+  When an AI tool run failed, both the terminal and the posted GitHub
+  `🚨 Solution Draft Failed` comment showed only the generic
+  `CLAUDE execution failed`, even though the underlying tool had reported a
+  specific cause (for example `API Error: Output blocked by content filtering
+policy`). The real message was captured inside the tool runner but dropped at
+  the failure-return boundary, so no downstream consumer could display it.
+
+  Every AI tool runner now surfaces a structured `errorInfo` (with a `.message`)
+  on its failure returns (`claude`, `gemini`, `opencode`, `qwen`; `codex` and
+  `agent` already did). Two shared helpers in `lib.mjs` — `extractToolErrorCore`
+  (the core error string) and `formatToolExecutionFailure` (the full
+  `CLAUDE execution failed with API Error: Output blocked by content filtering
+policy` message) — share one precedence so every surface stays consistent.
+  All failure sites now use them: `solve.mjs` (terminal exit, GitHub failure
+  comment, critical-error auto-commit reason), `solve.auto-merge.lib.mjs` and
+  `solve.watch.lib.mjs` (GitHub message + new terminal `Error details:` lines),
+  and `review.mjs`. The helpers collapse whitespace, cap the core error length,
+  and never fall back to the agent's success summary.
+
+  `isApiError` in `solve.restart-shared.lib.mjs` now classifies through the same
+  extractor, so a Claude `API Error:` reported via `errorInfo` (never `result`)
+  is detected and watch mode's `MAX_API_ERROR_RETRIES` backoff guard keeps
+  working instead of retrying forever.
+
+  The auto-commit-on-critical-error path (#1834) is confirmed to run on the
+  failure exit and is now labeled with the real failure cause; the same guarded
+  auto-commit is also added to `handleFailure()` so the `uncaughtException`,
+  `unhandledRejection`, and top-level-catch exits preserve uncommitted work too.
+  Adds unit, cross-tool, auto-commit, and `isApiError` tests plus a deep case
+  study in `docs/case-studies/issue-1845`.
+
+## 1.73.7
+
+### Patch Changes
+
+- 6188172: feat(telegram): list executed issues/PRs as clickable links in /solve_queue, add /queue alias (#1837)
+
+  The `/solve_queue` detailed status previously showed only per-tool counts and a
+  final `Completed: N, Failed: M` line, so a stuck or running task could not be
+  opened from the message. It now lists each processing (`▶️`), pending (`•`),
+  recently completed (`✅`), and failed (`❌`, with the error reason) item as a
+  clickable `[owner/repo#number](url)` link, capped per section
+  (`HIVE_MIND_MAX_DISPLAY_ITEMS_PER_QUEUE`, default 5) with a localized
+  `... and N more` line to stay under Telegram's 4096-character limit.
+
+  Also adds `/queue` as a shorter alias for `/solve_queue` (both the entity-based
+  command regex and the text-based fallback handler), and documents the work in
+  `docs/case-studies/issue-1837`.
+
+## 1.73.6
+
+### Patch Changes
+
+- defa8c4: fix(claude): repair corrupted thinking-block transcripts so resume preserves context (#1834)
+
+  Follow-up to the Issue #1834 recovery ("can we do even better?"). The previous
+  recovery (PR #1835) was reactive: a plain resume of a transcript poisoned by a
+  corrupted extended-thinking block (`{ "type": "thinking", "thinking": "" }` with a
+  kept signature) just repeats the `400 ... thinking blocks ... cannot be modified`
+  error, so recovery almost always fell through to a **fresh restart that discards
+  dozens of turns** of accumulated context (50 turns / $3.84 in the second
+  reproduction log).
+
+  Recovery Phase 1 now **proactively repairs the on-disk session transcript** before
+  resuming: `repairCorruptedThinkingBlocks` (new
+  `src/claude.session-transcript-repair.lib.mjs`) strips the empty-text
+  `thinking`/`redacted_thinking` blocks from the session JSONL — a workaround proven
+  upstream (the Anthropic API permits _omitting_ earlier thinking, just not
+  _modifying_ it). When repair succeeds the resume keeps all accumulated context;
+  when it can't help, recovery still falls back to a fresh restart, so there is no
+  regression.
+
+  The repair is conservative: it never throws, only removes empty-text blocks (valid
+  signed thinking is untouched), never empties an assistant message, and writes a
+  one-time `<session>.jsonl.pre-repair-backup` before rewriting. The case study under
+  `docs/case-studies/issue-1834` is updated with a second reproduction log and the
+  new repair-then-resume design.
+
+## 1.73.5
+
+### Patch Changes
+
+- 7cb9b7e: fix(claude): recover from corrupted extended-thinking blocks instead of looping (#1834)
+
+  A long Claude (Opus) agentic run with extended thinking + tool use can leave a
+  thinking block in the session transcript corrupted (text emptied while the
+  original signature is kept). The Anthropic API then rejects every following turn
+  with `400 ... `thinking`or`redacted_thinking` blocks in the latest assistant
+message cannot be modified`, permanently poisoning the on-disk session — so any
+  `--resume` retry fails forever. This is an upstream Claude Code bug
+  (anthropics/claude-code#63147).
+
+  Hive Mind now detects this terminal error (`classifyRetryableError` →
+  `requiresFreshSession`) and recovers with a two-phase escalation: it **tries to
+  resume the existing session first** (capped by
+  `HIVE_MIND_MAX_THINKING_BLOCK_RESUMES`, default 1) and only when resume is not
+  possible does it **discard the un-resumable session and restart fresh** (capped
+  by `HIVE_MIND_MAX_THINKING_BLOCK_RESTARTS`, default 2) — rather than retrying the
+  dead session or failing outright.
+
+  Additionally, on **all** critical errors Hive Mind now auto-commits (and
+  best-effort pushes) any uncommitted changes by default before recovery resets
+  the session, so partial work is preserved in the PR branch history. This is
+  on by default and can be toggled with `HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR`.
+
+  Verbose logging records the `request_id` and `messages.N.content.N` path for
+  diagnostics. A deep case study with the full reproduction log is added under
+  `docs/case-studies/issue-1834`.
+
+## 1.73.4
+
+### Patch Changes
+
+- bfdc3fe: Add support for Claude Opus 4.8 (issue #1832). The bare `opus` alias for the `claude` tool now resolves to `claude-opus-4-8`, and the explicit `opus-4-8` / `claude-opus-4-8` aliases (plus their `[1m]` variants for the 1M-token context window) are accepted everywhere existing Opus aliases are. All earlier aliases keep working unchanged — `opus-4-7` / `claude-opus-4-7`, `opus-4-6` / `claude-opus-4-6`, `opus-4-5`, `sonnet`, `haiku`, and `opusplan` continue to map to the same model IDs as before. The `--fallback-model` default chain for the `claude` tool extends to `opus`/`opus-4-8` → `opus-4-7` → `opus-4-6`; the `--think xhigh`/`max` levels remain supported (4.8 shares Opus 4.7's effort surface and adaptive-only thinking, so Claude Code never emits `MAX_THINKING_TOKENS` for it); `--show-thinking-content` still opts into thinking output on 4.8 the same way it does on 4.7. Adds the deep case study under `docs/case-studies/issue-1832/` (covering the requirements, solution plan, and verification matrix) and `tests/test-opus-48-model-support.mjs` (175 assertions) alongside the existing 4.7 regression test. The English `docs/CONFIGURATION.md` row text is left unchanged in this PR to keep all four language siblings in sync; the case study is the authoritative user-facing documentation for the 4.8 behavior.
+
+## 1.73.3
+
+### Patch Changes
+
+- a3eab04: Fix `solve` aborting with `GitHub compare API not ready - cannot create PR safely` when the compare/diff endpoint returns a transient HTTP 500 (`this diff is temporarily unavailable due to heavy server load`, code `not_available`). The auto-PR readiness gate polled `/repos/{owner}/{repo}/compare/{base}...{head}` to confirm the pushed commits were visible, but GitHub renders that diff lazily and returns 500 under load even though the branch and commits were already pushed and `gh pr create` (which does not render the full diff) would have succeeded. A new `isTransientCompareApiError` detector recognises the "heavy server load" / `not_available` 500 and the standard 5xx gateway codes (but NOT 404 fork mismatch or a literal `0`), and the gate now degrades gracefully — marking the compare ready and proceeding to PR creation, still guarded by branch verification and the local `git rev-list` commit check. The fork-404 mismatch and genuine 0-commits paths remain fatal.
+
+## 1.73.2
+
+### Patch Changes
+
+- 0af65ad: Handle the auto-PR placeholder being listed in the target repository's `.gitignore` without aborting the whole run (issue #1825). Previously `git add .gitkeep` exited non-zero and the solver threw `Failed to add .gitkeep` → `FATAL ERROR: PR creation failed`. Now, when the placeholder (`.gitkeep` or `CLAUDE.md`) is gitignored, the solver by default prints a clear, environment-agnostic root-cause explanation and stops cleanly instead of forcing the commit. Two opt-in flags are added (usable with both `solve` and `/solve`): `--remove-git-keep-from-git-ignore` removes the literal placeholder entry from `.gitignore` first and then commits normally, and `--force-git-keep-commit` commits the placeholder anyway with `git add -f`.
+
+## 1.73.1
+
+### Patch Changes
+
+- df8b776: Stop the auto-restart-until-mergeable and watch loops from treating the AI agent's own session comments (e.g. free-form "CI now green" status updates posted through the authenticated account) as new human feedback, which caused an endless restart loop until the iteration limit (issue #1827). The check window is now advanced monotonically, every comment the authenticated account posts during a session is tracked by ID, and watch-mode feedback counting excludes tool-generated comments by marker and tracked ID.
+
+## 1.73.0
+
+### Minor Changes
+
+- 1cd647d: Fix all errors on graceful shutdown and add an experimental working-session guard.
+
+  `hive` now fully waits for every in-flight `/solve` to finish before exiting on CTRL+C / `--stop`: signal handling is delegated to a single owner (resolving a double SIGINT-handler race that called `process.exit(130)` and cut the wait short), each solve worker is spawned in its own detached process group so the terminal's SIGINT no longer aborts solve/codex mid-task, and the wait has no time cap. Worker stderr is no longer mislabeled as `ERROR` — the child exit code remains the authoritative failure signal.
+
+  Building on that, a new experimental `--do-not-shutdown-in-the-middle-of-working-session` option is added to `solve` and enabled by default for `hive`. With it, an interrupt (CTRL+C / SIGTERM) no longer aborts the AI tool mid-run: if an AI working session is in progress, solve finishes it, auto-commits any uncommitted changes, then shuts down gracefully (exit 130/143); if solve is only idle-waiting (e.g. for CI/CD) it stops immediately, and a second interrupt force-stops. `hive` now forwards a controlled SIGTERM to each in-flight `/solve` worker on the first CTRL+C (instead of only waiting) and passes the flag to every worker (opt out with `--no-do-not-shutdown-in-the-middle-of-working-session`). Graceful shutdown is treated as a normal stop, so it no longer posts a spurious "solution draft failed" comment. Standalone `solve` keeps the flag off by default, so its behavior is unchanged except that an interrupt now always auto-commits uncommitted changes before exiting.
+
+## 1.72.7
+
+### Patch Changes
+
+- 61e2935: Fix "Failed to add .gitkeep" abort during auto-PR creation when the target repository's `.gitignore` matches the seed placeholder (issue #1825). Placeholder staging now routes through `addPlaceholderFileToGit`, which detects the ignored path with `git check-ignore` and retries with `git add -f`. Because the placeholder is created by the solver to seed the initial commit and removed once the task completes, force-adding it is safe.
+
+## 1.72.6
+
+### Patch Changes
+
+- 57f15ec: Detect same-account human feedback in auto-restart comment monitoring only when the AI tool is idle, while still filtering hive-mind tool-generated comments by marker and tracked ID.
+
+## 1.72.5
+
+### Patch Changes
+
+- c3a89a3: Recover auto-PR creation when a rejected push leaves the remote branch matching local HEAD, and improve push rejection diagnostics with exact branch and compare links.
+
+## 1.72.4
+
+### Patch Changes
+
+- 82d440c: Fix fork creation verification for dotted repository names such as GitHub Pages forks.
+
+## 1.72.3
+
+### Patch Changes
+
+- 502e78f: Use `lino-i18n` for Hive Mind translation loading and runtime lookup.
+
+## 1.72.2
+
+### Patch Changes
+
+- 055a1a0: Fix `--auto-attach-solution-summary` so Codex-authored comments that use the
+  visible "Working session summary" heading are counted as AI comments instead of
+  being mistaken for hive-mind's automated summary comment.
+
+## 1.72.1
+
+### Patch Changes
+
+- 249646e: Fix: Move Claude CLI resume command from GitHub comment to logs
+
+  When usage limit is reached, the GitHub comment now only mentions the
+  `--auto-continue-on-limit-reset` option instead of showing bash commands.
+  This is more user-friendly for Telegram bot users who don't use CLI commands directly.
+
+  The Claude CLI resume command is still available in the logs (in the collapsed
+  block or gist link), allowing advanced users to resume manually if needed:
+
+  ```bash
+  (cd "/tmp/gh-issue-solver-..." && claude --resume session-id)
+  ```
+
+  Changes:
+  - GitHub comments now only suggest using the `--auto-continue-on-limit-reset` option
+  - Resume commands are kept in logs only (not in the visible comment)
+  - Session ID is still shown for reference
+
+  Fixes #942
+
+## 1.72.0
+
+### Minor Changes
+
+- fffdfbf: Add experimental `--resume-on-auto-restart` support for resuming Claude auto-restart sessions with a minimal uncommitted-change prompt.
+
+## 1.71.1
+
+### Patch Changes
+
+- aae5a08: Serialize merge queue auto-resolve sessions so conflicting pull requests resolve and drain CI one at a time.
+
+## 1.71.0
+
+### Minor Changes
+
+- aacdb06: Make the `--tool gemini` integration produce meaningful JSON output and reach
+  feature parity with `--tool claude` / `--tool codex`. Resolves #1809.
+  - The wrapper now feeds the prompt to gemini-cli through `command-stream`'s
+    `stdin` option instead of `cat <prompt-file> | gemini`, so the upstream
+    non-zero exit code is no longer swallowed by the pipeline.
+  - A new `detectGeminiPlainTextError` helper surfaces gemini-cli's plain-text
+    failures (auth required, quota exceeded, invalid model, unknown argument,
+    fatal error) as structured wrapper errors so headless callers stop seeing
+    silent `success: true` runs when authentication is missing. Tracked upstream
+    in [`google-gemini/gemini-cli`'s `validateNonInteractiveAuth`](https://github.com/google-gemini/gemini-cli/blob/main/packages/cli/src/validateNonInterActiveAuth.ts);
+    see `docs/case-studies/issue-1809/upstream-issue-draft.md` for the proposed
+    upstream fix.
+  - A run that emits zero `init`/`message`/`tool_use`/`result` JSONL events is
+    now classified as a failure regardless of exit code, so empty runs cannot be
+    reported as success anymore.
+  - New optional flags wired through to gemini-cli: `--gemini-sandbox`
+    (`--sandbox`), `--gemini-extensions` (`--extensions`),
+    `--gemini-include-directories` (`--include-directories`, in addition to
+    `tempDir`/`workspaceTmpDir` which are always included), and
+    `--gemini-allowed-mcp-servers` (`--allowed-mcp-server-names`). `--verbose`
+    now also toggles gemini-cli's own `--debug` flag.
+  - New tests in `tests/test-gemini-support.mjs` lock in plain-text auth-error
+    surfacing, zero-event failure detection, and the verbose/include-directories
+    argv plumbing.
+  - Case study published in `docs/case-studies/issue-1809/`.
+
+## 1.70.0
+
+### Minor Changes
+
+- 35dc089: Add `--auto-resolve` to the `/merge` Telegram command. After the normal queue finishes, the bot now iterates every PR that was skipped because of merge conflicts and dispatches a `solve <pr-url> --auto-merge` session through `start-screen` — the same path other commands use — so conflict resolution runs with the default `sonnet` model and the PR is merged once the session finishes. Each PR/issue reference in the `/merge` progress and final messages is now rendered as a clickable MarkdownV2 link to the actual pull request or issue. Resolves #1805.
+
+## 1.69.18
+
+### Patch Changes
+
+- 9aa5659: Fix `--auto-fork` mode failing when continuing an existing fork PR whose
+  fork name already contained the upstream-owner prefix. `setupRepository`
+  in `solve.repository.lib.mjs` was applying the
+  `--prefix-fork-name-with-owner-name` option to `forkRepoName` (which is
+  the authoritative head repo name from the PR's `headRepository.name`),
+  producing a doubled prefix like
+  `konard/labtgbot-labtgbot-telegram-claude-agent` and a 404 lookup. The
+  prefix option now only controls fork _creation_, not fork _lookup_:
+  when `forkRepoName` is present, the expected fork is
+  `${forkOwner}/${forkRepoName}` and no alternate-name fallback is
+  attempted. Resolves #1803.
+
+## 1.69.17
+
+### Patch Changes
+
+- 46422f1: Increase the default `HIVE_MIND_USAGE_API_CACHE_TTL_MS` from 10 → 13 minutes so the Claude Usage API (`/api/oauth/usage`) is queried less frequently and we stop tripping the upstream "Resets in 3m Xs" rate-limit message. Operators can still override the value via the environment variable. Resolves #1798.
+
+## 1.69.16
+
+### Patch Changes
+
+- ca0d938: Fix Telegram work-session completion failing with "Bad Request: can't parse entities" when the discovered Pull request URL contained Markdown-significant characters (`_`, `*`, `` ` ``, `[`). `appendPullRequestLine` (issue #1688) inserted the raw URL into a Markdown message even though the surrounding `Issue:` line was already escaped by `buildTelegramInfoBlock`, so a repo slug like `save_visiogetbb/pull/8` opened an italic entity at byte offset 318 that never closed. The appended `Pull request:` line is now passed through `escapeMarkdown`, and `safeReply`/`safeEditMessageText`/`installTelegramFormattingFallback` now log the offending byte-offset window and the plain-text fallback under `--verbose` so future parse errors point straight to the unescaped character. Resolves #1801.
+
+## 1.69.15
+
+### Patch Changes
+
+- fbda6de: Fix `--auto-fork` failing on private repositories with read-only access when forking is allowed. `handleAutoForkOption` now probes the `allow_forking` repository attribute before bailing out: when it is `true`, fork mode is enabled (the same behaviour already used for public repos without write access); when it is explicitly `false`, the fatal exit explains that direct branch mode needs push/write access, fork mode is disabled, and the maintainer must either grant Write access or enable private forking; when it cannot be determined, we fall through with a verbose warning so `gh repo fork` can produce a precise downstream error. Resolves #1795.
+
+## 1.69.14
+
+### Patch Changes
+
+- 32af9e1: Show subscription end date in `/limits` for Claude and Codex when the underlying providers expose it. Claude trials display the trial end date from the OAuth profile; Codex displays the renewal date decoded from the ChatGPT JWT (`chatgpt_subscription_active_until`). Lines are only rendered when real data is available.
+
+## 1.69.13
+
+### Patch Changes
+
+- 52dfa8e: Preserve pull request `.gitkeep` edits during final cleanup so intentional `.gitkeep` deletions are not re-added.
+
+## 1.69.12
+
+### Patch Changes
+
+- 8ca35d6: Fix Telegram bot localization fallbacks for supported languages.
+
+## 1.69.11
+
+### Patch Changes
+
+- bdca974: Notify existing pull requests when solver pre-exit failures happen before a working session can post its own failure comment.
+
+## 1.69.10
+
+### Patch Changes
+
+- 7d58938: feat: add opt-in GitHub API rate-limit usage logging
+
+  Adds optional logging of current GitHub API rate-limit usage through the centralized `gh` retry wrapper so every wrapped GitHub CLI call can report quota usage while debugging.
+
+  Features:
+  - Disabled by default for backward compatibility
+  - Enable with `--github-rate-limits-logging` when debugging API usage
+  - Logs current `core`, `graphql`, and `search` rate-limit buckets after each centralized wrapped `gh` attempt
+  - Keeps the logging probe non-fatal so quota logging cannot break solve workflows
+
+  Example output:
+
+  ```
+  📊 GitHub rate limits after $gh (gh api repos): core: 780/5000 used (+29 since last check), 4220 remaining, resets 2026-05-12T10:30:00.000Z; graphql: 10/5000 used (no change), 4990 remaining, resets 2026-05-12T10:30:00.000Z
+  ```
+
+## 1.69.9
+
+### Patch Changes
+
+- 9d04a2f: Detect empty repositories before branch creation when Git reports an unborn branch name.
+
+## 1.69.8
+
+### Patch Changes
+
+- 175eaee: Fix two defects in the Telegram `/stop` command. (1) When `/stop` cancels a queued task by URL or reply, the original "⏳ Waiting (… queue #N)" card is now edited in place to show the task was cancelled (instead of leaving it stale). (2) Allow the user who originally ran `/solve` or `/hive` to `/stop` their own task by UUID or URL in a group chat, mirroring the requester authorization already used by `/terminal_watch` and `/watch` (PR #1779). The chat-creator fallback is preserved, so chat owners can still stop any task.
+
+## 1.69.7
+
+### Patch Changes
+
+- 2ea2bb7: Extend Telegram `/stop` to accept a GitHub issue or pull-request URL (passed as the argument or contained in the replied-to message). The bot looks the URL up in the in-memory solve queue and either cancels the queued item or forwards CTRL+C via `$ --stop <UUID>` to the running isolated session. The UUID flow from #524 and the chat-level pause flow from #1081 are preserved.
+
+## 1.69.6
+
+### Patch Changes
+
+- c2c51fa: Allow Telegram `/terminal_watch` and `/watch` to be used by the user who started a tracked session while preserving chat-owner access and private-repository DM routing.
+
+## 1.69.5
+
+### Patch Changes
+
+- 31b0f7e: Add issue language auto-detection for solve work prompts and localize limits output.
+
+## 1.69.4
+
+### Patch Changes
+
+- 105172b: Fix auto-PR creation failure on fork-of-fork repositories. When `solve` runs against an issue in a repository that is itself a GitHub fork and the user has direct write access, `gh pr create` previously resolved the base repository to the upstream parent (because `gh repo clone` auto-adds an `upstream` remote for forks), producing a misleading "No commits between" error. The auto-PR command builder now always passes `--repo ${owner}/${repo}` so the PR is created against the explicit target. The fatal error block also detects the failure mode and prints a fork-aware diagnostic with the resolved remotes and a manual recovery command.
+- d89243f: Stabilize the version-info timing test that broke CI/CD by using the same 30 second reasonable bound as the broader version-info structure test. The version collector still runs commands in parallel, but individual commands can legally spend 5 seconds on a timeout and then another 5 seconds on a fallback, so the previous 10 second wall-clock assertion was too tight for GitHub-hosted runners.
+- db56b5a: Sync custom fork base branches proactively. When a user passes `--base-branch` in fork mode, the solver now copies the requested branch from `upstream` to the user's fork before creating the issue branch, and falls back to the same recovery if branch creation still trips on a missing `origin/<baseBranch>`. This prevents the `fatal: 'origin/<baseBranch>' is not a commit` failure that surfaced for issue #1772 when an existing fork pre-dated upstream's custom branch.
+
+## 1.69.3
+
+### Patch Changes
+
+- d7f95e8: Add experimental `--auto-support-agents-md-as-claude-md` support for temporarily exposing AGENTS.md as CLAUDE.md during Claude runs.
+- 890e81f: Stop auto-merge from waiting forever when cancelled CI cannot be re-run automatically.
+
+## 1.69.2
+
+### Patch Changes
+
+- 0ff36b4: Count open draft pull requests when `/hive --skip-issues-with-prs` checks linked solution drafts, preventing duplicate work while an existing PR is still in progress.
+
+## 1.69.1
+
+### Patch Changes
+
+- 2911597: Fix feedback comment counting to run local git timestamp checks in the prepared repository directory, avoiding misleading `not a git repository` diagnostics in detached solve sessions.
+
+## 1.69.0
+
+### Minor Changes
+
+- 8939a2a: Add experimental `--show-limits` virtual option to hive-telegram-bot's `/solve` and `/hive` commands. When set, the bot embeds a Claude (or Codex) usage snapshot in the executing message and a delta block (start → end, with a parallel-sessions disclaimer) in the completion message. Limits are fetched via the existing 20-minute cached helpers so the upstream usage API isn't rate-limited. The flag is stripped before the args reach `/solve` or `/hive`, and bot administrators can disable it with `TELEGRAM_SHOW_LIMITS=false`. Refs: #594.
+
+## 1.68.0
+
+### Minor Changes
+
+- cbc7033: Switch the test runner to folder-based discovery and deprecate `start-screen` in favour of `--isolated screen` (issue #1758).
+  - `scripts/run-tests.mjs` now discovers every `*.mjs` / `*.test.mjs` / `*.test.js` file under `tests/` automatically. The hard-coded `LEGACY_DEFAULT_TESTS` allow-list is gone, so new test files no longer need a runner update to be picked up.
+  - New markers complement the existing `@hive-mind-test-suite <name>` marker:
+    - `@hive-mind-integration` — skip the file in the default suite; opt in via `--suite integration` or `HIVE_MIND_RUN_INTEGRATION=1`.
+    - `@hive-mind-test-skip` — exclude helper / fixture modules from every suite.
+  - `tests/integration-guard.mjs` exposes `skipUnlessIntegration(import.meta.url)` for token- or network-heavy tests.
+  - `src/start-screen.mjs` and `src/telegram-command-execution.lib.mjs::executeStartScreen` print a one-shot deprecation banner to stderr (suppressible with `HIVE_MIND_SUPPRESS_DEPRECATIONS=1`) recommending `--isolated screen`, which is already the default for `hive`/`solve` invocations through the Telegram bot.
+  - Adds regression tests `tests/test-issue-1758-runner-discovery.mjs`, `tests/test-issue-1758-start-screen-deprecation.mjs`, and `tests/test-issue-1758-integration-guard.mjs`.
+  - Documents the analysis under `docs/case-studies/issue-1758/`.
+
+## 1.67.2
+
+### Patch Changes
+
+- 240231e: Verify the pull request still links to the issue after every work session inside `--watch`, `--auto-restart-until-mergeable`, and `--finalize`, so that an iteration that turns out to be the last one cannot leave the PR un-linked when the AI rewrote the description without a closing keyword.
+
+## 1.67.1
+
+### Patch Changes
+
+- d37f752: Working session summary now always appears before the working session log on every PR comment thread. The per-iteration code in auto-restart-until-mergeable mode and watch / temporary auto-restart mode now posts the summary comment before uploading the log, matching the existing top-level flow.
+
+## 1.67.0
+
+### Minor Changes
+
+- d88aa94: Add `--ui-language` and `--work-language` flags for two-track i18n (issue #378). The existing `--language LOCALE` continues to set both tracks at once; `--ui-language LOCALE` overrides only UI/log strings, and `--work-language LOCALE` overrides only the language the AI uses for free-form output (PR/issue comments, commit messages, chat replies). Code, identifiers, and CLI strings stay in their original form. Supported locales: `en` (default), `ru`, `zh`, `hi`. The Telegram bot now resolves the user's effective locale and propagates it as `--language` to spawned solve/hive/task processes when no language flag is already present.
+
+## 1.66.0
+
+### Minor Changes
+
+- f744d5a: Add internationalisation (i18n) for user-facing terminal output and the Telegram bot. Translations are stored in `links-notation` files under `src/locales/` (`en`, `ru`, `zh`, `hi`) and loaded via `lino-objects-codec`. Adds a `--language <en|ru|zh|hi>` option to `solve`, `hive`, `task`, and `review` (defaults to detected system locale). The Telegram bot picks each user's language from `ctx.from.language_code` with a per-user override settable through a new `/language <code|default>` command (in-memory, resets on bot restart). Built-in commands `/limits`, `/version`, `/solve`, `/hive`, and `/language` now reply in the user's selected language. AI prompts are intentionally untouched - only human-facing strings are translated.
+
+## 1.65.2
+
+### Patch Changes
+
+- 0214c9e: Retry transient 5xx/network errors across all `gh` exec sites. Previously a single 504 from the GitHub GraphQL endpoint could abort `solve` during `gh pr create`. The retry helper now handles HTTP 502/503/504, socket hang up, ECONNRESET, ETIMEDOUT, and TLS handshake timeouts in addition to rate-limit errors, with a separate retry budget and exponential backoff. All direct `execAsync('gh ...')` sites are routed through `execGhWithRetry`.
+
+## 1.65.1
+
+### Patch Changes
+
+- d5cd096: Add a solve flag to disable separate error-report issue creation while preserving original issue failure comments, and improve pre-PR branch divergence diagnostics.
+
+## 1.65.0
+
+### Minor Changes
+
+- 14fe57e: Prevent normal Docker release manifest jobs from downloading DinD digest artifacts.
+- 74ce579: Reduce `/terminal_watch` Telegram edits by updating only when the displayed terminal snapshot changes and count only real terminal snapshot updates.
+- 78ab6e2: Add `--auto-delete-branch-on-merge` option for the `solve` command. When set together with `--watch`, the branch is deleted from the remote after the pull request is merged; when set together with `--auto-merge`, the auto-merge call requests branch deletion as part of the merge. The option is opt-in (default `false`), enables full GitHub Flow automation, avoids temporary auto-restart cleanup, uses the GitHub REST API for watch-mode deletion, and treats "branch already gone" responses as success so it does not warn when GitHub's "Automatically delete head branches" repo setting beats us to it.
+- 152de95: Add a Claude CLI streaming input case study with reproducible experiment scripts.
+
 ## 1.64.4
 
 ### Patch Changes

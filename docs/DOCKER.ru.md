@@ -53,7 +53,12 @@ docker info
 docker run hello-world
 ```
 
-Образ по умолчанию запускает внутренний Docker daemon с `DIND_STORAGE_DRIVER=vfs` для совместимости с overlay-backed хостами. Для более быстрых локальных запусков на хостах с поддержкой nested overlay mounts передайте `-e DIND_STORAGE_DRIVER=overlay2`.
+Образ по умолчанию запускает внутренний Docker daemon с `DIND_STORAGE_DRIVER=fuse-overlayfs`. Это драйвер с **копированием при записи (copy-on-write)**, поэтому многогигабайтные образы Hive Mind занимают на диске примерно свой реальный размер один раз — в отличие от `vfs`, который копирует каждый слой целиком и раздувал занятое место до многократного размера образа, переполняя диск ошибкой `failed to register layer: no space left on device` ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914)). `fuse-overlayfs` также работает overlay-on-overlay (совместимость, ради которой изначально выбрали `vfs`), бинарник `fuse-overlayfs` уже включён в образ, а Hive Mind запускает DinD-контейнер с `--privileged`, поэтому `/dev/fuse` доступен. Переопределения:
+
+- `-e DIND_STORAGE_DRIVER=overlay2` — быстрее на хостах с поддержкой nested overlay mounts, но может не работать на overlay-backed хостах;
+- `-e DIND_STORAGE_DRIVER=vfs` — только как крайний запасной вариант совместимости; занимает многократно больше диска, и именно эта конфигурация вызвала issue #1914.
+
+> **Контейнер уже работает на старом образе с `vfs`?** Добавьте `-e DIND_STORAGE_DRIVER=fuse-overlayfs` в `docker run` контейнера бота и пересоздайте его — пересборка образа не нужна.
 
 На общих хостах лучше использовать Sysbox runtime, если он доступен:
 
@@ -62,6 +67,99 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 ```
 
 DinD-образ публикуется отдельно от `konard/hive-mind:latest`, поэтому пользователи без необходимости во вложенном Docker могут продолжать использовать существующий образ с меньшими привилегиями.
+
+#### Проброс образов с хоста (избегаем повторной загрузки многогигабайтных образов)
+
+Когда бот работает с `--isolation docker` внутри release DinD-образа, каждая задача
+запускается как _вложенный_ `docker run konard/hive-mind-dind:<release-tag> …`.
+Release-образы записывают `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` из опубликованного
+`HIVE_MIND_VERSION`, поэтому даже родительский контейнер, запущенный как
+`konard/hive-mind-dind:latest`, использует тот же неизменяемый release-tag для
+дочерних контейнеров. Этот вложенный `docker run` обращается к **внутреннему**
+dockerd, чьё хранилище образов изначально **пусто** (деплой очищает
+`/var/lib/docker` перед `docker commit`). Тогда Docker сообщает
+`Unable to find image '…' locally` и загружает свежую копию — а образы Hive Mind
+весят несколько гигабайт, поэтому первая изолированная задача может потратить
+очень много времени (или исчерпать диск), повторно скачивая образ, который **уже
+есть на хосте**. См.
+[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) и
+[#1879](https://github.com/link-assistant/hive-mind/issues/1879).
+
+Базовый образ (`konard/box-dind`) может автоматически заполнять внутренний daemon
+с хоста — **проброс образов с хоста (host-image passthrough)** — но только если
+сокет Docker хоста смонтирован (bind-mount) в контейнер. **Без монтирования сокета
+проброс является тихой no-op-операцией**, и внутренний daemon остаётся пустым.
+Смонтируйте сокет и задайте список разрешённых образов:
+
+```bash
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  # ... ваши обычные монтирования учётных данных ...
+  -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+Проброс управляется следующими переменными окружения (их учитывает `box-dind`):
+
+| Переменная                         | По умолчанию                | Назначение                                                                                    |
+| ---------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------- |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (копировать только образы с digest из публичного реестра) или `all`.          |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | Куда смонтирован сокет хоста внутри контейнера. Hive Mind читает ту же переменную.            |
+| `DIND_HOST_PASSTHROUGH_IMAGES`     | _(пусто = любой)_           | Список разрешённых имён образов через пробел, напр. `konard/hive-mind konard/hive-mind-dind`. |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(пусто)_                   | Необязательный список разрешённых реестров для режима `public`.                               |
+
+В режиме `public` по умолчанию копируются только образы с digest из публичного
+реестра, поэтому копия на хосте должна быть загруженным/отправленным образом
+(образ, собранный только локально через `docker build` и не имеющий `RepoDigest`,
+будет пропущен — сначала отправьте его в реестр или используйте `all`).
+
+Для release-деплоев убедитесь, что на хосте есть и точный дочерний tag до запуска
+финального контейнера. Одного `:latest` уже недостаточно, потому что release-образ
+пинит `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG`:
+
+```bash
+TAG="$(docker image inspect konard/hive-mind-dind:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' \
+  | tail -1)"
+docker pull "konard/hive-mind-dind:${TAG:-latest}"
+```
+
+**Предстартовая проверка (preflight).** Когда включён `--isolation docker`, бот при
+запуске опрашивает внутренний daemon и логирует результат, чтобы ошибка конфигурации
+проявилась сразу, а не как неожиданная загрузка посреди задачи:
+
+- ✅ образ уже присутствует → изолированные задачи переиспользуют его (без загрузки);
+- ⚠️ сокет **не** смонтирован → подсказывает добавить монтирование сокета + список разрешённых образов;
+- ⚠️ сокет смонтирован, но образ всё ещё отсутствует → подсказывает проверить режим проброса/список/digest;
+- ⚠️ внутренний daemon на storage-драйвере `vfs` → подсказывает переключиться на `fuse-overlayfs` (причина переполнения диска в issue #1914);
+- ⚠️ мало свободного места на data root Docker, а образ всё ещё отсутствует → предупреждает, что предстоящая загрузка может исчерпать диск.
+
+Запустите бота с `--verbose` (или `TELEGRAM_BOT_VERBOSE=true`), чтобы видеть низкоуровневые
+трассировки `docker image inspect`.
+
+**Хранение task-контейнеров.** Когда Docker-изолированная задача достигает
+терминального состояния, Hive Mind удаляет task-контейнер после успешного запуска,
+чтобы освободить его writable layer, сохраняя при этом host-side лог start-command.
+Неудачные запуски по умолчанию остаются для расследования, а Telegram-сообщение о
+завершении включает команды для проверки и очистки. Политику можно переопределить
+через `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (по умолчанию:
+`on-failure`).
+
+**Ручной запасной вариант.** Чтобы немедленно заполнить уже запущенный контейнер (или
+когда вы не можете изменить деплой), скопируйте образ с хоста во внутренний daemon:
+
+```bash
+TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
+node scripts/preload-dind-isolation-image.mjs \
+  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+```
+
+Скрипт передаёт `docker save … | docker exec -i <container> docker load` потоком, так что
+tarball никогда не пишется на диск, и ничего не делает, если внутренний daemon уже имеет
+образ. После появления образа нативный Docker-бэкенд start-command переиспользует его
+автоматически (политика загрузки Docker по умолчанию «missing» — загружает только при
+отсутствии образа, поэтому повторной загрузки не происходит).
 
 ### Вариант 4: Режим разработки (в стиле Gitpod)
 
@@ -115,6 +213,43 @@ claude
 - ✅ Каждый контейнер имеет собственную изолированную аутентификацию
 - ✅ Успешные сборки Docker без интерактивной аутентификации
 
+## Состояние Playwright MCP в Docker
+
+Сборка образа теперь регистрирует Playwright MCP и для Claude, и для Codex:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+CI workflow также собирает Docker-образ и проверяет, что:
+
+- `playwright --version` работает как CLI fallback;
+- `npx --no-install @playwright/mcp --help` работает без повторной установки MCP package;
+- `claude mcp list` сообщает Playwright server как connected/enabled, а не pending или unavailable;
+- `codex mcp list` сообщает Playwright server как connected/enabled, а не pending или unavailable.
+
+Если в запущенном контейнере `codex mcp list` всё ещё показывает `No MCP servers configured yet`, наиболее вероятная причина — смонтированная с хоста директория `/home/box/.codex`. В этом образе `HOME=/home/box`, поэтому mount `/home/box/.codex` заменяет встроенную в образ Codex config, включая заранее настроенные MCP entries.
+
+Это означает:
+
+- опубликованный образ может быть корректным;
+- runtime container всё равно может показывать Codex как unconfigured;
+- отличие вызвано persisted host state, который переопределяет defaults контейнера.
+
+Чтобы быстро проверить это, сравните два случая:
+
+```bash
+# Fresh container without host-mounted Codex state
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Container with persisted Codex state from host
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+Если первая команда показывает `playwright`, а вторая нет, источник расхождения — смонтированная с хоста директория Codex.
+
 ## Предварительные требования
 
 1. **Docker:** Установите Docker Desktop или Docker Engine (версия 20.10 или выше)
@@ -147,6 +282,14 @@ docker volume create box-home
 # Run with the volume mounted
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
+
+Если persisted `/home/box/.codex/config.toml` пришёл из старого образа, в нём может не быть Playwright MCP registration, добавленной в новых образах. После запуска контейнера выполните заново:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
+
+Hive Mind также пытается выполнить этот default registration repair во время runtime, когда `codex mcp list` не содержит Playwright row и `@playwright/mcp` установлен. Он не перезаписывает существующую Playwright row в состоянии pending, disabled или с custom settings; такие состояния требуют прямой отладки MCP startup path.
 
 ### Запуск в фоновом режиме
 

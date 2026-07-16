@@ -1,0 +1,653 @@
+
+> @link-assistant/hive-mind@1.69.4 test
+> node scripts/run-tests.mjs --suite default
+
+Running 200 default test file(s)...
+
+[1/200] tests/docs-validation.mjs
+🚀 Starting documentation validation tests...
+📏 Checking documentation file size limits...
+✅ OK: docs/BEST-PRACTICES.hi.md (274 lines)
+✅ OK: docs/BEST-PRACTICES.md (274 lines)
+✅ OK: docs/BEST-PRACTICES.ru.md (274 lines)
+✅ OK: docs/BEST-PRACTICES.zh.md (274 lines)
+✅ OK: docs/BRANCH_PROTECTION_POLICY.hi.md (234 lines)
+✅ OK: docs/BRANCH_PROTECTION_POLICY.md (234 lines)
+✅ OK: docs/BRANCH_PROTECTION_POLICY.ru.md (234 lines)
+✅ OK: docs/BRANCH_PROTECTION_POLICY.zh.md (234 lines)
+✅ OK: docs/CI-CD-BEST-PRACTICES.hi.md (328 lines)
+✅ OK: docs/CI-CD-BEST-PRACTICES.md (328 lines)
+✅ OK: docs/CI-CD-BEST-PRACTICES.ru.md (328 lines)
+✅ OK: docs/CI-CD-BEST-PRACTICES.zh.md (328 lines)
+✅ OK: docs/COMPARISON.hi.md (298 lines)
+✅ OK: docs/COMPARISON.md (298 lines)
+✅ OK: docs/COMPARISON.ru.md (298 lines)
+✅ OK: docs/COMPARISON.zh.md (298 lines)
+✅ OK: docs/CONFIGURATION.hi.md (572 lines)
+✅ OK: docs/CONFIGURATION.md (630 lines)
+✅ OK: docs/CONFIGURATION.ru.md (574 lines)
+✅ OK: docs/CONFIGURATION.zh.md (590 lines)
+✅ OK: docs/CONTRIBUTING.hi.md (143 lines)
+✅ OK: docs/CONTRIBUTING.md (142 lines)
+✅ OK: docs/CONTRIBUTING.ru.md (144 lines)
+✅ OK: docs/CONTRIBUTING.zh.md (141 lines)
+✅ OK: docs/DOCKER.hi.md (320 lines)
+✅ OK: docs/DOCKER.md (433 lines)
+✅ OK: docs/DOCKER.ru.md (320 lines)
+✅ OK: docs/DOCKER.zh.md (320 lines)
+✅ OK: docs/FEATURES.hi.md (303 lines)
+✅ OK: docs/FEATURES.md (303 lines)
+✅ OK: docs/FEATURES.ru.md (303 lines)
+✅ OK: docs/FEATURES.zh.md (303 lines)
+✅ OK: docs/FREE_MODELS.hi.md (329 lines)
+✅ OK: docs/FREE_MODELS.md (329 lines)
+✅ OK: docs/FREE_MODELS.ru.md (329 lines)
+✅ OK: docs/FREE_MODELS.zh.md (329 lines)
+✅ OK: docs/HELM.hi.md (542 lines)
+✅ OK: docs/HELM.md (542 lines)
+✅ OK: docs/HELM.ru.md (542 lines)
+✅ OK: docs/HELM.zh.md (542 lines)
+✅ OK: docs/OPENROUTER.hi.md (252 lines)
+✅ OK: docs/OPENROUTER.md (252 lines)
+✅ OK: docs/OPENROUTER.ru.md (252 lines)
+✅ OK: docs/OPENROUTER.zh.md (252 lines)
+✅ OK: docs/UBUNTU-SERVER.hi.md (134 lines)
+✅ OK: docs/UBUNTU-SERVER.md (158 lines)
+✅ OK: docs/UBUNTU-SERVER.ru.md (134 lines)
+✅ OK: docs/UBUNTU-SERVER.zh.md (134 lines)
+✅ OK: docs/flow.hi.md (474 lines)
+✅ OK: docs/flow.md (474 lines)
+✅ OK: docs/flow.ru.md (474 lines)
+✅ OK: docs/flow.zh.md (474 lines)
+✅ OK: README.md (996 lines)
+📋 Checking README structure...
+✅ Quick Start section found
+✅ Architecture section found
+✅ Configuration section found
+
+📊 Test Summary:
+🎉 All documentation tests passed!
+
+[2/200] tests/github-rate-limit.test.mjs
+
+📋 isRateLimitError
+
+✅ detects "API rate limit exceeded"
+✅ detects secondary rate limit message
+✅ detects abuse-detection message
+✅ reads rate-limit text from stderr
+✅ reads rate-limit text from cause chain
+✅ returns false for ordinary network error
+✅ returns false for 404
+✅ returns false for null/undefined
+
+📋 parseRateLimitReset
+
+✅ parses X-RateLimit-Reset header (Unix epoch)
+✅ parses Retry-After header
+✅ returns null when no headers present
+
+📋 computeRateLimitWait
+
+✅ wait = (reset - now) + bufferMs + jitter when reset is future
+✅ wait = bufferMs + jitter when reset is null
+✅ wait does not go negative when reset is in the past
+✅ jitter falls within configured range over many samples
+
+📋 ghWithRateLimitRetry
+
+✅ returns immediately when fn succeeds
+✅ rethrows non-rate-limit errors without retrying
+✅ retries rate-limit error and succeeds without sleeping past test budget
+✅ throws after maxAttempts of persistent rate-limit errors
+
+📋 wrapDollarWithGhRetry
+
+✅ passes non-gh commands through to the underlying $ unchanged
+✅ retries gh commands on rate-limit error
+✅ does not retry gh commands on non-rate-limit errors
+
+📊 22 passed, 0 failed
+
+[3/200] tests/interruptible-sleep.test.mjs
+✅ resolves after specified duration with interrupted=false
+✅ resolves immediately on SIGINT with interrupted=true
+✅ cleans up SIGINT listener after normal resolution
+✅ cleans up SIGINT listener after interrupt
+✅ does not interfere with other SIGINT listeners
+
+5 tests: 5 passed, 0 failed
+
+[4/200] tests/limits-display.test.mjs
+
+📋 Progress Bar Tests
+
+✅ getProgressBar returns correct length
+✅ getProgressBar at 0% shows all empty
+✅ getProgressBar at 100% shows all filled
+✅ getProgressBar at 50% shows half filled
+✅ getProgressBar handles edge values
+
+📋 Progress Bar Threshold Marker Tests (Issue #1242)
+
+✅ getProgressBar with threshold returns correct length
+✅ getProgressBar with threshold includes marker character
+✅ getProgressBar with threshold at 65% places marker correctly
+✅ getProgressBar with threshold at 90% places marker correctly
+✅ getProgressBar with threshold at 97% places marker correctly
+✅ getProgressBar with null threshold returns original format
+✅ getProgressBar threshold marker replaces one block
+✅ DISPLAY_THRESHOLDS constants are defined
+✅ formatCodexLimitsSection renders 5 hour and weekly sections
+✅ formatCodexLimitsSection renders error state
+
+📋 Math.floor Percentage Tests (Issue #1133)
+
+✅ formatUsageMessage uses Math.floor for session percentage
+✅ formatUsageMessage shows 100% only when exactly 100
+✅ formatUsageMessage floors various percentages correctly
+✅ Math.floor ensures 100% means exactly full
+
+📋 Time Passed Percentage Tests
+
+✅ calculateTimePassedPercentage returns null for null input
+✅ calculateTimePassedPercentage returns valid percentage for future date
+✅ calculateTimePassedPercentage handles 5-hour period
+✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+
+📋 formatUsageMessage Comprehensive Tests
+
+✅ formatUsageMessage includes all required sections
+✅ formatUsageMessage handles null percentages
+✅ formatUsageMessage includes optional system info
+✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+
+📋 Edge Cases for Display
+
+✅ formatUsageMessage handles 0% correctly
+✅ formatUsageMessage handles extreme values
+
+📋 Warning Emoji Tests (Issue #1242)
+
+✅ formatUsageMessage shows warning emoji when session exceeds threshold
+✅ formatUsageMessage does not show warning emoji when below threshold
+✅ formatUsageMessage shows warning for system resources when exceeded
+✅ formatUsageMessage shows threshold markers in progress bars
+
+📋 Claude Error Display Tests (Issue #1343)
+
+✅ formatUsageMessage with claudeError shows error once in Claude limits section
+✅ formatUsageMessage with claudeError still shows system resource sections
+✅ formatUsageMessage with null claudeError shows normal Claude data
+
+📋 Sections Array / Extra Sections Tests (Issue #1387)
+
+✅ formatUsageMessage wraps all content in a single code block
+✅ formatUsageMessage with extraSections includes extra content inside code block
+✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+✅ formatUsageMessage with empty extraSections works as before
+✅ formatUsageMessage sections are separated by blank lines
+
+📋 formatRetryAfterMessage Tests (Issue #1446)
+
+✅ formatRetryAfterMessage returns "Try again later." for null
+✅ formatRetryAfterMessage returns "Try again later." for undefined
+✅ formatRetryAfterMessage returns "Try again later." for "0"
+✅ formatRetryAfterMessage returns "Try again later." for negative value
+✅ formatRetryAfterMessage formats seconds correctly for small values
+✅ formatRetryAfterMessage formats seconds correctly for minutes
+✅ formatRetryAfterMessage formats seconds correctly for hours
+✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+✅ formatRetryAfterMessage handles HTTP-date format
+✅ formatRetryAfterMessage handles HTTP-date in the past
+✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+
+📊 Test Results
+
+Tests passed: 53
+Tests failed: 0
+Total tests: 53
+
+✅ All tests passed!
+
+[5/200] tests/model-info.test.mjs
+
+📋 getToolDisplayName Tests
+
+✅ getToolDisplayName returns "Anthropic Claude Code" for claude
+✅ getToolDisplayName returns "OpenAI Codex" for codex
+✅ getToolDisplayName returns "OpenCode" for opencode
+✅ getToolDisplayName returns "Agent CLI" for agent
+✅ getToolDisplayName returns "Google Gemini CLI" for gemini
+✅ getToolDisplayName returns "Qwen Code" for qwen
+✅ getToolDisplayName returns "Google Gemini CLI" for gemini (alt invocation)
+✅ getToolDisplayName returns "AI tool" for unknown
+✅ getToolDisplayName returns "AI tool" for null
+✅ getToolDisplayName returns "AI tool" for undefined
+✅ getToolDisplayName is case-insensitive
+
+📋 resolveModelId Tests
+
+✅ resolveModelId resolves "opus" for claude tool
+✅ resolveModelId resolves "sonnet" for claude tool
+✅ resolveModelId resolves "haiku" for claude tool
+✅ resolveModelId resolves "grok" for agent tool
+✅ resolveModelId resolves "sonnet" for agent tool
+✅ resolveModelId resolves "gpt5" for codex tool
+✅ resolveModelId resolves "gpt-5.5" for codex tool
+✅ resolveModelId resolves "flash" for gemini tool
+✅ resolveModelId strips [1m] suffix
+✅ resolveModelId returns null for null input
+✅ resolveModelId returns model as-is for unknown alias
+✅ resolveModelId defaults to claude tool when tool is null
+
+📋 buildModelInfoString Tests
+
+✅ buildModelInfoString returns empty string when no data
+✅ buildModelInfoString includes tool name
+✅ buildModelInfoString includes requested model
+✅ buildModelInfoString shows header emoji
+✅ buildModelInfoString shows model in bold when matches requested (single model)
+✅ buildModelInfoString shows warning when model does not match requested
+✅ buildModelInfoString shows additional models
+✅ buildModelInfoString with model metadata shows ID in compact format
+✅ buildModelInfoString falls back to modelInfo when no modelsUsed
+✅ buildModelInfoString falls back to pricingInfo when no modelsUsed or modelInfo
+✅ buildModelInfoString with modelsUsed with no metadata shows model ID
+
+📋 resolveModelId - All Tools Coverage
+
+✅ resolveModelId resolves "opus" for opencode tool
+✅ resolveModelId resolves "gpt4" for opencode tool
+✅ resolveModelId resolves "gpt4o" for opencode tool
+✅ resolveModelId resolves "grok" for opencode tool
+✅ resolveModelId resolves "gpt-5.3-codex" for codex tool
+✅ resolveModelId resolves "gpt4o" for codex tool
+✅ resolveModelId resolves "opus" for codex tool
+✅ resolveModelId resolves "opus" for agent tool
+✅ resolveModelId resolves "haiku" for agent tool
+✅ resolveModelId returns model as-is when not in map for agent tool
+✅ resolveModelId resolves "qwen" for qwen tool
+✅ resolveModelId resolves "gemini" for gemini tool
+
+📋 buildModelInfoString - All Tools Coverage
+
+✅ buildModelInfoString shows "Codex" tool name for codex
+✅ buildModelInfoString shows "OpenCode" tool name for opencode
+✅ buildModelInfoString shows "Agent" tool name for agent
+✅ buildModelInfoString shows "Gemini" tool name for gemini
+✅ buildModelInfoString shows "Qwen Code" tool name for qwen
+✅ buildModelInfoString shows "Google Gemini CLI" tool name for gemini (alt invocation)
+✅ buildModelInfoString shows warning for codex when actual model does not match requested
+✅ buildModelInfoString shows warning for agent when actual model does not match requested
+✅ buildModelInfoString no warning for agent when actual model matches requested
+✅ buildModelInfoString uses pricingInfo for agent tool when no modelsUsed
+✅ buildModelInfoString uses pricingInfo for codex tool when no modelsUsed
+
+📋 Issue #1454: Multi-model display Tests
+
+✅ buildModelInfoString shows "Main model" + "Additional models" for opus+haiku (Issue #1454)
+✅ buildModelInfoString shows "Model" (not "Main model") for single model (Issue #1454)
+✅ buildModelInfoString handles three models correctly (Issue #1454)
+
+📋 getModelInfoForComment - Async Tests
+
+✅ getModelInfoForComment returns string (no crash)
+✅ getModelInfoForComment with null inputs returns string
+✅ getModelInfoForComment with agent tool and pricingInfo
+✅ getModelInfoForComment with codex tool and actual model IDs
+✅ getModelInfoForComment with opencode tool and actual model IDs
+✅ getModelInfoForComment with qwen tool and actual model IDs
+✅ getModelInfoForComment with gemini tool and actual model IDs
+✅ getModelInfoForComment with multiple actual models (main + supporting)
+✅ getModelInfoForComment pricingInfo model used when no actualModelIds
+✅ getModelInfoForComment falls back to resolved model when nothing else provided
+
+============================================================
+
+📊 Results: 70 passed, 0 failed, 70 total
+
+
+[6/200] tests/playwright-mcp-cleanup.test.mjs
+
+📋 Playwright MCP Cleanup Tests
+
+✅ cleanup logic exists in solve.mjs
+✅ cleanup logic exists in shared restart module used by watch mode
+✅ CLI option for playwright-mcp-auto-cleanup exists
+
+📋 Behavior Tests
+
+✅ cleanup removes .playwright-mcp folder when it exists
+✅ cleanup does nothing when folder does not exist
+✅ cleanup preserves other uncommitted files
+✅ --no-playwright-mcp-auto-cleanup skips cleanup
+
+📋 Case Study Documentation Tests
+
+✅ case study documentation exists
+
+========================================
+📊 Test Results: 8 passed, 0 failed
+========================================
+
+
+[7/200] tests/pr-closes-issue.test.mjs
+
+📋 Basic Keyword Tests
+
+✅ detects "fixes #123"
+✅ detects "Fixes #123" (case-insensitive)
+✅ detects "closes #123"
+✅ detects "resolves #123"
+✅ detects "fix #123"
+✅ detects "fixed #123"
+✅ detects "close #123"
+✅ detects "closed #123"
+✅ detects "resolve #123"
+✅ detects "resolved #123"
+
+📋 Edge Case Tests
+
+✅ returns false for null/undefined text
+✅ returns false for empty string
+✅ returns false for non-string text
+✅ returns false when issue number is part of larger number
+✅ returns true when issue number is at end of text
+✅ returns true when issue number is followed by punctuation
+✅ handles multiple issue references
+
+📋 Commit Style Tests
+
+✅ detects "fix: #123" (commit message style)
+✅ detects "fixes: #123"
+✅ detects "fix(scope): #123"
+
+📋 Repository Prefix Tests
+
+✅ detects "fixes owner/repo#123"
+✅ detects "closes org-name/repo-name#456"
+✅ detects "resolves user.name/repo.name#789"
+
+📋 False Positive Prevention Tests
+
+✅ does NOT detect simple issue mention "#123"
+✅ does NOT detect issue in table (PR #369 scenario)
+✅ does NOT detect issue in list without keyword
+✅ does NOT detect "ref #123" or "refs #123"
+✅ does NOT detect "related to #123"
+
+📋 Real-World PR Body Tests
+
+✅ PR #369 body correctly identifies only #368 as fixed
+✅ standard PR with "Fixes #N" footer
+✅ PR with multiple closing keywords
+✅ PR with inline closing reference
+
+📊 Test Results
+
+Tests passed: 32
+Tests failed: 0
+Total tests: 32
+
+✅ All tests passed!
+
+[8/200] tests/queue-config.test.mjs
+
+📋 QUEUE_CONFIG Tests
+
+✅ QUEUE_CONFIG has all required threshold fields
+✅ QUEUE_CONFIG has all required timing fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ QUEUE_CONFIG has expected default values
+
+📋 DISPLAY_THRESHOLDS Tests
+
+✅ DISPLAY_THRESHOLDS has all required fields
+✅ DISPLAY_THRESHOLDS values are percentages (0 - 100)
+✅ DISPLAY_THRESHOLDS has expected default values
+
+📋 Consistency Tests (Issue #1242)
+
+✅ DISPLAY_THRESHOLDS are derived from QUEUE_CONFIG
+
+📋 thresholdToPercent Tests
+
+✅ thresholdToPercent converts ratios to percentages correctly
+✅ thresholdToPercent rounds correctly
+
+📋 Threshold Strategies Tests (Issue #1253)
+
+✅ THRESHOLD_STRATEGIES contains valid strategies
+✅ QUEUE_CONFIG.thresholds has all required metrics
+✅ Each threshold has value and strategy properties
+✅ Default strategies are correct
+✅ Legacy flat threshold values match thresholds.*.value
+
+📋 parseQueueConfig Tests (Issue #1253)
+
+✅ parseQueueConfig returns empty object for empty input
+✅ parseQueueConfig parses simple config
+✅ parseQueueConfig parses multiple thresholds
+✅ parseQueueConfig normalizes kebab-case metric names
+✅ parseQueueConfig defaults to enqueue for invalid strategy
+
+📋 Strategy Helper Functions Tests (Issue #1253)
+
+✅ getStrategy returns correct strategy for each metric
+✅ getStrategy returns enqueue for unknown metric
+✅ isRejectStrategy works correctly
+✅ isEnqueueStrategy works correctly
+✅ isOneAtATimeStrategy works correctly
+
+📊 Test Results
+
+Tests passed: 25
+Tests failed: 0
+Total tests: 25
+
+✅ All tests passed!
+
+[9/200] tests/solve-queue-reject.test.mjs
+
+📋 Issue #1555: Queued Item Rejection Tests
+
+✅ rejectAllItemsInQueue rejects all items and updates stats
+✅ rejectAllItemsInQueue handles empty queue gracefully
+✅ findStartableItems rejects queued items when canStartCommand returns rejected
+✅ findStartableItems only rejects tool queues affected by rejection
+✅ updateAllWaitingItems rejects items when tool threshold is reject strategy
+✅ updateAllWaitingItems updates waiting reason when not rejected
+
+📊 Test Results
+
+Tests passed: 6
+Tests failed: 0
+Total tests: 6
+
+✅ All tests passed!
+
+[10/200] tests/solve-queue-tool-tracking.test.mjs
+
+📋 Tool-Specific Queue Tracking Tests (Issue #1159)
+
+✅ getProcessingCountByTool counts items correctly by tool type
+✅ separate queues are independent
+✅ agent tasks can start when claude min interval is not reached
+✅ getStats and getQueueSummary show per-tool breakdown
+✅ formatStatus includes codex queue
+✅ formatStatus includes gemini queue
+✅ findStartableItem and findStartableItems work correctly
+✅ new tool queues are created dynamically and mixed tools work
+✅ canStartCommand returns claudeProcessingCount in result
+✅ checkApiLimits uses claudeProcessingCount correctly
+✅ default tool for queue item is claude
+
+📊 Test Results
+
+Tests passed: 11
+Tests failed: 0
+Total tests: 11
+
+✅ All tests passed!
+
+[11/200] tests/solve-queue.test.mjs
+
+📋 Configuration Tests
+
+✅ QUEUE_CONFIG has all required fields
+✅ QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)
+✅ MESSAGE_UPDATE_INTERVAL_MS is reasonable
+✅ MIN_START_INTERVAL_MS is 1 minute
+❌ CONSUMER_POLL_INTERVAL_MS is 1 minute
+   Error: CONSUMER_POLL_INTERVAL_MS should be 1 minute (60000ms)
+
+1 !== 60000
+
+
+📋 Queue Status Tests
+
+✅ QueueItemStatus has all required statuses
+
+📋 Queue Basic Operations Tests
+
+✅ SolveQueue initializes with empty state
+✅ enqueue adds items to queue
+✅ cancel removes items from queue
+✅ getQueueSummary returns correct structure
+
+📋 Duplicate URL Prevention Tests (Issue #1080)
+
+✅ findByUrl returns null for empty queue
+✅ findByUrl finds item in queue
+✅ findByUrl returns null for different URL
+✅ findByUrl finds item among multiple queued items
+✅ findByUrl does not find cancelled items
+
+📋 Message Update Tests
+
+✅ shouldUpdateMessage returns true for items without lastMessageUpdateTime
+✅ shouldUpdateMessage returns false when update interval not reached
+✅ shouldUpdateMessage returns true when update interval reached
+
+📋 Throttle Statistics Tests
+
+✅ recordThrottle increments throttle reason count
+
+📋 Format Tests
+
+✅ formatStatus returns correct string for empty queue
+✅ formatStatus returns correct string for non-empty queue
+✅ formatDetailedStatus includes all sections
+
+📋 Claude Process Detection Tests
+
+✅ getRunningClaudeProcesses returns object with count and processes
+
+📋 Cache Tests
+
+✅ getLimitCache returns a cache instance
+✅ Cache set and get work correctly
+✅ Cache returns null for expired entries
+✅ CACHE_TTL has all required values
+
+📋 Queue Item State Transitions Tests
+
+✅ Item transitions from QUEUED to WAITING
+✅ Item transitions from WAITING to STARTING
+✅ Item transitions from STARTING to STARTED
+✅ Item can be marked as failed
+✅ Item can be marked as failed with Error object
+
+📋 Wait Time Calculation Tests
+
+✅ getWaitTime returns elapsed time for queued items
+
+📋 Reason Message Ordering Tests (Issue #1078)
+
+✅ Claude process info should be at end of reasons
+
+📋 Total Processing Calculation Tests (Issue #1133)
+
+✅ totalProcessing is calculated as processing.size + Claude processes
+✅ canStartCommand returns totalProcessing in result
+✅ canStartCommand returns claudeProcesses count in result
+
+📋 System Resource Threshold Tests (Issue #1133)
+
+✅ checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)
+✅ checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)
+✅ QUEUE_CONFIG thresholds are valid positive ratios
+
+📋 API Threshold Behavior Tests (Issue #1133)
+
+✅ checkApiLimits accepts totalProcessing parameter
+✅ checkApiLimits with different totalProcessing values
+
+📋 One-At-A-Time Mode Tests (Issue #1133)
+
+✅ oneAtATime mode blocks when totalProcessing > 0
+✅ oneAtATime mode allows when totalProcessing === 0
+✅ normal mode allows parallel commands
+
+📋 Throttle Recording Tests
+
+✅ recordThrottle increments correct stats for all threshold types
+
+📋 Threshold Naming Tests (Issue #1133)
+
+✅ CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named
+
+📋 Queue Statistics Tests
+
+✅ getStats returns all required fields
+✅ getStats tracks enqueue correctly
+
+📋 Min Start Interval Tests
+
+✅ lastStartTime is updated when item moves to processing
+✅ MIN_START_INTERVAL_MS prevents rapid consecutive starts
+
+📋 Processing Map Tests
+
+✅ processing map correctly tracks items
+
+📋 Format Waiting Reason Tests
+
+✅ formatDetailedStatus shows waiting items with reasons
+
+📋 Queue Consumer Logic Tests
+
+✅ consumer does not start when queue is empty
+✅ multiple items maintain FIFO order within tool queue
+
+📋 Edge Case Tests
+
+✅ cancel returns false for non-existent or processing items
+✅ getQueueSummary handles empty queue correctly
+✅ queue item has correct tool property
+
+📋 Tool Agent Claude Limits Skip Tests (Issue #1159)
+
+✅ checkApiLimits accepts tool parameter
+✅ checkApiLimits with tool agent should not block on Claude limits
+✅ checkApiLimits with tool gemini should not block on Claude limits
+✅ checkApiLimits with tool codex applies Codex limits
+✅ checkApiLimits default tool is claude
+✅ canStartCommand accepts tool option
+✅ canStartCommand with tool agent skips Claude limits
+✅ canStartCommand default tool is claude
+✅ queue item tool property is used by consumer
+✅ gemini queue item tool property is used by consumer
+
+📊 Test Results
+
+Tests passed: 67
+Tests failed: 1
+Total tests: 68
+
+❌ Some tests failed!
+
+Failed test files:
+  - tests/solve-queue.test.mjs (exit 1)

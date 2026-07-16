@@ -29,18 +29,23 @@ Hive Mind एक **सामान्यवादी AI** (मिनी-AGI) ह
 | **पूर्व-स्थापित टूलचेन**           | 25GB+ तैयार: 10 भाषा रनटाइम, 2 थ्योरम प्रूवर, बिल्ड टूल्स। और इंस्टॉल कर सकते हैं।                                                                                                  |
 | **टोकन दक्षता**                    | नियमित कार्य कोड में स्वचालित, ताकि AI टोकन रचनात्मक समस्या-समाधान पर केंद्रित रहें।                                                                                                |
 | **समय की स्वतंत्रता**              | जो काम मनुष्यों को 2-8 घंटे लगता है, AI प्रत्येक कार्य सत्र में 10-25 मिनट में पूरा करता है। रिपॉजिटरी में कार्यों का बड़े पैमाने पर निष्पादन संभव है। "सोते समय कोड लिखा जाता है।" |
-| **ऑर्केस्ट्रेशन के साथ स्केल**     | समानांतर वर्कर डेवलपर्स की एक टीम की तरह महसूस होते हैं, सभी ~$200/माह में।                                                                                                         |
+| **ऑर्केस्ट्रेशन के साथ स्केल**     | समानांतर वर्कर डेवलपर्स की एक टीम की तरह महसूस होते हैं। Claude MAX और ChatGPT Pro (प्रत्येक $200) को जोड़कर दो स्वतंत्र लगभग असीमित बजट मिलते हैं।                                 |
 | **मानव नियंत्रण**                  | AI ड्राफ्ट PR बनाता है - आप तय करते हैं क्या मर्ज होगा। जहाँ मायने रखता है वहाँ गुणवत्ता द्वार।                                                                                     |
 | **किसी भी डिवाइस से प्रोग्रामिंग** | Telegram बॉट के माध्यम से `/solve` और `/hive` से किसी भी डिवाइस से AI प्रबंधित करें। कोई PC, IDE या लैपटॉप की आवश्यकता नहीं।                                                        |
 | **100% ओपन सोर्स**                 | Unlicense (पब्लिक डोमेन)। पूर्ण पारदर्शिता, कोई वेंडर लॉक-इन नहीं।                                                                                                                  |
 
-> _"$200 के Codex की तुलना में, यह समाधान शानदार है।"_ - उपयोगकर्ता प्रतिक्रिया
+**लागत**: Hive Mind दो $200/माह सदस्यताओं को पूर्ण-फीचर वाले लगभग "unlimited" विकल्पों के रूप में समर्थन देता है:
 
-**लागत**: Claude MAX सदस्यता (~$200/माह, वर्तमान में 50% छूट = $400 मूल्य) Hive Mind के लिए लगभग असीमित उपयोग प्रदान करती है - बाजार में सबसे अच्छा मूल्य/गुणवत्ता संतुलन।
+| सदस्यता                                                          | `--tool` के साथ     | डिफ़ॉल्ट मॉडल | किसके लिए बेहतर है                                |
+| ---------------------------------------------------------------- | ------------------- | ------------- | ------------------------------------------------- |
+| **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Opus          | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग      |
+| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-5.6-sol` | भरोसेमंद deterministic refactors और तेज iteration |
+
+दोनों टूल एक ही hive में साथ उपयोग किए जा सकते हैं। Worker अलग-अलग टूल समानांतर चला सकते हैं, और `/codex` या `/solve --tool codex` कार्यों को ChatGPT Pro पर भेजता है जबकि डिफ़ॉल्ट Claude MAX पर जाता है। किसी एक को चुनना आवश्यक नहीं है: किसी भी एक सदस्यता से संचालन संभव है, और दोनों का उपयोग per-tool/model concurrency mode (#1474) खोलता है।
 
 Hive Mind में औसत प्रोग्रामर से अलग न पहचानी जा सकने वाली उच्च रचनात्मकता है। यदि आवश्यकताएँ अस्पष्ट हों तो यह प्रश्न पूछता है, और आप PR टिप्पणियों के माध्यम से चलते-चलते स्पष्ट कर सकते हैं।
 
-विस्तृत विशेषताओं और तुलनाओं के लिए, [docs/FEATURES.hi.md](./docs/FEATURES.hi.md) और [docs/COMPARISON.hi.md](./docs/COMPARISON.hi.md) देखें।
+प्रोजेक्ट के दृष्टिकोण और उदाहरण उपयोगकर्ता यात्राओं के लिए, [docs/VISION.hi.md](./docs/VISION.hi.md) देखें। विस्तृत विशेषताओं और तुलनाओं के लिए, [docs/FEATURES.hi.md](./docs/FEATURES.hi.md) और [docs/COMPARISON.hi.md](./docs/COMPARISON.hi.md) देखें।
 
 ## ⚠️ चेतावनी
 
@@ -48,7 +53,7 @@ Hive Mind में औसत प्रोग्रामर से अलग �
 
 इंस्टॉलेशन के लिए Docker का उपयोग करना अनुशंसित है (स्थानीय और सर्वर दोनों पर)। नीचे [Docker इंस्टॉलेशन](#using-docker) अनुभाग देखें।
 
-यह सॉफ़्टवेयर Claude Code के पूर्ण स्वायत्त मोड का उपयोग करता है, जिसका अर्थ है कि यह जो भी उचित समझे वह कमांड निष्पादित करने के लिए स्वतंत्र है।
+यह सॉफ़्टवेयर Claude Code और Codex जैसे समर्थित AI टूल को पूर्ण स्वायत्त मोड में चलाता है, जिसका अर्थ है कि वे जो भी उचित समझें वे कमांड निष्पादित करने के लिए स्वतंत्र हैं।
 
 इसका मतलब है कि इससे अप्रत्याशित दुष्प्रभाव हो सकते हैं।
 
@@ -60,7 +65,7 @@ Hive Mind में औसत प्रोग्रामर से अलग �
 
 इंटरनेट से जुड़ी वर्चुअल मशीन से टोकन निकालने के असंख्य तरीके हैं। इसमें शामिल हैं लेकिन इन तक सीमित नहीं:
 
-- **Claude MAX टोकन** - AI संचालन के लिए आवश्यक
+- **Claude MAX टोकन** और/या **ChatGPT Pro (Codex) टोकन** - AI संचालन के लिए आवश्यक; आप इनमें से किसी एक या दोनों के साथ चला सकते हैं
 - **GitHub टोकन** - रिपॉजिटरी एक्सेस के लिए आवश्यक
 - **API keys और क्रेडेंशियल** - सिस्टम पर कोई भी संवेदनशील डेटा
 
@@ -161,18 +166,27 @@ docker exec -it hive-mind /bin/bash
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
 
-# Authenticate with Claude
+# Authenticate with Claude (if you have Claude MAX)
 claude
 
 # Optionally set configuration like this:
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# `--think` न देने पर Hive Mind इसे `--think off` मानता है।
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
 # Optionally test Claude connection
 claude -p hi --model haiku
+
+# Authenticate with Codex (if you have ChatGPT Pro)
+codex login --device-auth
+
+# Optionally test Codex connection. codex exec refuses to run unless
+# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
+# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
+codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
 
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind
@@ -333,11 +347,11 @@ solve <issue-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प          | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट   |
-| --------------- | --------- | --------------------------------------------- | ---------- |
-| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet     |
-| `--think`       |           | सोचने का स्तर (low, medium, high, max)        | -          |
-| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                      | (डिफ़ॉल्ट) |
+| विकल्प          | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट   |
+| --------------- | --------- | --------------------------------------------------------- | ---------- |
+| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus       |
+| `--think`       |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off        |
+| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                                  | (डिफ़ॉल्ट) |
 
 **अन्य उपयोगी विकल्प:**
 
@@ -359,12 +373,12 @@ hive <github-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प         | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट |
-| -------------- | --------- | --------------------------------------------- | -------- |
-| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet   |
-| `--think`      |           | सोचने का स्तर (low, medium, high, max)        | -        |
-| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)     | false    |
-| `--once`       |           | एकल रन (लगातार निगरानी न करें)                | false    |
+| विकल्प         | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट |
+| -------------- | --------- | --------------------------------------------------------- | -------- |
+| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus     |
+| `--think`      |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off      |
+| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)                 | false    |
+| `--once`       |           | एकल रन (लगातार निगरानी न करें)                            | false    |
 
 **अन्य उपयोगी विकल्प:**
 
@@ -498,6 +512,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - तैयार Pull Requests merge करें
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets `ready` label वाले PRs को क्रम से process करते हैं। Issue और
+pull request targets केवल linked या selected PR process करते हैं। आप किसी ऐसे
+message पर `/merge` से reply भी कर सकते हैं जिसमें एक GitHub repository, issue,
+या pull request link हो, जैसे कोई पुराना `/codex ...issues/123` command.
+
+अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
+mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
+साथ काम करते हैं।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```
@@ -508,7 +542,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` - Live Session Log
@@ -546,6 +582,7 @@ Shows:
 - ✅ **Screen सत्र**: कमांड डिटैच्ड screen सत्रों में चलते हैं
 - ✅ **Live Terminal Watch**: `/terminal_watch` और opt-in auto-start live session logs दिखाते हैं
 - ✅ **चैट प्रतिबंध**: अनुमत चैट ID की वैकल्पिक सफेद सूची
+- ✅ **Private Auth Check**: allowlisted chat owners के लिए experimental `/auth --status <gh|claude|codex>` और `/auth --login <gh|claude|codex>`
 - ✅ **डायग्नोस्टिक टूल**: चैट ID और कॉन्फ़िगरेशन जानकारी प्राप्त करें
 
 #### Live Terminal Watch
@@ -564,6 +601,8 @@ sessions के लिए अपने आप एक अलग live terminal wat
 
 - केवल उन ग्रुप चैट में काम करता है जहाँ बॉट एडमिन है
 - `TELEGRAM_ALLOWED_CHATS` के माध्यम से वैकल्पिक चैट ID प्रतिबंध
+- private `/auth` तब disabled रहता है जब `TELEGRAM_ALLOWED_CHATS` set नहीं है,
+  और इसे केवल listed chats के owners इस्तेमाल कर सकते हैं
 - बॉट चलाने वाले सिस्टम उपयोगकर्ता के रूप में कमांड चलते हैं
 - उचित प्रमाणीकरण सुनिश्चित करें (`gh auth login`, `claude-profiles`)
 
@@ -717,6 +756,55 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+### डिस्क क्लीनअप
+
+`hive-cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
+`/tmp/gh-issue-solver-*`, MCP कॉन्फ़िग फ़ाइलें, लॉग डाउनलोड डायरेक्टरी आदि) को हटाकर
+डिस्क स्थान खाली करता है, जबकि **वर्तमान में चल रहे कार्यों से संबंधित फ़ोल्डर**,
+सुरक्षित सिस्टम पथ, और बिना कमिट या बिना पुश किए बदलावों वाले किसी भी क्लोन को बनाए
+रखता है। यह चल रही प्रक्रियाओं और लाइव आइसोलेशन सेशन से सक्रिय कार्यों का पता लगाता है
+और `solve` के समान लॉजिक का उपयोग करते हुए शाखा नाम द्वारा क्लोन को कार्यों से मिलाता
+है (issue → `issue-{n}-{hex}`; PR → इसकी हल की गई head शाखा)।
+
+```bash
+# पूर्वावलोकन: रखे जाने वाले और हटाए जाने वाले फ़ोल्डरों की सूची (कुछ भी नहीं हटाता)
+hive-cleanup --dry-run
+
+# पुरानी अस्थायी फ़ाइलें वास्तव में हटाएँ (पहले पुष्टि माँगता है)
+hive-cleanup
+
+# पुष्टि प्रॉम्प्ट के बिना हटाएँ
+hive-cleanup --force
+
+# गैर-hive-mind अस्थायी प्रविष्टियों पर भी विचार करें (अधिक आक्रामक)
+hive-cleanup --all --dry-run
+
+# /tmp/start-command को हटाने की अनुमति दें (डिफ़ॉल्ट रूप से रखा जाता है; इसमें आइसोलेशन लॉग होते हैं)
+hive-cleanup --force-start-command
+
+# Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
+hive-cleanup --system --sudo
+
+# लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
+hive-cleanup --processes
+
+# किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
+hive-cleanup --pid 94445
+
+# रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
+hive-cleanup --kill-orphaned-agents --dry-run
+
+# पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
+hive-cleanup --kill-orphaned-agents --force
+
+# सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
+hive-cleanup --no-keep-active-tasks-folders --dry-run
+```
+
+विकल्पों की पूरी सूची के लिए `hive-cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
+हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
+कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
+
 ## 🔍 निगरानी और लॉगिंग
 
 लॉग में resume कमांड खोजें:
@@ -766,7 +854,22 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## सर्वर डायग्नोस्टिक्स
 
-उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं
+किसी व्यस्त `claude`, `codex`, `gemini`, `qwen`, या `opencode` PID को उसे शुरू करने
+वाले hive कार्य से जोड़ने के लिए पहले built-in process diagnostic command उपयोग करें:
+
+```bash
+# agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
+hive-cleanup --processes
+
+# उसी report में कोई भी PID शामिल करें।
+hive-cleanup --pid 62220
+
+# केवल terminal task वाले orphaned agents रोकें।
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
+```
+
+Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

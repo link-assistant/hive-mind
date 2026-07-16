@@ -29,18 +29,23 @@ Hive Mind 是一款**通用 AI**（迷你 AGI），能够处理广泛的任务�
 | **预装工具链**             | 25GB+ 开箱即用：10 种语言运行时、2 个定理证明器、构建工具，还可继续安装更多。                                 |
 | **高效利用 Token**         | 常规任务通过代码自动化完成，让 AI Token 专注于创造性问题解决。                                                |
 | **节省时间**               | 人类需要 2~8 小时的工作，AI 每个工作会话仅需 10~25 分钟完成。可批量执行仓库中的任务。"代码在你睡觉时已写好。" |
-| **编排式扩展**             | 并行工作进程犹如一支开发团队，每月仅需约 $200。                                                               |
+| **编排式扩展**             | 并行工作进程犹如一支开发团队。可将 Claude MAX 和 ChatGPT Pro（各 $200）配对，获得两份独立的近乎无限预算。     |
 | **人工控制**               | AI 创建草稿 PR——由您决定是否合并。在关键节点设置质量把关。                                                    |
 | **任意设备编程**           | 通过 Telegram 机器人使用 `/solve` 和 `/hive` 命令，在任意设备上管理 AI，无需 PC、IDE 或笔记本电脑。           |
 | **100% 开源**              | Unlicense（公共领域）。完全透明，无供应商锁定。                                                               |
 
-> _"与 $200 的 Codex 相比，这个解决方案简直是神器。"_ - 用户反馈
+**费用**：Hive Mind 支持两种 $200/月订阅作为功能完整、近乎“无限”的选项：
 
-**费用**：Claude MAX 订阅（约 $200/月，目前五折优惠 = 价值 $400）可为 Hive Mind 提供几乎无限的使用量——市场上最佳的性价比。
+| 订阅                                                             | 搭配 `--tool`    | 默认模型      | 最适合场景                   |
+| ---------------------------------------------------------------- | ---------------- | ------------- | ---------------------------- |
+| **Anthropic Claude MAX**（约 $200/月，常有五折优惠 = 价值 $400） | `claude`（默认） | Opus          | 最高创造力、最强通用代码推理 |
+| **OpenAI ChatGPT Pro**（$200/月，包含 Codex）                    | `codex`          | `gpt-5.6-sol` | 稳定确定性的重构和快速迭代   |
+
+两个工具可以在同一个 hive 中组合使用。Worker 可以并行运行不同工具，`/codex` 或 `/solve --tool codex` 会将任务路由到 ChatGPT Pro，而默认路由到 Claude MAX。无需二选一：任意单一订阅都足以运行，同时使用两者可解锁按工具/模型划分的并发模式（#1474）。
 
 Hive Mind 具备与普通程序员无异的高度创造力。当需求不明确时，它会主动提问，您也可以随时通过 PR 评论进行说明补充。
 
-详细功能和对比信息，请参见 [docs/FEATURES.zh.md](./docs/FEATURES.zh.md) 和 [docs/COMPARISON.zh.md](./docs/COMPARISON.zh.md)。
+关于项目的愿景和示例用户旅程，请参见 [docs/VISION.zh.md](./docs/VISION.zh.md)。详细功能和对比信息，请参见 [docs/FEATURES.zh.md](./docs/FEATURES.zh.md) 和 [docs/COMPARISON.zh.md](./docs/COMPARISON.zh.md)。
 
 ## ⚠️ 警告
 
@@ -48,7 +53,7 @@ Hive Mind 具备与普通程序员无异的高度创造力。当需求不明确�
 
 建议使用 Docker 进行安装（本地和服务器均适用）。请参阅下方的 [Docker 安装](#使用-docker) 部分。
 
-本软件使用 Claude Code 的完全自主模式，这意味着它可以自由执行任何它认为合适的命令。
+本软件会以完全自主模式运行 Claude Code、Codex 等受支持的 AI 工具，这意味着它们可以自由执行任何它们认为合适的命令。
 
 这可能导致意想不到的副作用。
 
@@ -60,7 +65,7 @@ Hive Mind 具备与普通程序员无异的高度创造力。当需求不明确�
 
 从连接互联网的虚拟机中提取 Token 的方式多种多样，包括但不限于：
 
-- **Claude MAX Token** - AI 操作所必需
+- **Claude MAX Token** 和/或 **ChatGPT Pro (Codex) Token** - AI 操作所必需；您可以使用其中任意一种或同时使用两者
 - **GitHub Token** - 仓库访问所必需
 - **API 密钥和凭证** - 系统上的任何敏感数据
 
@@ -161,18 +166,27 @@ docker exec -it hive-mind /bin/bash
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
 
-# Authenticate with Claude
+# Authenticate with Claude (if you have Claude MAX)
 claude
 
 # Optionally set configuration like this:
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# 未指定 `--think` 时，Hive Mind 按 `--think off` 处理。
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
 # Optionally test Claude connection
 claude -p hi --model haiku
+
+# Authenticate with Codex (if you have ChatGPT Pro)
+codex login --device-auth
+
+# Optionally test Codex connection. codex exec refuses to run unless
+# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
+# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
+codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
 
 # You might need to update hive-mind and agent to latest versions:
 bun install -g @link-assistant/hive-mind
@@ -333,11 +347,11 @@ solve <issue-url> [options]
 
 **最常用选项：**
 
-| 选项            | 简写 | 描述                                  | 默认值   |
-| --------------- | ---- | ------------------------------------- | -------- |
-| `--model`       | `-m` | 使用的 AI 模型（sonnet、opus、haiku） | sonnet   |
-| `--think`       |      | 思考级别（low、medium、high、max）    | -        |
-| `--base-branch` | `-b` | PR 的目标分支                         | （默认） |
+| 选项            | 简写 | 描述                                                  | 默认值   |
+| --------------- | ---- | ----------------------------------------------------- | -------- |
+| `--model`       | `-m` | 使用的 AI 模型（sonnet、opus、haiku）                 | opus     |
+| `--think`       |      | 思考级别（off、low、medium、high、xhigh、ultra、max） | off      |
+| `--base-branch` | `-b` | PR 的目标分支                                         | （默认） |
 
 **其他常用选项：**
 
@@ -359,12 +373,12 @@ hive <github-url> [options]
 
 **最常用选项：**
 
-| 选项           | 简写 | 描述                                  | 默认值 |
-| -------------- | ---- | ------------------------------------- | ------ |
-| `--model`      | `-m` | 使用的 AI 模型（sonnet、opus、haiku） | sonnet |
-| `--think`      |      | 思考级别（low、medium、high、max）    | -      |
-| `--all-issues` | `-a` | 监控所有 Issue（忽略标签）            | false  |
-| `--once`       |      | 单次运行（不持续监控）                | false  |
+| 选项           | 简写 | 描述                                                  | 默认值 |
+| -------------- | ---- | ----------------------------------------------------- | ------ |
+| `--model`      | `-m` | 使用的 AI 模型（sonnet、opus、haiku）                 | opus   |
+| `--think`      |      | 思考级别（off、low、medium、high、xhigh、ultra、max） | off    |
+| `--all-issues` | `-a` | 监控所有 Issue（忽略标签）                            | false  |
+| `--once`       |      | 单次运行（不持续监控）                                | false  |
 
 **其他常用选项：**
 
@@ -495,6 +509,25 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - 合并就绪的 Pull Request
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+仓库目标会按顺序处理带有 `ready` 标签的 PR。Issue 和 Pull Request
+目标只处理关联或指定的 PR。你也可以回复一条包含单个 GitHub
+仓库、Issue 或 Pull Request 链接的消息并发送 `/merge`，例如之前的
+`/codex ...issues/123` 命令。
+
+如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
+`--auto-resolve` 使用。
+
 #### `/limits` - 显示用量限制
 
 ```
@@ -505,7 +538,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` - Live Session Log
@@ -542,6 +577,7 @@ Shows:
 - ✅ **Screen 会话**：命令在后台 Screen 会话中运行
 - ✅ **Live Terminal Watch**：`/terminal_watch` 和 opt-in auto-start 显示 live session logs
 - ✅ **聊天限制**：可选配置允许的聊天 ID 白名单
+- ✅ **私聊 Auth 检查**：为白名单聊天所有者提供实验性的 `/auth --status <gh|claude|codex>` 和 `/auth --login <gh|claude|codex>`
 - ✅ **诊断工具**：获取聊天 ID 和配置信息
 
 #### Live Terminal Watch
@@ -560,6 +596,7 @@ Shows:
 
 - 仅在机器人为管理员的群聊中有效
 - 可通过 `TELEGRAM_ALLOWED_CHATS` 配置可选的聊天 ID 限制
+- 如果未设置 `TELEGRAM_ALLOWED_CHATS`，私聊 `/auth` 会被禁用，且只有所列聊天的所有者可以使用
 - 命令以运行机器人的系统用户身份执行
 - 请确保已完成正确的身份验证（`gh auth login`、`claude-profiles`）
 
@@ -713,6 +750,54 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+### 磁盘清理
+
+`hive-cleanup` 通过删除过时的 hive-mind 临时目录/文件（如每个任务的克隆
+`/tmp/gh-issue-solver-*`、MCP 配置文件、日志下载目录等）来释放磁盘空间，同时
+**保留属于当前正在运行任务的文件夹**、受保护的系统路径，以及任何包含未提交或未推送
+更改的克隆。它通过运行中的进程和实时隔离会话检测活动任务，并使用与 `solve` 相同的
+逻辑按分支名称将克隆与任务匹配（issue → `issue-{n}-{hex}`；PR → 其解析出的 head
+分支）。
+
+```bash
+# 预览：列出保留的文件夹和将被删除的文件夹（不删除任何内容）
+hive-cleanup --dry-run
+
+# 实际删除过时的临时文件（会先要求确认）
+hive-cleanup
+
+# 删除时不显示确认提示
+hive-cleanup --force
+
+# 同时考虑非 hive-mind 临时项（更激进）
+hive-cleanup --all --dry-run
+
+# 允许删除 /tmp/start-command（默认保留；其中存放隔离日志）
+hive-cleanup --force-start-command
+
+# Ubuntu / 系统清理（apt 缓存、journald 日志、npm 缓存）
+hive-cleanup --system --sudo
+
+# 将实时/卡住的 agent PID 映射回 hive/start-command 任务会话
+hive-cleanup --processes
+
+# 跟踪指定的非 agent PID，例如浏览器子进程或 shell
+hive-cleanup --pid 94445
+
+# 预览可以停止的孤立 agent
+hive-cleanup --kill-orphaned-agents --dry-run
+
+# 审查预览后停止孤立 agent 进程树
+hive-cleanup --kill-orphaned-agents --force
+
+# 禁用活动任务检测（仅保留受保护的路径）
+hive-cleanup --no-keep-active-tasks-folders --dry-run
+```
+
+运行 `hive-cleanup --help` 查看完整的选项列表。该命令对 dry-run 友好，并为每次运行写入
+带时间戳的 `cleanup-*.log` 日志。进程诊断输出会在打印命令行前遮蔽常见 token
+格式。
+
 ## 🔍 监控与日志
 
 在日志中查找恢复命令：
@@ -762,7 +847,22 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## 服务器诊断
 
-识别消耗资源的进程所属的 Screen 会话：
+将繁忙的 `claude`、`codex`、`gemini`、`qwen` 或 `opencode` PID 关联回启动它的
+hive 任务时，优先使用内置进程诊断命令：
+
+```bash
+# 显示 agent PID、start-command 会话 ID、GitHub 任务 URL、工作区、匹配原因和可能的孤立 agent。
+hive-cleanup --processes
+
+# 在同一报告中包含任意 PID。
+hive-cleanup --pid 62220
+
+# 只停止已完成任务中的孤立 agent。
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
+```
+
+手动兜底：识别消耗资源的进程所属的 Screen 会话。
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

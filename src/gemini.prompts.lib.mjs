@@ -6,6 +6,9 @@
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
+import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for Gemini
@@ -43,11 +46,21 @@ export const buildUserPrompt = params => {
     }
   }
 
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
+  }
+
   promptLines.push('');
 
   if (isContinueMode && feedbackLines && feedbackLines.length > 0) {
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'gemini', argv });
@@ -227,7 +240,7 @@ Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
    - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

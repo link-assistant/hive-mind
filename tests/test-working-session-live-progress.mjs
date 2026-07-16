@@ -236,6 +236,9 @@ const mockYargs = {
   parserConfiguration: function () {
     return this;
   },
+  check: function () {
+    return this;
+  },
   strict: function () {
     return this;
   },
@@ -294,6 +297,9 @@ const mockYargsHive = {
     return this;
   },
   parserConfiguration: function () {
+    return this;
+  },
+  check: function () {
     return this;
   },
   strict: function () {

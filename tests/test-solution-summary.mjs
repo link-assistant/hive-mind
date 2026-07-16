@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// when discovered automatically. Tracked under issue #1758 follow-up; opt in
+// via `node scripts/run-tests.mjs --suite needs-triage`.
 import fs from 'fs';
 
 /**
@@ -183,6 +187,59 @@ runTest('solve.watch.lib.mjs invokes maybeAttachWorkingSessionSummary per iterat
   assertTrue(watch.includes('iterationStartTime'), 'watch should capture iteration-scoped start time');
 });
 
+// Issue #1761: Working session summary comment must appear BEFORE the working
+// session log comment so that on every PR the summary header is positioned
+// above the (potentially huge) log it summarises. The order is enforced by
+// having maybeAttachWorkingSessionSummary be invoked earlier in the source
+// than the corresponding attachLogToGitHub call within each per-iteration
+// success branch. We verify this at source-code level so a future refactor
+// can't silently flip the ordering back.
+console.log('\n📋 Comment Ordering Tests (Issue #1761)\n');
+
+function findIterationCallIndex(source, callee) {
+  // Match the actual call (e.g. "await maybeAttachWorkingSessionSummary(")
+  // rather than mere mentions inside comments. We match the smallest index
+  // of an `await callee(` occurrence in the file.
+  const re = new RegExp(`await\\s+${callee}\\s*\\(`);
+  const m = source.match(re);
+  return m ? source.indexOf(m[0]) : -1;
+}
+
+runTest('solve.watch.lib.mjs posts summary BEFORE log per iteration (Issue #1761)', async () => {
+  const fs = await import('fs');
+  const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(watch, 'maybeAttachWorkingSessionSummary');
+  const logIdx = findIterationCallIndex(watch, 'attachLogToGitHub');
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist');
+  assertTrue(logIdx > 0, 'attachLogToGitHub call should exist');
+  assertTrue(summaryIdx < logIdx, `summary must appear before log in source order (summary@${summaryIdx} vs log@${logIdx})`);
+});
+
+runTest('solve.auto-merge.lib.mjs posts summary BEFORE log per iteration (Issue #1761)', async () => {
+  const fs = await import('fs');
+  const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(autoMerge, 'maybeAttachWorkingSessionSummary');
+  const logIdx = findIterationCallIndex(autoMerge, 'attachLogToGitHub');
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist');
+  assertTrue(logIdx > 0, 'attachLogToGitHub call should exist');
+  assertTrue(summaryIdx < logIdx, `summary must appear before log in source order (summary@${summaryIdx} vs log@${logIdx})`);
+});
+
+runTest('solve.mjs (top-level) posts summary BEFORE log (Issue #1761 reference)', async () => {
+  const fs = await import('fs');
+  const solveMjs = fs.readFileSync('./src/solve.mjs', 'utf-8');
+  const summaryIdx = findIterationCallIndex(solveMjs, 'maybeAttachWorkingSessionSummary');
+  // solve.mjs uploads the log via verifyResults (which calls attachLogToGitHub
+  // internally). Either a direct attachLogToGitHub or a verifyResults invocation
+  // counts; both must come AFTER the summary call.
+  const logIdx = findIterationCallIndex(solveMjs, 'attachLogToGitHub');
+  const verifyIdx = findIterationCallIndex(solveMjs, 'verifyResults');
+  const earliestLogIdx = [logIdx, verifyIdx].filter(i => i > 0).reduce((a, b) => Math.min(a, b), Number.POSITIVE_INFINITY);
+  assertTrue(summaryIdx > 0, 'maybeAttachWorkingSessionSummary call should exist in solve.mjs');
+  assertTrue(Number.isFinite(earliestLogIdx), 'attachLogToGitHub or verifyResults call should exist in solve.mjs');
+  assertTrue(summaryIdx < earliestLogIdx, `summary must appear before log/verifyResults in source order (summary@${summaryIdx} vs log@${earliestLogIdx})`);
+});
+
 // Issue #1728: Comment header rename — the user-facing header must be
 // "Working session summary", but the function/flag names stay the same for
 // backwards compatibility.
@@ -193,14 +250,18 @@ runTest('attachSolutionSummary posts a "Working session summary" comment (Issue 
   assertFalse(/^[^*\/]*## Solution summary/m.test(resultsLibSrc), 'comment header should no longer say "Solution summary" outside comments');
 });
 
-// Issue #1728: The new "Working session summary" header must be tracked in
-// TOOL_GENERATED_COMMENT_MARKERS so that an iteration's auto-attach summary
-// doesn't make the next iteration's auto-attach check think the AI posted.
-runTest('TOOL_GENERATED_COMMENT_MARKERS includes "Working session summary" (Issue #1728)', async () => {
-  const { TOOL_GENERATED_COMMENT_MARKERS, WORKING_SESSION_SUMMARY_MARKER, isToolGeneratedComment } = await import('../src/tool-comments.lib.mjs');
+// Issue #1813: The visible "Working session summary" header is not enough to
+// prove a comment was posted by hive-mind; Codex can use the same heading in a
+// real AI-authored comment. New automated comments use a hidden marker, and
+// legacy automated comments are still detected by their standard footer.
+runTest('Working session summary detection requires automation evidence (Issues #1728, #1813)', async () => {
+  const { TOOL_GENERATED_COMMENT_MARKERS, WORKING_SESSION_SUMMARY_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER, WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER, isToolGeneratedComment } = await import('../src/tool-comments.lib.mjs');
   assertEqual(WORKING_SESSION_SUMMARY_MARKER, 'Working session summary', 'WORKING_SESSION_SUMMARY_MARKER constant should be the header text');
-  assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_MARKER), 'marker must be in TOOL_GENERATED_COMMENT_MARKERS');
-  assertTrue(isToolGeneratedComment('## Working session summary\n\nresult body'), 'isToolGeneratedComment should match the new header');
+  assertFalse(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_MARKER), 'visible header alone must not be in TOOL_GENERATED_COMMENT_MARKERS');
+  assertTrue(TOOL_GENERATED_COMMENT_MARKERS.includes(WORKING_SESSION_SUMMARY_AUTOMATION_MARKER), 'hidden automation marker must be in TOOL_GENERATED_COMMENT_MARKERS');
+  assertFalse(isToolGeneratedComment('## Working session summary\n\nresult body'), 'visible header alone should not look tool-generated');
+  assertTrue(isToolGeneratedComment(`${WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}\n## Working session summary\n\nresult body`), 'hidden marker should identify new automated summaries');
+  assertTrue(isToolGeneratedComment(`## Working session summary\n\nresult body\n\n---\n*${WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`), 'legacy automated footer should still identify old summaries');
 });
 
 // Issue #1625: Tool-generated comments should not count as AI-created comments
@@ -277,7 +338,7 @@ console.log('\n📋 Centralized Marker Module Tests (Issue #1625)\n');
 
 runTest('tool-comments.lib.mjs exports every named marker constant', async () => {
   const toolComments = await import('../src/tool-comments.lib.mjs');
-  const expectedNames = ['AI_WORK_SESSION_STARTED_MARKER', 'AI_WORK_SESSION_COMPLETED_MARKER', 'AI_WORK_SESSION_RESUMED_MARKER', 'AUTO_RESUME_ON_LIMIT_RESET_MARKER', 'AUTO_RESTART_ON_LIMIT_RESET_MARKER', 'SOLUTION_DRAFT_LOG_MARKER', 'AUTO_RESTART_MARKER', 'AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER', 'READY_TO_MERGE_MARKER', 'AUTO_MERGED_MARKER', 'BILLING_LIMIT_MARKER', 'MAINTAINER_ACCESS_REQUEST_MARKER', 'LIVE_PROGRESS_SECTION_START_MARKER', 'LIVE_PROGRESS_SECTION_END_MARKER', 'SESSION_FORCE_KILLED_MARKER', 'REPOSITORY_INITIALIZATION_REQUIRED_MARKER', 'INTERACTIVE_SESSION_STARTED_MARKER', 'INTERACTIVE_SESSION_ENDED_MARKER', 'NOW_WORKING_SESSION_IS_ENDED_MARKER', 'SOLUTION_DRAFT_FAILED_MARKER', 'SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER', 'USAGE_LIMIT_REACHED_MARKER'];
+  const expectedNames = ['AI_WORK_SESSION_STARTED_MARKER', 'AI_WORK_SESSION_COMPLETED_MARKER', 'AI_WORK_SESSION_RESUMED_MARKER', 'AUTO_RESUME_ON_LIMIT_RESET_MARKER', 'AUTO_RESTART_ON_LIMIT_RESET_MARKER', 'SOLUTION_DRAFT_LOG_MARKER', 'AUTO_RESTART_MARKER', 'AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER', 'READY_TO_MERGE_MARKER', 'AUTO_MERGED_MARKER', 'BILLING_LIMIT_MARKER', 'MAINTAINER_ACCESS_REQUEST_MARKER', 'LIVE_PROGRESS_SECTION_START_MARKER', 'LIVE_PROGRESS_SECTION_END_MARKER', 'SESSION_FORCE_KILLED_MARKER', 'REPOSITORY_INITIALIZATION_REQUIRED_MARKER', 'INTERACTIVE_SESSION_STARTED_MARKER', 'INTERACTIVE_SESSION_ENDED_MARKER', 'NOW_WORKING_SESSION_IS_ENDED_MARKER', 'SOLUTION_DRAFT_FAILED_MARKER', 'SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER', 'USAGE_LIMIT_REACHED_MARKER', 'WORKING_SESSION_SUMMARY_MARKER', 'WORKING_SESSION_SUMMARY_AUTOMATION_MARKER', 'WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER'];
   for (const name of expectedNames) {
     assertTrue(typeof toolComments[name] === 'string' && toolComments[name].length > 0, `${name} should be a non-empty string export`);
   }
@@ -285,7 +346,7 @@ runTest('tool-comments.lib.mjs exports every named marker constant', async () =>
 
 runTest('TOOL_GENERATED_COMMENT_MARKERS is derived from named constants (no orphaned literals)', async () => {
   const toolComments = await import('../src/tool-comments.lib.mjs');
-  const expectedInList = [toolComments.AI_WORK_SESSION_STARTED_MARKER, toolComments.AI_WORK_SESSION_COMPLETED_MARKER, toolComments.AI_WORK_SESSION_RESUMED_MARKER, toolComments.AUTO_RESUME_ON_LIMIT_RESET_MARKER, toolComments.AUTO_RESTART_ON_LIMIT_RESET_MARKER, toolComments.SOLUTION_DRAFT_LOG_MARKER, toolComments.AUTO_RESTART_MARKER, toolComments.READY_TO_MERGE_MARKER, toolComments.AUTO_MERGED_MARKER, toolComments.BILLING_LIMIT_MARKER, toolComments.MAINTAINER_ACCESS_REQUEST_MARKER, toolComments.LIVE_PROGRESS_SECTION_START_MARKER, toolComments.SESSION_FORCE_KILLED_MARKER, toolComments.REPOSITORY_INITIALIZATION_REQUIRED_MARKER, toolComments.INTERACTIVE_SESSION_STARTED_MARKER, toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER, toolComments.SOLUTION_DRAFT_FAILED_MARKER, toolComments.SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, toolComments.USAGE_LIMIT_REACHED_MARKER];
+  const expectedInList = [toolComments.AI_WORK_SESSION_STARTED_MARKER, toolComments.AI_WORK_SESSION_COMPLETED_MARKER, toolComments.AI_WORK_SESSION_RESUMED_MARKER, toolComments.AUTO_RESUME_ON_LIMIT_RESET_MARKER, toolComments.AUTO_RESTART_ON_LIMIT_RESET_MARKER, toolComments.SOLUTION_DRAFT_LOG_MARKER, toolComments.AUTO_RESTART_MARKER, toolComments.READY_TO_MERGE_MARKER, toolComments.AUTO_MERGED_MARKER, toolComments.BILLING_LIMIT_MARKER, toolComments.MAINTAINER_ACCESS_REQUEST_MARKER, toolComments.LIVE_PROGRESS_SECTION_START_MARKER, toolComments.SESSION_FORCE_KILLED_MARKER, toolComments.REPOSITORY_INITIALIZATION_REQUIRED_MARKER, toolComments.INTERACTIVE_SESSION_STARTED_MARKER, toolComments.NOW_WORKING_SESSION_IS_ENDED_MARKER, toolComments.SOLUTION_DRAFT_FAILED_MARKER, toolComments.SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, toolComments.USAGE_LIMIT_REACHED_MARKER, toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER];
   for (const m of expectedInList) {
     assertTrue(toolComments.TOOL_GENERATED_COMMENT_MARKERS.includes(m), `TOOL_GENERATED_COMMENT_MARKERS should include "${m}" (via named constant)`);
   }
@@ -438,7 +499,7 @@ runTest('Cross-module: comment bodies posted at each site embed the centralized 
   assertTrue(githubLib.includes('USAGE_LIMIT_REACHED_MARKER'), 'github.lib.mjs should reference USAGE_LIMIT_REACHED_MARKER');
   assertTrue(githubLib.includes('SOLUTION_DRAFT_FAILED_MARKER'), 'github.lib.mjs should reference SOLUTION_DRAFT_FAILED_MARKER');
   assertTrue(githubLib.includes('NOW_WORKING_SESSION_IS_ENDED_MARKER'), 'github.lib.mjs should reference NOW_WORKING_SESSION_IS_ENDED_MARKER');
-  assertTrue(githubLib.includes('Administrator-only CLI details'), 'issue failure log comments should keep admin CLI details out of user-facing guidance');
+  assertFalse(githubLib.includes('Administrator-only CLI details'), 'issue failure log comments should not include stale admin-only boilerplate');
   const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
   assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
   assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');

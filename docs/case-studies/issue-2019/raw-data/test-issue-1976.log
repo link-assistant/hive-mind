@@ -1,0 +1,3 @@
+PASS issue #1976 reason explains the blocked fork replacement instead of using the old terse title
+PASS issue #1976 action section keeps the exact repository and user options visible
+PASS issue #1976 log-upload failure comments receive the expanded reason and specific action section

@@ -29,18 +29,23 @@ Hive Mind is a **generalist AI** (mini-AGI) capable of working on a wide range o
 | **Pre-installed Toolchain**  | 25GB+ ready: 10 language runtimes, 2 theorem provers, build tools. Can install more.                                                                                       |
 | **Token Efficiency**         | Routine tasks automated in code, so AI tokens focus on creative problem-solving.                                                                                           |
 | **Time Freedom**             | What takes humans 2-8 hours, AI completes each working session in 10-25 minutes. Mass execution of tasks in repository is possible. "The code is written while you sleep." |
-| **Scale with Orchestration** | Parallel workers feel like a team of developers, all for ~$200/month.                                                                                                      |
+| **Scale with Orchestration** | Parallel workers feel like a team of developers. Pair Claude MAX and ChatGPT Pro ($200 each) for two independent unlimited budgets.                                        |
 | **Human Control**            | AI creates draft PRs - you decide what merges. Quality gates where they matter.                                                                                            |
 | **Any Device Programming**   | Manage AI from any device with `/solve` and `/hive` via Telegram bot. No PC, IDE, or laptop required.                                                                      |
 | **100% Open Source**         | Unlicense (public domain). Full transparency, no vendor lock-in.                                                                                                           |
 
-> _"Compared to Codex for $200, this solution is fire."_ - User feedback
+**Cost**: Hive Mind supports two $200/month subscriptions as full-featured "unlimited" options:
 
-**Cost**: Claude MAX subscription (~$200/month, currently 50% off = $400 value) provides almost unlimited usage for Hive Mind - the best value/quality balance on the market.
+| Subscription                                                       | Pairs with `--tool` | Default model | Best for                                                |
+| ------------------------------------------------------------------ | ------------------- | ------------- | ------------------------------------------------------- |
+| **Anthropic Claude MAX** (~$200/month, often 50% off = $400 value) | `claude` (default)  | Opus          | Highest creativity, strongest general code reasoning    |
+| **OpenAI ChatGPT Pro** ($200/month, includes Codex)                | `codex`             | `gpt-5.6-sol` | Strong deterministic refactors and fast iteration loops |
+
+Both tools can be combined in the same hive. Workers can run different tools in parallel, and `/codex` or `/solve --tool codex` routes tasks to ChatGPT Pro while the default routes to Claude MAX. There is no requirement to pick one: either single subscription is enough to operate, and using both unlocks per-tool/model concurrency mode (#1474).
 
 Hive Mind has high creativity indistinguishable from average programmers. It asks questions if requirements are unclear, and you can clarify on the go via PR comments.
 
-For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
+For the project's vision and example user journeys, see [docs/VISION.md](./docs/VISION.md). For detailed features and comparisons, see [docs/FEATURES.md](./docs/FEATURES.md) and [docs/COMPARISON.md](./docs/COMPARISON.md).
 
 ## ⚠️ WARNING
 
@@ -48,7 +53,7 @@ It is UNSAFE to run this software on your developer machine.
 
 It is recommended to use Docker for installation (both locally and on servers). See the [Docker installation](#using-docker) section below.
 
-This software uses full autonomous mode of Claude Code, that means it is free to execute any commands it sees fit.
+This software runs supported AI tools such as Claude Code and Codex in full autonomous mode, which means they are free to execute any commands they see fit.
 
 That means it can lead to unexpected side effects.
 
@@ -60,7 +65,7 @@ There is also a known issue of space leakage. So you need to make sure you are a
 
 There are infinite ways to extract tokens from a virtual machine connected to the internet. This includes but is not limited to:
 
-- **Claude MAX tokens** - Required for AI operations
+- **Claude MAX tokens** and/or **ChatGPT Pro (Codex) tokens** - Required for AI operations; you can run with either or both
 - **GitHub tokens** - Required for repository access
 - **API keys and credentials** - Any sensitive data on the system
 
@@ -161,7 +166,7 @@ docker exec -it hive-mind /bin/bash
 # Inside the container, authenticate with GitHub
 gh-setup-git-identity
 
-# Authenticate with Claude
+# Authenticate with Claude (if you have Claude MAX)
 claude
 
 # Optionally set configuration like this:
@@ -173,6 +178,14 @@ claude
 
 # Optionally test Claude connection
 claude -p hi --model haiku
+
+# Authenticate with Codex (if you have ChatGPT Pro)
+codex login --device-auth
+
+# Optionally test Codex connection. codex exec refuses to run unless
+# either cwd is a git repo it trusts or --skip-git-repo-check is passed.
+# It prints the refusal to STDOUT but still exits 0, so do not skip the flag.
+codex exec --skip-git-repo-check --model gpt-5.4-mini "reply with only OK"
 
 # Verify Playwright MCP is registered for both CLIs in this container image
 claude mcp list | grep playwright
@@ -344,7 +357,7 @@ solve <issue-url> [options]
 
 | Option          | Alias | Description                             | Default   |
 | --------------- | ----- | --------------------------------------- | --------- |
-| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet    |
+| `--model`       | `-m`  | AI model to use (sonnet, opus, haiku)   | opus      |
 | `--think`       |       | Thinking level (low, medium, high, max) | -         |
 | `--base-branch` | `-b`  | Target branch for PR                    | (default) |
 
@@ -370,7 +383,7 @@ hive <github-url> [options]
 
 | Option         | Alias | Description                             | Default |
 | -------------- | ----- | --------------------------------------- | ------- |
-| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | sonnet  |
+| `--model`      | `-m`  | AI model to use (sonnet, opus, haiku)   | opus    |
 | `--think`      |       | Thinking level (low, medium, high, max) | -       |
 | `--all-issues` | `-a`  | Monitor all issues (ignore labels)      | false   |
 | `--once`       |       | Single run (don't monitor continuously) | false   |
@@ -494,15 +507,15 @@ Free Models via Kilo Gateway (with --tool agent):
 
 Current tool defaults in Hive Mind:
 
-| Tool       | Default model                                               | Default reasoning behavior                                                               |
-| ---------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `claude`   | `sonnet`                                                    | No extra thinking is requested unless you pass `--think` or `--thinking-budget`          |
-| `codex`    | `gpt-5.5` preferred, with runtime fallback to local catalog | Codex runs with `reasoning_effort=none` unless you pass `--think` or `--thinking-budget` |
-| `opencode` | `grok-code-fast-1`                                          | No extra thinking prompt is added for the default model                                  |
-| `agent`    | `nemotron-3-super-free`                                     | No extra thinking prompt is added for the default model                                  |
-| `gemini`   | `flash`                                                     | No extra thinking prompt is added for the default model                                  |
-| `qwen`     | `qwen3-coder-plus`                                          | No extra thinking prompt is added for the default model                                  |
-| `gemini`   | `gemini-2.5-flash`                                          | No extra thinking prompt is added for the default model                                  |
+| Tool       | Default model                                                               | Default reasoning behavior                                                         |
+| ---------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `claude`   | `opus`                                                                      | Defaults to `--think off`: zero budget when supported, otherwise the lowest effort |
+| `codex`    | `gpt-5.6-sol` preferred, with runtime fallback to local catalog (`gpt-5.5`) | Defaults to `--think off`, mapped to `reasoning_effort=none`                       |
+| `opencode` | `grok-code-fast-1`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `agent`    | `nemotron-3-super-free`                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `flash`                                                                     | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `qwen`     | `qwen3-coder-plus`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
+| `gemini`   | `gemini-2.5-flash`                                                          | Defaults to `--think off`; no positive thinking prompt is added                    |
 
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
@@ -519,6 +532,25 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - Merge Ready Pull Requests
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets process PRs with the `ready` label sequentially. Issue and
+pull request targets process only the linked or selected PR. You can also reply
+with `/merge` to a message containing one GitHub repository, issue, or pull
+request link, such as a previous `/codex ...issues/123` command.
+
+If a target PR is not finished yet, `/merge` waits for it to become mergeable
+before merging. Merge-conflict skips still work with `--auto-resolve`.
+
 #### `/limits` - Show Usage Limits
 
 ```
@@ -529,7 +561,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` - Live Session Log
@@ -567,6 +601,7 @@ Shows:
 - ✅ **Screen Sessions**: Commands run in detached screen sessions
 - ✅ **Live Terminal Watch**: `/terminal_watch` and opt-in auto-start show live session logs
 - ✅ **Chat Restrictions**: Optional whitelist of allowed chat IDs
+- ✅ **Private Auth Check**: Experimental `/auth --status <gh|claude|codex>` and `/auth --login <gh|claude|codex>` for owners of allowlisted chats
 - ✅ **Diagnostic Tools**: Get chat ID and configuration info
 
 #### Live Terminal Watch
@@ -584,6 +619,8 @@ When enabled with `--auto-start-screen-watch-message`, the bot automatically sta
 
 - Only works in group chats where the bot is admin
 - Optional chat ID restrictions via `TELEGRAM_ALLOWED_CHATS`
+- Private `/auth` is disabled unless `TELEGRAM_ALLOWED_CHATS` is set and only
+  owners of listed chats can use it
 - Commands run as the system user running the bot
 - Ensure proper authentication (`gh auth login`, `claude-profiles`)
 
@@ -737,6 +774,56 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+### Disk Cleanup
+
+`hive-cleanup` frees disk space by removing stale hive-mind temporary
+directories/files (per-task clones like `/tmp/gh-issue-solver-*`, MCP config
+files, log download dirs, …) while **keeping folders that belong to
+currently-running tasks**, protected system paths, and any clone with
+uncommitted or unpushed work. It detects active tasks from running processes and
+live isolation sessions and matches clones to tasks by branch name using the
+same logic as `solve` (issue → `issue-{n}-{hex}`; PR → its resolved head
+branch).
+
+```bash
+# Preview: list kept folders and folders that would be deleted (deletes nothing)
+hive-cleanup --dry-run
+
+# Actually delete stale temp artifacts (asks for confirmation first)
+hive-cleanup
+
+# Delete without the confirmation prompt
+hive-cleanup --force
+
+# Also consider non-hive-mind temp entries (more aggressive)
+hive-cleanup --all --dry-run
+
+# Allow deleting /tmp/start-command (kept by default; holds isolation logs)
+hive-cleanup --force-start-command
+
+# Ubuntu / system cleanup (apt caches, journald logs, npm cache)
+hive-cleanup --system --sudo
+
+# Map live/stuck agent PIDs back to hive/start-command task sessions
+hive-cleanup --processes
+
+# Trace a specific non-agent PID, for example a browser child or shell
+hive-cleanup --pid 94445
+
+# Preview orphaned terminal-session agents that can be stopped
+hive-cleanup --kill-orphaned-agents --dry-run
+
+# Stop orphaned agent process trees after reviewing the preview
+hive-cleanup --kill-orphaned-agents --force
+
+# Disable active-task detection (only protected paths are kept)
+hive-cleanup --no-keep-active-tasks-folders --dry-run
+```
+
+Run `hive-cleanup --help` for the full list of options. The command is dry-run
+friendly and writes a timestamped `cleanup-*.log` for every run. Process
+diagnostic output redacts common token shapes before printing command lines.
+
 ## 🔍 Monitoring & Logging
 
 Find resume commands in logs:
@@ -786,7 +873,25 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ## Server diagnostics
 
-Identify screens that are parents of processes that eating the resources
+Prefer the built-in process diagnostic command when connecting a busy
+`claude`, `codex`, `gemini`, `qwen`, or `opencode` PID back to the hive task
+that launched it:
+
+```bash
+# Show agent PIDs, start-command session IDs, GitHub task URLs, workspaces,
+# match reasons, and possible orphaned terminal-session agents.
+hive-cleanup --processes
+
+# Include an arbitrary PID in the same report.
+hive-cleanup --pid 62220
+
+# Kill only agents whose matched start-command task is already terminal.
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
+```
+
+Manual fallback: identify screens that are parents of processes that are eating
+the resources.
 
 ```bash
 TARGETS="62220 65988 63094 66606 1028071 4127023"

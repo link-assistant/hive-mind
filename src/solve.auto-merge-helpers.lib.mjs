@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Helper functions for the auto-merge module.
@@ -16,7 +17,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -35,6 +36,12 @@ const { reportError } = sentryLib;
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
 const { checkPRMergeable, checkForBillingLimitError, getDetailedCIStatus, getWorkflowRunsForSha, getWorkflowRunJobsCount, getActiveRepoWorkflows, getCommitDate, checkWorkflowsHavePRTriggers, checkPreviousPRCommitsHadCI, getActivePRWorkflowRuns } = githubMergeLib;
+
+// Issue #1952: Cross-reference cancelled check-runs against workflow-run conclusions so a
+// job that hit `timeout-minutes` (check-run cancelled + workflow_run failed) is treated as a
+// CI failure rather than a re-triggerable cancellation that stops for human review.
+const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
+const { classifyCancelledCIByWorkflowRuns } = cancelledCiRerunLib;
 
 /**
  * Issue #1712: Plain-English meaning of GitHub Actions / check-run statuses, so the
@@ -76,7 +83,10 @@ const formatRunLine = run => {
 // search scope for checkForExistingComment() stays in lock-step with the
 // markers actually embedded in tool-posted comments.
 const toolComments = await import('./tool-comments.lib.mjs');
-const { SESSION_ENDING_MARKERS } = toolComments;
+const { SESSION_ENDING_MARKERS, isToolGeneratedComment, isToolTrackedCommentId, trackToolCommentId } = toolComments;
+
+const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
+const { formatExternalReviewLimitCheck, splitExternalReviewLimitChecks } = externalReviewLimitLib;
 
 /**
  * Issue #1323: Check if a comment with specific content already exists on the PR
@@ -168,14 +178,25 @@ export const checkForExistingComment = async (owner, repo, prNumber, commentSign
 
 /**
  * Check for new comments from non-bot users since last commit
+ *
+ * Same-account comments are only considered feedback when
+ * `trustAuthenticatedUserComments` is true. Keep the default false for callers
+ * that may run while an AI tool is still active: those tools can post through
+ * the authenticated GitHub account.
+ *
+ * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
+ * @param {Object} options - Comment classification options
+ * @param {boolean} options.trustAuthenticatedUserComments - True only when the caller knows the AI tool is not running
  * @returns {Promise<{hasNewComments: boolean, comments: Array}>}
  */
-export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false) => {
+export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber, lastCheckTime, verbose = false, commandRunner = $, options = {}) => {
   try {
+    const { trustAuthenticatedUserComments = false } = options;
+
     // Get current GitHub user to identify which comments are from the bot/hive-mind
     let currentUser = null;
     try {
-      const userResult = await $`gh api user --jq .login`;
+      const userResult = await commandRunner`gh api user --jq .login`;
       if (userResult.code === 0) {
         currentUser = userResult.stdout.toString().trim();
       }
@@ -183,7 +204,12 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
       // If we can't get the current user, continue without filtering
     }
 
-    // Common bot usernames and patterns to filter out
+    // Common bot usernames and patterns to filter out.
+    // Issue #1821: In same-account operation, humans and AI tools can both
+    // post through the authenticated account. The safe default treats that
+    // account as tool-owned; auto-restart-until-mergeable opts in to trusting
+    // same-account comments only while no AI tool execution is active, and
+    // still filters tool-generated comments by tracked IDs and marker strings.
     // Note: Patterns use word boundaries or end-of-string to avoid false positives
     // (e.g., "claudeuser" should NOT match as a bot)
     const botPatterns = [
@@ -201,21 +227,21 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
 
     const isBot = login => {
       if (!login) return false;
-      // Check if it's the current user (the bot running hive-mind)
-      if (currentUser && login === currentUser) return true;
       // Check against known bot patterns
       return botPatterns.some(pattern => pattern.test(login));
     };
 
+    const isToolComment = comment => isToolTrackedCommentId(comment.id) || isToolGeneratedComment(comment.body);
+
     // Fetch PR conversation comments
-    const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+    const prCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
     let prComments = [];
     if (prCommentsResult.code === 0 && prCommentsResult.stdout) {
       prComments = JSON.parse(prCommentsResult.stdout.toString() || '[]');
     }
 
     // Fetch PR review comments (inline code comments)
-    const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+    const prReviewCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
     let prReviewComments = [];
     if (prReviewCommentsResult.code === 0 && prReviewCommentsResult.stdout) {
       prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString() || '[]');
@@ -224,7 +250,7 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Fetch issue comments if we have an issue number
     let issueComments = [];
     if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+      const issueCommentsResult = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
       if (issueCommentsResult.code === 0 && issueCommentsResult.stdout) {
         issueComments = JSON.parse(issueCommentsResult.stdout.toString() || '[]');
       }
@@ -233,14 +259,28 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
     // Combine all comments
     const allComments = [...prComments, ...prReviewComments, ...issueComments];
 
-    // Filter for new comments from non-bot users
+    // Filter for new comments from non-bot users. Automated hive-mind/tool
+    // comments are excluded by marker/ID, including comments posted by the
+    // authenticated user during the current or a previous process.
     const newNonBotComments = allComments.filter(comment => {
       const commentTime = new Date(comment.created_at);
       const isAfterLastCheck = commentTime > lastCheckTime;
-      const isFromNonBot = !isBot(comment.user?.login);
+      const login = comment.user?.login;
+      const isFromAuthenticatedUser = Boolean(currentUser && login === currentUser);
+      const isFromTool = isToolComment(comment);
+      const isFromAuthenticatedUserToolContext = isFromAuthenticatedUser && !trustAuthenticatedUserComments;
+      const isFromBot = isBot(login) || isFromAuthenticatedUserToolContext;
+      const isFromNonBot = !isFromBot && !isFromTool;
 
-      if (verbose && isAfterLastCheck && isFromNonBot) {
-        console.log(`[VERBOSE] New non-bot comment from ${comment.user?.login} at ${comment.created_at}`);
+      if (verbose && isAfterLastCheck && isFromTool) {
+        console.log(`[VERBOSE] Skipping tool-generated comment from ${login} at ${comment.created_at}`);
+      } else if (verbose && isAfterLastCheck && isFromAuthenticatedUserToolContext) {
+        console.log(`[VERBOSE] Skipping authenticated-user comment from ${login} at ${comment.created_at} because same-account feedback is not trusted in this context`);
+      } else if (verbose && isAfterLastCheck && isFromBot) {
+        console.log(`[VERBOSE] Skipping bot comment from ${login} at ${comment.created_at}`);
+      } else if (verbose && isAfterLastCheck && isFromNonBot) {
+        const sameAccountSuffix = currentUser && login === currentUser ? ' (authenticated user)' : '';
+        console.log(`[VERBOSE] New non-bot comment from ${login}${sameAccountSuffix} at ${comment.created_at}`);
       }
 
       return isAfterLastCheck && isFromNonBot;
@@ -263,6 +303,121 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
 };
 
 /**
+ * Issue #1827: Compute the next monotonic check-window cutoff for the
+ * auto-restart-until-mergeable loop. The cutoff must never move backwards:
+ * after an AI session, lastCheckTime is set to a moment *after* the agent's own
+ * comments, so rewinding it to the iteration's start time (captured before the
+ * AI ran) would re-detect those comments as new feedback — the root cause of
+ * the restart loop in #1827. Returns whichever timestamp is later.
+ *
+ * @param {Date} lastCheckTime - current cutoff
+ * @param {Date} candidate - proposed new cutoff (usually the iteration start time)
+ * @returns {Date} the later of the two timestamps
+ */
+export const nextMonotonicCheckTime = (lastCheckTime, candidate) => {
+  if (!(lastCheckTime instanceof Date)) return candidate;
+  if (!(candidate instanceof Date)) return lastCheckTime;
+  return candidate.getTime() > lastCheckTime.getTime() ? candidate : lastCheckTime;
+};
+
+/**
+ * Issue #1827: Register every comment authored by the authenticated GitHub
+ * account during an AI working session as a tool-generated comment.
+ *
+ * During a session, the AI agent can post free-form status comments through the
+ * authenticated account (e.g. "✅ CI now green", "✅ Verification pass"). These
+ * are NOT routed through postTrackedComment(), so their IDs were never captured,
+ * and they match none of the tool markers. Once issue #1821 made the watch loop
+ * trust same-account comments as human feedback, the very next iteration
+ * re-detected these comments as fresh feedback and triggered an endless
+ * auto-restart loop until the limit was hit.
+ *
+ * Because the authenticated account is busy running the AI for the whole
+ * session window, any comment it authored within that window is the tool's own,
+ * not human feedback. Tracking those IDs makes checkForNonBotComments filter
+ * them by ID regardless of timestamps — a defense that also survives clock skew
+ * between the local clock and GitHub's `created_at` (which a purely
+ * time-based cutoff cannot).
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {number} issueNumber - Issue number (may equal prNumber)
+ * @param {Date|string|number} sinceTime - Start of the session window
+ * @param {Function} commandRunner - Tagged-template command runner, injectable for tests
+ * @param {Object} options
+ * @param {boolean} [options.verbose=false]
+ * @param {string} [options.currentUser] - Pre-resolved authenticated login (skips the `gh api user` call)
+ * @returns {Promise<string[]>} Newly tracked comment IDs (as strings)
+ */
+export const trackAuthenticatedUserCommentsSince = async (owner, repo, prNumber, issueNumber, sinceTime, commandRunner = $, options = {}) => {
+  const { verbose = false, currentUser: providedUser } = options;
+  const trackedIds = [];
+
+  try {
+    let currentUser = providedUser || null;
+    if (!currentUser) {
+      try {
+        const userResult = await commandRunner`gh api user --jq .login`;
+        if (userResult.code === 0) {
+          currentUser = userResult.stdout.toString().trim();
+        }
+      } catch {
+        // Without the authenticated login we cannot attribute comments; bail out.
+      }
+    }
+    if (!currentUser) return trackedIds;
+
+    const since = sinceTime instanceof Date ? sinceTime : new Date(sinceTime);
+
+    const fetchComments = async path => {
+      try {
+        const result = await commandRunner`gh api ${path} --paginate`;
+        if (result.code === 0 && result.stdout) {
+          return JSON.parse(result.stdout.toString() || '[]');
+        }
+      } catch {
+        // Ignore fetch/parse failures for an individual endpoint.
+      }
+      return [];
+    };
+
+    const prComments = await fetchComments(`repos/${owner}/${repo}/issues/${prNumber}/comments`);
+    const prReviewComments = await fetchComments(`repos/${owner}/${repo}/pulls/${prNumber}/comments`);
+    let issueComments = [];
+    if (issueNumber && issueNumber !== prNumber) {
+      issueComments = await fetchComments(`repos/${owner}/${repo}/issues/${issueNumber}/comments`);
+    }
+
+    const allComments = [...prComments, ...prReviewComments, ...issueComments];
+    for (const comment of allComments) {
+      const login = comment.user?.login;
+      if (!login || login !== currentUser) continue;
+      // Inclusive lower bound: a comment posted at the exact session start is
+      // still the tool's own. created_at uses GitHub's clock, so allow equality.
+      const createdAt = new Date(comment.created_at);
+      if (createdAt < since) continue;
+      if (isToolTrackedCommentId(comment.id)) continue;
+      trackToolCommentId(comment.id);
+      trackedIds.push(String(comment.id));
+      if (verbose) {
+        console.log(`[VERBOSE] Tracking authenticated-user session comment ${comment.id} from ${login} at ${comment.created_at}`);
+      }
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'track_authenticated_user_comments',
+      owner,
+      repo,
+      prNumber,
+      operation: 'track_session_comments',
+    });
+  }
+
+  return trackedIds;
+};
+
+/**
  * Get the reasons why PR is not mergeable
  * Issue #1314: Comprehensive CI/CD status handling covering all possible states:
  * - success: All CI passed → no blocker
@@ -272,8 +427,68 @@ export const checkForNonBotComments = async (owner, repo, prNumber, issueNumber,
  * - billing_limit: Billing/spending limit reached → stop (private) or wait (public)
  * - no_checks: No CI checks yet (race condition) → wait
  */
+/**
+ * Issue #1918: Decide whether the consecutive "no workflow runs" counter should be
+ * reset after a getMergeBlockers() result.
+ *
+ * The counter (`consecutiveNoRunsChecks` in the watch loop) is a safety valve: after
+ * MAX_NO_RUNS_CHECKS consecutive checks where a repo's PR-triggered workflows produced
+ * 0 workflow runs, /merge stops waiting and trusts the available signal (external
+ * checks / mergeability). For that valve to ever fire, the counter must keep
+ * incrementing across watch-loop iterations for the same commit.
+ *
+ * The previous logic reset the counter whenever `ciStatus.status !== 'no_checks'`.
+ * That is wrong when `status === 'success'` comes from EXTERNAL checks only (e.g.
+ * CodeRabbit) while the repo's own PR-triggered workflows have 0 runs — for example a
+ * fork PR whose only workflow triggers on `push`, which never fires for fork commits in
+ * the base repo. In that case getMergeBlockers keeps emitting the "no workflow runs"
+ * wait, but the caller reset the counter to 0 every iteration, pinning it at "check
+ * 1/5" forever — an infinite watch loop that hung for over an hour (Issue #1918).
+ *
+ * Fix: keep the counter whenever getMergeBlockers signals it is still inside the
+ * no-workflow-runs wait (`noWorkflowRunsForCommit === true`), regardless of ciStatus.
+ *
+ * @param {{status?: string}|null|undefined} ciStatus - Detailed CI status object.
+ * @param {boolean} [noWorkflowRunsForCommit=false] - True when getMergeBlockers is still
+ *   waiting for PR-triggered workflow runs to register for the current commit.
+ * @returns {boolean} true if `consecutiveNoRunsChecks` should be reset to 0.
+ */
+export const shouldResetNoRunsCounter = (ciStatus, noWorkflowRunsForCommit = false) => {
+  // Still inside the no-workflow-runs safety-valve wait — the counter MUST keep
+  // climbing toward MAX_NO_RUNS_CHECKS, so do not reset it.
+  if (noWorkflowRunsForCommit) {
+    return false;
+  }
+  // Genuine CI checks exist (pending/success/failure backed by workflow runs) — the
+  // "no runs" counter is irrelevant and should be reset.
+  return Boolean(ciStatus && ciStatus.status !== 'no_checks');
+};
+
+/**
+ * Issue #2031: GitHub can retain a failed check-run from an older workflow run
+ * alongside a newer successful run for the same job and HEAD SHA. The raw
+ * check-run rollup then says "failure" even though GitHub's live PR state is
+ * CLEAN/MERGEABLE. Only this explicit pair is strong enough to override the
+ * rollup; every other merge state remains conservative.
+ */
+export const isAuthoritativeCleanMergeState = mergeStatus => mergeStatus?.mergeable === true && mergeStatus?.mergeableState === 'MERGEABLE' && mergeStatus?.mergeStateStatus === 'CLEAN';
+
+export const reconcileStaleCIBlockers = (blockers, ciStatus, mergeStatus) => {
+  if (ciStatus?.status !== 'failure' || !isAuthoritativeCleanMergeState(mergeStatus)) {
+    return blockers;
+  }
+  return blockers.filter(blocker => blocker.type !== 'ci_failure' && blocker.type !== 'ci_cancelled');
+};
+
 export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null) => {
   const blockers = [];
+
+  // Issue #1918: Tracks whether we are still waiting for PR-triggered workflow runs to
+  // register for the current commit (0 runs observed). When true, the caller must NOT
+  // reset its consecutive-no-runs counter, otherwise the MAX_NO_RUNS_CHECKS safety valve
+  // never fires and /merge loops forever (e.g. fork PR + push-only workflow + a passing
+  // external check reporting status 'success').
+  let noWorkflowRunsForCommit = false;
 
   // Use detailed CI status to distinguish between all possible states
   const ciStatus = await getDetailedCIStatus(owner, repo, prNumber, verbose);
@@ -481,6 +696,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(formatAligned('⏳', 'Waiting for CI:', `No workflow runs for SHA ${ciStatus.sha.substring(0, 7)}, but workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}) — check ${checkCount}/${MAX_NO_RUNS_CHECKS}, commit age: ${commitInfo.ageSeconds ?? 'unknown'}s`, 2));
             }
+            // Issue #1918: Still waiting for workflow runs to register — keep the counter.
+            noWorkflowRunsForCommit = true;
             blockers.push({
               type: 'ci_pending',
               message: `CI/CD workflow runs have not appeared yet — workflows have PR/push triggers (${prTriggers.workflows.map(w => w.name).join(', ')}), waiting for GitHub to register workflow runs (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`,
@@ -491,6 +708,8 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: No PR/push triggers found in workflow files, but commit is only ${commitInfo.ageSeconds}s old — waiting to be safe`);
             }
+            // Issue #1918: Still inside the grace-period wait for workflow runs — keep the counter.
+            noWorkflowRunsForCommit = true;
             blockers.push({
               type: 'ci_pending',
               message: `CI/CD workflow runs have not appeared yet — commit is ${commitInfo.ageSeconds}s old, waiting for GitHub to register workflow runs (grace period: ${WORKFLOW_RUN_GRACE_PERIOD_SECONDS}s)`,
@@ -568,6 +787,9 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
             if (verbose) {
               await log(`[VERBOSE] /merge: PR #${prNumber} CI status is 'success' (${ciStatus.passedChecks.length} external checks), but repo has PR-triggered workflows with 0 workflow runs — likely race condition (check ${checkCount}/${MAX_NO_RUNS_CHECKS})`);
             }
+            // Issue #1918: Keep the caller's no-runs counter climbing so the safety valve
+            // can fire — otherwise a 'success' from external-only checks resets it forever.
+            noWorkflowRunsForCommit = true;
             // Wait for GitHub Actions to register workflow runs
             blockers.push({
               type: 'ci_pending',
@@ -616,19 +838,60 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
         billingMessage: billingCheck.message,
       });
     } else {
-      // These need to be re-triggered, NOT treated as AI-fixable failures
+      // Issue #1952: A check-run with conclusion 'cancelled' does NOT always mean a
+      // re-triggerable cancellation. When a job hits its `timeout-minutes` limit GitHub
+      // cancels the job (check-run conclusion 'cancelled') but the parent workflow_run
+      // concludes 'failure'/'timed_out'/'startup_failure'. getDetailedCIStatus only sees the
+      // check-runs, so it reports status='cancelled' and we used to post a "Cancelled CI/CD
+      // Requires Review" comment and stop. Cross-reference the workflow runs for this SHA to
+      // tell the two cases apart:
+      //   - any run still queued/in_progress  → wait (ci_pending) until every check is terminal
+      //   - any completed run failed/timed out → treat as a CI failure (auto-restart the AI)
+      //   - otherwise                          → genuine re-triggerable cancellation (ci_cancelled)
       const cancelledOrStaleChecks = [...ciStatus.cancelledChecks, ...(ciStatus.staleChecks || [])];
       const cancelledDetails = cancelledOrStaleChecks.map(c => {
         const concPart = c.conclusion ? ` [${c.conclusion}]` : '';
         const urlPart = c.html_url ? ` — ${c.html_url}` : '';
         return `${c.name}${concPart}${urlPart}`;
       });
-      blockers.push({
-        type: 'ci_cancelled',
-        message: 'CI/CD checks were cancelled or became stale',
-        details: cancelledDetails,
-        sha: ciStatus.sha,
-      });
+
+      const cancelledWorkflowRuns = await getWorkflowRunsForSha(owner, repo, ciStatus.sha, verbose);
+      const { classification, incompleteRuns, failedRuns } = classifyCancelledCIByWorkflowRuns({ runs: cancelledWorkflowRuns });
+
+      if (classification === 'pending') {
+        // Some checks already show cancelled, but a workflow run is still running — the issue
+        // requires waiting until ALL checks reach a terminal state before auto-restarting.
+        if (verbose) {
+          await log(`[VERBOSE] /merge: PR #${prNumber} has cancelled check-run(s) but ${incompleteRuns.length} workflow run(s) still in progress — waiting for all to reach a terminal state before classifying`);
+        }
+        blockers.push({
+          type: 'ci_pending',
+          message: `Some CI/CD checks are cancelled, but ${incompleteRuns.length} workflow run(s) have not reached a terminal state yet — waiting before deciding`,
+          details: incompleteRuns.map(formatRunLine),
+        });
+      } else if (classification === 'failure') {
+        // The cancellation reflects a real failure (e.g. a job hit `timeout-minutes`). Per
+        // issue #1952 this must be treated as a CI failure so the AI is restarted to fix it,
+        // instead of posting a "requires human review" comment for a re-trigger that would
+        // never make progress.
+        if (verbose) {
+          await log(`[VERBOSE] /merge: PR #${prNumber} cancelled check-run(s) belong to ${failedRuns.length} failed workflow run(s) (conclusions: ${[...new Set(failedRuns.map(r => r.conclusion))].join(', ')}) — treating cancellation as a CI failure`);
+        }
+        await log(formatAligned('❌', 'CI cancelled by failure/timeout:', `${failedRuns.map(r => `${r.name} (${r.conclusion})`).join(', ')}`, 2));
+        blockers.push({
+          type: 'ci_failure',
+          message: 'CI/CD checks were cancelled by a workflow failure or timeout (treated as a failure)',
+          details: [...cancelledDetails, ...failedRuns.map(r => `${r.path || r.name} (${r.conclusion}) — see ${r.html_url}`)],
+        });
+      } else {
+        // Genuine re-triggerable cancellation (manual cancel, concurrency cancel, stale).
+        blockers.push({
+          type: 'ci_cancelled',
+          message: 'CI/CD checks were cancelled or became stale',
+          details: cancelledDetails,
+          sha: ciStatus.sha,
+        });
+      }
     }
   } else if (ciStatus.status === 'failure') {
     // Some checks genuinely failed - check if it's billing limits first
@@ -653,12 +916,30 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
           sha: ciStatus.sha,
         });
       }
-      blockers.push({
-        type: 'ci_failure',
-        message: 'CI/CD checks are failing',
-        details: ciStatus.failedChecks.map(c => c.name),
-      });
+      const { limitedChecks, actionableFailedChecks } = splitExternalReviewLimitChecks(ciStatus.failedChecks);
+      if (limitedChecks.length > 0) {
+        blockers.push({
+          type: 'external_review_limit',
+          message: 'External review check was not executed because credits/rate limits are exhausted',
+          details: limitedChecks.map(formatExternalReviewLimitCheck),
+          checks: limitedChecks,
+        });
+      }
+      if (actionableFailedChecks.length > 0) {
+        blockers.push({
+          type: 'ci_failure',
+          message: 'CI/CD checks are failing',
+          details: actionableFailedChecks.map(c => c.name),
+        });
+      }
     }
+  } else if (ciStatus.status === 'terminal_github_entity_error') {
+    blockers.push({
+      type: 'terminal_github_entity_error',
+      message: ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      details: [],
+    });
+    return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
   } else if (ciStatus.status === 'unknown') {
     // Unable to determine CI status - treat as pending to be safe
     // Do NOT treat as mergeable (which would be incorrect)
@@ -671,6 +952,25 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
 
   // Check mergeability
   const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+  if (mergeStatus.terminal) {
+    blockers.push({
+      type: 'terminal_github_entity_error',
+      message: mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible',
+      details: [],
+    });
+    return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+  }
+
+  if (ciStatus.status === 'failure' && isAuthoritativeCleanMergeState(mergeStatus)) {
+    const staleFailureBlockers = blockers.filter(blocker => blocker.type === 'ci_failure' || blocker.type === 'ci_cancelled');
+    if (staleFailureBlockers.length > 0) {
+      if (verbose) {
+        await log(`[VERBOSE] /merge: PR #${prNumber} is CLEAN/MERGEABLE according to GitHub; ignoring ${staleFailureBlockers.length} stale CI failure/cancellation blocker(s) from the raw check-run rollup`);
+      }
+      blockers.splice(0, blockers.length, ...reconcileStaleCIBlockers(blockers, ciStatus, mergeStatus));
+    }
+  }
+
   if (!mergeStatus.mergeable) {
     blockers.push({
       type: 'not_mergeable',
@@ -679,11 +979,78 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     });
   }
 
-  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false };
+  return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+};
+
+/**
+ * Issue #2007: Detect issue title/description changes across auto-restart
+ * iterations so the restart/resume fallback can deliver them as feedback for
+ * tools without a live input channel.
+ *
+ * The issue title and body are user-owned feedback surfaces (unlike the PR
+ * description, which #2007 treats as AI-owned). When they change while the AI
+ * is not streaming input, the next session must be told, otherwise the update
+ * would be silently ignored until the agent happens to re-read the issue.
+ *
+ * The first call (previousSnapshot = null) establishes the baseline and reports
+ * no change. Subsequent calls diff against the prior snapshot.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} issueNumber - Linked issue number
+ * @param {Object|null} previousSnapshot - Prior { title, body } snapshot, or null on first call
+ * @param {boolean} [verbose=false]
+ * @param {Function} [commandRunner=$] - Tagged-template command runner (injectable for tests)
+ * @returns {Promise<{changed: boolean, snapshot: Object|null, changes: Array<{field: string, from: string, to: string}>}>}
+ */
+export const checkForIssueMetadataChanges = async (owner, repo, issueNumber, previousSnapshot, verbose = false, commandRunner = $) => {
+  const empty = { changed: false, snapshot: previousSnapshot || null, changes: [] };
+  if (!issueNumber) return empty;
+
+  let snapshot;
+  try {
+    const result = await commandRunner`gh api repos/${owner}/${repo}/issues/${issueNumber} --jq '{title: .title, body: .body}'`;
+    if (result.code !== 0 || !result.stdout) return empty;
+    const parsed = JSON.parse(result.stdout.toString() || '{}');
+    snapshot = {
+      title: typeof parsed.title === 'string' ? parsed.title : '',
+      body: typeof parsed.body === 'string' ? parsed.body : '',
+    };
+  } catch (error) {
+    reportError(error, {
+      context: 'check_issue_metadata_changes',
+      owner,
+      repo,
+      issueNumber,
+      operation: 'fetch_issue_metadata',
+    });
+    return empty;
+  }
+
+  // First observation: establish the baseline without reporting a change.
+  if (!previousSnapshot) {
+    return { changed: false, snapshot, changes: [] };
+  }
+
+  const changes = [];
+  if (snapshot.title !== previousSnapshot.title) {
+    changes.push({ field: 'title', from: previousSnapshot.title, to: snapshot.title });
+  }
+  if (snapshot.body !== previousSnapshot.body) {
+    changes.push({ field: 'body', from: previousSnapshot.body, to: snapshot.body });
+  }
+
+  if (verbose && changes.length > 0) {
+    console.log(`[VERBOSE] Issue #${issueNumber} metadata changed: ${changes.map(c => c.field).join(', ')}`);
+  }
+
+  return { changed: changes.length > 0, snapshot, changes };
 };
 
 export default {
   checkForExistingComment,
   checkForNonBotComments,
+  checkForIssueMetadataChanges,
   getMergeBlockers,
+  shouldResetNoRunsCounter,
 };

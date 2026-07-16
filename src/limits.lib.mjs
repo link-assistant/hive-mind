@@ -12,7 +12,12 @@ import { promisify } from 'node:util';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { classifyCodexRateLimitWindows } from './codex-rate-limit-windows.lib.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
+import { formatSubscriptionHeading, formatSubscriptionLines, getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo } from './limits-subscription.lib.mjs';
+import { getTelegramRateLimits } from './telegram-rate-limit.lib.mjs';
+export { getCachedClaudeSubscription, getCachedCodexSubscription, getClaudeSubscriptionInfo, getCodexSubscriptionInfo };
 // Initialize dayjs plugins
 dayjs.extend(utc);
 
@@ -30,8 +35,8 @@ const execAsync = promisify(exec);
 /**
  * Default path to Claude credentials file
  */
-const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
-const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
+export const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
+export const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
 const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
 
 /**
@@ -40,7 +45,7 @@ const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
 const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
 const CODEX_USAGE_API_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api';
 
-function decodeJwtPayload(token) {
+export function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string') return null;
 
   try {
@@ -72,7 +77,16 @@ function mapCodexWindow(window) {
   };
 }
 
-async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
+export function mapCodexRateLimitWindows(rateLimit) {
+  const { sessionWindow, weeklyWindow } = classifyCodexRateLimitWindows(rateLimit);
+
+  return {
+    currentSession: mapCodexWindow(sessionWindow),
+    allModels: mapCodexWindow(weeklyWindow),
+  };
+}
+
+export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose = false) {
   try {
     const content = await readFile(authPath, 'utf-8');
     const auth = JSON.parse(content);
@@ -120,7 +134,7 @@ async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verb
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Object|null} Credentials object or null if not found
  */
-async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
+export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH, verbose = false) {
   try {
     const content = await readFile(credentialsPath, 'utf-8');
     const credentials = JSON.parse(content);
@@ -202,56 +216,12 @@ export function formatRetryAfterMessage(retryAfter) {
  * @param {boolean} includeTimezone - Whether to include timezone suffix (default: true)
  * @returns {string} Human-readable reset time (e.g., "Dec 3, 6:59pm UTC")
  */
-function formatResetTime(isoDate, includeTimezone = true) {
-  if (!isoDate) return null;
-
-  try {
-    const date = dayjs(isoDate).utc();
-    if (!date.isValid()) return isoDate;
-
-    // dayjs format: MMM=Jan, D=day, h=12-hour, mm=minutes, a=am/pm
-    const timeStr = date.format('MMM D, h:mma');
-    return includeTimezone ? `${timeStr} UTC` : timeStr;
-  } catch {
-    return isoDate;
-  }
+function formatResetTime(isoDate, includeTimezone = true, options = {}) {
+  return formatLocalizedResetTime(isoDate, includeTimezone, options);
 }
 
-/**
- * Format relative time from now to a future date using dayjs
- *
- * @param {string} isoDate - ISO date string
- * @returns {string|null} Relative time string (e.g., "1h 34m" or "6d 20h 13m") or null if date is in the past
- */
-function formatRelativeTime(isoDate) {
-  if (!isoDate) return null;
-
-  try {
-    const now = dayjs();
-    const target = dayjs(isoDate);
-
-    if (!target.isValid()) return null;
-
-    const diffMs = target.diff(now);
-    if (diffMs < 0) return null; // Past date
-
-    const totalMinutes = Math.floor(diffMs / (1000 * 60));
-    const totalHours = Math.floor(totalMinutes / 60);
-    const totalDays = Math.floor(totalHours / 24);
-
-    const days = totalDays;
-    const hours = totalHours % 24;
-    const minutes = totalMinutes % 60;
-
-    // If hours >= 24, show days
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    }
-
-    return `${hours}h ${minutes}m`;
-  } catch {
-    return null;
-  }
+function formatRelativeTime(isoDate, options = {}) {
+  return formatLocalizedRelativeTime(isoDate, options);
 }
 
 /**
@@ -259,8 +229,8 @@ function formatRelativeTime(isoDate) {
  *
  * @returns {string} Current time in UTC (e.g., "Dec 3, 6:45pm UTC")
  */
-function formatCurrentTime() {
-  return dayjs().utc().format('MMM D, h:mma [UTC]');
+function formatCurrentTime(options = {}) {
+  return formatLocalizedCurrentTime(options);
 }
 
 /**
@@ -280,13 +250,14 @@ function formatBytes(bytes) {
 }
 
 /**
- * Format two byte values into a combined "used/total UNIT used" format
  * @param {number} usedBytes - Used size in bytes
  * @param {number} totalBytes - Total size in bytes
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted string (e.g., "2.8/11.7 GB used")
  */
-function formatBytesRange(usedBytes, totalBytes) {
-  if (totalBytes === 0) return '0/0 B used';
+function formatBytesRange(usedBytes, totalBytes, options = {}) {
+  const usedLabel = lt('used', {}, options);
+  if (totalBytes === 0) return `0/0 B ${usedLabel}`;
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   // Determine unit based on total (larger value)
@@ -295,7 +266,7 @@ function formatBytesRange(usedBytes, totalBytes) {
   const totalValue = totalBytes / Math.pow(k, i);
   // Use 1 decimal place for GB and above, none for smaller units
   const decimals = i >= 3 ? 1 : 0;
-  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} used`;
+  return `${usedValue.toFixed(decimals)}/${totalValue.toFixed(decimals)} ${sizes[i]} ${usedLabel}`;
 }
 
 function formatRoundedNumber(value, decimals = 2) {
@@ -307,6 +278,74 @@ function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
   return formatRoundedNumber(boundedLoad);
 }
 
+function hasLimitPercentage(window) {
+  return window?.percentage !== null && window?.percentage !== undefined;
+}
+
+function getLocalizedResetTime(window, options = {}) {
+  if (!window) return null;
+  return formatResetTime(window.resetsAt, true, options) || window.resetTime || null;
+}
+
+function getLocalizedRelativeReset(window, options = {}, fallbackRelative = null) {
+  return formatRelativeTime(window?.resetsAt, options) || localizeCompactDuration(fallbackRelative, options);
+}
+
+function formatCodeBlock(content) {
+  const text = Array.isArray(content) ? content.join('\n') : String(content ?? '');
+  return '```\n' + (text.endsWith('\n') ? text : `${text}\n`) + '```';
+}
+
+function formatPlainTitledCodeSection(section) {
+  const text = String(section ?? '').trimEnd();
+  if (!text) return '';
+  if (text.includes('```')) return text;
+
+  const lines = text.split('\n');
+  const title = lines.shift();
+  const body = lines.join('\n');
+  if (!body) return formatCodeBlock(title);
+  return `${title}\n\n${formatCodeBlock(body)}`;
+}
+
+function formatLimitWindowSection(label, window, periodHours, threshold, options = {}) {
+  const locale = resolveLimitLocale(options);
+  let section = `${label}\n`;
+  if (hasLimitPercentage(window)) {
+    const timePassed = calculateTimePassedPercentage(window.resetsAt, periodHours);
+    if (timePassed !== null) {
+      section += `${getProgressBar(timePassed)} ${timePassed}% ${lt('passed', {}, { locale })}\n`;
+    }
+
+    const pct = Math.floor(window.percentage);
+    const bar = getProgressBar(pct, threshold);
+    const suffix = pct >= threshold ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
+    section += `${bar} ${pct}%${suffix}\n`;
+
+    const resetTime = getLocalizedResetTime(window, { locale });
+    if (resetTime) {
+      const relativeTime = getLocalizedRelativeReset(window, { locale });
+      section += relativeTime ? `${formatLimitResetsIn(relativeTime, resetTime, { locale })}\n` : `${formatLimitResetsAt(resetTime, { locale })}\n`;
+    }
+  } else {
+    section += `${lt('na', {}, { locale })}\n`;
+  }
+  return section;
+}
+
+function hasPositivePercentage(value) {
+  if (value === null || value === undefined) return false;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0;
+}
+
+function hasPositiveCreditBalance(credits) {
+  if (!credits) return false;
+  if (credits.unlimited) return true;
+  const numeric = Number.parseFloat(String(credits.balance ?? '0'));
+  return Number.isFinite(numeric) && numeric > 0;
+}
+
 /**
  * Get GitHub API rate limits by calling gh api rate_limit
  * Returns rate limit info for core, search, graphql, and other resources
@@ -316,7 +355,8 @@ function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
  */
 export async function getGitHubRateLimits(verbose = false) {
   try {
-    const { stdout } = await execAsync('gh api rate_limit 2>/dev/null');
+    // #1756: route through execGhWithRetry for transient 5xx; skip rate-limit retry budget (this is the endpoint we'd consult to know about rate limits).
+    const { stdout } = await execGhWithRetry('gh api rate_limit 2>/dev/null', { label: 'gh api rate_limit', maxAttempts: 1 });
     const data = JSON.parse(stdout);
 
     if (verbose) {
@@ -907,8 +947,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
     }
 
     const usage = {
-      currentSession: mapCodexWindow(data?.rate_limit?.primary_window),
-      allModels: mapCodexWindow(data?.rate_limit?.secondary_window),
+      ...mapCodexRateLimitWindows(data?.rate_limit),
       sonnetOnly: {
         percentage: null,
         resetTime: null,
@@ -920,8 +959,7 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       ? data.additional_rate_limits.map(limit => ({
           limitId: limit?.metered_feature || null,
           limitName: limit?.limit_name || limit?.metered_feature || 'additional',
-          currentSession: mapCodexWindow(limit?.rate_limit?.primary_window),
-          allModels: mapCodexWindow(limit?.rate_limit?.secondary_window),
+          ...mapCodexRateLimitWindows(limit?.rate_limit),
           allowed: limit?.rate_limit?.allowed ?? null,
           limitReached: limit?.rate_limit?.limit_reached ?? null,
         }))
@@ -1018,188 +1056,138 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
  * @param {Object} memory - Optional memory info from getMemoryInfo
  * @param {string|null} claudeError - Optional error message to show in Claude sections (e.g., auth expired)
  * @param {string[]} extraSections - Optional extra sections to append inside the code block (e.g. queue status)
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted message wrapped in a single code block
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  */
-export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null, extraSections = []) {
-  // Build sections as individual text blocks; they will all be joined and wrapped in a
-  // single code block at the end. This avoids fragile string-searching to inject content.
-
+export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = null, cpuLoad = null, memory = null, claudeError = null, extraSections = [], options = {}) {
+  if (!Array.isArray(extraSections) && extraSections && typeof extraSections === 'object') {
+    options = extraSections;
+    extraSections = [];
+  }
+  const locale = resolveLimitLocale(options);
+  const subscription = options?.subscription || null;
   const sections = [];
 
-  // Show current time
-  sections.push(`Current time: ${formatCurrentTime()}\n`);
+  sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime({ locale })}\n`);
 
-  // CPU load section (if provided)
-  // Threshold: Blocks new commands when usage >= 65%
   if (cpuLoad) {
-    let section = 'CPU\n';
+    let section = `${lt('cpu', {}, { locale })}\n`;
     const usedBar = getProgressBar(cpuLoad.usagePercentage, DISPLAY_THRESHOLDS.CPU);
     // Show 'used' label when below threshold, warning emoji when at/above threshold
     // See: https://github.com/link-assistant/hive-mind/issues/1267
-    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ' used';
+    const suffix = cpuLoad.usagePercentage >= DISPLAY_THRESHOLDS.CPU ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${cpuLoad.usagePercentage}%${suffix}\n`;
     // Linux load average is demand, not bounded CPU time. Keep the cores-used
     // display within CPU capacity and show raw load average only when saturated.
     const usedCpuCores = cpuLoad.usedCpuCores ?? getDisplayCpuCoresUsed(cpuLoad.loadAvg5, cpuLoad.cpuCount);
-    let cpuCoresLine = `${formatRoundedNumber(usedCpuCores)}/${cpuLoad.cpuCount} CPU cores used`;
+    let cpuCoresLine = `${formatRoundedNumber(usedCpuCores)}/${cpuLoad.cpuCount} ${lt('cpu_cores_used', {}, { locale })}`;
     if (cpuLoad.loadAvg5 > cpuLoad.cpuCount) {
-      cpuCoresLine += ` (5m load avg ${formatRoundedNumber(cpuLoad.loadAvg5)})`;
+      cpuCoresLine += ` (${lt('five_min_load_avg', {}, { locale })} ${formatRoundedNumber(cpuLoad.loadAvg5)})`;
     }
     section += `${cpuCoresLine}\n`;
     sections.push(section);
   }
 
-  // Memory section (if provided)
-  // Threshold: Blocks new commands when usage >= 65%
   if (memory) {
-    let section = 'RAM\n';
+    let section = `${lt('ram', {}, { locale })}\n`;
     const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
-    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ' used';
+    const suffix = memory.usedPercentage >= DISPLAY_THRESHOLDS.RAM ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${memory.usedPercentage}%${suffix}\n`;
-    section += `${formatBytesRange(memory.usedBytes, memory.totalBytes)}\n`;
+    section += `${formatBytesRange(memory.usedBytes, memory.totalBytes, { locale })}\n`;
     sections.push(section);
   }
 
-  // Disk space section (if provided)
-  // Threshold: One-at-a-time mode when usage >= 90%
   if (diskSpace) {
-    let section = 'Disk space\n';
-    // Show used percentage with progress bar and threshold marker
+    let section = `${lt('disk_space', {}, { locale })}\n`;
     const usedBar = getProgressBar(diskSpace.usedPercentage, DISPLAY_THRESHOLDS.DISK);
-    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ' used';
+    const suffix = diskSpace.usedPercentage >= DISPLAY_THRESHOLDS.DISK ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${diskSpace.usedPercentage}%${suffix}\n`;
-    section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes)}\n`;
+    section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes, { locale })}\n`;
     sections.push(section);
   }
 
   // GitHub API rate limits section (if provided)
   // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
-    let section = 'GitHub API\n';
-    // Show used percentage with progress bar and threshold marker
+    let section = `${lt('github_api', {}, { locale })}\n`;
     const usedBar = getProgressBar(githubRateLimit.usedPercentage, DISPLAY_THRESHOLDS.GITHUB_API);
-    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ' used';
+    const suffix = githubRateLimit.usedPercentage >= DISPLAY_THRESHOLDS.GITHUB_API ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${usedBar} ${githubRateLimit.usedPercentage}%${suffix}\n`;
-    section += `${githubRateLimit.used}/${githubRateLimit.limit} requests\n`;
-    if (githubRateLimit.relativeReset) {
-      section += `Resets in ${githubRateLimit.relativeReset} (${githubRateLimit.resetTime})\n`;
-    } else if (githubRateLimit.resetTime) {
-      section += `Resets ${githubRateLimit.resetTime}\n`;
+    section += `${githubRateLimit.used}/${githubRateLimit.limit} ${lt('requests', {}, { locale })}\n`;
+    const githubResetTime = getLocalizedResetTime(githubRateLimit, { locale });
+    const githubRelativeReset = getLocalizedRelativeReset(githubRateLimit, { locale }, githubRateLimit.relativeReset);
+    if (githubRelativeReset && githubResetTime) {
+      section += `${formatLimitResetsIn(githubRelativeReset, githubResetTime, { locale })}\n`;
+    } else if (githubResetTime) {
+      section += `${formatLimitResetsAt(githubResetTime, { locale })}\n`;
     }
     sections.push(section);
   }
 
-  // Claude limits section
-  // When there's an error (e.g., auth expired), show it once and skip empty subsections
+  const telegramRateLimit = options?.telegramRateLimit || null;
+  if (telegramRateLimit) {
+    let section = `${lt('telegram_api', {}, { locale })}\n`;
+    const global = telegramRateLimit.global;
+    section += `${getProgressBar(global.usedPercentage)} ${global.usedPercentage}% ${lt('used', {}, { locale })}\n`;
+    section += `${lt('telegram_global_window', { used: global.used, limit: global.limit }, { locale })}\n`;
+    const group = telegramRateLimit.busiestGroup;
+    section += `${getProgressBar(group.usedPercentage)} ${group.usedPercentage}% ${lt('used', {}, { locale })}\n`;
+    section += `${lt('telegram_group_window', { used: group.used, limit: group.limit }, { locale })}\n`;
+    section += `${lt('telegram_rate_limit_responses', { count: telegramRateLimit.rateLimitResponses }, { locale })}\n`;
+    if (telegramRateLimit.lastRateLimit) {
+      const retry = telegramRateLimit.lastRateLimit.retryRemainingSeconds;
+      const retryText = retry === null ? '' : `, ${lt('telegram_retry_in', { seconds: retry }, { locale })}`;
+      section += `${lt('telegram_last_rate_limit', { method: telegramRateLimit.lastRateLimit.method }, { locale })}${retryText}\n`;
+    }
+    sections.push(section);
+  }
+
+  const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
+  const useShortClaudeLabels = Boolean(claudeHeading);
+  const claudeSections = [];
+
+  // Claude limits section. When there's an error (e.g., auth expired), show it once and skip empty subsections.
   if (claudeError) {
-    sections.push(`Claude limits\n${claudeError}\n`);
+    claudeSections.push(useShortClaudeLabels ? `${claudeError}\n` : `${lt('claude_limits', {}, { locale })}\n${claudeError}\n`);
   } else {
-    // Claude 5 hour session (five_hour)
-    // Threshold: One-at-a-time mode when usage >= 65%
-    let sessionSection = 'Claude 5 hour session\n';
-    if (usage && usage.currentSession.percentage !== null) {
-      // Add time passed progress bar first (no threshold marker for time)
-      const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        sessionSection += `${timeBar} ${timePassed}% passed\n`;
-      }
-
-      // Add usage progress bar second with threshold marker
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.currentSession.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION ? ' ⚠️' : ' used';
-      sessionSection += `${bar} ${pct}%${suffix}\n`;
-
-      if (usage.currentSession.resetTime) {
-        const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-        if (relativeTime) {
-          sessionSection += `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n`;
-        } else {
-          sessionSection += `Resets ${usage.currentSession.resetTime}\n`;
-        }
-      }
-    } else {
-      sessionSection += 'N/A\n';
+    const hasSonnetOnly = hasLimitPercentage(usage?.sonnetOnly);
+    claudeSections.push(formatLimitWindowSection(useShortClaudeLabels ? lt('five_hour_limit_session', {}, { locale }) : lt('claude_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CLAUDE_5_HOUR_SESSION, { locale }));
+    claudeSections.push(formatLimitWindowSection(useShortClaudeLabels && !hasSonnetOnly ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, { locale }));
+    if (hasSonnetOnly || !useShortClaudeLabels) {
+      claudeSections.push(formatLimitWindowSection(lt('current_week_sonnet_only', {}, { locale }), usage?.sonnetOnly, 168, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, { locale }));
     }
-    sections.push(sessionSection);
 
-    // Current week (all models / seven_day)
-    // Threshold: One-at-a-time mode when usage >= 97%
-    let allModelsSection = 'Current week (all models)\n';
-    if (usage && usage.allModels.percentage !== null) {
-      // Add time passed progress bar first (no threshold marker for time)
-      const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        allModelsSection += `${timeBar} ${timePassed}% passed\n`;
-      }
-
-      // Add usage progress bar second with threshold marker
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.allModels.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
-      allModelsSection += `${bar} ${pct}%${suffix}\n`;
-
-      if (usage.allModels.resetTime) {
-        const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-        if (relativeTime) {
-          allModelsSection += `Resets in ${relativeTime} (${usage.allModels.resetTime})\n`;
-        } else {
-          allModelsSection += `Resets ${usage.allModels.resetTime}\n`;
-        }
-      }
-    } else {
-      allModelsSection += 'N/A\n';
+    if (!useShortClaudeLabels) {
+      const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+      if (subscriptionLines) claudeSections.push(subscriptionLines);
     }
-    sections.push(allModelsSection);
-
-    // Current week (Sonnet only / seven_day_sonnet)
-    // Threshold: One-at-a-time mode when usage >= 97% (same as all models)
-    let sonnetSection = 'Current week (Sonnet only)\n';
-    if (usage && usage.sonnetOnly.percentage !== null) {
-      // Add time passed progress bar first (no threshold marker for time)
-      const timePassed = calculateTimePassedPercentage(usage.sonnetOnly.resetsAt, 168);
-      if (timePassed !== null) {
-        const timeBar = getProgressBar(timePassed);
-        sonnetSection += `${timeBar} ${timePassed}% passed\n`;
-      }
-
-      // Add usage progress bar second with threshold marker
-      // Use Math.floor so 100% only appears when usage is exactly 100%
-      // See: https://github.com/link-assistant/hive-mind/issues/1133
-      const pct = Math.floor(usage.sonnetOnly.percentage);
-      const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY);
-      const suffix = pct >= DISPLAY_THRESHOLDS.CLAUDE_WEEKLY ? ' ⚠️' : ' used';
-      sonnetSection += `${bar} ${pct}%${suffix}\n`;
-
-      if (usage.sonnetOnly.resetTime) {
-        const relativeTime = formatRelativeTime(usage.sonnetOnly.resetsAt);
-        if (relativeTime) {
-          sonnetSection += `Resets in ${relativeTime} (${usage.sonnetOnly.resetTime})\n`;
-        } else {
-          sonnetSection += `Resets ${usage.sonnetOnly.resetTime}\n`;
-        }
-      }
-    } else {
-      sonnetSection += 'N/A\n';
-    }
-    sections.push(sonnetSection);
   }
 
-  // Append any caller-provided extra sections (e.g. queue status) inside the code block
+  const hasFencedExtraSection = extraSections.some(extra => String(extra ?? '').includes('```'));
+  const useSplitLayout = Boolean(claudeHeading) || hasFencedExtraSection;
+
+  if (!useSplitLayout) {
+    sections.push(...claudeSections);
+    for (const extra of extraSections) {
+      sections.push(extra);
+    }
+    return formatCodeBlock(sections.join('\n'));
+  }
+
+  const markdownSections = [];
+  markdownSections.push(formatCodeBlock(claudeHeading ? sections.join('\n') : [...sections, ...claudeSections].join('\n')));
+  if (claudeHeading) {
+    markdownSections.push(claudeHeading);
+    markdownSections.push(formatCodeBlock(claudeSections.join('\n')));
+  }
+
   for (const extra of extraSections) {
-    sections.push(extra);
+    const formatted = formatPlainTitledCodeSection(extra);
+    if (formatted) markdownSections.push(formatted);
   }
 
-  // Wrap all sections in a single code block for monospace font / aligned progress bars.
-  // Sections are separated by blank lines; the trailing newline on each section provides spacing.
-  return '```\n' + sections.join('\n') + '```';
+  return markdownSections.join('\n\n');
 }
 
 /**
@@ -1207,78 +1195,58 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
  *
  * @param {Object|null} codexLimits - Result object from getCodexUsageLimits, or null
  * @param {string|null} codexError - Optional error message
+ * @param {Object|string} options - Optional locale options
  * @returns {string} Formatted section text
  */
-export function formatCodexLimitsSection(codexLimits, codexError = null) {
-  if (codexError) {
-    return `Codex limits\n${codexError}\n`;
-  }
-
+export function formatCodexLimitsSection(codexLimits, codexError = null, options = {}) {
+  const locale = resolveLimitLocale(options);
+  const subscription = options?.subscription || null;
   const usage = codexLimits?.usage || null;
   const additionalRateLimits = codexLimits?.additionalRateLimits || [];
   const credits = codexLimits?.credits || null;
-  const planType = codexLimits?.planType || null;
+  const planType = subscription?.planType || codexLimits?.planType || null;
+  const heading = formatSubscriptionHeading('codex', subscription, { locale, planType });
+  const useTitledLayout = Boolean(heading);
 
-  let section = 'Codex limits\n';
-  if (planType) {
-    section += `Plan: ${planType}\n`;
+  if (codexError) {
+    const errorSection = useTitledLayout ? `${codexError}\n` : `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
+    return useTitledLayout ? `${heading}\n\n${formatCodeBlock(errorSection)}` : errorSection;
   }
 
-  let sessionSection = 'Codex 5 hour session\n';
-  if (usage?.currentSession?.percentage !== null) {
-    const timePassed = calculateTimePassedPercentage(usage.currentSession.resetsAt, 5);
-    if (timePassed !== null) {
-      sessionSection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
-    }
-    const pct = Math.floor(usage.currentSession.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION ? ' ⚠️' : ' used';
-    sessionSection += `${bar} ${pct}%${suffix}\n`;
-    if (usage.currentSession.resetTime) {
-      const relativeTime = formatRelativeTime(usage.currentSession.resetsAt);
-      sessionSection += relativeTime ? `Resets in ${relativeTime} (${usage.currentSession.resetTime})\n` : `Resets ${usage.currentSession.resetTime}\n`;
-    }
-  } else {
-    sessionSection += 'N/A\n';
+  let section = useTitledLayout ? '' : `${lt('codex_limits', {}, { locale })}\n`;
+  if (planType && !useTitledLayout) {
+    section += `${lt('plan', {}, { locale })}: ${planType}\n`;
   }
 
-  let weeklySection = 'Current week (all models)\n';
-  if (usage?.allModels?.percentage !== null) {
-    const timePassed = calculateTimePassedPercentage(usage.allModels.resetsAt, 168);
-    if (timePassed !== null) {
-      weeklySection += `${getProgressBar(timePassed)} ${timePassed}% passed\n`;
-    }
-    const pct = Math.floor(usage.allModels.percentage);
-    const bar = getProgressBar(pct, DISPLAY_THRESHOLDS.CODEX_WEEKLY);
-    const suffix = pct >= DISPLAY_THRESHOLDS.CODEX_WEEKLY ? ' ⚠️' : ' used';
-    weeklySection += `${bar} ${pct}%${suffix}\n`;
-    if (usage.allModels.resetTime) {
-      const relativeTime = formatRelativeTime(usage.allModels.resetsAt);
-      weeklySection += relativeTime ? `Resets in ${relativeTime} (${usage.allModels.resetTime})\n` : `Resets ${usage.allModels.resetTime}\n`;
-    }
-  } else {
-    weeklySection += 'N/A\n';
-  }
+  const sessionSection = formatLimitWindowSection(useTitledLayout ? lt('five_hour_limit_session', {}, { locale }) : lt('codex_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, { locale });
+  const weeklySection = formatLimitWindowSection(useTitledLayout ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CODEX_WEEKLY, { locale });
 
-  section += `${sessionSection}\n${weeklySection}`;
+  section += [sessionSection, weeklySection].filter((_, index) => (index === 0 ? hasLimitPercentage(usage?.currentSession) : hasLimitPercentage(usage?.allModels))).join('\n');
 
-  if (additionalRateLimits.length > 0) {
-    section += '\nAdditional Codex limits\n';
-    for (const limit of additionalRateLimits) {
+  const visibleAdditionalRateLimits = additionalRateLimits.filter(limit => hasPositivePercentage(limit.allModels?.percentage));
+  if (visibleAdditionalRateLimits.length > 0) {
+    section += `\n${lt('additional_codex_limits', {}, { locale })}\n`;
+    for (const limit of visibleAdditionalRateLimits) {
       const sessionPct = limit.currentSession?.percentage;
       const weeklyPct = limit.allModels?.percentage;
-      const sessionText = sessionPct === null ? 'session N/A' : `session ${Math.floor(sessionPct)}%`;
-      const weeklyText = weeklyPct === null ? 'week N/A' : `week ${Math.floor(weeklyPct)}%`;
-      section += `${limit.limitName}: ${sessionText}, ${weeklyText}\n`;
+      const windowTexts = [];
+      if (sessionPct !== null && sessionPct !== undefined) windowTexts.push(`${lt('session', {}, { locale })} ${Math.floor(sessionPct)}%`);
+      if (weeklyPct !== null && weeklyPct !== undefined) windowTexts.push(`${lt('week', {}, { locale })} ${Math.floor(weeklyPct)}%`);
+      section += `${limit.limitName}: ${windowTexts.join(', ')}\n`;
     }
   }
 
-  if (credits) {
-    const creditSummary = credits.unlimited ? 'unlimited' : `${credits.balance ?? '0'} balance`;
-    section += `\nCodex credits\n${creditSummary}\n`;
+  if (hasPositiveCreditBalance(credits)) {
+    const creditSummary = credits.unlimited ? lt('unlimited', {}, { locale }) : `${credits.balance ?? '0'} ${lt('balance', {}, { locale })}`;
+    section += `\n${lt('codex_credits', {}, { locale })}\n${creditSummary}\n`;
   }
 
-  return section;
+  if (!useTitledLayout) {
+    const subscriptionLines = formatSubscriptionLines(subscription, { locale });
+    if (subscriptionLines) section += subscriptionLines;
+  }
+
+  return useTitledLayout ? `${heading}\n\n${formatCodeBlock(section)}` : section;
 }
 
 // ============================================================================
@@ -1290,18 +1258,21 @@ export function formatCodexLimitsSection(codexLimits, codexError = null) {
  * Values are loaded from config.lib.mjs which supports environment variable overrides.
  *
  * IMPORTANT: The Claude Usage API has stricter rate limiting than regular APIs.
- * Calling it more frequently than every 20 minutes may result in null values being returned.
+ * Calling it too frequently may return null values or a 429 "Resets in Xm Xs" error.
+ * Default raised from 10 → 13 minutes in issue #1798 (the previous 10-minute TTL still
+ * occasionally tripped a ~3-minute rate-limit window).
  * See: https://github.com/link-assistant/hive-mind/issues/1074
+ * See: https://github.com/link-assistant/hive-mind/issues/1798
  *
  * Configurable via environment variables:
  * - HIVE_MIND_API_CACHE_TTL_MS: General API cache TTL (default: 180000 = 3 minutes)
- * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 1200000 = 20 minutes)
- * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 120000 = 2 minutes)
+ * - HIVE_MIND_USAGE_API_CACHE_TTL_MS: Claude Usage API cache TTL (default: 780000 = 13 minutes)
+ * - HIVE_MIND_SYSTEM_CACHE_TTL_MS: System metrics cache TTL (default: 60000 = 1 minute, capped at 1 minute)
  */
 export const CACHE_TTL = {
   API: cacheTtl.api, // 3 minutes for regular API calls (GitHub)
-  USAGE_API: cacheTtl.usageApi, // 20 minutes for Claude Usage API (rate limited)
-  SYSTEM: cacheTtl.system, // 2 minutes for system metrics (RAM, CPU, disk)
+  USAGE_API: cacheTtl.usageApi, // 13 minutes for Claude Usage API (rate limited)
+  SYSTEM: cacheTtl.system, // max 1 minute for system metrics (RAM, CPU, disk)
 };
 
 /**
@@ -1364,9 +1335,10 @@ export function resetLimitCache() {
 
 export async function getCachedClaudeLimits(verbose = false) {
   const cache = getLimitCache();
-  // Use USAGE_API TTL (20 minutes) for Claude limits to avoid rate limiting
-  // The Claude Usage API returns null values when called too frequently
+  // Use USAGE_API TTL (13 min by default, see issue #1798) for Claude limits to avoid rate limiting.
+  // The Claude Usage API returns null values or 429 errors when called too frequently.
   // See: https://github.com/link-assistant/hive-mind/issues/1074
+  // See: https://github.com/link-assistant/hive-mind/issues/1798
   const cached = cache.get('claude', CACHE_TTL.USAGE_API);
   if (cached) {
     if (verbose) console.log('[VERBOSE] /limits-cache: Using cached Claude limits (TTL: ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes)');
@@ -1384,8 +1356,9 @@ export async function getCachedClaudeLimits(verbose = false) {
     cache.set('claude', result, CACHE_TTL.USAGE_API);
   } else if (result.error && result.error.includes('Rate limited')) {
     // Cache rate-limit errors to prevent hammering the API
-    // Use the same 20-minute TTL as successful responses
+    // Use the same USAGE_API TTL (13 min by default) as successful responses
     // See: https://github.com/link-assistant/hive-mind/issues/1446
+    // See: https://github.com/link-assistant/hive-mind/issues/1798
     cache.set('claude-rate-limited', result, CACHE_TTL.USAGE_API);
     if (verbose) console.log('[VERBOSE] /limits-cache: Cached rate-limit error for ' + Math.round(CACHE_TTL.USAGE_API / 60000) + ' minutes');
   }
@@ -1464,14 +1437,16 @@ export async function getCachedDiskInfo(verbose = false) {
 }
 
 export async function getAllCachedLimits(verbose = false) {
-  const [claude, codex, github, memory, cpu, disk] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose)]);
-  return { claude, codex, github, memory, cpu, disk };
+  const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose), getTelegramRateLimits(verbose)]);
+  return { claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram };
 }
 
 export default {
   // Raw functions (no caching)
   getClaudeUsageLimits,
   getCodexUsageLimits,
+  getClaudeSubscriptionInfo,
+  getCodexSubscriptionInfo,
   getCpuLoadInfo,
   getMemoryInfo,
   getDiskSpaceInfo,
@@ -1490,6 +1465,8 @@ export default {
   // Cached functions
   getCachedClaudeLimits,
   getCachedCodexLimits,
+  getCachedClaudeSubscription,
+  getCachedCodexSubscription,
   getCachedGitHubLimits,
   getCachedMemoryInfo,
   getCachedCpuInfo,

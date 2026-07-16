@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // OpenCode-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $ } = await use('command-stream');
@@ -13,7 +14,7 @@ const path = (await use('path')).default;
 const os = (await use('os')).default;
 
 // Import log from general lib
-import { log } from './lib.mjs';
+import { log, isMeaningfulErrorText, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -22,7 +23,7 @@ import { opencodeModels, defaultModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 
 export { parseOpenCodeTokenUsage };
 
@@ -341,6 +342,9 @@ export const executeOpenCodeCommand = async params => {
             for (const line of lines) {
               if (!line.trim()) continue;
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1968: a bare `null`/primitive NDJSON line must not abort the
+              // rest of the chunk (data.type access would throw on null).
+              if (data === null || typeof data !== 'object') continue;
               accumulateAgentStepFinishUsage(streamingTokenUsage, data);
               // Track text content for result summary
               // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
@@ -384,6 +388,8 @@ export const executeOpenCodeCommand = async params => {
               for (const line of lines) {
                 if (!line.trim()) continue;
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
+                if (data === null || typeof data !== 'object') continue;
                 accumulateAgentStepFinishUsage(streamingTokenUsage, data);
                 if (data.type === 'text' && data.text) {
                   lastTextContent = data.text;
@@ -466,6 +472,8 @@ export const executeOpenCodeCommand = async params => {
           permissionPromptDetected: true,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+          // Issue #1845: surface the actual error so callers can show it to users
+          errorInfo: { message: 'OpenCode requested an interactive permission prompt (non-interactive run cannot continue)' },
         };
       }
 
@@ -475,15 +483,22 @@ export const executeOpenCodeCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry the same model on capacity errors before falling back;
+            // after a capacity-driven model switch, retry quickly instead of waiting the
+            // full transient backoff — the new model may be available now.
+            const retryPlan = await prepareRetryAfterError({
+              tool: 'opencode',
+              argv,
+              log,
+              errorMessage: retryableError.message,
               retryCount,
               initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
               maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
             });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'opencode', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -528,6 +543,9 @@ export const executeOpenCodeCommand = async params => {
           limitResetTime,
           ...pricingResult,
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+          // Issue #1845: surface the actual error so callers can show it to users
+          // Issue #1941: reject meaningless stream fragments (e.g. a lone "}").
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: isMeaningfulErrorText(lastMessage) ? lastMessage : allOutput, exitCode, fallback: `OpenCode command failed with exit code ${exitCode}`, toolLabel: 'OpenCode' }), exitCode },
         };
       }
 
@@ -593,6 +611,8 @@ export const executeOpenCodeCommand = async params => {
         pricingInfo: null,
         publicPricingEstimate: null,
         resultSummary: null, // Issue #1263: No result summary available on error
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
     }
   };

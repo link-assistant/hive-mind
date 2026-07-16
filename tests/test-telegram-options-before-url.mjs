@@ -11,11 +11,9 @@ import { applySolveToolAlias, getFirstParsedPositionalArg, getSolveToolAliasFrom
 import { createYargsConfig as createSolveYargsConfig } from '../src/solve.config.lib.mjs';
 import { createYargsConfig as createHiveYargsConfig } from '../src/hive.config.lib.mjs';
 import { resolveYargsFactory } from '../src/yargs-factory.lib.mjs';
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
-if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-
+const use = await ensureUseM();
 const yargsModule = await use('yargs@17.7.2');
 const yargs = resolveYargsFactory(yargsModule);
 
@@ -69,9 +67,11 @@ await test('/codex invalid --think reports each choice once after URL probing', 
     () => parseArgsWithYargs(normalizedArgs, yargs, createSolveYargsConfig),
     error => {
       const message = error.message || String(error);
-      assert.match(message, /Argument: think, Given: "ma"/);
-      assert.equal((message.match(/"off"/g) || []).length, 1);
-      assert.equal((message.match(/"max"/g) || []).length, 1);
+      // Issue #2038 vocabulary: invalid values report the canonical guidance once,
+      // not once per URL-probing parse (issue #1662 regression guard).
+      assert.match(message, /Invalid --think value: "ma"/);
+      assert.equal((message.match(/Invalid --think value: "ma"/g) || []).length, 1);
+      assert.match(message, /off, minimal, low, medium, high, xhigh, ultra, max/);
       return true;
     }
   );

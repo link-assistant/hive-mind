@@ -2,7 +2,8 @@
 // Token budget statistics display module
 // Extracted from claude.lib.mjs to maintain file line limits
 
-import { formatNumber } from './claude.lib.mjs';
+import { formatNumber, calculateSessionTokens } from './claude.lib.mjs';
+import { reportError } from './sentry.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { getCacheReadTokenCount, getCacheWriteTokenCount, getCumulativeContextInputTokens, getDisplayContextInputTokens, getExplicitContextFillInputTokens, getInputTokenCount, getOutputTokenCount, getRestoredContextInputTokens } from './context-fill.lib.mjs';
 
@@ -110,16 +111,26 @@ export const displayModelUsage = async (usage, log) => {
     await log('');
     await log('      Cost Calculation (USD):');
     const breakdown = usage.costBreakdown;
-    const types = [
-      { key: 'input', label: 'Input' },
-      { key: 'cacheWrite', label: 'Cache write' },
-      { key: 'cacheRead', label: 'Cache read' },
-      { key: 'output', label: 'Output' },
-    ];
-    for (const { key, label } of types) {
-      if (breakdown[key].tokens > 0) {
-        await log(`        ${label}: ${formatNumber(breakdown[key].tokens)} tokens × $${breakdown[key].costPerMillion}/M = $${new Decimal(breakdown[key].cost).toFixed(6)}`);
+    if (breakdown.input.tokens > 0) {
+      await log(`        Input: ${formatNumber(breakdown.input.tokens)} tokens × $${breakdown.input.costPerMillion}/M = $${new Decimal(breakdown.input.cost).toFixed(6)}`);
+    }
+    if (breakdown.cacheWrite?.tokens > 0) {
+      if (breakdown.cacheWrite.hasExplicitTtlSplit) {
+        if (breakdown.cacheWrite5m.tokens > 0) {
+          await log(`        Cache write (5m): ${formatNumber(breakdown.cacheWrite5m.tokens)} tokens × $${breakdown.cacheWrite5m.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite5m.cost).toFixed(6)}`);
+        }
+        if (breakdown.cacheWrite1h.tokens > 0) {
+          await log(`        Cache write (1h): ${formatNumber(breakdown.cacheWrite1h.tokens)} tokens × $${breakdown.cacheWrite1h.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite1h.cost).toFixed(6)}`);
+        }
+      } else {
+        await log(`        Cache write: ${formatNumber(breakdown.cacheWrite.tokens)} tokens × $${breakdown.cacheWrite.costPerMillion}/M = $${new Decimal(breakdown.cacheWrite.cost).toFixed(6)}`);
       }
+    }
+    if (breakdown.cacheRead.tokens > 0) {
+      await log(`        Cache read: ${formatNumber(breakdown.cacheRead.tokens)} tokens × $${breakdown.cacheRead.costPerMillion}/M = $${new Decimal(breakdown.cacheRead.cost).toFixed(6)}`);
+    }
+    if (breakdown.output.tokens > 0) {
+      await log(`        Output: ${formatNumber(breakdown.output.tokens)} tokens × $${breakdown.output.costPerMillion}/M = $${new Decimal(breakdown.output.cost).toFixed(6)}`);
     }
     // Issue #1710: itemise server-tool charges so the residual that puzzled
     // readers in PR #1707 ($0.04 web_search) is visible in the breakdown.
@@ -137,19 +148,38 @@ export const displayModelUsage = async (usage, log) => {
 /**
  * Display cost comparison between public pricing and Anthropic's official cost
  * Issue #1557: Show simplified format when costs match, remove USD suffix
- * @param {number|null} publicCost - Public pricing estimate
- * @param {number|null} anthropicCost - Anthropic's official cost
+ * Issue #1886: `anthropicCost` is the cumulative Anthropic cost across every
+ *   resume iteration (the session JSONL — and therefore `publicCost` — spans
+ *   the full session, so the Anthropic figure must too). The optional
+ *   `previousAnthropicCost` is the portion carried in from earlier runs; when
+ *   non-zero we show a verbose breakdown so the accumulation is auditable.
+ * @param {number|null} publicCost - Public pricing estimate (full session)
+ * @param {number|null} anthropicCost - Anthropic's cumulative official cost (full session)
  * @param {Function} log - Logging function
+ * @param {Object} [options]
+ * @param {number} [options.previousAnthropicCost=0] - cost carried in from earlier resume iterations
  */
-export const displayCostComparison = async (publicCost, anthropicCost, log) => {
+export const displayCostComparison = async (publicCost, anthropicCost, log, options = {}) => {
+  const previousAnthropicCost = options.previousAnthropicCost || 0;
   const hasPublic = publicCost !== null && publicCost !== undefined;
   const hasAnthropic = anthropicCost !== null && anthropicCost !== undefined;
   const publicDec = hasPublic ? new Decimal(publicCost) : null;
   const anthropicDec = hasAnthropic ? new Decimal(anthropicCost) : null;
+  // Issue #1886: when the Anthropic figure was accumulated across resumes,
+  // expose the breakdown in verbose mode so "this run + carried forward = total"
+  // is auditable from the saved log.
+  const logAccumulationBreakdown = async () => {
+    if (previousAnthropicCost > 0 && anthropicDec) {
+      const thisRun = anthropicDec.minus(new Decimal(previousAnthropicCost));
+      await log(`      ↳ Anthropic cost is cumulative across resume iterations (issue #1886):`, { verbose: true });
+      await log(`         this run: $${thisRun.toFixed(6)} + carried forward: $${new Decimal(previousAnthropicCost).toFixed(6)} = $${anthropicDec.toFixed(6)}`, { verbose: true });
+    }
+  };
   // Issue #1703: also collapse to the short form when the rounded difference is below display precision,
   // so reports like "Difference: $-0.000000 (-0.00%)" no longer waste two extra lines.
   if (publicDec && anthropicDec && anthropicDec.minus(publicDec).abs().toFixed(6) === '0.000000') {
     await log(`\n   💰 Cost: $${anthropicDec.toFixed(6)}`);
+    await logAccumulationBreakdown();
     return;
   }
   await log('\n   💰 Cost estimation:');
@@ -162,6 +192,7 @@ export const displayCostComparison = async (publicCost, anthropicCost, log) => {
   } else {
     await log('      Difference:              unknown');
   }
+  await logAccumulationBreakdown();
 };
 
 /**
@@ -307,6 +338,84 @@ export const displayBudgetStats = async (usage, tokenUsage, log) => {
 };
 
 /**
+ * Calculate and display the total token-usage summary for a finished Claude session.
+ * Extracted from claude.lib.mjs to keep that file under the 1500-line limit (Issue #1834).
+ * Reads the session JSONL, logs the per-model breakdown, cost comparison and (optionally)
+ * budget stats. Failures are reported but never thrown — token reporting is best-effort.
+ * @param {Object} params
+ * @param {string} params.sessionId - Claude session id (skips when falsy)
+ * @param {string} params.tempDir - Working directory containing the session JSONL (skips when falsy)
+ * @param {Object|null} params.resultModelUsage - Authoritative per-model usage from the result JSON event
+ * @param {number} params.anthropicTotalCostUSD - Anthropic's cumulative official cost across resume iterations (issue #1886)
+ * @param {number} [params.previousAnthropicCostUSD=0] - portion of anthropicTotalCostUSD carried in from earlier resume iterations (issue #1886)
+ * @param {Object} params.argv - Parsed CLI args (reads argv.tokensBudgetStats)
+ * @param {Function} params.log - Logger
+ */
+export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModelUsage, anthropicTotalCostUSD, previousAnthropicCostUSD = 0, argv, log }) => {
+  if (!sessionId || !tempDir) return;
+  try {
+    const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
+    if (!tokenUsage) return;
+    // Issue #1501: Log deduplication stats in verbose mode
+    if (tokenUsage.duplicateEntriesSkipped > 0) {
+      await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
+    }
+    if (tokenUsage.peakContextUsage > 0) {
+      await log(`📊 Peak restored-context input: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });
+    }
+    await log('\n💰 Token Usage Summary:');
+    // Display per-model breakdown
+    if (tokenUsage.modelUsage) {
+      const modelIds = Object.keys(tokenUsage.modelUsage);
+      const modelsFromResult = modelIds.filter(id => tokenUsage.modelUsage[id]._sourceResultJson);
+      if (modelsFromResult.length > 0) {
+        await log(`📊 Token data supplemented from result JSON for: ${modelsFromResult.join(', ')}`, { verbose: true });
+      }
+      for (const modelId of modelIds) {
+        const usage = tokenUsage.modelUsage[modelId];
+        const sourceNote = usage._sourceResultJson ? ' (from result JSON)' : '';
+        await log(`\n   📊 ${usage.modelName || modelId}:${sourceNote}`);
+        await displayModelUsage(usage, log);
+        // Display budget stats if flag is enabled
+        if (argv.tokensBudgetStats && usage.modelInfo?.limit) {
+          await displayBudgetStats(usage, tokenUsage, log);
+        }
+      }
+      // Show totals if multiple models were used
+      if (modelIds.length > 1) {
+        await log('\n   📈 Total across all models:');
+      }
+      // Show cost comparison (for both single and multiple models)
+      // Issue #1886: anthropicTotalCostUSD is cumulative across resume iterations
+      // so it shares the full-session scope of the JSONL-based public estimate.
+      await displayCostComparison(tokenUsage.totalCostUSD, anthropicTotalCostUSD, log, { previousAnthropicCost: previousAnthropicCostUSD });
+      // Show total tokens for single model only
+      if (modelIds.length === 1) {
+        await log(`      Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+      }
+    } else {
+      // Fallback to old format if modelUsage is not available
+      await log(`   Input tokens: ${formatNumber(tokenUsage.inputTokens)}`);
+      if (tokenUsage.cacheCreationTokens > 0) {
+        await log(`   Cache creation tokens: ${formatNumber(tokenUsage.cacheCreationTokens)}`);
+      }
+      if (tokenUsage.cacheReadTokens > 0) {
+        await log(`   Cache read tokens: ${formatNumber(tokenUsage.cacheReadTokens)}`);
+      }
+      await log(`   Output tokens: ${formatNumber(tokenUsage.outputTokens)}`);
+      await log(`   Total tokens: ${formatNumber(tokenUsage.totalTokens)}`);
+    }
+  } catch (tokenError) {
+    reportError(tokenError, {
+      context: 'calculate_session_tokens',
+      sessionId,
+      operation: 'read_session_jsonl',
+    });
+    await log(`   ⚠️ Could not calculate token usage: ${tokenError.message}`, { verbose: true });
+  }
+};
+
+/**
  * Merge resultModelUsage from Claude Code result JSON into JSONL-based modelUsage map.
  * Issue #1508: The JSONL file may miss sub-agent model entries (e.g., Haiku used internally),
  * while resultModelUsage from the success result event has the authoritative per-model breakdown.
@@ -449,10 +558,16 @@ export const buildCumulativeInputPhrase = ({ input, cacheWrites, cacheReads, for
  */
 const formatSubSessionsList = (subSessions, contextLimit, outputLimit) => {
   let result = '';
+  let hasEstimatedRows = false;
   for (let i = 0; i < subSessions.length; i++) {
     const sub = subSessions[i];
+    if (sub.estimated) hasEstimatedRows = true;
     const subPeakContext = sub.peakContextUsage || 0;
-    result += formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
+    const line = formatContextOutputLine(subPeakContext, contextLimit, sub.outputTokens, outputLimit, `${i + 1}. `);
+    result += sub.estimated ? line.replace(`\n${i + 1}. `, `\n${i + 1}. ~`) : line;
+  }
+  if (hasEstimatedRows) {
+    result += '\n\n_Sub-session values are estimates from observed compact events; the Total line remains exact._';
   }
   return result;
 };
@@ -748,6 +863,7 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
   const contextLimit = tokenUsage.contextLimit || pricingInfo?.modelInfo?.limit?.context || null;
   const outputLimit = tokenUsage.outputLimit || pricingInfo?.modelInfo?.limit?.output || null;
   const contextFillInputTokens = getExplicitContextFillInputTokens(tokenUsage) ?? getCumulativeContextInputTokens({ inputTokens, cacheWriteTokens });
+  const subSessions = Array.isArray(tokenUsage.subSessions) ? tokenUsage.subSessions : [];
 
   const modelUsageEntry = {
     inputTokens,
@@ -763,7 +879,8 @@ export const buildAgentBudgetStats = (tokenUsage, pricingInfo) => {
 
   return {
     modelUsage: { [modelId]: modelUsageEntry },
-    subSessions: [],
+    subSessions,
+    compactifications: Array.isArray(tokenUsage.compactifications) ? tokenUsage.compactifications : tokenUsage.compactifications || null,
     inputTokens,
     cacheCreationTokens: cacheWriteTokens,
     cacheReadTokens,

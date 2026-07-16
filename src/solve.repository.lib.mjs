@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Repository management module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,7 +8,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -28,6 +29,9 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
+import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
+import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -519,33 +523,91 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log('');
         await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'warning' });
         const detail = !forkValidation.isFork ? `Repository ${existingForkName} is NOT a GitHub fork (see issue #1518)` : `Fork ${existingForkName} was created from ${forkValidation.parent} instead of ${owner}/${repo} (see issue #967)`;
+        const relationshipDescription = !forkValidation.isFork ? `${existingForkName} is not a GitHub fork of ${owner}/${repo}.` : `${existingForkName} is a GitHub fork of ${forkValidation.parent || 'unknown parent'}, not ${owner}/${repo}.`;
         await log(`${formatAligned('', '', detail)}`);
         await log(`${formatAligned('', '', `Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}, source: ${forkValidation.source || 'N/A'}, expected: ${owner}/${repo}`)}`);
-        // Safety check: compare commits before deleting to avoid data loss
-        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing commits against upstream...')}`);
+        // Safety check: compare commits before deleting to avoid data loss.
+        // GitHub compare only answers for fork-network refs, so a local Git
+        // fallback checks every replacement branch tip before deletion.
+        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing default branch against upstream...')}`);
         let safeToDelete = false;
+        let safetyCheckDescription = buildForkReplacementSafetyCheckDescription();
+        let shouldRunBranchReachabilityCheck = false;
+        let likelyDetachedFork = false;
         try {
           const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
-          if (cmp.code === 0 && parseInt(cmp.stdout.toString().trim(), 10) === 0) {
-            await log(`${formatAligned('✅', 'Safe to delete:', 'No additional commits in non-fork repository')}`);
-            safeToDelete = true;
+          const aheadBy = parseInt(cmp.stdout.toString().trim(), 10);
+          if (cmp.code === 0 && aheadBy === 0) {
+            await log(`${formatAligned('✅', 'Default branch:', 'No additional commits in replacement repository')}`);
+            shouldRunBranchReachabilityCheck = true;
           } else if (cmp.code === 0) {
-            await log(`${formatAligned('⚠️', 'UNSAFE:', `Repository has ${cmp.stdout.toString().trim()} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ aheadBy });
+            if (Number.isFinite(aheadBy)) {
+              await log(`${formatAligned('⚠️', 'UNSAFE:', `Default branch has ${aheadBy} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            } else {
+              await log(`${formatAligned('⚠️', 'Compare unclear:', 'GitHub compare did not return a numeric ahead_by value')}`, { level: 'warning' });
+              shouldRunBranchReachabilityCheck = true;
+            }
           } else {
-            await log(`${formatAligned('⚠️', 'Compare failed:', ((cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '')).split('\n')[0])}`, { level: 'warning' });
+            const compareOutput = (cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '');
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: compareOutput });
+            await log(`${formatAligned('⚠️', 'Compare failed:', compareOutput.split('\n')[0])}`, { level: 'warning' });
+            shouldRunBranchReachabilityCheck = true;
           }
         } catch (e) {
+          safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: e.message });
           await log(`${formatAligned('⚠️', 'Compare error:', e.message)}`, { level: 'warning' });
+          shouldRunBranchReachabilityCheck = true;
+        }
+
+        if (shouldRunBranchReachabilityCheck) {
+          await log(`${formatAligned('🔍', 'Safety check:', 'Checking all replacement branches against upstream refs...')}`);
+          const branchSafety = await checkReplacementRepositoryBranchSafety({
+            $,
+            owner,
+            repo,
+            existingRepository: existingForkName,
+          });
+          safetyCheckDescription = branchSafety.safetyCheckDescription;
+          likelyDetachedFork = Boolean(branchSafety.likelyDetachedFork);
+
+          if (likelyDetachedFork) {
+            await log(`${formatAligned('🔗', 'Detached fork:', `${existingForkName} shares history with ${owner}/${repo} but is not a GitHub fork — this matches a fork detached by a private/public visibility change`)}`);
+          }
+
+          if (branchSafety.safeToDelete) {
+            await log(`${formatAligned('✅', 'Safe to delete:', `All ${branchSafety.branchCount} replacement branch tip(s) are reachable from upstream`)}`);
+            safeToDelete = true;
+          } else if (branchSafety.uniqueBranches.length > 0) {
+            await log(`${formatAligned('⚠️', 'UNSAFE:', `${branchSafety.uniqueBranches.length} replacement branch tip(s) have commits not reachable from upstream`)}`, { level: 'warning' });
+            for (const branch of branchSafety.uniqueBranches.slice(0, 3)) {
+              await log(`${formatAligned('', '', `${branch.ref}: ${branch.uniqueCommitCount} commit(s), ${branch.sha.slice(0, 12)} ${branch.subject || ''}`)}`, { level: 'warning' });
+            }
+          } else {
+            await log(`${formatAligned('⚠️', 'Branch check failed:', safetyCheckDescription)}`, { level: 'warning' });
+          }
         }
         if (!safeToDelete) {
           if (argv.allowForceNonForkRepositoryDeletion) {
+            // Force flag set — proceed with deletion despite the failed safety check.
             await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
-            safeToDelete = true;
           } else {
+            if (likelyDetachedFork) {
+              await log(`  🔗 Recover without deletion: ask GitHub Support to re-attach ${existingForkName} to ${owner}/${repo} at https://support.github.com/request/fork ("Attach, detach or reroute forks")`);
+            }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
             await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
-            await safeExit(1, 'Auto-recovery skipped - repository may contain commits that would be lost');
+            await safeExit(
+              1,
+              buildForkReplacementBlockedReason({
+                existingRepository: existingForkName,
+                expectedUpstream: `${owner}/${repo}`,
+                relationshipDescription,
+                safetyCheckDescription,
+                likelyDetachedFork,
+              })
+            );
           }
         }
         await log(`${formatAligned('🔄', 'Auto-recovery:', 'Deleting non-fork repository and creating fresh fork...')}`);
@@ -589,11 +651,10 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         const forkOutput = (forkResult.stderr ? forkResult.stderr.toString() : '') + (forkResult.stdout ? forkResult.stdout.toString() : '');
         if (argv.verbose) await log(`${formatAligned('🔧', 'Fork output:', forkOutput.split('\n')[0] || '(empty)')}`); // Issue #1518
         // Parse actual fork name from output (e.g., "konard/netkeep80-jsonRVM already exists")
-        // GitHub may create forks with modified names to avoid conflicts
-        // Use regex that won't match domain names like "github.com/user" -> "com/user"
-        const forkNameMatch = forkOutput.match(/(?:github\.com\/|^|\s)([a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+)/);
-        if (forkNameMatch) {
-          actualForkName = forkNameMatch[1];
+        // Issue #1819: repository names can contain dots, such as "*.github.io".
+        const parsedForkName = parseForkFullNameFromGhOutput(forkOutput);
+        if (parsedForkName) {
+          actualForkName = parsedForkName;
         }
 
         if (forkResult.code === 0) {
@@ -818,12 +879,12 @@ Thank you!`;
     await log(`\n${formatAligned('🍴', 'Fork mode:', 'DETECTED from PR')}`);
     await log(`${formatAligned('', 'Fork owner:', forkOwner)}`);
 
-    // Use actual head repo name from PR data (headRepository.name) if available, otherwise guess from base repo name
+    // Issue #1803: prefix flag controls fork CREATION; for lookup, trust forkRepoName from PR head data.
     const headRepoName = forkRepoName || repo;
     const standardForkName = `${forkOwner}/${headRepoName}`;
     const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
-    const expectedForkName = argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
-    const alternateForkName = argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
+    const expectedForkName = forkRepoName ? `${forkOwner}/${forkRepoName}` : argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
+    const alternateForkName = forkRepoName ? null : argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
 
     await log(`${formatAligned('✅', 'Using fork:', expectedForkName)}\n`);
 
@@ -832,9 +893,9 @@ Thank you!`;
     let forkCheckResult = await $`gh repo view ${expectedForkName} --json name 2>/dev/null`;
     let actualForkName = expectedForkName;
 
-    if (forkCheckResult.code !== 0 && !argv.prefixForkNameWithOwnerName) {
-      // Only try alternate name if NOT using --prefix-fork-name-with-owner-name
-      // When the option is enabled, we should only use the prefixed fork name
+    if (forkCheckResult.code !== 0 && alternateForkName && !argv.prefixForkNameWithOwnerName) {
+      // Only try alternate name if --prefix-fork-name-with-owner-name is off AND we're guessing
+      // (forkRepoName authoritative → alternateForkName is null and no fallback is attempted).
       forkCheckResult = await $`gh repo view ${alternateForkName} --json name 2>/dev/null`;
       if (forkCheckResult.code === 0) {
         actualForkName = alternateForkName;
@@ -921,8 +982,12 @@ export const classifyCloneError = errorOutput => {
   }
 
   // Network-related errors - typically retryable
-  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error')) {
-    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue' };
+  // Issue #1957: git fetch-pack/sideband disconnects (e.g.
+  // "fetch-pack: unexpected disconnect while reading sideband packet",
+  // "early EOF", "the remote end hung up unexpectedly", "RPC failed",
+  // "index-pack failed") leave an incomplete or missing clone but are transient.
+  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error') || output.includes('unexpected disconnect') || output.includes('sideband') || output.includes('early eof') || output.includes('remote end hung up') || output.includes('rpc failed') || output.includes('fetch-pack') || output.includes('index-pack failed') || output.includes('transfer closed')) {
+    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue (interrupted transfer)' };
   }
 
   // Authentication/permission errors - not retryable
@@ -944,6 +1009,24 @@ export const classifyCloneError = errorOutput => {
   return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
 };
 
+// Issue #1957: remove leftovers from an interrupted clone so a retry can start clean.
+// We empty the directory in place (rather than removing it) because the path was
+// created up-front by setupTempDirectory and may be the configured working directory.
+export const cleanPartialClone = async tempDir => {
+  try {
+    const entries = await fs.readdir(tempDir);
+    for (const entry of entries) {
+      await fs.rm(path.join(tempDir, entry), { recursive: true, force: true });
+    }
+  } catch (error) {
+    // Directory may not exist yet, or be unreadable — non-fatal; the retry/clone
+    // will surface any real problem with a clearer message.
+    if (error?.code !== 'ENOENT') {
+      reportError(error, { context: 'clean_partial_clone', tempDir, operation: 'empty_directory' });
+    }
+  }
+};
+
 // Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
   const maxRetries = 3;
@@ -958,9 +1041,25 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 
     // Use 2>&1 to capture all output and filter "Cloning into" message
     const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+    const cloneOutput = (cloneResult.stdout || cloneResult.stderr || '').toString().trim();
 
-    // Verify clone was successful
+    // Issue #1957: `gh repo clone` (and the `git clone` it wraps) can exit 0 even when
+    // the underlying transfer was interrupted — e.g. "fetch-pack: unexpected disconnect
+    // while reading sideband packet" — leaving an incomplete or completely missing
+    // working tree (no `.git`). Trusting the exit code alone made the solver report
+    // "✅ Cloned to:" and then crash much later with the unhelpful "Failed to get
+    // current branch". Verify the clone actually produced a usable git repository.
+    let repoIsValid = false;
     if (cloneResult.code === 0) {
+      const validityCheck = await $({ cwd: tempDir })`git rev-parse --is-inside-work-tree 2>&1`;
+      repoIsValid = validityCheck.code === 0 && validityCheck.stdout.toString().trim() === 'true';
+      if (!repoIsValid && argv.verbose) {
+        await log(`${formatAligned('🔧', 'Clone validation:', `git rev-parse failed despite exit 0 — ${(validityCheck.stdout || validityCheck.stderr || '').toString().trim().split('\n')[0]}`)}`);
+      }
+    }
+
+    // Verify clone was successful (exit code 0 AND a valid working tree exists)
+    if (cloneResult.code === 0 && repoIsValid) {
       await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
 
       // Verify and fix remote configuration
@@ -974,7 +1073,15 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     }
 
     // Clone failed - analyze error and determine if retry is appropriate
-    const errorOutput = (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
+    // Issue #1957: when the wrapper exited 0 but left no valid repo, surface the
+    // interrupted-transfer output (which carries the real "unexpected disconnect"
+    // reason) so it is classified as a retryable network error rather than UNKNOWN.
+    const errorOutput = cloneResult.code === 0 && !repoIsValid ? cloneOutput || 'Clone exited 0 but no valid git repository was created (interrupted transfer / incomplete clone)' : (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
+
+    // Issue #1957: a partial clone can leave stray files behind that make a retry of
+    // `gh repo clone <dir>` fail with "directory exists and is not empty". Clean the
+    // target directory before classifying/retrying so the next attempt starts fresh.
+    await cleanPartialClone(tempDir);
 
     const errorClassification = classifyCloneError(errorOutput);
 
@@ -1014,6 +1121,9 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         await log('     • Network connectivity issues');
         if (errorClassification.type === 'TRANSIENT') await log('     • GitHub server issues (temporary)');
         if (errorClassification.type === 'RATE_LIMIT') await log('     • API rate limiting exceeded');
+        // Issue #1957: the transfer started but was interrupted (e.g. the connection
+        // dropped while reading the pack). The retries above were already exhausted.
+        if (errorClassification.type === 'NETWORK') await log('     • Connection dropped mid-transfer (the clone was interrupted before completing)');
         if (argv.fork) await log('     • Fork not ready yet (try again in a moment)');
         await log('');
         await log('  🔧 How to fix:');
@@ -1023,6 +1133,11 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         if (argv.fork) await log(`     4. Check fork: gh repo view ${repoToClone}`);
         if (errorClassification.type === 'TRANSIENT') await log('     5. Wait and retry / check: https://www.githubstatus.com');
         if (errorClassification.type === 'RATE_LIMIT') await log('     5. Wait for rate limit to reset or use --token with different token');
+        if (errorClassification.type === 'NETWORK') {
+          await log('     5. Check your network connection / VPN / proxy, then re-run the command');
+          await log('     6. On slow or unstable links, a shallower history transfers faster and is less');
+          await log('        likely to be interrupted; ask a Hive Mind administrator if clone tuning is available');
+        }
         await log('');
       }
       await safeExit(1, 'Repository setup failed');
@@ -1045,220 +1160,10 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
   await safeExit(1, 'Repository setup failed');
 };
 
-// Set up upstream remote and sync fork
-export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, owner, repo, argv) => {
-  if (!forkedRepo || !upstreamRemote) return;
-
-  await log(`${formatAligned('🔗', 'Setting upstream:', upstreamRemote)}`);
-
-  // Check if upstream remote already exists
-  const checkUpstreamResult = await $({ cwd: tempDir })`git remote get-url upstream 2>/dev/null`;
-  let upstreamExists = checkUpstreamResult.code === 0;
-
-  if (upstreamExists) {
-    await log(`${formatAligned('ℹ️', 'Upstream exists:', 'Using existing upstream remote')}`);
-  } else {
-    // Add upstream remote since it doesn't exist
-    const upstreamResult = await $({ cwd: tempDir })`git remote add upstream https://github.com/${upstreamRemote}.git`;
-
-    if (upstreamResult.code === 0) {
-      await log(`${formatAligned('✅', 'Upstream set:', upstreamRemote)}`);
-      upstreamExists = true;
-    } else {
-      await log(`${formatAligned('⚠️', 'Warning:', 'Failed to add upstream remote')}`);
-      if (upstreamResult.stderr) {
-        await log(`${formatAligned('', 'Error details:', upstreamResult.stderr.toString().trim())}`);
-      }
-    }
-  }
-
-  // Proceed with fork sync if upstream remote is available
-  if (upstreamExists) {
-    // Fetch upstream
-    await log(`${formatAligned('🔄', 'Fetching upstream...', '')}`);
-    const fetchResult = await $({ cwd: tempDir })`git fetch upstream`;
-    if (fetchResult.code === 0) {
-      await log(`${formatAligned('✅', 'Upstream fetched:', 'Successfully')}`);
-
-      // Sync the default branch with upstream to avoid merge conflicts
-      await log(`${formatAligned('🔄', 'Syncing default branch...', '')}`);
-
-      // Get current branch so we can return to it after sync
-      const currentBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
-      if (currentBranchResult.code === 0) {
-        const currentBranch = currentBranchResult.stdout.toString().trim();
-
-        // Get the default branch name from the original repository using GitHub API
-        const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq .default_branch`;
-        if (repoInfoResult.code === 0) {
-          const upstreamDefaultBranch = repoInfoResult.stdout.toString().trim();
-          await log(`${formatAligned('ℹ️', 'Default branch:', upstreamDefaultBranch)}`);
-
-          // Always sync the default branch, regardless of current branch
-          // This ensures fork is up-to-date even if we're working on a different branch
-
-          // Step 1: Switch to default branch if not already on it
-          let syncSuccessful = true;
-          if (currentBranch !== upstreamDefaultBranch) {
-            await log(`${formatAligned('🔄', 'Switching to:', `${upstreamDefaultBranch} branch`)}`);
-            const checkoutResult = await $({ cwd: tempDir })`git checkout ${upstreamDefaultBranch}`;
-            if (checkoutResult.code !== 0) {
-              await log(`${formatAligned('⚠️', 'Warning:', `Failed to checkout ${upstreamDefaultBranch}`)}`);
-              syncSuccessful = false; // Cannot proceed with sync
-            }
-          }
-
-          // Step 2: Sync default branch with upstream (only if checkout was successful)
-          if (syncSuccessful) {
-            const syncResult = await $({ cwd: tempDir })`git reset --hard upstream/${upstreamDefaultBranch}`;
-            if (syncResult.code === 0) {
-              await log(`${formatAligned('✅', 'Default branch synced:', `with upstream/${upstreamDefaultBranch}`)}`);
-
-              // Step 3: Push the updated default branch to fork to keep it in sync
-              await log(`${formatAligned('🔄', 'Pushing to fork:', `${upstreamDefaultBranch} branch`)}`);
-              const pushResult = await $({ cwd: tempDir })`git push origin ${upstreamDefaultBranch} 2>&1`;
-              if (pushResult.code === 0) {
-                await log(`${formatAligned('✅', 'Fork updated:', 'Default branch pushed to fork')}`);
-              } else {
-                // Check if it's a non-fast-forward error (fork has diverged from upstream)
-                const errorMsg = (pushResult.stderr ? pushResult.stderr.toString().trim() : '') || (pushResult.stdout ? pushResult.stdout.toString().trim() : '');
-                const isNonFastForward = errorMsg.includes('non-fast-forward') || errorMsg.includes('rejected') || errorMsg.includes('tip of your current branch is behind');
-
-                if (isNonFastForward) {
-                  // Fork has diverged from upstream
-                  await log('');
-                  await log(`${formatAligned('⚠️', 'FORK DIVERGENCE DETECTED', '')}`, { level: 'warn' });
-                  await log('');
-                  await log('  🔍 What happened:');
-                  await log(`     Your fork's ${upstreamDefaultBranch} branch has different commits than upstream`);
-                  await log('     This typically occurs when upstream had a force push (e.g., git reset --hard)');
-                  await log('');
-                  await log('  📦 Current state:');
-                  await log(`     • Fork: ${forkedRepo}`);
-                  await log(`     • Upstream: ${owner}/${repo}`);
-                  await log(`     • Branch: ${upstreamDefaultBranch}`);
-                  await log('');
-
-                  // Check if user has enabled automatic force push
-                  if (argv.allowForkDivergenceResolutionUsingForcePushWithLease) {
-                    await log('  🔄 Auto-resolution ENABLED (--allow-fork-divergence-resolution-using-force-push-with-lease):');
-                    await log('     Attempting to force-push with --force-with-lease...');
-                    await log('');
-
-                    // Use --force-with-lease for safer force push
-                    // This will only force push if the remote hasn't changed since our last fetch
-                    await log(`${formatAligned('🔄', 'Force pushing:', 'Syncing fork with upstream (--force-with-lease)')}`);
-                    const forcePushResult = await $({
-                      cwd: tempDir,
-                    })`git push --force-with-lease origin ${upstreamDefaultBranch} 2>&1`;
-
-                    if (forcePushResult.code === 0) {
-                      await log(`${formatAligned('✅', 'Fork synced:', 'Successfully force-pushed to align with upstream')}`);
-                      await log('');
-                    } else {
-                      // Force push also failed - this is a more serious issue
-                      await log('');
-                      await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to sync fork with upstream')}`, {
-                        level: 'error',
-                      });
-                      await log('');
-                      await log('  🔍 What happened:');
-                      await log(`     Fork branch ${upstreamDefaultBranch} has diverged from upstream`);
-                      await log('     Both normal push and force-with-lease push failed');
-                      await log('');
-                      await log('  📦 Error details:');
-                      const forceErrorMsg = forcePushResult.stderr ? forcePushResult.stderr.toString().trim() : '';
-                      for (const line of forceErrorMsg.split('\n')) {
-                        if (line.trim()) await log(`     ${line}`);
-                      }
-                      await log('');
-                      await log('  💡 Possible causes:');
-                      await log('     • Fork branch is protected (branch protection rules prevent force push)');
-                      await log('     • Someone else pushed to fork after our fetch');
-                      await log('     • Insufficient permissions to force push');
-                      await log('');
-                      await log('  🔧 Manual resolution:');
-                      await log(`     1. Visit your fork: https://github.com/${forkedRepo}`);
-                      await log('     2. Check branch protection settings');
-                      await log('     3. Manually sync fork with upstream:');
-                      await log('        git fetch upstream');
-                      await log(`        git reset --hard upstream/${upstreamDefaultBranch}`);
-                      await log(`        git push --force origin ${upstreamDefaultBranch}`);
-                      await log('');
-                      await safeExit(1, 'Repository setup failed - fork sync failed');
-                    }
-                  } else {
-                    // Flag is not enabled - provide guidance
-                    await log('  💡 Your options:');
-                    await log('');
-                    await log('     Option 1: Delete your fork and recreate it (SIMPLEST)');
-                    await log(`              gh repo delete ${forkedRepo}`);
-                    await log('              Then run the solve command again - the fork will be recreated automatically');
-                    await log('              ⚠️  Only use this if your fork has no unique commits you need to preserve');
-                    await log('');
-                    await log('     Option 2: Enable automatic force-push (DANGEROUS)');
-                    await log('              Add --allow-fork-divergence-resolution-using-force-push-with-lease flag to your command');
-                    await log('              This will automatically sync your fork with upstream using force-with-lease');
-                    await log('              ⚠️  Overwrites fork history - any unique commits will be LOST');
-                    await log('');
-                    await log('     Option 3: Manually resolve the divergence');
-                    await log('              1. Decide if you need any commits unique to your fork');
-                    await log('              2. If yes, cherry-pick them after syncing');
-                    await log('              3. If no, manually force-push:');
-                    await log('                 git fetch upstream');
-                    await log(`                 git reset --hard upstream/${upstreamDefaultBranch}`);
-                    await log(`                 git push --force origin ${upstreamDefaultBranch}`);
-                    await log('');
-                    await log('  🔧 To proceed with auto-resolution, restart with:');
-                    await log(`     solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-fork-divergence-resolution-using-force-push-with-lease`);
-                    await log('');
-                    await safeExit(1, 'Repository setup halted - fork divergence requires user decision');
-                  }
-                } else {
-                  // Some other push error (not divergence-related)
-                  await log(`${formatAligned('❌', 'FATAL ERROR:', 'Failed to push updated default branch to fork')}`);
-                  await log(`${formatAligned('', 'Push error:', errorMsg)}`);
-                  await log(`${formatAligned('', 'Reason:', 'Fork must be updated or process must stop')}`);
-                  await log(`${formatAligned('', 'Solution draft:', 'Fork sync is required for proper workflow')}`);
-                  await log(`${formatAligned('', 'Next steps:', '1. Check GitHub permissions for the fork')}`);
-                  await log(`${formatAligned('', '', '2. Ensure fork is not protected')}`);
-                  await log(`${formatAligned('', '', '3. Try again after resolving fork issues')}`);
-                  await safeExit(1, 'Repository setup failed');
-                }
-              }
-
-              // Step 4: Return to the original branch if it was different
-              if (currentBranch !== upstreamDefaultBranch) {
-                await log(`${formatAligned('🔄', 'Returning to:', `${currentBranch} branch`)}`);
-                const returnResult = await $({ cwd: tempDir })`git checkout ${currentBranch}`;
-                if (returnResult.code === 0) {
-                  await log(`${formatAligned('✅', 'Branch restored:', `Back on ${currentBranch}`)}`);
-                } else {
-                  await log(`${formatAligned('⚠️', 'Warning:', `Failed to return to ${currentBranch}`)}`);
-                  // This is not fatal, continue with sync on default branch
-                }
-              }
-            } else {
-              await log(`${formatAligned('⚠️', 'Warning:', `Failed to sync ${upstreamDefaultBranch} with upstream`)}`);
-              if (syncResult.stderr) {
-                await log(`${formatAligned('', 'Sync error:', syncResult.stderr.toString().trim())}`);
-              }
-            }
-          }
-        } else {
-          await log(`${formatAligned('⚠️', 'Warning:', 'Failed to get default branch name')}`);
-        }
-      } else {
-        await log(`${formatAligned('⚠️', 'Warning:', 'Failed to get current branch')}`);
-      }
-    } else {
-      await log(`${formatAligned('⚠️', 'Warning:', 'Failed to fetch upstream')}`);
-      if (fetchResult.stderr) {
-        await log(`${formatAligned('', 'Fetch error:', fetchResult.stderr.toString().trim())}`);
-      }
-    }
-  }
-};
+// Set up upstream remote and sync fork.
+// Extracted into solve.fork-sync.lib.mjs (#1893) to keep this file under the
+// 1500-line limit; re-exported here so existing importers keep working.
+export { setupUpstreamAndSync } from './solve.fork-sync.lib.mjs';
 
 // Set up pr-fork remote for continuing someone else's fork PR with --fork flag
 export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isContinueMode, owner = null) => {

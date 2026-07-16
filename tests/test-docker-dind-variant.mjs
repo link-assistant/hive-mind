@@ -20,6 +20,10 @@ const assertIncludes = (content, expected, filePath) => {
   assert.ok(content.includes(expected), `${filePath} should include ${expected}`);
 };
 
+const assertExcludes = (content, unexpected, filePath) => {
+  assert.ok(!content.includes(unexpected), `${filePath} should not include ${unexpected}`);
+};
+
 const assertFileExists = async filePath => {
   try {
     const stat = await fs.stat(path.join(repoRoot, filePath));
@@ -33,27 +37,36 @@ const assertFileExists = async filePath => {
 };
 
 await assertFileExists('Dockerfile.dind');
+await assertFileExists('scripts/verify-dind-exec-defaults.sh');
 
 const dindDockerfile = await read('Dockerfile.dind');
+const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
-assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.1.1', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.3.5', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV HIVE_MIND_IMAGE_VARIANT=dind', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
+assertIncludes(dindDockerfile, 'ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
+// Issue #1914 reopen: the nested daemon MUST default to a copy-on-write driver.
+// `vfs` copies every layer in full, so the multi-GB images overflow the disk
+// (`failed to register layer: no space left on device`). fuse-overlayfs is
+// copy-on-write AND works overlay-on-overlay, the compatibility vfs was chosen
+// for. Guard both directions so the regression cannot silently return.
+assertIncludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="fuse-overlayfs"', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'ENV DIND_STORAGE_DRIVER="vfs"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'test "$(hive --version)" = "${HIVE_MIND_VERSION}"', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'configure-claude --settings-path /home/box/.claude/settings.json --verify', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'ENTRYPOINT ["/usr/local/bin/dind-entrypoint.sh"]', 'Dockerfile.dind');
-assertIncludes(dindDockerfile, 'CMD ["/bin/bash"]', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'USER root', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'Keep the final image as root', 'Dockerfile.dind');
 
 const detectCodeChanges = await read('scripts/detect-code-changes.mjs');
 assertIncludes(detectCodeChanges, 'Dockerfile.dind', 'scripts/detect-code-changes.mjs');
 
 const dockerDocs = await read('docs/DOCKER.md');
 assertIncludes(dockerDocs, 'konard/hive-mind-dind:latest', 'docs/DOCKER.md');
-assertIncludes(dockerDocs, 'DIND_STORAGE_DRIVER=vfs', 'docs/DOCKER.md');
+assertIncludes(dockerDocs, 'DIND_STORAGE_DRIVER=fuse-overlayfs', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--privileged', 'docs/DOCKER.md');
 assertIncludes(dockerDocs, '--runtime=sysbox-runc', 'docs/DOCKER.md');
 
@@ -68,7 +81,14 @@ assertIncludes(dockerPrSection, 'docker build --progress=plain -f Dockerfile.din
 assertIncludes(dockerPrSection, 'build-dind-output.log', '.github/workflows/release.yml');
 assertIncludes(dockerPrSection, '${{ env.DIND_IMAGE_NAME }}:test', '.github/workflows/release.yml');
 assertIncludes(dockerPrSection, 'docker run --rm --privileged', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'docker run hello-world', '.github/workflows/release.yml');
+assertIncludes(dockerPrSection, 'bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"', '.github/workflows/release.yml');
+
+assertIncludes(verifyDindExecDefaults, 'container_name="hive-mind-dind-verify"', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" whoami', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" bash -lc \'echo $HOME\'', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" docker ps', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" pgrep -x dockerd', 'scripts/verify-dind-exec-defaults.sh');
+assertIncludes(verifyDindExecDefaults, 'docker run hello-world', 'scripts/verify-dind-exec-defaults.sh');
 
 assertIncludes(releaseYml, 'docker-publish-dind:\n    name: Docker Publish DinD', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'docker-publish-dind-merge:\n    name: Docker Publish DinD (Merge)', '.github/workflows/release.yml');
@@ -76,8 +96,8 @@ assertIncludes(releaseYml, 'docker-publish-dind-instant:\n    name: Docker Publi
 assertIncludes(releaseYml, 'docker-publish-dind-instant-merge:\n    name: Docker Publish DinD Instant (Merge)', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'IMAGE_NAME: konard/hive-mind-dind', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'file: ./Dockerfile.dind', '.github/workflows/release.yml');
-assertIncludes(releaseYml, 'digests-dind-${{ matrix.platform ==', '.github/workflows/release.yml');
-assertIncludes(releaseYml, 'digests-dind-instant-${{ matrix.platform ==', '.github/workflows/release.yml');
+assertIncludes(releaseYml, 'hive-mind-dind-digests-${{ matrix.platform ==', '.github/workflows/release.yml');
+assertIncludes(releaseYml, 'hive-mind-dind-instant-digests-${{ matrix.platform ==', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'buildcache-dind-${{ matrix.cache_suffix }}', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}', '.github/workflows/release.yml');
 assertIncludes(releaseYml, 'HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}', '.github/workflows/release.yml');

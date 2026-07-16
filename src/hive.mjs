@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { ensureUseM, fetchUseMCodeFromCdn } from './use-m-bootstrap.lib.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
   const { getVersion } = await import('./version.lib.mjs');
@@ -17,9 +18,9 @@ if (earlyArgs.includes('--version')) {
 if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   try {
     // Load minimal modules needed for help
-    const { getLinoYargsFactory, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { getLinoYargsFactory, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const yargs = getLinoYargsFactory();
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -35,22 +36,19 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
 import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+import { createShutdownManager } from './hive.shutdown.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
   console.log('   Initializing...');
   try {
     console.log('   Loading dependencies (this may take a moment)...');
-    // Use use-m to dynamically import modules for cross-runtime compatibility
-    if (typeof use === 'undefined') {
+    if (typeof globalThis.use === 'undefined') {
       try {
-        // Wrap fetch in timeout to prevent hanging
-        const useMCode = await withTimeout(
-          fetch('https://unpkg.com/use-m/use.js').then(r => r.text()),
-          10000,
-          'fetching use-m library'
-        );
-        globalThis.use = (await eval(useMCode)).use;
+        await ensureUseM({
+          fetchUseMCode: () => withTimeout(fetchUseMCodeFromCdn(), 10000, 'fetching use-m library'),
+          log: message => console.log(message),
+        });
       } catch (error) {
         console.error('❌ Fatal error: Failed to load dependencies');
         console.error(`   ${error.message}`);
@@ -59,13 +57,12 @@ if (isRunningDirectly) {
         process.exit(1);
       }
     }
-    // Use command-stream for consistent $ behavior across runtimes
     const { $ } = await withTimeout(
       use('command-stream'),
       30000, // 30 second timeout
       'loading command-stream'
     );
-    const { parseCliArgumentsWithLino, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { parseCliArgumentsWithLino, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
@@ -77,7 +74,7 @@ if (isRunningDirectly) {
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
+    const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -88,7 +85,7 @@ if (isRunningDirectly) {
     const memCheck = await import('./memory-check.mjs');
     const { checkSystem } = memCheck;
     const exitHandler = await import('./exit-handler.lib.mjs');
-    const { initializeExitHandler, installGlobalExitHandlers, safeExit } = exitHandler;
+    const { initializeExitHandler, installGlobalExitHandlers, safeExit, delegateSignalHandling } = exitHandler;
     const sentryLib = await import('./sentry.lib.mjs');
     const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
     const graphqlLib = await import('./github.graphql.lib.mjs');
@@ -112,9 +109,6 @@ if (isRunningDirectly) {
      * @returns {Promise<Array>} Array of issues
      */
     async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
       try {
         await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
         // Strategy 1: Try GraphQL approach first (faster but has limitations)
@@ -141,7 +135,11 @@ if (isRunningDirectly) {
 
         // Add delay for rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const { stdout: repoOutput } = await execAsync(repoListCmd, { encoding: 'utf8', env: process.env });
+        // #1756: route through execGhWithRetry for transient 5xx + rate-limit
+        const { stdout: repoOutput } = await execGhWithRetry(repoListCmd, {
+          execOptions: { encoding: 'utf8', env: process.env },
+          label: `gh api ${scope} repos (paginated)`,
+        });
         // Parse the output line by line, as gh api with --jq outputs one JSON object per line
         const repoLines = repoOutput
           .trim()
@@ -227,7 +225,7 @@ if (isRunningDirectly) {
     }
 
     // Configure command line arguments - GitHub URL as positional argument
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
     // When you use .argv, strict mode doesn't trigger properly
     // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
@@ -250,7 +248,7 @@ if (isRunningDirectly) {
 
     try {
       argv = parseCliArgumentsWithLino({
-        argv: process.argv,
+        argv: ['node', 'hive', ...rawArgs],
         commandName: 'hive',
         createYargsConfig,
         positionalAliases: ['github-url'],
@@ -290,6 +288,9 @@ if (isRunningDirectly) {
 
     // Set global verbose mode
     global.verboseMode = argv.verbose;
+
+    const { initI18n } = await import('./i18n.lib.mjs');
+    await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
 
     setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
     setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
@@ -471,6 +472,9 @@ if (isRunningDirectly) {
         await safeExit(1, '--plan-model requires --tool claude');
       }
       await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
+    if (argv.subAgentModel) {
+      await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
     }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
@@ -705,8 +709,10 @@ if (isRunningDirectly) {
     // Create global queue instance
     const issueQueue = new IssueQueue();
 
-    // Global shutdown state to prevent duplicate shutdown messages
-    let isShuttingDown = false;
+    // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
+    // controlled SIGTERM to each (they run in their own detached process group, so the
+    // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
+    const activeSolveChildren = new Set();
 
     // Worker function to process issues from queue
     async function worker(workerId) {
@@ -735,6 +741,8 @@ if (isRunningDirectly) {
 
         // Track if this issue failed
         let issueFailed = false;
+        // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
+        let gracefulStop = false;
 
         // Process the issue multiple times if needed
         for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
@@ -807,7 +815,16 @@ if (isRunningDirectly) {
               const child = spawn(solveCommand, args, {
                 stdio: ['pipe', 'pipe', 'pipe'],
                 env: process.env,
+                // Issue #1823: run solve in its own process group so a terminal SIGINT (or the
+                // \003 `$ --stop`/screen injects) hits only hive, not solve+codex. hive instead
+                // forwards a controlled SIGTERM (see gracefulShutdown). stdio stays piped and we
+                // must NOT unref() — hive keeps waiting. See docs/case-studies/issue-1823.
+                detached: true,
               });
+
+              // Issue #1823: register the in-flight child for optional force-kill on a 2nd signal
+              activeSolveChildren.add(child);
+              log(`   🧒 Spawned ${solveCommand} worker-${workerId} (pid ${child.pid}, detached process group)`, { verbose: true }).catch(() => {});
 
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
@@ -825,16 +842,20 @@ if (isRunningDirectly) {
                 }
               });
 
-              // Handle stderr data - stream errors in real-time
+              // Handle stderr data - stream output in real-time.
+              // Issue #1823: Do NOT blanket-tag stderr as ERROR — solve relays non-error
+              // diagnostics there (codex DEBUG/INFO traces, git branch messages, etc.), which
+              // produced hundreds of false errors. The authoritative failure signal is the
+              // child's non-zero exit code (below), so log stderr at default level.
               child.stderr.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
-                    log(`   [${solveCommand} worker-${workerId} ERROR] ${line}`, { level: 'error' }).catch(logError => {
+                    log(`   [${solveCommand} worker-${workerId} stderr] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stderr_log',
                         workerId,
-                        operation: 'log_error',
+                        operation: 'log_stderr',
                       });
                     });
                   }
@@ -843,12 +864,14 @@ if (isRunningDirectly) {
 
               // Handle process completion
               child.on('close', code => {
+                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
                 exitCode = code || 0;
                 resolve();
               });
 
               // Handle process errors
               child.on('error', error => {
+                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
                 exitCode = 1;
                 log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
                   level: 'error',
@@ -867,6 +890,13 @@ if (isRunningDirectly) {
 
             if (exitCode === 0) {
               await log(`   ✅ Worker ${workerId} completed ${issueUrl} (${duration}s)`);
+            } else if (!issueQueue.isRunning && (exitCode === 130 || exitCode === 143)) {
+              // Issue #1823: during shutdown, solve auto-commits and exits 130/143 — a graceful
+              // stop, NOT a failure. Don't throw/post an error; leave the issue in "processing"
+              // (neither completed nor failed) since work was cut short. See case-study issue-1823.
+              await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
+              gracefulStop = true;
+              break; // stop processing more PRs for this issue
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
@@ -891,8 +921,10 @@ if (isRunningDirectly) {
           }
         }
 
-        // Only mark as completed if it didn't fail
-        if (!issueFailed) {
+        // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
+        // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
+        // "processing" so it is not miscounted as completed (which would also trigger cleanup).
+        if (!issueFailed && !gracefulStop) {
           issueQueue.markCompleted(issueUrl);
         }
 
@@ -1380,55 +1412,27 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`);
     }
 
-    // Graceful shutdown handler
-    async function gracefulShutdown(signal) {
-      if (isShuttingDown) {
-        return; // Prevent duplicate shutdown messages
-      }
-      isShuttingDown = true;
+    // Issue #1823: Graceful-shutdown + force-kill logic lives in hive.shutdown.lib.mjs.
+    // gracefulShutdown waits (uncapped) for in-flight solve workers to finish on the first
+    // interrupt; on a second interrupt it force-kills their detached process groups.
+    const { gracefulShutdown } = createShutdownManager({
+      log,
+      safeExit,
+      reportError,
+      cleanErrorMessage,
+      cleanupTempDirectories,
+      issueQueue,
+      argv,
+      absoluteLogPath,
+      activeSolveChildren,
+    });
 
-      try {
-        await log(`\n\n🛑 Received ${signal} signal, shutting down gracefully...`);
-
-        // Stop the queue and wait for workers to finish
-        issueQueue.stop();
-
-        // Give workers a moment to finish their current tasks
-        const stats = issueQueue.getStats();
-        if (stats.processing > 0) {
-          await log(`   ⏳ Waiting for ${stats.processing} worker(s) to finish current tasks...`);
-
-          // Wait up to 10 seconds for workers to finish
-          const maxWaitTime = 10000;
-          const startTime = Date.now();
-          while (issueQueue.getStats().processing > 0 && Date.now() - startTime < maxWaitTime) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-
-        await Promise.all(issueQueue.workers);
-
-        // Perform cleanup if enabled and there were successful completions
-        const finalStats = issueQueue.getStats();
-        if (finalStats.completed > 0) {
-          await cleanupTempDirectories(argv);
-        }
-
-        await log('   ✅ Shutdown complete');
-        await log(`   📁 Full log file: ${absoluteLogPath}`);
-      } catch (error) {
-        reportError(error, {
-          context: 'monitor_issues_shutdown',
-          operation: 'cleanup_and_exit',
-        });
-        await log(`   ⚠️  Error during shutdown: ${cleanErrorMessage(error)}`, { level: 'error' });
-        await log(`   📁 Full log file: ${absoluteLogPath}`);
-      }
-
-      await safeExit(0, 'Process completed');
-    }
-
-    // Handle graceful shutdown
+    // Handle graceful shutdown.
+    // Issue #1823: Tell the global exit handler (installed earlier via installGlobalExitHandlers)
+    // to stand down on SIGINT/SIGTERM so it does not call process.exit() and race us. From here
+    // on, gracefulShutdown is the SOLE owner of these signals: it waits for in-progress solve
+    // worker(s) to finish and then exits via safeExit().
+    delegateSignalHandling(true);
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
 
@@ -1443,7 +1447,7 @@ if (isRunningDirectly) {
     } else {
       const systemCheck = await checkSystem(
         {
-          minDiskSpaceMB: argv.minDiskSpace || 2048,
+          minDiskSpaceMB: argv.minDiskSpace || 10240,
           minMemoryMB: 256,
           exitOnFailure: true,
         },

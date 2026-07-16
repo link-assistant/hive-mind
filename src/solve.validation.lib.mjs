@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Validation module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,7 +8,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -43,10 +44,17 @@ const claudeLib = await import('./claude.lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
+// Import the robust usage-limit reset-time parser.
+// This returns a full dayjs date (honoring an explicit year and timezone) so the
+// auto-resume wait calculation can respect weekly limits that are days out, rather
+// than collapsing every reset to "today/tomorrow at HH:MM" (Issue #1869).
+const usageLimitLib = await import('./usage-limit.lib.mjs');
+const { parseResetTime: parseResetTimeToDate } = usageLimitLib;
+
 const { validateClaudeConnection } = claudeLib;
 
 // Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 2048) => {
+const checkDiskSpace = async (minSpaceMB = 10240) => {
   const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
   return result.success;
 };
@@ -208,7 +216,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnection = false, model = 'sonnet', argv = {}) => {
+export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -294,7 +302,7 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
 
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
-    let isToolConnected = false;
+    let isToolConnected;
     if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
@@ -333,7 +341,9 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
     } else if (argv.tool === 'agent') {
       // Validate Agent connection
       const agentLib = await import('./agent.lib.mjs');
-      isToolConnected = await agentLib.validateAgentConnection(model);
+      isToolConnected = await agentLib.validateAgentConnection(model, {
+        requireLiveInput: !!(argv.autoInputUntilMergeable || argv.acceptIncommingCommentsAsInput),
+      });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Agent connection', { level: 'error' });
         return false;
@@ -353,7 +363,6 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without Claude CLI connection', { level: 'error' });
         return false;
       }
-      isToolConnected = true;
     }
 
     // Check GitHub permissions (only when tool check is not skipped)
@@ -394,13 +403,23 @@ export const parseUrlComponents = issueUrl => {
   };
 };
 
-// Helper function to parse time string and calculate wait time
+// Helper function to parse a reset time string into hour/minute components.
+//
+// Accepts:
+//   - Time-only forms: "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
+//   - Date+time forms: "Apr 17, 4:00 AM"  (date portion ignored)
+//   - Date+year+time forms: "Jun 11, 2026, 12:27 AM"  (date+year ignored — Issue #1869)
+//
+// NOTE: This helper only extracts the time-of-day. For computing the actual wait
+// duration use calculateWaitTime(), which preserves the full date so weekly limits
+// (which can be days away) are honored instead of being collapsed to today/tomorrow.
 export const parseResetTime = timeStr => {
-  // Normalize and parse time formats like:
-  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am", "5am", "5 AM"
-  // Also accepts date+time forms like "Apr 17, 4:00 AM" and ignores the date portion.
   const normalized = (timeStr || '').toString().trim();
-  const timePortion = normalized.replace(/^(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2},\s+/i, '');
+  // Strip an optional leading "Month Day," and an optional "Year," so the
+  // remaining string is just the time-of-day. The year group (Issue #1869) makes
+  // Codex weekly-limit strings like "Jun 11, 2026, 12:27 AM" parse instead of
+  // throwing "Invalid time format".
+  const timePortion = normalized.replace(/^(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?,\s+(?:\d{4},\s+)?/i, '');
 
   // Accept both HH:MM am/pm and HH am/pm
   let match = timePortion.match(/^(\d{1,2})(?::(\d{2}))?\s*([ap]m)$/i);
@@ -423,8 +442,32 @@ export const parseResetTime = timeStr => {
   return { hour, minute };
 };
 
-// Calculate milliseconds until the next occurrence of the specified time
-export const calculateWaitTime = resetTime => {
+// Calculate milliseconds until the limit reset.
+//
+// Issue #1869: This MUST respect the full reset date (including an explicit year),
+// not just the time-of-day. A weekly Codex limit reports "Jun 11th, 2026 12:27 AM"
+// which can be days in the future; the previous implementation only looked at the
+// hour/minute and scheduled for today/tomorrow, so auto-resume woke up far too early
+// and burned an auto-resume iteration without the limit actually having reset.
+//
+// We delegate to the robust usage-limit parser, which returns a full dayjs date that
+// already handles: explicit year, weekly date+time, time-only (rolls forward to the
+// next occurrence), and an optional IANA timezone. We then return the real diff.
+//
+// @param {string} resetTime - Reset time string (time-only, date+time, or date+year+time)
+// @param {string|null} timezone - Optional IANA timezone (e.g. "Europe/Berlin")
+// @returns {number} - Milliseconds until reset (never negative)
+export const calculateWaitTime = (resetTime, timezone = null) => {
+  const resetDate = parseResetTimeToDate(resetTime, timezone);
+
+  if (resetDate && resetDate.isValid()) {
+    const diffMs = resetDate.valueOf() - Date.now();
+    return diffMs > 0 ? diffMs : 0;
+  }
+
+  // Fallback: the robust parser could not interpret the string. Fall back to the
+  // legacy time-of-day behavior (today/tomorrow) so we still wait a sensible amount
+  // rather than throwing — parseResetTime throws for genuinely unparseable input.
   const { hour, minute } = parseResetTime(resetTime);
 
   const now = new Date();

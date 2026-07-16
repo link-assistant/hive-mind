@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * GitHub error reporter - handles error reporting via GitHub issues and comments
@@ -9,7 +10,7 @@ import { log, cleanErrorMessage, getAbsoluteLogPath } from './lib.mjs';
 import { reportError, isSentryEnabled } from './sentry.lib.mjs';
 
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const fs = (await use('fs')).promises;
@@ -271,7 +272,7 @@ export const handleErrorWithIssueCreation = async options => {
 
   // --disable-report-issue takes highest precedence
   if (disableReport) {
-    await log('ℹ️  Issue reporting disabled via --disable-report-issue.');
+    await log('ℹ️  Error issue creation is disabled by CLI configuration.');
     return null;
   }
 

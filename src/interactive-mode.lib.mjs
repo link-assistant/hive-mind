@@ -10,6 +10,8 @@
  * - system.task_started: Agent subtask started (Issue #1450)
  * - system.task_progress: Agent subtask progress update (Issue #1450)
  * - system.task_notification: Agent subtask completed/failed (Issue #1450)
+ * - system.thinking_tokens: Accumulated thinking progress (Issue #1900)
+ * - system.status / system.compact_boundary / system.task_updated: Status lifecycle events (Issue #1900)
  * - assistant (text): AI text responses
  * - assistant (tool_use): Tool invocations
  * - user (tool_result): Tool execution results
@@ -32,7 +34,12 @@
  * @experimental
  */
 
-import { CONFIG, createCollapsible, createRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+import { CONFIG, createCollapsible, createRawJsonSection, createRedactedRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
+import { createCodexEventHandlers } from './interactive-codex-events.lib.mjs';
+import { createSystemLifecycleHandlers } from './interactive-system-events.lib.mjs';
+// Issue #1843: turn base64 image tool-results into inline PR-comment images.
+import { createImageRenderer, extractImagePayload, isImageNode } from './interactive-image-render.lib.mjs';
+import { formatInteractiveMcpServersList, getInteractiveMcpDiagnostics } from './interactive-mcp-status.lib.mjs';
 // Issue #1625: track interactive-mode comment IDs so they're excluded from
 // the "did the AI post anything?" check in checkForAiCreatedComments().
 // Use the session-started marker as the single source of truth for the
@@ -75,6 +82,11 @@ export const createInteractiveHandler = options => {
     // Pre-existing user content carve-out (issue body / non-bot comments /
     // pre-existing code). When provided, sanitizer leaves these tokens untouched.
     excludeTokens = [],
+    // Issue #1843: when true (default), base64 tool-result images are embedded
+    // inline; when false they degrade to a metadata note. See createImageRenderer.
+    imageUploadEnabled = true,
+    mediaRef,
+    imageUploader: injectedImageUploader,
   } = options;
   // Use injected execFile for testability, or the real one by default
   const runGhApi = execFileFn || execFileAsync;
@@ -101,6 +113,9 @@ export const createInteractiveHandler = options => {
     // Track active agent tasks for progress update deduplication
     // Map of task_id -> { commentId, toolUseId, description, commentIdPromise, resolveCommentId }
     pendingTasks: new Map(),
+    // Track consecutive thinking-token events so high-frequency model progress
+    // edits one live comment instead of posting hundreds of PR comments.
+    activeThinking: null,
     // Issue #1472: Diagnostic counters for tracking comment posting success/failure
     eventsProcessed: 0,
     commentsAttempted: 0,
@@ -110,6 +125,8 @@ export const createInteractiveHandler = options => {
     editsSucceeded: 0,
     editsFailed: 0,
   };
+
+  const imageRenderer = createImageRenderer({ owner, repo, prNumber, mediaRef, log, verbose, execFile: execFileFn, enabled: imageUploadEnabled, uploader: injectedImageUploader, state }); // Issue #1843
 
   /**
    * Sanitize a comment body and warn the chat owner when a known-local token
@@ -134,14 +151,14 @@ export const createInteractiveHandler = options => {
       }
     }
 
-    let hits = [];
+    let hits;
     try {
       hits = await containsKnownToken(body, knownTokens);
     } catch {
       hits = [];
     }
 
-    let sanitized = body;
+    let sanitized;
     try {
       sanitized = await sanitizeCommentBody(body, {
         knownTokens,
@@ -181,10 +198,11 @@ export const createInteractiveHandler = options => {
    * @param {string} body - Comment body
    * @param {string} [toolId] - Optional tool ID for tracking pending tool calls
    * @param {string} [taskId] - Optional task ID for tracking pending agent tasks
+   * @param {Function} [onPosted] - Optional callback invoked with the posted comment ID
    * @returns {Promise<string|null>} Comment ID if successful, null if queued or failed
    * @private
    */
-  const postComment = async (body, toolId = null, taskId = null) => {
+  const postComment = async (body, toolId = null, taskId = null, onPosted = null) => {
     if (!prNumber || !owner || !repo) {
       if (verbose) {
         await log('⚠️ Interactive mode: Cannot post comment - missing PR info', { verbose: true });
@@ -201,7 +219,7 @@ export const createInteractiveHandler = options => {
 
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
       // Queue the comment for later with toolId/taskId for tracking
-      state.commentQueue.push({ body: safeBody, toolId, taskId });
+      state.commentQueue.push({ body: safeBody, toolId, taskId, onPosted });
       if (verbose) {
         await log(`📝 Interactive mode: Comment queued (${state.commentQueue.length} in queue)${toolId ? ` [tool: ${toolId}]` : ''}${taskId ? ` [task: ${taskId}]` : ''}`, { verbose: true });
       }
@@ -237,6 +255,16 @@ export const createInteractiveHandler = options => {
       // set so --auto-attach-solution-summary correctly excludes it from the
       // AI-authored-comment check. Tracking is a no-op when commentId is null.
       trackToolCommentId(commentId);
+
+      if (commentId && typeof onPosted === 'function') {
+        try {
+          await onPosted(commentId);
+        } catch (error) {
+          if (verbose) {
+            await log(`⚠️ Interactive mode: post-comment callback failed for ${commentId}: ${error.message}`, { verbose: true });
+          }
+        }
+      }
 
       if (verbose) {
         await log(`✅ Interactive mode: Comment posted${commentId ? ` (ID: ${commentId})` : ''} (body: ${safeBody.length} chars)`, { verbose: true });
@@ -316,9 +344,9 @@ export const createInteractiveHandler = options => {
 
       const queueItem = state.commentQueue.shift();
       if (queueItem) {
-        const { body, toolId, taskId } = queueItem;
+        const { body, toolId, taskId, onPosted } = queueItem;
         // Post the comment (don't pass toolId/taskId to avoid re-queueing)
-        const commentId = await postComment(body);
+        const commentId = await postComment(body, null, null, onPosted);
 
         // If this was a tool use comment, update the pending call with the comment ID
         if (toolId && commentId) {
@@ -384,7 +412,9 @@ export const createInteractiveHandler = options => {
 
     // Format MCP servers
     const mcpServers = data.mcp_servers || [];
-    const mcpServersList = mcpServers.length > 0 ? mcpServers.map(s => `\`${s.name}\` (${s.status || 'unknown'})`).join(', ') : '_None_';
+    const mcpServersList = formatInteractiveMcpServersList(mcpServers);
+    const mcpDiagnostics = getInteractiveMcpDiagnostics(mcpServers, tools);
+    const mcpDiagnosticsBlock = mcpDiagnostics.length > 0 ? `\n${mcpDiagnostics.map(message => `> ${message}`).join('\n')}\n` : '';
 
     // Format slash commands
     const slashCommands = data.slash_commands || [];
@@ -407,6 +437,7 @@ export const createInteractiveHandler = options => {
 | **MCP Servers** | ${mcpServersList} |
 | **Slash Commands** | ${slashCommandsList} |
 | **Agents** | ${agentsList} |
+${mcpDiagnosticsBlock}
 
 ---
 
@@ -464,7 +495,7 @@ ${createRawJsonSection(data)}`;
     state.toolUseRegistry.set(toolId, { toolName, toolIcon });
 
     // Format tool input based on tool type
-    let inputDisplay = '';
+    let inputDisplay;
     const input = toolUse.input || {};
 
     if (toolName === 'Bash' && input.command) {
@@ -632,6 +663,8 @@ ${createRawJsonSection(data)}`;
         .map(c => {
           if (typeof c === 'string') return c;
           if (c.type === 'text') return c.text || '';
+          // Issue #1843: image bytes render in the section below, not the fence.
+          if (isImageNode(c)) return `_[image: ${extractImagePayload(c).mediaType}]_`;
           return safeJsonStringify(c);
         })
         .join('\n');
@@ -643,6 +676,10 @@ ${createRawJsonSection(data)}`;
       keepStart: 25,
       keepEnd: 25,
     });
+
+    // Issue #1843: render images this result read/produced (used by both paths).
+    const imagesSection = await imageRenderer.section([toolResult.content, data.tool_use_result], imageRenderer.toolLabel(toolUseId));
+    const imagesBlock = imagesSection ? `${imagesSection}\n\n` : '';
 
     // Check if we have a pending tool call to merge with
     const pendingCall = state.pendingToolCalls.get(toolUseId);
@@ -703,9 +740,9 @@ ${inputDisplay}
 
 ${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
----
+${imagesBlock}---
 
-${createRawJsonSection([toolData, data])}`;
+${createRedactedRawJsonSection([toolData, data])}`;
 
         // Edit the existing comment
         const editSuccess = await editComment(commentId, mergedComment);
@@ -742,9 +779,9 @@ ${createRawJsonSection([toolData, data])}`;
 
 ${createCollapsible(`📤 Output (${statusIcon} ${statusText.toLowerCase()})`, '```\n' + escapeMarkdown(truncatedContent) + '\n```', true)}
 
----
+${imagesBlock}---
 
-${createRawJsonSection(data)}`;
+${createRedactedRawJsonSection(data)}`;
 
     await postComment(comment);
 
@@ -1077,6 +1114,20 @@ ${createRawJsonSection(data)}`;
     }
   };
 
+  const { handleThinkingTokens, finalizeThinkingGroup, handleSystemStatus, handleCompactBoundary, handleTaskUpdated } = createSystemLifecycleHandlers({
+    state,
+    owner,
+    repo,
+    prNumber,
+    log,
+    verbose,
+    postComment,
+    editComment,
+    processQueue,
+    handleTaskProgress,
+    handleTaskNotification,
+  });
+
   /**
    * Handle rate_limit_event (silently logged, no comment created)
    * @param {Object} data - Event data
@@ -1089,150 +1140,12 @@ ${createRawJsonSection(data)}`;
     }
   };
 
-  const handleCodexThreadStarted = async data => {
-    if (state.sessionId) return;
-
-    state.sessionId = data.thread_id || data.session_id || null;
-    state.startTime = Date.now();
-
-    const comment = `## 🚀 ${INTERACTIVE_SESSION_STARTED_MARKER}
-
-| Property | Value |
-|----------|-------|
-| **Session ID** | \`${state.sessionId || 'unknown'}\` |
-| **Model** | \`${data.model || 'unknown'}\` |
-| **Tool** | \`codex\` |
-
----
-
-${createRawJsonSection(data)}`;
-
-    await postComment(comment);
-  };
-
-  const handleCodexAgentMessage = async data => {
-    const text = data.item?.text;
-    if (typeof text !== 'string' || !text.trim()) return;
-    await handleAssistantText(data, text);
-  };
-
-  const handleCodexTodoList = async data => {
-    const items = Array.isArray(data.item?.items) ? data.item.items : [];
-    const todosPreview = items.length > 0 ? items.map(todo => `- [${todo?.completed ? 'x' : ' '}] ${todo?.text || ''}`).join('\n') : '_No tasks_';
-    const completedCount = items.filter(todo => todo?.completed).length;
-
-    const comment = `## 📋 Codex todo list
-
-${createCollapsible(`📋 Todos (${completedCount}/${items.length} items)`, todosPreview, true)}
-
----
-
-${createRawJsonSection(data)}`;
-
-    await postComment(comment);
-  };
-
-  const handleCodexCommandExecution = async data => {
-    const item = data.item || {};
-    const command = item.command || '';
-    const output = item.aggregated_output || '';
-    const status = item.status || (data.type === 'item.completed' ? 'completed' : data.type === 'item.updated' ? 'updated' : 'started');
-    const body = `## 💻 Codex command execution
-
-**Status:** \`${status}\`
-${command ? '\n' + createCollapsible('📋 Executed command', '```bash\n' + escapeMarkdown(command) + '\n```', true) : ''}
-${output ? '\n\n' + createCollapsible('📤 Output', '```\n' + escapeMarkdown(truncateMiddle(output, { maxLines: 60, keepStart: 25, keepEnd: 25 })) + '\n```', true) : ''}
-
----
-
-${createRawJsonSection(data)}`;
-    await postComment(body);
-  };
-
-  const handleCodexMcpToolCall = async data => {
-    const item = data.item || {};
-    const summary = [`**Server:** \`${item.server || 'unknown'}\``, `**Tool:** \`${item.tool || 'unknown'}\``, `**Status:** \`${item.status || 'unknown'}\``].join('\n');
-    const details = item.arguments != null ? createCollapsible('📥 Arguments', '```json\n' + safeJsonStringify(item.arguments, 2) + '\n```', true) : '';
-    const resultSection = item.result != null ? '\n\n' + createCollapsible('📤 Result', '```json\n' + safeJsonStringify(item.result, 2) + '\n```', false) : '';
-    const errorSection = item.error != null ? '\n\n' + createCollapsible('❌ Error', '```json\n' + safeJsonStringify(item.error, 2) + '\n```', true) : '';
-
-    await postComment(`## 🔌 Codex MCP tool call
-
-${summary}
-${details}${resultSection}${errorSection}
-
----
-
-${createRawJsonSection(data)}`);
-  };
-
-  const handleCodexWebSearch = async data => {
-    const item = data.item || {};
-    await postComment(`## 🌐 Codex web search
-
-**Query:** ${escapeMarkdown(item.query || 'unknown')}
-${item.action ? `\n**Action:** \`${item.action}\`` : ''}
-
----
-
-${createRawJsonSection(data)}`);
-  };
-
-  const handleCodexFileChange = async data => {
-    const item = data.item || {};
-    const changes = Array.isArray(item.changes) ? item.changes.map(change => `- \`${change?.kind || 'change'}\` ${change?.path || ''}`).join('\n') : '_No changes listed_';
-    await postComment(`## 📝 Codex file changes
-
-**Status:** \`${item.status || 'unknown'}\`
-${createCollapsible('📄 Files', changes, true)}
-
----
-
-${createRawJsonSection(data)}`);
-  };
-
-  const handleCodexCollabToolCall = async data => {
-    const item = data.item || {};
-    const prompt = item.prompt || item.description || `${item.tool || 'collab_tool_call'} via codex`;
-    await postComment(`## 🤝 Codex collab/sub-agent call
-
-**Tool:** \`${item.tool || 'unknown'}\`
-**Status:** \`${item.status || 'unknown'}\`
-${createCollapsible('📝 Prompt', escapeMarkdown(truncateMiddle(prompt, { maxLines: 30, keepStart: 12, keepEnd: 12 })), true)}
-
----
-
-${createRawJsonSection(data)}`);
-  };
-
-  const handleCodexTurnCompleted = async data => {
-    const usage = data.usage || {};
-    let usageSection = '| Type | Count |\n|------|-------|\n';
-    usageSection += `| Input | ${(usage.input_tokens || 0).toLocaleString()} |\n`;
-    usageSection += `| Cache Read | ${(usage.cached_input_tokens || 0).toLocaleString()} |\n`;
-    usageSection += `| Output | ${(usage.output_tokens || 0).toLocaleString()} |\n`;
-
-    await postComment(`## ✅ Codex turn completed
-
-### 📊 Token Usage
-
-${usageSection}
-
----
-
-${createRawJsonSection(data)}`);
-  };
-
-  const handleCodexError = async data => {
-    const message = data.message || data.error?.message || 'Unknown Codex error';
-    await postComment(`## ❌ Codex error
-
-${createCollapsible('View error', escapeMarkdown(message), true)}
-
----
-
-${createRawJsonSection(data)}`);
-  };
+  const { handleCodexThreadStarted, handleCodexAgentMessage, handleCodexTodoList, handleCodexCommandExecution, handleCodexMcpToolCall, handleCodexWebSearch, handleCodexFileChange, handleCodexCollabToolCall, handleCodexTurnCompleted, handleCodexError } = createCodexEventHandlers({
+    state,
+    postComment,
+    handleAssistantText,
+    imageRenderer,
+  });
 
   /**
    * Handle unrecognized event types
@@ -1267,6 +1180,11 @@ ${createRawJsonSection(data)}`;
     }
     state.eventsProcessed++;
 
+    const isThinkingTokenEvent = data.type === 'system' && data.subtype === 'thinking_tokens';
+    if (!isThinkingTokenEvent) {
+      await finalizeThinkingGroup();
+    }
+
     // Handle events without type as unrecognized
     if (!data.type) {
       await handleUnrecognized(data);
@@ -1283,6 +1201,14 @@ ${createRawJsonSection(data)}`;
           await handleTaskProgress(data);
         } else if (data.subtype === 'task_notification') {
           await handleTaskNotification(data);
+        } else if (data.subtype === 'thinking_tokens') {
+          await handleThinkingTokens(data);
+        } else if (data.subtype === 'status') {
+          await handleSystemStatus(data);
+        } else if (data.subtype === 'compact_boundary') {
+          await handleCompactBoundary(data);
+        } else if (data.subtype === 'task_updated') {
+          await handleTaskUpdated(data);
         } else {
           // Unknown system subtype
           await handleUnrecognized(data);
@@ -1374,6 +1300,7 @@ ${createRawJsonSection(data)}`;
    * @returns {Promise<void>}
    */
   const flush = async () => {
+    await finalizeThinkingGroup();
     await processQueue();
   };
 
@@ -1388,6 +1315,7 @@ ${createRawJsonSection(data)}`;
     processEvent,
     flush,
     getState,
+    imageUploader: imageRenderer.uploader, // Issue #1843: exposed for callers/tests.
     // Expose individual handlers for testing
     _handlers: {
       handleSystemInit,
@@ -1398,6 +1326,11 @@ ${createRawJsonSection(data)}`;
       handleTaskStarted,
       handleTaskProgress,
       handleTaskNotification,
+      handleThinkingTokens,
+      finalizeThinkingGroup,
+      handleSystemStatus,
+      handleCompactBoundary,
+      handleTaskUpdated,
       handleRateLimitEvent,
       handleUnrecognized,
       handleCodexThreadStarted,
@@ -1444,10 +1377,6 @@ export const validateInteractiveModeConfig = async (argv, log) => {
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
     return false;
   }
-
-  // Check PR requirement
-  // Note: This should be called after PR is created/determined
-  // The actual PR number check happens during execution
 
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
   await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });

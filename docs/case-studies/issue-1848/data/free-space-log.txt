@@ -1,0 +1,507 @@
+box@3651b0ba91f4:~$ screen -ls
+There is a screen on:
+	7408.e91a93b1-2562-4fa6-a09a-a22ca1b2cc87	(06/02/26 09:05:54)	(Detached)
+1 Socket in /run/screen/S-box.
+box@3651b0ba91f4:~$ du -sh /tmp/*
+60K	/tmp/account-history-formatting-churn.patch
+4.0K	/tmp/account-history-test-after.log
+8.0K	/tmp/account-history-test-before.log
+4.0K	/tmp/admin.log
+3.0G	/tmp/android-sdk
+24K	/tmp/api.log
+80K	/tmp/apt.log
+4.0K	/tmp/backend-indexer-build.log
+12K	/tmp/backend-indexer-lint.log
+4.0K	/tmp/backend-indexer-npm-ci.log
+4.0K	/tmp/backend-indexer-prettier.log
+8.0K	/tmp/backend-indexer-test.log
+4.0K	/tmp/baseline-build.log
+4.0K	/tmp/baseline-test.log
+12K	/tmp/blog-build.log
+4.0K	/tmp/blog-install.log
+4.0K	/tmp/build-sdk.log
+4.0K	/tmp/build.log
+4.0K	/tmp/build2.log
+4.0K	/tmp/build3.log
+9.2M	/tmp/bunx-1001-node-gyp@latest
+4.0K	/tmp/c2.log
+4.0K	/tmp/cargo-meanings.log
+4.0K	/tmp/cargo-test-b2.log
+100K	/tmp/cargo-test-c1.log
+100K	/tmp/cargo-test-full.log
+12K	/tmp/check.log
+4.0K	/tmp/ci-lighthouse-26821598373.log
+108K	/tmp/ci-logs
+4.0K	/tmp/ci-playwright-26821598373.log
+8.0K	/tmp/ci-watch.log
+4.0K	/tmp/ck.txt
+59M	/tmp/claude-1001
+4.0K	/tmp/claude-mcp-no-useless-1780391132829-3571.json
+4.0K	/tmp/claude-mcp-no-useless-1780391190720-7410.json
+4.0K	/tmp/claude-mcp-no-useless-1780391360631-26052.json
+4.0K	/tmp/claude-mcp-no-useless-1780391438584-43551.json
+4.0K	/tmp/claude-mcp-no-useless-1780391757066-81210.json
+4.0K	/tmp/claude-mcp-no-useless-1780391850004-90637.json
+4.0K	/tmp/claude-mcp-no-useless-1780392153810-118018.json
+4.0K	/tmp/claude-mcp-no-useless-1780392159173-119103.json
+4.0K	/tmp/claude-mcp-no-useless-1780392164947-119915.json
+4.0K	/tmp/claude-mcp-no-useless-1780392169381-121479.json
+4.0K	/tmp/claude-mcp-no-useless-1780392175579-122449.json
+4.0K	/tmp/claude-mcp-no-useless-1780392180871-123424.json
+4.0K	/tmp/claude-mcp-no-useless-1780392185795-124545.json
+4.0K	/tmp/claude-mcp-no-useless-1780392198651-128499.json
+4.0K	/tmp/claude-mcp-no-useless-1780392207553-126322.json
+4.0K	/tmp/claude-mcp-no-useless-1780392227842-152544.json
+4.0K	/tmp/claude-mcp-no-useless-1780392243602-161954.json
+4.0K	/tmp/claude-mcp-no-useless-1780392247205-177480.json
+4.0K	/tmp/claude-mcp-no-useless-1780392284787-210310.json
+4.0K	/tmp/claude-mcp-no-useless-1780392287017-197942.json
+4.0K	/tmp/claude-mcp-no-useless-1780392894670-128499.json
+4.0K	/tmp/claude-mcp-no-useless-1780393831485-656157.json
+4.0K	/tmp/claude-mcp-no-useless-1780393901705-671612.json
+4.0K	/tmp/claude-mcp-no-useless-1780393985503-692473.json
+4.0K	/tmp/claude-mcp-no-useless-1780394065893-714608.json
+4.0K	/tmp/claude-mcp-no-useless-1780394146263-753894.json
+4.0K	/tmp/claude-mcp-no-useless-1780394218506-792603.json
+4.0K	/tmp/claude-mcp-no-useless-1780394313877-822442.json
+4.0K	/tmp/claude-mcp-no-useless-1780394354081-26052.json
+4.0K	/tmp/claude-mcp-no-useless-1780394710730-943440.json
+4.0K	/tmp/claude-mcp-no-useless-1780394792235-955275.json
+4.0K	/tmp/claude-mcp-no-useless-1780394879602-972231.json
+4.0K	/tmp/claude-mcp-no-useless-1780394967177-1000509.json
+4.0K	/tmp/claude-mcp-no-useless-1780395049817-1015335.json
+4.0K	/tmp/claude-mcp-no-useless-1780395128460-1032483.json
+4.0K	/tmp/claude-mcp-no-useless-1780395203132-1046659.json
+4.0K	/tmp/claude-mcp-no-useless-1780395277227-1058378.json
+4.0K	/tmp/claude-mcp-no-useless-1780395358348-1073669.json
+4.0K	/tmp/claude-mcp-no-useless-1780395442363-1089184.json
+4.0K	/tmp/claude-mcp-no-useless-1780395517407-1109851.json
+4.0K	/tmp/claude-mcp-no-useless-1780395600412-1124186.json
+4.0K	/tmp/claude-mcp-no-useless-1780395667859-1142085.json
+4.0K	/tmp/claude-mcp-no-useless-1780395744370-1159395.json
+4.0K	/tmp/claude-mcp-no-useless-1780395764807-1089184.json
+4.0K	/tmp/claude-mcp-no-useless-1780395823386-1184105.json
+4.0K	/tmp/claude-mcp-no-useless-1780395903133-1223162.json
+4.0K	/tmp/claude-mcp-no-useless-1780395985966-1263756.json
+4.0K	/tmp/claude-mcp-no-useless-1780396069128-1292083.json
+4.0K	/tmp/claude-mcp-no-useless-1780396379164-1376938.json
+4.0K	/tmp/claude-mcp-no-useless-1780396449504-1390843.json
+4.0K	/tmp/claude-mcp-no-useless-1780396529096-1402767.json
+4.0K	/tmp/claude-mcp-no-useless-1780396604924-1414042.json
+4.0K	/tmp/claude-mcp-no-useless-1780396680337-1434546.json
+4.0K	/tmp/claude-mcp-no-useless-1780396751842-1458028.json
+4.0K	/tmp/claude-mcp-no-useless-1780396831400-1478931.json
+4.0K	/tmp/claude-mcp-no-useless-1780396907421-1497374.json
+4.0K	/tmp/claude-mcp-no-useless-1780396976951-1434546.json
+4.0K	/tmp/claude-mcp-no-useless-1780396979450-1518167.json
+4.0K	/tmp/claude-mcp-no-useless-1780397066994-1542168.json
+4.0K	/tmp/claude-mcp-no-useless-1780397149451-1579044.json
+4.0K	/tmp/claude-mcp-no-useless-1780397232026-1597296.json
+4.0K	/tmp/claude-mcp-no-useless-1780397265953-1542168.json
+4.0K	/tmp/claude-mcp-no-useless-1780398073499-1712813.json
+4.0K	/tmp/claude-mcp-no-useless-1780398141554-1719352.json
+4.0K	/tmp/claude-mcp-no-useless-1780398212655-1726068.json
+4.0K	/tmp/claude-mcp-no-useless-1780398286021-1735783.json
+4.0K	/tmp/claude-mcp-no-useless-1780398356235-1748393.json
+4.0K	/tmp/claude-mcp-no-useless-1780398434788-1769354.json
+4.0K	/tmp/claude-mcp-no-useless-1780398513481-1782491.json
+4.0K	/tmp/claude-mcp-no-useless-1780399385305-1905719.json
+4.0K	/tmp/claude-mcp-no-useless-1780399469474-1911414.json
+4.0K	/tmp/claude-mcp-no-useless-1780400299229-1986311.json
+4.0K	/tmp/claude-mcp-no-useless-1780400331033-1990344.json
+4.0K	/tmp/claude-mcp-no-useless-1780401145031-2035800.json
+4.0K	/tmp/claude-mcp-no-useless-1780401146149-2034522.json
+4.0K	/tmp/claude-mcp-no-useless-1780404169111-2196401.json
+4.0K	/tmp/claude-mcp-no-useless-1780408338226-2372864.json
+4.0K	/tmp/claude-mcp-no-useless-1780412524142-2549400.json
+4.0K	/tmp/claude-mcp-no-useless-1780412758046-2564443.json
+4.0K	/tmp/claude-mcp-no-useless-1780414879046-2642511.json
+4.0K	/tmp/claude-mcp-no-useless-1780415759035-2687044.json
+4.0K	/tmp/claude-mcp-no-useless-1780416017538-2704549.json
+4.0K	/tmp/claude-mcp-no-useless-1780416672240-2746543.json
+4.0K	/tmp/claude-mcp-no-useless-1780417195476-2787175.json
+4.0K	/tmp/claude-mcp-no-useless-1780417875269-2839251.json
+4.0K	/tmp/claude-mcp-no-useless-1780417962687-2846077.json
+4.0K	/tmp/claude-mcp-no-useless-1780419619769-2960968.json
+4.0K	/tmp/claude-mcp-no-useless-1780420472357-3000969.json
+4.0K	/tmp/claude-mcp-no-useless-1780420981675-3040421.json
+4.0K	/tmp/claude-mcp-no-useless-1780421062389-3051849.json
+4.0K	/tmp/claude-mcp-no-useless-1780421797838-3102423.json
+4.0K	/tmp/claude-mcp-no-useless-1780422471191-3137406.json
+4.0K	/tmp/claude-mcp-no-useless-1780422537735-3146035.json
+4.0K	/tmp/claude-mcp-no-useless-1780422609374-3162692.json
+4.0K	/tmp/claude-mcp-no-useless-1780427900434-3366670.json
+4.0K	/tmp/claude-mcp-no-useless-1780427966352-3375535.json
+4.0K	/tmp/claude-mcp-no-useless-1780428200361-3398982.json
+4.0K	/tmp/claude-mcp-no-useless-1780428276995-3407294.json
+4.0K	/tmp/claude-mcp-no-useless-1780429166826-3490705.json
+4.0K	/tmp/claude-mcp-no-useless-1780429232957-3499258.json
+4.0K	/tmp/claude-mcp-no-useless-1780429298114-3510868.json
+4.0K	/tmp/claude-mcp-no-useless-1780430149064-3545737.json
+4.0K	/tmp/claude-mcp-no-useless-1780430457754-3561113.json
+4.0K	/tmp/clippy-behavior.log
+4.0K	/tmp/clippy-c1.log
+4.0K	/tmp/clippy.txt
+147M	/tmp/cmdtools.zip
+4.0K	/tmp/com.google.Chrome.4xt4I5
+4.0K	/tmp/com.google.Chrome.acfPRy
+4.0K	/tmp/com.google.Chrome.inEWoA
+4.0K	/tmp/com.google.Chrome.xTYvBX
+4.0K	/tmp/com.google.Chrome.yYfXxB
+264K	/tmp/comment122.png
+4.0K	/tmp/compile.log
+4.0K	/tmp/cookies.txt
+4.0K	/tmp/count_buckets.mjs
+156K	/tmp/cov.log
+92K	/tmp/cov2.log
+4.0K	/tmp/dbg.mjs
+4.0K	/tmp/dbg2.mjs
+4.0K	/tmp/dbg3.mjs
+4.0K	/tmp/dbg_opvocab.mjs
+4.0K	/tmp/deadcheck.mjs
+16K	/tmp/dev.log
+8.0K	/tmp/dev2.log
+40K	/tmp/dev4199.log
+40K	/tmp/devserver.log
+4.0K	/tmp/dotnet-install.log
+64K	/tmp/dotnet-install.sh
+613M	/tmp/dotnet10
+8.0K	/tmp/e2e-full.log
+4.0K	/tmp/e2e.log
+4.0K	/tmp/e2e2.log
+4.0K	/tmp/e2e3.log
+4.0K	/tmp/e2e4.log
+4.0K	/tmp/e2e_after.txt
+4.0K	/tmp/e2e_baseline.txt
+0	/tmp/err.txt
+1.5G	/tmp/flutter
+^C
+box@3651b0ba91f4:~$ du -sh /tmp/*/ 2>/dev/null | sort -hr
+3.4G	/tmp/gh-issue-solver-1780391173130/
+3.0G	/tmp/android-sdk/
+2.1G	/tmp/gh-issue-solver-1780421766903/
+1.9G	/tmp/start-command/
+1.5G	/tmp/flutter/
+1.4G	/tmp/flutter-sdk/
+1.3G	/tmp/gh-issue-solver-1780395490751/
+1.3G	/tmp/gh-issue-solver-1780392257391/
+1.2G	/tmp/gh-issue-solver-1780392166570/
+723M	/tmp/gh-issue-solver-1780395957867/
+700M	/tmp/gh-issue-solver-1780416369149/
+613M	/tmp/dotnet10/
+600M	/tmp/gh-issue-solver-1780391043437/
+566M	/tmp/gh-issue-solver-1780404144464/
+500M	/tmp/gh-issue-solver-1780397126968/
+472M	/tmp/gh-issue-solver-1780392169249/
+468M	/tmp/gh-issue-solver-1780392148958/
+453M	/tmp/gh-issue-solver-1780392157605/
+426M	/tmp/gh-issue-solver-1780398474987/
+333M	/tmp/gh-issue-solver-1780392127378/
+327M	/tmp/gh-issue-solver-1780416645061/
+326M	/tmp/gh-issue-solver-1780404143035/
+322M	/tmp/gh-issue-solver-1780392138163/
+321M	/tmp/gh-issue-solver-1780407338978/
+321M	/tmp/gh-issue-solver-1780404289439/
+321M	/tmp/gh-issue-solver-1780402488553/
+321M	/tmp/gh-issue-solver-1780396728105/
+320M	/tmp/gh-issue-solver-1780406172741/
+306M	/tmp/gh-issue-solver-1780394038938/
+282M	/tmp/gh-issue-solver-1780399446254/
+275M	/tmp/gh-issue-solver-1780394198574/
+255M	/tmp/gh-issue-solver-1780427874599/
+255M	/tmp/gh-issue-solver-1780417390776/
+254M	/tmp/gh-issue-solver-1780404213172/
+248M	/tmp/gh-issue-solver-1780430429396/
+246M	/tmp/gh-issue-solver-1780401118652/
+243M	/tmp/gh-issue-solver-1780419742234/
+242M	/tmp/gh-issue-solver-1780427950737/
+242M	/tmp/gh-issue-solver-1780420845040/
+242M	/tmp/gh-issue-solver-1780418437210/
+242M	/tmp/gh-issue-solver-1780418113637/
+242M	/tmp/gh-issue-solver-1780411043909/
+242M	/tmp/gh-issue-solver-1780410668978/
+242M	/tmp/gh-issue-solver-1780408619598/
+242M	/tmp/gh-issue-solver-1780408423455/
+242M	/tmp/gh-issue-solver-1780404585480/
+241M	/tmp/gh-issue-solver-1780402583507/
+241M	/tmp/gh-issue-solver-1780401518375/
+241M	/tmp/gh-issue-solver-1780401130888/
+241M	/tmp/gh-issue-solver-1780391835354/
+224M	/tmp/gh-issue-solver-1780395567521/
+224M	/tmp/gh-issue-solver-1780392228292/
+177M	/tmp/gh-issue-solver-1780399370773/
+177M	/tmp/gh-issue-solver-1780396353133/
+176M	/tmp/gh-issue-solver-1780398185520/
+167M	/tmp/node_modules/
+157M	/tmp/gh-issue-solver-1780422515784/
+156M	/tmp/gh-issue-solver-1780430393031/
+156M	/tmp/gh-issue-solver-1780428176906/
+156M	/tmp/gh-issue-solver-1780419673469/
+144M	/tmp/gh-issue-solver-1780395720540/
+144M	/tmp/gh-issue-solver-1780393961308/
+142M	/tmp/gh-issue-solver-1780391114581/
+138M	/tmp/gh-issue-solver-1780392132643/
+137M	/tmp/gh-issue-solver-1780392143342/
+137M	/tmp/gh-issue-solver-1780391410453/
+130M	/tmp/gh-issue-solver-1780396881293/
+123M	/tmp/gh-issue-solver-1780396957378/
+123M	/tmp/gh-issue-solver-1780394686863/
+123M	/tmp/gh-issue-solver-1780392153885/
+122M	/tmp/venv-issue7/
+100M	/tmp/gh-issue-solver-1780396046307/
+100M	/tmp/gh-issue-solver-1780395179223/
+93M	/tmp/gh-issue-solver-1780395646207/
+80M	/tmp/whitelist-bypass/
+80M	/tmp/log-tmp-solution-draft-log-pr-1780407010440.txt-1780407013300/
+80M	/tmp/log-tmp-solution-draft-log-pr-1780404413079.txt-1780404415677/
+76M	/tmp/gh-issue-solver-1780395099778/
+72M	/tmp/log-tmp-solution-draft-log-pr-1780424187370.txt-1780424191304/
+72M	/tmp/log-tmp-solution-draft-log-pr-1780398359398.txt-1780398362513/
+71M	/tmp/gh-issue-solver-1780396505662/
+69M	/tmp/log-tmp-solution-draft-log-pr-1780409355559.txt-1780409358200/
+68M	/tmp/log-tmp-solution-draft-log-pr-1780417833081.txt-1780417835351/
+67M	/tmp/log-tmp-solution-draft-log-pr-1780405885860.txt-1780405888320/
+65M	/tmp/log-tmp-solution-draft-log-pr-1780419903415.txt-1780419906226/
+64M	/tmp/log-tmp-solution-draft-log-pr-1780405448646.txt-1780405451079/
+62M	/tmp/log-tmp-solution-draft-log-pr-1780428981229.txt-1780428983579/
+60M	/tmp/gh-issue-solver-1780417849815/
+59M	/tmp/log-tmp-solution-draft-log-pr-1780410215471.txt-1780410217467/
+59M	/tmp/gh-issue-solver-1780427875960/
+59M	/tmp/gh-issue-solver-1780418506624/
+59M	/tmp/claude-1001/
+58M	/tmp/log-tmp-solution-draft-log-pr-1780412206758.txt-1780412208779/
+58M	/tmp/gh-issue-solver-1780405849171/
+58M	/tmp/gh-issue-solver-1780392271056/
+55M	/tmp/log-tmp-solution-draft-log-pr-1780409244372.txt-1780409247059/
+53M	/tmp/log-tmp-solution-draft-log-pr-1780422548941.txt-1780422551943/
+52M	/tmp/log-tmp-solution-draft-log-pr-1780421210309.txt-1780421212495/
+52M	/tmp/gh-issue-solver-1780427949423/
+49M	/tmp/log-tmp-solution-draft-log-pr-1780431113791.txt-1780431115991/
+48M	/tmp/log-tmp-solution-draft-log-pr-1780403951629.txt-1780403953345/
+47M	/tmp/log-tmp-solution-draft-log-pr-1780418895729.txt-1780418897627/
+47M	/tmp/log-tmp-solution-draft-log-pr-1780409917284.txt-1780409919254/
+43M	/tmp/log-tmp-solution-draft-log-pr-1780412442396.txt-1780412444488/
+43M	/tmp/log-tmp-solution-draft-log-pr-1780403896039.txt-1780403898239/
+40M	/tmp/log-tmp-solution-draft-log-pr-1780420288783.txt-1780420290484/
+39M	/tmp/log-tmp-solution-draft-log-pr-1780420606340.txt-1780420608181/
+39M	/tmp/log-tmp-solution-draft-log-pr-1780419636131.txt-1780419637660/
+39M	/tmp/log-tmp-solution-draft-log-pr-1780418089752.txt-1780418091504/
+38M	/tmp/log-tmp-solution-draft-log-pr-1780419198143.txt-1780419200711/
+37M	/tmp/log-tmp-solution-draft-log-pr-1780429148450.txt-1780429150051/
+33M	/tmp/log-tmp-solution-draft-log-pr-1780407346571.txt-1780407347998/
+32M	/tmp/log-tmp-solution-draft-log-pr-1780404890152.txt-1780404891590/
+28M	/tmp/log-tmp-solution-draft-log-pr-1780431060856.txt-1780431062692/
+19M	/tmp/gh-issue-solver-1780398114561/
+17M	/tmp/gh-issue-solver-1780399683724/
+17M	/tmp/gh-issue-solver-1780394858188/
+16M	/tmp/gh-issue-solver-1780392213068/
+15M	/tmp/playwright-transform-cache-1001/
+12M	/tmp/gh-issue-solver-1780396427754/
+12M	/tmp/gh-issue-solver-1780395255223/
+11M	/tmp/jest_rt/
+9.2M	/tmp/bunx-1001-node-gyp@latest/
+7.7M	/tmp/gh-issue-solver-1780399997440/
+4.8M	/tmp/gh-issue-solver-1780419922269/
+4.7M	/tmp/gh-issue-solver-1780418090463/
+4.7M	/tmp/gh-issue-solver-1780391724660/
+4.6M	/tmp/gh-issue-solver-1780416830137/
+4.6M	/tmp/gh-issue-solver-1780408245231/
+4.2M	/tmp/olcrtc/
+3.2M	/tmp/gh-issue-solver-1780430123756/
+3.0M	/tmp/gh-issue-solver-1780428249838/
+2.9M	/tmp/gh-issue-solver-1780429273948/
+2.9M	/tmp/gh-issue-solver-1780429207746/
+2.9M	/tmp/gh-issue-solver-1780429141453/
+2.9M	/tmp/gh-issue-solver-1780422512486/
+2.9M	/tmp/gh-issue-solver-1780422439486/
+2.8M	/tmp/gh-issue-solver-1780422583187/
+2.8M	/tmp/gh-issue-solver-1780420954485/
+2.8M	/tmp/gh-issue-solver-1780419602930/
+2.8M	/tmp/gh-issue-solver-1780417167134/
+2.8M	/tmp/gh-issue-solver-1780415988347/
+2.8M	/tmp/gh-issue-solver-1780408308611/
+2.7M	/tmp/gh-issue-solver-1780422440322/
+2.6M	/tmp/gh-issue-solver-1780400305488/
+2.5M	/tmp/gh-issue-solver-1780400236920/
+1.7M	/tmp/gh-issue-solver-1780392206220/
+1.6M	/tmp/imgs/
+1.5M	/tmp/gh-issue-solver-1780394282963/
+1.4M	/tmp/issue-imgs/
+1016K	/tmp/gh-issue-solver-1780398403767/
+828K	/tmp/gh-issue-solver-1780410088577/
+812K	/tmp/v8-compile-cache-1001/
+620K	/tmp/gh-issue-solver-1780404370216/
+612K	/tmp/gh-issue-solver-1780393885177/
+600K	/tmp/gh-issue-solver-1780400273467/
+512K	/tmp/gh-issue-solver-1780430288297/
+488K	/tmp/gh-issue-solver-1780421035619/
+488K	/tmp/gh-issue-solver-1780417930388/
+372K	/tmp/gh-issue-solver-1780415728310/
+252K	/tmp/gh-issue-solver-1780419600902/
+192K	/tmp/playwright_chromiumdev_profile-pgAG6z/
+192K	/tmp/playwright_chromiumdev_profile-kfjiiP/
+192K	/tmp/playwright_chromiumdev_profile-GNnUH4/
+192K	/tmp/playwright_chromiumdev_profile-4xzKfG/
+184K	/tmp/playwright_chromiumdev_profile-xSmwgR/
+120K	/tmp/testlogs/
+108K	/tmp/ci-logs/
+104K	/tmp/test-logs/
+80K	/tmp/spoke-test/
+64K	/tmp/gh-issue-solver-1780414854376/
+60K	/tmp/kefine-issue-124-logs/
+40K	/tmp/ib/
+28K	/tmp/gh-issue-solver-1780395799896/
+16K	/tmp/mainchk/
+8.0K	/tmp/pw-7505d64a/
+8.0K	/tmp/pr-123-images/
+4.0K	/tmp/playwright_chromiumdev_profile-rQwQnx/
+4.0K	/tmp/playwright_chromiumdev_profile-ohJzs1/
+4.0K	/tmp/playwright_chromiumdev_profile-b1Jncb/
+4.0K	/tmp/playwright_chromiumdev_profile-UjutEV/
+4.0K	/tmp/playwright_chromiumdev_profile-PXnvdc/
+4.0K	/tmp/playwright_chromiumdev_profile-88C2JF/
+4.0K	/tmp/playwright-artifacts-vbUs7c/
+4.0K	/tmp/playwright-artifacts-X77ifJ/
+4.0K	/tmp/playwright-artifacts-MxL83j/
+4.0K	/tmp/playwright-artifacts-Kft0ni/
+4.0K	/tmp/playwright-artifacts-3Flx3r/
+4.0K	/tmp/opencode/
+4.0K	/tmp/hsperfdata_box/
+4.0K	/tmp/gh-issue-solver-1780401792044/
+4.0K	/tmp/com.google.Chrome.yYfXxB/
+4.0K	/tmp/com.google.Chrome.xTYvBX/
+4.0K	/tmp/com.google.Chrome.inEWoA/
+4.0K	/tmp/com.google.Chrome.acfPRy/
+4.0K	/tmp/com.google.Chrome.4xt4I5/
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 | git status)
+fatal: not a git repository (or any of the parent directories): .git
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git status)
+On branch issue-386-0f7c7e8a730c
+Your branch is up to date with 'origin/issue-386-0f7c7e8a730c'.
+
+nothing to commit, working tree clean
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git remote)
+origin
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git remote ls)
+error: unknown subcommand: `ls'
+usage: git remote [-v | --verbose]
+   or: git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags] [--mirror=<fetch|push>] <name> <url>
+   or: git remote rename [--[no-]progress] <old> <new>
+   or: git remote remove <name>
+   or: git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+   or: git remote [-v | --verbose] show [-n] <name>
+   or: git remote prune [-n | --dry-run] <name>
+   or: git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]
+   or: git remote set-branches [--add] <name> <branch>...
+   or: git remote get-url [--push] [--all] <name>
+   or: git remote set-url [--push] <name> <newurl> [<oldurl>]
+   or: git remote set-url --add <name> <newurl>
+   or: git remote set-url --delete <name> <url>
+
+    -v, --[no-]verbose    be verbose; must be placed before a subcommand
+
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git remote list)
+error: unknown subcommand: `list'
+usage: git remote [-v | --verbose]
+   or: git remote add [-t <branch>] [-m <master>] [-f] [--tags | --no-tags] [--mirror=<fetch|push>] <name> <url>
+   or: git remote rename [--[no-]progress] <old> <new>
+   or: git remote remove <name>
+   or: git remote set-head <name> (-a | --auto | -d | --delete | <branch>)
+   or: git remote [-v | --verbose] show [-n] <name>
+   or: git remote prune [-n | --dry-run] <name>
+   or: git remote [-v | --verbose] update [-p | --prune] [(<group> | <remote>)...]
+   or: git remote set-branches [--add] <name> <branch>...
+   or: git remote get-url [--push] [--all] <name>
+   or: git remote set-url [--push] <name> <newurl> [<oldurl>]
+   or: git remote set-url --add <name> <newurl>
+   or: git remote set-url --delete <name> <url>
+
+    -v, --[no-]verbose    be verbose; must be placed before a subcommand
+
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git remote -v)
+origin	https://github.com/link-assistant/formal-ai.git (fetch)
+origin	https://github.com/link-assistant/formal-ai.git (push)
+box@3651b0ba91f4:~$ ls
+01b580b7-8e7c-46fe-82c3-c6a0ef34c62d.log  48079b2f-708f-4cdd-9abb-e7b347578b3d.log  9c39d975-ddfd-4cce-a65b-d992e0d1ccda.log  d6ede795-cbf5-4004-bc7c-eb60e5b918b8.log	solve-2026-06-02T13-35-28-167Z.log
+022ce20a-6529-4c5d-8a32-a66d9474b81c.log  48a69da1-b89f-422f-86c8-516c94d938de.log  9cd75c2c-60ec-4253-b345-46680edc1dd0.log  def30b3a-6b9d-4646-b1e5-ba9c69fa7ab3.log	solve-2026-06-02T13-50-34-752Z.log
+06e08d0d-fcc9-431a-be7a-83ef8019e873.log  4a729836-0ea1-4cda-8e9d-a7f5fcc2723b.log  9e535496-efae-4f53-9f4f-364be4e7da38.log  e037cc80-1171-4b50-a26b-6ddc4f8ef026.log	solve-2026-06-02T13-53-32-125Z.log
+090dfca5-9fbb-40e1-b2dd-2bbeb02ebcfd.log  505865e2-cbcd-4078-859e-73a92287989e.log  9e77afb4-4afd-42a9-b52a-339634029f6c.log  e3759383-37d1-4bc3-b7e8-4fde826e232f.log	solve-2026-06-02T13-56-47-393Z.log
+0afa3fa9-1b1d-4a9b-b8ff-a60660d424d1.log  5077a9da-ba8c-47fc-b21b-f4359893c577.log  9ee748d9-e068-4f25-8a26-4e3ffbf3762e.log  ee5cd1f2-f8c6-4d2c-9acd-79d371770491.log	solve-2026-06-02T14-21-17-319Z.log
+0ca3e9f3-d04f-4215-b9ce-73de8d7dda1b.log  53865eb8-35a8-418c-8856-0cdc1497a879.log  a16acb63-f28a-4cd1-b4d6-98cfd87b1db1.log  ef37295c-275c-40c1-abaf-715339df411c.log	solve-2026-06-02T14-30-57-778Z.log
+0e3b6dd0-2bcf-4214-b632-68f26b5a6805.log  5bc18766-6aff-4709-95ff-557ce32ff499.log  a32efc1b-3ab7-404d-9580-ff65fb61db12.log  f3c411e2-1cbf-490e-891a-f8935a004bec.log	solve-2026-06-02T14-37-12-989Z.log
+0f28cdb4-d495-4ce1-8450-3a7af588754b.log  62d54204-5db0-4a67-a0e1-e288e3533d60.log  aa7f3011-c4c6-4465-9d31-37670394167b.log  f4f70972-9188-4ab2-b304-4c48a632a92c.log	solve-2026-06-02T16-05-57-617Z.log
+17c85e2e-9d68-489c-a432-0d1b83c1a1ce.log  641480cf-8596-4ad9-b857-0ad7ab812fa0.log  aa87e341-dfc1-4cb1-a5c3-27f062a68e3b.log  f50e39af-2355-4fb6-86b3-22ca22275900.log	solve-2026-06-02T16-13-38-076Z.log
+19eb9f45-86c9-40de-a255-14b312e5da8c.log  65e20c4a-45b3-410a-9086-9873c2f1bc4a.log  ab12bf4c-8163-4369-8859-505b3b6b6aff.log  f528ea9b-863a-4d11-b58e-01993ae3698e.log	solve-2026-06-02T16-22-59-224Z.log
+1bec2b65-4115-4fe9-80b5-203546e69d8b.log  668680da-2d6e-4e02-a175-83ffd1934ee2.log  ab8c31f7-fb44-44d4-997e-1fbb1c78a114.log  fe96cf9a-3cf5-407c-a223-174486b0131c.log	solve-2026-06-02T16-34-40-467Z.log
+1cecc065-bb7a-4cfb-a639-73d21acc6076.log  6699a443-235e-4e2a-9614-ea3401af0ed2.log  ad3742e3-b09d-4494-b2f8-0494654effaf.log  hive-telegram-bot.log			solve-2026-06-02T16-35-01-325Z.log
+1e37b076-abad-47f1-9ee8-315d291487ba.log  680cc88b-588b-4a4f-b747-823293f80b19.log  b450828a-910d-47f6-a936-8c12cda9387f.log  solve-2026-06-02T09-03-51-156Z.log	solve-2026-06-02T16-40-26-269Z.log
+20a5696b-dbb7-417c-8b96-6b2f9c268a32.log  6b02e868-7351-400e-88b0-12574fa4e7fc.log  b4b5ca7e-20fa-4ae5-8518-28421334a942.log  solve-2026-06-02T10-07-25-989Z.log	solve-2026-06-02T16-41-33-145Z.log
+2eb0771c-0678-400e-a2cc-ab026e1880ef.log  6c811e1b-1335-417d-be1c-c47799a86936.log  ba6a52ee-0e98-4cce-a7c1-b255069189ef.log  solve-2026-06-02T10-32-22-303Z.log	solve-2026-06-02T16-59-50-717Z.log
+2fa5a914-20c2-440f-b0bc-b6a328f6c4ae.log  6dd14e43-595e-44fd-9d44-490911fd6ebc.log  be1961ff-2ab6-44c1-b87e-2110e2715737.log  solve-2026-06-02T11-27-53-019Z.log	solve-2026-06-02T17-01-00-932Z.log
+302ae44a-1d29-4d87-9c99-765356245be0.log  7207e1e1-702b-4ef1-91d3-00906c5272da.log  be785754-a7e0-48ed-ab61-7c01406b17a5.log  solve-2026-06-02T11-33-06-904Z.log	solve-2026-06-02T17-02-11-398Z.log
+3040af85-7f18-46ad-b6ad-585b0ff9f466.log  7444d5f2-05e3-44b5-a4c3-df2e2cfb89e3.log  bed1f69a-2488-4295-b529-8fcc917d9736.log  solve-2026-06-02T11-37-06-265Z.log	solve-2026-06-02T17-05-10-268Z.log
+30a5c52f-d715-436c-b01c-409dade9c66a.log  74c9b152-ab10-4673-95b6-3a3aff87e7d7.log  bf0b7c06-b791-4afb-b791-0b545b895ce0.log  solve-2026-06-02T11-58-27-052Z.log	solve-2026-06-02T17-20-34-511Z.log
+33573853-cb00-48d6-8f88-4073bb92cbf3.log  7be6baa9-58e5-41ce-9e90-88b86fadb031.log  c1d3d94d-806c-4cf0-839f-7eb266436035.log  solve-2026-06-02T12-03-01-448Z.log	solve-2026-06-02T17-47-09-147Z.log
+34b2ea66-cc3b-4b35-bdaa-613c148a94ce.log  7f65f530-b5e1-410e-99e7-d2077a0b1285.log  c2c5a4c1-d5e2-417d-a013-066c31ce942c.log  solve-2026-06-02T12-14-37-782Z.log	solve-2026-06-02T17-48-24-961Z.log
+36ef2c16-a4af-48d2-8a46-c6d0d43cfb1c.log  82f40c9e-02a5-4b55-a776-1f9899b9ebdf.log  c5a80d05-3e43-4047-9026-420212a28369.log  solve-2026-06-02T12-16-12-841Z.log	solve-2026-06-02T19-17-42-840Z.log
+38d4bda6-f808-4ace-88ec-b36a279ba658.log  83e8699b-e73a-4770-aeb6-8bd02979ba55.log  c6d11645-5356-4cd6-87c5-56d55ac9fb5f.log  solve-2026-06-02T12-42-13-072Z.log	solve-2026-06-02T19-18-59-921Z.log
+3aa574b7-dfd2-45ba-af23-de013ff9d641.log  8593b05c-77bb-4800-adb8-8f7dd154d2de.log  c6f9d31a-35f3-40f0-94aa-3e3df989bc0f.log  solve-2026-06-02T12-43-21-878Z.log	solve-2026-06-02T19-22-45-557Z.log
+3bd5f46e-950e-4d23-928c-f78f2dace3c2.log  86b132b4-4159-4b96-9fd0-7f3a4fefa9ae.log  ce1ae87a-2761-4deb-b2c4-eaaab8415264.log  solve-2026-06-02T12-44-38-154Z.log	solve-2026-06-02T19-57-56-953Z.log
+3c7dd9cc-1c50-43f9-9729-f646dee9d4cb.log  8b580f4c-32d0-4d5a-8702-c6b4d44baaf7.log  d12b08ed-2f6c-413f-8050-1eb1e1770f1e.log  solve-2026-06-02T12-45-57-763Z.log	solve-2026-06-02T19-59-42-698Z.log
+3dc145ff-4e4d-4705-98a7-590bb9dd2731.log  8cd36cfa-e082-4a53-9987-8be12f6ca9b3.log  d1b3b2b9-8c77-4db5-b61e-1e7eec5f6f48.log  solve-2026-06-02T12-49-34-867Z.log	start-bot.sh
+4027df98-df35-44a9-9fdd-2db885726ef0.log  99ae3c71-f8b2-40d3-aae7-8bda067c4104.log  d2ca7a7e-c782-4169-8b8d-9d38a4f3536c.log  solve-2026-06-02T13-10-38-138Z.log
+43c9e07a-d0ca-4002-b413-c0b44a383634.log  9a51128f-0f04-460e-b7bd-a61e25f7d5ab.log  d62d451e-3889-4cfb-86d4-ae6a7dc535df.log  solve-2026-06-02T13-16-01-264Z.log
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780421766903 && git remote -v)
+origin	https://github.com/konard/uselessgoddess-test-for-test.git (fetch)
+origin	https://github.com/konard/uselessgoddess-test-for-test.git (push)
+upstream	https://github.com/uselessgoddess/test-for-test.git (fetch)
+upstream	https://github.com/uselessgoddess/test-for-test.git (push)
+box@3651b0ba91f4:~$ rm -rf /tmp/gh-issue-solver-1780421766903 
+box@3651b0ba91f4:~$ rm -rf 3.0G /tmp/android-sdk/
+box@3651b0ba91f4:~$ rm -rf /tmp/flutter/
+box@3651b0ba91f4:~$ rm -rf /tmp/flutter-sdk/
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780421766903 && git remote -v)
+bash: cd: /tmp/gh-issue-solver-1780421766903: No such file or directory
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git remote -v)
+origin	https://github.com/link-assistant/formal-ai.git (fetch)
+origin	https://github.com/link-assistant/formal-ai.git (push)
+box@3651b0ba91f4:~$ (cd /tmp/gh-issue-solver-1780391173130 && git status)
+On branch issue-386-0f7c7e8a730c
+Your branch is up to date with 'origin/issue-386-0f7c7e8a730c'.
+
+nothing to commit, working tree clean
+box@3651b0ba91f4:~$ rm -rf /tmp/dotnet10/
+box@3651b0ba91f4:~$ rm -rf /tmp/gh-issue-solver-1780395490751/ /tmp/gh-issue-solver-1780392257391/ /tmp/gh-issue-solver-1780392166570/ /tmp/gh-issue-solver-1780395957867/ /tmp/gh-issue-solver-1780416369149/ /tmp/gh-issue-solver-1780391043437/ /tmp/gh-issue-solver-1780404144464/ /tmp/gh-issue-solver-1780397126968/ /tmp/gh-issue-solver-1780392169249/ /tmp/gh-issue-solver-1780392148958/ /tmp/gh-issue-solver-1780392157605/ /tmp/gh-issue-solver-1780398474987/ /tmp/gh-issue-solver-1780392127378/ /tmp/gh-issue-solver-1780416645061/ /tmp/gh-issue-solver-1780404143035/ /tmp/gh-issue-solver-1780392138163/ /tmp/gh-issue-solver-1780407338978/ /tmp/gh-issue-solver-1780404289439/ /tmp/gh-issue-solver-1780402488553/ /tmp/gh-issue-solver-1780396728105/ /tmp/gh-issue-solver-1780406172741/ /tmp/gh-issue-solver-1780394038938/ /tmp/gh-issue-solver-1780399446254/ /tmp/gh-issue-solver-1780394198574/ /tmp/gh-issue-solver-1780427874599/ /tmp/gh-issue-solver-1780417390776/ /tmp/gh-issue-solver-1780404213172/ /tmp/gh-issue-solver-1780430429396/ /tmp/gh-issue-solver-1780401118652/ /tmp/gh-issue-solver-1780419742234/ /tmp/gh-issue-solver-1780427950737/ /tmp/gh-issue-solver-1780420845040/ /tmp/gh-issue-solver-1780418437210/ /tmp/gh-issue-solver-1780418113637/ /tmp/gh-issue-solver-1780411043909/ /tmp/gh-issue-solver-1780410668978/ /tmp/gh-issue-solver-1780408619598/ /tmp/gh-issue-solver-1780408423455/ /tmp/gh-issue-solver-1780404585480/ /tmp/gh-issue-solver-1780402583507/ /tmp/gh-issue-solver-1780401518375/ /tmp/gh-issue-solver-1780401130888/ /tmp/gh-issue-solver-1780391835354/ /tmp/gh-issue-solver-1780395567521/ /tmp/gh-issue-solver-1780392228292/ /tmp/gh-issue-solver-1780399370773/ /tmp/gh-issue-solver-1780396353133/ /tmp/gh-issue-solver-1780398185520/ /tmp/node_modules/ /tmp/gh-issue-solver-1780422515784/ /tmp/gh-issue-solver-1780430393031/ /tmp/gh-issue-solver-1780428176906/ /tmp/gh-issue-solver-1780419673469/ /tmp/gh-issue-solver-1780395720540/ /tmp/gh-issue-solver-1780393961308/ /tmp/gh-issue-solver-1780391114581/ /tmp/gh-issue-solver-1780392132643/ /tmp/gh-issue-solver-1780392143342/ /tmp/gh-issue-solver-1780391410453/ /tmp/gh-issue-solver-1780396881293/ /tmp/gh-issue-solver-1780396957378/ /tmp/gh-issue-solver-1780394686863/ /tmp/gh-issue-solver-1780392153885/ /tmp/venv-issue7/ /tmp/gh-issue-solver-1780396046307/ /tmp/gh-issue-solver-1780395179223/ /tmp/gh-issue-solver-1780395646207/ /tmp/whitelist-bypass/ /tmp/log-tmp-solution-draft-log-pr-1780407010440.txt-1780407013300/ /tmp/log-tmp-solution-draft-log-pr-1780404413079.txt-1780404415677/ /tmp/gh-issue-solver-1780395099778/ /tmp/log-tmp-solution-draft-log-pr-1780424187370.txt-1780424191304/ /tmp/log-tmp-solution-draft-log-pr-1780398359398.txt-1780398362513/ /tmp/gh-issue-solver-1780396505662/ /tmp/log-tmp-solution-draft-log-pr-1780409355559.txt-1780409358200/ /tmp/log-tmp-solution-draft-log-pr-1780417833081.txt-1780417835351/ /tmp/log-tmp-solution-draft-log-pr-1780405885860.txt-1780405888320/ /tmp/log-tmp-solution-draft-log-pr-1780419903415.txt-1780419906226/ /tmp/log-tmp-solution-draft-log-pr-1780405448646.txt-1780405451079/ /tmp/log-tmp-solution-draft-log-pr-1780428981229.txt-1780428983579/ /tmp/gh-issue-solver-1780417849815/ /tmp/log-tmp-solution-draft-log-pr-1780410215471.txt-1780410217467/ /tmp/gh-issue-solver-1780427875960/ /tmp/gh-issue-solver-1780418506624/ /tmp/claude-1001/ /tmp/log-tmp-solution-draft-log-pr-1780412206758.txt-1780412208779/ /tmp/gh-issue-solver-1780405849171/ /tmp/gh-issue-solver-1780392271056/ /tmp/log-tmp-solution-draft-log-pr-1780409244372.txt-1780409247059/ /tmp/log-tmp-solution-draft-log-pr-1780422548941.txt-1780422551943/ /tmp/log-tmp-solution-draft-log-pr-1780421210309.txt-1780421212495/ /tmp/gh-issue-solver-1780427949423/ /tmp/log-tmp-solution-draft-log-pr-1780431113791.txt-1780431115991/ /tmp/log-tmp-solution-draft-log-pr-1780403951629.txt-1780403953345/ /tmp/log-tmp-solution-draft-log-pr-1780418895729.txt-1780418897627/ /tmp/log-tmp-solution-draft-log-pr-1780409917284.txt-1780409919254/ /tmp/log-tmp-solution-draft-log-pr-1780412442396.txt-1780412444488/ /tmp/log-tmp-solution-draft-log-pr-1780403896039.txt-1780403898239/ /tmp/log-tmp-solution-draft-log-pr-1780420288783.txt-1780420290484/ /tmp/log-tmp-solution-draft-log-pr-1780420606340.txt-1780420608181/ /tmp/log-tmp-solution-draft-log-pr-1780419636131.txt-1780419637660/ /tmp/log-tmp-solution-draft-log-pr-1780418089752.txt-1780418091504/ /tmp/log-tmp-solution-draft-log-pr-1780419198143.txt-1780419200711/ /tmp/log-tmp-solution-draft-log-pr-1780429148450.txt-1780429150051/ /tmp/log-tmp-solution-draft-log-pr-1780407346571.txt-1780407347998/ /tmp/log-tmp-solution-draft-log-pr-1780404890152.txt-1780404891590/ /tmp/log-tmp-solution-draft-log-pr-1780431060856.txt-1780431062692/ /tmp/gh-issue-solver-1780398114561/ /tmp/gh-issue-solver-1780399683724/ /tmp/gh-issue-solver-1780394858188/ /tmp/gh-issue-solver-1780392213068/ /tmp/playwright-transform-cache-1001/ /tmp/gh-issue-solver-1780396427754/ /tmp/gh-issue-solver-1780395255223/ /tmp/jest_rt/ /tmp/bunx-1001-node-gyp@latest/ /tmp/gh-issue-solver-1780399997440/ /tmp/gh-issue-solver-1780419922269/ /tmp/gh-issue-solver-1780418090463/ /tmp/gh-issue-solver-1780391724660/ /tmp/gh-issue-solver-1780416830137/ /tmp/gh-issue-solver-1780408245231/ /tmp/olcrtc/ /tmp/gh-issue-solver-1780430123756/ /tmp/gh-issue-solver-1780428249838/ /tmp/gh-issue-solver-1780429273948/ /tmp/gh-issue-solver-1780429207746/ /tmp/gh-issue-solver-1780429141453/ /tmp/gh-issue-solver-1780422512486/ /tmp/gh-issue-solver-1780422439486/ /tmp/gh-issue-solver-1780422583187/ /tmp/gh-issue-solver-1780420954485/ /tmp/gh-issue-solver-1780419602930/ /tmp/gh-issue-solver-1780417167134/ /tmp/gh-issue-solver-1780415988347/ /tmp/gh-issue-solver-1780408308611/ /tmp/gh-issue-solver-1780422440322/ /tmp/gh-issue-solver-1780400305488/ /tmp/gh-issue-solver-1780400236920/ /tmp/gh-issue-solver-1780392206220/ /tmp/imgs/ /tmp/gh-issue-solver-1780394282963/ /tmp/issue-imgs/ /tmp/gh-issue-solver-1780398403767/ /tmp/gh-issue-solver-1780410088577/ /tmp/v8-compile-cache-1001/ /tmp/gh-issue-solver-1780404370216/ /tmp/gh-issue-solver-1780393885177/ /tmp/gh-issue-solver-1780400273467/ /tmp/gh-issue-solver-1780430288297/ /tmp/gh-issue-solver-1780421035619/ /tmp/gh-issue-solver-1780417930388/ /tmp/gh-issue-solver-1780415728310/ /tmp/gh-issue-solver-1780419600902/ /tmp/playwright_chromiumdev_profile-pgAG6z/ /tmp/playwright_chromiumdev_profile-kfjiiP/ /tmp/playwright_chromiumdev_profile-GNnUH4/ /tmp/playwright_chromiumdev_profile-4xzKfG/ /tmp/playwright_chromiumdev_profile-xSmwgR/ /tmp/testlogs/ /tmp/ci-logs/ /tmp/test-logs/ /tmp/spoke-test/ /tmp/gh-issue-solver-1780414854376/ /tmp/kefine-issue-124-logs/ /tmp/ib/ /tmp/gh-issue-solver-1780395799896/ /tmp/mainchk/ /tmp/pw-7505d64a/ /tmp/pr-123-images/ /tmp/playwright_chromiumdev_profile-rQwQnx/ /tmp/playwright_chromiumdev_profile-ohJzs1/ /tmp/playwright_chromiumdev_profile-b1Jncb/ /tmp/playwright_chromiumdev_profile-UjutEV/ /tmp/playwright_chromiumdev_profile-PXnvdc/ /tmp/playwright_chromiumdev_profile-88C2JF/ /tmp/playwright-artifacts-vbUs7c/ /tmp/playwright-artifacts-X77ifJ/ /tmp/playwright-artifacts-MxL83j/ /tmp/playwright-artifacts-Kft0ni/ /tmp/playwright-artifacts-3Flx3r/ /tmp/opencode/ /tmp/hsperfdata_box/ /tmp/gh-issue-solver-1780401792044/ /tmp/com.google.Chrome.yYfXxB/ /tmp/com.google.Chrome.xTYvBX/ /tmp/com.google.Chrome.inEWoA/ /tmp/com.google.Chrome.acfPRy/ /tmp/com.google.Chrome.4xt4I5/
+box@3651b0ba91f4:~$ $ --status e91a93b1-2562-4fa6-a09a-a22ca1b2cc87
+fbb8a48d-8223-4ee2-9210-b82b522e1fdc
+  uuid fbb8a48d-8223-4ee2-9210-b82b522e1fdc
+  pid 7393
+  processIds
+      wrapperPid 7393
+      screenPid 7408
+      commandPids
+        (
+          7409
+          7410
+          8540
+          8541
+          8573
+          8603
+          8604
+        )
+  status executing
+  command "solve https://github.com/link-assistant/formal-ai/pull/387 --model opus --think max --tool claude --attach-logs --verbose --no-tool-check --disable-report-issue --language en"
+  logPath /tmp/start-command/logs/isolation/screen/fbb8a48d-8223-4ee2-9210-b82b522e1fdc.log
+  startTime "2026-06-02T09:05:53.399Z"
+  currentTime "2026-06-03T09:18:12.486Z"
+  workingDirectory /home/box
+  shell /bin/sh
+  platform linux
+  options
+    isolated screen
+    isolationMode detached
+    sessionName e91a93b1-2562-4fa6-a09a-a22ca1b2cc87
+    user false
+    keepAlive false
+    useCommandStream false
+box@3651b0ba91f4:~$ 

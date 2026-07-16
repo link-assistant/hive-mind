@@ -1,0 +1,3 @@
+
+> @link-assistant/hive-mind@2.1.6 lint
+> eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' --no-warn-ignored src/telegram-solve-queue.lib.mjs src/telegram-bot.mjs src/queue-start-reservation.lib.mjs

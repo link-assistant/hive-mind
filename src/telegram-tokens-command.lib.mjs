@@ -90,12 +90,17 @@ export const formatTokenList = tokens => {
  * @param {Function} [options.fetchTokens] — test override for getAllKnownLocalTokens
  */
 export const registerTokensCommand = (bot, options = {}) => {
-  const { VERBOSE = false, isOldMessage, allowedChats } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, allowedChats } = options;
   const fetchTokens = options.fetchTokens || getAllKnownLocalTokens;
 
   bot.command('tokens', async ctx => {
     if (isOldMessage && isOldMessage(ctx)) {
       VERBOSE && console.log('[VERBOSE] /tokens ignored: old message');
+      return;
+    }
+    // Issue #1922: never re-execute a forwarded command.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /tokens ignored: forwarded message');
       return;
     }
 
@@ -111,7 +116,7 @@ export const registerTokensCommand = (bot, options = {}) => {
 
     // Step 2: authenticate by ownership of an allowlisted chat.
     const allowedChatIds = resolveAllowedChatIds(allowedChats);
-    let isOperator = false;
+    let isOperator;
     try {
       isOperator = await isOperatorOfAnyAllowedChat({
         telegram: ctx.telegram,

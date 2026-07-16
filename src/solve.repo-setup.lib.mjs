@@ -65,18 +65,51 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
   const defaultBranchResult = await $({ cwd: tempDir })`git branch --show-current`;
 
   if (defaultBranchResult.code !== 0) {
+    // Issue #1957: the most common cause of this failure is an interrupted/incomplete
+    // clone — `git` reports "fatal: not a git repository" because there is no `.git`
+    // directory. The previous message ("Failed to get current branch") gave the user
+    // no idea what happened or what to do. Detect the incomplete-clone case and give
+    // concrete, actionable instructions instead.
+    const branchErr = ((defaultBranchResult.stderr?.toString() || '') + (defaultBranchResult.stdout?.toString() || '')).trim();
+    const isNotAGitRepo = /not a git repository/i.test(branchErr);
+
+    await log('');
+    await log(`${formatAligned('❌', isNotAGitRepo ? 'INCOMPLETE CLONE DETECTED' : 'FAILED TO READ CURRENT BRANCH', '')}`, { level: 'error' });
+    await log('');
+    await log('  🔍 What happened:');
+    if (isNotAGitRepo) {
+      await log(`     The working directory is not a valid git repository: ${tempDir}`);
+      await log('     This almost always means the clone was interrupted before it finished');
+      await log('     (e.g. "fetch-pack: unexpected disconnect while reading sideband packet"),');
+      await log('     so no .git directory was created.');
+    } else {
+      await log(`     Could not determine the current branch in: ${tempDir}`);
+    }
+    await log('');
+    await log('  📦 Error details:');
+    for (const line of (branchErr || 'Unknown error').split('\n')) {
+      if (line.trim()) await log(`     ${line}`);
+    }
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     1. Check your network connection / VPN / proxy (interrupted transfers are usually transient)');
+    await log('     2. Re-run the command — the solver retries clones automatically and a fresh run usually succeeds');
+    if (owner && repo) await log(`     3. Verify access to the repository: gh repo view ${owner}/${repo}`);
+    await log(`     ${owner && repo ? '4' : '3'}. Check GitHub status if it keeps failing: https://www.githubstatus.com`);
+    await log('');
+    await log('  ℹ️  If this is reproducible, ask a Hive Mind administrator to inspect the solver terminal log for the clone error.');
+    await log('');
+
     await log('Error: Failed to get current branch');
-    await log(defaultBranchResult.stderr ? defaultBranchResult.stderr.toString() : 'Unknown error');
-    throw new Error('Failed to get current branch');
+    if (branchErr) await log(branchErr);
+    throw new Error(isNotAGitRepo ? 'Failed to get current branch - working directory is not a git repository (incomplete clone)' : 'Failed to get current branch');
   }
 
   let defaultBranch = defaultBranchResult.stdout.toString().trim();
-  if (!defaultBranch) {
-    // Repository is likely empty (no commits) - detect and handle
-    const isEmptyRepo = await detectEmptyRepository(tempDir, $);
+  const isEmptyRepo = await detectEmptyRepository(tempDir, $);
 
-    if (isEmptyRepo && argv && argv.autoInitRepository && owner && repo) {
-      // --auto-init-repository is enabled, try to initialize
+  if (isEmptyRepo) {
+    if (argv && argv.autoInitRepository && owner && repo) {
       await log('');
       await log(`${formatAligned('⚠️', 'EMPTY REPOSITORY', 'detected')}`, { level: 'warn' });
       await log(`${formatAligned('', '', `Repository ${owner}/${repo} contains no commits`)}`);
@@ -126,7 +159,6 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
         await log(`${formatAligned('✅', 'Repository initialized:', `Now on branch ${defaultBranch}`)}`);
         await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
       } else {
-        // Auto-init failed - provide helpful message with --auto-init-repository context
         await log('');
         await log(`${formatAligned('❌', 'AUTO-INIT FAILED', '')}`, { level: 'error' });
         await log('');
@@ -149,8 +181,7 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
 
         throw new Error('Empty repository auto-initialization failed');
       }
-    } else if (isEmptyRepo) {
-      // Empty repo detected but --auto-init-repository is not enabled
+    } else {
       await log('');
       await log(`${formatAligned('❌', 'EMPTY REPOSITORY DETECTED', '')}`, { level: 'error' });
       await log('');
@@ -170,25 +201,24 @@ export async function verifyDefaultBranchAndStatus({ tempDir, log, formatAligned
       await tryCommentOnIssueAboutEmptyRepo({ issueUrl, owner, repo, log, formatAligned, $ });
 
       throw new Error('Empty repository detected - use --auto-init-repository to initialize');
-    } else {
-      // Not an empty repo, some other issue with branch detection
-      await log('');
-      await log(`${formatAligned('❌', 'DEFAULT BRANCH DETECTION FAILED', '')}`, { level: 'error' });
-      await log('');
-      await log('  🔍 What happened:');
-      await log("     Unable to determine the repository's default branch.");
-      await log('');
-      await log('  💡 This might mean:');
-      await log('     • Unusual repository configuration');
-      await log('     • Git command issues');
-      await log('');
-      await log('  🔧 How to fix:');
-      await log('     1. Check repository status');
-      await log(`     2. Verify locally: cd ${tempDir} && git branch`);
-      await log(`     3. Check remote: cd ${tempDir} && git branch -r`);
-      await log('');
-      throw new Error('Default branch detection failed');
     }
+  } else if (!defaultBranch) {
+    await log('');
+    await log(`${formatAligned('❌', 'DEFAULT BRANCH DETECTION FAILED', '')}`, { level: 'error' });
+    await log('');
+    await log('  🔍 What happened:');
+    await log("     Unable to determine the repository's default branch.");
+    await log('');
+    await log('  💡 This might mean:');
+    await log('     • Unusual repository configuration');
+    await log('     • Git command issues');
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     1. Check repository status');
+    await log(`     2. Verify locally: cd ${tempDir} && git branch`);
+    await log(`     3. Check remote: cd ${tempDir} && git branch -r`);
+    await log('');
+    throw new Error('Default branch detection failed');
   } else {
     await log(`\n${formatAligned('📌', 'Default branch:', defaultBranch)}`);
   }
@@ -267,16 +297,19 @@ Thank you!`;
  */
 async function detectEmptyRepository(tempDir, $) {
   // Check if there are any commits in the repository
-  const logResult = await $({ cwd: tempDir })`git rev-parse HEAD 2>&1`;
-  if (logResult.code !== 0) {
-    // git rev-parse HEAD fails when there are no commits
-    const output = (logResult.stdout || logResult.stderr || '').toString();
-    if (output.includes('unknown revision') || output.includes('bad default revision') || output.includes('does not have any commits')) {
-      return true;
-    }
+  const logResult = await $({ cwd: tempDir })`git rev-parse --verify HEAD 2>&1`;
+  if (logResult.code === 0) {
+    return false;
   }
 
-  // Also check if there are any remote branches
+  // git rev-parse HEAD fails when there are no commits
+  const output = (logResult.stdout || logResult.stderr || '').toString();
+  if (output.includes('unknown revision') || output.includes('ambiguous argument') || output.includes('bad default revision') || output.includes('does not have any commits') || output.includes('Needed a single revision')) {
+    return true;
+  }
+
+  // Fall back to remote branch absence for Git versions with different
+  // no-commit messages, but only after HEAD lookup failed.
   const remoteBranchResult = await $({ cwd: tempDir })`git branch -r`;
   if (remoteBranchResult.code === 0) {
     const branches = remoteBranchResult.stdout.toString().trim();

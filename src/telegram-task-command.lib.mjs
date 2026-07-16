@@ -1,10 +1,12 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
+import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
+import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
-import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
@@ -82,8 +84,20 @@ async function editTelegramMessage(ctx, message, text) {
   }
 }
 
+// Issue #378: inject --language LOCALE into spawn args if no language flag is
+// already present, so spawned task sessions inherit the user's effective locale.
+function injectLanguageIfMissing(args, locale) {
+  if (!locale || !args || !Array.isArray(args)) return args;
+  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
+  for (const arg of args) {
+    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
+    if (flag && langFlags.has(flag)) return args;
+  }
+  return [...args, '--language', locale];
+}
+
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, resolveLocale = null } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -102,6 +116,13 @@ export function registerTaskCommands(bot, options) {
       return;
     }
     if (isOldMessage(ctx)) return;
+    // Issue #1922: a forwarded /task command must never be re-executed. Replies
+    // are still allowed because /task uses them for issue creation, so we use the
+    // forwarded-only filter instead of isForwardedOrReply.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log(`[VERBOSE] ${commandDisplay} ignored: forwarded message`);
+      return;
+    }
     if (!isGroupChat(ctx)) {
       await ctx.reply(`❌ The ${commandDisplay} command only works in group chats. Please add this bot to a group and make it an admin.`, { reply_to_message_id: ctx.message.message_id });
       return;
@@ -119,10 +140,12 @@ export function registerTaskCommands(bot, options) {
     const splitMode = commandName === 'split' || hasTaskSplitFlag(parsedArgs);
 
     if (!splitMode) {
+      const replyText = getReplyText(ctx.message);
       const creationInput = resolveTaskIssueCreationInput({
         commandText: ctx.message.text,
-        replyText: getReplyText(ctx.message),
+        replyText,
       });
+      VERBOSE && console.log(`[VERBOSE] ${commandDisplay} issue creation: isReply=${Boolean(replyText)} replyChars=${replyText.length} resolvedChars=${creationInput.length}`);
       const creation = parseTaskIssueCreationInput(creationInput);
 
       if (!creation.valid) {
@@ -166,6 +189,13 @@ export function registerTaskCommands(bot, options) {
       return;
     }
 
+    try {
+      await parseArgsWithYargs(filteredArgs, getLinoYargsFactory(), createTaskYargsConfig);
+    } catch (error) {
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
     const modelError = validateTaskModel(filteredArgs);
     if (modelError) {
       await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
@@ -179,7 +209,9 @@ export function registerTaskCommands(bot, options) {
 
     const taskUrlContext = { owner: parsedIssue.owner, repo: parsedIssue.repo, number: parsedIssue.number, type: parsedIssue.type, normalized: parsedIssue.normalized || built.issueUrl };
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
-    await executeAndUpdateMessage(ctx, startingMessage, 'task', filteredArgs, infoBlock, perCommandIsolation || null, getTaskToolFromArgs(filteredArgs), taskUrlContext);
+    const taskLocale = resolveLocale ? resolveLocale(ctx) : null;
+    const argsForExec = injectLanguageIfMissing(filteredArgs, taskLocale);
+    await executeAndUpdateMessage(ctx, startingMessage, 'task', argsForExec, infoBlock, perCommandIsolation || null, getTaskToolFromArgs(argsForExec), taskUrlContext);
   }
 
   bot.command(

@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { parseIntegerEnv, parseNumberEnv, warnExplicitEnv } from './env-config.lib.mjs';
 
 /**
  * Queue Configuration Module
@@ -21,12 +23,13 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1242
  * @see https://github.com/link-assistant/hive-mind/issues/1253
+ * @see https://github.com/link-assistant/hive-mind/issues/1981
  */
 
 // Use use-m to dynamically import modules
 if (typeof globalThis.use === 'undefined') {
   try {
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    await ensureUseM();
   } catch (error) {
     console.error('❌ Fatal error: Failed to load dependencies for queue configuration');
     console.error(`   ${error.message}`);
@@ -176,19 +179,36 @@ export function parseQueueConfig(linoConfig) {
   }
 }
 
-// Helper function to safely parse floats with fallback
-const parseFloatWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseFloat(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
+const parseFloatWithDefault = (envVar, defaultValue) => parseNumberEnv(envVar, defaultValue, { scope: 'queue-config' });
+const parseIntWithDefault = (envVar, defaultValue) => parseIntegerEnv(envVar, defaultValue, { scope: 'queue-config' });
 
-// Helper function to safely parse integers with fallback
-const parseIntWithDefault = (envVar, defaultValue) => {
-  const value = getenv(envVar, defaultValue.toString());
-  const parsed = parseInt(value);
-  return isNaN(parsed) ? defaultValue : parsed;
-};
+const DEFAULT_MINIMUM_START_INTERVAL_MS = 10 * 60 * 1000;
+const START_INTERVAL_ENV = 'HIVE_MIND_MIN_START_INTERVAL_MS';
+const LEGACY_START_INTERVAL_FLOOR_ENV = 'HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS';
+
+function resolveMinimumStartIntervalMs() {
+  const hasExplicitInterval = process.env[START_INTERVAL_ENV] !== undefined;
+  const hasLegacyFloor = process.env[LEGACY_START_INTERVAL_FLOOR_ENV] !== undefined;
+
+  if (hasLegacyFloor) {
+    warnExplicitEnv(LEGACY_START_INTERVAL_FLOOR_ENV, 'deprecated', `[queue-config] ${LEGACY_START_INTERVAL_FLOOR_ENV} is deprecated; use ${START_INTERVAL_ENV} instead.`);
+  }
+
+  let interval = DEFAULT_MINIMUM_START_INTERVAL_MS;
+  if (hasExplicitInterval) {
+    interval = parseIntWithDefault(START_INTERVAL_ENV, DEFAULT_MINIMUM_START_INTERVAL_MS);
+  } else if (hasLegacyFloor) {
+    interval = parseIntWithDefault(LEGACY_START_INTERVAL_FLOOR_ENV, DEFAULT_MINIMUM_START_INTERVAL_MS);
+  }
+
+  if (hasExplicitInterval && interval < DEFAULT_MINIMUM_START_INTERVAL_MS) {
+    warnExplicitEnv(START_INTERVAL_ENV, 'recommendation', `[queue-config] ${START_INTERVAL_ENV}=${interval} is below the recommended ${DEFAULT_MINIMUM_START_INTERVAL_MS} ms; short intervals can start a backlog before host metrics settle (#2015).`);
+  }
+
+  return interval;
+}
+
+const minimumStartIntervalMs = resolveMinimumStartIntervalMs();
 
 // Parse links notation config from environment variable (if provided)
 const linoConfig = parseQueueConfig(getenv('HIVE_MIND_QUEUE_CONFIG', ''));
@@ -235,9 +255,8 @@ function getThresholdConfig(linoKey, envVarThreshold, envVarStrategy, defaultThr
  * - 'enqueue': Block and wait in queue
  * - 'dequeue-one-at-a-time': Allow one command, block subsequent
  *
- * BREAKING CHANGE: Disk threshold default strategy changed from 'dequeue-one-at-a-time' to 'reject'
- * because the queue is lost on server restart anyway, so there's no point in queueing.
- * To restore old behavior: HIVE_MIND_DISK_STRATEGY=dequeue-one-at-a-time
+ * Issue #2045: disk now defaults to the normal wait/enqueue path at 65% used.
+ * Operators can still choose immediate rejection with HIVE_MIND_DISK_STRATEGY=reject.
  */
 export const QUEUE_CONFIG = {
   // Threshold configurations with value and strategy
@@ -245,10 +264,8 @@ export const QUEUE_CONFIG = {
   thresholds: {
     ram: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue'),
     cpu: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue'),
-    // BREAKING: disk default changed from 'dequeue-one-at-a-time' to 'reject'
-    // Queue is in RAM and lost on restart - no point enlarging it when disk is full
-    // See: https://github.com/link-assistant/hive-mind/issues/1253
-    disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.9, 'reject'),
+    // Issue #2045: wait instead of immediately rejecting when disk crosses 65%.
+    disk: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue'),
     claude5Hour: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
     claudeWeekly: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time'),
     codex5Hour: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time'),
@@ -264,7 +281,7 @@ export const QUEUE_CONFIG = {
   // These are derived from thresholds.{metric}.value
   RAM_THRESHOLD: getThresholdConfig('ram', 'HIVE_MIND_RAM_THRESHOLD', 'HIVE_MIND_RAM_STRATEGY', 0.65, 'enqueue').value,
   CPU_THRESHOLD: getThresholdConfig('cpu', 'HIVE_MIND_CPU_THRESHOLD', 'HIVE_MIND_CPU_STRATEGY', 0.65, 'enqueue').value,
-  DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.9, 'reject').value,
+  DISK_THRESHOLD: getThresholdConfig('disk', 'HIVE_MIND_DISK_THRESHOLD', 'HIVE_MIND_DISK_STRATEGY', 0.65, 'enqueue').value,
   CLAUDE_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('claude5Hour', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
   CLAUDE_WEEKLY_THRESHOLD: getThresholdConfig('claudeWeekly', 'HIVE_MIND_CLAUDE_WEEKLY_THRESHOLD', 'HIVE_MIND_CLAUDE_WEEKLY_STRATEGY', 0.97, 'dequeue-one-at-a-time').value,
   CODEX_5_HOUR_SESSION_THRESHOLD: getThresholdConfig('codex5Hour', 'HIVE_MIND_CODEX_5_HOUR_SESSION_THRESHOLD', 'HIVE_MIND_CODEX_5_HOUR_SESSION_STRATEGY', 0.65, 'dequeue-one-at-a-time').value,
@@ -272,14 +289,25 @@ export const QUEUE_CONFIG = {
   GITHUB_API_THRESHOLD: getThresholdConfig('githubApi', 'HIVE_MIND_GITHUB_API_THRESHOLD', 'HIVE_MIND_GITHUB_API_STRATEGY', 0.5, 'enqueue').value,
 
   // Timing
-  // MIN_START_INTERVAL_MS: Time to allow solve command to start actual claude process
-  // This ensures that when API limits are checked, the running process is counted
-  MIN_START_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MIN_START_INTERVAL_MS', 60000), // 1 minute between starts
+  // MIN_START_INTERVAL_MS: Minimum global spacing between task startups.
+  // Issue #2015: after resource thresholds clear, starting a backlog in a burst
+  // can kill the next batch before host metrics have time to settle.
+  // Issue #2065: an explicit interval is authoritative. The deprecated floor
+  // remains a fallback for existing deployments, while the default remains the
+  // safe 10-minute interval introduced for issue #2015.
+  MIN_START_INTERVAL_MS: minimumStartIntervalMs,
   CONSUMER_POLL_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_CONSUMER_POLL_INTERVAL_MS', 60000), // 1 minute between queue checks
   MESSAGE_UPDATE_INTERVAL_MS: parseIntWithDefault('HIVE_MIND_MESSAGE_UPDATE_INTERVAL_MS', 60000), // 1 minute between status message updates
 
   // Process detection
   CLAUDE_PROCESS_NAMES: ['claude'], // Process names to detect
+
+  // Display
+  // Maximum number of items shown per section (pending/processing/completed/failed)
+  // in the /queue detailed status before collapsing into a
+  // "... and N more" line. Keeps the Telegram message under the 4096-char cap.
+  // See: https://github.com/link-assistant/hive-mind/issues/1837
+  MAX_DISPLAY_ITEMS_PER_QUEUE: parseIntWithDefault('HIVE_MIND_MAX_DISPLAY_ITEMS_PER_QUEUE', 5),
 };
 
 /**

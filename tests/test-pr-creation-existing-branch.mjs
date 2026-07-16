@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// in CI because it relies on temp git repos and assertions about commit-behind
+// counts that don't hold in the GitHub Actions sandbox. Tracked under issue
+// #1758 follow-up; opt in via `node scripts/run-tests.mjs --suite needs-triage`.
 /**
  * Test suite for PR creation with existing branches
  * Tests the fix for issue #683
@@ -9,6 +14,7 @@ import { mkdtempSync, writeFileSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import assert from 'assert';
+import { buildPushRejectionExplanation } from '../src/solve.branch-divergence.lib.mjs';
 
 // Test configuration
 const TEST_REPO = process.env.TEST_REPO || 'test-owner/test-repo';
@@ -280,6 +286,26 @@ function testNoChanges() {
   }
 }
 
+// Test 6: Existing branch divergence explanation
+function testExistingBranchDivergenceExplanation() {
+  console.log('\n🧪 Test 6: Existing branch divergence explanation');
+
+  const lines = buildPushRejectionExplanation({
+    branchName: 'issue-1752-existing',
+    isContinueMode: true,
+    prNumber: null,
+    divergence: { remoteExists: true, ahead: 1, behind: 1 },
+  });
+  const output = lines.join('\n');
+
+  assert(output.includes('reused an existing issue branch'), 'Should explain existing issue branch reuse');
+  assert(output.includes('not a fresh branch'), 'Should clarify that the current run did not create a fresh branch');
+  assert(output.includes('1 commit(s) ahead, 1 commit(s) behind'), 'Should include ahead/behind counts');
+
+  console.log('   ✅ Existing branch divergence is explained clearly');
+  console.log('   ✅ Test 6 passed');
+}
+
 // Main test runner
 async function runTests() {
   console.log('🚀 Running PR Creation Tests for Issue #683\n');
@@ -294,6 +320,7 @@ async function runTests() {
     { name: 'Already Merged Branch', fn: testAlreadyMergedBranch },
     { name: 'Push Strategy', fn: testPushStrategy },
     { name: 'No Changes', fn: testNoChanges },
+    { name: 'Existing Branch Divergence Explanation', fn: testExistingBranchDivergenceExplanation },
   ];
 
   for (const test of tests) {

@@ -1,0 +1,47 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "## Summary\n\nFixes #79.\n\n- Moved the browser package from `web/` to `js/`, including `package.json` and `package-lock.json`.\n- Merged the root WebAssembly docs into `js/README.md` and updated repo docs to point at the new package location.\n- Moved root `ci-logs/` and issue 12 screenshots into case-study evidence folders, and removed `.gitkeep`.\n- Updated WebAssembly CI path filters, npm working directories, and `setup-node` cache dependency path for `js/package-lock.json`.\n- Added a repository layout regression test and an issue 79 case study with captured issue, PR, CI, template, and verification evidence.\n\n## Verification\n\n- `git diff --cached --check`\n- `node --test js/test/repositoryLayout.test.mjs`\n- `npm ci --prefix js`\n- `npm --prefix js run test:js`\n- `npm --prefix js run test:wasm`\n- `npm --prefix js run build`\n- `cargo test --manifest-path rust/Cargo.toml --all-features`\n- `dotnet test csharp/Foundation.Data.Doublets.Cli.sln`\n\n## Evidence\n\n- Case study: `docs/case-studies/issue-79/README.md`\n- Evidence folder: `docs/case-studies/issue-79/evidence/`\n- The case study records the template comparison, stale C# failure analysis, current Pages/NuGet workflow coverage, and before/after layout checks.",
+  "comments": [
+    {
+      "id": "IC_kwDONXCAbs8AAAABCDDncg",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## Working session summary\n\nImplemented and pushed the fix to PR 80: https://github.com/link-foundation/link-cli/pull/80\n\nWhat changed:\n- Moved the browser package from `web/` to `js/`, including `package.json` and `package-lock.json`.\n- Merged root WASM docs into `js/README.md`.\n- Moved `ci-logs/` and issue 12 screenshots into case-study folders.\n- Removed `.gitkeep`.\n- Updated WebAssembly CI paths, npm working directories, and lockfile cache path.\n- Added/extended repository layout regression coverage and issue 79 evidence.\n\nVerification passed locally:\n- `node --test js/test/repositoryLayout.test.mjs`\n- `npm ci --prefix js`\n- `npm --prefix js run test:js`\n- `npm --prefix js run test:wasm`\n- `npm --prefix js run build`\n- `cargo test --manifest-path rust/Cargo.toml --all-features`\n- `dotnet test csharp/Foundation.Data.Doublets.Cli.sln`\n\nPR status:\n- Marked ready for review.\n- Latest commit: `7c78b6b`\n- GitHub WebAssembly CI passed for both push and PR runs.\n- Working tree is clean.\n- Branch is not behind `main`.\n\nSources checked for CI behavior:\n- https://github.com/actions/setup-node\n- https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+      "createdAt": "2026-05-12T15:57:56Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-foundation/link-cli/pull/80#issuecomment-4432390002",
+      "viewerDidAuthor": true
+    },
+    {
+      "id": "IC_kwDONXCAbs8AAAABCDDvaA",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.5\n- Provider: OpenAI\n- Public pricing estimate: $14.352485\n\n### 📊 **Context and tokens usage:**\n- 278.8K / 1.1M (27%) input tokens, 39.2K / 128K (31%) output tokens\n\nTotal: (278.8K + 9.8M cached) input tokens, 39.2K output tokens, $14.352485 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Log file uploaded as Repository** (40502KB)\n- [View complete solution draft log](https://raw.githubusercontent.com/konard/public-logs/main/log-tmp-solution-draft-log-pr-1778601480747.txt/tmp-solution-draft-log-pr-1778601480747.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+      "createdAt": "2026-05-12T15:58:11Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-foundation/link-cli/pull/80#issuecomment-4432392040",
+      "viewerDidAuthor": true
+    },
+    { "id": "IC_kwDONXCAbs8AAAABCDFBig", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "## ✅ Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*", "createdAt": "2026-05-12T16:00:32Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-foundation/link-cli/pull/80#issuecomment-4432413066", "viewerDidAuthor": true }
+  ],
+  "commits": [
+    { "authoredDate": "2026-05-12T15:23:20Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-05-12T15:23:20Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-foundation/link-cli/issues/79", "messageHeadline": "Initial commit with task details", "oid": "75b25bcaec30ed34fd9e9e78017a8e81ebb7bb22" },
+    { "authoredDate": "2026-05-12T15:54:08Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-05-12T15:54:08Z", "messageBody": "", "messageHeadline": "Clean root repository layout", "oid": "7c78b6bf3b559e9fc11f42eea996d1c91aff8ec1" },
+    { "authoredDate": "2026-05-12T16:00:33Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-05-12T16:00:33Z", "messageBody": "", "messageHeadline": "Revert: Remove .gitkeep changes from initial commit", "oid": "a5beebbbd8efcc436956f041b22bde514090e6c4" }
+  ],
+  "createdAt": "2026-05-12T15:23:28Z",
+  "headRefName": "issue-79-49ca4f759246",
+  "mergedAt": "2026-05-12T16:12:38Z",
+  "number": 80,
+  "state": "MERGED",
+  "title": "Clean up root repository folder",
+  "updatedAt": "2026-05-12T16:12:39Z",
+  "url": "https://github.com/link-foundation/link-cli/pull/80"
+}

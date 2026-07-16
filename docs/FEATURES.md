@@ -158,6 +158,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 **Commands available**:
 
 - `/solve` - Solve specific issues from your phone
+- `/merge` - Merge ready PRs, issue-linked PRs, or a replied issue/PR link
 - `/hive` - Start orchestration runs
 - `/limits` - Check usage and resources
 - Group chat support for team collaboration

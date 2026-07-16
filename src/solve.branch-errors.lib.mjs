@@ -219,7 +219,7 @@ export async function handleBranchCheckoutError({ branchName, prNumber, errorOut
   }
 }
 
-export async function handleBranchCreationError({ branchName, errorOutput, tempDir, owner, repo, formatAligned, log }) {
+export async function handleBranchCreationError({ branchName, errorOutput, tempDir, owner, repo, baseBranch, branchSource, formatAligned, log }) {
   await log(`${formatAligned('❌', 'BRANCH CREATION FAILED', '')}`, { level: 'error' });
   await log('');
   await log('  🔍 What happened:');
@@ -233,6 +233,31 @@ export async function handleBranchCreationError({ branchName, errorOutput, tempD
     await log(`     ${line}`);
   }
   await log('');
+
+  // Issue #1959: A failure to create the branch from origin/<baseBranch> looks
+  // identical at the git level to an empty repository ("is not a commit"). Only
+  // treat it as "empty repo" when the failing ref is NOT a custom base branch.
+  // When a custom base branch is involved and the error references it, report the
+  // real root cause: the requested base branch does not exist on the remote.
+  const errorMentionsBaseRef = baseBranch && (errorOutput.includes(`origin/${baseBranch}`) || errorOutput.includes(`'${baseBranch}'`));
+  const looksLikeMissingRef = errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision') || errorOutput.includes('did not match any');
+  const isMissingBaseBranchError = branchSource === 'custom' && errorMentionsBaseRef && looksLikeMissingRef;
+
+  if (isMissingBaseBranchError) {
+    await log('  💡 Root cause:');
+    await log(`     The requested base branch '${baseBranch}' does not exist on the remote.`);
+    await log('     A branch cannot be created from a base branch that is not there.');
+    await log('');
+    await log('  🔧 How to fix:');
+    await log('     • Check the branch name for typos (a single extra/missing character is enough)');
+    await log('     • Omit --base-branch to use the repository default branch');
+    if (owner && repo) {
+      await log(`     • List existing branches: gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`);
+    } else {
+      await log('     • List existing branches: git branch -r');
+    }
+    return;
+  }
 
   // Check if this is an empty repository error (no commits to branch from)
   const isEmptyRepoError = errorOutput.includes('is not a commit') || errorOutput.includes('not a valid object name') || errorOutput.includes('unknown revision');

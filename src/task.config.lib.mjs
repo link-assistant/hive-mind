@@ -61,7 +61,7 @@ export const createYargsConfig = yargsInstance =>
       type: 'string',
       description: 'agent-commander isolation mode',
       choices: ['screen', 'none', 'docker'],
-      default: 'screen',
+      default: 'docker',
     })
     .option('screen-name', {
       type: 'string',
@@ -84,6 +84,21 @@ export const createYargsConfig = yargsInstance =>
       alias: 'o',
       choices: ['text', 'json'],
       default: 'text',
+    })
+    .option('language', {
+      type: 'string',
+      description: 'Default language for both --ui-language and --work-language (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('ui-language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('work-language', {
+      type: 'string',
+      description: 'Working language passed to the AI tool (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
     })
     .check(argv => {
       if (!argv['task-input'] && !argv._[0]) {

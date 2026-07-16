@@ -8,12 +8,13 @@ const root = process.cwd();
 
 const read = file => fs.readFile(path.join(root, file), 'utf-8');
 
-const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
+const dockerfiles = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
 
 for (const file of dockerfiles) {
   const content = await read(file);
 
   assert.ok(content.includes('ARG HIVE_MIND_VERSION=latest'), `${file} should accept the exact published hive-mind version as a build arg`);
+  assert.ok(content.includes('ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"'), `${file} should bake the published version as the default Docker isolation image tag`);
   assert.ok(content.includes('bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}"'), `${file} should install the published hive-mind package version`);
   assert.ok(content.includes('test "$(hive --version)" = "${HIVE_MIND_VERSION}"'), `${file} should verify the installed hive-mind version when a release version is supplied`);
   assert.ok(content.includes('configure-claude --settings-path /home/box/.claude/settings.json'), `${file} should invoke the published configure-claude bin`);
@@ -47,5 +48,14 @@ assert.ok(releaseYml.includes('node scripts/wait-for-npm.mjs --release-version "
 assert.ok(!/Wait for NPM package availability[\s\S]{0,160}\n\s+if: matrix\.platform == 'linux\/amd64'/.test(releaseYml), 'every Docker matrix build should wait for npm availability');
 assert.ok(releaseYml.includes('HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}'), 'release Docker build should pass the exact npm version into Docker');
 assert.ok(releaseYml.includes('HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}'), 'instant Docker build should pass the exact npm version into Docker');
+assert.ok(!releaseYml.includes('pattern: digests-*'), 'normal Docker merge must not download DinD digest artifacts');
+assert.ok(releaseYml.includes('name: hive-mind-digests-${{ matrix.platform =='), 'release Docker artifacts should use the normal image digest namespace');
+assert.ok(releaseYml.includes('pattern: hive-mind-digests-*'), 'release Docker merge should download only normal image digests');
+assert.ok(releaseYml.includes('name: hive-mind-instant-digests-${{ matrix.platform =='), 'instant Docker artifacts should use the normal image digest namespace');
+assert.ok(releaseYml.includes('pattern: hive-mind-instant-digests-*'), 'instant Docker merge should download only normal image digests');
+assert.ok(releaseYml.includes('name: hive-mind-dind-digests-${{ matrix.platform =='), 'release DinD artifacts should use a separate digest namespace');
+assert.ok(releaseYml.includes('pattern: hive-mind-dind-digests-*'), 'release DinD merge should download only DinD digests');
+assert.ok(releaseYml.includes('name: hive-mind-dind-instant-digests-${{ matrix.platform =='), 'instant DinD artifacts should use a separate digest namespace');
+assert.ok(releaseYml.includes('pattern: hive-mind-dind-instant-digests-*'), 'instant DinD merge should download only DinD digests');
 
 console.log('Docker release-order contract tests passed');

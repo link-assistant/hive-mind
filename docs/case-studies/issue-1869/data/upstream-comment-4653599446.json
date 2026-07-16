@@ -1,0 +1,6 @@
+{
+  "body": "## ⏳ Usage Limit Reached\n\nThe automated solution draft was interrupted because the OpenAI Codex usage limit was reached.\n\n### 📊 Limit Information\n- **Tool**: OpenAI Codex\n- **Limit Type**: Usage limit exceeded\n- **Reset Time**: in 3h 14m (Jun 9, 12:27 AM UTC)\n- **Session ID**: 019ea914-aa36-7a53-8e77-48d8fa5f59b7\n\n### 🔄 How to Continue\n**Auto-resume is enabled.** The session will automatically resume (with context preserved) when the limit resets.\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.5`\n- **Model: GPT-5.5** (`gpt-5.5`)\n\n### 📎 **Execution log uploaded as Gist** (189KB)\n- [View complete execution log](https://gist.githubusercontent.com/konard/caac10a1208ba84bdf3212c2949312e4/raw/1c11ab2978351b7300c4eaacb953c8b9efd6dd32/solution-draft-log-pr-1780953170975.txt)\n\n---\n*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*",
+  "created_at": "2026-06-08T21:12:55Z",
+  "html_url": "https://github.com/link-foundation/command-stream/pull/137#issuecomment-4653599446",
+  "user": "konard"
+}

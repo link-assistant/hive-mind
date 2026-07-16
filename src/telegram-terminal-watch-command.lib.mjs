@@ -7,6 +7,8 @@
 
 import fs from 'fs/promises';
 import { extractSessionIdFromText, decideLogDestination, resolveLogPath } from './telegram-log-command.lib.mjs';
+import { parseSessionExitFooter } from './isolation-runner.lib.mjs';
+import { classifyExitStatus, isFailureSessionStatus } from './session-status.lib.mjs';
 
 const DEFAULT_WIDTH = 120;
 const DEFAULT_HEIGHT = 25;
@@ -17,7 +19,7 @@ const activeWatches = new Map();
 
 function splitCommandArgs(text) {
   const body = String(text || '')
-    .replace(/^\/terminal_watch(?:@\w+)?\b/i, '')
+    .replace(/^\/(?:terminal_watch|watch)(?:@\w+)?\b/i, '')
     .trim();
   return body.match(/"[^"]*"|'[^']*'|\S+/g)?.map(token => token.replace(/^(['"])(.*)\1$/, '$2')) || [];
 }
@@ -124,7 +126,11 @@ export function formatTerminalWatchMessage({ sessionId, statusResult = null, log
   const width = options.width || DEFAULT_WIDTH;
   const height = options.height || DEFAULT_HEIGHT;
   const snapshot = sanitizeCodeBlock(tailTextForTerminal(logText, options));
-  const title = completed ? '✅ Terminal watch complete' : '🔄 Live terminal watch';
+  // Issue #1927: a completed-but-failed/killed session must not wear a success
+  // ✅ — surface the failure so an OOM/SIGKILL is reported, not mistaken for a
+  // clean finish. Both titles keep the "Terminal watch complete" phrase.
+  const failed = completed && isFailureSessionStatus(status);
+  const title = !completed ? '🔄 Live terminal watch' : failed ? '❌ Terminal watch complete — session failed' : '✅ Terminal watch complete';
   const lines = [title, `Session: \`${sessionId}\``, `Status: \`${status}\``, `Terminal: \`${width}x${height}\``];
   if (repoDescription) lines.push(`Repo: \`${repoDescription}\``);
   if (!completed) lines.push(`Updates: ${updateCount}`);
@@ -171,14 +177,58 @@ async function querySessionStatusWithRetry(querySessionStatus, sessionId, verbos
   return null;
 }
 
+export function isTerminalWatchSessionRequester({ sessionInfo = null, userId = null } = {}) {
+  if (userId === null || userId === undefined) return false;
+  if (sessionInfo?.requesterUserId === null || sessionInfo?.requesterUserId === undefined) return false;
+  return String(sessionInfo.requesterUserId) === String(userId);
+}
+
 // Note: /terminal_watch never uploads the full session log itself (issue #1720).
 // Use /log <uuid> if you want the log file delivered as a document.
-export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false }) {
+function getDisplayedTerminalSnapshot(logText, options) {
+  return sanitizeCodeBlock(tailTextForTerminal(logText, options));
+}
+
+/**
+ * Issue #1927: decide whether a watched session has actually finished.
+ *
+ * A non-terminal `$ --status` (e.g. `executing`) is NOT trusted on its own —
+ * start-command can keep reporting `executing` after the wrapped command was
+ * SIGKILLed/OOM-killed (a lingering shell outlives it). Trusting that status
+ * would make this watch poll forever and render a misleading "still running"
+ * snapshot — the same silent-hang that left issue #1927's killed `/solve`
+ * unreported, here in the watch loop. The execution-log FOOTER ("Exit Code: N")
+ * that `start` writes is authoritative: once present the command has terminated,
+ * full stop. In that case the displayed status is corrected to the real terminal
+ * status (e.g. `killed`) so the kill is surfaced instead of a perpetual
+ * `executing`.
+ *
+ * @returns {{completed: boolean, statusResult: object|null}}
+ */
+export function reconcileWatchCompletion(statusResult, logText, isTerminalSessionStatus) {
+  if (statusResult?.status && isTerminalSessionStatus(statusResult.status)) {
+    return { completed: true, statusResult };
+  }
+  const footer = parseSessionExitFooter(logText);
+  if (footer.finished) {
+    const corrected = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
+    return {
+      completed: true,
+      statusResult: { ...(statusResult || {}), status: corrected, exitCode: footer.exitCode, endTime: statusResult?.endTime || footer.endTime || null },
+    };
+  }
+  return { completed: false, statusResult };
+}
+
+export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options = {}, repoDescription = null, verbose = false, initialStatusResult = null, initialLogText = null, initialMessage = '' }) {
   const key = `${chatId}:${messageId}:${sessionId}`;
   activeWatches.get(key)?.stop();
 
   let stopped = false;
-  let lastMessage = '';
+  const hasInitialLogText = initialLogText !== null && initialLogText !== undefined;
+  let lastSnapshot = hasInitialLogText ? getDisplayedTerminalSnapshot(initialLogText, options) : null;
+  const initialReconciled = hasInitialLogText ? reconcileWatchCompletion(initialStatusResult, initialLogText, isTerminalSessionStatus) : { completed: false, statusResult: initialStatusResult };
+  let lastMessage = initialMessage || (hasInitialLogText ? formatTerminalWatchMessage({ sessionId, statusResult: initialReconciled.statusResult, logText: initialLogText, options, updateCount: 0, completed: initialReconciled.completed, repoDescription }) : '');
   let updateCount = 0;
   let timer = null;
   const intervalMs = options.intervalMs || DEFAULT_INTERVAL_MS;
@@ -186,14 +236,22 @@ export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, log
   const tick = async () => {
     if (stopped) return;
     try {
-      const statusResult = await querySessionStatus(sessionId, verbose);
-      const completed = !!statusResult?.status && isTerminalSessionStatus(statusResult.status);
+      const rawStatus = await querySessionStatus(sessionId, verbose);
       const logText = await readLogFile(logPath);
-      const message = formatTerminalWatchMessage({ sessionId, statusResult, logText, options, updateCount: ++updateCount, completed, repoDescription });
-      if (message !== lastMessage) {
+      // Issue #1927: cross-check the authoritative log footer so a session killed
+      // while `$ --status` still reports `executing` is detected as finished
+      // instead of being polled forever with a misleading "running" snapshot.
+      const { completed, statusResult } = reconcileWatchCompletion(rawStatus, logText, isTerminalSessionStatus);
+      const snapshot = getDisplayedTerminalSnapshot(logText, options);
+      const snapshotChanged = snapshot !== lastSnapshot;
+      if (snapshotChanged) updateCount++;
+      const message = formatTerminalWatchMessage({ sessionId, statusResult, logText, options, updateCount, completed, repoDescription });
+      const shouldEdit = !lastMessage || snapshotChanged || (completed && message !== lastMessage);
+      if (shouldEdit && message !== lastMessage) {
         await bot.telegram.editMessageText(chatId, messageId, undefined, message, { parse_mode: 'Markdown' });
         lastMessage = message;
       }
+      lastSnapshot = snapshot;
       if (completed) {
         stopped = true;
         activeWatches.delete(key);
@@ -218,7 +276,7 @@ export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, log
 }
 
 function buildUsage() {
-  return 'Usage:\n• `/terminal_watch <UUID>`\n• Reply to a session message with `/terminal_watch`\n\nOptions: `--size 120x25`, `--width 120`, `--height 25`, `--interval-ms 2500`, `--max-chars 3400`';
+  return 'Usage:\n• `/terminal_watch <UUID>` (alias: `/watch <UUID>`)\n• Reply to a session message with `/terminal_watch` or `/watch`\n\nOptions: `--size 120x25`, `--width 120`, `--height 25`, `--interval-ms 2500`, `--max-chars 3400`';
 }
 
 async function createWatchMessage({ ctx, targetChatId, replyToMessageId, text }) {
@@ -255,14 +313,15 @@ async function startWatchFromResolvedSession({ bot, ctx, sessionId, statusResult
   if (!targetChatId) return { started: false, reason: 'Missing target chat id' };
 
   const initialLogText = await readLogFile(logPath);
-  const initialText = formatTerminalWatchMessage({ sessionId, statusResult, logText: initialLogText, options: watchOptions, repoDescription });
+  const { completed: initialCompleted, statusResult: reconciledInitialStatus } = reconcileWatchCompletion(statusResult, initialLogText, isTerminalSessionStatus);
+  const initialText = formatTerminalWatchMessage({ sessionId, statusResult: reconciledInitialStatus, logText: initialLogText, options: watchOptions, completed: initialCompleted, repoDescription });
   let replyToMessageId = ctx.message?.message_id || undefined;
   if (decision.destination === 'dm' && ctx.chat.type !== 'private') {
     replyToMessageId = await forwardOrCopyToDm(ctx, ctx.message?.reply_to_message || ctx.message);
   }
 
   const watchMessage = await createWatchMessage({ ctx, targetChatId, replyToMessageId, text: initialText });
-  watchTerminalLogSession({ bot, chatId: targetChatId, messageId: watchMessage.message_id, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options: watchOptions, repoDescription, verbose });
+  watchTerminalLogSession({ bot, chatId: targetChatId, messageId: watchMessage.message_id, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options: watchOptions, repoDescription, verbose, initialStatusResult: statusResult, initialLogText, initialMessage: initialText });
 
   if (!auto && decision.destination === 'dm' && ctx.chat.type !== 'private') {
     await ctx.reply(`📬 Started terminal watch for \`${sessionId}\` in your direct messages.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
@@ -289,15 +348,22 @@ export async function startAutoTerminalWatchForSession({ bot, ctx, sessionId, se
 }
 
 export async function registerTerminalWatchCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
-  const runner = await import('./isolation-runner.lib.mjs');
+  const { VERBOSE = false, isOldMessage, isForwarded, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage } = options;
+  const runner = !options.querySessionStatus || !options.isTerminalSessionStatus ? await import('./isolation-runner.lib.mjs') : null;
+  const querySessionStatus = options.querySessionStatus || runner.querySessionStatus;
+  const isTerminalSessionStatus = options.isTerminalSessionStatus || runner.isTerminalSessionStatus;
   const getTrackedSessionInfo = options.getTrackedSessionInfo || (await import('./session-monitor.lib.mjs')).getTrackedSessionInfo;
   const detectRepositoryVisibility = options.detectRepositoryVisibility || (await import('./github.lib.mjs')).detectRepositoryVisibility;
   const parseGitHubUrl = options.parseGitHubUrl || (await import('./github.lib.mjs')).parseGitHubUrl;
 
-  bot.command('terminal_watch', async ctx => {
+  const handleTerminalWatchCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /terminal_watch command received');
     if (isOldMessage && isOldMessage(ctx)) return;
+    // Issue #1922: never re-execute a forwarded command.
+    if (isForwarded && isForwarded(ctx)) {
+      VERBOSE && console.log('[VERBOSE] /terminal_watch ignored: forwarded message');
+      return;
+    }
 
     const chat = ctx.chat;
     const message = ctx.message;
@@ -315,17 +381,23 @@ export async function registerTerminalWatchCommand(bot, options) {
       return;
     }
 
+    const sessionInfo = getTrackedSessionInfo ? getTrackedSessionInfo(sessionId) : null;
+
     if (chat.type !== 'private') {
-      try {
-        const member = await ctx.telegram.getChatMember(chat.id, ctx.from.id);
-        if (!member || member.status !== 'creator') {
-          await ctx.reply('❌ /terminal_watch is only available to the chat owner.', { reply_to_message_id: message.message_id });
+      if (isTerminalWatchSessionRequester({ sessionInfo, userId: ctx.from?.id })) {
+        VERBOSE && console.log(`[VERBOSE] /terminal_watch allowed for session requester ${ctx.from?.id} on ${sessionId}`);
+      } else {
+        try {
+          const member = await ctx.telegram.getChatMember(chat.id, ctx.from.id);
+          if (!member || member.status !== 'creator') {
+            await ctx.reply('❌ /terminal_watch is only available to the chat owner or the user who started this session.', { reply_to_message_id: message.message_id });
+            return;
+          }
+        } catch (error) {
+          console.error('[ERROR] /terminal_watch: getChatMember failed:', error);
+          await ctx.reply('❌ Failed to verify permissions for /terminal_watch.', { reply_to_message_id: message.message_id });
           return;
         }
-      } catch (error) {
-        console.error('[ERROR] /terminal_watch: getChatMember failed:', error);
-        await ctx.reply('❌ Failed to verify permissions for /terminal_watch.', { reply_to_message_id: message.message_id });
-        return;
       }
     }
 
@@ -337,7 +409,7 @@ export async function registerTerminalWatchCommand(bot, options) {
 
     let statusResult;
     try {
-      statusResult = await runner.querySessionStatus(sessionId, VERBOSE);
+      statusResult = await querySessionStatus(sessionId, VERBOSE);
     } catch (error) {
       console.error('[ERROR] /terminal_watch: querySessionStatus failed:', error);
       await ctx.reply(`❌ Failed to query session status: ${error.message || String(error)}`, { reply_to_message_id: message.message_id });
@@ -349,7 +421,6 @@ export async function registerTerminalWatchCommand(bot, options) {
       return;
     }
 
-    const sessionInfo = getTrackedSessionInfo ? getTrackedSessionInfo(sessionId) : null;
     const { repoVisibility, repoDescription } = await resolveTerminalWatchRepository({ sessionInfo, statusResult, parseGitHubUrl, detectRepositoryVisibility });
     const decision = decideLogDestination({ statusResult, sessionInfo, repoVisibility, chatType: chat.type });
     if (decision.destination === 'reject') {
@@ -366,13 +437,16 @@ export async function registerTerminalWatchCommand(bot, options) {
     }
 
     try {
-      await startWatchFromResolvedSession({ bot, ctx, sessionId, statusResult, sessionInfo, decision, logPath, watchOptions: parsedArgs.options, querySessionStatus: runner.querySessionStatus, isTerminalSessionStatus: runner.isTerminalSessionStatus, repoDescription, verbose: VERBOSE });
+      await startWatchFromResolvedSession({ bot, ctx, sessionId, statusResult, sessionInfo, decision, logPath, watchOptions: parsedArgs.options, querySessionStatus, isTerminalSessionStatus, repoDescription, verbose: VERBOSE });
     } catch (error) {
       console.error('[ERROR] /terminal_watch: failed to start watch:', error);
       const friendly = error?.code === 403 || /chat not found|bot can't initiate conversation/i.test(error?.message || '') ? 'I could not send you a DM. Please open a private chat with me and send /start, then try again.' : `Failed to start terminal watch: ${error.message || String(error)}`;
       await ctx.reply(`❌ ${friendly}`, { reply_to_message_id: message.message_id });
     }
-  });
+  };
+
+  bot.command('terminal_watch', handleTerminalWatchCommand);
+  bot.command('watch', handleTerminalWatchCommand);
 }
 
 export const __INTERNAL_FOR_TESTS__ = {

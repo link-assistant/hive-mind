@@ -1,0 +1,14 @@
+{
+  "author": { "id": "MDQ6VXNlcjY2ODQwNTc1", "is_bot": false, "login": "skulidropek", "name": "Skuli Dropek" },
+  "body": "Add support for prompts like \"Забей мне 18 число в 17:00 по грузии на встречу с Леваном\":\n\n- New meanings/roles in data/seed/meanings-calendar.lino for schedule actions (\"забей\", \"поставь\", \"schedule\"...), events (\"встреча\"), clock times, and timezone aliases (\"по грузии\" etc. → Asia/Tbilisi).\n- try_calendar_create_event handler: parses day-of-month (\"NN число\"), HH:MM times, extracts title after \"на\", resolves TZ, applies next-month rollover for past days, defaults 60min duration.\n- Early guard in calendar reasoning + promotion via append_prompt_relevants + dispatch so these imperatives no longer hit unknown.\n- Rich trace events (calendar:parsed_date/time/time_zone/title/...).\n- Confirmation-style response (MVP does not auto-create external events; surfaces can act on the intent + evidence).\n- Full Rust <-> WASM (formal_ai_worker.js) parity using the same lexicon-driven approach.\n- Unit tests for the exact bug repro + English fallback in reasoning_paths.rs.\n- Updated e2e multilingual test + coverage script (check-multilingual-intent-coverage.mjs).\n- Source mirrors kept in sync; new changelog fragment.\n\nCloses #404\n",
+  "createdAt": "2026-06-10T06:41:22Z",
+  "headRefName": "issue-404",
+  "headRepository": { "id": "R_kgDOS12Y4A", "name": "formal-ai", "nameWithOwner": "skulidropek/formal-ai" },
+  "headRepositoryOwner": { "id": "MDQ6VXNlcjY2ODQwNTc1", "name": "Skuli Dropek", "login": "skulidropek" },
+  "isCrossRepository": true,
+  "maintainerCanModify": true,
+  "mergeStateStatus": "DIRTY",
+  "number": 405,
+  "state": "OPEN",
+  "title": "feat: natural language calendar event creation (#404)"
+}

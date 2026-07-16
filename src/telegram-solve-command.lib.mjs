@@ -8,6 +8,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1618
  */
 
+import { normalizeCliArgs } from './argument-normalization.lib.mjs';
+import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+
 export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
   claude: 'claude',
   codex: 'codex',
@@ -27,16 +30,13 @@ export function parseCommandArgs(text) {
     return [];
   }
 
-  // Replace em-dash with double-dash to fix Telegram auto-replacement.
-  const normalizedArgsText = argsText.replace(/—/g, '--');
-
   const args = [];
   let currentArg = '';
   let inQuotes = false;
   let quoteChar = null;
 
-  for (let i = 0; i < normalizedArgsText.length; i++) {
-    const char = normalizedArgsText[i];
+  for (let i = 0; i < argsText.length; i++) {
+    const char = argsText[i];
 
     if ((char === '"' || char === "'") && !inQuotes) {
       inQuotes = true;
@@ -58,7 +58,7 @@ export function parseCommandArgs(text) {
     args.push(currentArg);
   }
 
-  return args;
+  return normalizeCliArgs(args);
 }
 
 function toCamelCaseOptionName(name) {
@@ -89,8 +89,9 @@ export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) 
     else if (typeof callback === 'function') callback();
     return true;
   };
+  let parser = null;
   try {
-    const parser = createYargsConfig(yargsFactory());
+    parser = createYargsConfig(yargsFactory());
     parser
       .exitProcess(false)
       .showHelpOnFail(false)
@@ -98,6 +99,8 @@ export async function parseArgsWithYargs(args, yargsFactory, createYargsConfig) 
         throw err || new Error(msg || 'Invalid arguments');
       });
     return await parser.parse(args);
+  } catch (error) {
+    throw enhanceUnknownArgumentError(error, parser);
   } finally {
     process.stderr.write = originalStderrWrite;
   }

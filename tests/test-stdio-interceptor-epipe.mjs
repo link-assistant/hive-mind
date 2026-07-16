@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 import { spawnSync } from 'child_process';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 const libPath = path.join(repoRoot, 'src', 'lib.mjs');
+const useMBootstrapPath = pathToFileURL(path.join(repoRoot, 'src', 'use-m-bootstrap.lib.mjs')).href;
 
 const runBrokenPipeCase = streamName => {
   const childScript = `
@@ -23,7 +24,8 @@ const runBrokenPipeCase = streamName => {
       throw error;
     };
 
-    globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+    const { ensureUseM } = await import(${JSON.stringify(useMBootstrapPath)});
+    await ensureUseM();
     const { setLogFile, setupStdioLogInterceptor } = await import(${JSON.stringify(libPath)});
     setLogFile(path.join(os.tmpdir(), 'stdio-interceptor-${streamName}.log'));
     setupStdioLogInterceptor();

@@ -2,8 +2,278 @@
 
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
+import { lt } from './limits-i18n.lib.mjs';
 
 const execAsync = promisify(exec);
+
+/**
+ * Build a clickable, human-readable link to a queued issue/PR for the
+ * /queue detailed status (issue #1837).
+ *
+ * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
+ * Markdown link so the list is scannable and clickable. When the label would
+ * contain Markdown-special characters (e.g. `_` or `*` in an owner/repo name)
+ * that could break Telegram's legacy Markdown parser, we fall back to the bare
+ * URL — which Telegram still auto-links and renders as clickable.
+ *
+ * Non-GitHub or unparseable URLs also fall back to the bare URL.
+ *
+ * @param {string} url - The issue/PR URL.
+ * @returns {string} A Markdown link or bare URL safe for `parse_mode: 'Markdown'`.
+ */
+export function formatQueueItemLink(url) {
+  if (!url || typeof url !== 'string') return String(url ?? '');
+  const match = url.match(/github\.com\/([^/\s]+)\/([^/\s]+)\/(?:issues|pull)\/(\d+)/i);
+  if (!match) return url;
+  const [, owner, repo, number] = match;
+  const label = `${owner}/${repo}#${number}`;
+  // Only build a Markdown link when the label has no Markdown-special chars
+  // that would break the legacy parser inside link text. Otherwise the bare
+  // URL is still clickable in Telegram.
+  if (/^[A-Za-z0-9/#.-]+$/.test(label)) {
+    return `[${label}](${url})`;
+  }
+  return url;
+}
+
+/**
+ * Render a history section (Completed / Failed) for the detailed queue status
+ * as a clickable list, most-recent-first, capped at `max` items with a
+ * "... and N more" line (issue #1837).
+ *
+ * @param {object} opts
+ * @param {Array} opts.items - History items (each with `url`, optional `error`).
+ * @param {string} opts.emoji - Leading emoji for each row (e.g. '✅' or '❌').
+ * @param {string} opts.label - Localized section heading.
+ * @param {number} opts.max - Maximum items to list before collapsing.
+ * @param {string|null} opts.locale - Locale for the "and N more" label.
+ * @param {boolean} [opts.withError] - Append `— error` when the item failed.
+ * @returns {string} The formatted section (empty string when no items).
+ */
+export function formatQueueHistorySection({ items, emoji, label, max, locale, withError = false, indent = '' }) {
+  if (!items || items.length === 0) return '';
+  let section = `${indent}*${label}* (${items.length}):\n`;
+  for (const item of [...items].reverse().slice(0, max)) {
+    section += `${indent}  ${emoji} ${formatQueueItemLink(item.url)}`;
+    if (withError && item.error) section += ` — ${item.error}`;
+    section += '\n';
+  }
+  if (items.length > max) {
+    section += `${indent}    ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return section;
+}
+
+/**
+ * Normalize an issue/PR URL for de-duplication: drop a trailing slash, drop any
+ * `#fragment`, and lowercase. Two URLs that point at the same issue/PR collapse
+ * to the same key so an item that is both in the queue's in-memory `processing`
+ * Map and in the tracked-session list is listed only once (issue #1837).
+ *
+ * @param {string} url
+ * @returns {string}
+ */
+function normalizeQueueUrl(url) {
+  return typeof url === 'string' ? url.replace(/\/+$/, '').replace(/#.*$/, '').toLowerCase() : '';
+}
+
+/**
+ * Build the list of tasks a tool is actively *executing* for the detailed queue
+ * status, by merging the queue's in-memory `processing` items with the
+ * externally-tracked running sessions (detached screen/isolation work),
+ * de-duplicated by issue/PR URL.
+ *
+ * This is the fix for the follow-up on issue #1837: once a task is dispatched to
+ * a detached session the queue's own `processing` Map is emptied, so the running
+ * task — although still counted via `pgrep`/`$ --status` — was never listed.
+ * Pulling the tracked running sessions in here makes executing tasks show up as
+ * clickable links again.
+ *
+ * @param {object} opts
+ * @param {Iterable} [opts.processingItems] - `this.processing.values()` (each with `tool`, `url`, `status`, `getWaitTime()`).
+ * @param {Array} [opts.sessionItems] - Tracked running sessions (`{url, tool, startTime, status}`).
+ * @param {string} opts.tool - Tool key to filter by.
+ * @param {number} [opts.now] - Current epoch ms (injectable for tests).
+ * @returns {Array<{url: string, queueStatus: (string|null), waitMs: number}>}
+ */
+export function collectExecutingItems({ processingItems = [], sessionItems = [], tool, now = Date.now() }) {
+  const byKey = new Map();
+
+  for (const item of processingItems) {
+    if (item.tool !== tool) continue;
+    const key = normalizeQueueUrl(item.url) || item.id;
+    byKey.set(key, {
+      url: item.url,
+      queueStatus: item.status || null,
+      waitMs: typeof item.getWaitTime === 'function' ? item.getWaitTime() : 0,
+    });
+  }
+
+  for (const session of sessionItems) {
+    if ((session.tool || 'claude') !== tool) continue;
+    if (!session.url) continue; // can't render a clickable link without a URL
+    const key = normalizeQueueUrl(session.url);
+    if (key && byKey.has(key)) continue; // already represented by an in-memory item
+    const startMs = session.startTime ? new Date(session.startTime).getTime() : null;
+    byKey.set(key || session.sessionName, {
+      url: session.url,
+      // Tracked sessions report a backend status (e.g. 'executing'); fall back to
+      // the generic "processing" label rendered by formatQueueProcessingItems.
+      queueStatus: null,
+      waitMs: startMs && !Number.isNaN(startMs) ? Math.max(0, now - startMs) : 0,
+    });
+  }
+
+  return [...byKey.values()];
+}
+
+/**
+ * Render the per-tool "executing" lines for the detailed queue status as a
+ * compact, de-duplicated list (issue #1891):
+ *
+ *   `• owner/repo#number (▶️ 2h 14m 16s)`
+ *
+ * The ▶️ emoji replaces the repeated literal "processing" status word that
+ * appeared on every line in the old format. Items are listed in full by
+ * default; pass a finite `max` to cap them with a localized "... and N more"
+ * line.
+ *
+ * @param {object} opts
+ * @param {Array} opts.items - Output of {@link collectExecutingItems}.
+ * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @param {string} [opts.label] - Optional sub-list heading (e.g. "Processing").
+ *   When set, a `  *Label* (count):` header is rendered above the items so each
+ *   status gets its own clearly-labeled list (issue #1891 follow-up).
+ * @returns {string} The formatted lines (empty string when no items).
+ */
+export function formatQueueExecutingItems({ items, max = Infinity, locale, label }) {
+  if (!items || items.length === 0) return '';
+  // Items nest one level under their section label when labeled (issue #1891).
+  const itemIndent = label ? '    ' : '  ';
+  let out = label ? `  *${label}* (${items.length}):\n` : '';
+  for (const item of items.slice(0, max)) {
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (▶️ ${formatDuration(item.waitMs, { locale })})\n`;
+  }
+  if (items.length > max) {
+    out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return out;
+}
+
+/**
+ * Backwards-compatible alias for {@link formatQueueExecutingItems}.
+ * @deprecated Use {@link formatQueueExecutingItems}.
+ */
+export const formatQueueProcessingItems = formatQueueExecutingItems;
+
+/**
+ * Group queue history items (completed/failed) by their `tool` key so each tool
+ * queue can render its own Completed/Failed list (issue #1891 follow-up).
+ *
+ * @param {Array<{tool?: string}>} items
+ * @returns {Object<string, Array>} Map of tool key → items.
+ */
+export function groupQueueItemsByTool(items) {
+  const byTool = {};
+  for (const item of items || []) {
+    const tool = item.tool || 'claude';
+    (byTool[tool] ||= []).push(item);
+  }
+  return byTool;
+}
+
+/**
+ * Render one tool queue's block for the detailed status as a set of *separate,
+ * individually-labeled lists* — Processing, Pending, Completed, Failed — instead
+ * of one merged bullet list (issue #1891 follow-up). Empty lists are omitted.
+ *
+ * @param {object} opts
+ * @param {string} opts.tool - Tool key (header label).
+ * @param {Array} opts.executing - Output of {@link collectExecutingItems}.
+ * @param {Array} opts.pendingItems - `{url, waitMs, waitingReason}` per pending item.
+ * @param {Array} opts.completed - Completed history items for this tool.
+ * @param {Array} opts.failed - Failed history items for this tool.
+ * @param {object} opts.labels - Localized labels (`pendingLower`, `processingLower`,
+ *   `pending`, `processing`, `completed`, `failed`).
+ * @param {number} opts.max - Max history items before the "… and N more" collapse.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @returns {string} The formatted block (with a trailing blank line).
+ */
+export function formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale }) {
+  let block = `*${tool}*\n`;
+
+  // Processing list.
+  block += formatQueueExecutingItems({ items: executing, locale, label: labels.processing });
+
+  // Pending list + the shared waiting reason once (when all items agree on it).
+  block += formatQueuePendingItems({ items: pendingItems, locale, label: labels.pending });
+  const distinctReasons = [...new Set(pendingItems.map(item => item.waitingReason).filter(Boolean))];
+  if (distinctReasons.length === 1) {
+    block += `    ⏳ ${distinctReasons[0].replace(/\n+/g, '; ')}\n`;
+  }
+
+  // Completed / Failed lists for this tool (most-recent-first, capped), indented
+  // so the label sits under the tool header and items under it.
+  block += formatQueueHistorySection({ items: completed, emoji: '✅', label: labels.completed, max, locale, indent: '  ' });
+  block += formatQueueHistorySection({ items: failed, emoji: '❌', label: labels.failed, max, locale, withError: true, indent: '  ' });
+
+  return `${block}\n`;
+}
+
+/**
+ * Render the per-tool "pending/waiting" lines for the detailed queue status as a
+ * compact list (issue #1891):
+ *
+ *   `• owner/repo#number (⏳ 5m 2s)`
+ *
+ * The per-item waiting *reason* is deliberately omitted here — it is almost
+ * always identical across pending items, so the caller shows it once for the
+ * whole tool instead of repeating it on every line.
+ *
+ * @param {object} opts
+ * @param {Array<{url: string, waitMs: number}>} opts.items - Pending items.
+ * @param {number} [opts.max=Infinity] - Maximum items before collapsing.
+ * @param {string|null} opts.locale - Locale for labels/durations.
+ * @param {string} [opts.label] - Optional sub-list heading (e.g. "Pending").
+ *   When set, a `  *Label* (count):` header is rendered above the items so each
+ *   status gets its own clearly-labeled list (issue #1891 follow-up).
+ * @returns {string} The formatted lines (empty string when no items).
+ */
+export function formatQueuePendingItems({ items, max = Infinity, locale, label }) {
+  if (!items || items.length === 0) return '';
+  // Items nest one level under their section label when labeled (issue #1891).
+  const itemIndent = label ? '    ' : '  ';
+  let out = label ? `  *${label}* (${items.length}):\n` : '';
+  for (const item of items.slice(0, max)) {
+    out += `${itemIndent}• ${formatQueueItemLink(item.url)} (⏳ ${formatDuration(item.waitMs, { locale })})\n`;
+  }
+  if (items.length > max) {
+    out += `${itemIndent}  ... ${lt('queue_and_more', { count: items.length - max }, { locale })}\n`;
+  }
+  return out;
+}
+
+/**
+ * Lazy wrapper around session-monitor's `getRunningSessionItems` so the queue
+ * can list executing detached sessions without a static import (mirrors how the
+ * queue lazily loads isolation-session counts). Returns an empty list on error
+ * so the detailed status still renders (issue #1837).
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<Array>}
+ */
+export async function getRunningSessionItems(verbose = false) {
+  try {
+    const { getRunningSessionItems: impl } = await import('./session-monitor.lib.mjs');
+    return await impl(verbose);
+  } catch (error) {
+    if (verbose) {
+      console.error('[VERBOSE] /queue error getting running session items:', error.message);
+    }
+    return [];
+  }
+}
 
 /**
  * Count running processes by name.
@@ -30,9 +300,9 @@ export async function getRunningProcesses(processName, verbose = false) {
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve_queue found ${processes.length} running ${processName} processes`);
+      console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -42,7 +312,7 @@ export async function getRunningProcesses(processName, verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] /solve_queue error counting ${processName} processes:`, error.message);
+      console.error(`[VERBOSE] /queue error counting ${processName} processes:`, error.message);
     }
     return { count: 0, processes: [] };
   }
@@ -111,8 +381,9 @@ export function formatThresholdPercent(ratio) {
  * @returns {string} Human-readable duration
  * @see https://github.com/link-assistant/hive-mind/issues/1267
  */
-export function formatDuration(ms) {
+export function formatDuration(ms, options = {}) {
   if (ms < 0) ms = 0;
+  const locale = typeof options === 'string' ? options : options?.locale || null;
 
   const totalSeconds = Math.floor(ms / 1000);
   const days = Math.floor(totalSeconds / 86400);
@@ -120,11 +391,26 @@ export function formatDuration(ms) {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
 
+  const labels =
+    locale && locale !== 'en'
+      ? {
+          day: lt('duration_day_short', {}, { locale }),
+          hour: lt('duration_hour_short', {}, { locale }),
+          minute: lt('duration_minute_short', {}, { locale }),
+          second: lt('duration_second_short', {}, { locale }),
+        }
+      : {
+          day: 'd',
+          hour: 'h',
+          minute: 'm',
+          second: 's',
+        };
+
   const parts = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0) parts.push(`${hours}h`);
-  if (minutes > 0) parts.push(`${minutes}m`);
-  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  if (days > 0) parts.push(`${days}${locale && locale !== 'en' ? ' ' : ''}${labels.day}`);
+  if (hours > 0) parts.push(`${hours}${locale && locale !== 'en' ? ' ' : ''}${labels.hour}`);
+  if (minutes > 0) parts.push(`${minutes}${locale && locale !== 'en' ? ' ' : ''}${labels.minute}`);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}${locale && locale !== 'en' ? ' ' : ''}${labels.second}`);
 
   return parts.join(' ');
 }
@@ -136,9 +422,44 @@ export function formatDuration(ms) {
  * @param {number} threshold - Threshold ratio (0.0 - 1.0)
  * @returns {string} Human-readable reason
  */
-export function formatWaitingReason(metric, currentValue, threshold) {
+export function formatWaitingReason(metric, currentValue, threshold, options = {}) {
+  const locale = typeof options === 'string' ? options : options?.locale || null;
   const thresholdPercent = formatThresholdPercent(threshold);
   const currentPercent = Math.round(currentValue);
+  const params = { currentPercent, thresholdPercent, metric };
+
+  if (locale && locale !== 'en') {
+    switch (metric) {
+      case 'ram':
+        return lt('reason_ram_usage', params, { locale });
+      case 'cpu':
+        return lt('reason_cpu_usage', params, { locale });
+      case 'disk':
+        return lt('reason_disk_usage', params, { locale });
+      case 'claude_5_hour_session':
+        return lt('reason_claude_5_hour_session', params, { locale });
+      case 'claude_weekly':
+        return lt('reason_claude_weekly', params, { locale });
+      case 'codex_5_hour_session':
+        return lt('reason_codex_5_hour_session', params, { locale });
+      case 'codex_weekly':
+        return lt('reason_codex_weekly', params, { locale });
+      case 'github':
+        return lt('reason_github_api', params, { locale });
+      case 'min_interval':
+        return lt('reason_min_interval', params, { locale });
+      case 'claude_running':
+        return lt('reason_claude_running', params, { locale });
+      case 'codex_running':
+        return lt('reason_codex_running', params, { locale });
+      case 'qwen_running':
+        return lt('reason_qwen_running', params, { locale });
+      case 'gemini_running':
+        return lt('reason_gemini_running', params, { locale });
+      default:
+        return lt('reason_threshold_exceeded', params, { locale });
+    }
+  }
 
   switch (metric) {
     case 'ram':
@@ -169,5 +490,63 @@ export function formatWaitingReason(metric, currentValue, threshold) {
       return 'Gemini CLI process is already running';
     default:
       return `${metric} threshold exceeded`;
+  }
+}
+
+/**
+ * Report the dequeue decision across all tool queues for a SolveQueue.
+ *
+ * Provides the observability that issue #2051 needs to confirm whether a
+ * long-waiting task is blocked legitimately (limits/resources/pacing) or by an
+ * ordering defect:
+ * - In verbose mode: prints a per-tool head snapshot (age + startable +
+ *   blocking reasons) and the selected item each cycle.
+ * - Always-on: emits a concise "FIFO queue-jump" line whenever the
+ *   globally-oldest queued head is skipped in favor of a younger startable head,
+ *   naming the older task and the exact reason it is blocked. Deduplicated by
+ *   (task id + block reasons) so a persistently-blocked task is only reported
+ *   when its situation changes.
+ *
+ * @param {Object} queue - SolveQueue-like instance (uses verbose, log, recordThrottle, stats).
+ * @param {Array<{tool: string, item: Object, ageMs: number, startable: boolean, blockReasons: string[]}>} headDiagnostics
+ * @param {{item: Object, tool: string}|undefined} selected
+ * @see https://github.com/link-assistant/hive-mind/issues/2051
+ */
+export function reportDequeueDecision(queue, headDiagnostics, selected) {
+  if (!headDiagnostics || headDiagnostics.length === 0) return;
+
+  if (queue.verbose) {
+    queue.log('Dequeue decision (global FIFO across tool queues):');
+    for (const d of headDiagnostics) {
+      const detail = d.startable ? 'STARTABLE' : `blocked by [${d.blockReasons.join('; ') || 'unknown'}]`;
+      queue.log(`  ${d.tool}: waited ${formatDuration(d.ageMs)} - ${detail}`);
+    }
+    queue.log(selected ? `  -> selected ${selected.tool} (${selected.item.url})` : '  -> nothing startable this cycle');
+  }
+
+  if (!selected) return;
+
+  // Identify the globally-oldest queued head regardless of startability.
+  const oldest = headDiagnostics.reduce((a, b) => (a.item.createdAt <= b.item.createdAt ? a : b));
+  if (oldest.item.id === selected.item.id) return; // Strict FIFO honored - nothing to report.
+
+  const waitedMs = Date.now() - oldest.item.createdAt;
+  const blockedBy = oldest.blockReasons.join('; ') || 'unknown';
+  queue.recordThrottle('fifo_queue_jump');
+  queue.stats.lastQueueJump = {
+    skippedTool: oldest.tool,
+    skippedUrl: oldest.item.url,
+    waitedMs,
+    blockedBy: oldest.blockReasons,
+    startedTool: selected.tool,
+    startedUrl: selected.item.url,
+  };
+
+  // Deduplicate the always-on notice so a persistently-blocked task does not
+  // spam the log on every poll; only report when the reason changes.
+  const signature = `${oldest.item.id}|${blockedBy}`;
+  if (queue._lastQueueJumpSignature !== signature) {
+    queue._lastQueueJumpSignature = signature;
+    console.log(`[solve_queue] FIFO queue-jump: ${selected.tool} task started ahead of an older ${oldest.tool} task waiting ${formatDuration(waitedMs)} (${oldest.item.url}) — older task blocked by: ${blockedBy}`);
   }
 }

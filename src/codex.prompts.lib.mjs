@@ -4,8 +4,12 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
+import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for Codex
@@ -49,6 +53,11 @@ export const buildUserPrompt = params => {
     }
   }
 
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
+  }
+
   // Add blank line
   promptLines.push('');
 
@@ -57,6 +66,11 @@ export const buildUserPrompt = params => {
     // Add each feedback line directly
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'codex', argv });
@@ -305,7 +319,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getHandoffSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 // Export all functions as default object too

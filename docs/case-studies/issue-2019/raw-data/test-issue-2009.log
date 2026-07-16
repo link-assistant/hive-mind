@@ -1,0 +1,5 @@
+PASS same-user fork divergence guidance recommends the guarded flag only after a zero-unique-commit check
+PASS different-user safe fork divergence guidance asks an administrator to rerun with the guarded flag
+PASS different-user fork divergence guidance lists the exact commits that would be lost and asks an administrator
+PASS fork divergence reason preserves inspected repository data for the failure block
+PASS pre-exit notification uses the explicit action section instead of regenerating generic fork guidance

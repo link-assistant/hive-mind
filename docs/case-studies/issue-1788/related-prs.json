@@ -1,0 +1,86 @@
+[
+  {
+    "mergedAt": "2026-05-11T09:33:06Z",
+    "number": 1779,
+    "title": "Allow terminal watch for task requesters",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1779"
+  },
+  {
+    "mergedAt": "2026-05-10T21:27:08Z",
+    "number": 676,
+    "title": "Localize Telegram command UI",
+    "url": "https://github.com/link-assistant/hive-mind/pull/676"
+  },
+  {
+    "mergedAt": "2026-05-09T17:30:08Z",
+    "number": 1770,
+    "title": "Stop auto-merge when cancelled CI cannot be re-run",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1770"
+  },
+  {
+    "mergedAt": "2026-05-06T11:12:46Z",
+    "number": 388,
+    "title": "feat: Two-track i18n with --ui-language and --work-language (#378)",
+    "url": "https://github.com/link-assistant/hive-mind/pull/388"
+  },
+  {
+    "mergedAt": "2026-05-06T07:17:58Z",
+    "number": 384,
+    "title": "feat(i18n): add internationalisation for terminal output and Telegram bot (en/ru/zh/hi)",
+    "url": "https://github.com/link-assistant/hive-mind/pull/384"
+  },
+  {
+    "mergedAt": "2026-04-30T08:16:55Z",
+    "number": 1735,
+    "title": "Add Telegram /task issue creation",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1735"
+  },
+  {
+    "mergedAt": "2026-04-29T18:56:55Z",
+    "number": 1731,
+    "title": "fix(ci): synchronize ESLint max-lines with check-file-line-limits (#1730)",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1731"
+  },
+  {
+    "mergedAt": "2026-04-26T12:59:16Z",
+    "number": 1695,
+    "title": "Default-enable stabilized solve/Telegram options (#1694)",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1695"
+  },
+  {
+    "mergedAt": "2026-04-25T10:36:58Z",
+    "number": 1681,
+    "title": "Fix Telegram screen session monitoring startup",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1681"
+  },
+  {
+    "mergedAt": "2026-04-24T18:03:22Z",
+    "number": 1669,
+    "title": "Fix auto-restart loop limits and session log guarantees",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1669"
+  },
+  {
+    "mergedAt": "2026-04-24T08:48:29Z",
+    "number": 1663,
+    "title": "Support Telegram options before URL",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1663"
+  },
+  {
+    "mergedAt": "2026-04-23T23:16:02Z",
+    "number": 1659,
+    "title": "fix: support LINO isolation override links",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1659"
+  },
+  {
+    "mergedAt": "2026-04-18T11:02:19Z",
+    "number": 1638,
+    "title": "Fix /limits CPU load display over capacity",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1638"
+  },
+  {
+    "mergedAt": "2026-03-20T22:39:56Z",
+    "number": 1447,
+    "title": "Fix misleading rate limit message and improve verbose logging for /limits",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1447"
+  }
+]

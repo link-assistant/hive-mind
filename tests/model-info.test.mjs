@@ -62,8 +62,8 @@ test('getToolDisplayName returns "Qwen Code" for qwen', () => {
   assert.equal(getToolDisplayName('qwen'), 'Qwen Code');
 });
 
-test('getToolDisplayName returns "Gemini CLI" for gemini', () => {
-  assert.equal(getToolDisplayName('gemini'), 'Gemini CLI');
+test('getToolDisplayName returns "Google Gemini CLI" for gemini (alt invocation)', () => {
+  assert.equal(getToolDisplayName('gemini'), 'Google Gemini CLI');
 });
 
 test('getToolDisplayName returns "AI tool" for unknown', () => {
@@ -183,17 +183,18 @@ test('buildModelInfoString shows header emoji', () => {
 });
 
 test('buildModelInfoString shows model in bold when matches requested (single model)', () => {
+  // Updated for Issue #1832: opus now maps to claude-opus-4-8
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
       {
-        modelId: 'claude-opus-4-7',
-        modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic', knowledge: '2025-05' },
+        modelId: 'claude-opus-4-8',
+        modelInfo: { name: 'Claude Opus 4.8', provider: 'Anthropic', knowledge: '2026-01' },
       },
     ],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.8**'), `Expected bold model but got: ${result}`);
   assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
 });
 
@@ -210,6 +211,62 @@ test('buildModelInfoString shows warning when model does not match requested', (
   });
   assert.ok(result.includes('**Model: Claude Sonnet 4.6**'), `Expected bold model but got: ${result}`);
   assert.ok(result.includes('⚠️'), `Expected warning when model doesn't match but got: ${result}`);
+  assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
+});
+
+// Issue #2037 (review): an expected fallback (actual model == configured fallback)
+// should still be surfaced as a ⚠️ warning — the user did not get the model they
+// requested in full detail — but with a clear "automatically fell back" explanation.
+test('buildModelInfoString warns and explains the automatic capacity fallback when actual model matches the configured fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.6-terra',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.6-terra',
+        modelInfo: { name: 'GPT-5.6 Terra', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('**Model: GPT-5.6 Terra**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('⚠️'), `Expected a warning for the fallback but got: ${result}`);
+  assert.ok(result.includes('was unavailable (at capacity)'), `Expected capacity explanation but got: ${result}`);
+  assert.ok(result.includes('automatically fell back'), `Expected fallback note but got: ${result}`);
+  assert.ok(!result.includes('does not match requested'), `Did not expect the generic mismatch phrasing but got: ${result}`);
+});
+
+// Issue #2037 (review): when per-model output-token usage is available, the warning
+// reports the share of output tokens the fallback model produced.
+test('buildModelInfoString reports fallback output-token share when modelUsage is provided', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.6-terra',
+    modelsUsed: [{ modelId: 'gpt-5.6-terra', modelInfo: { name: 'GPT-5.6 Terra', provider: 'OpenAI' } }],
+    modelUsage: {
+      'gpt-5.6-terra': { outputTokens: 750 },
+      'gpt-5.6-sol': { outputTokens: 250 },
+    },
+  });
+  assert.ok(result.includes('75% of output tokens'), `Expected output-token share but got: ${result}`);
+});
+
+// Issue #2037: when the actual model matches neither the requested model nor the
+// configured fallback, the ⚠️ warning must still appear.
+test('buildModelInfoString still warns when actual model matches neither requested nor fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.4',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.5',
+        modelInfo: { name: 'GPT-5.5', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('⚠️'), `Expected warning but got: ${result}`);
   assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
 });
 
@@ -387,13 +444,13 @@ test('buildModelInfoString shows "Qwen Code" tool name for qwen', () => {
   assert.ok(result.includes('Qwen3 Coder Plus'), `Expected Qwen model name but got: ${result}`);
 });
 
-test('buildModelInfoString shows "Gemini CLI" tool name for gemini', () => {
+test('buildModelInfoString shows "Google Gemini CLI" tool name for gemini (alt invocation)', () => {
   const result = buildModelInfoString({
     tool: 'gemini',
     requestedModel: 'gemini',
     modelsUsed: [{ modelId: 'gemini-2.5-flash', modelInfo: { name: 'Gemini 2.5 Flash', provider: 'Google' } }],
   });
-  assert.ok(result.includes('Tool: Gemini CLI'), `Expected "Tool: Gemini CLI" but got: ${result}`);
+  assert.ok(result.includes('Tool: Google Gemini CLI'), `Expected "Tool: Google Gemini CLI" but got: ${result}`);
   assert.ok(result.includes('Gemini 2.5 Flash'), `Expected Gemini model name but got: ${result}`);
 });
 
@@ -473,13 +530,13 @@ test('buildModelInfoString shows "Main model" + "Additional models" for opus+hai
 
 test('buildModelInfoString shows "Model" (not "Main model") for single model (Issue #1454)', () => {
   // When only one model is used, the label should be "Model" not "Main model"
-  // Updated for Issue #1620: opus now maps to claude-opus-4-7
+  // Updated for Issue #1832: opus now maps to claude-opus-4-8
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
-    modelsUsed: [{ modelId: 'claude-opus-4-7', modelInfo: { name: 'Claude Opus 4.7', provider: 'Anthropic' } }],
+    modelsUsed: [{ modelId: 'claude-opus-4-8', modelInfo: { name: 'Claude Opus 4.8', provider: 'Anthropic' } }],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.7**'), `Expected "Model" label but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 4.8**'), `Expected "Model" label but got: ${result}`);
   assert.ok(!result.includes('Main model'), `Should NOT have "Main model" for single model but got: ${result}`);
   assert.ok(!result.includes('Additional models'), `Should NOT have "Additional models" for single model but got: ${result}`);
 });

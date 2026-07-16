@@ -1,0 +1,1 @@
+{ "createdAt": "2026-06-14T17:45:56Z", "number": 104, "state": "OPEN", "title": "dind: warn when the nested daemon runs on the 'vfs' storage driver (no copy-on-write → large images overflow disk)", "url": "https://github.com/link-foundation/box/issues/104" }

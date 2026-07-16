@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,7 +8,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -43,48 +44,16 @@ const { autoContinueWhenLimitResets } = autoContinue;
 // Import Claude-specific command builders
 // These are used to generate copy-pasteable Claude CLI resume commands for users
 // Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+// Two types of resume commands are supported:
+// 1. Interactive resume: Short command that opens interactive mode
+// 2. Autonomous resume: Full command with all flags to run autonomously
 const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
-export const { buildClaudeResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
+export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
-/**
- * Build a solve.mjs resume command for tools that do not have a first-party interactive
- * resume CLI flow like Claude Code. This keeps the invocation within hive-mind so the
- * original tool selection and working directory can be preserved.
- *
- * @param {Object} options
- * @param {string} options.issueUrl - The issue URL passed to solve.mjs
- * @param {string} options.sessionId - The session ID to resume
- * @param {string|null} [options.tool] - Tool name (codex, opencode, agent, gemini)
- * @param {string|null} [options.model] - Model name to preserve
- * @param {string|null} [options.fallbackModel] - Explicit fallback model to preserve
- * @param {string|null} [options.tempDir] - Working directory to preserve
- * @param {string} [options.nodePath] - Node binary path
- * @param {string} [options.scriptPath] - solve.mjs path
- * @returns {string}
- */
-export const buildSolveResumeCommand = ({ issueUrl, sessionId, tool = null, model = null, fallbackModel = null, tempDir = null, nodePath = process.argv[0], scriptPath = process.argv[1] }) => {
-  const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
-
-  const args = [shellQuote(scriptPath), shellQuote(issueUrl), '--resume', shellQuote(sessionId)];
-
-  if (tool && tool !== 'claude') {
-    args.push('--tool', shellQuote(tool));
-  }
-
-  if (model) {
-    args.push('--model', shellQuote(model));
-  }
-
-  if (fallbackModel) {
-    args.push('--fallback-model', shellQuote(fallbackModel));
-  }
-
-  if (tempDir) {
-    args.push('--working-directory', shellQuote(tempDir));
-  }
-
-  return `${shellQuote(nodePath)} ${args.join(' ')}`;
-};
+// Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
+// imported from tool libraries (claude/codex/gemini) without circular imports.
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+export { buildSolveResumeCommand };
 
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
@@ -361,6 +330,20 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   }
 };
 
+const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
+  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  if (changedCommitsResult.code === 0) {
+    return Boolean(changedCommitsResult.stdout?.trim());
+  }
+
+  if (changedCommitsResult.code !== 0) {
+    await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
+    await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
+  }
+
+  return true;
+};
+
 // Revert the CLAUDE.md or .gitkeep commit to restore original state
 export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
   try {
@@ -405,6 +388,16 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     }
 
     const commitToRevert = claudeCommitHash;
+
+    // Issue #1791: .gitkeep is a normal repository file in some projects, and
+    // user work may intentionally edit or delete it. Once later PR commits touch
+    // .gitkeep, final cleanup must not restore the pre-session version.
+    if (fileName === '.gitkeep' && (await wasFileTouchedAfterCommit(tempDir, commitToRevert, fileName))) {
+      await log(`   ${fileName} changed after the initial auto-commit; leaving PR changes untouched`, {
+        verbose: true,
+      });
+      return;
+    }
 
     // APPROACH 3: Check for modifications before reverting (proactive detection)
     // This is the main strategy - detect if the file was modified after initial commit
@@ -581,23 +574,23 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
 
+    // Show three resume options:
+    //   1. Interactive claude  - opens Claude Code interactively (claude only)
+    //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
+    //   3. Solve resume        - re-enters solve.mjs with --resume so the full flow continues
+    //                            (works for every supported tool, including codex/gemini/etc.)
     const tool = argv.tool || 'claude';
+    await log('');
+    await log('💡 To continue this session:');
     if (tool === 'claude') {
-      const claudeResumeCmd = buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model });
-
-      await log('');
-      await log('💡 To continue this session in Claude Code interactive mode:');
-      await log('');
-      await log(`   ${claudeResumeCmd}`);
-      await log('');
-    } else if (issueUrl) {
-      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
-      await log('');
-      await log(`💡 To continue this ${tool} session with solve:`);
-      await log('');
-      await log(`   ${solveResumeCmd}`);
-      await log('');
+      await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+      await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
     }
+    if (issueUrl) {
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+      await log(`   Solve resume mode:   ${solveResumeCmd}`);
+    }
+    await log('');
 
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
@@ -882,6 +875,7 @@ Fixes ${issueRef}
             // Issue #1152: Pass sessionType for differentiated log comments
             sessionType,
             // Issue #1225: Pass model and tool info for PR comments
+            argv,
             requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
             // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -968,6 +962,7 @@ Fixes ${issueRef}
           // Issue #1152: Pass sessionType for differentiated log comments
           sessionType,
           // Issue #1225: Pass model and tool info for issue comments
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
           // Issue #1454: Pass resultModelUsage for accurate multi-model display
@@ -1059,6 +1054,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
           // Issue #1225: Pass model and tool info for PR comments
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });
@@ -1266,12 +1262,13 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
   }
 
   try {
-    const comment = `## Working session summary
+    const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
+## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
 ${resultSummary}
 
 ---
-*This summary was automatically extracted from the AI working session output.*`;
+*${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
 
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
 

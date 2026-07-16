@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Agent-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $ } = await use('command-stream');
@@ -19,10 +20,12 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
+import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
@@ -247,10 +250,22 @@ export const mapModelToId = model => {
   return agentModels[model] || model;
 };
 
+export const MIN_AGENT_LIVE_INPUT_VERSION = '0.24.1';
+
+export const getAgentCliVersion = versionOutput => {
+  return semver.clean(versionOutput) || semver.coerce(versionOutput)?.version || null;
+};
+
+export const agentCliSupportsLiveInput = versionOutput => {
+  const version = getAgentCliVersion(versionOutput);
+  return !!version && semver.gte(version, MIN_AGENT_LIVE_INPUT_VERSION);
+};
+
 // Function to validate Agent connection
-export const validateAgentConnection = async (model = defaultModels.agent) => {
+export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
   // Map model alias to full ID
   const mappedModel = mapModelToId(model);
+  const requireLiveInput = !!options.requireLiveInput;
 
   // Retry configuration
   const maxRetries = 3;
@@ -265,10 +280,12 @@ export const validateAgentConnection = async (model = defaultModels.agent) => {
       }
 
       // Check if Agent CLI is installed and get version
+      let agentVersion = null;
       try {
         const versionResult = await $`timeout ${Math.floor(timeouts.opencodeCli / 1000)} agent --version`;
         if (versionResult.code === 0) {
           const version = versionResult.stdout?.toString().trim();
+          agentVersion = getAgentCliVersion(version);
           if (retryCount === 0) {
             await log(`📦 Agent CLI version: ${version}`);
           }
@@ -277,6 +294,17 @@ export const validateAgentConnection = async (model = defaultModels.agent) => {
         if (retryCount === 0) {
           await log(`⚠️  Agent CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
+      }
+
+      if (requireLiveInput && (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_LIVE_INPUT_VERSION))) {
+        await log(`❌ Agent live stream-json input requires @link-assistant/agent >= ${MIN_AGENT_LIVE_INPUT_VERSION}`, { level: 'error' });
+        if (agentVersion) {
+          await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
+        } else {
+          await log('   Could not determine the installed Agent CLI version.', { level: 'error' });
+        }
+        await log('   Update with: bun install -g @link-assistant/agent@latest', { level: 'error' });
+        return false;
       }
 
       // Test basic Agent functionality with a simple "hi" message
@@ -405,13 +433,17 @@ export const executeAgent = async params => {
     getResourceSnapshot,
     forkedRepo,
     feedbackLines,
+    owner,
+    repo,
+    prNumber,
+    issueNumber,
     agentPath,
     $,
   });
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, agentPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown } = params;
 
   // Retry configuration
   let retryCount = 0;
@@ -458,6 +490,15 @@ export const executeAgentCommand = async params => {
 
     // Build Agent command
     let execCommand;
+    let bidirectionalHandler = null;
+    let bidirectionalHandlerFinalized = false;
+    let queuedFeedback = [];
+    const finalizeAgentBidirectionalHandler = async () => {
+      if (bidirectionalHandlerFinalized) return queuedFeedback;
+      bidirectionalHandlerFinalized = true;
+      queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      return queuedFeedback;
+    };
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
@@ -479,27 +520,57 @@ export const executeAgentCommand = async params => {
     // We'll combine system and user prompts into a single message
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
-    // Write the combined prompt to a file for piping
-    // Use OS temporary directory instead of repository workspace to avoid polluting the repo
-    const promptFile = path.join(os.tmpdir(), `agent_prompt_${Date.now()}_${process.pid}.txt`);
-    await fs.writeFile(promptFile, combinedPrompt);
-
-    // Build the full command - pipe the prompt file to agent
-    const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${agentPath} ${agentArgs})`;
-
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(`${fullCommand}`);
-    await log('');
-
     try {
-      // Pipe the prompt file to agent via stdin
-      // Use agentArgs which includes --model and optionally --verbose
+      if (argv.acceptIncommingCommentsAsInput) {
+        bidirectionalHandler = await setupBidirectionalHandler({
+          argv,
+          owner,
+          repo,
+          prNumber,
+          issueNumber,
+          tempDir,
+          $,
+          log,
+        });
+      }
+      const streamingInput = !!bidirectionalHandler;
+      if (streamingInput) {
+        agentArgs += ' --input-format stream-json --output-format stream-json';
+      }
 
-      execCommand = $({
-        cwd: tempDir,
-        mirror: false,
-        env: agentEnv,
-      })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
+      let promptFile = null;
+      if (!streamingInput) {
+        // Write the combined prompt to a file for piping.
+        // Use OS temporary directory instead of repository workspace to avoid polluting the repo.
+        promptFile = path.join(os.tmpdir(), `agent_prompt_${Date.now()}_${process.pid}.txt`);
+        await fs.writeFile(promptFile, combinedPrompt);
+      }
+
+      const fullCommand = streamingInput ? `(cd "${tempDir}" && ${agentPath} ${agentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${agentPath} ${agentArgs})`;
+
+      await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
+      await log(`${fullCommand}`);
+      await log('');
+
+      if (streamingInput) {
+        execCommand = $({
+          cwd: tempDir,
+          stdin: 'pipe',
+          mirror: false,
+          env: agentEnv,
+        })`${agentPath} ${agentArgs}`;
+        const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
+        if (!attached) {
+          throw new Error('Agent live stream-json input requested, but stdin attachment failed');
+        }
+      } else {
+        // Pipe the prompt file to agent via stdin for the legacy one-shot path.
+        execCommand = $({
+          cwd: tempDir,
+          mirror: false,
+          env: agentEnv,
+        })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
+      }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -529,6 +600,30 @@ export const executeAgentCommand = async params => {
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
       const streamingTokenUsage = createAgentTokenUsage();
       const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+      const isAgentSuccessfulCompletionEvent = data => {
+        if (data.type === 'session.idle' || data.type === 'session_idle' || data.type === 'idle') return true;
+        if (data.type === 'log' && data.message === 'exiting loop') return true;
+        if (data.type === 'step_finish' && data.part?.reason === 'stop') return true;
+        if (data.type === 'result' && (data.status === 'success' || data.subtype === 'success')) return true;
+        return false;
+      };
+      const markBidirectionalStateFromAgentEvent = async data => {
+        if (!bidirectionalHandler) return;
+        if (isAgentSuccessfulCompletionEvent(data)) {
+          if (typeof bidirectionalHandler.markAiIdle === 'function') {
+            try {
+              await bidirectionalHandler.markAiIdle();
+            } catch (idleErr) {
+              if (argv.verbose) await log(`⚠️ Bidirectional mode: markAiIdle error: ${idleErr.message}`, { verbose: true });
+            }
+          }
+          return;
+        }
+        const busyEventTypes = new Set(['init', 'session_start', 'session.started', 'message', 'assistant', 'text', 'tool_use', 'tool_result', 'step_start', 'step_delta']);
+        if (busyEventTypes.has(data.type) && typeof bidirectionalHandler.markAiBusy === 'function') {
+          bidirectionalHandler.markAiBusy();
+        }
+      };
 
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
@@ -541,15 +636,20 @@ export const executeAgentCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              // Issue #1968: a bare `null`/primitive NDJSON line must not abort
+              // event processing (any data.X access would throw on null).
+              if (data === null || typeof data !== 'object') continue;
               // Output formatted JSON
               await log(JSON.stringify(data, null, 2));
               // Capture session ID from the first message
-              if (!sessionId && data.sessionID) {
-                sessionId = data.sessionID;
+              const eventSessionId = data.sessionID || data.session_id || data.sessionId;
+              if (!sessionId && eventSessionId) {
+                sessionId = eventSessionId;
                 await log(`📌 Session ID: ${sessionId}`);
               }
               // Issue #1250: Accumulate token usage during streaming
               accumulateTokenUsage(data);
+              await markBidirectionalStateFromAgentEvent(data);
               // Issue #1201: Detect error events during streaming for reliable detection
               if (data.type === 'error' || data.type === 'step_error') {
                 streamingErrorDetected = true;
@@ -586,16 +686,14 @@ export const executeAgentCommand = async params => {
               // Issue #1276: Detect successful completion events
               // When agent emits session.idle or log with "exiting loop" message, it completed successfully
               // This means any previous error events were recovered from (e.g., timeout then retry)
-              if (data.type === 'session.idle' || (data.type === 'log' && data.message === 'exiting loop')) {
+              if (isAgentSuccessfulCompletionEvent(data)) {
                 agentCompletedSuccessfully = true;
               }
               // Issue #1296: Detect step_finish with reason "stop" as successful completion
               // This is a clear marker of success - agent finished normally, not due to error or limit
               // When this event appears, we should ignore any error events that appeared earlier in the stream
               // (e.g., timeout errors that were recovered from via retry logic)
-              if (data.type === 'step_finish' && data.part?.reason === 'stop') {
-                agentCompletedSuccessfully = true;
-              }
+              if (data.type === 'step_finish' && data.part?.reason === 'stop') agentCompletedSuccessfully = true;
             } catch {
               // Not JSON - log as plain text
               await log(line);
@@ -615,15 +713,19 @@ export const executeAgentCommand = async params => {
               if (!stderrLine.trim()) continue;
               try {
                 const stderrData = sanitizeObjectStrings(JSON.parse(stderrLine));
+                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
+                if (stderrData === null || typeof stderrData !== 'object') continue;
                 // Output formatted JSON (same formatting as stdout)
                 await log(JSON.stringify(stderrData, null, 2));
                 // Capture session ID from stderr too (agent sends it via stderr)
-                if (!sessionId && stderrData.sessionID) {
-                  sessionId = stderrData.sessionID;
+                const eventSessionId = stderrData.sessionID || stderrData.session_id || stderrData.sessionId;
+                if (!sessionId && eventSessionId) {
+                  sessionId = eventSessionId;
                   await log(`📌 Session ID: ${sessionId}`);
                 }
                 // Issue #1250: Accumulate token usage during streaming (stderr)
                 accumulateTokenUsage(stderrData);
+                await markBidirectionalStateFromAgentEvent(stderrData);
                 // Issue #1201: Detect error events during streaming (stderr) for reliable detection
                 if (stderrData.type === 'error' || stderrData.type === 'step_error') {
                   streamingErrorDetected = true;
@@ -655,7 +757,7 @@ export const executeAgentCommand = async params => {
                 }
                 // Issue #1276: Detect successful completion events (stderr)
                 // When agent emits session.idle or log with "exiting loop" message, it completed successfully
-                if (stderrData.type === 'session.idle' || (stderrData.type === 'log' && stderrData.message === 'exiting loop')) {
+                if (isAgentSuccessfulCompletionEvent(stderrData)) {
                   agentCompletedSuccessfully = true;
                 }
                 // Issue #1296: Detect step_finish with reason "stop" as successful completion (stderr)
@@ -693,6 +795,9 @@ export const executeAgentCommand = async params => {
 
           try {
             const msg = sanitizeObjectStrings(JSON.parse(line));
+
+            // Issue #1968: ignore bare `null`/primitive lines (msg.type would throw on null).
+            if (msg === null || typeof msg !== 'object') continue;
 
             // Check for explicit error message types from agent
             if (msg.type === 'error' || msg.type === 'step_error') {
@@ -793,15 +898,23 @@ export const executeAgentCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry the same model on capacity errors before falling back;
+            // after a capacity-driven model switch, retry quickly instead of waiting the
+            // full transient backoff — the new model may be available now.
+            const retryPlan = await prepareRetryAfterError({
+              tool: 'agent',
+              argv,
+              log,
+              errorMessage: retryableError.message,
               retryCount,
               initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
               maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
             });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'agent', argv, log, errorMessage: retryableError.message });
+            await finalizeAgentBidirectionalHandler();
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -878,7 +991,8 @@ export const executeAgentCommand = async params => {
         // Issue #1250: Use streaming-accumulated token usage instead of re-parsing fullOutput
         // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
         const tokenUsage = streamingTokenUsage;
-        const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
+        const pricingInfo = await calculatePricing(mappedModel, tokenUsage);
+        await finalizeAgentBidirectionalHandler();
 
         return {
           success: false,
@@ -898,7 +1012,7 @@ export const executeAgentCommand = async params => {
       // Issue #1250: Use streaming-accumulated token usage instead of re-parsing fullOutput
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
       const tokenUsage = streamingTokenUsage;
-      const pricingInfo = await calculateAgentPricing(mappedModel, tokenUsage);
+      const pricingInfo = await calculatePricing(mappedModel, tokenUsage);
 
       // Log pricing information (similar to --tool claude breakdown)
       if (tokenUsage.stepCount > 0) {
@@ -949,6 +1063,7 @@ export const executeAgentCommand = async params => {
       if (lastTextContent) {
         await log('📝 Captured result summary from Agent output', { verbose: true });
       }
+      await finalizeAgentBidirectionalHandler();
 
       return {
         success: true,
@@ -968,6 +1083,7 @@ export const executeAgentCommand = async params => {
         operation: 'run_agent_command',
       });
 
+      await finalizeAgentBidirectionalHandler();
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
       return {
         success: false,

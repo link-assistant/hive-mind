@@ -1,0 +1,14 @@
+{
+  "note": "Condensed summary of `codex debug models` output. Full raw payload is in codex-debug-models.json.",
+  "codexCliVersion": "codex-cli 0.142.5",
+  "collectedForIssue": 2027,
+  "models": [
+    { "slug": "gpt-5.5", "displayName": "GPT-5.5", "visibility": "list", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] },
+    { "slug": "gpt-5.4", "displayName": "gpt-5.4", "visibility": "list", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] },
+    { "slug": "gpt-5.4-mini", "displayName": "gpt-5.4-mini", "visibility": "list", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] },
+    { "slug": "gpt-5.3-codex", "displayName": "gpt-5.3-codex", "visibility": "list", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] },
+    { "slug": "gpt-5.2", "displayName": "gpt-5.2", "visibility": "list", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] },
+    { "slug": "codex-auto-review", "displayName": "codex-auto-review", "visibility": "hide", "defaultReasoningLevel": "medium", "supportedReasoningLevels": ["low", "medium", "high", "xhigh"] }
+  ],
+  "observations": ["The local Codex CLI catalog (0.142.5) does not yet list the GPT-5.6 Sol/Terra/Luna preview models; hive-mind's registry already accepts them ahead of the local catalog (added in issue 1992).", "Every listed model natively supports the `xhigh` reasoning effort, so hive-mind's `--think xhigh` maps 1:1 to Codex `model_reasoning_effort=xhigh`.", "The GPT-5.6 Sol reasoning ladder additionally exposes `max` (above `xhigh`) and an `ultra` multi-agent mode; those are accepted by hive-mind but must be requested explicitly via `--think max` / `--think ultra`.", "`none` disables reasoning entirely and is the value hive-mind emits by default (no thinking level enforced)."]
+}

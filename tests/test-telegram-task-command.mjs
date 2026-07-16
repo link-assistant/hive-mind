@@ -6,7 +6,7 @@
 
 import assert from 'assert/strict';
 import { applyTaskCommandDefaults, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs, registerTaskCommands } from '../src/telegram-task-command.lib.mjs';
-import { buildTaskIssueTitle, parseTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
+import { buildTaskIssueTitle, parseTaskIssueCreationInput, resolveTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -87,6 +87,63 @@ for (const [name, input] of [
   });
 }
 
+// Issue #1916: replying to a message containing the issue text with
+// `/task <repository-url>` must combine the inline repository with the
+// replied-to issue text instead of dropping the reply.
+await test('reply issue creation combines inline repo with replied issue text', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: issueText,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply issue creation combines inline issue text with replied repo', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${issueText}`,
+    replyText: repoUrl,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply with bare /task uses repo and issue text from replied message', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: '/task',
+    replyText: `${repoUrl}\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('reply issue creation tolerates the same repo inline and in reply', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: `${repoUrl}\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(parsed.issueText, issueText);
+});
+
+await test('combining two different repositories still reports a conflict', () => {
+  const input = resolveTaskIssueCreationInput({
+    commandText: `/task ${repoUrl}`,
+    replyText: `https://github.com/link-assistant/formal-ai\n${issueText}`,
+  });
+  const parsed = parseTaskIssueCreationInput(input);
+  assert.equal(parsed.valid, false);
+  assert.match(parsed.error, /Only one GitHub repository/);
+});
+
 await test('inline /task issue creation strips command prefix', () => {
   const input = stripTaskCommandPrefix(`/task ${repoUrl}\n${issueText}`);
   const parsed = parseTaskIssueCreationInput(input);
@@ -163,6 +220,132 @@ await test('task issue creation replies with the created issue URL', async () =>
   assert.equal(edits[0].messageId, 301);
   assert.match(edits[0].text, /https:\/\/github\.com\/link-assistant\/hive-mind\/issues\/1734/);
   assert.match(edits[0].text, /Reply to this message with \/solve/);
+});
+
+// Issue #1916: end-to-end handler path for replying to an issue-text message
+// with `/task <repository-url>`.
+await test('handleTaskCommand creates issue when replying with repo and issue text in reply', async () => {
+  const bot = { command() {} };
+  const createdIssues = [];
+  const edits = [];
+  const { handleTaskCommand } = registerTaskCommands(bot, {
+    VERBOSE: false,
+    taskEnabled: true,
+    addBreadcrumb: async () => {},
+    isOldMessage: () => false,
+    isGroupChat: () => true,
+    isTopicAuthorized: () => true,
+    buildAuthErrorMessage: () => 'not authorized',
+    isChatStopped: () => false,
+    getStoppedChatRejectMessage: () => 'stopped',
+    safeReply: async () => {
+      throw new Error('safeReply should not be used for valid issue creation');
+    },
+    executeAndUpdateMessage: async () => {
+      throw new Error('split task execution should not run for issue creation');
+    },
+    createTaskIssue: async issue => {
+      createdIssues.push(issue);
+      return { url: 'https://github.com/link-assistant/hive-mind/issues/1916' };
+    },
+  });
+
+  const ctx = {
+    chat: { id: 100, type: 'group' },
+    from: { id: 200, username: 'tester' },
+    message: {
+      message_id: 300,
+      text: `/task ${repoUrl}`,
+      reply_to_message: { message_id: 250, text: issueText },
+    },
+    reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
+    telegram: {
+      editMessageText: async (chatId, messageId, inlineMessageId, text) => {
+        edits.push({ chatId, messageId, text });
+      },
+    },
+  };
+
+  await handleTaskCommand(ctx);
+
+  assert.equal(createdIssues.length, 1);
+  assert.equal(createdIssues[0].repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(createdIssues[0].body, issueText);
+  assert.equal(edits.length, 1);
+  assert.match(edits[0].text, /issues\/1916/);
+});
+
+// Issue #1922: a forwarded /task command must never be re-executed. Forwarding
+// the bot's own "/task <url>" reply (or any message starting with /task) used to
+// create a brand-new issue / spawn a session the user never intended.
+function buildTaskHarness(overrides = {}) {
+  const bot = { command() {} };
+  const calls = { createdIssues: [], executed: [], replies: [] };
+  const { handleTaskCommand } = registerTaskCommands(bot, {
+    VERBOSE: false,
+    taskEnabled: true,
+    addBreadcrumb: async () => {},
+    isOldMessage: () => false,
+    isForwarded: () => false,
+    isGroupChat: () => true,
+    isTopicAuthorized: () => true,
+    buildAuthErrorMessage: () => 'not authorized',
+    isChatStopped: () => false,
+    getStoppedChatRejectMessage: () => 'stopped',
+    safeReply: async (_ctx, text) => {
+      calls.replies.push(text);
+    },
+    executeAndUpdateMessage: async () => {
+      calls.executed.push(true);
+    },
+    createTaskIssue: async issue => {
+      calls.createdIssues.push(issue);
+      return { url: 'https://github.com/link-assistant/hive-mind/issues/9999' };
+    },
+    ...overrides,
+  });
+  return { handleTaskCommand, calls };
+}
+
+function buildTaskCtx(message) {
+  return {
+    chat: { id: 100, type: 'group' },
+    from: { id: 200, username: 'tester' },
+    message: { message_id: 300, ...message },
+    reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
+    telegram: { editMessageText: async () => {} },
+  };
+}
+
+await test('forwarded /task (new API forward_origin) is ignored — no issue created, no execution', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness({ isForwarded: ctx => Boolean(ctx.message?.forward_origin?.type) });
+  await handleTaskCommand(buildTaskCtx({ text: `/task ${repoUrl}\n${issueText}`, forward_origin: { type: 'user', sender_user: { id: 1 } } }));
+  assert.equal(calls.createdIssues.length, 0);
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.replies.length, 0);
+});
+
+await test('forwarded /split (split mode) is ignored — no execution', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness({ isForwarded: () => true });
+  await handleTaskCommand(buildTaskCtx({ text: `/split ${issueUrl}`, forward_from: { id: 1, first_name: 'T' } }));
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.createdIssues.length, 0);
+});
+
+await test('/split reports enhanced unknown option and does not execute', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness();
+  await handleTaskCommand(buildTaskCtx({ text: `/split ${issueUrl} --modl opus` }));
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.replies.length, 1);
+  assert.match(calls.replies[0], /❌ Invalid options:/);
+  assert.match(calls.replies[0], /Unknown argument: modl/);
+  assert.match(calls.replies[0], /Did you mean `--model` option\?/);
+});
+
+await test('non-forwarded /task still creates an issue (regression guard)', async () => {
+  const { handleTaskCommand, calls } = buildTaskHarness();
+  await handleTaskCommand(buildTaskCtx({ text: `/task ${repoUrl}\n${issueText}` }));
+  assert.equal(calls.createdIssues.length, 1);
 });
 
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

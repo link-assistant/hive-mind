@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// when discovered automatically. Tracked under issue #1758 follow-up; opt in
+// via `node scripts/run-tests.mjs --suite needs-triage`.
 // Test file for issue #1223: opusplan model support and --plan-model option
 // Tests opusplan alias, --plan-model validation, config settings, and backward compatibility
 
@@ -206,7 +210,7 @@ test('opus alias still works after adding opusplan', () => {
 test('sonnet alias still works after adding opusplan', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should still be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6 (Issue #1329)');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5 (Issue #2003)');
 });
 
 test('haiku alias still works after adding opusplan', () => {

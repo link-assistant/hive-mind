@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Session continuation module for solve command
 // Handles session resumption, PR detection, and limit reset waiting
@@ -8,7 +9,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -54,6 +55,9 @@ import { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIt
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 
+// Issue #1886: cumulative Anthropic cost carried across cross-process resumes
+const { getCumulativeAnthropicCost } = await import('./anthropic-cost-accumulator.lib.mjs');
+
 const { calculateWaitTime } = validation;
 
 /**
@@ -92,7 +96,7 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     const nextAutoResumeIteration = currentAutoResumeIteration + 1;
     const resetTime = global.limitResetTime;
     const timezone = global.limitTimezone || null;
-    const baseWaitMs = calculateWaitTime(resetTime);
+    const baseWaitMs = calculateWaitTime(resetTime, timezone);
 
     // Add buffer time after limit reset to account for server time differences
     // Default: 10 minutes (configurable via HIVE_MIND_LIMIT_RESET_BUFFER_MS)
@@ -168,6 +172,20 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     resumeArgs.push('--auto-resume-iteration', String(nextAutoResumeIteration));
     resumeArgs.push('--auto-resume-max-iterations', String(maxAutoResumeIterations));
 
+    // Issue #1886: carry the cumulative Anthropic cost into the resumed process.
+    // The resumed run reads the same session JSONL (full session, all runs), so
+    // its public-pricing estimate spans every run; without this the resumed
+    // run's "Calculated by Anthropic" figure would cover only its own process
+    // and disagree with the full-session public estimate (the -31.66% gap in
+    // issue #1886). getCumulativeAnthropicCost() already includes this run's
+    // cost folded in at the runClaude return, plus anything carried from prior
+    // iterations via --previous-anthropic-cost.
+    const carriedAnthropicCost = getCumulativeAnthropicCost();
+    if (carriedAnthropicCost > 0) {
+      resumeArgs.push('--previous-anthropic-cost', String(carriedAnthropicCost));
+      await log(`💰 Carrying forward cumulative Anthropic cost: $${carriedAnthropicCost.toFixed(6)} (issue #1886)`, { verbose: true });
+    }
+
     // Pass session type for proper comment differentiation
     // See: https://github.com/link-assistant/hive-mind/issues/1152
     const sessionType = isRestart ? 'auto-restart' : 'auto-resume';
@@ -230,6 +248,65 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
   }
 };
 
+/**
+ * Collect candidate PRs for an issue from two complementary sources, deduped by
+ * PR number.
+ *
+ * Issue #1895: a pull request that targets a NON-default base branch (for
+ * example a stacked sub-issue branch like `issue-47-...`, or any PR created with
+ * `--base-branch <not-main>`) never appears in GitHub's `linked:issue` search,
+ * because GitHub only registers closing references for PRs merged into the
+ * repository's default branch. Relying on the `linked:issue` search alone makes
+ * `--auto-continue` blind to those PRs and silently create a duplicate. We
+ * therefore ALSO search by the deterministic `issue-{N}-{hash}` head-branch
+ * name, which is a reliable signal regardless of which base branch the PR
+ * targets. Source 1 (the legacy `linked:issue` search) is preserved so previous
+ * linking behavior is unchanged; source 2 only ever adds PRs that source 1
+ * would have missed.
+ *
+ * The two result sets are merged and deduped by PR number; callers still apply
+ * `matchesIssuePattern` to reject any unrelated branch the search may surface.
+ *
+ * @param {Object} options
+ * @param {Function} options.$ - command-stream `$` exec helper (injected for testability)
+ * @param {string} options.owner
+ * @param {string} options.repo
+ * @param {string|number} options.issueNumber
+ * @returns {Promise<Array<{number:number, createdAt?:string, headRefName?:string, isDraft?:boolean, state?:string}>>}
+ */
+export const collectIssuePrCandidates = async ({ $: dollar = $, owner, repo, issueNumber }) => {
+  const candidates = new Map();
+  const collect = result => {
+    if (!result || result.code !== 0) {
+      return;
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(result.stdout.toString().trim() || '[]');
+    } catch {
+      parsed = [];
+    }
+    for (const pr of parsed) {
+      if (pr && pr.number !== undefined && pr.number !== null) {
+        // Keep the first occurrence; the linked search runs first and both
+        // sources return the same shape, so dedup order is irrelevant.
+        if (!candidates.has(pr.number)) {
+          candidates.set(pr.number, pr);
+        }
+      }
+    }
+  };
+
+  // Source 1 (legacy behavior, preserved): PRs GitHub reports as linked.
+  collect(await dollar`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`);
+
+  // Source 2 (issue #1895): PRs whose head branch matches this issue's naming
+  // convention — reliably surfaces PRs targeting a non-default base branch.
+  collect(await dollar`gh pr list --repo ${owner}/${repo} --search "head:${getIssueBranchPrefix(issueNumber)}" --json number,createdAt,headRefName,isDraft,state --limit 20`);
+
+  return [...candidates.values()];
+};
+
 // Auto-continue logic: check for existing PRs if --auto-continue is enabled
 export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, repo, urlNumber) => {
   let isContinueMode = false;
@@ -242,14 +319,14 @@ export const checkExistingPRsForAutoContinue = async (argv, isIssueUrl, owner, r
     await log(`🔍 Auto-continue enabled: Checking for existing PRs for issue #${issueNumber}...`);
 
     try {
-      // Get all PRs linked to this issue
-      const prListResult = await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
+      // Get all candidate PRs for this issue. Issue #1895: this includes PRs
+      // targeting a non-default base branch (found by head-branch name), which
+      // GitHub's `linked:issue` search omits.
+      const prs = await collectIssuePrCandidates({ $, owner, repo, issueNumber });
 
-      if (prListResult.code === 0) {
-        const prs = JSON.parse(prListResult.stdout.toString().trim() || '[]');
-
+      {
         if (prs.length > 0) {
-          await log(`📋 Found ${prs.length} existing PR(s) linked to issue #${issueNumber}`);
+          await log(`📋 Found ${prs.length} existing PR(s) for issue #${issueNumber}`);
 
           // Find PRs that are older than 24 hours
           const now = new Date();
@@ -517,14 +594,15 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
   }
 
   try {
-    // Get all PRs linked to this issue
-    const prListResult = await $`gh pr list --repo ${owner}/${repo} --search "linked:issue-${issueNumber}" --json number,createdAt,headRefName,isDraft,state --limit 10`;
+    // Get all candidate PRs for this issue. Issue #1895: this includes PRs
+    // targeting a non-default base branch (found by head-branch name), which
+    // GitHub's `linked:issue` search omits — critical so --auto-continue
+    // detects and resumes the existing PR instead of creating a duplicate.
+    const prs = await collectIssuePrCandidates({ $, owner, repo, issueNumber });
 
-    if (prListResult.code === 0) {
-      const prs = JSON.parse(prListResult.stdout.toString().trim() || '[]');
-
+    {
       if (prs.length > 0) {
-        await log(`📋 Found ${prs.length} existing PR(s) linked to issue #${issueNumber}`);
+        await log(`📋 Found ${prs.length} existing PR(s) for issue #${issueNumber}`);
 
         // Find PRs that are older than 24 hours
         const now = new Date();

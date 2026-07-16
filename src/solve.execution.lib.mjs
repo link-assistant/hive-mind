@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Main execution logic module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,7 +8,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -196,6 +197,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           verbose: argv.verbose || false,
           errorMessage: cleanErrorMessage(error),
           // Issue #1225: Pass model and tool info for PR comments
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });

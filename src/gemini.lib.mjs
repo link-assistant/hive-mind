@@ -1,28 +1,103 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // Google Gemini CLI-related utility functions
 
 // Check if use is already defined (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
 const { $ } = await use('command-stream');
-const fs = (await use('fs')).promises;
-const path = (await use('path')).default;
-const os = (await use('os')).default;
 
-import { log } from './lib.mjs';
+import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
+const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+
+// Patterns gemini-cli prints to stdout/stderr when no JSONL event can be emitted.
+// Issue #1809: validateNonInteractiveAuth in gemini-cli bypasses the structured
+// stream-json error path; we surface those plain-text failures ourselves until
+// the upstream fix lands. See docs/case-studies/issue-1809/upstream-issue-draft.md.
+const GEMINI_PLAIN_TEXT_ERROR_PATTERNS = [
+  { type: 'AuthenticationRequired', regex: /Please set an Auth method/i },
+  { type: 'AuthenticationRequired', regex: /authentication (?:failed|required)/i },
+  { type: 'AuthenticationRequired', regex: /invalid (?:api[_ ]?key|credentials)/i },
+  { type: 'QuotaExceeded', regex: /quota (?:exceeded|reached)/i },
+  { type: 'InvalidModel', regex: /(?:invalid|unknown) model/i },
+  { type: 'InvalidArgument', regex: /Unknown (?:argument|option)/i },
+  { type: 'FatalError', regex: /^Error:\s/m },
+];
+
+export const detectGeminiPlainTextError = text => {
+  if (!text || typeof text !== 'string') return null;
+  for (const { type, regex } of GEMINI_PLAIN_TEXT_ERROR_PATTERNS) {
+    const match = text.match(regex);
+    if (match) {
+      const line = (text.split(/\r?\n/).find(l => regex.test(l)) || match[0]).trim();
+      return { type, message: line };
+    }
+  }
+  return null;
+};
+
+// Issue #1809: Build the gemini-cli argument list once so verbose mode, includes,
+// sandbox, extensions and MCP allow-list can all be toggled by argv consistently.
+// Returns an array suitable for tagged-template interpolation through command-stream.
+export const buildGeminiArgs = (argv, mappedModel, options = {}) => {
+  const { tempDir, workspaceTmpDir } = options;
+  const args = ['--output-format', 'stream-json', '--model', mappedModel, '--approval-mode', 'yolo', '--skip-trust'];
+
+  if (argv?.verbose) args.push('--debug');
+
+  if (argv?.resume) {
+    args.unshift('--resume', String(argv.resume));
+  }
+
+  const includeDirs = [];
+  if (tempDir) includeDirs.push(tempDir);
+  if (workspaceTmpDir && workspaceTmpDir !== tempDir) includeDirs.push(workspaceTmpDir);
+  if (Array.isArray(argv?.geminiIncludeDirectories)) {
+    for (const dir of argv.geminiIncludeDirectories) if (dir) includeDirs.push(String(dir));
+  } else if (typeof argv?.geminiIncludeDirectories === 'string' && argv.geminiIncludeDirectories.trim()) {
+    includeDirs.push(
+      ...argv.geminiIncludeDirectories
+        .split(',')
+        .map(d => d.trim())
+        .filter(Boolean)
+    );
+  }
+  if (includeDirs.length > 0) {
+    args.push('--include-directories', includeDirs.join(','));
+  }
+
+  if (argv?.geminiSandbox) args.push('--sandbox');
+
+  const collectList = value => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return String(value)
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+  };
+  const extensions = collectList(argv?.geminiExtensions);
+  if (extensions.length) args.push('--extensions', extensions.join(','));
+  const allowedMcp = collectList(argv?.geminiAllowedMcpServers);
+  if (allowedMcp.length) args.push('--allowed-mcp-server-names', allowedMcp.join(','));
+
+  return args;
+};
 
 // Model mapping to translate aliases to full model IDs for Gemini.
 // Issue #1473: Uses centralized geminiModels from models/index.mjs.
@@ -304,6 +379,7 @@ export const executeGemini = async params => {
 
   return await executeGeminiCommand({
     tempDir,
+    workspaceTmpDir,
     branchName,
     prompt,
     systemPrompt,
@@ -321,7 +397,7 @@ export const executeGemini = async params => {
 };
 
 export const executeGeminiCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, workspaceTmpDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, geminiPath, $, waitForRetryDelay = waitWithCountdown } = params;
 
   let retryCount = 0;
 
@@ -348,16 +424,15 @@ export const executeGeminiCommand = async params => {
 
     const mappedModel = mapModelToId(argv.model || defaultModels.gemini);
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-    const promptFile = path.join(os.tmpdir(), `gemini_prompt_${Date.now()}_${process.pid}.txt`);
-    await fs.writeFile(promptFile, combinedPrompt);
 
-    let geminiArgs = `--output-format stream-json --model ${shellQuote(mappedModel)} --approval-mode yolo --skip-trust`;
     if (argv.resume) {
       await log(`🔄 Resuming from Gemini session: ${argv.resume}`);
-      geminiArgs = `--resume ${shellQuote(argv.resume)} ${geminiArgs}`;
     }
 
-    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${geminiPath} ${geminiArgs})`;
+    // Issue #1809: build args via shared helper so verbose/sandbox/include-dirs
+    // toggles stay consistent between the logged command and the real invocation.
+    const geminiArgList = buildGeminiArgs(argv, mappedModel, { tempDir, workspaceTmpDir });
+    const fullCommand = `(cd ${shellQuote(tempDir)} && ${geminiPath} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
 
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(fullCommand);
@@ -370,17 +445,17 @@ export const executeGeminiCommand = async params => {
     let limitReached = false;
     let limitResetTime = null;
     let lastMessage = '';
+    let plainTextError = null;
 
     try {
-      const execCommand = argv.resume
-        ? $({
-            cwd: tempDir,
-            mirror: false,
-          })`cat ${promptFile} | ${geminiPath} --resume ${argv.resume} --output-format stream-json --model ${mappedModel} --approval-mode yolo --skip-trust`
-        : $({
-            cwd: tempDir,
-            mirror: false,
-          })`cat ${promptFile} | ${geminiPath} --output-format stream-json --model ${mappedModel} --approval-mode yolo --skip-trust`;
+      // Issue #1809: feed the prompt directly to gemini-cli stdin via command-stream
+      // instead of "cat <file> | gemini" — the pipeline form swallowed the upstream
+      // non-zero exit code (no pipefail) and yielded false success: true reports.
+      const execCommand = $({
+        cwd: tempDir,
+        stdin: combinedPrompt,
+        mirror: false,
+      })`${geminiPath} ${geminiArgList}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -406,35 +481,62 @@ export const executeGeminiCommand = async params => {
           } else {
             lastMessage = output;
           }
-        }
-
-        if (chunk.type === 'stderr') {
+          if (!plainTextError) plainTextError = detectGeminiPlainTextError(output);
+        } else if (chunk.type === 'stderr') {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
             allOutput += errorOutput;
             lastMessage = errorOutput;
+            if (!plainTextError) plainTextError = detectGeminiPlainTextError(errorOutput);
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
       }
 
-      if (exitCode !== 0 || geminiJsonState.errorMessages?.length > 0) {
+      // Issue #1809: require positive evidence that gemini-cli actually ran.
+      // An empty JSONL stream + exit 0 (e.g. when stdin is closed early) used
+      // to be reported as success: true with messageCount: 0.
+      const observedJsonEvents = Object.values(geminiJsonState.eventCounts || {}).reduce((sum, count) => sum + count, 0);
+      const hasMeaningfulOutput = observedJsonEvents > 0;
+
+      // Promote the detected plain-text error into the structured error list
+      // so downstream retry / usage-limit detection picks it up.
+      if (plainTextError && !geminiJsonState.errorMessages?.some(m => m === plainTextError.message)) {
+        geminiJsonState.errorMessages = geminiJsonState.errorMessages || [];
+        geminiJsonState.errorMessages.push(plainTextError.message);
+        await log(`⚠️ Gemini CLI reported a plain-text error: [${plainTextError.type}] ${plainTextError.message}`, { level: 'warning', verbose: false });
+      }
+
+      const failedExit = exitCode !== 0;
+      const hasJsonError = (geminiJsonState.errorMessages?.length || 0) > 0;
+      // Zero JSONL events => the wrapper has nothing to attribute as model work,
+      // so this run was effectively a no-op and must be reported as failure.
+      const emittedNoEvents = !hasMeaningfulOutput;
+
+      if (failedExit || hasJsonError || emittedNoEvents) {
         const errorText = geminiJsonState.errorMessages?.length > 0 ? geminiJsonState.errorMessages.join('\n') : allOutput || lastMessage;
         const retryableError = classifyRetryableError(errorText);
         if (retryableError.isRetryable) {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
+            // Issue #2037: retry the same model on capacity errors before falling back;
+            // after a capacity-driven model switch, retry quickly instead of waiting the
+            // full transient backoff — the new model may be available now.
+            const retryPlan = await prepareRetryAfterError({
+              tool: 'gemini',
+              argv,
+              log,
+              errorMessage: retryableError.message,
               retryCount,
               initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
               maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
             });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            await maybeSwitchToFallbackModel({ tool: 'gemini', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -448,11 +550,13 @@ export const executeGeminiCommand = async params => {
           limitReached = true;
           limitResetTime = limitInfo.resetTime;
 
+          // Issue #942: build proper solve resume command (preserves tool/model/dir).
+          const solveResumeCmd = __geminiBuildSolveResumeCmd(argv, sessionId, tempDir);
           const messageLines = formatUsageLimitMessage({
             tool: 'Gemini CLI',
             resetTime: limitInfo.resetTime,
             sessionId,
-            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId} --tool gemini` : null,
+            solveResumeCommand: solveResumeCmd,
           });
 
           for (const line of messageLines) {
@@ -480,6 +584,54 @@ export const executeGeminiCommand = async params => {
           pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
           publicPricingEstimate: null,
           resultSummary: geminiJsonState.resultSummary || null,
+          // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: errorText, exitCode, fallback: `Gemini command failed with exit code ${exitCode}`, toolLabel: 'Gemini' }), exitCode },
+        };
+      }
+
+      // Issue #1990: exit 0 and a non-empty stream are necessary but NOT
+      // sufficient. gemini-cli's stream-json ends with a terminal `result` event;
+      // a run that did work but never emitted it was cut off mid-run (e.g. the
+      // docker container ran out of disk) and must be registered as a failure so
+      // the session is preserved for a context-preserving restart and — under
+      // docker isolation — the container filesystem is kept for inspection.
+      const completionHealth = getTerminalEventCompletionHealth({
+        eventCounts: geminiJsonState.eventCounts,
+        terminalEventTypes: ['result'],
+        hadActivity: (geminiJsonState.messageCount || 0) > 0 || (geminiJsonState.toolUseCount || 0) > 0,
+        diskEvidenceTexts: [
+          { source: 'output', text: allOutput },
+          { source: 'result-summary', text: geminiJsonState.resultSummary },
+        ],
+      });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Gemini exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          messageCount: geminiJsonState.messageCount || 0,
+          toolUseCount: geminiJsonState.toolUseCount || 0,
+          resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
+          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
+          publicPricingEstimate: null,
+          resultSummary: geminiJsonState.resultSummary || null,
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          errorInfo: { message: completionHealth.reasons.join(' ') },
         };
       }
 
@@ -521,9 +673,9 @@ export const executeGeminiCommand = async params => {
         pricingInfo: null,
         publicPricingEstimate: null,
         resultSummary: null,
+        // Issue #1845: surface the actual exception message so callers can show it to users
+        errorInfo: { message: error.message || error.toString() },
       };
-    } finally {
-      await fs.unlink(promptFile).catch(() => {});
     }
   };
 

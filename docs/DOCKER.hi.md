@@ -53,7 +53,12 @@ docker info
 docker run hello-world
 ```
 
-यह image overlay-backed hosts के साथ compatibility के लिए inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=vfs` पर चलाती है। जिन hosts पर nested overlay mounts supported हैं, वहां faster local runs के लिए `-e DIND_STORAGE_DRIVER=overlay2` pass करें।
+यह image inner Docker daemon को default रूप से `DIND_STORAGE_DRIVER=fuse-overlayfs` पर चलाती है। यह एक **copy-on-write** driver है, इसलिए कई गीगाबाइट की Hive Mind images डिस्क पर लगभग अपने असली आकार जितनी ही जगह (एक बार) लेती हैं — जबकि `vfs` हर layer की पूरी copy बनाता है और on-disk footprint को image आकार के कई गुना तक बढ़ा देता है, जिससे डिस्क `failed to register layer: no space left on device` के साथ भर जाती है ([issue #1914](https://github.com/link-assistant/hive-mind/issues/1914))। `fuse-overlayfs` overlay-on-overlay भी काम करता है (वही compatibility जिसके लिए शुरू में `vfs` चुना गया था), image में `fuse-overlayfs` binary पहले से मौजूद है, और Hive Mind DinD container को `--privileged` के साथ launch करता है, इसलिए `/dev/fuse` उपलब्ध रहता है। Override विकल्प:
+
+- `-e DIND_STORAGE_DRIVER=overlay2` — nested overlay mounts को support करने वाले hosts पर तेज़, लेकिन overlay-backed hosts पर fail हो सकता है;
+- `-e DIND_STORAGE_DRIVER=vfs` — केवल अंतिम विकल्प (compatibility fallback); कई गुना ज़्यादा डिस्क लेता है और यही वह configuration है जिसने issue #1914 पैदा किया।
+
+> **पुरानी `vfs` image पर container पहले से चल रहा है?** bot container के `docker run` में `-e DIND_STORAGE_DRIVER=fuse-overlayfs` जोड़ें और container को फिर से बनाएं — image rebuild की ज़रूरत नहीं।
 
 Shared hosts पर, उपलब्ध हो तो Sysbox runtime को प्राथमिकता दें:
 
@@ -62,6 +67,91 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 ```
 
 DinD image `konard/hive-mind:latest` से अलग publish होती है, इसलिए जिन्हें nested Docker नहीं चाहिए वे existing lower-privilege image इस्तेमाल कर सकते हैं।
+
+#### Host-image passthrough (मल्टी-GB images फिर से download होने से बचाएं)
+
+जब bot release DinD image के अंदर `--isolation docker` के साथ चलता है, तो हर task एक _nested_
+`docker run konard/hive-mind-dind:<release-tag> …` के रूप में launch होता है। Release images
+published `HIVE_MIND_VERSION` से `HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` bake करती हैं, इसलिए
+`konard/hive-mind-dind:latest` से started parent container भी child containers के लिए वही
+immutable release tag उपयोग करता है। वह nested `docker run` **inner** dockerd से बात करता है,
+जिसका image store शुरू में **खाली** होता है (deploy `docker commit` से पहले `/var/lib/docker`
+को wipe कर देता है)। इसलिए Docker `Unable to find image '…' locally` report करता है और एक
+नई copy pull करता है — और Hive Mind images कई gigabytes की होती हैं, इसलिए पहला isolated task
+एक ऐसी image को re-download करने में बहुत समय लगा सकता है (या disk खत्म कर सकता है) जो
+**host के पास पहले से मौजूद** है। देखें
+[issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) और
+[#1879](https://github.com/link-assistant/hive-mind/issues/1879)।
+
+Base image (`konard/box-dind`) inner daemon को host से अपने आप seed कर सकती है —
+**host-image passthrough** — लेकिन केवल तभी जब host का Docker socket container में
+bind-mount किया गया हो। **socket mount के बिना, passthrough एक silent no-op है** और
+inner daemon खाली रहता है। इसे mount करें और allowlist set करें:
+
+```bash
+docker run -dit --privileged --name hive-mind --restart unless-stopped \
+  # ... आपके सामान्य credential mounts ...
+  -v /var/run/docker.sock:/var/run/host-docker.sock:ro \
+  -e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind" \
+  konard/hive-mind-dind:latest bash -l -c 'bash /home/box/start-bot.sh'
+```
+
+Passthrough इन environment variables से नियंत्रित होता है (`box-dind` द्वारा honor किए जाते हैं):
+
+| Variable                           | Default                     | उद्देश्य                                                                             |
+| ---------------------------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| `DIND_HOST_PASSTHROUGH`            | `public`                    | `off`, `public` (केवल public-registry digest वाली images copy करें), या `all`।       |
+| `DIND_HOST_DOCKER_SOCK`            | `/var/run/host-docker.sock` | container के अंदर host socket कहाँ mount है। Hive Mind भी यही variable पढ़ता है।     |
+| `DIND_HOST_PASSTHROUGH_IMAGES`     | _(खाली = कोई भी)_           | space-separated image-name allowlist, जैसे `konard/hive-mind konard/hive-mind-dind`। |
+| `DIND_HOST_PASSTHROUGH_REGISTRIES` | _(खाली)_                    | `public` mode के लिए optional registry allowlist।                                    |
+
+default `public` mode में, केवल वे images copy होती हैं जिनमें public registry का digest होता है,
+इसलिए host copy एक pulled/pushed image होनी चाहिए (केवल local `docker build` से बनी, बिना
+`RepoDigest` वाली image skip हो जाएगी — पहले उसे push करें या `all` उपयोग करें)।
+
+release deployments में final bot container start होने से पहले host पर exact child tag भी
+मौजूद होना चाहिए। केवल `:latest` pull करना अब काफी नहीं है, क्योंकि release image
+`HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG` pin करती है:
+
+```bash
+TAG="$(docker image inspect konard/hive-mind-dind:latest \
+  --format '{{range .Config.Env}}{{println .}}{{end}}' \
+  | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' \
+  | tail -1)"
+docker pull "konard/hive-mind-dind:${TAG:-latest}"
+```
+
+**Startup preflight.** जब `--isolation docker` enabled होता है, bot startup पर inner daemon को
+probe करके result log करता है, ताकि misconfiguration task के बीच में surprise pull बनने के बजाय
+तुरंत सामने आ जाए:
+
+- ✅ image पहले से मौजूद → isolated tasks उसे reuse करते हैं (कोई pull नहीं);
+- ⚠️ socket mount **नहीं** है → यह आपको socket mount + allowlist जोड़ने को कहता है;
+- ⚠️ socket mounted है पर image अब भी absent → यह आपको passthrough mode/allowlist/digest जाँचने को कहता है;
+- ⚠️ inner daemon `vfs` storage driver पर है → यह आपको `fuse-overlayfs` पर switch करने को कहता है (issue #1914 की disk-amplification root cause);
+- ⚠️ Docker data root पर कम free space और image अब भी absent → यह चेतावनी देता है कि आने वाला pull डिस्क खत्म कर सकता है।
+
+underlying `docker image inspect` traces के लिए bot को `--verbose` (या `TELEGRAM_BOT_VERBOSE=true`) के साथ चलाएं।
+
+**Task container retention.** जब Docker-isolated task terminal state पर पहुँचता है, Hive Mind
+successful run के बाद task container हटाता है ताकि उसका writable layer reclaim हो जाए, जबकि
+host-side start-command log उपलब्ध रहता है। Failed runs debug के लिए default रूप से रखे जाते हैं,
+और Telegram completion message inspect और cleanup commands शामिल करता है। Policy override करने के लिए
+`HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` उपयोग करें (default: `on-failure`)।
+
+**Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
+सकते), host image को inner daemon में copy करें:
+
+```bash
+TAG="$(docker exec hive-mind printenv HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || true)"
+node scripts/preload-dind-isolation-image.mjs \
+  --container hive-mind --image "konard/hive-mind-dind:${TAG:-latest}"
+```
+
+यह `docker save … | docker exec -i <container> docker load` stream करता है ताकि tarball कभी disk पर
+न लिखा जाए, और अगर inner daemon के पास image पहले से है तो यह no-op है। image मौजूद होने के बाद,
+start-command का native Docker backend उसे अपने आप reuse करता है (Docker की default "missing" pull
+policy — यह केवल तभी pull करता है जब image absent हो, इसलिए कोई re-download नहीं होता)।
 
 ### विकल्प 4: Development Mode (Gitpod-style)
 
@@ -115,6 +205,43 @@ claude
 - ✅ प्रत्येक container की अपनी अलग-थलग authentication है
 - ✅ Interactive authentication के बिना सफल Docker builds
 
+## Docker में Playwright MCP State
+
+Image build अब Claude और Codex दोनों के लिए Playwright MCP register करता है:
+
+- `claude mcp add playwright -s user -- ...`
+- `codex mcp add playwright -- ...`
+
+CI workflow Docker image भी build करता है और verify करता है कि:
+
+- `playwright --version` CLI fallback के रूप में काम करता है;
+- `npx --no-install @playwright/mcp --help` MCP package को reinstall किए बिना काम करता है;
+- `claude mcp list` Playwright server को connected/enabled दिखाता है, pending या unavailable नहीं;
+- `codex mcp list` Playwright server को connected/enabled दिखाता है, pending या unavailable नहीं।
+
+यदि running container में `codex mcp list` अभी भी `No MCP servers configured yet` दिखाता है, तो सबसे संभावित root cause host से mounted `/home/box/.codex` directory है। इस image में `HOME=/home/box` है, इसलिए `/home/box/.codex` mount करने से image-baked Codex config replace हो जाता है, जिसमें preconfigured MCP entries भी शामिल हैं।
+
+इसका अर्थ है:
+
+- published image सही हो सकती है;
+- runtime container फिर भी Codex को unconfigured दिखा सकता है;
+- अंतर persisted host state के container defaults को override करने से आता है।
+
+इसे जल्दी confirm करने के लिए इन दो cases की तुलना करें:
+
+```bash
+# Host-mounted Codex state के बिना fresh container
+docker run --rm -it konard/hive-mind:latest bash -lc 'codex mcp list'
+
+# Host से persisted Codex state के साथ container
+docker run --rm -it \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  konard/hive-mind:latest \
+  bash -lc 'codex mcp list'
+```
+
+यदि पहला command `playwright` दिखाता है और दूसरा नहीं, तो host-mounted Codex directory mismatch का source है।
+
 ## पूर्वापेक्षाएं
 
 1. **Docker:** Docker Desktop या Docker Engine (version 20.10 या उच्चतर) install करें
@@ -147,6 +274,14 @@ docker volume create box-home
 # Volume mount के साथ चलाएं
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
+
+यदि persisted `/home/box/.codex/config.toml` किसी पुराने image से आया है, तो उसमें newer images द्वारा जोड़ी गई Playwright MCP registration नहीं हो सकती। Container start होने के बाद फिर से चलाएं:
+
+```bash
+codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080
+```
+
+जब `codex mcp list` में Playwright row नहीं होती और `@playwright/mcp` installed होता है, तब Hive Mind runtime पर भी यह default registration repair try करता है। यह existing pending, disabled, या customized Playwright row को overwrite नहीं करता; उन states के लिए MCP startup path को सीधे debug करना होगा।
 
 ### Detached Mode में चलाना
 

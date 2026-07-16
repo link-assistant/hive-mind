@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // GitHub-related utility functions. Check if use is already defined (when imported from solve.mjs), if not, fetch it (when running standalone)
-if (typeof globalThis.use === 'undefined') globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { githubLimits, timeouts } from './config.lib.mjs';
+import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent }; // Re-export for backward compatibility
@@ -16,6 +17,8 @@ export { getToolDisplayName }; // Re-export for use by other modules
 import { buildBudgetStatsString } from './claude.budget-stats.lib.mjs';
 import { buildCostInfoString } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
+// #1756: route gh exec calls through transient + rate-limit retry wrapper
+import { execGhWithRetry } from './github-rate-limit.lib.mjs';
 // Issue #1625: Named marker constants (single source of truth) + in-memory
 // tracking for tool-posted comments. See tool-comments.lib.mjs for design.
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -28,10 +31,13 @@ const buildIssueFailureActionSection = targetType => {
 
 ### What you can do
 - Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
-- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
-- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
-
-Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.`;
+};
+const normalizeFailureActionSection = section => {
+  const text = section || '';
+  if (!text) return '';
+  return text.startsWith('\n') ? text : `\n\n${text}`;
 };
 export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
@@ -348,9 +354,12 @@ export async function attachLogToGitHub(options) {
     pricingInfo = null,
     errorDuringExecution = false, // Issue #1088
     requestedModel = null, // Issue #1225: The --model flag value
+    argv = null, // Issue #1949: parsed CLI args, used to derive the requested thinking level for the comment
+    thinkingInfo = null, // Issue #1949: explicit thinking level description (overrides the value derived from argv)
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
+    failureActionSection = null,
   } = options;
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
@@ -379,6 +388,9 @@ export async function attachLogToGitHub(options) {
     }
     let totalCostUSD = publicPricingEstimate; // Issue #1225: token usage + actual model IDs
     let actualModelIds = null;
+    // Issue #2037 (review): per-model output-token map, used to report the share of
+    // output tokens produced by the fallback model in the "Models used:" section.
+    let modelUsageForComment = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
@@ -390,6 +402,7 @@ export async function attachLogToGitHub(options) {
           }
           if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
             actualModelIds = Object.keys(tokenUsage.modelUsage);
+            modelUsageForComment = tokenUsage.modelUsage;
             if (verbose) await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
           }
         }
@@ -403,6 +416,7 @@ export async function attachLogToGitHub(options) {
       if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
         ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
         actualModelIds = ids;
+        if (!modelUsageForComment) modelUsageForComment = resultModelUsage;
         if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
@@ -419,7 +433,10 @@ export async function attachLogToGitHub(options) {
     let modelInfoString = '';
     if (requestedModel || tool || actualModelIds) {
       try {
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds });
+        // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv
+        // (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
+        const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }
@@ -442,6 +459,7 @@ export async function attachLogToGitHub(options) {
       await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
     }
     logContent = escapeCodeBlocksInLog(logContent);
+    const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
     // Create formatted comment
     let logComment;
     // Usage limit comments should be shown whenever isUsageLimit is true,
@@ -518,7 +536,7 @@ ${footerNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
+\`\`\`${failureAction}${modelInfoString}
 
 <details>
 <summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
@@ -621,7 +639,7 @@ ${logContent}
         // Use the original sanitized content for upload since it's a plain text file
         await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
 
-        // Use gh-upload-log to upload the log file
+        // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
         const uploadResult = await uploadLogWithGhUploadLog({
           logFile: tempLogFile,
@@ -716,7 +734,7 @@ ${uploadFooterNote}`;
 The automated solution draft encountered an error:
 \`\`\`
 ${errorMessage}
-\`\`\`${buildIssueFailureActionSection(targetType)}${modelInfoString}
+\`\`\`${failureAction}${modelInfoString}
 
 ### 📎 **Failure log uploaded as ${uploadTypeLabel}${chunkInfo}** (${Math.round(logStats.size / 1024)}KB)
 - [View complete failure log](${logUrl})
@@ -775,6 +793,9 @@ ${sessionNote}
             await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
             await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
+            // Issue #1952: Record that a session log was attached anywhere in this process so the
+            // top-level --attach-logs safety net can guarantee no session finishes with no logs.
+            global.logAttachedToGitHub = true;
             return true;
           } else {
             await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
@@ -798,7 +819,12 @@ ${sessionNote}
       }
     } else {
       // Comment fits within limit
-      return await attachRegularComment(options, logComment);
+      const regularOk = await attachRegularComment(options, logComment);
+      // Issue #1952: see note above — mark a successful attach for the --attach-logs safety net.
+      if (regularOk) {
+        global.logAttachedToGitHub = true;
+      }
+      return regularOk;
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance
@@ -858,9 +884,6 @@ export function isRateLimitError(error) {
  * @returns {Promise<Array>} Array of issues
  */
 export async function fetchAllIssuesWithPagination(baseCommand) {
-  const { exec } = await import('child_process');
-  const { promisify } = await import('util');
-  const execAsync = promisify(exec);
   // Import log and cleanErrorMessage from lib.mjs
   const { log, cleanErrorMessage } = await import('./lib.mjs');
   try {
@@ -876,7 +899,11 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
     const maxPageSize = isSearchCommand ? 100 : 1000;
     const improvedCommand = `${commandWithoutLimit} --limit ${maxPageSize}`;
     await log(`   🔎 Executing: ${improvedCommand}`, { verbose: true });
-    const { stdout } = await execAsync(improvedCommand, { encoding: 'utf8', env: process.env });
+    // #1756: use execGhWithRetry so transient 5xx (e.g., 504) auto-retry
+    const { stdout } = await execGhWithRetry(improvedCommand, {
+      execOptions: { encoding: 'utf8', env: process.env },
+      label: 'gh search/list issues (paginated)',
+    });
     const endTime = Date.now();
     const issues = JSON.parse(stdout || '[]');
     await log(`   ✅ Fetched ${issues.length} issues in ${Math.round((endTime - startTime) / 1000)}s`);
@@ -913,7 +940,11 @@ export async function fetchAllIssuesWithPagination(baseCommand) {
       await log('   🔄 Falling back to default behavior...', { verbose: true });
       const fallbackCommand = baseCommand.includes('--limit') ? baseCommand : `${baseCommand} --limit 100`;
       await new Promise(resolve => setTimeout(resolve, timeouts.githubRepoDelay)); // Shorter delay for fallback
-      const { stdout } = await execAsync(fallbackCommand, { encoding: 'utf8', env: process.env });
+      // #1756: use execGhWithRetry on fallback too
+      const { stdout } = await execGhWithRetry(fallbackCommand, {
+        execOptions: { encoding: 'utf8', env: process.env },
+        label: 'gh search/list issues (fallback)',
+      });
       const issues = JSON.parse(stdout || '[]');
       await log(`   ⚠️  Fallback: fetched ${issues.length} issues (limited to 100)`, { level: 'warning' });
       return issues;
@@ -939,7 +970,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
         context: 'github.lib.mjs - GitHub CLI auth status check',
         level: 'error',
       });
-      throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
+      throw new Error('GitHub CLI authentication failed. Please run: gh auth login', { cause: error });
     }
     // Add delay to respect rate limits
     await log('   ⏰ Waiting 2 seconds before API call to respect rate limits...', { verbose: true });

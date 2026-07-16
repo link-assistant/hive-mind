@@ -222,7 +222,12 @@ export async function checkBranchCIHealth(owner, repo, branch = 'main', options,
     }
 
     // All runs for the latest commit are completed — check for failures
-    const failedRuns = runs.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out');
+    // Issue #1952: Treat `startup_failure` as a failure too (a workflow that failed to start is a
+    // genuine failure, not a transient state). `cancelled` is intentionally NOT treated as a
+    // failure here: this branch-health check resolves the HEAD SHA up front (issue #1425), and a
+    // cancelled run on the resolved HEAD is normally a superseded/manual cancellation rather than a
+    // timeout — a timeout surfaces as `failure`/`timed_out` at the workflow-run level and is caught.
+    const failedRuns = runs.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out' || r.conclusion === 'startup_failure');
 
     if (failedRuns.length > 0) {
       if (verbose) {
@@ -289,8 +294,42 @@ export async function getMergeCommitSha(owner, repo, prNumber, verbose = false) 
   }
 }
 
+/**
+ * Get the lifecycle state of a pull request (OPEN / CLOSED / MERGED) along
+ * with its mergeability state. Used by the sequential auto-resolve pass
+ * (issue #1807) to poll until a `/solve <pr> --auto-merge` session either
+ * lands the PR or fails.
+ *
+ * @param {string} owner - Repository owner
+ * @param {string} repo - Repository name
+ * @param {number} prNumber - Pull request number
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Promise<{state: string|null, mergeStateStatus: string|null, mergeable: string|null, error: string|null}>}
+ */
+export async function getPRStatus(owner, repo, prNumber, verbose = false) {
+  try {
+    const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json state,mergeStateStatus,mergeable`);
+    const pr = JSON.parse(stdout.trim());
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: PR #${prNumber} state=${pr.state}, mergeStateStatus=${pr.mergeStateStatus}, mergeable=${pr.mergeable}`);
+    }
+    return {
+      state: pr.state || null,
+      mergeStateStatus: pr.mergeStateStatus || null,
+      mergeable: pr.mergeable || null,
+      error: null,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] /merge: Error getting PR #${prNumber} status: ${error.message}`);
+    }
+    return { state: null, mergeStateStatus: null, mergeable: null, error: error.message };
+  }
+}
+
 export default {
   waitForCommitCI,
   checkBranchCIHealth,
   getMergeCommitSha,
+  getPRStatus,
 };

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
@@ -32,7 +33,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 }
 
 // Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
@@ -43,7 +44,7 @@ const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
-import { log, setLogFile, getLogFile, formatAligned } from './lib.mjs';
+import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore } from './lib.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
@@ -101,6 +102,21 @@ const createReviewYargsConfig = yargsInstance =>
       description: 'Execute the AI tool using bunx (experimental, may improve speed and memory usage)',
       default: false,
     })
+    .option('language', {
+      type: 'string',
+      description: 'Default language for both --ui-language and --work-language (en, ru, zh, hi). Defaults to detected system locale.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('ui-language', {
+      type: 'string',
+      description: 'Language for user-facing output (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
+    .option('work-language', {
+      type: 'string',
+      description: 'Working language passed to the AI tool (en, ru, zh, hi). Defaults to --language.',
+      choices: ['en', 'ru', 'zh', 'hi'],
+    })
     .check(parsed => {
       if (!parsed['pr-url'] && !parsed.prUrl && !parsed._?.[0]) {
         throw new Error('The GitHub pull request URL is required');
@@ -127,6 +143,14 @@ const prUrl = argv['pr-url'] || argv.prUrl || argv._[0];
 
 // Set global verbose mode for log function
 global.verboseMode = argv.verbose;
+
+// Initialize i18n based on --language / --ui-language / --work-language
+const { initI18n } = await import('./i18n.lib.mjs');
+await initI18n({
+  language: argv.language,
+  uiLanguage: argv.uiLanguage,
+  workLanguage: argv.workLanguage,
+});
 
 // Create permanent log file immediately with timestamp
 const scriptDir = path.dirname(process.argv[1]);
@@ -375,7 +399,9 @@ Review this pull request thoroughly.`;
 
   // Handle command failure
   if (!commandSuccess) {
-    await log('\n❌ Command execution failed. Check the log file for details.');
+    // Issue #1845: surface the core error (e.g. "API Error: ...") instead of just a generic message.
+    const reviewErrorCore = extractToolErrorCore({ toolResult: result });
+    await log(`\n❌ Command execution failed${reviewErrorCore ? ` with ${reviewErrorCore}` : '. Check the log file for details.'}`);
     await log(`📁 Log file: ${getLogFile()}`);
     process.exit(1);
   }

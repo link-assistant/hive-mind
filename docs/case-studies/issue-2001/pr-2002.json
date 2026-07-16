@@ -1,0 +1,39 @@
+{
+  "baseRefName": "main",
+  "body": "Fixes #2001.\n\n## Summary\n\n- Stop using solve-log `statfs('/')` resource snapshots as Docker task filesystem-size fallbacks in Telegram completion disk diagnostics.\n- Sample Docker's task-container writable layer while a Docker-isolated session is still running, persist the latest sample, and use only that Docker-scoped sample when a fresh completion inspect is unavailable.\n- Persist `containerFilesystemLastBytes` and `containerFilesystemLastObservedAt` across bot restarts.\n- Update issue #1999 disk fallback coverage to reflect the corrected semantics: explicit Docker completion size wins, but resource markers are not task-size fallbacks.\n- Add a patch changeset and the required issue #2001 case study with captured issue/PR metadata and screenshot evidence.\n\n## Reproduction\n\nIssue #2001 shows a Docker-isolated task where the repository grew from 10 MB to 12 MB, but the completion message reported `Container filesystem size` as 54.8 GB to 55.2 GB and emitted the >5 GB warning. The new regression test recreates that shape with small `📊 [DISK]` repository markers and large `📈 [RESOURCES]` `statfs('/')` markers, then verifies the resource values are not reported as per-task Docker usage.\n\n## Verification\n\n- `node tests/test-issue-2001-docker-disk-usage.mjs`\n- `node tests/test-issue-1999-session-monitor-disk-fallback.mjs`\n- `node tests/test-issue-1927-session-store.mjs`\n- `node tests/test-issue-1945-session-monitor-integration.mjs`\n- `node tests/test-issue-1945-disk-diagnostics.mjs`\n- `npm run lint`\n- `bash scripts/check-file-line-limits.sh`\n- `npm test` (`All 297 selected test file(s) passed.`)\n- `git diff --check`\n\n## Case Study\n\n- Analysis: `docs/case-studies/issue-2001/README.md`\n- Screenshot evidence: `docs/case-studies/issue-2001/assets/issue-2001-screenshot.png`\n- Captured issue/PR metadata: `docs/case-studies/issue-2001/*.json`\n\n## References Used\n\n- Docker CLI `docker inspect --size`: https://docs.docker.com/reference/cli/docker/inspect/\n- Docker Engine API container size fields: https://docs.docker.com/reference/api/engine/\n- Node.js `fs.statfsSync(path)`: https://nodejs.org/api/fs.html#fsstatfssyncpath-options\n",
+  "commits": [
+    { "authoredDate": "2026-06-30T22:07:01Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-30T22:07:01Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2001", "messageHeadline": "Initial commit with task details", "oid": "34ded2eb6730a22ead566206802facc008fe5aec" },
+    { "authoredDate": "2026-06-30T22:34:20Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-30T22:34:20Z", "messageBody": "", "messageHeadline": "fix: scope docker disk usage to task container", "oid": "4e21d2ae84029aa49eee490de522bf46406de5df" },
+    { "authoredDate": "2026-06-30T22:50:28Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-06-30T22:50:28Z", "messageBody": "", "messageHeadline": "chore: remove issue branch placeholder", "oid": "87c956e0ac4a78ebffbf73a00eadd410d5186f8b" }
+  ],
+  "createdAt": "2026-06-30T22:07:09Z",
+  "files": [
+    { "path": ".changeset/issue-2001-docker-disk-usage.md", "additions": 5, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/README.md", "additions": 132, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/assets/issue-2001-screenshot.png", "additions": 0, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/issue-2001-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/issue-2001.json", "additions": 12, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2000-conversation-comments.json", "additions": 47, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2000-review-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2000-reviews.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2000.diff", "additions": 1052, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2000.json", "additions": 64, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2002-conversation-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2002-review-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2002-reviews.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2001/pr-2002.json", "additions": 41, "deletions": 0, "changeType": "ADDED" },
+    { "path": "src/session-monitor.lib.mjs", "additions": 35, "deletions": 21, "changeType": "MODIFIED" },
+    { "path": "src/session-store.lib.mjs", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "tests/test-issue-1927-session-store.mjs", "additions": 7, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "tests/test-issue-1999-session-monitor-disk-fallback.mjs", "additions": 6, "deletions": 9, "changeType": "MODIFIED" },
+    { "path": "tests/test-issue-2001-docker-disk-usage.mjs", "additions": 191, "deletions": 0, "changeType": "ADDED" }
+  ],
+  "headRefName": "issue-2001-7ea95a7e46c8",
+  "isDraft": false,
+  "number": 2002,
+  "state": "OPEN",
+  "statusCheckRollup": [],
+  "title": "fix: scope Docker disk usage to task container",
+  "updatedAt": "2026-06-30T22:51:28Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2002"
+}

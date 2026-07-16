@@ -6,6 +6,9 @@
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
+import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for Qwen Code
@@ -43,11 +46,21 @@ export const buildUserPrompt = params => {
     }
   }
 
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
+  }
+
   promptLines.push('');
 
   if (isContinueMode && feedbackLines && feedbackLines.length > 0) {
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool, argv });
@@ -104,7 +117,6 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using Qwen Code.
-
 General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed.
@@ -244,7 +256,7 @@ Visual UI work and screenshots.
    - When the fix is visual, include side-by-side or sequential comparison of before/after states in the PR description.
    - When possible, create automated visual regression tests to prevent the UI bug from recurring.`
        : ''
-   }${ciExamples}${getArchitectureCareSubPrompt(argv)}`;
+   }${ciExamples}${getArchitectureCareSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };
 
 export default {

@@ -3,7 +3,7 @@
 // when only the yargs configuration is needed (e.g., in telegram-bot.mjs)
 // This module has no heavy dependencies to allow fast loading for --help
 
-import { SOLVE_OPTION_DEFINITIONS } from './solve.config.lib.mjs';
+import { SOLVE_OPTION_DEFINITIONS, normalizeAndValidateThink } from './solve.config.lib.mjs';
 import { buildModelOptionDescription, defaultModels } from './models/index.mjs';
 
 // Hive-only options that are NOT solve options (hive-specific functionality).
@@ -49,6 +49,17 @@ const HIVE_CUSTOM_SOLVE_OPTIONS = {
     description: 'AI tool to use for solving issues',
     choices: ['claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini'],
     default: 'claude',
+  },
+  // Issue #1823: hive enables the experimental working-session guard for every /solve worker by
+  // default. This is the ONLY change to how CTRL+C behaves in the hive workflow: instead of
+  // aborting the AI tool mid-run, a forwarded interrupt lets the worker finish its current AI
+  // working session, auto-commit, then shut down gracefully. solve keeps default:false (standalone
+  // behavior unchanged); hive overrides the default to true so the loop below forwards the flag.
+  // Operators can opt out with --no-do-not-shutdown-in-the-middle-of-working-session.
+  'do-not-shutdown-in-the-middle-of-working-session': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] On CTRL+C, let each /solve worker finish its current AI working session and auto-commit before shutting down, instead of aborting it mid-run. If a worker is only idle-waiting (e.g. for CI/CD), it stops immediately. Press CTRL+C again to force-stop. Enabled by default for the hive workflow.',
+    default: true,
   },
 };
 
@@ -212,6 +223,12 @@ export const createYargsConfig = yargsInstance => {
       'strip-dashed': false,
       'strip-aliased': false,
       'populate--': false,
+    })
+    // Issue #2038: normalize/validate --think identically to solve (off synonyms,
+    // minimal, adaptive, percentages/fractions/0|1; fail fast on unsupported adaptive).
+    .check(argv => {
+      normalizeAndValidateThink(argv);
+      return true;
     })
     .showHelpOnFail(false) // Don't show help on validation failures
     .strict()

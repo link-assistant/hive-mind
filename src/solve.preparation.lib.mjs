@@ -8,7 +8,7 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-l
 const feedback = await import('./solve.feedback.lib.mjs');
 const { detectAndCountFeedback } = feedback;
 
-export async function prepareFeedbackAndTimestamps({ prNumber, branchName: _branchName, owner, repo, issueNumber, isContinueMode: _isContinueMode, mergeStateStatus: _mergeStateStatus, prState: _prState, argv: _argv, log, formatAligned, cleanErrorMessage: _cleanErrorMessage, $ }) {
+export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, branchName: _branchName, owner, repo, issueNumber, isContinueMode: _isContinueMode, mergeStateStatus: _mergeStateStatus, prState: _prState, argv: _argv, log, formatAligned, cleanErrorMessage: _cleanErrorMessage, $ }) {
   // Count new comments and detect feedback
   let { feedbackLines } = await detectAndCountFeedback({
     prNumber,
@@ -25,6 +25,7 @@ export async function prepareFeedbackAndTimestamps({ prNumber, branchName: _bran
     formatAligned,
     cleanErrorMessage: _cleanErrorMessage,
     $,
+    repositoryPath: tempDir,
   });
 
   // Get timestamps from GitHub servers before executing the command

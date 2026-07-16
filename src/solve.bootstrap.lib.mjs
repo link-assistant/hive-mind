@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Handle lightweight early-exit paths before solve loads its full dependency graph.
@@ -20,7 +21,7 @@ export async function handleSolveEarlyExit(earlyArgs) {
 
   if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
     // Load minimal modules needed for help output.
-    const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+    const use = await ensureUseM();
     globalThis.use = use;
     const { initializeConfig, createYargsConfig } = await import('./solve.config.lib.mjs');
     const { yargs, hideBin } = await initializeConfig(use);

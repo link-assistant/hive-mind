@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Shared utilities for watch mode and auto-restart-until-mergeable mode
@@ -15,7 +16,7 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
@@ -29,7 +30,9 @@ const fs = (await use('fs')).promises;
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, formatAligned } = lib;
+const { log, formatAligned, extractToolErrorCore } = lib;
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -174,6 +177,13 @@ export const getUncommittedChangesDetails = async tempDir => {
  */
 export const executeToolIteration = async params => {
   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
+
+  await recordResourceSnapshot({
+    phase: RESOURCE_PHASE_RESTART_BEFORE,
+    log,
+    diskPath: '/',
+    label: 'before AI restart iteration',
+  });
 
   // Import necessary modules for tool execution
   const memoryCheck = await import('./memory-check.mjs');
@@ -459,6 +469,13 @@ export const executeToolIteration = async params => {
     });
   }
 
+  await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
+  await recordResourceSnapshot({
+    phase: RESOURCE_PHASE_RESTART_AFTER,
+    log,
+    diskPath: '/',
+    label: 'after AI restart iteration',
+  });
   return toolResult;
 };
 
@@ -507,11 +524,20 @@ export const buildUncommittedChangesFeedback = (changes, restartCount = 0, maxIt
  * @returns {boolean}
  */
 export const isApiError = toolResult => {
-  if (!toolResult || !toolResult.result) return false;
+  if (!toolResult) return false;
+
+  // Issue #1845: runners report failures via `errorInfo` (e.g. claude sets
+  // `errorInfo.message` but NOT `result`). Use the shared core-error extractor so an
+  // "API Error:" is classified correctly regardless of which field the runner populated —
+  // otherwise the MAX_API_ERROR_RETRIES guard never trips for claude and watch mode can
+  // retry a hard API error indefinitely. `extractToolErrorCore` still falls back to
+  // `result`, preserving the original behavior for runners that set it.
+  const errorText = extractToolErrorCore({ toolResult });
+  if (!errorText) return false;
 
   const errorPatterns = ['API Error:', 'not_found_error', 'authentication_error', 'invalid_request_error'];
 
-  return errorPatterns.some(pattern => toolResult.result.includes(pattern));
+  return errorPatterns.some(pattern => errorText.includes(pattern));
 };
 
 /**

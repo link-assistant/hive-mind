@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// @hive-mind-test-suite needs-triage
+// Pre-existing orphan test that was not in the legacy default suite and fails
+// when discovered automatically. Tracked under issue #1758 follow-up; opt in
+// via `node scripts/run-tests.mjs --suite needs-triage`.
 /**
  * Unit tests for Issue #1572 fixes:
  * 1. Multi-line log messages get timestamps on each line
@@ -12,11 +16,10 @@
  *   with remote before launching new sessions, causing push failures
  */
 
-// Use use-m to dynamically import modules
-if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
-const use = globalThis.use;
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
+// Use use-m to dynamically import modules.
+const use = await ensureUseM();
 
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;

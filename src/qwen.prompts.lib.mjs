@@ -8,7 +8,7 @@ import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
-import { buildDevelopmentLogPrompt } from './development-log.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for Qwen Code
@@ -58,9 +58,9 @@ export const buildUserPrompt = params => {
     promptLines.push('');
   }
 
-  const developmentLogPrompt = buildDevelopmentLogPrompt({ argv, issueNumber, prNumber }).trim();
-  if (developmentLogPrompt) {
-    promptLines.push(developmentLogPrompt, '');
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool, argv });

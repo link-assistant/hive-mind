@@ -2,24 +2,20 @@
 /**
  * Telegram Solve Queue Library
  *
- * Producer/consumer queue for /solve commands in the Telegram bot.
- * Implements resource-aware throttling to prevent system overload.
- *
- * Features:
- * - Resource checking (RAM, CPU, disk)
- * - API limit checking (Claude, GitHub)
- * - Minimum interval between command starts
- * - Running process detection
- * - Status tracking: Queued -> Waiting -> Starting -> Started
+ * Producer/consumer queue for /solve commands in the Telegram bot. Implements
+ * resource-aware throttling (RAM, CPU, disk), API limit checking (Claude,
+ * GitHub), a minimum interval between command starts, running-process
+ * detection, and status tracking (Queued -> Waiting -> Starting -> Started).
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1041
  */
 
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
-import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool } from './telegram-solve-queue.helpers.lib.mjs';
+import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool, reportDequeueDecision } from './telegram-solve-queue.helpers.lib.mjs';
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
+import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
@@ -58,6 +54,8 @@ class SolveQueueItem {
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
     this.tool = options.tool || 'claude';
+    // Issue #1983: preserve per-command isolation through queued execution.
+    this.perCommandIsolation = options.perCommandIsolation || null;
     // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion
     //   notifications can look up linked PRs for issue URLs.
     this.urlContext = options.urlContext || null;
@@ -187,8 +185,7 @@ export class SolveQueue {
       qwen: null,
       gemini: null,
     };
-    // Legacy: keep for compatibility with existing code that uses lastStartTime
-    this.lastStartTime = null;
+    this.lastStartTime = null; // Legacy: global last-start timestamp
 
     // Consumer task reference
     this.consumerTask = null;
@@ -248,7 +245,7 @@ export class SolveQueue {
    */
   log(message) {
     if (this.verbose) {
-      console.log(`[VERBOSE] /solve_queue: ${message}`);
+      console.log(`[VERBOSE] /queue: ${message}`);
     }
   }
 
@@ -371,13 +368,23 @@ export class SolveQueue {
     return count;
   }
 
+  recordStart(tool = 'claude', startTime = Date.now()) {
+    this.lastStartTimeByTool[tool] = startTime;
+    this.lastStartTime = startTime;
+    return startTime;
+  }
+
+  reserveStartSlot(options = {}) {
+    return reserveStartSlotForQueue(this, options);
+  }
+
   /**
-   * Find startable items from each tool queue
-   * Returns the first item from each tool queue that can start.
-   * With separate queues, each tool is checked independently so they don't block each other.
-   *
-   * Also immediately rejects all queued items when a 'reject' strategy threshold
-   * is exceeded, instead of leaving them waiting indefinitely.
+   * Find the next startable item across all tool queues. Each tool is checked
+   * independently so tool-specific limits do not block unrelated tools; issue
+   * #2015 adds a global startup interval, so even when multiple tools are
+   * startable this returns only the oldest startable item (global FIFO) to
+   * prevent burst launches. Queued items are rejected immediately when a
+   * 'reject' strategy threshold is exceeded rather than left waiting.
    *
    * @returns {Promise<Array<{item: SolveQueueItem, tool: string, index: number, check: Object}>>}
    * @see https://github.com/link-assistant/hive-mind/issues/1159
@@ -385,6 +392,9 @@ export class SolveQueue {
    */
   async findStartableItems() {
     const startableItems = [];
+    // Per-tool head diagnostics: why each queue head is/isn't startable, so
+    // global FIFO ordering can be audited in production (issue #2051).
+    const headDiagnostics = [];
 
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       if (toolQueue.length === 0) continue;
@@ -400,22 +410,36 @@ export class SolveQueue {
         continue;
       }
 
+      const item = toolQueue[0];
+      if (!item) continue;
+
+      // Determine startability and capture the blocking reason(s) for diagnostics.
+      // For tool-specific one-at-a-time, only count that tool's processing items.
+      const toolProcessingCount = this.getProcessingCountByTool(tool);
+      let startable = false;
+      const blockReasons = Array.isArray(check.reasons) ? [...check.reasons] : [];
       if (check.canStart) {
-        const item = toolQueue[0];
-        if (!item) continue;
-        // Also check one-at-a-time mode for this specific tool
-        // For tool-specific one-at-a-time, only count that tool's processing items
-        const toolProcessingCount = this.getProcessingCountByTool(tool);
         if (check.oneAtATime && toolProcessingCount > 0) {
-          // This tool is in one-at-a-time mode and has items processing
-          // Skip but don't block other tools
-          continue;
+          // One-at-a-time for this tool with a task already processing: skip it
+          // but don't block other tools.
+          blockReasons.push(`one-at-a-time: ${toolProcessingCount} ${tool} task(s) already processing`);
+        } else {
+          startable = true;
+          startableItems.push({ item, tool, index: 0, check });
         }
-        startableItems.push({ item, tool, index: 0, check });
       }
+
+      headDiagnostics.push({ tool, item, ageMs: Date.now() - item.createdAt, startable, blockReasons });
     }
 
-    return startableItems;
+    // Global FIFO: the oldest startable head wins the (globally paced) startup slot.
+    startableItems.sort((a, b) => a.item.createdAt - b.item.createdAt);
+    const selected = startableItems.slice(0, 1);
+
+    // Observe the dequeue decision (issue #2051): see reportDequeueDecision().
+    reportDequeueDecision(this, headDiagnostics, selected[0]);
+
+    return selected;
   }
 
   /**
@@ -539,23 +563,16 @@ export class SolveQueue {
   }
 
   /**
-   * Check if a new command can start
+   * Check if a new command can start.
    *
-   * Logic per issue #1061:
-   * 1. "Claude process is already running" is NOT a limit by itself - it's a metric
-   * 2. Commands can run in parallel as long as actual limits are not exceeded
-   * 3. When any limit >= threshold, allow exactly one claude command to pass
-   *
-   * Logic per issue #1159:
-   * - Different tools have different limits. Claude limits only apply to 'claude' tool.
-   * - Processing count for Claude limits only includes Claude items, not agent/codex/gemini/qwen items.
-   * - This allows non-Claude tasks to run in parallel when Claude limits are reached.
-   *
-   * Logic per issue #1253:
-   * - All thresholds now support configurable strategies (reject, enqueue, dequeue-one-at-a-time)
-   * - 'reject' strategy immediately rejects the command without queueing
-   * - 'enqueue' blocks and waits in queue until metric drops
-   * - 'dequeue-one-at-a-time' allows one command while blocking subsequent
+   * - #1061: a running Claude process is a metric, not a limit by itself;
+   *   commands run in parallel while actual limits are not exceeded.
+   * - #1159: tools have independent limits — Claude limits (and Claude
+   *   processing counts) apply only to the 'claude' tool, so non-Claude tasks
+   *   run in parallel when Claude limits are reached.
+   * - #1253: every threshold supports a configurable strategy — 'reject'
+   *   (reject without queueing), 'enqueue' (block until the metric drops), or
+   *   'dequeue-one-at-a-time' (allow one, block subsequent).
    *
    * @param {Object} options - Options for the check
    * @param {string} options.tool - The tool being used ('claude', 'agent', 'codex', 'gemini', 'qwen', etc.)
@@ -569,10 +586,10 @@ export class SolveQueue {
     let rejected = false;
     let rejectReason = null;
 
-    // Check minimum interval since last start FOR THIS TOOL
-    // Each tool queue has independent timing to prevent cross-blocking
-    // See: https://github.com/link-assistant/hive-mind/issues/1159
-    const lastStartTime = this.lastStartTimeByTool[tool] || null;
+    // Check minimum interval since the last task start globally.
+    // Issue #2015: do not let another tool queue bypass startup pacing; host
+    // CPU/RAM/disk metrics need time to settle before any next task starts.
+    const lastStartTime = this.lastStartTime || null;
     if (lastStartTime) {
       const timeSinceLastStart = Date.now() - lastStartTime;
       if (timeSinceLastStart < QUEUE_CONFIG.MIN_START_INTERVAL_MS) {
@@ -722,10 +739,11 @@ export class SolveQueue {
    * Default strategies:
    * - RAM: enqueue
    * - CPU: enqueue
-   * - DISK: reject (changed from dequeue-one-at-a-time - queue lost on restart)
+   * - DISK: enqueue (waits until disk drops below the threshold)
    *
    * See: https://github.com/link-assistant/hive-mind/issues/1155
    * See: https://github.com/link-assistant/hive-mind/issues/1253
+   * See: https://github.com/link-assistant/hive-mind/issues/1981
    *
    * @param {number} totalProcessing - Total processing count (queue + external claude processes)
    * @returns {Promise<{ok: boolean, reasons: string[], oneAtATime: boolean, rejected: boolean, rejectReason: string|null}>}
@@ -762,7 +780,6 @@ export class SolveQueue {
     }
 
     // Check CPU using 5-minute load average (more stable than 1-minute)
-    // Cache TTL is 2 minutes, which is appropriate for this metric
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
       // Use loadAvg5 (5-minute average) instead of usagePercentage (1-minute based)
@@ -1069,7 +1086,7 @@ export class SolveQueue {
    * - Each tool queue is checked independently
    * - Claude limits only affect Claude queue
    * - Agent queue can proceed even when Claude is blocked (and vice versa)
-   * - Multiple items can start in the same cycle (one per tool)
+   * - The oldest startable item starts each cycle to preserve global pacing
    *
    * @see https://github.com/link-assistant/hive-mind/issues/1159
    */
@@ -1083,9 +1100,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Find startable items from each tool queue
-      // Each tool is checked independently so they don't block each other
-      // See: https://github.com/link-assistant/hive-mind/issues/1159
       const startableItems = await this.findStartableItems();
 
       if (startableItems.length === 0) {
@@ -1096,8 +1110,6 @@ export class SolveQueue {
         continue;
       }
 
-      // Start items from each tool that can proceed
-      // This allows parallel starts from different tool queues
       for (const startable of startableItems) {
         const { tool } = startable;
         const toolQueue = this.getToolQueue(tool);
@@ -1110,12 +1122,9 @@ export class SolveQueue {
         item.setStarting();
         this.processing.set(item.id, item);
 
-        // Update tool-specific last start time
-        this.lastStartTimeByTool[tool] = Date.now();
-        this.lastStartTime = Date.now(); // Legacy compatibility
+        this.recordStart(tool);
         this.stats.totalStarted++;
 
-        // Update message to show Starting status
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
 
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
@@ -1466,7 +1475,7 @@ export async function getRunningIsolatedSessions(verbose = false) {
     return await getRunningTrackedIsolationSessions(verbose);
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] /solve_queue error getting isolated sessions:`, error.message);
+      console.error(`[VERBOSE] /queue error getting isolated sessions:`, error.message);
     }
     return { count: 0, sessions: [], byTool: {} };
   }

@@ -192,6 +192,11 @@ zh
         hour
           session "Claude 5 小时会话"
       limits "Claude 限额"
+      subscription
+        title "Claude{{plan}} 订阅"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} 订阅"
     codex
       5
         hour
@@ -205,6 +210,7 @@ zh
     current
       time "当前时间"
       week
+        label "本周"
         all
           models "本周（所有模型）"
         sonnet
@@ -226,6 +232,8 @@ zh
     end "结束"
     five
       hour
+        limit
+          session "5 小时会话"
         session "5 小时会话"
       min
         load
@@ -314,10 +322,39 @@ zh
     session "会话"
     start "开始"
     subscription
+      detail
+        ends
+          label "结束于 {{time}}"
+          in "将在 {{duration}} 后结束；{{time}}"
+        trial
+          ends
+            label "试用结束于 {{time}}"
+            in "试用将在 {{duration}} 后结束；{{time}}"
       ends
         label "订阅结束于 {{time}}"
         in "订阅将在 {{duration}} 后结束 ({{time}})"
       status "订阅: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "限流"
+      last
+        rate
+          limit "最近一次 429：{{method}}"
+      observed
+        limit "实测上限"
+      peak "峰值 {{peak}}"
+      rate
+        limit
+          responses "启动后的 429 响应：{{count}}"
+      requests "{{used}}/{{limit}} 个请求"
+      retry
+        in "{{duration}} 后重试"
+      scope
+        broadcast "发送到所有聊天，1 秒"
+        chat "每个聊天的消息，1 分钟"
+        group "每个群组的消息，1 分钟"
+        other "其他 API 请求，1 秒"
     trial
       ends
         label "试用结束于 {{time}}"
@@ -355,7 +392,7 @@ zh
       queue
         only
           in
-            groups "❌ /solve_queue 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
+            groups "❌ /queue 命令仅在群聊中有效。请将本机器人加入群组并设为管理员。"
       disabled "❌ 此机器人实例已禁用 solve 命令。"
       rejected """
         ❌ Solve 命令被拒绝。
@@ -413,7 +450,7 @@ zh
           URL：{{url}}
           状态：{{status}}
 
-          💡 使用 /solve_queue 查看队列状态。
+          💡 使用 /queue 查看队列状态。
         """
       session
         running """
@@ -422,7 +459,7 @@ zh
           URL：{{url}}
           会话：`{{session}}`
 
-          💡 等待当前会话完成，或使用 /solve\_stop 取消。
+          💡 等待当前会话完成，或使用 /stop 取消。
         """
       issues
         list
@@ -515,7 +552,7 @@ zh
           detail "工具别名会添加 `--tool <tool>`：`/codex <github-url>` 等同于 `/solve <github-url> --tool codex`"
         reply "也可以回复包含 GitHub 链接的消息：`/solve`"
         disabled "*/solve*（别名：*/do*、*/continue*、*/claude*、*/codex*、*/opencode*、*/agent*、*/gemini*、*/qwen*）- ❌ 已禁用"
-        queue "`/solve_queue`（别名：`/queue`）- 显示 solve 队列状态"
+        queue "`/queue` - 显示 solve 队列状态"
       locked
         options "🔒 锁定选项：`{{options}}`"
       task
@@ -553,7 +590,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/hive、/solve\\_queue、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/hive、/queue、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model
@@ -562,7 +599,7 @@ zh
         branch
           option "• `--base-branch <branch>` 或 `-b` - PR 目标分支（默认：仓库默认分支）"
       think
-        option "• `--think <level>` - 思考级别（off/low/medium/high/xhigh/max）| `--thinking-budget <num>` - token 预算（0-63999）"
+        option "• `--think <level>` - 思考级别（off/minimal/low/medium/high/xhigh/ultra/max/adaptive）| `--thinking-budget <num>` - token 预算（0-63999）"
       verbose
         option "• `--verbose` 或 `-v` - 详细输出 | `--attach-logs` - 将日志附加到 PR"
       show
@@ -607,6 +644,8 @@ zh
         executing "⏳ 正在执行..."
         finished "工作会话已成功完成"
         failed "工作会话失败（退出代码：{{exitCode}}）"
+        killed "工作会话已终止：{{reason}}{{exitSuffix}}"
+        stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
     duration
       label "耗时"
     session

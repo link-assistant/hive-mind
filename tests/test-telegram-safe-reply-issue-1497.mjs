@@ -4,7 +4,7 @@
  * Unit tests for issue #1497: Failed to send formatted message
  *
  * Tests verify that:
- * 1. The /solve_queue text in duplicate URL message has escaped underscore
+ * 1. Underscored command hints have escaped underscores
  * 2. Dynamic error messages are escaped before embedding in Markdown
  * 3. safeReply correctly falls back to plain text on Markdown parsing failure
  * 4. Messages with various special characters don't break Markdown parsing
@@ -114,37 +114,37 @@ function checkTelegramMarkdown(text) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Test Suite 1: Root cause - /solve_queue underscore (issue #1497)
+// Test Suite 1: Root cause - underscored commands in Markdown (issue #1497)
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n🧪 Test Suite 1: Root cause - /solve_queue underscore in Markdown');
+console.log('\n🧪 Test Suite 1: Root cause - underscored command in Markdown');
 console.log('─'.repeat(60));
 
-// Test: The EXACT failing message from issue #1497
+// Test: the Markdown failure mode from issue #1497
 {
   const normalizedUrl = 'https://github.com/MixaByk1996/elements-app/issues/14';
   const statusText = 'being processed';
 
   // OLD message (broken) - unescaped underscore
-  const oldMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /solve_queue to check the queue status.`;
+  const oldMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /accept_invites to accept pending invitations.`;
   const oldError = checkTelegramMarkdown(oldMsg);
-  assert(oldError !== null, 'OLD message with /solve_queue has Markdown parsing issue', oldError || 'No issue detected');
+  assert(oldError !== null, 'OLD message with underscored command has Markdown parsing issue', oldError || 'No issue detected');
 
   // NEW message (fixed) - escaped underscore
-  const newMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /solve\\_queue to check the queue status.`;
+  const newMsg = `❌ This URL is ${statusText}.\n\nURL: ${escapeMarkdown(normalizedUrl)}\nStatus: started\n\n💡 Use /accept\\_invites to accept pending invitations.`;
   const newError = checkTelegramMarkdown(newMsg);
-  assert(newError === null, 'NEW message with /solve\\_queue passes Markdown parsing', newError || '');
+  assert(newError === null, 'NEW message with escaped underscored command passes Markdown parsing', newError || '');
 }
 
-// Test: /solve_queue with underscore URL
+// Test: underscored command with underscore URL
 {
   const url = 'https://github.com/xlab2016/space_db_private/issues/17';
-  const oldMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /solve_queue to check the queue status.`;
+  const oldMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /accept_invites to accept pending invitations.`;
   const oldError = checkTelegramMarkdown(oldMsg);
-  assert(oldError !== null, 'Message with underscore URL + /solve_queue fails Markdown', oldError || 'No issue detected');
+  assert(oldError !== null, 'Message with underscore URL + underscored command fails Markdown', oldError || 'No issue detected');
 
-  const newMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /solve\\_queue to check the queue status.`;
+  const newMsg = `❌ This URL is being processed.\n\nURL: ${escapeMarkdown(url)}\nStatus: started\n\n💡 Use /accept\\_invites to accept pending invitations.`;
   const newError = checkTelegramMarkdown(newMsg);
-  assert(newError === null, 'Fixed message with underscore URL + escaped /solve\\_queue passes', newError || '');
+  assert(newError === null, 'Fixed message with underscore URL + escaped underscored command passes', newError || '');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -269,9 +269,9 @@ function stripMarkdown(text) {
 
 // Test: Escaped underscores are unescaped
 {
-  const markdown = 'Use /solve\\_queue to check status';
+  const markdown = 'Use /accept\\_invites to accept invitations';
   const plain = stripMarkdown(markdown);
-  assertEqual(plain, 'Use /solve_queue to check status', 'Escaped underscores are restored in plain text');
+  assertEqual(plain, 'Use /accept_invites to accept invitations', 'Escaped underscores are restored in plain text');
 }
 
 // Test: Bold text stripping

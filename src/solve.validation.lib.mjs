@@ -54,7 +54,7 @@ const { parseResetTime: parseResetTimeToDate } = usageLimitLib;
 const { validateClaudeConnection } = claudeLib;
 
 // Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 2048) => {
+const checkDiskSpace = async (minSpaceMB = 10240) => {
   const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
   return result.success;
 };
@@ -216,7 +216,7 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Perform all system checks (disk space, memory, tool connection, GitHub permissions)
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
-export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnection = false, model = 'sonnet', argv = {}) => {
+export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnection = false, model = 'sonnet', argv = {}) => {
   // Check disk space before proceeding
   const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
   if (!hasEnoughSpace) {
@@ -302,7 +302,7 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
 
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
-    let isToolConnected = false;
+    let isToolConnected;
     if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
@@ -341,7 +341,9 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
     } else if (argv.tool === 'agent') {
       // Validate Agent connection
       const agentLib = await import('./agent.lib.mjs');
-      isToolConnected = await agentLib.validateAgentConnection(model);
+      isToolConnected = await agentLib.validateAgentConnection(model, {
+        requireLiveInput: !!(argv.autoInputUntilMergeable || argv.acceptIncommingCommentsAsInput),
+      });
       if (!isToolConnected) {
         await log('❌ Cannot proceed without Agent connection', { level: 'error' });
         return false;
@@ -361,7 +363,6 @@ export const performSystemChecks = async (minDiskSpace = 2048, skipToolConnectio
         await log('❌ Cannot proceed without Claude CLI connection', { level: 'error' });
         return false;
       }
-      isToolConnected = true;
     }
 
     // Check GitHub permissions (only when tool check is not skipped)

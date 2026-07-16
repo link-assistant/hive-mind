@@ -30,6 +30,8 @@ const { log, formatAligned } = lib;
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
+import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
+import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -521,33 +523,91 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log('');
         await log(`${formatAligned('⚠️', 'FORK PARENT MISMATCH DETECTED', '')}`, { level: 'warning' });
         const detail = !forkValidation.isFork ? `Repository ${existingForkName} is NOT a GitHub fork (see issue #1518)` : `Fork ${existingForkName} was created from ${forkValidation.parent} instead of ${owner}/${repo} (see issue #967)`;
+        const relationshipDescription = !forkValidation.isFork ? `${existingForkName} is not a GitHub fork of ${owner}/${repo}.` : `${existingForkName} is a GitHub fork of ${forkValidation.parent || 'unknown parent'}, not ${owner}/${repo}.`;
         await log(`${formatAligned('', '', detail)}`);
         await log(`${formatAligned('', '', `Fork parent: ${forkValidation.parent || 'N/A (not a fork)'}, source: ${forkValidation.source || 'N/A'}, expected: ${owner}/${repo}`)}`);
-        // Safety check: compare commits before deleting to avoid data loss
-        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing commits against upstream...')}`);
+        // Safety check: compare commits before deleting to avoid data loss.
+        // GitHub compare only answers for fork-network refs, so a local Git
+        // fallback checks every replacement branch tip before deletion.
+        await log(`${formatAligned('🔍', 'Safety check:', 'Comparing default branch against upstream...')}`);
         let safeToDelete = false;
+        let safetyCheckDescription = buildForkReplacementSafetyCheckDescription();
+        let shouldRunBranchReachabilityCheck = false;
+        let likelyDetachedFork = false;
         try {
           const cmp = await $`gh api repos/${owner}/${repo}/compare/${owner}:HEAD...${existingForkName.split('/')[0]}:HEAD --paginate --jq '.ahead_by' 2>&1`;
-          if (cmp.code === 0 && parseInt(cmp.stdout.toString().trim(), 10) === 0) {
-            await log(`${formatAligned('✅', 'Safe to delete:', 'No additional commits in non-fork repository')}`);
-            safeToDelete = true;
+          const aheadBy = parseInt(cmp.stdout.toString().trim(), 10);
+          if (cmp.code === 0 && aheadBy === 0) {
+            await log(`${formatAligned('✅', 'Default branch:', 'No additional commits in replacement repository')}`);
+            shouldRunBranchReachabilityCheck = true;
           } else if (cmp.code === 0) {
-            await log(`${formatAligned('⚠️', 'UNSAFE:', `Repository has ${cmp.stdout.toString().trim()} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ aheadBy });
+            if (Number.isFinite(aheadBy)) {
+              await log(`${formatAligned('⚠️', 'UNSAFE:', `Default branch has ${aheadBy} commit(s) ahead of upstream that would be lost`)}`, { level: 'warning' });
+            } else {
+              await log(`${formatAligned('⚠️', 'Compare unclear:', 'GitHub compare did not return a numeric ahead_by value')}`, { level: 'warning' });
+              shouldRunBranchReachabilityCheck = true;
+            }
           } else {
-            await log(`${formatAligned('⚠️', 'Compare failed:', ((cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '')).split('\n')[0])}`, { level: 'warning' });
+            const compareOutput = (cmp.stderr?.toString() || '') + (cmp.stdout?.toString() || '');
+            safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: compareOutput });
+            await log(`${formatAligned('⚠️', 'Compare failed:', compareOutput.split('\n')[0])}`, { level: 'warning' });
+            shouldRunBranchReachabilityCheck = true;
           }
         } catch (e) {
+          safetyCheckDescription = buildForkReplacementSafetyCheckDescription({ compareFailureOutput: e.message });
           await log(`${formatAligned('⚠️', 'Compare error:', e.message)}`, { level: 'warning' });
+          shouldRunBranchReachabilityCheck = true;
+        }
+
+        if (shouldRunBranchReachabilityCheck) {
+          await log(`${formatAligned('🔍', 'Safety check:', 'Checking all replacement branches against upstream refs...')}`);
+          const branchSafety = await checkReplacementRepositoryBranchSafety({
+            $,
+            owner,
+            repo,
+            existingRepository: existingForkName,
+          });
+          safetyCheckDescription = branchSafety.safetyCheckDescription;
+          likelyDetachedFork = Boolean(branchSafety.likelyDetachedFork);
+
+          if (likelyDetachedFork) {
+            await log(`${formatAligned('🔗', 'Detached fork:', `${existingForkName} shares history with ${owner}/${repo} but is not a GitHub fork — this matches a fork detached by a private/public visibility change`)}`);
+          }
+
+          if (branchSafety.safeToDelete) {
+            await log(`${formatAligned('✅', 'Safe to delete:', `All ${branchSafety.branchCount} replacement branch tip(s) are reachable from upstream`)}`);
+            safeToDelete = true;
+          } else if (branchSafety.uniqueBranches.length > 0) {
+            await log(`${formatAligned('⚠️', 'UNSAFE:', `${branchSafety.uniqueBranches.length} replacement branch tip(s) have commits not reachable from upstream`)}`, { level: 'warning' });
+            for (const branch of branchSafety.uniqueBranches.slice(0, 3)) {
+              await log(`${formatAligned('', '', `${branch.ref}: ${branch.uniqueCommitCount} commit(s), ${branch.sha.slice(0, 12)} ${branch.subject || ''}`)}`, { level: 'warning' });
+            }
+          } else {
+            await log(`${formatAligned('⚠️', 'Branch check failed:', safetyCheckDescription)}`, { level: 'warning' });
+          }
         }
         if (!safeToDelete) {
           if (argv.allowForceNonForkRepositoryDeletion) {
+            // Force flag set — proceed with deletion despite the failed safety check.
             await log(`${formatAligned('⚠️', 'Force deletion ENABLED:', '--allow-force-non-fork-repository-deletion — proceeding despite potential data loss')}`, { level: 'warning' });
-            safeToDelete = true;
           } else {
+            if (likelyDetachedFork) {
+              await log(`  🔗 Recover without deletion: ask GitHub Support to re-attach ${existingForkName} to ${owner}/${repo} at https://support.github.com/request/fork ("Attach, detach or reroute forks")`);
+            }
             await log(`  💡 Manual fix required: back up work, then: gh repo delete ${existingForkName} --yes`);
             await log(`     Then run this command again to create a proper fork of ${owner}/${repo}`);
             await log(`  🔧 Or force deletion (DANGEROUS): solve ${argv.url || argv['issue-url'] || argv._[0] || '<issue-url>'} --allow-force-non-fork-repository-deletion`);
-            await safeExit(1, 'Auto-recovery skipped - repository may contain commits that would be lost');
+            await safeExit(
+              1,
+              buildForkReplacementBlockedReason({
+                existingRepository: existingForkName,
+                expectedUpstream: `${owner}/${repo}`,
+                relationshipDescription,
+                safetyCheckDescription,
+                likelyDetachedFork,
+              })
+            );
           }
         }
         await log(`${formatAligned('🔄', 'Auto-recovery:', 'Deleting non-fork repository and creating fresh fork...')}`);
@@ -922,8 +982,12 @@ export const classifyCloneError = errorOutput => {
   }
 
   // Network-related errors - typically retryable
-  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error')) {
-    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue' };
+  // Issue #1957: git fetch-pack/sideband disconnects (e.g.
+  // "fetch-pack: unexpected disconnect while reading sideband packet",
+  // "early EOF", "the remote end hung up unexpectedly", "RPC failed",
+  // "index-pack failed") leave an incomplete or missing clone but are transient.
+  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error') || output.includes('unexpected disconnect') || output.includes('sideband') || output.includes('early eof') || output.includes('remote end hung up') || output.includes('rpc failed') || output.includes('fetch-pack') || output.includes('index-pack failed') || output.includes('transfer closed')) {
+    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue (interrupted transfer)' };
   }
 
   // Authentication/permission errors - not retryable
@@ -945,6 +1009,24 @@ export const classifyCloneError = errorOutput => {
   return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
 };
 
+// Issue #1957: remove leftovers from an interrupted clone so a retry can start clean.
+// We empty the directory in place (rather than removing it) because the path was
+// created up-front by setupTempDirectory and may be the configured working directory.
+export const cleanPartialClone = async tempDir => {
+  try {
+    const entries = await fs.readdir(tempDir);
+    for (const entry of entries) {
+      await fs.rm(path.join(tempDir, entry), { recursive: true, force: true });
+    }
+  } catch (error) {
+    // Directory may not exist yet, or be unreadable — non-fatal; the retry/clone
+    // will surface any real problem with a clearer message.
+    if (error?.code !== 'ENOENT') {
+      reportError(error, { context: 'clean_partial_clone', tempDir, operation: 'empty_directory' });
+    }
+  }
+};
+
 // Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
   const maxRetries = 3;
@@ -959,9 +1041,25 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 
     // Use 2>&1 to capture all output and filter "Cloning into" message
     const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
+    const cloneOutput = (cloneResult.stdout || cloneResult.stderr || '').toString().trim();
 
-    // Verify clone was successful
+    // Issue #1957: `gh repo clone` (and the `git clone` it wraps) can exit 0 even when
+    // the underlying transfer was interrupted — e.g. "fetch-pack: unexpected disconnect
+    // while reading sideband packet" — leaving an incomplete or completely missing
+    // working tree (no `.git`). Trusting the exit code alone made the solver report
+    // "✅ Cloned to:" and then crash much later with the unhelpful "Failed to get
+    // current branch". Verify the clone actually produced a usable git repository.
+    let repoIsValid = false;
     if (cloneResult.code === 0) {
+      const validityCheck = await $({ cwd: tempDir })`git rev-parse --is-inside-work-tree 2>&1`;
+      repoIsValid = validityCheck.code === 0 && validityCheck.stdout.toString().trim() === 'true';
+      if (!repoIsValid && argv.verbose) {
+        await log(`${formatAligned('🔧', 'Clone validation:', `git rev-parse failed despite exit 0 — ${(validityCheck.stdout || validityCheck.stderr || '').toString().trim().split('\n')[0]}`)}`);
+      }
+    }
+
+    // Verify clone was successful (exit code 0 AND a valid working tree exists)
+    if (cloneResult.code === 0 && repoIsValid) {
       await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
 
       // Verify and fix remote configuration
@@ -975,7 +1073,15 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     }
 
     // Clone failed - analyze error and determine if retry is appropriate
-    const errorOutput = (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
+    // Issue #1957: when the wrapper exited 0 but left no valid repo, surface the
+    // interrupted-transfer output (which carries the real "unexpected disconnect"
+    // reason) so it is classified as a retryable network error rather than UNKNOWN.
+    const errorOutput = cloneResult.code === 0 && !repoIsValid ? cloneOutput || 'Clone exited 0 but no valid git repository was created (interrupted transfer / incomplete clone)' : (cloneResult.stderr || cloneResult.stdout || 'Unknown error').toString().trim();
+
+    // Issue #1957: a partial clone can leave stray files behind that make a retry of
+    // `gh repo clone <dir>` fail with "directory exists and is not empty". Clean the
+    // target directory before classifying/retrying so the next attempt starts fresh.
+    await cleanPartialClone(tempDir);
 
     const errorClassification = classifyCloneError(errorOutput);
 
@@ -1015,6 +1121,9 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         await log('     • Network connectivity issues');
         if (errorClassification.type === 'TRANSIENT') await log('     • GitHub server issues (temporary)');
         if (errorClassification.type === 'RATE_LIMIT') await log('     • API rate limiting exceeded');
+        // Issue #1957: the transfer started but was interrupted (e.g. the connection
+        // dropped while reading the pack). The retries above were already exhausted.
+        if (errorClassification.type === 'NETWORK') await log('     • Connection dropped mid-transfer (the clone was interrupted before completing)');
         if (argv.fork) await log('     • Fork not ready yet (try again in a moment)');
         await log('');
         await log('  🔧 How to fix:');
@@ -1024,6 +1133,11 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         if (argv.fork) await log(`     4. Check fork: gh repo view ${repoToClone}`);
         if (errorClassification.type === 'TRANSIENT') await log('     5. Wait and retry / check: https://www.githubstatus.com');
         if (errorClassification.type === 'RATE_LIMIT') await log('     5. Wait for rate limit to reset or use --token with different token');
+        if (errorClassification.type === 'NETWORK') {
+          await log('     5. Check your network connection / VPN / proxy, then re-run the command');
+          await log('     6. On slow or unstable links, a shallower history transfers faster and is less');
+          await log('        likely to be interrupted; ask a Hive Mind administrator if clone tuning is available');
+        }
         await log('');
       }
       await safeExit(1, 'Repository setup failed');

@@ -43,7 +43,12 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Import shared utilities from the restart-shared module
 const restartShared = await import('./solve.restart-shared.lib.mjs');
-const { checkPRMerged, checkPRClosed, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildAutoRestartInstructions, isUsageLimitReached } = restartShared;
+
+// Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
+// are terminal states for long-running watch loops, not retryable CI states.
+const terminalStateLib = await import('./github-terminal-state.lib.mjs');
+const { checkGitHubTerminalState } = terminalStateLib;
 
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
@@ -54,7 +59,7 @@ import { limitReset } from './config.lib.mjs';
 
 // Import helper functions extracted for file size management (Issue #1593)
 const autoMergeHelpers = await import('./solve.auto-merge-helpers.lib.mjs');
-const { checkForExistingComment, checkForNonBotComments, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
+const { checkForExistingComment, checkForNonBotComments, checkForIssueMetadataChanges, getMergeBlockers, shouldResetNoRunsCounter, trackAuthenticatedUserCommentsSince, nextMonotonicCheckTime } = autoMergeHelpers;
 
 // Issue #1769: cancelled/stale CI re-run failures need a human action stop, not polling forever.
 const cancelledCiRerunLib = await import('./cancelled-ci-rerun.lib.mjs');
@@ -76,6 +81,7 @@ const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = results
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
@@ -131,7 +137,7 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Max limit resumes:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
-  await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, CI failures, merge conflicts', 2));
+  await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, issue title/description edits, CI failures, merge conflicts', 2));
   // Issue #1708: Surface that --auto-input-until-mergeable streamed feedback
   // into the prior session, so any restart triggered here is a fallback.
   if (argv.autoInputUntilMergeable) {
@@ -151,28 +157,39 @@ export const watchUntilMergeable = async params => {
   let iteration = 0;
   let lastCheckTime = new Date();
 
+  // Issue #2007: Track the issue title/body across iterations so the
+  // restart/resume fallback can detect user edits to those surfaces and deliver
+  // them as feedback to the next session. The first check seeds the baseline.
+  let issueMetadataSnapshot = null;
+
   while (true) {
     iteration++;
     const currentTime = new Date();
 
-    // Check if PR is merged
-    const isMerged = await checkPRMerged(owner, repo, prNumber);
-    if (isMerged) {
+    const terminalState = await checkGitHubTerminalState({
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      sourceBranchName: prBranch || branchName,
+      commandRunner: $,
+    });
+    if (terminalState.terminal && terminalState.success) {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
       await log('');
       return { success: true, reason: 'merged', latestSessionId, latestAnthropicCost };
     }
-
-    // Check if PR is closed (not merged)
-    const isClosed = await checkPRClosed(owner, repo, prNumber);
-    if (isClosed) {
+    if (terminalState.terminal) {
       await log('');
-      await log(formatAligned('🚫', 'PR CLOSED!', 'Stopping auto-restart-until-mergeable mode'));
-      await log(formatAligned('', 'Pull request:', `#${prNumber} has been closed without merging`, 2));
+      await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+      for (const detail of terminalState.details || []) {
+        await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+      }
+      await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
       await log('');
-      return { success: false, reason: 'closed', latestSessionId, latestAnthropicCost };
+      return { success: false, reason: terminalState.reason, latestSessionId, latestAnthropicCost };
     }
 
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
@@ -205,6 +222,18 @@ export const watchUntilMergeable = async params => {
       // Get merge blockers
       const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
 
+      const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
+      if (terminalGitHubBlocker) {
+        await log('');
+        await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalGitHubBlocker.message, 2), { level: 'error' });
+        for (const detail of terminalGitHubBlocker.details || []) {
+          await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+        }
+        await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
+        await log('');
+        return { success: false, reason: 'terminal_github_entity_error', latestSessionId, latestAnthropicCost };
+      }
+
       // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
       // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
       // waiting for PR-triggered workflow runs to register (noWorkflowRunsForCommit). A
@@ -226,6 +255,14 @@ export const watchUntilMergeable = async params => {
         trustAuthenticatedUserComments: true,
       });
 
+      // Issue #2007: Detect issue title/description edits (user-owned feedback
+      // surfaces) so the fallback resumes the AI with them. The first iteration
+      // seeds the baseline and never reports a change.
+      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
+      issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
+      const hasIssueMetadataChanges = metadataCheck.changed === true;
+      const issueMetadataChanges = metadataCheck.changes || [];
+
       // Check for uncommitted changes using shared utility
       const hasUncommittedChanges = await checkForUncommittedChanges(tempDir, argv);
 
@@ -240,8 +277,9 @@ export const watchUntilMergeable = async params => {
         }
       }
 
-      // If PR is mergeable, no blockers, no new comments, and no uncommitted changes
-      if (blockers.length === 0 && !hasNewComments && !hasUncommittedChanges) {
+      // If PR is mergeable, no blockers, no new comments, no issue metadata
+      // edits, and no uncommitted changes
+      if (blockers.length === 0 && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges) {
         // Issue #1503 (enhanced): Multi-mechanism consensus + repo-wide action check.
         // Before declaring PR mergeable, run multiple independent CI detection mechanisms
         // and require all to agree. This catches race conditions where CI starts between
@@ -396,6 +434,21 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push('Please review and address the feedback from these comments.');
       }
 
+      // Issue #2007: Reason 1b: Issue title/description edited by the user.
+      if (hasIssueMetadataChanges) {
+        shouldRestart = true;
+        const changedFields = issueMetadataChanges.map(c => (c.field === 'title' ? 'title' : 'description')).join(' and ');
+        restartReason = restartReason ? `${restartReason}; Issue ${changedFields} edited` : `Issue ${changedFields} edited`;
+        feedbackLines.push(`✏️ The issue ${changedFields} was edited after the last session:`);
+        for (const change of issueMetadataChanges) {
+          const label = change.field === 'title' ? 'Issue title' : 'Issue description';
+          const updated = String(change.to ?? '');
+          feedbackLines.push(`  - ${label} is now: "${updated.substring(0, 200)}${updated.length > 200 ? '...' : ''}"`);
+        }
+        feedbackLines.push('');
+        feedbackLines.push('Please re-read the updated issue and make sure your solution still matches the requirements.');
+      }
+
       // Issue #1314: Check for billing limit errors BEFORE regular CI failures
       // Billing limits require human intervention and should NOT trigger AI restarts
       const billingBlocker = blockers.find(b => b.type === 'billing_limit');
@@ -466,7 +519,13 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
       // re-triggered automatically. We should NOT restart the AI for these.
       const cancelledBlocker = blockers.find(b => b.type === 'ci_cancelled');
-      if (cancelledBlocker && !billingBlocker) {
+      // Issue #1952: When a genuine CI failure coexists with cancelled checks, the result is a
+      // failure ("if we still have other fails in the CI/CD checks - it is fail"). Defer to the
+      // ci_failure path (which restarts the AI) instead of attempting a re-trigger and then
+      // stopping for human review — the latter posted a misleading "Cancelled CI/CD Requires
+      // Review" comment even though real failures needed fixing.
+      const ciFailureBlocker = blockers.find(b => b.type === 'ci_failure');
+      if (cancelledBlocker && !billingBlocker && !ciFailureBlocker) {
         await log('');
         await log(formatAligned('🔄', 'CANCELLED CI/CD CHECKS DETECTED', ''));
         await log(formatAligned('', 'Cancelled checks:', (cancelledBlocker.details || []).join(', '), 2));
@@ -547,9 +606,11 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       // Reason 2: CI failures (only if NOT a billing limit issue and NOT just cancelled)
       // Only restart AI when we have genuine code failures (real feedback to act on)
       const externalReviewLimitBlocker = blockers.find(b => b.type === 'external_review_limit');
-      const ciBlocker = blockers.find(b => b.type === 'ci_failure');
+      // Issue #1952: Reuse the ci_failure blocker resolved above so cancelled+failure mixes
+      // take the restart path rather than the cancelled-review path.
+      const ciBlocker = ciFailureBlocker;
       const hasMergeConflictBlocker = blockers.some(b => b.type === 'not_mergeable' && b.message?.includes('conflicts'));
-      if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasUncommittedChanges && !hasMergeConflictBlocker) {
+      if (externalReviewLimitBlocker && !ciBlocker && !billingBlocker && !cancelledBlocker && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges && !hasMergeConflictBlocker) {
         await log('');
         await log(formatAligned('🟡', 'READY FOR REVIEW', 'External review quota/credit limit requires human decision'));
         for (const detail of externalReviewLimitBlocker.details || []) {
@@ -1201,6 +1262,25 @@ export const attemptAutoMerge = async params => {
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
 
+  const terminalState = await checkGitHubTerminalState({
+    owner,
+    repo,
+    issueNumber,
+    prNumber,
+    commandRunner: $,
+  });
+  if (terminalState.terminal) {
+    if (terminalState.success) {
+      await log(formatAligned('🎉', 'PR already merged:', `#${prNumber}`, 2));
+      return { success: true, reason: 'merged' };
+    }
+    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+    for (const detail of terminalState.details || []) {
+      await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+    }
+    return { success: false, reason: terminalState.reason, error: terminalState.message };
+  }
+
   // Issue #1226: Check merge permissions before attempting
   const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
   if (!canMerge) {
@@ -1234,6 +1314,11 @@ export const attemptAutoMerge = async params => {
 
   // Check if PR is mergeable
   const mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
+  if (mergeStatus.terminal) {
+    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible', 2), { level: 'error' });
+    return { success: false, reason: 'terminal_github_entity_error', error: mergeStatus.reason };
+  }
+
   if (!mergeStatus.mergeable) {
     await log(formatAligned('⚠️', 'PR not mergeable:', mergeStatus.reason || 'Unknown reason', 2));
     return { success: false, reason: 'not_mergeable', error: mergeStatus.reason };
@@ -1296,6 +1381,18 @@ export const startAutoRestartUntilMergeable = async params => {
     await log(formatAligned('', 'Note:', 'This mode only works with existing PRs', 2));
     return null;
   }
+
+  await ensurePullRequestBaseBranch({
+    owner,
+    repo,
+    prNumber,
+    argv,
+    log,
+    formatAligned,
+    $,
+    onMismatch: isAutoMerge ? 'throw' : 'restore',
+    operation: isAutoMerge ? 'auto-merge' : 'auto-restart-until-mergeable',
+  });
 
   // Issue #1226: Check if running in fork mode — auto-merge cannot work without write access
   if (argv.fork && isAutoMerge) {

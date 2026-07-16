@@ -15,6 +15,10 @@ const os = (await use('os')).default;
 
 // Import log from general lib
 import { log } from './lib.mjs';
+// Issues #1955 / #1990: run-health analysis lives in its own module to keep this
+// file under the max-lines budget. Re-exported below for backward compatibility.
+import { getCodexErrorEventSummary, getCodexCompletionHealth } from './codex-health.lib.mjs';
+export { getCodexErrorEventSummary, getCodexCompletionHealth };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -27,10 +31,11 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'reasoning_output_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
@@ -327,77 +332,6 @@ const upsertCodexItemError = (itemErrors, item) => {
   });
 };
 
-const unwrapCodexErrorMessage = value => {
-  if (!value) return '';
-  if (typeof value !== 'string') {
-    if (typeof value?.error?.message === 'string') return unwrapCodexErrorMessage(value.error.message);
-    if (typeof value?.message === 'string') return unwrapCodexErrorMessage(value.message);
-    return String(value);
-  }
-
-  let text = value.trim();
-  for (let i = 0; i < 3; i++) {
-    if (!text.startsWith('{') && !text.startsWith('[')) break;
-    try {
-      const parsed = JSON.parse(text);
-      if (typeof parsed?.error?.message === 'string') return unwrapCodexErrorMessage(parsed.error.message);
-      if (typeof parsed?.message === 'string') {
-        text = parsed.message.trim();
-        continue;
-      }
-      return JSON.stringify(parsed);
-    } catch {
-      break;
-    }
-  }
-  return text;
-};
-
-const isNonFatalCodexItemErrorMessage = message => /^in-process app-server event stream lagged; dropped \d+ events?$/i.test(message || '');
-
-export const getCodexErrorEventSummary = codexJsonState => {
-  const events = [];
-  const ignoredEvents = [];
-  const addEvents = (type, items = []) => {
-    for (const item of items) {
-      const message = unwrapCodexErrorMessage(item?.message);
-      const event = { type, message: message || 'Codex emitted an error event' };
-      if (type === 'item' && isNonFatalCodexItemErrorMessage(message)) {
-        ignoredEvents.push({
-          ...event,
-          reason: 'Codex app-server backpressure warning; the turn can still complete successfully',
-        });
-        continue;
-      }
-      events.push(event);
-    }
-  };
-
-  addEvents('item', codexJsonState?.itemErrors);
-  addEvents('turn', codexJsonState?.turnFailures);
-  addEvents('stream', codexJsonState?.streamErrors);
-
-  const countByType = items => ({
-    item: items.filter(item => item.type === 'item').length,
-    turn: items.filter(item => item.type === 'turn').length,
-    stream: items.filter(item => item.type === 'stream').length,
-  });
-
-  return {
-    hasError: events.length > 0,
-    message: events[0]?.message || null,
-    events,
-    ignoredEvents,
-    counts: countByType(events),
-    ignoredCounts: countByType(ignoredEvents),
-    observedCounts: {
-      item: codexJsonState?.itemErrors?.length || 0,
-      turn: codexJsonState?.turnFailures?.length || 0,
-      stream: codexJsonState?.streamErrors?.length || 0,
-    },
-  };
-};
-
 export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null) => {
   const nextState = {
     sessionId: state.sessionId || null,
@@ -438,6 +372,16 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     } catch {
       continue;
     }
+
+    // Issue #1968: a stream line that parses to a bare `null` (or any non-object
+    // JSON primitive such as a number/string/boolean) must not crash the parser.
+    // Codex echoes the stdout of every command it runs back into its own NDJSON
+    // stream (see issue #1955), so a target repo that prints a standalone `null`
+    // line surfaces here as `JSON.parse('null') === null`. Accessing `data.type`
+    // on that null threw "Cannot read properties of null (reading 'type')" and
+    // aborted the entire solve. Real Codex events are always JSON objects, so any
+    // non-object line is safely ignored.
+    if (data === null || typeof data !== 'object') continue;
 
     const eventType = typeof data.type === 'string' ? data.type : 'unknown';
     nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
@@ -824,9 +768,12 @@ export const executeCodexCommand = async params => {
   const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+  const expectedBaseBranch = String(argv?.baseBranch || '').trim();
 
   // Retry configuration
   let retryCount = 0;
+  let baseBranchInterventionPrompt = null;
+  let baseBranchInterventionResumeCount = 0;
 
   const executeWithRetry = async () => {
     // Execute codex command from the cloned repository directory
@@ -857,13 +804,14 @@ export const executeCodexCommand = async params => {
 
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const { reasoningEffort, source: reasoningEffortSource } = resolveCodexReasoningEffort(argv);
+    const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
     const codexEnv = getCodexExecEnv(argv.verbose);
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
-    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${promptForAttempt}` : promptForAttempt;
 
     // Write the combined prompt to a file for piping
     // Use OS temporary directory instead of repository workspace to avoid polluting the repo
@@ -891,7 +839,10 @@ export const executeCodexCommand = async params => {
     for (const arg of codexPlaywrightMcpDisableConfigArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
-    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')} --dangerously-bypass-approvals-and-sandbox`;
+    codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+    // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap so it stays predictable and does not run away on cost.
+    if (rolloutTokenBudget) codexArgs += ` -c ${shellQuote(`rollout_token_budget=${rolloutTokenBudget}`)}`;
+    codexArgs += ' --dangerously-bypass-approvals-and-sandbox';
 
     // Issue #1706: Append --disable-1m-context and --sub-session-size as Codex -c overrides.
     let parsedSubSessionSize;
@@ -976,6 +927,17 @@ export const executeCodexCommand = async params => {
       let lastMessage = '';
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let authError = false;
+      const baseBranchCommandIntervention = createPullRequestBaseBranchCommandIntervention({
+        expectedBaseBranch,
+        prNumber,
+        log,
+        toolLabel: 'Codex',
+        stopSession: async () => {
+          if (!execCommand?.kill) return false;
+          execCommand.kill('SIGTERM');
+          return true;
+        },
+      });
       let codexJsonState = {
         sessionId: null,
         authError: false,
@@ -1006,6 +968,7 @@ export const executeCodexCommand = async params => {
           lastMessage = output;
 
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel);
+          await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
 
           if (interactiveHandler || progressMonitor) {
             for (const rawLine of output.split('\n')) {
@@ -1013,6 +976,9 @@ export const executeCodexCommand = async params => {
               if (!line) continue;
               try {
                 const data = sanitizeObjectStrings(JSON.parse(line));
+                // Issue #1968: skip bare `null`/primitive lines so the handlers
+                // below never receive a non-object event (see parseCodexExecJsonOutput).
+                if (data === null || typeof data !== 'object') continue;
                 if (interactiveHandler) await interactiveHandler.processEvent(data);
                 if (progressMonitor) await progressMonitor.processStreamEvent(data);
               } catch {
@@ -1044,6 +1010,7 @@ export const executeCodexCommand = async params => {
             await log(errorOutput, { stream: 'stderr' });
           }
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel);
+          await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
@@ -1118,6 +1085,31 @@ export const executeCodexCommand = async params => {
         await log(`🤖 Codex exec JSON did not expose model IDs; using requested model for reporting: ${mappedModel}`, { verbose: true });
       }
 
+      const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
+      if (baseBranchIntervention) {
+        if ((sessionId || argv.resume) && baseBranchInterventionResumeCount < 1) {
+          argv.resume = sessionId || argv.resume;
+          baseBranchInterventionPrompt = baseBranchIntervention.message;
+          baseBranchInterventionResumeCount++;
+          await log('\n🔄 Resuming Codex with requested base-branch correction prompt...');
+          return await executeWithRetry();
+        }
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          codexJsonDetails: codexJsonState,
+          errorInfo: {
+            message: baseBranchIntervention.message,
+            violation: baseBranchIntervention.violation,
+          },
+          result: baseBranchIntervention.message,
+          resultSummary: lastTextContent || null,
+        };
+      }
+
       const firstActualModelId = mappedModel;
       const pricingInfo = firstActualModelId ? await calculatePricing(firstActualModelId, codexJsonState.tokenUsage.stepCount > 0 ? codexJsonState.tokenUsage : null) : null;
       if (pricingInfo?.totalCostUSD !== null && pricingInfo?.totalCostUSD !== undefined) {
@@ -1146,7 +1138,13 @@ export const executeCodexCommand = async params => {
       const codexErrorSummary = getCodexErrorEventSummary(codexJsonState);
       if (codexErrorSummary.ignoredEvents.length > 0) {
         const ignoredMessages = [...new Set(codexErrorSummary.ignoredEvents.map(event => event.message))].join('; ');
-        await log(`⚠️ Ignoring non-fatal Codex item error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+        await log(`⚠️ Ignoring non-fatal Codex error event(s): ${ignoredMessages}`, { level: 'warning', verbose: true });
+        // Issue #1955: trace why each stray error event was treated as non-fatal so a
+        // future regression (e.g. a real error wrongly suppressed) is diagnosable from
+        // the verbose log without re-deriving the turn.completed/turn.failed state.
+        for (const ignored of codexErrorSummary.ignoredEvents) {
+          await log(`   ↳ [${ignored.type}] "${ignored.message}" — ${ignored.reason}`, { verbose: true });
+        }
       }
       if (codexErrorSummary.hasError) {
         const limitSource = codexErrorSummary.message || lastMessage;
@@ -1177,15 +1175,13 @@ export const executeCodexCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
-              retryCount,
-              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry same model on capacity errors before falling back; a
+            // capacity-driven switch retries fast, other transient errors use standard backoff.
+            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -1224,15 +1220,13 @@ export const executeCodexCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
-              retryCount,
-              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
-              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
-            });
+            if (sessionId && !argv.resume) argv.resume = sessionId;
+            // Issue #2037: retry same model on capacity errors before falling back; a
+            // capacity-driven switch retries fast, other transient errors use standard backoff.
+            const retryPlan = await prepareRetryAfterError({ tool: 'codex', argv, log, errorMessage: retryableError.message, retryCount, initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs, maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            if (sessionId && !argv.resume) argv.resume = sessionId;
-            await maybeSwitchToFallbackModel({ tool: 'codex', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -1286,6 +1280,59 @@ export const executeCodexCommand = async params => {
           codexJsonDetails: codexJsonState,
           errorInfo: getCodexErrorEventSummary(codexJsonState),
           resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
+        };
+      }
+
+      // Issue #1990: exit code 0 and the absence of a fatal codex error event are
+      // necessary but NOT sufficient for success. Verify the run actually
+      // completed its turn before declaring success. A broken-but-exit-0 run (the
+      // codex process cut off mid-turn by disk exhaustion / OOM) previously
+      // reported SUCCESS, which under docker isolation also discarded the
+      // container filesystem needed to inspect and retry the failure (#1990).
+      const completionHealth = getCodexCompletionHealth(codexJsonState, { lastMessage });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Codex exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        await log(`   📊 turn.started=${completionHealth.turnStarted}, turn.completed=${completionHealth.turnCompleted}, turn.failed=${completionHealth.turnFailed}`, { verbose: true });
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+
+        const resourcesAfter = await getResourceSnapshot();
+        await log('\n📈 System resources after execution:', { verbose: true });
+        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+
+        // Issue #1990: preserve the codex session so an outer full restart can
+        // resume with context (mirrors the transient-error retry above and the
+        // `--tool claude` behavior). We do NOT inline-retry within the same broken
+        // container — the run is registered as a failure so the session and (under
+        // docker isolation) the container filesystem are preserved for a clean
+        // restart at the orchestration level.
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          pricingInfo,
+          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
+          resultModelUsage,
+          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+          codexJsonDetails: codexJsonState,
+          errorInfo: getCodexErrorEventSummary(codexJsonState),
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          result: completionHealth.reasons.join(' '),
+          resultSummary: lastTextContent || null,
         };
       }
 

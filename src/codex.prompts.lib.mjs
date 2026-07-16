@@ -8,6 +8,8 @@ import { getHandoffSubPrompt } from './handoff.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for Codex
@@ -51,6 +53,11 @@ export const buildUserPrompt = params => {
     }
   }
 
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
+  }
+
   // Add blank line
   promptLines.push('');
 
@@ -59,6 +66,11 @@ export const buildUserPrompt = params => {
     // Add each feedback line directly
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'codex', argv });

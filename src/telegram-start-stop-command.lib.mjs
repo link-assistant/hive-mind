@@ -285,6 +285,24 @@ export function registerStartStopCommands(bot, options) {
     return mod.getTrackedSessionInfo(sessionId);
   }
 
+  // Issue #2052: record that this stop was operator-initiated, so the eventual
+  // SIGTERM/SIGKILL exit (delivered by `docker stop`) is reported as
+  // "🛑 Stopped by user" instead of "out of memory or forced kill (SIGKILL)".
+  // Tolerant of a sync or async stub, and never lets a marking failure block
+  // the actual stop.
+  async function markSessionStopRequestedSafe(sessionId, requestedBy) {
+    try {
+      if (typeof options.markSessionStopRequested === 'function') {
+        return await options.markSessionStopRequested(sessionId, { requestedBy, verbose: VERBOSE });
+      }
+      const mod = await import('./session-monitor.lib.mjs');
+      return mod.markSessionStopRequested(sessionId, { requestedBy, verbose: VERBOSE });
+    } catch (error) {
+      console.error('[ERROR] /stop: markSessionStopRequested failed:', error);
+      return false;
+    }
+  }
+
   // Issue #1871: look a URL up in the session-monitor registry of running
   // detached sessions. A /solve or /codex that started immediately (queue
   // empty) is dispatched straight to an isolation session and removed from the
@@ -424,6 +442,12 @@ export function registerStartStopCommands(bot, options) {
       parse_mode: 'Markdown',
       reply_to_message_id: message.message_id,
     });
+
+    // Issue #2052: mark the stop as user-initiated BEFORE forwarding CTRL+C, so
+    // even a fast SIGKILL race still finds the flag when the completion message
+    // is formatted.
+    const requestedBy = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name || null;
+    await markSessionStopRequestedSafe(sessionId, requestedBy);
 
     let result;
     try {
@@ -584,7 +608,7 @@ export function registerStartStopCommands(bot, options) {
       // immediately and was dispatched to a detached session) but the session
       // monitor still tracks a running isolated session for this URL, forward
       // CTRL+C to its start-command UUID. This is the common case for tasks
-      // that begin executing right away with `--isolation screen`.
+      // that begin executing right away with an isolation backend.
       const queueHasTask = lookup.action === 'cancel-queued' || lookup.action === 'stop-running';
       if (!queueHasTask && runningSession?.stoppable && runningSession.sessionId) {
         VERBOSE && console.log(`[VERBOSE] /stop: forwarding CTRL+C to tracked session ${runningSession.sessionId} for ${url} (queue action=${lookup.action})`);
@@ -597,7 +621,7 @@ export function registerStartStopCommands(bot, options) {
         // running-but-non-stoppable (non-isolation) session, say so; otherwise
         // fall back to the UUID hint.
         if (runningSession) {
-          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
@@ -615,13 +639,13 @@ export function registerStartStopCommands(bot, options) {
         // have forwarded CTRL+C above). If it tracked a non-isolation session,
         // explain why it can't be stopped; otherwise report not found.
         if (runningSession) {
-          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+          await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
             parse_mode: 'Markdown',
             reply_to_message_id: message.message_id,
           });
           return;
         }
-        await ctx.reply(`ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with \`--isolation screen\`, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
+        await ctx.reply(`ℹ️ No queued or running task found for ${url}.\n\nIf the task is running with an isolation backend, try \`/stop <UUID>\` (the UUID is shown in the bot's session-id message).`, {
           parse_mode: 'Markdown',
           reply_to_message_id: message.message_id,
         });
@@ -655,7 +679,7 @@ export function registerStartStopCommands(bot, options) {
       // running-not-isolated: a started, non-isolated screen session. We
       // could shell out to `screen -X -S <name> stuff $'\003'`, but that's
       // brittle and out of scope for #1780. Tell the user how to recover.
-      await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time you can run the command with \`--isolation screen\` to make this task interruptible via \`/stop\`.`, {
+      await ctx.reply(`⚠️ Found a running task for ${url}, but it was not started with an isolation backend, so \`/stop\` cannot forward CTRL+C to it.\n\nNext time run it with the default isolation backend or pass \`--isolation docker\` to make this task interruptible via \`/stop\`.`, {
         parse_mode: 'Markdown',
         reply_to_message_id: message.message_id,
       });

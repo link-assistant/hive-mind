@@ -15,8 +15,8 @@ const { parseYouTrackIssueId, updateYouTrackIssueStage, addYouTrackComment, crea
  * @returns {Object} Validation result with YouTrack info
  */
 export async function validateYouTrackUrl(issueUrl) {
-  let isYouTrackUrl = null;
-  let youTrackIssueId = null;
+  let isYouTrackUrl;
+  let youTrackIssueId;
   let youTrackConfig = null;
 
   if (!issueUrl) {

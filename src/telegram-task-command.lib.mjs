@@ -1,10 +1,12 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
+import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
+import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
-import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
@@ -184,6 +186,13 @@ export function registerTaskCommands(bot, options) {
     const { backend: perCommandIsolation, filteredArgs } = extractIsolationFromArgs(built.args);
     if (perCommandIsolation && !isValidPerCommandIsolation(perCommandIsolation)) {
       await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(perCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
+    try {
+      await parseArgsWithYargs(filteredArgs, getLinoYargsFactory(), createTaskYargsConfig);
+    } catch (error) {
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(error.message || String(error))}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

@@ -1,5 +1,5 @@
 /**
- * OS-interaction layer for the `cleanup` command (issue #1848).
+ * OS-interaction layer for the `hive-cleanup` command (issue #1848).
  *
  * Everything that touches the real filesystem, the process table (/proc),
  * isolation session state (`$ --status` from start-command), git metadata of a
@@ -19,8 +19,9 @@ import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
 
-import { extractTaskRefsFromCommand, parseRemoteUrl } from './cleanup.lib.mjs';
+import { extractTaskRefsFromCommand, isDockerIsolationSessionName, parseDockerContainerExitCode, parseRemoteUrl } from './cleanup.lib.mjs';
 import { correlateProcesses, parseStartCommandLogMetadata, redactProcessText } from './process-debug.lib.mjs';
+import { buildSystemCleanupPlan, estimateSystemCleanupPlan, formatSystemCleanupEstimateLine, formatSystemCleanupTotalLine } from './system-cleanup-estimates.lib.mjs';
 
 /** Run a command, returning trimmed stdout or null on any failure. */
 function tryExec(cmd, args, options = {}) {
@@ -303,6 +304,73 @@ export function listScreenSessions() {
   return sessions;
 }
 
+function splitDockerNames(value) {
+  return String(value || '')
+    .split(',')
+    .map(name => name.trim().replace(/^\/+/, ''))
+    .filter(Boolean);
+}
+
+/**
+ * Parse `docker ps -a --format '{{json .}}'` output into docker-isolation task
+ * containers. start-command names native Docker isolation containers after the
+ * session UUID, so unrelated host containers are ignored.
+ *
+ * @param {string} output
+ * @returns {Array<{id: string|null, name: string, image: string|null, state: string, status: string, exitCode: number|null, running: boolean}>}
+ */
+export function parseDockerPsJsonLines(output) {
+  const containers = [];
+  const seen = new Set();
+
+  for (const line of String(output || '').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    let data;
+    try {
+      data = JSON.parse(trimmed);
+    } catch {
+      continue;
+    }
+
+    const state = String(data.State || data.state || '')
+      .trim()
+      .toLowerCase();
+    const status = String(data.Status || data.status || '').trim();
+    const exitCode = parseDockerContainerExitCode(status);
+    const running = state === 'running' || /^Up\b/i.test(status);
+
+    for (const name of splitDockerNames(data.Names || data.Name || data.names || data.name)) {
+      if (!isDockerIsolationSessionName(name)) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      containers.push({
+        id: data.ID || data.Id || data.id || null,
+        name,
+        image: data.Image || data.image || null,
+        state,
+        status,
+        exitCode,
+        running,
+      });
+    }
+  }
+
+  return containers;
+}
+
+/**
+ * Enumerate Docker-isolation task containers from the local Docker daemon.
+ * Returns an empty list when docker is unavailable.
+ *
+ * @returns {Array}
+ */
+export function listDockerIsolationContainers() {
+  const out = tryExec('docker', ['ps', '-a', '--format', '{{json .}}']);
+  return out ? parseDockerPsJsonLines(out) : [];
+}
+
 function listStartCommandLogFiles(logRoot, maxFiles) {
   const files = [];
   const stack = [logRoot];
@@ -570,6 +638,12 @@ export function listActiveTaskRefsFromProc() {
  * Discover currently-running isolation session UUIDs from start-command's live
  * session managers (screen / tmux). These names are the session UUIDs.
  *
+ * @deprecated Superseded by {@link listSessionTasks}, which sources every
+ * session (active *and* finished) from the single `$ --list` catalog rather
+ * than re-deriving liveness from `screen -ls`/`tmux ls`. Retained as a
+ * documented building block (issue #1848 case study) and for callers that only
+ * want live screen/tmux UUIDs without start-command.
+ *
  * @returns {string[]}
  */
 export function listLiveSessionIds() {
@@ -596,6 +670,11 @@ export function listLiveSessionIds() {
 /**
  * Query `$ --status <uuid>` for each live session and extract task references
  * from executing sessions' command lines. Optional; reuses isolation-runner.
+ *
+ * @deprecated Superseded by {@link listSessionTasks} (issue #1927 review), which
+ * reads the whole catalog from one `$ --list` call instead of N per-session
+ * `$ --status` queries and also surfaces finished sessions. Kept for the issue
+ * #1848 case study and backward compatibility.
  *
  * @param {string[]} sessionIds
  * @returns {Promise<Array<{owner, repo, type, number}>>}
@@ -625,7 +704,13 @@ export async function listActiveTaskRefsFromSessions(sessionIds) {
       const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
       if (!seen.has(key)) {
         seen.add(key);
-        refs.push(ref);
+        refs.push({
+          ...ref,
+          sessionId: status.uuid || id,
+          sessionName: status.sessionName || id,
+          status: status.status || null,
+          workspace: status.workingDirectory || null,
+        });
       }
     }
   }
@@ -645,32 +730,109 @@ export function resolvePrHeadBranch(ref) {
 }
 
 /**
+ * Enumerate ALL tasks known to start-command from the single `$ --list` source
+ * (issue #1927 review): one record per GitHub issue/PR reference found in each
+ * session's command line, carrying that session's id/name/status/workspace and a
+ * `terminal` flag (whether the session has finished). Unlike
+ * {@link listActiveTaskRefsFromSessions}, this includes *completed* sessions so a
+ * stale `gh-issue-solver-*` folder can be annotated with the PR and session it
+ * once belonged to — even after the task is no longer running.
+ *
+ * This consolidates session enumeration onto start-command's own `$ --list`
+ * (which knows every session, not just the ones still alive in screen/tmux) so
+ * `/queue`, `/limits`, the monitor and cleanup all read the same `$` data.
+ *
+ * @param {Object} [options]
+ * @param {boolean} [options.verbose=false]
+ * @param {boolean} [options.resolveBranches=false] - resolve PR head branches via gh
+ * @returns {Promise<Array<{owner, repo, type, number, branch: string|null, sessionId: string|null, sessionName: string|null, status: string|null, exitCode: number|null, isolation: string|null, workspace: string|null, terminal: boolean, startTime: string|null}>>}
+ */
+export async function listSessionTasks(options = {}) {
+  const { verbose = false, resolveBranches = false } = options;
+  let listIsolationSessions;
+  let isTerminalSessionStatus;
+  try {
+    ({ listIsolationSessions, isTerminalSessionStatus } = await import('./isolation-runner.lib.mjs'));
+  } catch {
+    return [];
+  }
+
+  let sessions;
+  try {
+    sessions = await listIsolationSessions(verbose);
+  } catch {
+    return [];
+  }
+
+  // Newest session first, so when several sessions worked the same issue/PR the
+  // most recent one is the match a folder gets annotated with.
+  const sorted = [...sessions].sort((a, b) => new Date(b.startTime || 0).getTime() - new Date(a.startTime || 0).getTime());
+
+  const tasks = [];
+  for (const session of sorted) {
+    if (!session || !session.command) continue;
+    const terminal = !!(session.status && isTerminalSessionStatus(session.status));
+    for (const ref of extractTaskRefsFromCommand(session.command)) {
+      tasks.push({
+        ...ref,
+        branch: null,
+        sessionId: session.uuid || null,
+        sessionName: session.sessionName || null,
+        status: session.status || null,
+        exitCode: session.exitCode ?? null,
+        isolation: session.isolation || null,
+        workspace: session.workingDirectory || null,
+        terminal,
+        startTime: session.startTime || null,
+      });
+    }
+  }
+
+  if (resolveBranches) {
+    const branchCache = new Map();
+    for (const task of tasks) {
+      if (task.type !== 'pull') continue;
+      const key = `${task.owner}/${task.repo}#${task.number}`;
+      if (!branchCache.has(key)) branchCache.set(key, resolvePrHeadBranch(task));
+      task.branch = branchCache.get(key);
+    }
+  }
+
+  return tasks;
+}
+
+/**
  * Build the full active-task list, resolving PR head branches where possible.
  *
  * @param {Object} [options]
- * @param {boolean} [options.useSessions=true] - also query `$ --status`
+ * @param {boolean} [options.useSessions=true] - also consult `$ --list` sessions
  * @param {boolean} [options.resolveBranches=true] - resolve PR head branches via gh
+ * @param {Array} [options.sessionTasks] - pre-fetched `listSessionTasks()` result to reuse
  * @returns {Promise<Array<{owner, repo, type, number, branch: string|null}>>}
  */
 export async function getActiveTasks(options = {}) {
-  const { useSessions = true, resolveBranches = true } = options;
+  const { useSessions = true, resolveBranches = true, sessionTasks = null } = options;
   const refs = [...listActiveTaskRefsFromProc()];
   const seen = new Set(refs.map(r => `${r.owner}/${r.repo}#${r.number}:${r.type}`));
 
   if (useSessions) {
-    const sessionRefs = await listActiveTaskRefsFromSessions(listLiveSessionIds());
-    for (const ref of sessionRefs) {
-      const key = `${ref.owner}/${ref.repo}#${ref.number}:${ref.type}`;
+    // Active = sessions start-command still reports as non-terminal. Reuse the
+    // shared `$ --list` enumeration (optionally pre-fetched by the caller so the
+    // catalog is read only once).
+    const allSessionTasks = sessionTasks || (await listSessionTasks({ verbose: false, resolveBranches: false }));
+    for (const task of allSessionTasks) {
+      if (task.terminal) continue;
+      const key = `${task.owner}/${task.repo}#${task.number}:${task.type}`;
       if (!seen.has(key)) {
         seen.add(key);
-        refs.push(ref);
+        refs.push(task);
       }
     }
   }
 
   return refs.map(ref => {
-    let branch = null;
-    if (ref.type === 'pull' && resolveBranches) {
+    let branch = ref.branch || null;
+    if (!branch && ref.type === 'pull' && resolveBranches) {
       branch = resolvePrHeadBranch(ref);
     }
     return { ...ref, branch };
@@ -693,8 +855,20 @@ export function removePath(targetPath) {
 }
 
 /**
+ * Remove a Docker-isolation task container by session UUID. Returns false for
+ * invalid names, missing docker, missing containers, or docker errors.
+ *
+ * @param {string} containerName
+ * @returns {boolean}
+ */
+export function removeDockerContainer(containerName) {
+  if (!isDockerIsolationSessionName(containerName)) return false;
+  return tryExec('docker', ['rm', '-f', containerName], { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] }) !== null;
+}
+
+/**
  * System / Ubuntu cleanup actions. Each is opt-in. In dry-run mode the commands
- * are only described, never executed.
+ * are estimated and described, never executed.
  *
  * @param {Object} options
  * @param {boolean} [options.apt] - apt-get clean / autoclean / autoremove
@@ -704,41 +878,40 @@ export function removePath(targetPath) {
  * @param {string} [options.journalVacuumTime='2weeks']
  * @param {boolean} [options.dryRun]
  * @param {boolean} [options.useSudo] - prefix package commands with sudo
- * @param {(msg: string) => void} [options.logFn]
- * @returns {Array<{command: string, executed: boolean, ok: boolean|null}>}
+ * @param {(msg: string) => void|Promise<void>} [options.logFn]
+ * @returns {Promise<Array<{command: string, executed: boolean, ok: boolean|null, estimatedBytes?: number|null}>>}
  */
-export function runSystemCleanup(options = {}) {
-  const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {} } = options;
-
-  const plan = [];
-  const sudo = useSudo ? ['sudo'] : [];
-  if (apt) {
-    plan.push([...sudo, 'apt-get', 'clean']);
-    plan.push([...sudo, 'apt-get', 'autoclean', '-y']);
-    plan.push([...sudo, 'apt-get', 'autoremove', '-y']);
-  }
-  if (journal) {
-    plan.push([...sudo, 'journalctl', `--vacuum-time=${journalVacuumTime}`]);
-  }
-  if (docker) {
-    plan.push(['docker', 'system', 'prune', '-f']);
-  }
-  if (npm) {
-    plan.push(['npm', 'cache', 'clean', '--force']);
-  }
-
+export async function runSystemCleanup(options = {}) {
+  const { apt = false, journal = false, docker = false, npm = false, journalVacuumTime = '2weeks', dryRun = false, useSudo = false, logFn = () => {}, execFn = tryExec } = options;
+  const plan = buildSystemCleanupPlan({ apt, journal, docker, npm, journalVacuumTime, useSudo });
   const results = [];
-  for (const argv of plan) {
-    const display = argv.join(' ');
-    if (dryRun) {
-      logFn(`   [dry-run] would run: ${display}`);
-      results.push({ command: display, executed: false, ok: null });
-      continue;
+
+  if (dryRun) {
+    const estimates = estimateSystemCleanupPlan(plan, {
+      execFn,
+      journalFiles: options.journalFiles,
+      now: options.now || new Date(),
+    });
+    for (const estimate of estimates) {
+      await logFn(formatSystemCleanupEstimateLine(estimate));
+      results.push({
+        command: estimate.command,
+        executed: false,
+        ok: null,
+        estimatedBytes: estimate.estimatedBytes,
+        detail: estimate.detail,
+      });
     }
-    logFn(`   running: ${display}`);
-    const out = tryExec(argv[0], argv.slice(1), { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
+    await logFn(formatSystemCleanupTotalLine(estimates));
+    return results;
+  }
+
+  for (const item of plan) {
+    const display = item.argv.join(' ');
+    await logFn(`   running: ${display}`);
+    const out = execFn(item.argv[0], item.argv.slice(1), { timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] });
     const ok = out !== null;
-    logFn(ok ? `   ✓ ${display}` : `   ✗ ${display} (failed or unavailable)`);
+    await logFn(ok ? `   ✓ ${display}` : `   ✗ ${display} (failed or unavailable)`);
     results.push({ command: display, executed: true, ok });
   }
   return results;

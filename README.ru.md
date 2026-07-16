@@ -38,8 +38,8 @@ Hive Mind — это **универсальный ИИ** (мини-AGI), спо�
 
 | Подписка                                                          | Используется с `--tool` | Модель по умолчанию | Лучше всего подходит для                                   |
 | ----------------------------------------------------------------- | ----------------------- | ------------------- | ---------------------------------------------------------- |
-| **Anthropic Claude MAX** (~$200 в месяц, часто скидка 50% = $400) | `claude` (по умолчанию) | Sonnet/Haiku        | Максимальная креативность и сильное общее кодовое мышление |
-| **OpenAI ChatGPT Pro** ($200 в месяц, включает Codex)             | `codex`                 | `gpt-5.5`           | Надёжные детерминированные рефакторинги и быстрые итерации |
+| **Anthropic Claude MAX** (~$200 в месяц, часто скидка 50% = $400) | `claude` (по умолчанию) | Opus                | Максимальная креативность и сильное общее кодовое мышление |
+| **OpenAI ChatGPT Pro** ($200 в месяц, включает Codex)             | `codex`                 | `gpt-5.6-sol`       | Надёжные детерминированные рефакторинги и быстрые итерации |
 
 Оба инструмента можно сочетать в одном hive. Воркеры могут параллельно запускать разные инструменты, а `/codex` или `/solve --tool codex` направляет задачи в ChatGPT Pro, тогда как маршрут по умолчанию идёт в Claude MAX. Выбирать только один вариант не требуется: любой одной подписки достаточно для работы, а использование обеих открывает режим параллелизма по инструментам/моделям (#1474).
 
@@ -173,6 +173,7 @@ claude
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# Если `--think` не указан, Hive Mind трактует это как `--think off`.
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
@@ -346,11 +347,11 @@ solve <issue-url> [options]
 
 **Наиболее часто используемые параметры:**
 
-| Параметр        | Сокр. | Описание                                     | По умолчанию   |
-| --------------- | ----- | -------------------------------------------- | -------------- |
-| `--model`       | `-m`  | Используемая модель ИИ (sonnet, opus, haiku) | sonnet         |
-| `--think`       |       | Уровень мышления (low, medium, high, max)    | -              |
-| `--base-branch` | `-b`  | Целевая ветка для PR                         | (по умолчанию) |
+| Параметр        | Сокр. | Описание                                                     | По умолчанию   |
+| --------------- | ----- | ------------------------------------------------------------ | -------------- |
+| `--model`       | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)                 | opus           |
+| `--think`       |       | Уровень мышления (off, low, medium, high, xhigh, ultra, max) | off            |
+| `--base-branch` | `-b`  | Целевая ветка для PR                                         | (по умолчанию) |
 
 **Другие полезные параметры:**
 
@@ -372,12 +373,12 @@ hive <github-url> [options]
 
 **Наиболее часто используемые параметры:**
 
-| Параметр       | Сокр. | Описание                                        | По умолчанию |
-| -------------- | ----- | ----------------------------------------------- | ------------ |
-| `--model`      | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)    | sonnet       |
-| `--think`      |       | Уровень мышления (low, medium, high, max)       | -            |
-| `--all-issues` | `-a`  | Мониторинг всех задач (игнорировать метки)      | false        |
-| `--once`       |       | Одиночный запуск (без непрерывного мониторинга) | false        |
+| Параметр       | Сокр. | Описание                                                     | По умолчанию |
+| -------------- | ----- | ------------------------------------------------------------ | ------------ |
+| `--model`      | `-m`  | Используемая модель ИИ (sonnet, opus, haiku)                 | opus         |
+| `--think`      |       | Уровень мышления (off, low, medium, high, xhigh, ultra, max) | off          |
+| `--all-issues` | `-a`  | Мониторинг всех задач (игнорировать метки)                   | false        |
+| `--once`       |       | Одиночный запуск (без непрерывного мониторинга)              | false        |
 
 **Другие полезные параметры:**
 
@@ -512,6 +513,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` — Слияние готовых Pull Request
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Цель-репозиторий обрабатывает PR с меткой `ready` последовательно. Цели issue и
+pull request обрабатывают только связанный или выбранный PR. Также можно ответить
+командой `/merge` на сообщение с одной ссылкой на GitHub repository, issue или
+pull request, например на предыдущую команду `/codex ...issues/123`.
+
+Если целевой PR ещё не завершён, `/merge` ждёт, пока он станет mergeable, и затем
+выполняет слияние. Пропуск конфликтов слияния по-прежнему работает с
+`--auto-resolve`.
+
 #### `/fix` — Автоматическое исправление CI/CD
 
 ```
@@ -527,13 +548,11 @@ Examples:
 `/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
 запуски CI/CD и автоматически создаёт issue для исправления CI/CD (используя стандартный промпт и шаблоны из
 [`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md), отсортированные по обнаруженным языкам). Затем
-он передаёт issue в `/solve --auto-merge`. Любая опция, которую `/fix` не использует сам (например, `--tool`,
-`--model`, `--think`), передаётся в `/solve`. Используйте `--dry-run`, чтобы предварительно просмотреть issue
-без его создания, или `--no-solve`, чтобы создать issue без запуска `/solve`. Подробнее см.
+он передаёт issue в `/solve --development-log --deep-analysis --auto-merge`. Любая опция, которую `/fix` не
+использует сам (например, `--tool`, `--model`, `--think`), передаётся в `/solve`. Используйте `--dry-run`,
+чтобы предварительно просмотреть issue без его создания, или `--no-solve`, чтобы создать issue без запуска
+`/solve`. Подробнее см.
 [Автоматическое исправление CI/CD](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation).
-
-> `/fix` сейчас запускается из командной строки (например, `fix owner/repo --ci-cd`); встроенный обработчик
-> Telegram запланирован как следующий шаг.
 
 #### `/limits` — Показать лимиты использования
 
@@ -545,7 +564,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` — Live Session Log
@@ -760,7 +781,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### Очистка диска
 
-`cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
+`hive-cleanup` освобождает место на диске, удаляя устаревшие временные каталоги/файлы
 hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-solver-*`, файлы
 конфигурации MCP, каталоги загрузки логов и т. д.), при этом **сохраняя папки,
 относящиеся к выполняющимся в данный момент задачам**, защищённые системные пути и
@@ -771,40 +792,40 @@ hive-mind (клоны для каждой задачи вида `/tmp/gh-issue-s
 
 ```bash
 # Предпросмотр: список сохраняемых и удаляемых папок (ничего не удаляет)
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # Реально удалить устаревшие временные файлы (сначала запросит подтверждение)
-cleanup
+hive-cleanup
 
 # Удалить без запроса подтверждения
-cleanup --force
+hive-cleanup --force
 
 # Учитывать также не-hive-mind временные записи (более агрессивно)
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # Разрешить удаление /tmp/start-command (по умолчанию сохраняется; хранит логи изоляции)
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Очистка Ubuntu / системы (кэши apt, логи journald, кэш npm)
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # Сопоставить живые/зависшие agent PID с задачами hive/start-command
-cleanup --processes
+hive-cleanup --processes
 
 # Отследить конкретный не-agent PID, например дочерний процесс браузера или shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # Предпросмотр orphaned agents, которые можно остановить
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # Остановить деревья orphaned agent процессов после просмотра предпросмотра
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # Отключить обнаружение активных задач (сохраняются только защищённые пути)
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-Запустите `cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
+Запустите `hive-cleanup --help`, чтобы увидеть полный список опций. Команда удобна для
 режима dry-run и записывает лог `cleanup-*.log` с меткой времени при каждом запуске.
 Диагностический вывод процессов скрывает распространённые формы token перед печатью
 командных строк.
@@ -864,14 +885,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 ```bash
 # Показать agent PID, start-command session ID, GitHub task URL, workspace,
 # причины совпадения и возможные orphaned agents.
-cleanup --processes
+hive-cleanup --processes
 
 # Включить произвольный PID в тот же отчёт.
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # Остановить только orphaned agents, чья задача уже завершена.
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 Ручной fallback: определите screen-сессии, являющиеся родительскими для процессов,

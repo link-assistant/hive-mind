@@ -12,7 +12,6 @@ const { configureGitHubRateLimitLogging, wrapDollarWithGhRetry } = await import(
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const config = await import('./solve.config.lib.mjs');
 const { initializeConfig, parseArguments } = config;
-// Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { initializeSentry, addBreadcrumb, reportError, closeSentry } = sentryLib;
 const { yargs, hideBin } = await initializeConfig(use);
@@ -21,7 +20,7 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, logSolveStartup, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -47,34 +46,43 @@ const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
 const { runEscalation } = await import('./solve.escalate.lib.mjs');
+const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
-const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
+const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
+const { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
 // Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
 const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
 const getResourceSnapshot = memoryCheck.getResourceSnapshot;
 const { handleAutoPrCreation } = await import('./solve.auto-pr.lib.mjs');
+const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { setupRepositoryAndClone, verifyDefaultBranchAndStatus } = await import('./solve.repo-setup.lib.mjs');
+const { recordAfterCloneSize, recordAfterAgentSize } = await import('./solve.disk-diagnostics.lib.mjs');
 const { createOrCheckoutBranch } = await import('./solve.branch.lib.mjs');
 const { startWorkSession, endWorkSession, SESSION_TYPES } = await import('./solve.session.lib.mjs');
+const { attachFinalLogIfMissing } = await import('./attach-logs-guarantee.lib.mjs'); // Issue #1952
+const { collectAndCommitDevelopmentLogArtifacts, fetchIssueType, isDevelopmentLogEnabled, isIssueTypeAwarePromptEnabled } = await import('./development-log.lib.mjs');
+const { createDevelopmentLogFinalizer } = await import('./development-log.finalize.lib.mjs');
 // Issue #1625: centralized markers + tracked comment posting for solve.mjs's
 // own usage-limit notifications (so they're excluded from the
 // "did the AI post anything?" check in --auto-attach-solution-summary).
 const { postTrackedComment, USAGE_LIMIT_REACHED_MARKER } = await import('./tool-comments.lib.mjs');
 const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions } = await import('./solve.preparation.lib.mjs');
-const { validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
-// Initialize log file early (before argument parsing) to capture all output
 const logFile = await initializeLogFile(null);
-// Log version and raw command IMMEDIATELY after log file initialization
 const versionInfo = await getVersionInfo();
-await log('');
-await log(`🚀 solve v${versionInfo}`);
-const rawCommand = process.argv.join(' ');
-await log('🔧 Raw command executed:');
-await log(`   ${rawCommand}`);
-await log('');
+const rawCommand = await logSolveStartup(versionInfo);
+
+let finalResourceSnapshotRecorded = false;
+const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
+  if (!finalResourceSnapshotRecorded) {
+    finalResourceSnapshotRecorded = true;
+    await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_EXIT, log, diskPath: '/', label: `solve exit ${code}` });
+  }
+  return await baseSafeExit(code, reason, options);
+};
 
 let argv;
 try {
@@ -94,6 +102,7 @@ configureGitHubRateLimitLogging({
   enabled: argv.githubRateLimitsLogging === true,
   log,
 });
+await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start', logExecutionContext: true }); // #2001: detect+report container context
 
 // Early logs go to cwd; custom log dir takes effect after argv is parsed
 // Conditionally import tool-specific functions after argv is parsed
@@ -150,7 +159,7 @@ const cleanupWrapper = async () => {
   }
 };
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
-initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason }) => notifyIssueAboutPrePullRequestFailure({ code, reason, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
+initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason, failureActionSection }) => notifyIssueAboutPrePullRequestFailure({ code, reason, failureActionSection, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
 installGlobalExitHandlers();
 // Issue #1823: Configure the working-session guard. When the experimental
 // --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every
@@ -241,12 +250,13 @@ if (argv.planModel) {
   }
   await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
 }
+if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
 await cascadePlaywrightMcpDisable(argv, log);
-if (!(await performSystemChecks(argv.minDiskSpace || 2048, skipToolConnectionCheck, argv.model, argv))) {
+if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCheck, argv.model, argv))) {
   await safeExit(1, 'System checks failed');
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
@@ -287,7 +297,7 @@ if (!hasWriteAccess) {
 }
 
 // Issue #1552: Validate entity existence AFTER permissions (cascade: user/org → repo → issue/PR)
-const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, verbose: argv.verbose, autoAcceptInvite: !!argv.autoAcceptInvite });
+const entityCheck = await (await import('./github-entity-validation.lib.mjs')).validateGitHubEntityExistence({ owner, repo, number: urlNumber, type: isIssueUrl ? 'issue' : isPrUrl ? 'pull' : undefined, baseBranch: argv.baseBranch, verbose: argv.verbose, autoAcceptInvite: !!argv.autoAcceptInvite });
 if (!entityCheck.valid) {
   await log(`\n❌ ${entityCheck.error}\n`, { level: 'error' });
   await safeExit(1, `GitHub entity not found (${entityCheck.level})`);
@@ -475,6 +485,8 @@ if (isPrUrl) {
 }
 // Issues #1212, #1462: Store issueNumber globally for error handlers (attach failure logs to issue when no PR exists)
 global.issueNumber = issueNumber;
+// Issues #1595 and #1596: detect the issue type so analysis and logging prompts use bug vs feature/task wording.
+if (isIssueTypeAwarePromptEnabled(argv) && issueNumber) argv.issueType = await fetchIssueType({ owner, repo, issueNumber, $, log });
 const workspaceInfo = argv.enableWorkspaces ? { owner, repo, issueNumber } : null;
 const { tempDir, workspaceTmpDir, needsClone } = await setupTempDirectory(argv, workspaceInfo);
 cleanupContext.tempDir = tempDir;
@@ -483,6 +495,12 @@ cleanupContext.owner = owner;
 cleanupContext.repo = repo;
 if (prNumber) cleanupContext.prNumber = prNumber;
 let limitReached = false;
+let sessionId = null;
+let branchName = null;
+const finalizeDevelopmentLog = createDevelopmentLogFinalizer({
+  collect: collectAndCommitDevelopmentLogArtifacts,
+  getParams: () => ({ enabled: isDevelopmentLogEnabled(argv), repositoryPath: tempDir, logFile: getLogFile(), issueNumber, prNumber, tool: argv.tool || 'claude', sessionId, branchName, rawCommand, $, log }), // prettier-ignore
+});
 try {
   // Set up repository and clone using the new module
   // If --working-directory points to existing repo, needsClone is false and we skip cloning
@@ -501,6 +519,9 @@ try {
     needsClone,
   });
 
+  cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
+  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
+
   // Verify default branch and status using the new module
   // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
   const defaultBranch = await verifyDefaultBranchAndStatus({
@@ -514,7 +535,7 @@ try {
     issueUrl,
   });
   // Create or checkout branch using the new module
-  const branchName = await createOrCheckoutBranch({
+  branchName = await createOrCheckoutBranch({
     isContinueMode,
     prBranch,
     issueNumber,
@@ -611,6 +632,10 @@ try {
   if ((isContinueMode || argv.autoPullRequestCreation) && !prNumber) {
     await handleNoPrAvailableError({ isContinueMode, tempDir, issueNumber, issueUrl, owner, repo, log, formatAligned });
   }
+
+  const enforceRequestedBaseBranch = () => ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
+
+  await enforceRequestedBaseBranch();
 
   if (isContinueMode) {
     await log(`\n${formatAligned('🔄', 'Continue mode:', 'ACTIVE')}`);
@@ -814,6 +839,13 @@ try {
     toolResult = claudeResult;
   }
 
+  try {
+    await recordAfterAgentSize({ tempDir, beforeBytes: cleanupContext.diskDiagnostics?.beforeBytes ?? null, log });
+  } catch (diskError) {
+    await log(`⚠️  Disk-size measurement failed: ${cleanErrorMessage(diskError)}`, { level: 'warning', verbose: true });
+  }
+  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_AGENT, log, diskPath: '/', label: 'after AI execution' });
+
   // Issue #1823: Mark the end of the AI working session. If a graceful-shutdown interrupt arrived
   // during the session (deferred by the working-session guard), honor it now: auto-commit any
   // uncommitted changes and exit gracefully — only AFTER the AI tool has fully finished its turn.
@@ -833,7 +865,7 @@ try {
   }
 
   const { success } = toolResult;
-  let sessionId = toolResult.sessionId;
+  sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
   let publicPricingEstimate = toolResult.publicPricingEstimate; // Used by agent tool
   let pricingInfo = toolResult.pricingInfo; // Used by agent tool for detailed pricing
@@ -933,10 +965,10 @@ try {
             toolName: getToolDisplayName(argv.tool),
             resumeCommand,
             sessionId,
+            argv,
             requestedModel: argv.originalModel || argv.model,
             tool: argv.tool || 'claude',
-            // Issue #1454: Pass resultModelUsage for accurate multi-model display
-            resultModelUsage,
+            resultModelUsage, // Issue #1454: accurate multi-model display
           });
 
           if (logUploadSuccess) {
@@ -1005,10 +1037,10 @@ try {
               // See: https://github.com/link-assistant/hive-mind/issues/1152
               isAutoResumeEnabled: true,
               autoResumeMode: limitContinueMode,
+              argv,
               requestedModel: argv.originalModel || argv.model,
               tool: argv.tool || 'claude',
-              // Issue #1454: Pass resultModelUsage for accurate multi-model display
-              resultModelUsage,
+              resultModelUsage, // Issue #1454: accurate multi-model display
             });
 
             if (logUploadSuccess) {
@@ -1116,10 +1148,10 @@ try {
           sessionId,
           // If not a usage limit case, fall back to generic failure format
           errorMessage: limitReached ? undefined : toolFailureMessage,
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
-          // Issue #1454: Pass resultModelUsage for accurate multi-model display
-          resultModelUsage,
+          resultModelUsage, // Issue #1454: accurate multi-model display
         });
 
         if (logUploadSuccess) {
@@ -1192,6 +1224,10 @@ try {
     await safeExit(0, 'Auto-continue child process will handle post-processing');
   }
 
+  await enforceRequestedBaseBranch();
+
+  // Issue #2048: commit+push dev log BEFORE any PR readiness signal so its CI gates readiness (was last, breaking CI post-signal; PR #2046, docs/case-studies/issue-2048). Idempotent: trailing call is a no-op. prettier-ignore
+  await finalizeDevelopmentLog();
   // Issue #1263 / #1728: Working session summary attachment.
   // Routed through the shared maybeAttachWorkingSessionSummary helper so that
   // top-level solve, auto-restart-until-mergeable, and watch-mode iterations
@@ -1297,6 +1333,8 @@ try {
     prBranch,
     branchName,
     tempDir,
+    initialSessionId: sessionId,
+    initialResultModelUsage: resultModelUsage,
     argv: {
       ...argv,
       watch: argv.watch || shouldRestart, // Enable watch if uncommitted changes
@@ -1304,7 +1342,6 @@ try {
     },
   });
 
-  // Update session data with latest from watch mode for accurate pricing
   if (watchResult && watchResult.latestSessionId) {
     sessionId = watchResult.latestSessionId;
     anthropicTotalCostUSD = watchResult.latestAnthropicCost;
@@ -1317,6 +1354,8 @@ try {
       }
     }
   }
+
+  await enforceRequestedBaseBranch();
 
   // Track whether logs were successfully attached (used by endWorkSession)
   let logsAttached = false;
@@ -1371,10 +1410,10 @@ try {
           sessionId,
           tempDir,
           anthropicTotalCostUSD,
+          argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
-          // Issue #1454: Pass resultModelUsage for accurate multi-model display
-          resultModelUsage,
+          resultModelUsage, // Issue #1454: accurate multi-model display
         });
 
         if (logUploadSuccess) {
@@ -1421,27 +1460,18 @@ try {
         }
       }
     }
-
-    // If auto-merge succeeded, update logs attached status
-    if (autoMergeResult && autoMergeResult.success) {
-      logsAttached = true;
-    }
   }
+
+  // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
+  logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
 
   // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
   await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
 
-  // End work session using the new module
-  await endWorkSession({
-    isContinueMode,
-    prNumber,
-    argv,
-    log,
-    formatAligned,
-    $,
-    logsAttached,
-  });
+  await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
+  await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
+  await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {
@@ -1466,23 +1496,5 @@ try {
     $,
   });
 } finally {
-  await cleanupTempDirectory(tempDir, argv, limitReached);
-
-  // Show final log file reference so users always know where to find the complete log
-  if (getLogFile()) {
-    const finalLogPath = path.resolve(getLogFile());
-    await log(`\n📁 Complete log file: ${finalLogPath}`);
-  }
-
-  // Issue #1346: Flush Sentry events before exit.
-  // closeSentry() uses a hard Promise.race deadline so it cannot block indefinitely.
-  await closeSentry();
-
-  // Issue #1431: Log active handles before draining.
-  // Always logged to file and console so future hangs are immediately visible in logs.
-  // drainHandles() inside safeExit() will unref/close these before process.exit().
-  await logActiveHandles(msg => log(msg));
-
-  // Issue #1431: safeExit() unrefs handles so the event loop exits naturally, then calls process.exit(0)
-  await safeExit(0, 'Process completed');
+  await finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit });
 }

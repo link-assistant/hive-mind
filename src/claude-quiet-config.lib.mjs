@@ -77,7 +77,7 @@ export function resolveClaudeLanguageSetting(locale) {
 
 export const ensureClaudeQuietConfig = async ({ settingsPath, log, workLanguage = null } = {}) => {
   const resolvedPath = settingsPath || path.join(os.homedir(), '.claude', 'settings.json');
-  let settings = {};
+  let settings;
   try {
     const content = await fs.readFile(resolvedPath, 'utf-8');
     const parsed = JSON.parse(content);

@@ -80,20 +80,24 @@ test('separate queues are independent', () => {
   queue.stop();
 });
 
-await asyncTest('agent tasks can start when claude min interval is not reached', async () => {
+await asyncTest('agent tasks wait when global min interval is not reached after claude startup', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
   queue.lastStartTimeByTool.claude = Date.now();
+  queue.lastStartTime = Date.now();
   const claudeCheck = await queue.canStartCommand({ tool: 'claude' });
   const agentCheck = await queue.canStartCommand({ tool: 'agent' });
   assert.ok(claudeCheck.reasons.some(r => r.includes('Minimum interval')));
-  assert.ok(!agentCheck.reasons.some(r => r.includes('Minimum interval')));
+  assert.ok(agentCheck.reasons.some(r => r.includes('Minimum interval')));
   queue.stop();
 });
 
 await asyncTest('getStats and getQueueSummary show per-tool breakdown', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  // autoStart:false keeps items in the pending queue; with the consumer running
+  // it could shift() an item into processing before we snapshot the counts,
+  // making the pending assertions flaky under CI load (#1941 CI follow-up).
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'agent' });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'claude' });
@@ -114,7 +118,9 @@ await asyncTest('getStats and getQueueSummary show per-tool breakdown', async ()
 
 await asyncTest('formatStatus includes codex queue', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  // autoStart:false so the consumer cannot drain a pending item before the
+  // formatStatus() snapshot (#1941 CI follow-up).
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'codex' });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'qwen' });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/3', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
@@ -127,7 +133,9 @@ await asyncTest('formatStatus includes codex queue', async () => {
 
 await asyncTest('formatStatus includes gemini queue', async () => {
   beforeEach();
-  const queue = new SolveQueue({ verbose: false });
+  // autoStart:false so the single enqueued item stays pending for the snapshot
+  // instead of racing the consumer's shift() into processing (#1941 CI follow-up).
+  const queue = new SolveQueue({ verbose: false, autoStart: false });
   queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'testuser', infoBlock: 'Test', tool: 'gemini' });
   const status = await queue.formatStatus();
   assert.ok(status.includes('gemini') && status.includes('pending: 1'), 'Should show gemini queue with 1 pending');
@@ -145,6 +153,7 @@ await asyncTest('findStartableItem and findStartableItems work correctly', async
   assert.ok(result.item === null || result.item.tool === 'claude' || result.item.tool === 'agent');
   const startableItems = await queue.findStartableItems();
   assert.ok(Array.isArray(startableItems));
+  assert.ok(startableItems.length <= 1, 'global startup pacing should expose at most one startable item');
   queue.stop();
 });
 

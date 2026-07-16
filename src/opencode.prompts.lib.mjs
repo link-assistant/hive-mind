@@ -7,6 +7,8 @@ import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mj
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
+import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
+import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 
 /**
  * Build the user prompt for OpenCode
@@ -50,6 +52,11 @@ export const buildUserPrompt = params => {
     }
   }
 
+  const requestedBaseBranchDirective = buildRequestedBaseBranchDirective(argv);
+  if (requestedBaseBranchDirective) {
+    promptLines.push(requestedBaseBranchDirective);
+  }
+
   // Add blank line
   promptLines.push('');
 
@@ -58,6 +65,11 @@ export const buildUserPrompt = params => {
     // Add each feedback line directly
     feedbackLines.forEach(line => promptLines.push(line));
     promptLines.push('');
+  }
+
+  const issueResearchPrompt = buildIssueResearchPrompt({ argv, issueNumber, prNumber }).trim();
+  if (issueResearchPrompt) {
+    promptLines.push(issueResearchPrompt, '');
   }
 
   const thinkingPromptInstruction = getThinkingPromptInstruction({ tool: 'opencode', argv });
@@ -119,7 +131,6 @@ CI investigation with workspace tmp directory.
   }
 
   return `You are an AI issue solver using OpenCode.
-
 General guidelines.
    - When you execute commands and the output becomes large, save the logs to files for easier review.
    - When running commands, avoid setting a timeout yourself. Let them run as long as needed.

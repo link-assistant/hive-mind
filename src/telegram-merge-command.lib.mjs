@@ -18,7 +18,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1143
  */
 
-import { parseRepositoryUrl, checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
+import { checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
+import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-merge-targets.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 import { executeStartScreen } from './telegram-command-execution.lib.mjs';
 
@@ -130,6 +131,81 @@ export function parseMergeArgs(args) {
 }
 
 /**
+ * A real user reply can carry the issue/PR URL for `/merge`; forwarded
+ * commands still must not be replayed by the bot.
+ *
+ * @param {Object} ctx - Telegraf context
+ * @param {Object} filters - Message filter callbacks
+ * @returns {boolean}
+ */
+export function shouldIgnoreMergeCommand(ctx, filters = {}) {
+  if (filters.isOldMessage && filters.isOldMessage(ctx)) {
+    return true;
+  }
+  if (typeof filters.isForwarded === 'function') {
+    return filters.isForwarded(ctx);
+  }
+  if (typeof filters.isForwardedOrReply === 'function') {
+    return filters.isForwardedOrReply(ctx);
+  }
+  return false;
+}
+
+function getMergeReplyText(message) {
+  const reply = message?.reply_to_message;
+  if (!reply || reply.forum_topic_created) {
+    return '';
+  }
+  return reply.text || reply.caption || '';
+}
+
+function getMergeUsageMessage() {
+  return "Missing merge target\\.\n\nUsage: `/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]`\n\nYou can also reply with `/merge` to a message containing one GitHub repository, issue, or pull request link\\.\n\nExamples:\n`/merge https://github.com/owner/repo`\n`/merge https://github.com/owner/repo/issues/123`\n`/merge https://github.com/owner/repo/pull/456`\n\nRepository targets merge all PRs with the 'ready' label\\. Issue and pull request targets wait until the target PR is mergeable, then merge it\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.";
+}
+
+function getTargetFoundText(target, count) {
+  if (target.mode === 'repository') {
+    return `Found ${count} PRs with 'ready' label\\.`;
+  }
+  const plural = count === 1 ? '' : 's';
+  return `Found ${count} target PR${plural} to merge\\.`;
+}
+
+/**
+ * Resolve the merge target from explicit args, or from a replied message when
+ * `/merge` is sent without a URL.
+ *
+ * @param {string[]} positionals
+ * @param {Object} message
+ * @returns {{target: Object|null, targetUrl: string|null, fromReply: boolean, error: string|null}}
+ */
+export function resolveMergeCommandTarget(positionals, message) {
+  if (positionals.length > 0) {
+    const targetUrl = positionals[0];
+    const target = parseMergeTargetUrl(targetUrl);
+    return {
+      target,
+      targetUrl,
+      fromReply: false,
+      error: target.valid ? null : target.error,
+    };
+  }
+
+  const replyText = getMergeReplyText(message);
+  if (!replyText) {
+    return { target: null, targetUrl: null, fromReply: false, error: null };
+  }
+
+  const extracted = extractMergeTargetUrlFromText(replyText);
+  return {
+    target: extracted.target,
+    targetUrl: extracted.url,
+    fromReply: true,
+    error: extracted.valid ? null : extracted.error,
+  };
+}
+
+/**
  * Issue #1805: Spawner used by the merge queue's auto-resolve pass. For each
  * skipped PR we dispatch a `solve <pr-url> --auto-merge` session through
  * the same `start-screen` runtime the bot uses everywhere else. Keeping this
@@ -209,7 +285,7 @@ function formatUserError(error, verbose) {
  * @param {Function} [options.getStoppedChatRejectMessage] - Function to get stopped chat rejection message
  */
 export function registerMergeCommand(bot, options) {
-  const { VERBOSE = false, isOldMessage, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
 
   bot.command(/^merge$/i, async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
@@ -222,7 +298,7 @@ export function registerMergeCommand(bot, options) {
     });
 
     // Standard checks
-    if (isOldMessage(ctx) || isForwardedOrReply(ctx)) return;
+    if (shouldIgnoreMergeCommand(ctx, { isOldMessage, isForwarded, isForwardedOrReply })) return;
 
     if (!isGroupChat(ctx)) {
       return await ctx.reply('The /merge command only works in group chats. Please add this bot to a group and make it an admin.', {
@@ -252,24 +328,25 @@ export function registerMergeCommand(bot, options) {
     const { positionals, flags } = parseMergeArgs(args);
     const autoResolve = flags['auto-resolve'] === true;
 
-    if (positionals.length === 0) {
-      return await ctx.reply("Missing repository URL\\.\n\nUsage: `/merge <repository-url> [--auto-resolve]`\n\nExample: `/merge https://github.com/owner/repo`\n\nThis will merge all PRs with the 'ready' label, one by one, waiting for CI/CD between each merge\\.\n\nWith `--auto-resolve` the bot also dispatches `/solve <pr> --auto-merge` for every PR that was skipped because of merge conflicts\\.", { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+    const targetResult = resolveMergeCommandTarget(positionals, ctx.message);
+
+    if (!targetResult.target && !targetResult.error) {
+      return await ctx.reply(getMergeUsageMessage(), { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
     }
 
-    // Parse and validate repository URL
-    const repoUrl = positionals[0];
-    const parsedUrl = parseRepositoryUrl(repoUrl);
-
-    if (!parsedUrl.valid) {
-      return await ctx.reply(`Invalid repository URL: ${escapeMarkdownV2(parsedUrl.error)}\n\nPlease provide a valid GitHub repository URL\\.`, {
+    if (!targetResult.target || !targetResult.target.valid) {
+      const invalidPrefix = targetResult.fromReply ? 'Invalid merge target in replied message' : 'Invalid merge target';
+      return await ctx.reply(`${invalidPrefix}: ${escapeMarkdownV2(targetResult.error || targetResult.target?.error || 'Unknown target error')}\n\nPlease provide a valid GitHub repository, issue, or pull request URL\\.`, {
         parse_mode: 'MarkdownV2',
         reply_to_message_id: ctx.message.message_id,
       });
     }
 
-    const { owner, repo } = parsedUrl;
+    const target = targetResult.target;
+    const targetUrl = targetResult.targetUrl || target.url;
+    const { owner, repo } = target;
     const repoKey = getRepoKey(owner, repo);
-    VERBOSE && console.log(`[VERBOSE] /merge: Processing repository ${owner}/${repo}`);
+    VERBOSE && console.log(`[VERBOSE] /merge: Processing ${target.mode} target ${targetUrl} in ${owner}/${repo}`);
 
     // Check if a merge operation is already running for this repository (per-repository concurrency)
     if (activeMergeOperations.has(repoKey)) {
@@ -310,6 +387,7 @@ export function registerMergeCommand(bot, options) {
       // Create the merge queue processor
       const processor = await createMergeQueueProcessor(owner, repo, {
         verbose: VERBOSE,
+        target,
         // Issue #1805: forward the --auto-resolve flag and inject the spawner.
         // The processor only sees the callback, so unit tests can stub it
         // without spawning real screen sessions.
@@ -384,14 +462,14 @@ export function registerMergeCommand(bot, options) {
 
       if (initResult.message) {
         // No PRs to merge
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to PRs you want to merge\n2\\. Run \`/merge ${escapeMarkdownV2(repoUrl)}\` again`, { parse_mode: 'MarkdownV2' });
+        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to repository PRs, or ensure the issue has a linked open PR\n2\\. Run \`/merge ${escapeMarkdownV2(targetUrl)}\` again`, { parse_mode: 'MarkdownV2' });
         return;
       }
 
       // Update message with PR list and cancel button, start processing
       const truncatedMsg = initResult.truncated ? `\n\n_Note: Only processing first ${MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION} PRs_` : '';
 
-      await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\nFound ${initResult.count} PRs with 'ready' label\\.${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
+      await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${getTargetFoundText(target, initResult.count)}${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
         parse_mode: 'MarkdownV2',
         reply_markup: {
           inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]],

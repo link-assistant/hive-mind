@@ -116,7 +116,7 @@ export const registerTokensCommand = (bot, options = {}) => {
 
     // Step 2: authenticate by ownership of an allowlisted chat.
     const allowedChatIds = resolveAllowedChatIds(allowedChats);
-    let isOperator = false;
+    let isOperator;
     try {
       isOperator = await isOperatorOfAnyAllowedChat({
         telegram: ctx.telegram,

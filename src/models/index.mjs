@@ -29,10 +29,10 @@ const execFileAsync = promisify(execFile);
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6, and Fable 5 / Mythos 5 support
-// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875)
+// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
+// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003)
 export const claudeModels = {
-  sonnet: 'claude-sonnet-4-6', // Sonnet 4.6 (default, Issue #1329)
+  sonnet: 'claude-sonnet-5', // Sonnet 5 (default, Issue #2003)
   opus: 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
@@ -46,6 +46,7 @@ export const claudeModels = {
   'mythos-5': 'claude-mythos-5', // Mythos 5 short alias
   'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
+  'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
   'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
   'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
@@ -56,6 +57,7 @@ export const claudeModels = {
   // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
+  'claude-sonnet-5': 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
   'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
   'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
@@ -125,6 +127,9 @@ export const codexModels = {
   'gpt-5.5': 'gpt-5.5',
   'gpt-5.5-mini': 'gpt-5.5-mini',
   'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.6-sol': 'gpt-5.6-sol',
+  'gpt-5.6-terra': 'gpt-5.6-terra',
+  'gpt-5.6-luna': 'gpt-5.6-luna',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -133,12 +138,59 @@ export const codexModels = {
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
   'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
+  'openai.gpt-5.5': 'openai.gpt-5.5',
+  'openai.gpt-5.4': 'openai.gpt-5.4',
+  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
+  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
+  'codex-auto-review': 'codex-auto-review',
   'o3-mini': 'o3-mini',
   gpt4: 'gpt-4',
   'gpt-4': 'gpt-4',
   gpt4o: 'gpt-4o',
   'gpt-4o': 'gpt-4o',
 };
+
+const CODEX_GENERATION_ALIAS_PATTERN = /^gpt-(\d+(?:\.\d+)?)-(sol|terra|luna)$/;
+const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
+
+/**
+ * Resolve sol/terra/luna to the newest generation that contains the complete
+ * alias family. A complete family prevents a partially rolled-out catalog from
+ * moving only some aliases to a newer generation.
+ */
+export const getLatestCodexGenerationAliases = (models = codexModels) => {
+  const generations = new Map();
+
+  for (const modelId of Object.values(models)) {
+    const bareModelId = modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '');
+    const match = bareModelId.match(CODEX_GENERATION_ALIAS_PATTERN);
+    if (!match) continue;
+
+    const [, generation, alias] = match;
+    if (!generations.has(generation)) generations.set(generation, {});
+    generations.get(generation)[alias] = bareModelId;
+  }
+
+  const latestCompleteGeneration = [...generations.entries()].filter(([, aliases]) => ['sol', 'terra', 'luna'].every(alias => aliases[alias])).sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true }))[0];
+
+  return latestCompleteGeneration?.[1] || {};
+};
+
+const getCodexModelVariants = () => {
+  const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
+  const aliases = getLatestCodexGenerationAliases();
+  const variants = { ...codexModels, ...aliases };
+
+  for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...aliases })) {
+    variants[`openai/${name}`] = `openai/${modelId}`;
+    variants[`openai.${name}`] = `openai.${modelId}`;
+  }
+
+  return variants;
+};
+
+export const CODEX_MODEL_VARIANTS = getCodexModelVariants();
 
 // Qwen Code models
 export const qwenModels = {
@@ -178,10 +230,10 @@ export const geminiModels = {
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
-  claude: 'sonnet',
+  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.5',
+  codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',
 };
@@ -198,10 +250,12 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-opus-4-7', // Opus 4.7 (Issue #1620)
   'claude-opus-4-6',
   'claude-opus-4-5-20251101',
+  'claude-sonnet-5', // Sonnet 5 — 1M context (Issue #2003)
   'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
-  'sonnet', // Now maps to Sonnet 4.6 (Issue #1329)
+  'sonnet', // Now maps to Sonnet 5 (Issue #2003)
+  'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
   'opus', // Now maps to Opus 4.8 (Issue #1832)
   'opus-4-8', // Short alias (Issue #1832)
@@ -256,11 +310,14 @@ export const OPENCODE_MODELS = {
 };
 
 export const CODEX_MODELS = {
-  ...codexModels,
+  ...CODEX_MODEL_VARIANTS,
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
   'gpt-5.5-mini': 'gpt-5.5-mini',
   'gpt-5.5-nano': 'gpt-5.5-nano',
+  'gpt-5.6-sol': 'gpt-5.6-sol',
+  'gpt-5.6-terra': 'gpt-5.6-terra',
+  'gpt-5.6-luna': 'gpt-5.6-luna',
   'gpt-5.4': 'gpt-5.4',
   'gpt-5.4-mini': 'gpt-5.4-mini',
   'gpt-5.4-nano': 'gpt-5.4-nano',
@@ -269,6 +326,12 @@ export const CODEX_MODELS = {
   'gpt-5.3-codex': 'gpt-5.3-codex',
   'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
   'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
+  'openai.gpt-5.5': 'openai.gpt-5.5',
+  'openai.gpt-5.4': 'openai.gpt-5.4',
+  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
+  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
+  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
+  'codex-auto-review': 'codex-auto-review',
   'gpt-4': 'gpt-4',
   'gpt-4o': 'gpt-4o',
 };
@@ -324,7 +387,7 @@ export const getModelMapForTool = tool => {
     case 'opencode':
       return opencodeModels;
     case 'codex':
-      return codexModels;
+      return CODEX_MODEL_VARIANTS;
     case 'gemini':
       return geminiModels;
     case 'qwen':
@@ -344,7 +407,12 @@ export const getDefaultModelForTool = tool => {
 };
 
 let cachedInstalledCodexModelsPromise = null;
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.4', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
+// consulted when Sol is absent from the local catalog. Issue #2037 (review): order by
+// intelligence / size tier (closest first), not by generation — the flagship sibling
+// `gpt-5.6-terra` is closer to Sol than the previous-generation `gpt-5.5`, which in turn
+// is a larger, more capable model than the smaller GPT-5.6 `luna` tier.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'openai.gpt-5.6-sol', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -402,7 +470,7 @@ export const mapModelForTool = (tool, model) => {
     case 'opencode':
       return opencodeModels[model] || model;
     case 'codex':
-      return codexModels[model] || model;
+      return CODEX_MODEL_VARIANTS[model] || model;
     case 'gemini':
       return geminiModels[model] || model;
     case 'qwen':
@@ -429,7 +497,7 @@ export const isModelCompatibleWithTool = (tool, model) => {
     case 'opencode':
       return mappedModel.includes('/') || Object.keys(opencodeModels).includes(model);
     case 'codex':
-      return Object.keys(codexModels).includes(model) || mappedModel.startsWith('gpt-');
+      return Object.hasOwn(CODEX_MODEL_VARIANTS, model);
     case 'gemini':
       return Object.keys(geminiModels).includes(model) || mappedModel.startsWith('gemini-');
     case 'qwen':
@@ -453,7 +521,7 @@ export const getValidModelsForTool = tool => {
     case 'opencode':
       return Object.keys(opencodeModels);
     case 'codex':
-      return Object.keys(codexModels);
+      return Object.keys(CODEX_MODEL_VARIANTS);
     case 'gemini':
       return Object.keys(geminiModels);
     case 'qwen':
@@ -468,7 +536,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
   opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark'],
+  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
   gemini: ['flash', 'pro', 'flash-lite', 'auto'],
@@ -742,6 +810,62 @@ export const validateModelName = (model, tool = 'claude') => {
   };
 };
 
+export const CLAUDE_SUB_AGENT_MODEL_INHERIT = 'inherit';
+
+export const normalizeClaudeSubAgentModelName = model => {
+  if (model === undefined || model === null) return model;
+  if (typeof model !== 'string') return model;
+
+  const trimmed = model.trim();
+  return trimmed.toLowerCase() === CLAUDE_SUB_AGENT_MODEL_INHERIT ? CLAUDE_SUB_AGENT_MODEL_INHERIT : trimmed;
+};
+
+const looksLikeClaudeProviderModelId = model => {
+  if (typeof model !== 'string') return false;
+  const normalized = model.toLowerCase();
+  return normalized.startsWith('claude-') || normalized.startsWith('anthropic/') || normalized.startsWith('anthropic.') || normalized.includes('.anthropic.');
+};
+
+/**
+ * Validate the Claude Code subagent/agent-team model override.
+ *
+ * Claude Code documents CLAUDE_CODE_SUBAGENT_MODEL as accepting full provider
+ * model IDs, normal Claude model aliases, and the special value "inherit".
+ * Keep "inherit" scoped to this option so it does not become a valid main
+ * session model.
+ *
+ * @param {string} model - The subagent model override value
+ * @returns {{ valid: boolean, message?: string, suggestions?: string[], mappedModel?: string }}
+ */
+export const validateClaudeSubAgentModelName = model => {
+  const normalized = normalizeClaudeSubAgentModelName(model);
+
+  if (normalized === CLAUDE_SUB_AGENT_MODEL_INHERIT) {
+    return {
+      valid: true,
+      mappedModel: CLAUDE_SUB_AGENT_MODEL_INHERIT,
+    };
+  }
+
+  const validation = validateModelName(normalized, 'claude');
+  if (validation.valid) return validation;
+  if (looksLikeClaudeProviderModelId(normalized)) {
+    return {
+      valid: true,
+      mappedModel: normalized,
+    };
+  }
+
+  return validation;
+};
+
+export const mapClaudeSubAgentModelToEnvValue = model => {
+  const result = validateClaudeSubAgentModelName(model);
+  if (result.valid && result.mappedModel) return result.mappedModel;
+  const normalized = normalizeClaudeSubAgentModelName(model);
+  return mapModelForTool('claude', normalized);
+};
+
 /**
  * Validate model name and exit with error if invalid
  * This is the main entry point for model validation in solve.mjs, hive.mjs, etc.
@@ -758,6 +882,46 @@ export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exit
 
     if (exitFn) {
       await exitFn(1, 'Invalid model name');
+    } else {
+      process.exit(1);
+    }
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Validate --sub-agent-model and exit with error if invalid.
+ *
+ * This option maps to Claude Code's CLAUDE_CODE_SUBAGENT_MODEL, so it is only
+ * meaningful for the Claude tool even when solve/hive supports multiple tools.
+ *
+ * @param {string} model - The subagent model override value
+ * @param {string} tool - The selected tool
+ * @param {Function} exitFn - Function to call for exiting (default: process.exit)
+ * @returns {Promise<boolean>} True if valid, exits process if invalid
+ */
+export const validateAndExitOnInvalidClaudeSubAgentModel = async (model, tool = 'claude', exitFn = null) => {
+  if (model === undefined || model === null || model === '') return true;
+
+  if (tool !== 'claude') {
+    await log(`❌ --sub-agent-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+    if (exitFn) {
+      await exitFn(1, '--sub-agent-model requires --tool claude');
+    } else {
+      process.exit(1);
+    }
+    return false;
+  }
+
+  const result = validateClaudeSubAgentModelName(model);
+
+  if (!result.valid) {
+    await log(`❌ Invalid --sub-agent-model: ${result.message}`, { level: 'error' });
+
+    if (exitFn) {
+      await exitFn(1, 'Invalid sub-agent model name');
     } else {
       process.exit(1);
     }
@@ -926,7 +1090,30 @@ const doesRequestedMatchActual = (requestedModel, actualModelId, tool) => {
  * @param {Array<{modelId: string, modelInfo: Object|null}>|null} options.modelsUsed - Actual models used from CLI JSON output
  * @returns {string} Formatted markdown string for model info section
  */
-export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null } = {}) => {
+/**
+ * Compute the share (0-100) of total output tokens that a given model produced.
+ * Used to report how much of the run actually ran on the fallback model, so the
+ * PR/issue comment can manage expectations precisely (Issue #2037 review).
+ * @param {Object|null} modelUsage - map of modelId -> { outputTokens } (or output_tokens)
+ * @param {string} modelId - the model whose share to compute
+ * @returns {number|null} integer percentage, or null when no output-token data
+ */
+const computeOutputTokenSharePercent = (modelUsage, modelId) => {
+  if (!modelUsage || typeof modelUsage !== 'object' || !modelId) return null;
+  const target = normalizeForComparison(modelId);
+  let total = 0;
+  let matched = 0;
+  for (const [id, usage] of Object.entries(modelUsage)) {
+    const out = Number(usage?.outputTokens ?? usage?.output_tokens ?? 0) || 0;
+    if (out <= 0) continue;
+    total += out;
+    if (normalizeForComparison(id) === target) matched += out;
+  }
+  if (total <= 0) return null;
+  return Math.round((matched / total) * 100);
+};
+
+export const buildModelInfoString = ({ requestedModel = null, tool = null, pricingInfo = null, modelInfo = null, modelsUsed = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   const hasRequested = requestedModel !== null && requestedModel !== undefined;
   const hasModelsUsed = Array.isArray(modelsUsed) && modelsUsed.length > 0;
   const hasModelInfo = modelInfo !== null;
@@ -941,7 +1128,22 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
   }
 
   if (hasRequested) {
-    info += `\n- Requested: \`${requestedModel}\``;
+    // Issue #1949: the bare alias (e.g. "opus") is ambiguous \u2014 show the full model
+    // ID it resolves to so reviewers know exactly which model ran, e.g.
+    // "Requested: `opus` (`claude-opus-4-8`)". When the alias already equals its
+    // resolved ID (or cannot be resolved) we just print the alias once.
+    const resolvedRequested = resolveModelId(requestedModel, tool);
+    if (resolvedRequested && String(resolvedRequested).toLowerCase() !== String(requestedModel).toLowerCase()) {
+      info += `\n- Requested: \`${requestedModel}\` (\`${resolvedRequested}\`)`;
+    } else {
+      info += `\n- Requested: \`${requestedModel}\``;
+    }
+  }
+
+  // Issue #1949: surface the requested thinking level alongside the model so the
+  // comment records how deeply the model was asked to think (null = tool default).
+  if (thinkingInfo) {
+    info += `\n- Thinking level: ${thinkingInfo}`;
   }
 
   if (hasModelsUsed) {
@@ -954,12 +1156,30 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
     const mainModelName = mainModelMeta?.name || mainModelId;
     const modelLabel = supportingEntries.length > 0 ? 'Main model' : 'Model';
 
+    // Issue #2037: A mismatch between the requested model and the model that
+    // actually ran happens when the run was downgraded to the configured fallback
+    // model (e.g. Codex reported the requested `gpt-5.6-sol` was "at capacity", so
+    // the retry loop switched to `gpt-5.6-terra`). Even though the fallback did its
+    // job, the user did *not* get the model they asked for in full detail, so this
+    // is still surfaced as a \u26A0\uFE0F warning (Issue #2037 review) \u2014 but a
+    // clearer one that explains it was an automatic capacity fallback rather than an
+    // unexplained mismatch. When output-token data is available we also report the
+    // share of output tokens produced by the fallback model, so expectations are set
+    // precisely.
+    const matchesFallback = hasRequested && !mainMatches && fallbackModel ? doesRequestedMatchActual(fallbackModel, mainModelId, tool) : false;
+
     if (mainMatches) {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
     } else {
       info += `\n- **${modelLabel}: ${mainModelName}** (\`${mainModelId}\`)`;
       if (hasRequested) {
-        info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\``;
+        const sharePercent = computeOutputTokenSharePercent(modelUsage, mainModelId);
+        const shareSuffix = sharePercent !== null ? ` (fallback model produced ${sharePercent}% of output tokens)` : '';
+        if (matchesFallback) {
+          info += `\n- \u26A0\uFE0F **Warning**: Requested model \`${requestedModel}\` was unavailable (at capacity); automatically fell back to \`${mainModelId}\`${shareSuffix}`;
+        } else {
+          info += `\n- \u26A0\uFE0F **Warning**: Main model \`${mainModelId}\` does not match requested model \`${requestedModel}\`${shareSuffix}`;
+        }
       }
     }
 
@@ -1019,9 +1239,29 @@ export const defaultFallbackModels = {
     'claude-mythos-5': 'fable',
     'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
+    // Claude Sonnet 5 falls back to the prior Sonnet generation (Issue #2003).
+    'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
+    // Issue #2037 (review): order fallbacks by *intelligence / size tier*, not by
+    // generation. Within GPT-5.6, `sol` is the flagship and `terra` is the next tier
+    // down; `luna` is a smaller/cheaper variant. When `gpt-5.6-sol` is at capacity the
+    // closest replacement is `gpt-5.6-terra`, and the next-closest to `gpt-5.6-terra`
+    // is the previous generation's flagship `gpt-5.5` (a larger, more capable model
+    // than the smaller `gpt-5.6-luna`), then `gpt-5.5 -> gpt-5.4 -> gpt-5.2`, and so
+    // on. So the flagship chain walks sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2
+    // and never detours through the smaller `luna` tier. The smaller `luna` variant,
+    // if requested directly, steps down to the previous full generation as well.
+    'gpt-5.6-sol': 'gpt-5.6-terra',
+    'gpt-5.6-terra': 'gpt-5.5',
+    'gpt-5.6-luna': 'gpt-5.5',
+    'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
+    'openai.gpt-5.6-terra': 'openai.gpt-5.5',
+    'openai.gpt-5.6-luna': 'openai.gpt-5.5',
+    'openai.gpt-5.5': 'openai.gpt-5.4',
+    'openai.gpt-5.4': 'openai.gpt-5.2',
     'gpt-5.5': 'gpt-5.4',
+    'gpt-5.4': 'gpt-5.2',
   },
 };
 
@@ -1044,7 +1284,7 @@ export const resolveDefaultFallbackModel = (tool, model) => {
  * @param {Array<string>|null} options.actualModelIds - Actual model IDs from CLI JSON output
  * @returns {Promise<string>} Formatted markdown model info section
  */
-export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null } = {}) => {
+export const getModelInfoForComment = async ({ requestedModel = null, tool = null, pricingInfo = null, actualModelIds = null, thinkingInfo = null, fallbackModel = null, modelUsage = null } = {}) => {
   let modelIds = [];
 
   if (Array.isArray(actualModelIds) && actualModelIds.length > 0) {
@@ -1075,5 +1315,8 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
     pricingInfo,
     modelInfo: modelsUsed.length === 0 ? firstModelInfo : null,
     modelsUsed: modelsUsed.length > 0 ? modelsUsed : null,
+    thinkingInfo,
+    fallbackModel,
+    modelUsage,
   });
 };

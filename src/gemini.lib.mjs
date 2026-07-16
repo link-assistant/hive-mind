@@ -10,7 +10,7 @@ if (typeof globalThis.use === 'undefined') {
 
 const { $ } = await use('command-stream');
 
-import { log } from './lib.mjs';
+import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -19,8 +19,9 @@ const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && 
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels } from './models/index.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, getRetryDelayMs, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -521,14 +522,21 @@ export const executeGeminiCommand = async params => {
           const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
           const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
           if (retryCount < maxRetries) {
-            const delay = getRetryDelayMs({
+            // Issue #2037: retry the same model on capacity errors before falling back;
+            // after a capacity-driven model switch, retry quickly instead of waiting the
+            // full transient backoff — the new model may be available now.
+            const retryPlan = await prepareRetryAfterError({
+              tool: 'gemini',
+              argv,
+              log,
+              errorMessage: retryableError.message,
               retryCount,
               initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
               maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
             });
+            const delay = retryPlan.delay;
             const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
             await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
-            await maybeSwitchToFallbackModel({ tool: 'gemini', argv, log, errorMessage: retryableError.message });
             await waitForRetryDelay(delay, log);
             await log('\n🔄 Retrying now...');
             retryCount++;
@@ -576,8 +584,54 @@ export const executeGeminiCommand = async params => {
           pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
           publicPricingEstimate: null,
           resultSummary: geminiJsonState.resultSummary || null,
-          // Issue #1845: surface the actual error so callers can show it to users
-          errorInfo: { message: errorText || `Gemini command failed with exit code ${exitCode}`, exitCode },
+          // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+          errorInfo: { message: buildToolErrorMessage({ lastMessage: errorText, exitCode, fallback: `Gemini command failed with exit code ${exitCode}`, toolLabel: 'Gemini' }), exitCode },
+        };
+      }
+
+      // Issue #1990: exit 0 and a non-empty stream are necessary but NOT
+      // sufficient. gemini-cli's stream-json ends with a terminal `result` event;
+      // a run that did work but never emitted it was cut off mid-run (e.g. the
+      // docker container ran out of disk) and must be registered as a failure so
+      // the session is preserved for a context-preserving restart and — under
+      // docker isolation — the container filesystem is kept for inspection.
+      const completionHealth = getTerminalEventCompletionHealth({
+        eventCounts: geminiJsonState.eventCounts,
+        terminalEventTypes: ['result'],
+        hadActivity: (geminiJsonState.messageCount || 0) > 0 || (geminiJsonState.toolUseCount || 0) > 0,
+        diskEvidenceTexts: [
+          { source: 'output', text: allOutput },
+          { source: 'result-summary', text: geminiJsonState.resultSummary },
+        ],
+      });
+      if (!completionHealth.healthy) {
+        await log('\n\n❌ Gemini exited 0 but the run did not complete — treating as failure', { level: 'error' });
+        for (const reason of completionHealth.reasons) {
+          await log(`   • ${reason}`, { level: 'error' });
+        }
+        if (completionHealth.diskPressureDetected) {
+          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+          }
+          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+        }
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          messageCount: geminiJsonState.messageCount || 0,
+          toolUseCount: geminiJsonState.toolUseCount || 0,
+          resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
+          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
+          publicPricingEstimate: null,
+          resultSummary: geminiJsonState.resultSummary || null,
+          completionHealth,
+          incompleteSession: completionHealth.incompleteSession,
+          diskPressureDetected: completionHealth.diskPressureDetected,
+          errorInfo: { message: completionHealth.reasons.join(' ') },
         };
       }
 

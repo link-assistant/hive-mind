@@ -72,8 +72,10 @@ const TIER_ALIASES = {
   'claude-haiku-4-5': 'haiku',
   'claude-haiku-4-5-20251001': 'haiku',
   sonnet: 'sonnet',
+  'sonnet-5': 'sonnet',
   'sonnet-4-6': 'sonnet',
   'sonnet-4-5': 'sonnet',
+  'claude-sonnet-5': 'sonnet',
   'claude-sonnet-4-6': 'sonnet',
   'claude-sonnet-4-5': 'sonnet',
   opus: 'opus',
@@ -125,9 +127,6 @@ export const parseEscalateRange = value => {
     throw new Error(`Invalid --escalate value: ${JSON.stringify(value)}. Expected a model range like "sonnet-fable".`);
   }
   const trimmed = raw.trim().toLowerCase();
-  if (trimmed === '') {
-    raw = DEFAULT_ESCALATE_RANGE;
-  }
   const parts = (trimmed === '' ? DEFAULT_ESCALATE_RANGE : trimmed).split('-');
 
   const order = MODEL_ESCALATION_ORDER;

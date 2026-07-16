@@ -91,10 +91,10 @@ test('claude-opus-4-5-20251101 (full ID) still works', () => {
   assert.strictEqual(result.mappedModel, 'claude-opus-4-5-20251101', 'Should map to itself');
 });
 
-test('sonnet alias still works (now maps to Sonnet 4.6, Issue #1329)', () => {
+test('sonnet alias still works (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet', 'claude');
   assert(result.valid, `sonnet should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6', 'sonnet should map to claude-sonnet-4-6');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5', 'sonnet should map to claude-sonnet-5');
 });
 
 test('haiku alias still works (regression test)', () => {
@@ -176,10 +176,10 @@ test('validateModelName accepts claude-opus-4-6[1m]', () => {
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
-test('validateModelName accepts sonnet[1m] (now maps to Sonnet 4.6, Issue #1329)', () => {
+test('validateModelName accepts sonnet[1m] (now maps to Sonnet 5, Issue #2003)', () => {
   const result = validateModelName('sonnet[1m]', 'claude');
   assert(result.valid, `sonnet[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-sonnet-4-6[1m]', 'Should map to claude-sonnet-4-6[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-sonnet-5[1m]', 'Should map to claude-sonnet-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -204,9 +204,9 @@ test('mapModelToId handles claude-opus-4-6[1m]', () => {
   assert.strictEqual(result, 'claude-opus-4-6[1m]', 'mapModelToId should handle claude-opus-4-6[1m]');
 });
 
-test('mapModelToId handles sonnet[1m] (now maps to Sonnet 4.6, Issue #1329)', () => {
+test('mapModelToId handles sonnet[1m] (now maps to Sonnet 5, Issue #2003)', () => {
   const result = mapModelToId('sonnet[1m]');
-  assert.strictEqual(result, 'claude-sonnet-4-6[1m]', 'mapModelToId should handle sonnet[1m]');
+  assert.strictEqual(result, 'claude-sonnet-5[1m]', 'mapModelToId should handle sonnet[1m]');
 });
 
 // ============================================================
@@ -242,8 +242,8 @@ test('getMaxOutputTokensForModel returns opus46 max for claude-opus-4-6', () => 
   assert.strictEqual(getMaxOutputTokensForModel('claude-opus-4-6'), claudeCode.maxOutputTokensOpus46, 'claude-opus-4-6 should have Opus 4.6 max output tokens');
 });
 
-test('getMaxOutputTokensForModel returns default max for sonnet', () => {
-  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokens, 'Sonnet should have default max output tokens');
+test('getMaxOutputTokensForModel returns 128K for sonnet (now Sonnet 5, Issue #2003)', () => {
+  assert.strictEqual(getMaxOutputTokensForModel('sonnet'), claudeCode.maxOutputTokensOpus46, 'Sonnet 5 should have 128K max output tokens');
 });
 
 // ============================================================

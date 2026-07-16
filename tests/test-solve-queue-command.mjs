@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Unit tests for /solve_queue Telegram bot command
+ * Unit tests for /queue Telegram bot command
  *
- * Tests the solve_queue command handler registration, permission checks,
+ * Tests the queue command handler registration, permission checks,
  * and queue status output.
  *
  * Run with: node tests/test-solve-queue-command.mjs
@@ -61,7 +61,7 @@ function createMockCtx(overrides = {}) {
     message: {
       message_id: 1,
       date: overrides.messageDate || Math.floor(Date.now() / 1000) + 100,
-      text: overrides.text || '/solve_queue',
+      text: overrides.text || '/queue',
       ...(overrides.message || {}),
     },
     reply: async (text, opts) => {
@@ -107,7 +107,7 @@ function createOptions(overrides = {}) {
 }
 
 console.log('='.repeat(80));
-console.log('Unit Tests: /solve_queue Command (Issue #1232)');
+console.log('Unit Tests: /queue Command');
 console.log('='.repeat(80));
 
 // ============================================================================
@@ -129,32 +129,32 @@ test('registerSolveQueueCommand returns handleSolveQueueCommand function', () =>
   assert.equal(typeof result.handleSolveQueueCommand, 'function', 'handleSolveQueueCommand should be a function');
 });
 
-test('Command regex matches solve_queue', () => {
+test('Command regex does not match legacy solve_queue command', () => {
   const bot = createMockBot();
   registerSolveQueueCommand(bot, createOptions());
   const pattern = bot.registeredCommands[0].pattern;
-  assert.ok(pattern.test('solve_queue'), 'Should match solve_queue');
+  assert.ok(!pattern.test('solve_queue'), 'Should not match legacy solve_queue');
 });
 
-test('Command regex matches solvequeue', () => {
+test('Command regex does not match legacy solvequeue command', () => {
   const bot = createMockBot();
   registerSolveQueueCommand(bot, createOptions());
   const pattern = bot.registeredCommands[0].pattern;
-  assert.ok(pattern.test('solvequeue'), 'Should match solvequeue');
+  assert.ok(!pattern.test('solvequeue'), 'Should not match legacy solvequeue');
 });
 
-test('Command regex matches solve-queue', () => {
+test('Command regex does not match legacy solve-queue command', () => {
   const bot = createMockBot();
   registerSolveQueueCommand(bot, createOptions());
   const pattern = bot.registeredCommands[0].pattern;
-  assert.ok(pattern.test('solve-queue'), 'Should match solve-queue');
+  assert.ok(!pattern.test('solve-queue'), 'Should not match legacy solve-queue');
 });
 
-test('Command regex matches SOLVE_QUEUE (case insensitive)', () => {
+test('Command regex does not match legacy SOLVE_QUEUE command', () => {
   const bot = createMockBot();
   registerSolveQueueCommand(bot, createOptions());
   const pattern = bot.registeredCommands[0].pattern;
-  assert.ok(pattern.test('SOLVE_QUEUE'), 'Should match SOLVE_QUEUE');
+  assert.ok(!pattern.test('SOLVE_QUEUE'), 'Should not match legacy SOLVE_QUEUE');
 });
 
 test('Command regex does not match solve', () => {
@@ -302,7 +302,7 @@ await asyncTest('Shows queue with pending items', async () => {
 });
 
 // ============================================================================
-// Hint Text Tests (verify /solve-queue was replaced with /solve_queue)
+// Hint Text Tests (verify short aliases are recommended)
 // ============================================================================
 
 console.log('\n📋 Hint Text Regression Tests\n');
@@ -310,11 +310,13 @@ console.log('\n📋 Hint Text Regression Tests\n');
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initI18n } from '../src/i18n.lib.mjs';
+import { initI18n, t } from '../src/i18n.lib.mjs';
 import { buildTelegramHelpMessage } from '../src/telegram-ui-messages.lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 await initI18n('en');
+const legacySolveCommandPrefix = ['/solve', '_'].join('');
+const escapedLegacySolveCommandPrefix = ['/solve', '\\_'].join('');
 
 function buildEnglishHelpMessage() {
   return buildTelegramHelpMessage({
@@ -326,36 +328,60 @@ function buildEnglishHelpMessage() {
   });
 }
 
-await asyncTest('locales/en.lino uses /solve_queue in hint text (not /solve-queue)', async () => {
-  // After i18n refactor, user-facing hint strings live in src/locales/<lang>.lino,
-  // not inline in telegram-bot.mjs. The original regression intent (issue #1232) is
-  // preserved by checking the canonical English source file.
+await asyncTest('locale files recommend short commands and no legacy solve-prefixed commands', async () => {
   const content = await readFile(join(__dirname, '..', 'src', 'locales', 'en.lino'), 'utf-8');
-  assert.ok(content.includes('Use /solve_queue to check the queue status'), 'Should use /solve_queue in hint text');
-  assert.ok(!content.includes('Use /solve-queue to check'), 'Should NOT use /solve-queue in hint text');
+  assert.ok(content.includes('Use /queue to check the queue status'), 'Should use /queue in hint text');
+
+  for (const locale of ['en', 'ru', 'zh', 'hi']) {
+    const localeContent = await readFile(join(__dirname, '..', 'src', 'locales', `${locale}.lino`), 'utf-8');
+    assert.ok(!localeContent.includes(legacySolveCommandPrefix), `${locale}.lino should not contain user-facing legacy solve-prefixed commands`);
+    assert.ok(!localeContent.includes(escapedLegacySolveCommandPrefix), `${locale}.lino should not contain escaped user-facing legacy solve-prefixed commands`);
+  }
 });
 
-await asyncTest('help message includes /solve_queue using backtick code block', async () => {
+await asyncTest('help message includes /queue using backtick code block', async () => {
   const content = buildEnglishHelpMessage();
-  assert.ok(content.includes('`/solve_queue`'), 'Help text should include /solve_queue in backtick code block');
-  // Should NOT use bold+escaped format which renders backslashes in Telegram
-  assert.ok(!content.includes('*/solve\\\\_queue*'), 'Help text should NOT use */solve\\_queue* format (renders backslashes)');
+  assert.ok(content.includes('`/queue`'), 'Help text should include /queue in backtick code block');
+  assert.ok(!content.includes(legacySolveCommandPrefix), 'Help text should not include legacy solve-prefixed queue command');
+  assert.ok(!content.includes(escapedLegacySolveCommandPrefix), 'Help text should not include escaped legacy solve-prefixed commands');
 });
 
-await asyncTest('telegram-bot.mjs includes solve_queue in text fallback handlers', async () => {
-  const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
-  assert.ok(content.includes('solve_queue: handleSolveQueueCommand'), 'Text fallback should include solve_queue handler');
-});
-
-await asyncTest('telegram-bot.mjs includes /queue alias in text fallback handlers (issue #1837)', async () => {
+await asyncTest('telegram-bot.mjs fallback routes only the /queue command', async () => {
   const content = await readFile(join(__dirname, '..', 'src', 'telegram-bot.mjs'), 'utf-8');
   assert.ok(content.includes('queue: handleSolveQueueCommand'), 'Text fallback should include the /queue alias handler');
+  assert.ok(!content.includes('solve_queue: handleSolveQueueCommand'), 'Text fallback should not include legacy solve_queue handler');
+  assert.ok(!content.includes('solvequeue: handleSolveQueueCommand'), 'Text fallback should not include legacy solvequeue handler');
 });
 
-await asyncTest('telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)', async () => {
+await asyncTest('duplicate URL messages recommend /queue and /stop', async () => {
+  const active = t(
+    'telegram.url_status_active',
+    {
+      statusText: 'being processed',
+      url: 'https://github.com/owner/repo/issues/1',
+      status: 'started',
+    },
+    { locale: 'en' }
+  );
+  assert.ok(active.includes('Use /queue to check the queue status'), 'Duplicate queued URL message should recommend /queue');
+  assert.ok(!active.includes(legacySolveCommandPrefix), 'Duplicate queued URL message should not recommend legacy solve-prefixed queue command');
+
+  const running = t(
+    'telegram.url_session_running',
+    {
+      url: 'https://github.com/owner/repo/issues/1',
+      session: 'session-1',
+    },
+    { locale: 'en' }
+  );
+  assert.ok(running.includes('use /stop to cancel it'), 'Duplicate running session message should recommend /stop');
+  assert.ok(!running.includes(escapedLegacySolveCommandPrefix), 'Duplicate running session message should not recommend escaped legacy solve-prefixed stop command');
+});
+
+await asyncTest('telegram-solve-queue.lib.mjs uses /queue in verbose command logs', async () => {
   const content = await readFile(join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs'), 'utf-8');
-  assert.ok(!content.includes('[VERBOSE] /solve-queue'), 'Should NOT use /solve-queue in VERBOSE log messages');
-  assert.ok(content.includes('[VERBOSE] /solve_queue'), 'Should use /solve_queue in VERBOSE log messages');
+  assert.ok(!content.includes(`[VERBOSE] ${legacySolveCommandPrefix}`), 'Should not use legacy solve-prefixed command names in VERBOSE log messages');
+  assert.ok(content.includes('[VERBOSE] /queue'), 'Should use /queue in VERBOSE log messages');
 });
 
 await asyncTest('telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])', async () => {
@@ -382,7 +408,7 @@ await asyncTest('telegram-accept-invitations.lib.mjs uses /accept_invites in log
 // ============================================================================
 
 console.log('\n' + '='.repeat(80));
-console.log(`Test Results for /solve_queue command:`);
+console.log(`Test Results for /queue command:`);
 console.log(`  ✅ Passed: ${testsPassed}`);
 console.log(`  ❌ Failed: ${testsFailed}`);
 console.log(`  Total: ${testsPassed + testsFailed}`);

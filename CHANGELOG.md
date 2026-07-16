@@ -1,5 +1,828 @@
 # @link-assistant/hive-mind
 
+## 2.7.3
+
+### Patch Changes
+
+- e6c67c0: Reset Anthropic cost accounting between fresh auto-restart working sessions while preserving cumulative totals for true session resumes.
+
+## 2.7.2
+
+### Patch Changes
+
+- c6add61: Add experimental `--auto-resume-on-uncommitted-changes` flag (#1056) that complements the existing `--auto-restart-on-uncommitted-changes` by reusing the previous Claude Code session via `--resume <sessionId>` when uncommitted changes are detected, preserving the agent's accumulated context instead of starting a fresh session. The flag is disabled by default. A companion knob, `--auto-resume-on-uncommitted-changes-maximum-context-window-usage` (default 50%), bounds the worst-case peak usage of the usable pre-compaction context (respecting `--sub-session-size`); sessions at or above the threshold, or sessions whose usage cannot be verified, fall back to a fresh run.
+
+## 2.7.1
+
+### Patch Changes
+
+- 0f57fe3: Make the Telegram Bot API section of `/limits` report real usage instead of near-permanent zeroes. Every Bot API call is now counted (not just sends), each documented flood-control window is tracked separately, and the section shows a single bar for the window closest to refusing the next request. Limits are learned from Telegram's own answers: a success proves capacity, a 429 proves a ceiling, and an active `retry_after` shows a full bar with the countdown.
+
+## 2.7.0
+
+### Minor Changes
+
+- 0bac9fd: Add an issue-type-aware `--deep-analysis` option for every supported AI tool, with development-log collection gated by `--development-log`.
+
+## 2.6.1
+
+### Patch Changes
+
+- 9ab8794: Make `HIVE_MIND_MIN_START_INTERVAL_MS` authoritative, warn when it is below the recommended 10-minute interval, and deprecate the redundant floor variable.
+
+## 2.6.0
+
+### Minor Changes
+
+- c031b7b: Handle weekly-only Codex usage windows and add Telegram Bot API rolling rate-limit telemetry to `/limits`.
+
+## 2.5.6
+
+### Patch Changes
+
+- e501237: Warn when malformed or safety-clamped numeric environment settings fall back to a different effective value.
+- 10ddbca: Document same-session live input support and the Codex app-server integration plan for issue #2057.
+
+## 2.5.5
+
+### Patch Changes
+
+- e6ccdc1: Allow operators to lower the queue startup interval safety floor with `HIVE_MIND_MIN_START_INTERVAL_FLOOR_MS` while preserving the 10-minute default.
+
+## 2.5.4
+
+### Patch Changes
+
+- 2ebdb3d: Add dequeue-decision diagnostics to the Telegram solve queue so global FIFO ordering across the per-tool queues can be audited in production (issue #2051). The oldest startable task still wins the single, globally-paced startup slot; when an older task is skipped because it cannot start, the queue now logs a concise, deduplicated "FIFO queue-jump" line naming the older task and the exact reason it is blocked (Claude/Codex limits, RAM/CPU/disk, min-interval, or one-at-a-time), and records it on `stats.lastQueueJump`. Verbose mode additionally prints a per-tool head snapshot each cycle. No change to ordering, pacing, or the minimum start interval.
+
+## 2.5.3
+
+### Patch Changes
+
+- eb755b5: Recognize an operator-initiated `/stop` as "🛑 Work session stopped by user" instead of "killed — out of memory or forced kill (SIGKILL)" (issue #2052). The Telegram `/stop <uuid>` flow now records the stop via `markSessionStopRequested` before forwarding CTRL+C, so the resulting SIGTERM/SIGKILL exit (143/137) is reported as an intentional user stop. Adds `--verbose` interrupt timing traces (auto-commit vs log-upload) to make the `docker stop` grace-period race behind "no log uploaded on stop" measurable, plus a case study under `docs/case-studies/issue-2052`.
+
+## 2.5.2
+
+### Patch Changes
+
+- da84b0c: Lower the default disk queue-admission threshold to 65% so isolation tasks retain safer free-space headroom.
+
+## 2.5.1
+
+### Patch Changes
+
+- 4054bcf: Commit the `--development-log` artifacts before signalling pull request readiness (issue #2048), so the development-log commit is part of the diff that CI and `--auto-restart-until-mergeable` evaluate. Previously the log commit landed after the "Ready to merge" signal and could break CI (e.g. a missing changeset) with no readiness re-evaluation.
+
+## 2.5.0
+
+### Minor Changes
+
+- 152f55a: Add generation-relative `sol`, `terra`, and `luna` Codex aliases and accept `openai/` and `openai.` prefixes for every known OpenAI model.
+
+## 2.4.1
+
+### Patch Changes
+
+- c412790: Improve model capacity fallback handling (Issue #2037): when the requested model is temporarily unavailable, every tool now retries the originally-requested model up to 5 times with exponential backoff before switching, then walks a fallback chain ordered by intelligence/size tier (e.g. `gpt-5.6-sol → gpt-5.6-terra → gpt-5.5 → gpt-5.4 → gpt-5.2`, skipping the smaller `gpt-5.6-luna` variant), keeps the mismatch warning informative rather than alarming, retries quickly after a capacity-driven model switch, and reports the fallback model's share of output tokens. Includes a case study reconstructing the timeline and root causes.
+
+## 2.4.0
+
+### Minor Changes
+
+- dc28004: Fix `--think` validation asymmetry between `solve` and `hive` (Issue #2041). After the #2038 vocabulary refactor, `solve.config` only validated `--think` in the CLI `parseArguments()` path, so consumers that parse solve options directly through the yargs config — most notably the Telegram bot — silently accepted invalid `--think` values (a CI false-negative that failed `test-telegram-options-before-url`). `createYargsConfig` now runs the same `normalizeAndValidateThink` `.check()` that `hive.config` already used, and `parseArguments` propagates that validation error verbatim instead of swallowing it. Invalid `--think` values are now rejected consistently on the CLI and Telegram paths.
+- d92c772: `--think` now accepts a richer, provider-neutral vocabulary (Issue #2038): the off synonyms `off`/`disable`/`disabled`/`no`/`none` all mean disabled (or the closest safe equivalent when a model cannot truly disable thinking), a new `minimal` tier below `low` (Codex `minimal` reasoning; Claude lowest effort with a ~4000-token budget), a first-class `adaptive` mode that requests provider-managed adaptive thinking and fails fast for `solve`/`hive` on models/tools that do not support it (only adaptive-only Claude models: Opus 4.7+, Fable 5, Mythos 5, Sonnet 5), and numeric intensities for precision — percentages `0%`..`100%`, fractions `0.0`..`1.0`, and the integers `0` (off) and `1` (max). Normalization is applied consistently for both `solve` and `hive`.
+
+## 2.3.0
+
+### Minor Changes
+
+- 40cf185: Use Opus as the default model for the Claude tool while preserving explicit model overrides.
+
+## 2.2.3
+
+### Patch Changes
+
+- 37303d7: Stop auto-restarting for stale failed check-runs when GitHub reports the pull request as clean and mergeable
+
+## 2.2.2
+
+### Patch Changes
+
+- f9f30d6: Treat an omitted `--think` option as `--think off` across tools, using a zero budget or the lowest supported effort when reasoning cannot be disabled.
+
+## 2.2.1
+
+### Patch Changes
+
+- e86a40e: Add a `--development-log` solve option that prompts agents to collect issue data, then preserves and commits resumable tool sessions under per-session UUID directories.
+
+## 2.2.0
+
+### Minor Changes
+
+- d3b7c97: Default `--tool codex` to `gpt-5.6-sol` and make the `--think` levels map predictably to Codex reasoning efforts (`off`→`none`, `low`/`medium`/`high`/`xhigh`/`ultra`/`max` as an identity mapping). GPT-5.6 Sol's multi-agent `ultra` mode is always paired with a `rollout_token_budget` cap (default `500000`, overridable via `--rollout-token-budget`), and budget-derived effort stays capped at `xhigh`. Align `--tool claude` by adding the matching `ultra` level (equivalent to `ultracode`). By default both tools run the model as-is with no thinking level enforced.
+
+## 2.1.11
+
+### Patch Changes
+
+- 208e123: Fix false-positive npm releases (issue #2028). `setup-npm.mjs` now pins npm to the 11.x line and validates the result instead of installing `npm@latest` (which pulled in npm 12.0.0, whose sigstore regression crashes provenance publishes — npm/cli#9722). `publish-to-npm.mjs` no longer trusts the publish command's exit status alone: it observes the real exit code, scans output for failure patterns, and verifies the version is actually live on npm before reporting success, so a failed publish can no longer be reported as a successful release. Added `sanitize-npm-userconfig.mjs` to remove the deprecated `always-auth` npm warning from release logs.
+
+## 2.1.10
+
+### Patch Changes
+
+- 9964e69: Retry Claude stream-json sessions with `--resume` when the stream ends without a terminal result event after tool output.
+- afbc353: Avoid fetching `use-m` at isolation-runner import time when tests only use pure helper exports.
+
+## 2.1.9
+
+### Patch Changes
+
+- 5559c5e: Check all replacement repository branch tips before deleting a non-fork fork replacement, and report concrete branch-only commits when deletion is unsafe.
+
+## 2.1.8
+
+### Patch Changes
+
+- 11dab3c: Handle Telegram and CLI commands where a GitHub issue or pull request URL is immediately followed by a long option marker.
+
+## 2.1.7
+
+### Patch Changes
+
+- 0ce779b: Enforce the solve queue minimum start interval for immediate Telegram `/solve`
+  launches so direct starts consume the same global pacing slot as queued starts.
+
+## 2.1.6
+
+### Patch Changes
+
+- efcbcce: Handle Docker `oomKilled` status markers as terminal Telegram work-session failures, delay Docker backend-gone killed notifications long enough for start-command to publish a real terminal status or log footer, pace queued task startups at a minimum 10-minute interval, and cap system resource cache freshness at 1 minute.
+
+## 2.1.5
+
+### Patch Changes
+
+- 26b07f2: Extend Telegram `/merge` to accept repository, issue, and pull request targets, including reply-based GitHub link extraction, and wait for unfinished PRs to become mergeable before merging.
+
+## 2.1.4
+
+### Patch Changes
+
+- acc3ea1: Simplify the `/limits` output with subscription headings and hide unused Codex limits and credits.
+
+## 2.1.3
+
+### Patch Changes
+
+- 5c4150b: Make live issue/PR event input available for every tool via `--auto-input-until-mergeable` (issue #2007). Claude and Agent stream events into the live process through `--input-format stream-json`; codex, opencode, gemini, qwen, and unknown tools use a universal restart/resume fallback that waits for the current turn to finish in the JSON output, stops the process, and resumes the AI session with the new events. Adds issue title/description edit detection as a restart trigger, reworks the capability matrix to report each tool's delivery mode, and records the `@link-assistant/agent` 0.24.1 live stream-json contract.
+
+## 2.1.2
+
+### Patch Changes
+
+- 39164e5: Improve fork-divergence failure comments and logs with inspected branch state, actor-aware admin guidance, exact fork-only commit lists, and less generic repository setup wording.
+
+## 2.1.1
+
+### Patch Changes
+
+- 26e3410: Report estimated reclaimable space for `hive-cleanup --dry-run` system cleanup
+  commands and await system-cleanup logging so dry-run output stays in order.
+
+## 2.1.0
+
+### Minor Changes
+
+- 4e21d2a: Fix Docker task disk-usage reporting so Telegram completion messages use task container writable-layer samples instead of filesystem-capacity resource markers from the parent deployment.
+- fdbf448: Add full support for Claude Sonnet 5 (`claude-sonnet-5`) and make it the default model for `--tool claude`. The bare `sonnet` alias now resolves to `claude-sonnet-5` (previously `claude-sonnet-4-6`). Sonnet 5 supports 1M context (`[1m]`), the full effort ladder including `xhigh` and `max`, 128K max output tokens, and adaptive-thinking-only environment handling. The `sonnet-4-6`/`claude-sonnet-4-6` aliases are retained for backward compatibility. (Issue #2003)
+
+## 2.0.29
+
+### Patch Changes
+
+- 0cafc64: Add solve resource diagnostics and Docker disk-usage fallback markers so Telegram completion messages can show full container filesystem usage even when the task container cannot be inspected after exit.
+
+## 2.0.28
+
+### Patch Changes
+
+- 5b4f3df: Recommend and accept `/queue` instead of the legacy solve-prefixed queue commands, and recommend `/stop` for cancelling running sessions.
+
+## 2.0.27
+
+### Patch Changes
+
+- d3fdb7b: Respect explicit `--base-branch` through solve sessions by instructing agents not to retarget PRs and restoring the requested PR base before verification or auto-merge handling.
+
+## 2.0.26
+
+### Patch Changes
+
+- 13074f0: Add Codex model support for the GPT-5.6 preview family, Bedrock-prefixed OpenAI Codex model IDs, and the hidden `codex-auto-review` catalog entry while keeping `gpt-5.5` as the default.
+
+## 2.0.25
+
+### Patch Changes
+
+- 148ca23: Fix exit-0-but-incomplete runs being reported as success under docker isolation (#1990). A `solve` run whose AI tool exited 0 while its session was cut off mid-run (e.g. the container ran out of disk) is now registered as a failure instead of a false success: codex requires its paired `turn.started`/`turn.completed` lifecycle, and gemini and qwen now require their terminal `result` event (claude already gated on it). A flagged failure preserves the AI session for a context-preserving retry and returns a non-zero exit so the docker container filesystem is kept for inspection. Disk-exhaustion strings are surfaced only as diagnostics, never as an independent failure gate, to avoid the #1955 echo false positive.
+
+  This also refreshes dependencies and picks up the upstream half of the #1990 fix. The
+  `start-command` pin in `Dockerfile`/`Dockerfile.dind` is bumped `0.30.1 → 0.30.2`,
+  which delivers [link-foundation/start#144](https://github.com/link-foundation/start/issues/144):
+  detached/isolated docker runs now surface the container's `OOMKilled` status and
+  preserve an abnormally-terminated container's filesystem for inspection instead of
+  auto-removing it. npm dependencies and devDependencies are updated to their latest
+  compatible versions (notably ESLint 9 → 10, which enables the `no-useless-assignment`
+  and `preserve-caught-error` recommended rules — all newly-flagged sites were fixed).
+  `jscpd` is intentionally held at `^4.0.5` because its 5.x line changes the
+  duplication baseline (it analyzes a wider file set, reporting 12.2% vs 10.7% on the
+  same tree) and would otherwise force weakening the duplication gate; this is a tooling
+  behavior change, not new duplication.
+
+## 2.0.24
+
+### Patch Changes
+
+- 4cdff62: Improve task disk usage diagnostics for repository and Docker container filesystem reporting.
+
+## 2.0.23
+
+### Patch Changes
+
+- 4778963: Add `--sub-agent-model` for Claude Code subagents and agent teams. The option is accepted by solve, hive, and Telegram command parsing, validates Claude aliases/full IDs plus `inherit`, and maps to `CLAUDE_CODE_SUBAGENT_MODEL` only when explicitly provided so Claude Code defaults remain unchanged.
+
+## 2.0.22
+
+### Patch Changes
+
+- 4d65c05: Make disk admission safer by default: the disk usage queue gate now waits at 80%, the absolute free-space default is 10240 MB, and isolation defaults to Docker.
+
+## 2.0.21
+
+### Patch Changes
+
+- da88ee5: Add session-aware Docker-isolation container cleanup to hive-cleanup.
+
+## 2.0.20
+
+### Patch Changes
+
+- 078f346: Reap successful Docker-isolated task containers at session completion, keep failed containers with cleanup instructions by default, and update Docker images to start-command 0.30.1.
+
+## 2.0.19
+
+### Patch Changes
+
+- 8061979: Preserve per-command isolation overrides for queued Telegram solve commands.
+
+## 2.0.18
+
+### Patch Changes
+
+- 08c2f07: Clarify fork auto-recovery safety failures so terminal exits and failure comments explain the mismatched repository, expected upstream, safety-check result, and recovery options.
+
+## 2.0.17
+
+### Patch Changes
+
+- 1cec7b4: Allow bare indented LINO option/value links in .lenv configuration, matching parenthesized links.
+
+## 2.0.16
+
+### Patch Changes
+
+- a448b3d: Detect incomplete Claude stream-json runs that exit without a terminal result event, capture nested Claude tool/error events, and preserve compaction summaries for diagnostics.
+
+## 2.0.15
+
+### Patch Changes
+
+- 0d2f2bb: Fix "Cannot read properties of null (reading 'type')" crash that aborted Codex (and other agent) runs when the tool echoed a stream line that parsed to a bare `null` or non-object JSON primitive. All NDJSON stream parsers (Codex, Claude, Agent, OpenCode) now ignore non-object lines instead of dereferencing them.
+
+## 2.0.14
+
+### Patch Changes
+
+- 03954a9: Show fuzzy suggestions for mistyped CLI and Telegram command options, including the closest match plus up to four additional alternatives.
+
+## 2.0.13
+
+### Patch Changes
+
+- ca7c412: fix(branch): validate `--base-branch` existence up-front and stop misreporting a missing base branch as an empty repository (#1959)
+
+  A `/solve` run from the Telegram bot crashed with the unactionable message
+  `Branch operation failed`. Root cause: the user passed `--base-branch issue-375-8a4323e580780`
+  — a **one-character typo** of the real branch `issue-375-8a4323e58078`. The branch did not
+  exist, but nothing validated that before the run started. The solver cloned 72 MB, then
+  `git checkout -b … origin/issue-375-8a4323e580780` failed with
+  `fatal: 'origin/…' is not a commit`. Worse, the branch-creation error handler **misdiagnosed**
+  this as "the repository appears to be empty (no commits)" and suggested `--auto-init-repository`,
+  which is wrong for a non-empty repo. The top level then collapsed everything to the bare
+  `Branch operation failed` comment on GitHub.
+
+  Defense-in-depth fix applied across the codebase:
+  - `validateGitHubEntityExistence()` (`src/github-entity-validation.lib.mjs`) gains a new
+    base-branch step: when `--base-branch` is supplied, `checkBaseBranchExists()` verifies it
+    via `gh api repos/{owner}/{repo}/branches/{branch}` **before** cloning, in the same fail-fast
+    gate that already checks user/repo/issue/PR. A definitive 404 fails the run; transient
+    errors fail open so a network hiccup never blocks a valid run.
+  - New helpers `levenshteinDistance()` and `findClosestBranchName()` power a "did you mean
+    '<closest-existing-branch>'?" suggestion built from the repo's actual branch list, so the
+    exact real-world typo points the user straight at `issue-375-8a4323e58078`.
+  - Both entry points share the gate: `src/solve.mjs` (CLI + the GitHub comment path) and
+    `src/telegram-bot.mjs` (the bot pre-flight) now pass `baseBranch` in, so a missing base
+    branch fails immediately at every level — including in Telegram, before the solve command
+    is queued or spawned.
+  - `handleBranchCreationError()` (`src/solve.branch-errors.lib.mjs`) now receives `baseBranch`
+    and `branchSource`. When a custom base branch is the missing ref it reports the real root
+    cause instead of the bogus empty-repository advice; the genuine empty-repository path
+    (creating from the default branch) is preserved. `createOrCheckoutBranch()`
+    (`src/solve.branch.lib.mjs`) threads the base branch and its source into the handler.
+
+  Adds `tests/test-base-branch-existence.mjs` (17 offline assertions covering the helpers and
+  the misdiagnosis fix), `tests/test-base-branch-existence-integration.mjs`
+  (`@hive-mind-integration`, the real `gh` gate), and a deep case study in
+  `docs/case-studies/issue-1959/`.
+
+## 2.0.12
+
+### Patch Changes
+
+- f17bac4: fix(clone): detect interrupted clones that exit 0, retry them, and explain the failure instead of the bare "Failed to get current branch" (#1957)
+
+  A `/solve` run crashed with the unactionable message `Failed to get current branch`.
+  Root cause: `gh repo clone` (and the `git clone` it wraps) **exited 0 even though the
+  transfer was interrupted** mid-stream (`fetch-pack: unexpected disconnect while reading
+sideband packet`), leaving **no `.git` directory** (`size=0 B`). The solver trusted the
+  exit code, logged `✅ Cloned to:`, then every subsequent git command failed with
+  `fatal: not a git repository`; the first to propagate it (`git branch --show-current` in
+  `verifyDefaultBranchAndStatus`) threw the bare error with no clue about what went wrong
+  or how to recover.
+
+  Defense-in-depth fix applied across the codebase:
+  - `cloneRepository()` (`src/solve.repository.lib.mjs`) no longer trusts the exit code:
+    after `gh repo clone` it validates the result with `git rev-parse --is-inside-work-tree`
+    and only treats the clone as successful when the exit code is 0 **and** a real working
+    tree exists. In `--verbose` mode it logs why a 0-exit clone was rejected.
+  - New exported helper `cleanPartialClone()` empties the target directory before each
+    retry so a partial clone does not make `gh repo clone <dir>` fail with "directory
+    exists and is not empty".
+  - `classifyCloneError()` now classifies the interrupted-transfer vocabulary
+    (`unexpected disconnect`, `sideband`, `early eof`, `the remote end hung up`,
+    `rpc failed`, `fetch-pack`, `index-pack failed`, `transfer closed`) as a retryable
+    `NETWORK` error, so the existing 3× exponential-backoff retry loop recovers from it.
+    404 / ENOSPC / auth failures stay non-retryable.
+  - `isTransientNetworkError()` (`src/lib.mjs`, shared by many gh/git retry call sites)
+    gains the same vocabulary, so the fix propagates everywhere — not just the clone path.
+  - Both failure points now print concrete, root-cause-obvious guidance: the clone-failure
+    path adds NETWORK causes/fixes, and `verifyDefaultBranchAndStatus()`
+    (`src/solve.repo-setup.lib.mjs`) detects `not a git repository` and logs an
+    `INCOMPLETE CLONE DETECTED` block (What happened / Error details / How to fix:
+    check network·VPN·proxy, re-run — clones auto-retry, verify access, check GitHub
+    status) instead of the bare message.
+
+  Adds `tests/test-issue-1957-incomplete-clone.mjs` (26 assertions) and a deep case study
+  in `docs/case-studies/issue-1957/`.
+
+## 2.0.11
+
+### Patch Changes
+
+- a29902a: fix(codex): don't fail a completed turn on echoed fixture content; expand transient network auto-retry (#1955)
+
+  A `--tool codex` run failed with `❌ Codex emitted error event: Network lookup
+skipped in fixture` even though the codex session **succeeded** (`turn.completed=1`,
+  `turn.failed=0`, working tree clean, full pricing produced). The phrase was not a
+  real error: while building an unrelated NDJSON adapter, the codex agent printed a
+  **test fixture** to its terminal. In verbose mode (`RUST_LOG=debug`) the codex CLI
+  renders OTEL telemetry (`codex_otel.log_only`, `event.name="codex.tool_result"`)
+  to stderr, including a raw `Output:` dump of each command's stdout. Our line-by-line
+  parser — which consumes stderr as well as stdout — `JSON.parse`d the fixture line
+  `{"type":"error","message":"Network lookup skipped in fixture"}` and bucketed it as
+  a genuine codex stream error.
+  - `getCodexErrorEventSummary()` (`src/codex.lib.mjs`) now treats any stray
+    **non-`turn`** error event as non-fatal whenever the turn completed successfully
+    (a `turn.completed` with no `turn.failed`). `turn.failed` remains the authoritative
+    failure signal and is never suppressed; suppressed strays are still recorded in
+    `ignoredEvents` (and logged per-event in verbose mode) for observability. This is
+    transport-agnostic — it fixes the false positive regardless of how the echo
+    arrived.
+  - `classifyRetryableError()` (`src/tool-retry.lib.mjs`, shared by
+    claude/codex/gemini/qwen/opencode) now classifies the full set of genuinely
+    transient network faults as retryable (`isCapacity:false`): DNS failures
+    (`ENOTFOUND`, `EAI_AGAIN`, "temporary failure in name resolution"), connection
+    faults (`ETIMEDOUT`, `ECONNREFUSED`, `EHOSTUNREACH`, `ENETUNREACH`, `EPIPE`,
+    "no route to host", "network is unreachable"), and gateway errors (502/504 and
+    Cloudflare `52x`); the 503 branch was broadened to "service unavailable". Aligns
+    with AWS retry guidance, RFC 9110 §15.6, and the getaddrinfo(3) man-page. The
+    fixture phrase itself is explicitly guarded to stay non-retryable.
+
+  Adds `tests/test-issue-1955-codex-fixture-false-positive.mjs` (23 tests) and a deep
+  case study in `docs/case-studies/issue-1955/`.
+
+## 2.0.10
+
+### Patch Changes
+
+- e29c83e: Surface the docker-isolation session id + isolation backend immediately when the
+  Telegram bot launches a task, instead of only after the (potentially hour-long)
+  image pull / container startup finishes (#1946). `formatStartingWorkSessionMessage`
+  now renders the `Session:` and `🔒 Isolation:` lines on the `🔄 Starting...`
+  message, and `buildExecuteAndUpdateMessage` tracks the session up front (before
+  awaiting the launch) so the run is addressable by `/watch`, `/log` and `/status`
+  during the whole startup window. A new `untrackSession` helper removes the
+  optimistically-tracked session if the launch fails, so a phantom session is never
+  monitored or resumed. Fix applies to every caller of the shared execution path
+  (`/solve`, `/hive`, `/task`).
+
+  The image-preparation log gap and host-image re-download were reported upstream,
+  fixed there, and are now pinned in this repo's images: `Dockerfile` /
+  `Dockerfile.dind` bump `start-command` `0.29.1` → `0.29.2` (link-foundation/start#138
+  — the `docker pull`/dind-boot phase is now recorded in the `$` session log), and
+  `Dockerfile.dind` bumps its base from `konard/box-dind:2.3.2` → `2.3.5`
+  (link-foundation/box#106 — the dind entrypoint now verifies host-image passthrough
+  actually seeded the nested daemon instead of silently re-downloading ~30 GB). A
+  deep case study is in `docs/case-studies/issue-1946/`.
+
+- 4fcdb9a: fix(auto-merge): treat timeout-cancelled CI as a failure and never finish a session with no log when `--attach-logs` is enabled (#1952)
+
+  A job that hits its `timeout-minutes` limit surfaces as a **check-run** with
+  conclusion `cancelled`, but the **parent workflow run** concludes `failure`.
+  `getDetailedCIStatus` only inspects check-runs, so the auto-merge loop saw the
+  lone `cancelled` check, posted a **"Cancelled CI/CD Requires Review"** comment and
+  stopped — even though the workflow run had failed and other jobs in it had failed
+  too. The cancelled branch of `getMergeBlockers` now cross-references the workflow
+  runs for the commit SHA via a new pure helper
+  `classifyCancelledCIByWorkflowRuns` (`src/cancelled-ci-rerun.lib.mjs`):
+  - a run still queued/in-progress → `ci_pending` (wait until **all** checks reach a
+    terminal state before auto-restarting);
+  - any completed `failure`/`timed_out`/`startup_failure` run → `ci_failure` (the AI
+    is restarted to fix it, instead of stopping for human review);
+  - otherwise → the original re-triggerable `ci_cancelled` flow (genuine manual
+    cancellation). The "requires review" stop path is skipped whenever a `ci_failure`
+    blocker coexists, and `startup_failure` is now counted as a failing run in the
+    branch-health check too.
+
+  Separately, the same session finished with **no log attached** despite
+  `--attach-logs` being enabled, because every attach path in `solve.mjs` is
+  conditional and the stop-for-review exits can return before any iteration uploads.
+  `attachLogToGitHub` now records a process-global `logAttachedToGitHub` flag on
+  every successful upload, and a final safety net (`attachFinalLogIfMissing` in the
+  new `src/attach-logs-guarantee.lib.mjs`) attaches the cumulative session log at the
+  end of `solve.mjs` whenever `--attach-logs` is on, a PR exists, and nothing has
+  attached a log yet. A session can no longer finish with no log when `--attach-logs`
+  is enabled.
+
+  Adds `tests/test-cancelled-timeout-fail-1952.mjs` (13 tests) and
+  `tests/test-attach-logs-safety-net-1952.mjs` (9 tests), plus a deep case study in
+  `docs/case-studies/issue-1952/` reconstructed from the real-world trigger
+  (xlabtg/teleton-agent PR #670).
+
+## 2.0.9
+
+### Patch Changes
+
+- c8b241a: Fix Claude public cost estimates for 1-hour prompt-cache writes by pricing `cache_creation.ephemeral_1h_input_tokens` at the documented 2x input rate instead of the 5-minute cache-write rate.
+
+## 2.0.8
+
+### Patch Changes
+
+- 072e941: fix(retry): keep the requested `--model` on transient overloads instead of switching to the fallback (#1949)
+
+  A transient **HTTP 529 "Overloaded"** result used to be classified as a
+  model-_capacity_ error (`isCapacity: true`), which made the shared retry helper
+  switch the user's requested `--model` to the configured fallback
+  (`opus -> opus-4-7`) on every overload. A 529 is a server-wide, transient
+  overload — not a signal that the selected model is full — so the run should retry
+  the **same** model. The overload branch in `src/tool-retry.lib.mjs` now returns
+  `isCapacity: false`; only a genuine "the selected model is at capacity" message
+  still triggers a `--model` switch. The fix lives in the shared helper, so every
+  tool (claude, codex, gemini, qwen, opencode, agent) inherits it.
+
+  Per-request fallback is now delegated to Claude Code itself: the claude tool
+  forwards `--fallback-model <id>` so overloads fall back _inside_ the CLI while our
+  `--model` stays stable.
+
+  Two display fixes remove the ambiguity that made this hard to diagnose:
+  - Warnings now render the resolved model ID alongside the alias, e.g.
+    `opus (claude-opus-4-8) -> opus-4-7 (claude-opus-4-7)`, via a new
+    `formatModelWithResolvedId` helper.
+  - The verbose per-retry "execution context" block now uses a shared
+    `logExecutionContext` helper that prints the resolved model actually passed to
+    the CLI, replacing a broken `argv.model === 'opus' ? 'opus' : 'sonnet'`
+    heuristic that mislabelled every non-`opus` alias as `sonnet`.
+
+  The PR/issue comment now shows the requested model with its resolved ID and the
+  requested thinking level (e.g. `high (~23999 tokens)`) via a new
+  `describeRequestedThinking` helper.
+
+## 2.0.7
+
+### Patch Changes
+
+- 6d9a2bb: feat(solve): log working-tree size before/after the AI agent and warn on Telegram when disk usage exceeds 5 GB (#1945)
+
+  `/solve` now records the size of its temporary working tree at two checkpoints:
+  after the repository is cloned (before the AI agent starts) and after the AI
+  working session ends. Both checkpoints emit a structured `📊 [DISK]` marker into
+  the captured solve log, so the cloned-repo size, the AI-induced delta, and the
+  final total are visible in `tail -f`-style debugging.
+
+  The session monitor parses those markers from the captured log and appends a
+  `💾 Disk usage` block to the Telegram completion message. The block raises a
+  warning when the cloned repository exceeds 5 GB, when the working tree grew by
+  more than 5 GB during the run, or when the total disk usage for the task
+  exceeds 5 GB — exactly the three conditions called out in the issue.
+
+  Sizing uses `du -sb` (byte-accurate on Linux), falls back to `du -sk` on BSD/
+  macOS, and finally to `fs.statSync` for single-file targets — no new runtime
+  dependency. The threshold is 5 GiB and uses a strict `>` comparison, so a tree
+  that lands at exactly 5 GiB does not warn.
+
+## 2.0.6
+
+### Patch Changes
+
+- 0c63706: Stop surfacing meaningless stream fragments as tool errors (#1941). When a tool
+  run is interrupted mid-stream (CTRL+C / SIGINT, exit code 130), the last captured
+  stdout line could be a stray structural character such as a lone `}`, which leaked
+  into the GitHub failure comment as "CLAUDE execution failed with }". A new shared
+  `isMeaningfulErrorText` helper (any error with at least one Unicode letter or digit
+  is real; pure punctuation is not) now guards the `extractToolErrorCore` chokepoint,
+  and a new `buildToolErrorMessage` helper labels interruptions explicitly
+  ("Claude command interrupted (CTRL+C)") across the Claude and OpenCode runners.
+- d4efc82: fix(playwright-mcp): do not abort the solve when the Playwright MCP preflight probe is inconclusive (#1943)
+
+  A `solve` run aborted before creating a pull request with
+  `❌ Playwright MCP preflight failed for Claude Code`. The local preflight ran
+  `timeout 5 claude mcp list`, but that command performs a live health check that
+  launches a browser and can take longer than five seconds; when the `timeout`
+  killed the probe, `ensureConnectedPlaywrightMcpServer` treated the non-zero exit
+  as a failure and stopped the whole run.
+
+  An inconclusive `mcp list` probe (timeout / crash / missing CLI) now falls back
+  to the local `@playwright/mcp` package check instead of aborting: if the package
+  is installed, the server connects on demand via Tool Search (issue #1901), so the
+  working session proceeds. The probe timeout now defaults to 30s and is overridable
+  via `PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS`, and the preflight emits verbose
+  diagnostics (probe exit code, matched rows, decision branch) so failures are
+  diagnosable from the log. The preflight still fails only when `@playwright/mcp`
+  is genuinely unavailable.
+
+## 2.0.5
+
+### Patch Changes
+
+- d815c7d: Treat a Claude Code `pending` Playwright MCP `system.init` status as a normal
+  still-connecting state instead of a failure (#1901). Claude Code enables Tool
+  Search by default, so the deferred `mcp__playwright__*` browser tools load on
+  demand and Claude waits for the connecting server before using them. Hive Mind
+  no longer aborts the working session on a `pending` status; only a terminal
+  `failed`/`error` status surfaces a non-blocking diagnostic in the session-start
+  comment. See `docs/case-studies/issue-1901`.
+
+## 2.0.4
+
+### Patch Changes
+
+- f1f9b10: fix(telegram): detect OOM/SIGKILL-ed detached sessions and resume tracking after a bot restart (#1927)
+
+  A `/solve` running in a detached `screen` session was OOM-killed (exit `137`),
+  but the Telegram bot stayed alive and **never reported the failure** — the job
+  silently hung forever. Two compounding gaps caused this:
+
+  **Root cause (RC-1, upstream).** The external `start-command` CLI's
+  `enrichDetachedStatus` re-derives a detached session's status from backend
+  liveness (`screen -ls`). When a shell lingers after the wrapped command is
+  already dead, `$ <id> --status` flips an already-completed record
+  (`status: executed`, `exitCode: 137`) **back to `executing` and nulls the exit
+  code**, even though `start` itself wrote an authoritative `Exit Code: 137` footer
+  to the log. The bot's monitor only reacts to a _terminal_ status, so the kill is
+  never surfaced. Confirmed against upstream source and filed with a runnable repro
+  as [link-foundation/start#134](https://github.com/link-foundation/start/issues/134)
+  (a regression of the fix for upstream #60/#101).
+
+  **Root cause (RC-2/3/4).** The session monitor's registry was in-memory only, so
+  a bot restart orphaned every detached `/solve`; there was no "last alive" marker
+  to bound what to resume; and the bot log could be overwritten on restart,
+  destroying the evidence needed to reconstruct the failure.
+
+  **Fix (defensive, consumer side — correct regardless of when upstream lands):**
+  - **`src/session-status.lib.mjs`** — a shared, dependency-free status vocabulary
+    (`RUNNING`/`KILLED`/`FAILURE`, signal classification for 137/143/139/130) so
+    every call site agrees on what an exit code means.
+  - **`src/isolation-runner.lib.mjs`** — `parseSessionExitFooter` /
+    `readSessionExitFromLog` read the **authoritative log footer**, plus
+    `checkBackendSessionAlive` / `isSessionRunning` probe the real backend.
+  - **`src/session-monitor.lib.mjs`** — when `--status` says `executing`, cross-check
+    the footer (authoritative) and a backend-liveness probe gated by a 90s minimum
+    session age, so a SIGKILL is reported instead of hanging, while a just-started
+    session is never misread.
+  - **`src/session-store.lib.mjs`** — durable session registry (atomic
+    `sessions.json` snapshot + append-only, never-truncated `sessions-events.jsonl`)
+    so a restart can **resume** tracking and finally report sessions killed while
+    the bot was down — resuming only sessions started **before** the bot's start
+    time.
+  - **`src/bot-logger.lib.mjs`** — every log line is prefixed with an ISO-8601
+    millisecond timestamp; structured `event()`/`heartbeat()` markers record "last
+    alive"; logs **rotate, never overwrite** (prior log preserved as a timestamped
+    backup) so no evidence is destroyed.
+  - **`src/bot-lifecycle.lib.mjs`** — heartbeat / resume-on-launch / orderly
+    shutdown extracted from `telegram-bot.mjs` as pure injectable factories; a
+    timestamped `bot_shutdown` marker distinguishes a clean stop from a hard kill.
+  - **`src/work-session-formatting.lib.mjs`** + `telegram-bot.mjs` — completion
+    messages now call out a **killed** outcome (❌ killed / signal) distinctly from
+    an ordinary failure.
+  - **`src/telegram-terminal-watch-command.lib.mjs`** — the same fix applied to the
+    live `/terminal_watch` loop (req #8, "fix in all places"): it decided
+    "completed" purely from `--status`, so a session killed while `--status` still
+    read `executing` would be **polled forever** with a misleading "running"
+    snapshot — the #1927 silent-hang, in the watch path. It now cross-checks the
+    authoritative log footer (`reconcileWatchCompletion`), stops on a recorded exit,
+    corrects the displayed status to the real terminal one (e.g. `killed`), and a
+    completed-but-failed session renders a ❌ failure title instead of a ✅.
+  - **`src/cleanup.os.lib.mjs`** + `src/cleanup.lib.mjs` — review follow-up:
+    deduplicated `$` session-data access (cleanup no longer re-derives sessions
+    from `screen -ls`/`tmux ls` + per-session `$ --status`; a single
+    `listSessionTasks()` reads the whole catalog from `$ --list`, the same source
+    `/queue`, `/limits` and the monitor already funnel through), and the cleanup
+    listing now annotates **every** hive-mind folder — active _and_ finished — with
+    which PR/issue and which session it belongs (or belonged) to.
+  - **`src/session-resume.lib.mjs`** — review follow-up: when a detached `/solve`
+    is killed, the surviving parent (the bot, or `/hive`) now surfaces a
+    ready-to-run `solve <url> … --resume <lastSessionId>` command in the
+    killed-session notification. A single `/solve` run prints many `Session ID:`
+    markers (auto-continue, watch restarts, manual resume chains); the module reads
+    the **last** marker from the log tail (`selectLastSessionId` /
+    `readLastSessionIdFromLog`), with a filesystem fallback
+    (`findLatestSessionLogId`). The bot deliberately **surfaces** the command rather
+    than auto-relaunching (a job that reliably OOMs would storm);
+    `planKilledSessionResume` bounds any automatic resume (default `maxAttempts: 1`).
+    The section is additive (existing `extraSections` path), emitted only for
+    `killed` `/solve` sessions, and failure-isolated so it can never break the
+    notification. `args` was added to the persisted session fields so the resume
+    command reproduces the original invocation exactly.
+
+  A `verbose` flag is threaded through the new status/footer/liveness/resume paths
+  with explicit `[VERBOSE]` tracing so the next failure leaves a trail (req #6).
+
+  Added `tests/test-issue-1927-*.mjs` (9 suites, 266 assertions: status vocabulary,
+  log-footer parsing, completion labeling, killed-detection, session store, resume,
+  bot logger, bot lifecycle, terminal-watch kill). Full deep-dive in
+  `docs/case-studies/issue-1927`
+  (timeline, 8 requirements, 5 root causes, per-requirement solutions, preserved
+  source artifacts), plus a runnable upstream repro under `experiments/`.
+
+## 2.0.3
+
+### Patch Changes
+
+- 40fbf3d: fix(isolation): mount git identity into docker-isolated containers and stop trusting premature terminal status (#1939)
+
+  A `solve` task launched with `--isolation docker` inside a Docker-in-Docker host
+  (`konard/hive-mind-dind:2.0.2`) failed at the system-check stage with
+  `❌ Git identity not configured`, even though `gh` was fully authenticated
+  (account `konard`). The captured terminal log shows the native start-command
+  (`$`) invocation mounting only `~/.config/gh`, `~/.claude`, and `~/.claude.json`
+  — **no git identity** — so `git config user.name`/`user.email` were unset inside
+  the container and `solve` aborted before doing any work.
+
+  Root cause: `getDockerIsolationAuthMounts` (`src/isolation-runner.lib.mjs`)
+  mounted `gh` and the per-tool credentials but never the git identity. `gh`
+  authentication is not a git identity. The fix mounts the host git identity
+  (`~/.gitconfig` and the XDG `~/.config/git`, honoring `GIT_CONFIG_GLOBAL` /
+  `XDG_CONFIG_HOME`) for **every** tool, alongside `gh`, so the fix applies to all
+  isolation callers at once. A new self-healing preflight,
+  `ensureHostGitIdentityForIsolation`, gives the mount something to mount: when the
+  host has no git identity it derives one from the authenticated `gh` account
+  (`gh-setup-git-identity` / `repairGitIdentity`) and, if that is impossible, emits
+  one actionable warning naming the exact downstream failure.
+
+  The same run also exposed a second problem: `$ --list` reported the detached
+  session as `status executed` with `exitCode -1` (and no `containerId`) while the
+  container was still running, masking the live container and its real exit code.
+  `isUnknownDockerExitCode` plus a docker-only cross-check in `isSessionRunning`
+  and `getIsolationSessionState` (`src/session-monitor.lib.mjs`) keep an ambiguous
+  `terminal + -1` docker session "running" until `docker inspect` confirms the
+  container has actually exited; real exit codes and non-docker backends are
+  unaffected. A verbose post-launch diagnostic now records `$ --status`, container
+  state, and local image presence so the next iteration can confirm the premature
+  status and the image re-pull from data.
+
+  The premature-terminal-status behaviour was reported upstream to
+  link-foundation/start and fixed there in `start-command@0.29.1`
+  (link-foundation/start#136); `Dockerfile` and `Dockerfile.dind` now pin
+  `start-command@0.29.1` so the fixed `$` binary ships in the images, while the
+  downstream cross-check stays as defense-in-depth for older hosts.
+
+  Added `tests/test-issue-1939-docker-isolation.mjs` (25 assertions) and a full
+  case study with timeline, root-cause analysis, and the captured logs under
+  `docs/case-studies/issue-1939`.
+
+## 2.0.2
+
+### Patch Changes
+
+- 19aea85: fix(retry): auto-resume on "Stream idle timeout - partial response received" (#1937)
+
+  A long-running solve session (391 turns, ~$34.11) had its streaming response
+  stall mid-answer. The Claude CLI surfaced it as a `result` event with
+  `is_error: true`, `subtype: "success"`, and:
+
+  ```
+  API Error: Stream idle timeout - partial response received
+  ```
+
+  Instead of retrying with the session preserved, the harness fell straight
+  through to the generic failure path and exited with code 1 after **zero
+  retries** — abandoning the whole session even though it had a valid session ID
+  and printed the exact `--resume` command needed to continue.
+
+  Root cause: the shared retry classifier `classifyRetryableError()`
+  (`src/tool-retry.lib.mjs`) had no branch for the stream-idle-timeout family, so
+  `isRetryable` was false, `isTransientError` evaluated to false, and the unified
+  exponential-backoff retry block was never entered.
+
+  This error is a transient transport-level stall (a slow/stuck server-sent-events
+  socket), not a request-content rejection — the on-disk session transcript stays
+  valid, which is why a manual `--resume` works. The fix adds one branch to
+  `classifyRetryableError()` returning
+  `{ isRetryable: true, isCapacity: false, label: 'Stream idle timeout (partial response)' }`,
+  so the existing retry block resumes the session with the same context after an
+  exponential backoff. Because the classifier is shared, this fixes the behaviour
+  for **all** tools (claude/codex/gemini/opencode/qwen/agent) at once.
+
+  Added `tests/test-issue-1937-stream-idle-timeout-retry.mjs` (17 assertions) and a
+  full case study with timeline, root-cause analysis, upstream references, and the
+  captured logs under `docs/case-studies/issue-1937`.
+
+## 2.0.1
+
+### Patch Changes
+
+- 70e1542: fix(retry): treat 5-hour "session limit" and "weekly limit" 429s as account usage limits, not transient throttles (#1935)
+
+  A long-running solve session (588 turns, ~$70.62) hit Claude's **5-hour session
+  limit**. The Claude CLI surfaced it as a `result` event with `is_error: true`,
+  `api_error_status: 429`, and:
+
+  ```
+  You've hit your session limit · resets 4pm (UTC)
+  ```
+
+  Instead of being treated as an **account usage limit** (post a comment with the
+  reset time + wait until the exact reset moment), it was put through the transient
+  exponential-backoff retry loop:
+
+  ```
+  ⚠️ Server rate limited (429) detected. Retry 1/10 in 2 min (session preserved)...
+     Error: You've hit your session limit · resets 4pm (UTC)
+  ⚠️ Server rate limited (429) detected. Retry 2/10 in 4 min (session preserved)...
+  ```
+
+  Each retry re-hit the same limit because the quota only frees at the reset time —
+  so the harness burned ~10 futile retries and never told the user when the limit
+  resets.
+
+  Root cause (regression from #1924): `src/claude.lib.mjs` set
+  `isRateLimitError = true` for **every** structured `api_error_status === 429`,
+  without checking whether the message was an account usage limit. Claude reports
+  **both** a transient throttle ("...not your usage limit...") and account
+  session/weekly limits with `api_error_status: 429`, so the unconditional check
+  swept genuine usage limits into the transient-retry path — ahead of the
+  `detectUsageLimit()` reset-time wait, which was therefore never reached.
+
+  Fix: `src/claude.lib.mjs` now only flags a structured 429 as a transient rate
+  limit when the message is **not** a usage limit
+  (`api_error_status === 429 && !isUsageLimitError(lastMessage)`), so session/weekly
+  limits fall through to the usage-limit handler that immediately posts a comment
+  and waits until the exact reset time (auto-resuming there with
+  `--auto-continue-limit`). `src/usage-limit.lib.mjs` additionally recognises the
+  "hit your session limit" / "hit your weekly limit" phrasing as a backstop (the
+  reset-time regex already matched "resets 4pm").
+
+  Added `tests/test-issue-1935-session-limit-429.mjs` (15 assertions) and a full
+  case study with timeline, blame history (PR #1924), root-cause analysis, and the
+  captured logs under `docs/case-studies/issue-1935`.
+
+## 2.0.0
+
+### Major Changes
+
+- fd84e85: Rename the cleanup executable to `hive-cleanup` and harden destructive confirmation parsing against hidden terminal control input.
+
+## 1.78.13
+
+### Patch Changes
+
+- a8035e9: Fail fast when watched GitHub repositories, issues, pull requests, or branches are deleted, closed, or no longer accessible instead of retrying them as unknown CI states.
+
+  Also fall back to a pinned working `use-m` bootstrap when the upstream latest unpkg entry is missing, so local and CI test startup remains stable.
+
 ## 1.78.12
 
 ### Patch Changes

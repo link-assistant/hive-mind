@@ -11,7 +11,10 @@ import { enhanceErrorMessage, detectMalformedFlags } from './option-suggestions.
 import { defaultModels, buildModelOptionDescription, resolveDefaultFallbackModel, resolveRuntimeDefaultModel } from './models/index.mjs';
 import { validateBranchName } from './solve.branch.lib.mjs';
 import { resolveEscalationConfig, isEscalateEnabled, DEFAULT_ESCALATE_RANGE } from './solve.escalate.lib.mjs';
-import { getLinoYargsFactory, hideBin, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { getLinoYargsFactory, hideBin, normalizeCliArgs, parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { normalizeThinkLevel, ADAPTIVE_THINK_LEVEL } from './think-level.lib.mjs';
+import { supportsAdaptiveThinking } from './config.lib.mjs';
+import { resolvePromptModelForTool } from './thinking-prompt.lib.mjs';
 
 // Re-export for use by telegram-bot.mjs (avoids extra import lines there)
 export { detectMalformedFlags };
@@ -198,6 +201,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically restart when uncommitted changes are detected to allow the tool to handle them (default: true, use --no-auto-restart-on-uncommitted-changes to disable)',
     default: true,
   },
+  'auto-resume-on-uncommitted-changes': {
+    type: 'boolean',
+    description: 'EXPERIMENTAL: Automatically resume the previous Claude session when uncommitted changes are detected. Falls back to a fresh session when usable context headroom cannot be verified or is too low. Disabled by default; use --no-auto-resume-on-uncommitted-changes to switch it off explicitly.',
+    default: false,
+  },
+  'auto-resume-on-uncommitted-changes-maximum-context-window-usage': {
+    type: 'number',
+    description: 'Maximum usable pre-compaction context usage (percent) that still allows --auto-resume-on-uncommitted-changes to resume. The usable limit respects --sub-session-size. At or above this threshold the tool starts a fresh session (default: 50).',
+    default: 50,
+  },
   'auto-restart-max-iterations': {
     type: 'number',
     description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',
@@ -242,13 +255,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Auto-restart until PR becomes mergeable (no iteration limit). Restarts on new comments from non-bot users, CI failures, merge conflicts, or other issues. Does NOT auto-merge.',
     default: true,
   },
-  // Issue #1708: Stage 1 introduces this flag inert — it parses, appears in
-  // --help, and is read by validateAutoInputUntilMergeable below, but does not
-  // change the runtime loop yet. Stages 2-6 will wire it into watchUntilMergeable
-  // and the bidirectional NDJSON pipe (see docs/case-studies/issue-1708/).
+  // Issue #1708/#2007: streaming-first feedback into the running tool session.
+  // Claude and Agent are wired through bidirectional stream-json stdin pipes;
+  // other tools retain restart/resume fallback behavior until a verified
+  // mid-session input protocol is wired into their solve runners.
   'auto-input-until-mergeable': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Extend a single AI tool session as long as possible by streaming new input (uncommitted changes, CI/CD failures, PR/issue comments, issue title/body updates) directly into the running session, instead of restarting it. Implies --accept-incomming-comments-as-input and --queue-comments-to-input by default (comments are deferred until the AI finishes the current step and is waiting for input). Existing auto-restart/auto-resume loops remain enabled as a fallback, but the goal is to keep them dormant. The full streaming-aware watchUntilMergeable replacement and per-tool wiring is staged in subsequent PRs (see docs/case-studies/issue-1708/). Falls back gracefully on non-Claude tools and on streaming errors. Disabled by default.',
+    description: '[EXPERIMENTAL] Keep feeding new issue/PR events (uncommitted changes, CI/CD failures, PR/issue comments, issue title/description edits) into the running AI session, in all ways possible. For --tool claude and --tool agent this streams the events directly into the live process via stream-json stdin (implies --accept-incomming-comments-as-input and --queue-comments-to-input by default, deferring comments until the AI finishes the current step). For codex, opencode, gemini, qwen, and unknown tools, it uses the universal restart/resume fallback: wait for the current turn to finish in the JSON output, stop the process, then resume/restart the AI session with the new events via --auto-restart-until-mergeable. Codex live streaming should be wired in a future runner through Codex app-server turn/steer. Disabled by default.',
     default: false,
   },
   'wait-for-all-actions-in-repository-before-mergeable': {
@@ -289,8 +302,8 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'min-disk-space': {
     type: 'number',
-    description: 'Minimum required disk space in MB (default: 2048)',
-    default: 2048,
+    description: 'Minimum required disk space in MB (default: 10240)',
+    default: 10240,
   },
   'log-dir': {
     type: 'string',
@@ -299,13 +312,24 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   think: {
     type: 'string',
-    description: 'Thinking level hint. For Claude, translated to --thinking-budget for Claude Code >= 2.1.12 (off=0, low=~8000, medium=~16000, high=~24000, xhigh/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported. Fable 5/Mythos 5/Opus 4.8/4.7 support xhigh and max; Opus 4.6/Sonnet 4.6/Mythos Preview support max; Opus 4.5 uses high for xhigh/max. For Codex, mapped to reasoning effort (off=none, low=low, medium=medium, high=high, xhigh/max=xhigh).',
-    choices: ['off', 'low', 'medium', 'high', 'xhigh', 'max'],
-    default: undefined,
+    description:
+      'Thinking level hint. Levels (ascending): off, minimal, low, medium, high, xhigh, ultra, max, plus the special `adaptive` mode. ' +
+      'Off synonyms (all mean disabled, or the closest safe equivalent): off/disable/disabled/no/none. An omitted --think means off. ' +
+      'Numeric intensities are accepted for precision: percentages 0%..100%, fractions 0.0..1.0, and the integers 0 (off) and 1 (max). ' +
+      '`adaptive` requests provider-managed adaptive thinking and fails immediately for models/tools that do not support it (only adaptive-only Claude models: Opus 4.7+, Fable 5, Mythos 5, Sonnet 5). ' +
+      'For Claude, levels translate to --thinking-budget for Claude Code >= 2.1.12 (off=0, minimal=~4000, low=~8000, medium=~16000, high=~24000, xhigh/ultra/max=31999) and to CLAUDE_CODE_EFFORT_LEVEL when supported (minimal→low). Adaptive-only models that cannot disable thinking use their lowest effort for off. ' +
+      '`ultra` maps to the highest supported Claude effort (Claude "ultracode"-class reasoning). ' +
+      'For Codex (GPT-5.6 Sol), mapped 1:1 to reasoning effort (off=none, minimal=minimal, low=low, medium=medium, high=high, xhigh=xhigh, ultra=ultra, max=max); ultra runs the multi-agent mode paired with a rollout token budget cap. Default: off.',
+    default: 'off',
   },
   'thinking-budget': {
     type: 'number',
-    description: 'Thinking token budget. For Claude Code, controls MAX_THINKING_TOKENS (0-31999 by default). For Codex, enables finer reasoning-effort mapping including minimal/low/medium/high/xhigh.',
+    description: 'Thinking token budget. For Claude Code, controls MAX_THINKING_TOKENS (0-31999 by default). For Codex, enables finer reasoning-effort mapping (minimal/low/medium/high) capped at xhigh; the deepest single-agent `max` and the multi-agent `ultra` effort must be requested explicitly via --think max / --think ultra.',
+    default: undefined,
+  },
+  'rollout-token-budget': {
+    type: 'number',
+    description: "Codex rollout token budget (turn-level cap) paired with the multi-agent `--think ultra` effort so GPT-5.6 Sol's ultra mode stays predictable and does not run away on cost. Default: 500000. Only applied when --think ultra selects the ultra reasoning effort.",
     default: undefined,
   },
   'thinking-budget-claude-minimum-version': {
@@ -330,7 +354,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'fallback-model': {
     type: 'string',
-    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. Defaults: claude fable/claude-fable-5 -> opus (Opus 4.8); claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.5 -> gpt-5.4; all others unset.',
+    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus (Opus 4.8); claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4; all others unset.',
+    default: undefined,
+  },
+  'sub-agent-model': {
+    type: 'string',
+    description: 'Claude Code subagent/agent-team model override. Sets CLAUDE_CODE_SUBAGENT_MODEL only when provided. Accepts Claude model aliases, full model IDs, or "inherit" to use normal Claude Code subagent model resolution. Only works with --tool claude.',
     default: undefined,
   },
   'show-thinking-content': {
@@ -431,7 +460,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   // Issue #817: Bidirectional interactive options
   'accept-incomming-comments-as-input': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Accept new PR/issue comments as input for Claude during execution (excludes outgoing comments generated by solve itself). Does not require --interactive-mode; disabled by default. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] Accept new PR/issue comments as input for the running stream-json tool during execution (excludes outgoing comments generated by solve itself). Does not require --interactive-mode; disabled by default. Only supported for --tool claude and --tool agent.',
     default: false,
   },
   'exclude-all-own-incomming-comments-from-input': {
@@ -441,13 +470,13 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'bidirectional-interactive-mode': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] Convenience flag that enables --interactive-mode, --accept-incomming-comments-as-input and --exclude-all-own-incomming-comments-from-input together. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] Convenience flag that enables --interactive-mode, --accept-incomming-comments-as-input and --exclude-all-own-incomming-comments-from-input together. Only supported for --tool claude and --tool agent.',
     default: false,
   },
   // Issue #1708: Comment delivery mode for --accept-incomming-comments-as-input.
   // --stream-comments-to-input: forward comments immediately as they arrive
   //   (the default for --accept-incomming-comments-as-input on its own; matches
-  //   the existing #817 behavior of pushing comments to Claude as soon as
+  //   the existing #817 behavior of pushing comments to the stream-json tool as soon as
   //   pollIncomingComments sees them).
   // --queue-comments-to-input: hold comments until the AI signals it is idle
   //   (waiting for input), then flush the queue. Used by
@@ -456,12 +485,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   // The two flags are mutually exclusive; if both are set, queue mode wins.
   'stream-comments-to-input': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, forward each new PR/issue comment to the AI immediately as it arrives (real-time streaming). This is the default behavior for --accept-incomming-comments-as-input on its own. Mutually exclusive with --queue-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, forward each new PR/issue comment to the AI immediately as it arrives (real-time streaming). This is the default behavior for --accept-incomming-comments-as-input on its own. Mutually exclusive with --queue-comments-to-input; queue mode wins if both are set. Only supported for --tool claude and --tool agent.',
     default: false,
   },
   'queue-comments-to-input': {
     type: 'boolean',
-    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, queue new PR/issue comments and only flush them once the AI signals it is idle (waiting for input). This is the default mode implied by --auto-input-until-mergeable so the AI completes the current step before being interrupted with new instructions. Mutually exclusive with --stream-comments-to-input; queue mode wins if both are set. Only supported for --tool claude.',
+    description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, queue new PR/issue comments and only flush them once the AI signals it is idle (waiting for input). This is the default mode implied by --auto-input-until-mergeable so the AI completes the current step before being interrupted with new instructions. Mutually exclusive with --stream-comments-to-input; queue mode wins if both are set. Only supported for --tool claude and --tool agent.',
     default: false,
   },
   'prompt-explore-sub-agent': {
@@ -492,6 +521,16 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'prompt-case-studies': {
     type: 'boolean',
     description: 'Create comprehensive case study documentation for the issue including logs, analysis, timeline, root cause investigation, and proposed solutions. Organizes findings into ./docs/case-studies/issue-{id}/ directory. Supported for --tool claude and --tool codex.',
+    default: false,
+  },
+  'development-log': {
+    type: 'boolean',
+    description: 'Prompt for issue-data collection under ./dev/log/issues/{issue-id}/pulls/{pull-id}, preserve native tool state under sessions/{UUID}, and commit the artifacts when solve finishes. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
+    default: false,
+  },
+  'deep-analysis': {
+    type: 'boolean',
+    description: 'Prompt for issue-type-aware deep analysis, online research, complete requirement coverage, and solution planning. Data collection under ./dev/log is included only when --development-log is also enabled. Supported for --tool claude, --tool codex, --tool opencode, --tool agent, --tool qwen, and --tool gemini.',
     default: false,
   },
   'use-handoff': {
@@ -721,6 +760,14 @@ export const createYargsConfig = yargsInstance => {
     .parserConfiguration({
       'boolean-negation': true,
     })
+    // Issue #2038 + #2041: normalize/validate --think during parsing (off synonyms,
+    // minimal, adaptive, percentages/fractions/0|1; fail fast on unsupported adaptive)
+    // so callers that parse via yargs directly (e.g. the Telegram bot) reject invalid
+    // --think values instead of silently accepting them. Mirrors hive.config.
+    .check(argv => {
+      normalizeAndValidateThink(argv);
+      return true;
+    })
     // Use yargs built-in strict mode to reject unrecognized options
     // This prevents issues like #453 and #482 where unknown options are silently ignored
     .strict()
@@ -730,9 +777,45 @@ export const createYargsConfig = yargsInstance => {
   return config;
 };
 
+/**
+ * Issue #2038: Normalize the parsed `--think` value into a single canonical
+ * vocabulary and validate the special `adaptive` mode. Mutates `argv.think` in
+ * place and throws (with `_enhanced` set so the error message is shown verbatim)
+ * for invalid values or unsupported adaptive requests. Shared by solve and hive
+ * so both commands fail fast identically.
+ * @param {Object} argv - Parsed CLI arguments (reads/writes `think`, reads `tool`/`model`)
+ */
+export const normalizeAndValidateThink = argv => {
+  if (!argv) return;
+
+  if (argv.think !== undefined) {
+    try {
+      argv.think = normalizeThinkLevel(argv.think);
+    } catch (thinkError) {
+      const err = new Error(thinkError.message);
+      err._enhanced = true;
+      throw err;
+    }
+  }
+
+  // `--think adaptive` requests provider-managed adaptive thinking and must fail
+  // immediately when the selected tool/model does not support it. Only
+  // adaptive-only Claude models expose an adaptive mode.
+  if (argv.think === ADAPTIVE_THINK_LEVEL) {
+    const tool = argv.tool || 'claude';
+    const resolvedModel = resolvePromptModelForTool(tool, argv.model);
+    const adaptiveSupported = tool === 'claude' && supportsAdaptiveThinking(resolvedModel);
+    if (!adaptiveSupported) {
+      const err = new Error(`--think adaptive is not supported by ${tool}${resolvedModel ? ` model "${resolvedModel}"` : ''}. ` + 'Adaptive thinking is only available on adaptive-only Claude models (Opus 4.7+, Fable 5, Mythos 5, Sonnet 5). ' + 'Use an explicit level instead (off, minimal, low, medium, high, xhigh, ultra, max).');
+      err._enhanced = true;
+      throw err;
+    }
+  }
+};
+
 // Parse command line arguments - now needs yargs and hideBin passed in
 export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = hideBin) => {
-  const rawArgs = hideBinFn(process.argv);
+  const rawArgs = normalizeCliArgs(hideBinFn(process.argv));
 
   // Issue #1092: Detect malformed flag patterns BEFORE yargs parsing
   // This catches cases like "-- model" which yargs silently treats as positional arguments
@@ -771,7 +854,7 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     try {
       yargsInstance = createYargsConfig(yargs());
       argv = parseCliArgumentsWithLino({
-        argv: process.argv,
+        argv: ['node', 'solve', ...rawArgs],
         commandName: 'solve',
         createYargsConfig,
         positionalAliases: ['issue-url'],
@@ -789,6 +872,14 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
       }
     }
   } catch (error) {
+    // Issue #2041: the yargs `.check()` for --think (added to createYargsConfig so
+    // non-CLI consumers like the Telegram bot reject invalid values) throws an
+    // already-enhanced error. Propagate it verbatim instead of swallowing it into
+    // `error.argv`, otherwise the CLI would silently drop the invalid --think and
+    // crash later during normalization.
+    if (error && error._enhanced && !(error.message && /Unknown argument/.test(error.message))) {
+      throw error;
+    }
     // Yargs throws errors for validation issues
     // If the error is about unknown arguments (strict mode), enhance it with suggestions
     // Check if this error has already been enhanced to avoid re-processing
@@ -828,6 +919,20 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
   const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
   const fallbackModelExplicitlyProvided = rawArgs.includes('--fallback-model');
   const planModelExplicitlyProvided = rawArgs.includes('--plan-model');
+  const thinkExplicitlyProvided = hasRawOption(rawArgs, '--think');
+  const thinkingBudgetExplicitlyProvided = hasRawOption(rawArgs, '--thinking-budget');
+
+  // Issue #2032: an omitted --think is equivalent to --think off, except when
+  // an explicit token budget is the user's chosen reasoning control.
+  if (!thinkExplicitlyProvided && thinkingBudgetExplicitlyProvided) {
+    argv.think = undefined;
+  }
+
+  // Issue #2038: normalize the --think value into a single canonical vocabulary
+  // (off synonyms, minimal, adaptive, percentages/fractions/0|1) and fail fast on
+  // an unsupported `adaptive` request. Shared by solve and hive so both commands
+  // behave identically.
+  normalizeAndValidateThink(argv);
 
   // --plan flag expansion (Issue #1223)
   // When --plan is set, it acts as a shortcut for --plan-model opus --worker-model sonnet
@@ -972,6 +1077,11 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     const defaultFallbackModel = resolveDefaultFallbackModel(argv.tool, argv.model);
     argv.fallbackModel = defaultFallbackModel || undefined;
   }
+  // Issue #2037 (review): remember whether the fallback model was pinned by the user.
+  // An explicit --fallback-model is honoured exactly and never walked past; an
+  // implicit (default) fallback is allowed to step down the full default chain on
+  // repeated capacity errors. See resolveConfiguredFallbackModel().
+  argv._fallbackModelExplicit = fallbackModelExplicitlyProvided;
 
   // Validate mutual exclusivity of --claude-file and --gitkeep-file
   // Check if both are explicitly enabled (user passed both --claude-file and --gitkeep-file)

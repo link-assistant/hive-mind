@@ -5,7 +5,7 @@ if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream'); // Use command-stream for consistent $ behavior
 import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { githubLimits, timeouts } from './config.lib.mjs';
+import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent }; // Re-export for backward compatibility
@@ -31,10 +31,8 @@ const buildIssueFailureActionSection = targetType => {
 
 ### What you can do
 - Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
-- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
-- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
-
-Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.`;
+- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.`;
 };
 const normalizeFailureActionSection = section => {
   const text = section || '';
@@ -356,6 +354,8 @@ export async function attachLogToGitHub(options) {
     pricingInfo = null,
     errorDuringExecution = false, // Issue #1088
     requestedModel = null, // Issue #1225: The --model flag value
+    argv = null, // Issue #1949: parsed CLI args, used to derive the requested thinking level for the comment
+    thinkingInfo = null, // Issue #1949: explicit thinking level description (overrides the value derived from argv)
     tool = null, // The tool used (claude, agent, opencode, codex)
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
@@ -388,6 +388,9 @@ export async function attachLogToGitHub(options) {
     }
     let totalCostUSD = publicPricingEstimate; // Issue #1225: token usage + actual model IDs
     let actualModelIds = null;
+    // Issue #2037 (review): per-model output-token map, used to report the share of
+    // output tokens produced by the fallback model in the "Models used:" section.
+    let modelUsageForComment = null;
     if (totalCostUSD === null && sessionId && tempDir && !errorMessage) {
       try {
         const { calculateSessionTokens } = await import('./claude.lib.mjs');
@@ -399,6 +402,7 @@ export async function attachLogToGitHub(options) {
           }
           if (tokenUsage.modelUsage && Object.keys(tokenUsage.modelUsage).length > 0) {
             actualModelIds = Object.keys(tokenUsage.modelUsage);
+            modelUsageForComment = tokenUsage.modelUsage;
             if (verbose) await log(`  🤖 Actual models used: ${actualModelIds.join(', ')}`, { verbose: true });
           }
         }
@@ -412,6 +416,7 @@ export async function attachLogToGitHub(options) {
       if (ids.length > 0 && (!actualModelIds || ids.length > actualModelIds.length)) {
         ids.sort((a, b) => (resultModelUsage[b]?.costUSD ?? 0) - (resultModelUsage[a]?.costUSD ?? 0));
         actualModelIds = ids;
+        if (!modelUsageForComment) modelUsageForComment = resultModelUsage;
         if (verbose) await log(`  🤖 Using result JSON modelUsage (${ids.length} models): ${ids.join(', ')}`, { verbose: true });
       }
     }
@@ -428,7 +433,10 @@ export async function attachLogToGitHub(options) {
     let modelInfoString = '';
     if (requestedModel || tool || actualModelIds) {
       try {
-        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds });
+        // Issue #1949: prefer an explicit thinkingInfo, otherwise derive it from argv
+        // (e.g. "high (~24000 tokens)"). null when the run used the tool's default.
+        const resolvedThinkingInfo = thinkingInfo ?? describeRequestedThinking(argv);
+        modelInfoString = await getModelInfoForComment({ requestedModel, tool, pricingInfo, actualModelIds, thinkingInfo: resolvedThinkingInfo, fallbackModel: argv?.fallbackModel ?? null, modelUsage: modelUsageForComment });
         if (verbose && modelInfoString) {
           await log('  🤖 Model info fetched for comment', { verbose: true });
         }
@@ -785,6 +793,9 @@ ${sessionNote}
             await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
             await log(`  🔗 Log URL: ${logUrl}`);
             await log(`  📊 Log size: ${Math.round(logStats.size / 1024)}KB`);
+            // Issue #1952: Record that a session log was attached anywhere in this process so the
+            // top-level --attach-logs safety net can guarantee no session finishes with no logs.
+            global.logAttachedToGitHub = true;
             return true;
           } else {
             await log(`  ❌ Failed to post comment with log link: ${posted.stderr || 'unknown error'}`);
@@ -808,7 +819,12 @@ ${sessionNote}
       }
     } else {
       // Comment fits within limit
-      return await attachRegularComment(options, logComment);
+      const regularOk = await attachRegularComment(options, logComment);
+      // Issue #1952: see note above — mark a successful attach for the --attach-logs safety net.
+      if (regularOk) {
+        global.logAttachedToGitHub = true;
+      }
+      return regularOk;
     }
   } catch (uploadError) {
     // Issue #1212: ENOSPC-specific actionable guidance
@@ -954,7 +970,7 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
         context: 'github.lib.mjs - GitHub CLI auth status check',
         level: 'error',
       });
-      throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
+      throw new Error('GitHub CLI authentication failed. Please run: gh auth login', { cause: error });
     }
     // Add delay to respect rate limits
     await log('   ⏰ Waiting 2 seconds before API call to respect rate limits...', { verbose: true });

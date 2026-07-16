@@ -194,5 +194,5 @@ await test('pre-PR failure comments keep push rejection remediation branch-speci
 
   assert.match(section, /https:\/\/github\.com\/ideav\/crm\/tree\/issue-2746-7b9af1dbec7d/);
   assert.match(section, /https:\/\/github\.com\/ideav\/crm\/compare\/main\.\.\.issue-2746-7b9af1dbec7d/);
-  assert.match(section, /Do not force-push unless/);
+  assert.match(section, /Manual force-push remains blocked/);
 });

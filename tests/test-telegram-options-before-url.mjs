@@ -67,9 +67,11 @@ await test('/codex invalid --think reports each choice once after URL probing', 
     () => parseArgsWithYargs(normalizedArgs, yargs, createSolveYargsConfig),
     error => {
       const message = error.message || String(error);
-      assert.match(message, /Argument: think, Given: "ma"/);
-      assert.equal((message.match(/"off"/g) || []).length, 1);
-      assert.equal((message.match(/"max"/g) || []).length, 1);
+      // Issue #2038 vocabulary: invalid values report the canonical guidance once,
+      // not once per URL-probing parse (issue #1662 regression guard).
+      assert.match(message, /Invalid --think value: "ma"/);
+      assert.equal((message.match(/Invalid --think value: "ma"/g) || []).length, 1);
+      assert.match(message, /off, minimal, low, medium, high, xhigh, ultra, max/);
       return true;
     }
   );

@@ -116,7 +116,7 @@ const updateGitExclude = async ({ $, tempDir, log }) => {
     return false;
   }
 
-  let existing = '';
+  let existing;
   try {
     existing = await fs.readFile(excludePath, 'utf8');
   } catch {

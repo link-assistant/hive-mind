@@ -214,6 +214,62 @@ test('buildModelInfoString shows warning when model does not match requested', (
   assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
 });
 
+// Issue #2037 (review): an expected fallback (actual model == configured fallback)
+// should still be surfaced as a ⚠️ warning — the user did not get the model they
+// requested in full detail — but with a clear "automatically fell back" explanation.
+test('buildModelInfoString warns and explains the automatic capacity fallback when actual model matches the configured fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.6-terra',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.6-terra',
+        modelInfo: { name: 'GPT-5.6 Terra', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('**Model: GPT-5.6 Terra**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('⚠️'), `Expected a warning for the fallback but got: ${result}`);
+  assert.ok(result.includes('was unavailable (at capacity)'), `Expected capacity explanation but got: ${result}`);
+  assert.ok(result.includes('automatically fell back'), `Expected fallback note but got: ${result}`);
+  assert.ok(!result.includes('does not match requested'), `Did not expect the generic mismatch phrasing but got: ${result}`);
+});
+
+// Issue #2037 (review): when per-model output-token usage is available, the warning
+// reports the share of output tokens the fallback model produced.
+test('buildModelInfoString reports fallback output-token share when modelUsage is provided', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.6-terra',
+    modelsUsed: [{ modelId: 'gpt-5.6-terra', modelInfo: { name: 'GPT-5.6 Terra', provider: 'OpenAI' } }],
+    modelUsage: {
+      'gpt-5.6-terra': { outputTokens: 750 },
+      'gpt-5.6-sol': { outputTokens: 250 },
+    },
+  });
+  assert.ok(result.includes('75% of output tokens'), `Expected output-token share but got: ${result}`);
+});
+
+// Issue #2037: when the actual model matches neither the requested model nor the
+// configured fallback, the ⚠️ warning must still appear.
+test('buildModelInfoString still warns when actual model matches neither requested nor fallback', () => {
+  const result = buildModelInfoString({
+    requestedModel: 'gpt-5.6-sol',
+    tool: 'codex',
+    fallbackModel: 'gpt-5.4',
+    modelsUsed: [
+      {
+        modelId: 'gpt-5.5',
+        modelInfo: { name: 'GPT-5.5', provider: 'OpenAI' },
+      },
+    ],
+  });
+  assert.ok(result.includes('⚠️'), `Expected warning but got: ${result}`);
+  assert.ok(result.includes('does not match requested'), `Expected mismatch message but got: ${result}`);
+});
+
 test('buildModelInfoString shows additional models', () => {
   const result = buildModelInfoString({
     requestedModel: 'opus',

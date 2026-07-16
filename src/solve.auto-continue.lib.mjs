@@ -181,7 +181,11 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
     // cost folded in at the runClaude return, plus anything carried from prior
     // iterations via --previous-anthropic-cost.
     const carriedAnthropicCost = getCumulativeAnthropicCost();
-    if (carriedAnthropicCost > 0) {
+    // Issue #2056: only a real resume reads the same transcript and belongs to
+    // the same cost scope. A configured auto-restart deliberately starts a
+    // fresh Claude session, so carrying the old cost would recreate the exact
+    // cross-session overcount reported in the issue.
+    if (!isRestart && carriedAnthropicCost > 0) {
       resumeArgs.push('--previous-anthropic-cost', String(carriedAnthropicCost));
       await log(`💰 Carrying forward cumulative Anthropic cost: $${carriedAnthropicCost.toFixed(6)} (issue #1886)`, { verbose: true });
     }

@@ -38,8 +38,8 @@ Hive Mind एक **सामान्यवादी AI** (मिनी-AGI) ह
 
 | सदस्यता                                                          | `--tool` के साथ     | डिफ़ॉल्ट मॉडल | किसके लिए बेहतर है                                |
 | ---------------------------------------------------------------- | ------------------- | ------------- | ------------------------------------------------- |
-| **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Sonnet/Haiku  | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग      |
-| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-5.5`     | भरोसेमंद deterministic refactors और तेज iteration |
+| **Anthropic Claude MAX** (~$200/माह, अक्सर 50% छूट = $400 मूल्य) | `claude` (डिफ़ॉल्ट) | Opus          | उच्चतम रचनात्मकता, मजबूत सामान्य कोड रीजनिंग      |
+| **OpenAI ChatGPT Pro** ($200/माह, Codex शामिल)                   | `codex`             | `gpt-5.6-sol` | भरोसेमंद deterministic refactors और तेज iteration |
 
 दोनों टूल एक ही hive में साथ उपयोग किए जा सकते हैं। Worker अलग-अलग टूल समानांतर चला सकते हैं, और `/codex` या `/solve --tool codex` कार्यों को ChatGPT Pro पर भेजता है जबकि डिफ़ॉल्ट Claude MAX पर जाता है। किसी एक को चुनना आवश्यक नहीं है: किसी भी एक सदस्यता से संचालन संभव है, और दोनों का उपयोग per-tool/model concurrency mode (#1474) खोलता है।
 
@@ -173,6 +173,7 @@ claude
 # Use /config command and set:
 # Reduce motion                             true # Will save your ssh trafic, and make Claude Code more responsive (less latency)
 # Thinking mode                             false # Anthropic models perform better and cheaper without thinking
+# `--think` न देने पर Hive Mind इसे `--think off` मानता है।
 # Model                                     haiku # chepear for connection testing manually
 # Claude in Chrome enabled by default       false # No need for Chrome support on server
 
@@ -346,11 +347,11 @@ solve <issue-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प          | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट   |
-| --------------- | --------- | --------------------------------------------- | ---------- |
-| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet     |
-| `--think`       |           | सोचने का स्तर (low, medium, high, max)        | -          |
-| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                      | (डिफ़ॉल्ट) |
+| विकल्प          | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट   |
+| --------------- | --------- | --------------------------------------------------------- | ---------- |
+| `--model`       | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus       |
+| `--think`       |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off        |
+| `--base-branch` | `-b`      | PR के लिए टार्गेट ब्रांच                                  | (डिफ़ॉल्ट) |
 
 **अन्य उपयोगी विकल्प:**
 
@@ -372,12 +373,12 @@ hive <github-url> [options]
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
-| विकल्प         | संक्षिप्त | विवरण                                         | डिफ़ॉल्ट |
-| -------------- | --------- | --------------------------------------------- | -------- |
-| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku) | sonnet   |
-| `--think`      |           | सोचने का स्तर (low, medium, high, max)        | -        |
-| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)     | false    |
-| `--once`       |           | एकल रन (लगातार निगरानी न करें)                | false    |
+| विकल्प         | संक्षिप्त | विवरण                                                     | डिफ़ॉल्ट |
+| -------------- | --------- | --------------------------------------------------------- | -------- |
+| `--model`      | `-m`      | उपयोग करने वाला AI मॉडल (sonnet, opus, haiku)             | opus     |
+| `--think`      |           | सोचने का स्तर (off, low, medium, high, xhigh, ultra, max) | off      |
+| `--all-issues` | `-a`      | सभी इश्यू निगरानी करें (लेबल अनदेखा करें)                 | false    |
+| `--once`       |           | एकल रन (लगातार निगरानी न करें)                            | false    |
 
 **अन्य उपयोगी विकल्प:**
 
@@ -511,6 +512,26 @@ Examples:
 /hive https://github.com/microsoft --all-issues --concurrency 3
 ```
 
+#### `/merge` - तैयार Pull Requests merge करें
+
+```
+/merge <repository-url|issue-url|pull-request-url> [--auto-resolve]
+
+Examples:
+/merge https://github.com/owner/repo
+/merge https://github.com/owner/repo/issues/123
+/merge https://github.com/owner/repo/pull/456
+```
+
+Repository targets `ready` label वाले PRs को क्रम से process करते हैं। Issue और
+pull request targets केवल linked या selected PR process करते हैं। आप किसी ऐसे
+message पर `/merge` से reply भी कर सकते हैं जिसमें एक GitHub repository, issue,
+या pull request link हो, जैसे कोई पुराना `/codex ...issues/123` command.
+
+अगर target PR अभी finished नहीं है, तो `/merge` merge करने से पहले उसके
+mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
+साथ काम करते हैं।
+
 #### `/fix` - CI/CD स्वतः ठीक करें
 
 ```
@@ -526,14 +547,12 @@ Examples:
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
 की जाँच करता है, और स्वचालित रूप से एक CI/CD सुधार issue बनाता है (मानक प्रॉम्प्ट और
 [`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md) के टेम्पलेट्स का उपयोग करके, जिन्हें पहचानी
-गई भाषाओं के अनुसार क्रमबद्ध किया जाता है)। इसके बाद यह issue को `/solve --auto-merge` को सौंप देता है। हर वह
-विकल्प जिसे `/fix` स्वयं उपयोग नहीं करता (जैसे `--tool`, `--model`, `--think`) `/solve` को अग्रेषित कर दिया
-जाता है। issue बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, या `/solve` शुरू किए बिना केवल
-issue बनाने के लिए `--no-solve` का उपयोग करें। विवरण के लिए
+गई भाषाओं के अनुसार क्रमबद्ध किया जाता है)। इसके बाद यह issue को
+`/solve --development-log --deep-analysis --auto-merge` को सौंप देता है। हर वह विकल्प जिसे `/fix` स्वयं
+उपयोग नहीं करता (जैसे `--tool`, `--model`, `--think`) `/solve` को अग्रेषित कर दिया जाता है। issue बनाए बिना
+उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, या `/solve` शुरू किए बिना केवल issue बनाने के लिए
+`--no-solve` का उपयोग करें। विवरण के लिए
 [स्वचालित CI/CD सुधार](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation) देखें।
-
-> `/fix` वर्तमान में कमांड लाइन से चलता है (उदाहरण के लिए `fix owner/repo --ci-cd`); इन-चैट Telegram हैंडलर
-> एक नियोजित अनुवर्ती कार्य है।
 
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
@@ -545,7 +564,9 @@ Shows:
 - RAM usage (used vs total)
 - Disk space usage
 - GitHub API rate limits
-- Claude usage limits (session and weekly)
+- Claude and ChatGPT subscription usage windows
+- Non-zero Codex weekly limits and credits
+- Solve queue status
 ```
 
 #### `/terminal_watch` - Live Session Log
@@ -759,7 +780,7 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ### डिस्क क्लीनअप
 
-`cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
+`hive-cleanup` पुरानी hive-mind अस्थायी डायरेक्टरी/फ़ाइलों (जैसे प्रति-कार्य क्लोन
 `/tmp/gh-issue-solver-*`, MCP कॉन्फ़िग फ़ाइलें, लॉग डाउनलोड डायरेक्टरी आदि) को हटाकर
 डिस्क स्थान खाली करता है, जबकि **वर्तमान में चल रहे कार्यों से संबंधित फ़ोल्डर**,
 सुरक्षित सिस्टम पथ, और बिना कमिट या बिना पुश किए बदलावों वाले किसी भी क्लोन को बनाए
@@ -769,40 +790,40 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 
 ```bash
 # पूर्वावलोकन: रखे जाने वाले और हटाए जाने वाले फ़ोल्डरों की सूची (कुछ भी नहीं हटाता)
-cleanup --dry-run
+hive-cleanup --dry-run
 
 # पुरानी अस्थायी फ़ाइलें वास्तव में हटाएँ (पहले पुष्टि माँगता है)
-cleanup
+hive-cleanup
 
 # पुष्टि प्रॉम्प्ट के बिना हटाएँ
-cleanup --force
+hive-cleanup --force
 
 # गैर-hive-mind अस्थायी प्रविष्टियों पर भी विचार करें (अधिक आक्रामक)
-cleanup --all --dry-run
+hive-cleanup --all --dry-run
 
 # /tmp/start-command को हटाने की अनुमति दें (डिफ़ॉल्ट रूप से रखा जाता है; इसमें आइसोलेशन लॉग होते हैं)
-cleanup --force-start-command
+hive-cleanup --force-start-command
 
 # Ubuntu / सिस्टम क्लीनअप (apt कैश, journald लॉग, npm कैश)
-cleanup --system --sudo
+hive-cleanup --system --sudo
 
 # लाइव/अटके हुए agent PID को hive/start-command कार्य सत्रों से मिलाएँ
-cleanup --processes
+hive-cleanup --processes
 
 # किसी खास non-agent PID को ट्रेस करें, जैसे browser child या shell
-cleanup --pid 94445
+hive-cleanup --pid 94445
 
 # रोके जा सकने वाले orphaned agents का पूर्वावलोकन करें
-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --dry-run
 
 # पूर्वावलोकन जाँचने के बाद orphaned agent process trees रोकें
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --force
 
 # सक्रिय-कार्य पहचान अक्षम करें (केवल सुरक्षित पथ रखे जाते हैं)
-cleanup --no-keep-active-tasks-folders --dry-run
+hive-cleanup --no-keep-active-tasks-folders --dry-run
 ```
 
-विकल्पों की पूरी सूची के लिए `cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
+विकल्पों की पूरी सूची के लिए `hive-cleanup --help` चलाएँ। यह कमांड dry-run के अनुकूल है और
 हर रन के लिए टाइमस्टैम्प वाला `cleanup-*.log` लिखता है। प्रक्रिया डायग्नोस्टिक आउटपुट
 कमांड लाइन प्रिंट करने से पहले सामान्य token आकारों को छिपाता है।
 
@@ -860,14 +881,14 @@ find docs/ -name "*.md" -exec wc -l {} + | awk '$1 > 1000 {print "ERROR: " $2 " 
 
 ```bash
 # agent PID, start-command session ID, GitHub task URL, workspace, match reasons और संभावित orphaned agents दिखाएँ।
-cleanup --processes
+hive-cleanup --processes
 
 # उसी report में कोई भी PID शामिल करें।
-cleanup --pid 62220
+hive-cleanup --pid 62220
 
 # केवल terminal task वाले orphaned agents रोकें।
-cleanup --kill-orphaned-agents --dry-run
-cleanup --kill-orphaned-agents --force
+hive-cleanup --kill-orphaned-agents --dry-run
+hive-cleanup --kill-orphaned-agents --force
 ```
 
 Manual fallback: उन स्क्रीन की पहचान करें जो संसाधन खपत करने वाली प्रक्रियाओं के पैरेंट हैं।

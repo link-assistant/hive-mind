@@ -192,6 +192,11 @@ hi
         hour
           session "Claude 5 घंटे का सत्र"
       limits "Claude सीमाएँ"
+      subscription
+        title "Claude{{plan}} सदस्यता"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} सदस्यता"
     codex
       5
         hour
@@ -205,6 +210,7 @@ hi
     current
       time "वर्तमान समय"
       week
+        label "वर्तमान सप्ताह"
         all
           models "वर्तमान सप्ताह (सभी मॉडल)"
         sonnet
@@ -226,6 +232,8 @@ hi
     end "समाप्ति"
     five
       hour
+        limit
+          session "5 घंटे का सत्र"
         session "5 घंटे का सत्र"
       min
         load
@@ -314,10 +322,39 @@ hi
     session "सत्र"
     start "शुरुआत"
     subscription
+      detail
+        ends
+          label "{{time}} को समाप्त होगी"
+          in "{{duration}} में समाप्त होगी; {{time}}"
+        trial
+          ends
+            label "ट्रायल {{time}} को समाप्त होगा"
+            in "ट्रायल {{duration}} में समाप्त होगा; {{time}}"
       ends
         label "सदस्यता समाप्त होगी {{time}}"
         in "सदस्यता {{duration}} में समाप्त होगी ({{time}})"
       status "सदस्यता: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "फ्लड नियंत्रण"
+      last
+        rate
+          limit "अंतिम 429: {{method}}"
+      observed
+        limit "मापी गई सीमा"
+      peak "शिखर {{peak}}"
+      rate
+        limit
+          responses "स्टार्टअप के बाद 429 प्रतिक्रियाएँ: {{count}}"
+      requests "{{used}}/{{limit}} अनुरोध"
+      retry
+        in "{{duration}} में पुनः प्रयास"
+      scope
+        broadcast "सभी चैट में संदेश, 1 सेकंड"
+        chat "प्रति चैट संदेश, 1 मिनट"
+        group "प्रति समूह संदेश, 1 मिनट"
+        other "अन्य API अनुरोध, 1 सेकंड"
     trial
       ends
         label "ट्रायल समाप्त होगा {{time}}"
@@ -355,7 +392,7 @@ hi
       queue
         only
           in
-            groups "❌ /solve_queue कमांड केवल समूह चैट में काम करती है। कृपया बॉट को समूह में जोड़ें और व्यवस्थापक बनाएँ।"
+            groups "❌ /queue कमांड केवल समूह चैट में काम करती है। कृपया बॉट को समूह में जोड़ें और व्यवस्थापक बनाएँ।"
       disabled "❌ इस बॉट इंस्टेंस पर solve कमांड अक्षम है।"
       rejected """
         ❌ Solve कमांड अस्वीकृत।
@@ -413,7 +450,7 @@ hi
           URL: {{url}}
           स्थिति: {{status}}
 
-          💡 कतार स्थिति देखने के लिए /solve_queue का उपयोग करें।
+          💡 कतार स्थिति देखने के लिए /queue का उपयोग करें।
         """
       session
         running """
@@ -422,7 +459,7 @@ hi
           URL: {{url}}
           सत्र: `{{session}}`
 
-          💡 वर्तमान सत्र के पूरा होने की प्रतीक्षा करें, या रद्द करने के लिए /solve\_stop का उपयोग करें।
+          💡 वर्तमान सत्र के पूरा होने की प्रतीक्षा करें, या रद्द करने के लिए /stop का उपयोग करें।
         """
       issues
         list
@@ -515,7 +552,7 @@ hi
           detail "Tool aliases `--tool <tool>` लगाते हैं: `/codex <github-url>` का अर्थ `/solve <github-url> --tool codex` है"
         reply "या GitHub लिंक वाले संदेश का उत्तर दें: `/solve`"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ अक्षम"
-        queue "`/solve_queue` (उपनाम: `/queue`) - solve queue status दिखाएँ"
+        queue "`/queue` - solve queue status दिखाएँ"
       locked
         options "🔒 लॉक किए गए विकल्प: `{{options}}`"
       task
@@ -553,7 +590,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model
@@ -562,7 +599,7 @@ hi
         branch
           option "• `--base-branch <branch>` या `-b` - PR के लिए target branch (default: repo default branch)"
       think
-        option "• `--think <level>` - thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - token budget (0-63999)"
+        option "• `--think <level>` - thinking level (off/minimal/low/medium/high/xhigh/ultra/max/adaptive) | `--thinking-budget <num>` - token budget (0-63999)"
       verbose
         option "• `--verbose` या `-v` - verbose output | `--attach-logs` - logs को PR से attach करें"
       show
@@ -607,6 +644,8 @@ hi
         executing "⏳ चल रहा है..."
         finished "कार्य सत्र सफलतापूर्वक पूरा हुआ"
         failed "कार्य सत्र विफल हुआ (exit code: {{exitCode}})"
+        killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
+        stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
     duration
       label "अवधि"
     session

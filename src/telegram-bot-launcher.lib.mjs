@@ -194,13 +194,9 @@ export async function launchBotWithRetry(bot, launchOptions, retryOptions = {}) 
             reject(new Error('Bot launch aborted during retry wait'));
             return;
           }
+          // `{ once: true }` removes the abort listener after it fires; on the
+          // natural-timeout path it is released when the AbortSignal is collected.
           signal.addEventListener('abort', onAbort, { once: true });
-          // Clean up the listener when the timer fires naturally
-          const originalResolve = resolve;
-          resolve = () => {
-            signal.removeEventListener('abort', onAbort);
-            originalResolve();
-          };
         }
       });
     }

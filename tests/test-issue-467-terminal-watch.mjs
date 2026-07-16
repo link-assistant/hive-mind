@@ -29,6 +29,20 @@ function assertEqual(actual, expected, name) {
   assert(JSON.stringify(actual) === JSON.stringify(expected), name, { expected, actual });
 }
 
+// Poll `predicate` until it is truthy or `timeoutMs` elapses. Used instead of a
+// fixed sleep so the timing-based watch tests do not flake under CI load, where
+// the polling loop may need more wall-clock time to fire (issue #2028: fixing
+// CI false negatives).
+async function waitUntil(predicate, { timeoutMs = 3000, intervalMs = 5 } = {}) {
+  const start = process.hrtime.bigint();
+  const limitNs = BigInt(timeoutMs) * 1000000n;
+  while (process.hrtime.bigint() - start < limitNs) {
+    if (predicate()) return true;
+    await new Promise(resolve => setTimeout(resolve, intervalMs));
+  }
+  return predicate();
+}
+
 console.log('='.repeat(80));
 console.log('Unit Tests: Telegram terminal watch (Issue #467)');
 console.log('='.repeat(80));
@@ -113,7 +127,7 @@ watchTerminalLogSession({
   isTerminalSessionStatus: status => status === 'executed',
 });
 
-await new Promise(resolve => setTimeout(resolve, 80));
+await waitUntil(() => edits.length >= 2 && String(edits.at(-1)?.[3] || '').includes('Terminal watch complete'));
 assert(edits.length >= 2, 'edits the watch message while running and at completion', { editCount: edits.length });
 // /terminal_watch must not upload the log file itself — that is /log's job (issue #1720).
 assert(documents.length === 0, 'does not attach the full log when the session reaches terminal status (issue #1720)', { documents });
@@ -157,7 +171,7 @@ const unchangedControl = watchTerminalLogSession({
   isTerminalSessionStatus: status => status === 'executed',
 });
 
-await new Promise(resolve => setTimeout(resolve, 55));
+await waitUntil(() => unchangedStatusCalls >= 2);
 unchangedControl.stop();
 assert(unchangedStatusCalls >= 2, 'polls the session more than once while the watch is active', { unchangedStatusCalls });
 assert(unchangedEdits.length === 0, 'does not edit Telegram message when terminal snapshot is unchanged', { editCount: unchangedEdits.length });
@@ -195,7 +209,7 @@ const changedControl = watchTerminalLogSession({
   isTerminalSessionStatus: status => status === 'executed',
 });
 
-await new Promise(resolve => setTimeout(resolve, 80));
+await waitUntil(() => changedEdits.length >= 1);
 changedControl.stop();
 assert(changedEdits.length === 1, 'edits Telegram exactly once for one changed terminal snapshot', { editCount: changedEdits.length });
 assert(String(changedEdits[0]?.[3] || '').includes('Updates: 1'), 'counts only changed terminal snapshots as updates', { message: changedEdits[0]?.[3] });

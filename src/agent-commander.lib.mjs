@@ -8,7 +8,7 @@
  */
 
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
-import { mapModelForTool } from './models/index.mjs';
+import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
@@ -54,6 +54,7 @@ const buildClaudeToolOptions = (argv = {}) => {
   if (argv.disable1mContext) extraEnv.CLAUDE_CODE_DISABLE_1M_CONTEXT = '1';
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
+  if (argv.subAgentModel) extraEnv.CLAUDE_CODE_SUBAGENT_MODEL = mapClaudeSubAgentModelToEnvValue(argv.subAgentModel);
   appendExtraEnv(options, extraEnv);
 
   return options;
@@ -61,8 +62,13 @@ const buildClaudeToolOptions = (argv = {}) => {
 
 const buildCodexToolOptions = (argv = {}) => {
   const options = {};
-  const { reasoningEffort } = resolveCodexReasoningEffort(argv);
-  appendExtraArgs(options, ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto']);
+  const { reasoningEffort, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
+  const reasoningArgs = ['-c', `model_reasoning_effort=${reasoningEffort}`, '-c', 'model_reasoning_summary=auto'];
+  // Issue #2027: pair GPT-5.6 Sol's multi-agent `ultra` effort with a rollout token budget cap.
+  if (rolloutTokenBudget) {
+    reasoningArgs.push('-c', `rollout_token_budget=${rolloutTokenBudget}`);
+  }
+  appendExtraArgs(options, reasoningArgs);
 
   appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
   try {
@@ -90,7 +96,7 @@ const getAgentCommander = async () => {
   try {
     return await import('agent-commander');
   } catch (error) {
-    throw new Error(`agent-commander is not installed or cannot be loaded. Install it with: npm install agent-commander\nOriginal error: ${error.message}`);
+    throw new Error(`agent-commander is not installed or cannot be loaded. Install it with: npm install agent-commander\nOriginal error: ${error.message}`, { cause: error });
   }
 };
 

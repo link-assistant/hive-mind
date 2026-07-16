@@ -192,6 +192,11 @@ en
         hour
           session "Claude 5 hour session"
       limits "Claude limits"
+      subscription
+        title "Claude{{plan}} subscription"
+    chatgpt
+      subscription
+        title "ChatGPT{{plan}} subscription"
     codex
       5
         hour
@@ -205,6 +210,7 @@ en
     current
       time "Current time"
       week
+        label "Current week"
         all
           models "Current week (all models)"
         sonnet
@@ -226,6 +232,8 @@ en
     end "End"
     five
       hour
+        limit
+          session "5 hour session"
         session "5h session"
       min
         load
@@ -314,10 +322,39 @@ en
     session "session"
     start "Start"
     subscription
+      detail
+        ends
+          label "ends {{time}}"
+          in "ends in {{duration}}; {{time}}"
+        trial
+          ends
+            label "trial ends {{time}}"
+            in "trial ends in {{duration}}; {{time}}"
       ends
         label "Subscription ends {{time}}"
         in "Subscription ends in {{duration}} ({{time}})"
       status "Subscription: {{status}}"
+    telegram
+      api "Telegram Bot API"
+      flood
+        control "flood control"
+      last
+        rate
+          limit "Last 429: {{method}}"
+      observed
+        limit "observed limit"
+      peak "peak {{peak}}"
+      rate
+        limit
+          responses "429 responses since startup: {{count}}"
+      requests "{{used}}/{{limit}} requests"
+      retry
+        in "retry in {{duration}}"
+      scope
+        broadcast "messages to all chats, 1s"
+        chat "messages per chat, 1m"
+        group "messages per group, 1m"
+        other "other API requests, 1s"
     trial
       ends
         label "Trial ends {{time}}"
@@ -355,7 +392,7 @@ en
       queue
         only
           in
-            groups "❌ The /solve_queue command only works in group chats. Please add this bot to a group and make it an admin."
+            groups "❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin."
       disabled "❌ The solve command is disabled on this bot instance."
       rejected """
         ❌ Solve command rejected.
@@ -413,7 +450,7 @@ en
           URL: {{url}}
           Status: {{status}}
 
-          💡 Use /solve_queue to check the queue status.
+          💡 Use /queue to check the queue status.
         """
       session
         running """
@@ -422,7 +459,7 @@ en
           URL: {{url}}
           Session: `{{session}}`
 
-          💡 Wait for the current session to complete, or use /solve\_stop to cancel it.
+          💡 Wait for the current session to complete, or use /stop to cancel it.
         """
       issues
         list
@@ -515,7 +552,7 @@ en
           detail "Tool aliases imply `--tool <tool>`: `/codex <github-url>` equals `/solve <github-url> --tool codex`"
         reply "Or reply to a message with a GitHub link: `/solve`"
         disabled "*/solve* (aliases: */do*, */continue*, */claude*, */codex*, */opencode*, */agent*, */gemini*, */qwen*) - ❌ Disabled"
-        queue "`/solve_queue` (alias: `/queue`) - Show solve queue status"
+        queue "`/queue` - Show solve queue status"
       locked
         options "🔒 Locked options: `{{options}}`"
       task
@@ -553,7 +590,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /solve\\_queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model
@@ -562,7 +599,7 @@ en
         branch
           option "• `--base-branch <branch>` or `-b` - Target branch for PR (default: repo default branch)"
       think
-        option "• `--think <level>` - Thinking level (off/low/medium/high/xhigh/max) | `--thinking-budget <num>` - Token budget (0-63999)"
+        option "• `--think <level>` - Thinking level (off/minimal/low/medium/high/xhigh/ultra/max/adaptive) | `--thinking-budget <num>` - Token budget (0-63999)"
       verbose
         option "• `--verbose` or `-v` - Verbose output | `--attach-logs` - Attach logs to PR"
       show
@@ -607,6 +644,8 @@ en
         executing "⏳ Executing..."
         finished "Work session finished successfully"
         failed "Work session failed (exit code: {{exitCode}})"
+        killed "Work session {{reason}}{{exitSuffix}}"
+        stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
     duration
       label "Duration"
     session

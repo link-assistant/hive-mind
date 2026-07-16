@@ -4,10 +4,12 @@ import { supportsEffortLevel, supportsThinkingBudget } from './config.lib.mjs';
 import { defaultModels, mapModelForTool } from './models/index.mjs';
 
 export const THINK_PROMPT_MESSAGES = Object.freeze({
+  minimal: 'Think.',
   low: 'Think.',
   medium: 'Think hard.',
   high: 'Think harder.',
   xhigh: 'Ultrathink.',
+  ultra: 'Ultrathink.',
   max: 'Ultrathink.',
 });
 

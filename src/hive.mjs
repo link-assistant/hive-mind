@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Import Sentry instrumentation first (must be before other imports)
 import './instrument.mjs';
-import { ensureUseM, loadUseMCode } from './use-m-bootstrap.lib.mjs';
+import { ensureUseM, fetchUseMCodeFromCdn } from './use-m-bootstrap.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 const earlyArgs = process.argv.slice(2);
 if (earlyArgs.includes('--version')) {
@@ -18,9 +18,9 @@ if (earlyArgs.includes('--version')) {
 if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   try {
     // Load minimal modules needed for help
-    const { getLinoYargsFactory, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { getLinoYargsFactory, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const yargs = getLinoYargsFactory();
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Reuse createYargsConfig from shared module to avoid duplication
     const { createYargsConfig } = await import('./hive.config.lib.mjs');
     const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
@@ -46,7 +46,7 @@ if (isRunningDirectly) {
     if (typeof globalThis.use === 'undefined') {
       try {
         await ensureUseM({
-          fetchUseMCode: () => withTimeout(loadUseMCode(), 10000, 'fetching use-m library'),
+          fetchUseMCode: () => withTimeout(fetchUseMCodeFromCdn(), 10000, 'fetching use-m library'),
           log: message => console.log(message),
         });
       } catch (error) {
@@ -62,7 +62,7 @@ if (isRunningDirectly) {
       30000, // 30 second timeout
       'loading command-stream'
     );
-    const { parseCliArgumentsWithLino, hideBin } = await import('./cli-arguments.lib.mjs');
+    const { parseCliArgumentsWithLino, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
     const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
     const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
     // Import shared library functions
@@ -74,7 +74,7 @@ if (isRunningDirectly) {
     const { validateClaudeConnection } = claudeLib;
     // Import model validation library
     const modelValidation = await import('./models/index.mjs');
-    const { validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
+    const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
     const githubLib = await import('./github.lib.mjs');
     const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
     // Import YouTrack-related functions
@@ -225,7 +225,7 @@ if (isRunningDirectly) {
     }
 
     // Configure command line arguments - GitHub URL as positional argument
-    const rawArgs = hideBin(process.argv);
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
     // When you use .argv, strict mode doesn't trigger properly
     // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
@@ -248,7 +248,7 @@ if (isRunningDirectly) {
 
     try {
       argv = parseCliArgumentsWithLino({
-        argv: process.argv,
+        argv: ['node', 'hive', ...rawArgs],
         commandName: 'hive',
         createYargsConfig,
         positionalAliases: ['github-url'],
@@ -472,6 +472,9 @@ if (isRunningDirectly) {
         await safeExit(1, '--plan-model requires --tool claude');
       }
       await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
+    if (argv.subAgentModel) {
+      await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
     }
 
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
@@ -1444,7 +1447,7 @@ if (isRunningDirectly) {
     } else {
       const systemCheck = await checkSystem(
         {
-          minDiskSpaceMB: argv.minDiskSpace || 2048,
+          minDiskSpaceMB: argv.minDiskSpace || 10240,
           minMemoryMB: 256,
           exitOnFailure: true,
         },

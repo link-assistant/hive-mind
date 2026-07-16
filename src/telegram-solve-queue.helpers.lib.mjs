@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 /**
  * Build a clickable, human-readable link to a queued issue/PR for the
- * /solve_queue (/queue) detailed status (issue #1837).
+ * /queue detailed status (issue #1837).
  *
  * For GitHub issue/PR URLs we render a compact `[owner/repo#number](url)`
  * Markdown link so the list is scannable and clickable. When the label would
@@ -269,7 +269,7 @@ export async function getRunningSessionItems(verbose = false) {
     return await impl(verbose);
   } catch (error) {
     if (verbose) {
-      console.error('[VERBOSE] /solve_queue error getting running session items:', error.message);
+      console.error('[VERBOSE] /queue error getting running session items:', error.message);
     }
     return [];
   }
@@ -300,9 +300,9 @@ export async function getRunningProcesses(processName, verbose = false) {
       .filter(p => p.pid);
 
     if (verbose) {
-      console.log(`[VERBOSE] /solve_queue found ${processes.length} running ${processName} processes`);
+      console.log(`[VERBOSE] /queue found ${processes.length} running ${processName} processes`);
       if (processes.length > 0) {
-        console.log(`[VERBOSE] /solve_queue processes: ${JSON.stringify(processes)}`);
+        console.log(`[VERBOSE] /queue processes: ${JSON.stringify(processes)}`);
       }
     }
 
@@ -312,7 +312,7 @@ export async function getRunningProcesses(processName, verbose = false) {
     };
   } catch (error) {
     if (verbose) {
-      console.error(`[VERBOSE] /solve_queue error counting ${processName} processes:`, error.message);
+      console.error(`[VERBOSE] /queue error counting ${processName} processes:`, error.message);
     }
     return { count: 0, processes: [] };
   }
@@ -490,5 +490,63 @@ export function formatWaitingReason(metric, currentValue, threshold, options = {
       return 'Gemini CLI process is already running';
     default:
       return `${metric} threshold exceeded`;
+  }
+}
+
+/**
+ * Report the dequeue decision across all tool queues for a SolveQueue.
+ *
+ * Provides the observability that issue #2051 needs to confirm whether a
+ * long-waiting task is blocked legitimately (limits/resources/pacing) or by an
+ * ordering defect:
+ * - In verbose mode: prints a per-tool head snapshot (age + startable +
+ *   blocking reasons) and the selected item each cycle.
+ * - Always-on: emits a concise "FIFO queue-jump" line whenever the
+ *   globally-oldest queued head is skipped in favor of a younger startable head,
+ *   naming the older task and the exact reason it is blocked. Deduplicated by
+ *   (task id + block reasons) so a persistently-blocked task is only reported
+ *   when its situation changes.
+ *
+ * @param {Object} queue - SolveQueue-like instance (uses verbose, log, recordThrottle, stats).
+ * @param {Array<{tool: string, item: Object, ageMs: number, startable: boolean, blockReasons: string[]}>} headDiagnostics
+ * @param {{item: Object, tool: string}|undefined} selected
+ * @see https://github.com/link-assistant/hive-mind/issues/2051
+ */
+export function reportDequeueDecision(queue, headDiagnostics, selected) {
+  if (!headDiagnostics || headDiagnostics.length === 0) return;
+
+  if (queue.verbose) {
+    queue.log('Dequeue decision (global FIFO across tool queues):');
+    for (const d of headDiagnostics) {
+      const detail = d.startable ? 'STARTABLE' : `blocked by [${d.blockReasons.join('; ') || 'unknown'}]`;
+      queue.log(`  ${d.tool}: waited ${formatDuration(d.ageMs)} - ${detail}`);
+    }
+    queue.log(selected ? `  -> selected ${selected.tool} (${selected.item.url})` : '  -> nothing startable this cycle');
+  }
+
+  if (!selected) return;
+
+  // Identify the globally-oldest queued head regardless of startability.
+  const oldest = headDiagnostics.reduce((a, b) => (a.item.createdAt <= b.item.createdAt ? a : b));
+  if (oldest.item.id === selected.item.id) return; // Strict FIFO honored - nothing to report.
+
+  const waitedMs = Date.now() - oldest.item.createdAt;
+  const blockedBy = oldest.blockReasons.join('; ') || 'unknown';
+  queue.recordThrottle('fifo_queue_jump');
+  queue.stats.lastQueueJump = {
+    skippedTool: oldest.tool,
+    skippedUrl: oldest.item.url,
+    waitedMs,
+    blockedBy: oldest.blockReasons,
+    startedTool: selected.tool,
+    startedUrl: selected.item.url,
+  };
+
+  // Deduplicate the always-on notice so a persistently-blocked task does not
+  // spam the log on every poll; only report when the reason changes.
+  const signature = `${oldest.item.id}|${blockedBy}`;
+  if (queue._lastQueueJumpSignature !== signature) {
+    queue._lastQueueJumpSignature = signature;
+    console.log(`[solve_queue] FIFO queue-jump: ${selected.tool} task started ahead of an older ${oldest.tool} task waiting ${formatDuration(waitedMs)} (${oldest.item.url}) — older task blocked by: ${blockedBy}`);
   }
 }

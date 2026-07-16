@@ -6,10 +6,10 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-import { log, isENOSPC } from './lib.mjs';
+import { log, isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET, getMaxOutputTokensForModel } from './config.lib.mjs';
-import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
+import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -17,54 +17,27 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { createEmptySubSessionUsage, accumulateModelUsage, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
-import { seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issue #1886
+import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
-import { CLAUDE_MODELS as availableModels } from './models/index.mjs'; // Issue #1221
+import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, maybeSwitchToFallbackModel, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
+import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
+import { showResumeCommand } from './claude.resume-output.lib.mjs';
+import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
-const showResumeCommand = async (sessionId, tempDir, claudePath, model, log, argv = null) => {
-  if (!sessionId || !tempDir) return;
-  await log(`\n💡 To continue this session:\n`);
-  await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
-  await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, claudePath, model })}\n`);
-  // Issue #942: 3rd option - restart the entire /solve flow, not just the claude session.
-  if (argv && argv.url) await log(`   Solve resume mode:   ${buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: argv.tool || 'claude', model: argv.model, fallbackModel: argv.fallbackModel, tempDir })}\n`);
-};
-/** Format numbers with spaces as thousands separator (no commas) */
-export const formatNumber = num => {
-  if (num === null || num === undefined) return 'N/A';
-  const parts = num.toString().split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return decimalPart !== undefined ? `${formattedInteger}.${decimalPart}` : formattedInteger;
-};
-// Model mapping to translate aliases to full model IDs
-// Supports [1m] suffix for 1 million token context (Issue #1221)
-export const mapModelToId = model => {
-  if (!model || typeof model !== 'string') return model;
-  // Check for [1m] suffix (case-insensitive)
-  const match = model.match(/^(.+?)\[1m\]$/i);
-  if (match) {
-    const baseModel = match[1];
-    const mappedBase = availableModels[baseModel] || baseModel;
-    return `${mappedBase}[1m]`;
-  }
-  return availableModels[model] || model;
-};
-// Function to validate Claude CLI connection with retry logic
+export { formatNumber, mapModelToId, checkModelVisionCapability };
 export const validateClaudeConnection = async (model = 'haiku') => {
-  // Map model alias to full ID
   const mappedModel = mapModelToId(model);
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
@@ -86,14 +59,12 @@ export const validateClaudeConnection = async (model = 'haiku') => {
           }
         }
       } catch (versionError) {
-        // Version check failed, but we'll continue with the main validation
         if (retryCount === 0) {
           await log(`⚠️  Claude CLI version check failed (${versionError.code}), proceeding with connection test...`);
         }
       }
       let result;
       try {
-        // Primary validation: use printf piping with specified model
         result = await $`printf hi | claude --model ${mappedModel} -p`;
       } catch (pipeError) {
         await log(`⚠️  Pipe validation failed (${pipeError.code}), trying timeout approach...`);
@@ -135,9 +106,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
         return null;
       };
       const jsonError = checkForJsonError(stdout) || checkForJsonError(stderr);
-      // Check for API overload error pattern (Issue #1439: also detect 529 overloaded_error)
       const isOverloadError = (stdout.includes('API Error: 500') && stdout.includes('Overloaded')) || (stdout.includes('API Error: 529') && stdout.includes('Overloaded')) || (stderr.includes('API Error: 500') && stderr.includes('Overloaded')) || (stderr.includes('API Error: 529') && stderr.includes('Overloaded')) || (jsonError && (jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded');
-      // Handle overload errors with retry
       if (isOverloadError) {
         if (retryCount < maxRetries) {
           const delay = baseDelay * Math.pow(2, retryCount);
@@ -213,8 +182,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
       await log('   💡 Make sure Claude CLI is installed and accessible', { level: 'error' });
       return false;
     }
-  }; // End of attemptValidation function
-  // Start the validation with retry logic
+  };
   return await attemptValidation();
 };
 export { handleClaudeRuntimeSwitch }; // Re-export from ./claude.runtime-switch.lib.mjs
@@ -229,19 +197,18 @@ export const setClaudeVersion = version => {
 /** Resolve thinking settings based on --think and --thinking-budget options */
 export const resolveThinkingSettings = async (argv, log) => {
   const minVersion = argv.thinkingBudgetClaudeMinimumVersion || '2.1.12';
-  const version = detectedClaudeVersion || '0.0.0'; // Assume old version if not detected
+  const version = detectedClaudeVersion || '0.0.0';
   const isNewVersion = supportsThinkingBudget(version, minVersion);
-  // Get max thinking budget from argv or use default (see issue #1146)
   const maxBudget = argv.maxThinkingBudget ?? DEFAULT_MAX_THINKING_BUDGET;
-  // Get thinking level mappings calculated from maxBudget
   const thinkingLevelToTokens = getThinkingLevelToTokens(maxBudget);
   const tokensToThinkingLevel = getTokensToThinkingLevel(maxBudget);
   let thinkingBudget = argv.thinkingBudget;
   let thinkLevel = argv.think;
   let translation = null;
   if (isNewVersion) {
-    // Claude Code >= 2.1.12: translate --think to --thinking-budget
-    if (thinkLevel !== undefined && thinkingBudget === undefined) {
+    // Issue #2038: `adaptive` is provider-managed and has no explicit token
+    // budget; skip the budget translation and let the model manage thinking.
+    if (thinkLevel !== undefined && thinkLevel !== 'adaptive' && thinkingBudget === undefined) {
       thinkingBudget = thinkingLevelToTokens[thinkLevel];
       translation = `--think ${thinkLevel} → --thinking-budget ${thinkingBudget}`;
       if (argv.verbose) {
@@ -253,7 +220,6 @@ export const resolveThinkingSettings = async (argv, log) => {
       }
     }
   } else {
-    // Claude Code < 2.1.12: translate --thinking-budget to --think keywords
     if (thinkingBudget !== undefined && thinkLevel === undefined) {
       thinkLevel = tokensToThinkingLevel(thinkingBudget);
       translation = `--thinking-budget ${thinkingBudget} → --think ${thinkLevel}`;
@@ -261,7 +227,6 @@ export const resolveThinkingSettings = async (argv, log) => {
         await log(`📊 Translating for Claude Code ${version} (< ${minVersion}):`, { verbose: true });
         await log(`   ${translation}`, { verbose: true });
       }
-      // Clear thinkingBudget since old versions don't support it
       thinkingBudget = undefined;
     }
   }
@@ -269,10 +234,10 @@ export const resolveThinkingSettings = async (argv, log) => {
 };
 /** Check if Playwright MCP is available and connected to Claude @returns {Promise<boolean>} */
 export const checkPlaywrightMcpAvailability = ensureClaudePlaywrightMcpServer;
-/** Execute Claude with all prompts and settings - main entry point */
 export const executeClaude = async params => {
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, mergeStateStatus, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv, log, setLogFile, getLogFile, formatAligned, getResourceSnapshot, claudePath, $ } = params;
-  // Check if agent-commander is installed when the option is enabled
+  // Issue #2056: reset fresh sessions while retaining issue #1886's true-resume accumulation.
+  beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
   if (argv.promptSubagentsViaAgentCommander) {
     try {
       await $`which start-agent`;
@@ -282,9 +247,7 @@ export const executeClaude = async params => {
       await log('⚠️  agent-commander not installed; prompt guidance will be skipped (npm i -g @link-assistant/agent-commander)');
     }
   }
-  // Import prompt building functions from claude.prompts.lib.mjs
   const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
-  // Check if the model supports vision using models.dev API
   const mappedModel = mapModelToId(argv.model);
   const modelSupportsVision = await checkModelVisionCapability(mappedModel);
   if (argv.verbose) {
@@ -330,7 +293,6 @@ export const executeClaude = async params => {
     if (feedbackLines && feedbackLines.length > 0) {
       await log('   Feedback info: Included', { verbose: true });
     }
-    // In dry-run mode, output the actual prompts for debugging
     if (argv.dryRun) {
       await log('\n📋 User prompt content:', { verbose: true });
       await log('---BEGIN USER PROMPT---', { verbose: true });
@@ -344,11 +306,9 @@ export const executeClaude = async params => {
   }
   const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
   const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
-
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
-
   return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
     executeClaudeCommand({
       tempDir,
@@ -377,17 +337,6 @@ export const executeClaude = async params => {
     })
   );
 };
-/** Check if a model supports vision (image input) using models.dev API @returns {Promise<boolean>} */
-export const checkModelVisionCapability = async modelId => {
-  try {
-    const modelInfo = await fetchModelInfo(modelId);
-    if (!modelInfo) return false;
-    const inputModalities = modelInfo.modalities?.input || [];
-    return inputModalities.includes('image');
-  } catch {
-    return false;
-  }
-};
 // Issue #1710: calculateModelCost extracted to ./claude.cost.lib.mjs to keep
 // this file under the 1500-line repo cap (see check-file-line-limits CI job).
 import { calculateModelCost } from './claude.cost.lib.mjs';
@@ -396,41 +345,30 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
   const os = (await use('os')).default;
   const homeDir = options.homeDir || os.homedir();
   const fetchModelInfoForUsage = options.fetchModelInfo || fetchModelInfo;
-  // Construct the path to the session JSONL file
-  // Format: ~/.claude/projects/<project-dir>/<session-id>.jsonl
-  // The project directory name is the full path with slashes replaced by dashes
-  // e.g., /tmp/gh-issue-solver-123 becomes -tmp-gh-issue-solver-123
   const projectDirName = tempDir.replace(/\//g, '-');
   const sessionFile = path.join(homeDir, '.claude', 'projects', projectDirName, `${sessionId}.jsonl`);
   try {
     await fs.access(sessionFile);
   } catch {
-    // File doesn't exist yet or can't be accessed
     return null;
   }
-  // Initialize per-model usage tracking
   const modelUsage = {};
   // Issue #1501: Deduplicate JSONL entries by message ID (stream-json splits responses)
   const seenMessageIds = new Set();
   let duplicateCount = 0;
-  // Issue #1501: Track peak context usage per request (not cumulative)
   const peakContextByModel = {};
   let globalPeakContext = 0;
-  // Issue #1491: Track sub-sessions between compactification events
   const subSessions = [];
   let currentSubSession = createEmptySubSessionUsage();
   const compactifications = [];
   try {
-    // Read the entire file
     const fileContent = await fs.readFile(sessionFile, 'utf8');
     const lines = fileContent.trim().split('\n');
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
         const entry = JSON.parse(line);
-        // Issue #1491: Detect compactification boundary events
         if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
-          // Save current sub-session and start a new one
           if (currentSubSession.messageCount > 0) {
             subSessions.push(currentSubSession);
           }
@@ -448,7 +386,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           if (msgId) {
             if (seenMessageIds.has(msgId)) {
               duplicateCount++;
-              continue; // Skip — already counted this message's usage
+              continue;
             }
             seenMessageIds.add(msgId);
           }
@@ -466,7 +404,6 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           if (requestContext > globalPeakContext) {
             globalPeakContext = requestContext;
           }
-          // Issue #1491: Also track per-sub-session usage
           if (usage.input_tokens) currentSubSession.inputTokens += usage.input_tokens;
           if (usage.cache_creation_input_tokens) currentSubSession.cacheCreationTokens += usage.cache_creation_input_tokens;
           if (usage.cache_read_input_tokens) currentSubSession.cacheReadTokens += usage.cache_read_input_tokens;
@@ -485,16 +422,13 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         continue;
       }
     }
-    // Push the final sub-session
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }
     mergeResultModelUsage(modelUsage, resultModelUsage);
-    // If no usage data was found, return null
     if (Object.keys(modelUsage).length === 0) {
       return null;
     }
-    // Fetch model information for each model
     const modelInfoPromises = Object.keys(modelUsage).map(async modelId => {
       const modelInfo = await fetchModelInfoForUsage(modelId);
       return { modelId, modelInfo };
@@ -506,7 +440,6 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         modelInfoMap[modelId] = modelInfo;
       }
     }
-    // Calculate cost for each model and store all characteristics
     for (const [modelId, usage] of Object.entries(modelUsage)) {
       const modelInfo = modelInfoMap[modelId];
       // Issue #1501: Attach peak context usage per model
@@ -517,7 +450,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.costUSD = costData.total;
         usage.costBreakdown = costData.breakdown;
         usage.modelName = modelInfo.name || modelId;
-        usage.modelInfo = modelInfo; // Store complete model info
+        usage.modelInfo = modelInfo;
       } else {
         usage.costUSD = usage._resultCostUSD ?? null;
         usage.costBreakdown = null;
@@ -528,7 +461,6 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         usage.modelInfo = ctx || out ? { limit: { context: ctx || null, output: out || null } } : null;
       }
     }
-    // Calculate grand totals across all models
     let totalInputTokens = 0;
     let totalCacheCreationTokens = 0;
     let totalCacheReadTokens = 0;
@@ -545,12 +477,9 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         hasCostData = true;
       }
     }
-    // Calculate total tokens (input + cache_creation + output, cache_read doesn't count as new tokens)
     const totalTokens = totalInputTokens + totalCacheCreationTokens + totalOutputTokens;
     return {
-      // Per-model breakdown
       modelUsage,
-      // Grand totals
       inputTokens: totalInputTokens,
       cacheCreationTokens: totalCacheCreationTokens,
       cacheReadTokens: totalCacheReadTokens,
@@ -565,7 +494,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
       compactifications: compactifications.length > 0 ? compactifications : null,
     };
   } catch (readError) {
-    throw new Error(`Failed to read session file: ${readError.message}`);
+    throw new Error(`Failed to read session file: ${readError.message}`, { cause: readError });
   }
 };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
@@ -577,7 +506,6 @@ export const executeClaudeCommand = async params => {
     branchName,
     prompt,
     systemPrompt,
-    escapedPrompt,
     escapedSystemPrompt,
     argv,
     log,
@@ -597,40 +525,29 @@ export const executeClaudeCommand = async params => {
     // and issue body/title polling in setupBidirectionalHandler.
     issueNumber,
   } = params;
-  // Issue #817: Apply bidirectional-mode composition and tool-support validation before running.
-  // This may enable argv.interactiveMode, argv.acceptIncommingCommentsAsInput, and
-  // argv.excludeAllOwnIncommingCommentsFromInput when --bidirectional-interactive-mode is set.
+  const expectedBaseBranch = String(argv?.baseBranch || '').trim();
+  const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
-  // Issue #1331: Unified retry configuration for all transient API errors
-  // (Overloaded, 503 Network Error, Internal Server Error) - same params, all with session preservation
   let retryCount = 0;
+  let baseBranchInterventionPrompt = null;
+  let baseBranchInterventionResumeCount = 0;
   // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
   // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
   // once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
-  // Helper `waitWithCountdown` (per-minute countdown for delays >1 minute, Issue #1331) is shared
-  // from tool-retry.lib.mjs so claude/codex/gemini/qwen/opencode all use one implementation.
-  // Function to execute with retry logic
   const executeWithRetry = async () => {
-    // Execute claude command from the cloned repository directory
+    const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
+    const escapedPromptForAttempt = escapePromptForShell(promptForAttempt);
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
       await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
     }
     if (argv.verbose) {
-      // Output the actual model being used
-      const modelName = argv.model === 'opus' ? 'opus' : 'sonnet';
-      await log(`   Model: ${modelName}`, { verbose: true });
-      await log(`   Working directory: ${tempDir}`, { verbose: true });
-      await log(`   Branch: ${branchName}`, { verbose: true });
-      await log(`   Prompt length: ${prompt.length} chars`, { verbose: true });
-      await log(`   System prompt length: ${systemPrompt.length} chars`, { verbose: true });
-      if (feedbackLines && feedbackLines.length > 0) {
-        await log(`   Feedback info included: Yes (${feedbackLines.length} lines)`, { verbose: true });
-      } else {
-        await log('   Feedback info included: No', { verbose: true });
-      }
+      // Issue #1949: logExecutionContext shows the requested alias with its resolved
+      // full ID (e.g. "opus (claude-opus-4-8)"). The old `argv.model === 'opus' ?
+      // 'opus' : 'sonnet'` heuristic mislabelled every non-"opus" alias as "sonnet".
+      await logExecutionContext({ log, model: argv.model, tool: 'claude', tempDir, branchName, promptLength: promptForAttempt.length, systemPromptLength: systemPrompt.length, feedbackLines });
     }
     const resourcesBefore = await getResourceSnapshot();
     await log('📈 System resources before execution:', { verbose: true });
@@ -660,6 +577,7 @@ export const executeClaudeCommand = async params => {
     let errorDuringExecution = false;
     let resultSummary = null;
     let resultModelUsage = null;
+    let lastToolResultError = null;
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -672,7 +590,6 @@ export const executeClaudeCommand = async params => {
       outputTokens: 0,
       eventCount: 0,
     };
-    // Create interactive mode handler if enabled
     let interactiveHandler = null;
     if (argv.interactiveMode && owner && repo && prNumber) {
       await log('🔌 Interactive mode: Creating handler for real-time PR comments', { verbose: true });
@@ -693,19 +610,21 @@ export const executeClaudeCommand = async params => {
     } else if (argv.interactiveMode) {
       await log('⚠️ Interactive mode: Disabled - missing PR info (owner/repo/prNumber)', { verbose: true });
     }
-    // Issue #817 / #1708: Set up bidirectional handler when --accept-incomming-comments-as-input
-    // (or composite --bidirectional-interactive-mode / --auto-input-until-mergeable) is enabled.
-    // Returns null when inactive. issueNumber + tempDir are forwarded so the handler can
-    // poll issue title/body changes and uncommitted changes during the session (Issue #1708).
     const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
+    const resolvedSubAgentModel = argv.subAgentModel ? mapClaudeSubAgentModelToEnvValue(argv.subAgentModel) : undefined; // Issue #1978
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
+    // Issue #1949: Let Claude Code handle transient overload (529) fallback via its own
+    // `--fallback-model` flag (it re-tries the primary each turn) instead of us swapping
+    // `--model`. Only for plain `--model` runs (not opusplan) with a distinct fallback.
+    const mappedFallbackModel = argv.fallbackModel ? mapModelToId(argv.fallbackModel) : undefined;
+    const useClaudeFallbackModel = !resolvedPlanModel && mappedFallbackModel && mappedFallbackModel !== effectiveModel;
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
-    // Declare queuedFeedback for use in catch/finally blocks and return value
+    if (useClaudeFallbackModel) claudeArgs += ` --fallback-model ${mappedFallbackModel}`;
     let queuedFeedback = [];
     // Issue #817: When --accept-incomming-comments-as-input is set and we are
     // not resuming a prior session, drive Claude via NDJSON stream-json input
@@ -729,27 +648,27 @@ export const executeClaudeCommand = async params => {
       // Prompt is delivered as the first NDJSON frame on stdin (not as -p).
       claudeArgs += ` -p --input-format stream-json --append-system-prompt "${escapedSystemPrompt}"`;
     } else {
-      claudeArgs += ` -p "${escapedPrompt}" --append-system-prompt "${escapedSystemPrompt}"`;
+      claudeArgs += ` -p "${escapedPromptForAttempt}" --append-system-prompt "${escapedSystemPrompt}"`;
     }
     const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
     await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
     await log(`${fullCommand}`);
     await log('');
     if (argv.verbose) {
-      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${prompt}\n---END USER PROMPT---`, { verbose: true });
+      await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${promptForAttempt}\n---END USER PROMPT---`, { verbose: true });
       await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
     }
     try {
       const { thinkingBudget: resolvedThinkingBudget, thinkLevel, isNewVersion, maxBudget } = await resolveThinkingSettings(argv, log);
-      // Issue #1706: --sub-session-size + --disable-1m-context. Resolve here, then pass into getClaudeEnv along with the rest.
       const { parsed: parsedSubSessionSize, contextWindowTokens } = await resolveSubSessionSize({ rawValue: argv.subSessionSize, tool: 'claude', modelId: effectiveModel, fetchModelInfo, log });
       // Issue #817: streaming mode sets exitAfterStopDelayMs=60000 so the headless Claude process stays alive between NDJSON turns.
-      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
+      const claudeEnv = getClaudeEnv({ thinkingBudget: resolvedThinkingBudget, model: effectiveModel, thinkLevel, maxBudget, planModel: resolvedPlanModel, executionModel: resolvedExecutionModel, subAgentModel: resolvedSubAgentModel, showThinkingContent: argv.showThinkingContent, exitAfterStopDelayMs: streamingInput ? 60_000 : undefined, disable1mContext: !!argv.disable1mContext, subSessionSize: parsedSubSessionSize, contextWindowTokens });
       if (argv.verbose) claudeEnv.ANTHROPIC_LOG = 'debug';
       const modelMaxOutputTokens = getMaxOutputTokensForModel(effectiveModel);
       if (argv.verbose) {
         await log(`📊 CLAUDE_CODE_MAX_OUTPUT_TOKENS: ${modelMaxOutputTokens}, MCP_TIMEOUT: ${claudeCode.mcpTimeout}ms, MCP_TOOL_TIMEOUT: ${claudeCode.mcpToolTimeout}ms, ANTHROPIC_LOG: debug`, { verbose: true });
         if (resolvedPlanModel) await log(`📊 opusplan: plan=${resolvedPlanModel}, exec=${resolvedExecutionModel}`, { verbose: true });
+        if (claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL) await log(`📊 CLAUDE_CODE_SUBAGENT_MODEL: ${claudeEnv.CLAUDE_CODE_SUBAGENT_MODEL}`, { verbose: true });
         if (resolvedThinkingBudget !== undefined) await log(`📊 MAX_THINKING_TOKENS: ${resolvedThinkingBudget}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_EFFORT_LEVEL) await log(`📊 CLAUDE_CODE_EFFORT_LEVEL: ${claudeEnv.CLAUDE_CODE_EFFORT_LEVEL}`, { verbose: true });
         if (claudeEnv.CLAUDE_CODE_SHOW_THINKING) await log(`📊 CLAUDE_CODE_SHOW_THINKING: ${claudeEnv.CLAUDE_CODE_SHOW_THINKING}`, { verbose: true });
@@ -761,20 +680,22 @@ export const executeClaudeCommand = async params => {
       const simpleEscapedSystem = systemPrompt.replace(/"/g, '\\"');
       const mcpDisableArgs = mcpConfigPath ? ['--strict-mcp-config', '--mcp-config', mcpConfigPath] : [];
       const disallowedToolsArgs = disallowedToolsList.length ? ['--disallowedTools', ...disallowedToolsList] : [];
+      const fallbackModelArgs = useClaudeFallbackModel ? ['--fallback-model', mappedFallbackModel] : []; // Issue #1949: Claude Code's per-request overload fallback
+      if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
-        const simpleEscapedPrompt = prompt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        const simpleEscapedPrompt = promptForAttempt.replace(/"/g, '\\"');
+        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: prompt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       if (streamingInput) {
-        await attachStreamingInput(bidirectionalHandler, execCommand, prompt, log, !!argv.verbose);
+        await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);
       }
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
@@ -849,6 +770,19 @@ export const executeClaudeCommand = async params => {
           activityTimeoutId.unref();
         }
       };
+      const baseBranchCommandIntervention = createPullRequestBaseBranchCommandIntervention({
+        expectedBaseBranch,
+        prNumber,
+        log,
+        toolLabel: 'Claude',
+        sendInput: message => (streamingInput && bidirectionalHandler?.sendFeedback ? bidirectionalHandler.sendFeedback(message, { kind: 'metadata' }) : false),
+        stopSession: async () => {
+          if (forceExitTriggered || !execCommand?.kill) return false;
+          forceExitTriggered = true;
+          killProcessTree('SIGTERM');
+          return true;
+        },
+      });
       for await (const chunk of execCommand.stream()) {
         // Issue #1510: Continue processing stream after SIGTERM to capture final output
         // The stream will naturally end when the process exits (SIGTERM) or is force-killed (SIGKILL after 5s)
@@ -872,6 +806,7 @@ export const executeClaudeCommand = async params => {
             if (!line.trim()) continue;
             try {
               const data = sanitizeObjectStrings(JSON.parse(line));
+              if (data === null || typeof data !== 'object') continue; // Issue #1968: skip bare null/primitive NDJSON lines
               // Issue #1510: Track last event time for all modes (not just interactive)
               // so activity timeout can report accurate idle duration
               lastEventTime = Date.now();
@@ -887,6 +822,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               await log(JSON.stringify(data, null, 2));
+              await baseBranchCommandIntervention.handleStreamEvent(data);
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
@@ -902,8 +838,19 @@ export const executeClaudeCommand = async params => {
                   await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
                 }
               }
-              if (data.type === 'message') messageCount++;
-              else if (data.type === 'tool_use') toolUseCount++;
+              const eventFacts = collectClaudeStreamEventFacts(data);
+              messageCount += eventFacts.messageCountDelta;
+              toolUseCount += eventFacts.toolUseCountDelta;
+              if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+              if (!resultSummary && eventFacts.compactionSummary) {
+                resultSummary = eventFacts.compactionSummary;
+                await log('📝 Captured fallback summary from Claude compaction context', { verbose: true });
+              }
+              if (eventFacts.toolResultError) {
+                lastToolResultError = eventFacts.toolResultError;
+                lastMessage = eventFacts.toolResultError;
+                await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+              }
               // Issue #1708: signal busy/idle to the bidirectional handler so
               // queue-comments-to-input mode can hold frames until the AI is
               // idle. Any assistant/tool_use/system event means the AI is
@@ -978,11 +925,12 @@ export const executeClaudeCommand = async params => {
                     isRequestTimeout = true;
                     await log('⏱️ Detected request timeout from Claude CLI (will retry with --resume)', { verbose: true });
                   }
-                  // Issue #1924: Server-side temporary rate limiting (HTTP 429) — a transient
-                  // throttle, not an account usage limit ("...not your usage limit..."), so retry
-                  // with --resume. The message text is handled by classifyRetryableError; this also
-                  // catches the structured api_error_status if the wording ever changes.
-                  if (data.api_error_status === 429) {
+                  // Issue #1924: server-side temporary rate limiting (HTTP 429) is a transient
+                  // throttle ("...not your usage limit..."), so retry with --resume. Issue #1935
+                  // (regression from #1924): account usage limits ("session limit" / "weekly limit")
+                  // ALSO arrive with api_error_status === 429 plus an explicit reset time, so the
+                  // isUsageLimitError() guard routes those to the usage-limit handler below instead.
+                  if (data.api_error_status === 429 && !isUsageLimitError(lastMessage)) {
                     isRateLimitError = true;
                     await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
                   }
@@ -1021,7 +969,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
-                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+                const content = getClaudeMessageContent(data);
                 for (const item of content) {
                   if (item.type === 'text' && item.text) {
                     // Check for the specific 500/529 overload error pattern (Issue #1439: 529 is also an overload)
@@ -1109,12 +1057,27 @@ export const executeClaudeCommand = async params => {
         try {
           const data = sanitizeObjectStrings(JSON.parse(stdoutLineBuffer));
           await log(JSON.stringify(data, null, 2));
-          if (data.type === 'result' && data.subtype === 'success' && data.total_cost_usd != null) {
-            anthropicTotalCostUSD = data.total_cost_usd;
-          } else if (data.type === 'result' && data.total_cost_usd != null) {
-            // Issue #1886: keep a non-success terminal result's cost as a fallback
-            // for accumulation (see the streaming branch above).
-            anthropicCostFromAnyResult = data.total_cost_usd;
+          await baseBranchCommandIntervention.handleStreamEvent(data);
+          const eventFacts = collectClaudeStreamEventFacts(data);
+          messageCount += eventFacts.messageCountDelta;
+          toolUseCount += eventFacts.toolUseCountDelta;
+          if (eventFacts.lastText) lastMessage = eventFacts.lastText;
+          if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
+          if (eventFacts.toolResultError) {
+            lastToolResultError = eventFacts.toolResultError;
+            lastMessage = eventFacts.toolResultError;
+          }
+          if (data?.type === 'result') {
+            resultEventReceived = true;
+            if (data.subtype === 'success') {
+              resultSuccessReceived = true;
+              if (data.result && typeof data.result === 'string') resultSummary = data.result;
+              if (data.modelUsage) resultModelUsage = data.modelUsage;
+            }
+            if (data.total_cost_usd != null) {
+              if (data.subtype === 'success') anthropicTotalCostUSD = data.total_cost_usd;
+              else anthropicCostFromAnyResult = data.total_cost_usd;
+            }
           }
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
@@ -1174,12 +1137,46 @@ export const executeClaudeCommand = async params => {
 
       // Issue #817: Stop bidirectional mode monitoring and collect queued feedback
       queuedFeedback = await finalizeBidirectionalHandler(bidirectionalHandler, log);
+      const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
+      if (baseBranchIntervention && !baseBranchCommandIntervention.wasSent()) {
+        if ((sessionId || argv.resume) && baseBranchInterventionResumeCount < 1) {
+          argv.resume = sessionId || argv.resume;
+          baseBranchInterventionPrompt = baseBranchIntervention.message;
+          baseBranchInterventionResumeCount++;
+          await log('\n🔄 Resuming Claude with requested base-branch correction prompt...');
+          return await executeWithRetry();
+        }
+
+        return {
+          success: false,
+          sessionId,
+          limitReached,
+          limitResetTime,
+          limitTimezone,
+          messageCount,
+          toolUseCount,
+          errorDuringExecution,
+          anthropicTotalCostUSD,
+          resultSummary,
+          errorInfo: {
+            message: baseBranchIntervention.message,
+            violation: baseBranchIntervention.violation,
+          },
+          queuedFeedback,
+        };
+      }
+      if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
+        commandFailed = true;
+        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
       // logs the failure and returns false; we fall through to the normal commandFailed return below
       // (the 400 is not a transient pattern, so it is not retried).
       if (commandFailed && retryableLastError.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableLastError, source: 'result', sessionId }))) {
+        beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
         return await executeWithRetry();
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
@@ -1210,13 +1207,17 @@ export const executeClaudeCommand = async params => {
             is503Error,
             anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnStuckRetry, // Issue #1104/#1886
             resultSummary,
-            // Issue #1845: surface the actual error so callers can show it to users
-            errorInfo: { message: lastMessage || 'API explicitly marked error as not retryable', exitCode },
+            // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: 'API explicitly marked error as not retryable', toolLabel: 'Claude' }), exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
         if (retryCount < maxRetries) {
-          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
+          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
+          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
+          // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
@@ -1236,9 +1237,6 @@ export const executeClaudeCommand = async params => {
               await log(`   Warning: Could not post force-kill comment to PR: ${commentError.message}`, { verbose: true });
             }
           }
-          // Activity timeout preserves session (work was started), startup timeout does not (no session created)
-          if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
-          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
@@ -1259,8 +1257,8 @@ export const executeClaudeCommand = async params => {
             is503Error, // preserve for callers that check this
             anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnRetriesExhausted, // Issue #1104/#1886: Include cumulative cost even on failure
             resultSummary, // Issue #1263: Include result summary
-            // Issue #1845: surface the actual error so callers can show it to users
-            errorInfo: { message: lastMessage || `Transient API error persisted after ${maxRetries} retries`, exitCode },
+            // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
+            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Transient API error persisted after ${maxRetries} retries`, toolLabel: 'Claude' }), exitCode },
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1326,9 +1324,9 @@ export const executeClaudeCommand = async params => {
           errorDuringExecution,
           anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnFailure, // Issue #1104/#1886: cumulative cost even on failure
           resultSummary, // Issue #1263: Include result summary
-          // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content
-          // filtering policy") so users see what actually went wrong, not just a generic message.
-          errorInfo: { message: lastMessage || `Claude command failed with exit code ${exitCode}`, exitCode },
+          // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content filtering policy").
+          // Issue #1941: a lone "}" fragment at interrupt time must not become "CLAUDE execution failed with }".
+          errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode },
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }
@@ -1379,6 +1377,7 @@ export const executeClaudeCommand = async params => {
       // Issue #1834: Corrupted extended-thinking blocks surfaced as a thrown exception. Same recovery
       // as the streamed-result path: resume the session first, then fall back to a fresh restart.
       if (retryableException.requiresFreshSession && (await tryThinkingBlockRecovery({ classified: retryableException, source: 'exception', sessionId }))) {
+        beginAnthropicCostScope({ resume: argv.resume, previousAnthropicCost: argv.previousAnthropicCost });
         retryCount++;
         return await executeWithRetry();
       }
@@ -1393,11 +1392,13 @@ export const executeClaudeCommand = async params => {
         const initialDelay = isTimeoutException ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
         if (retryCount < maxRetries) {
-          const delay = Math.min(initialDelay * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelay);
-          const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
-          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${Math.round(delay / 60000)} min (session preserved)...`, { level: 'warning' });
           if (sessionId && !argv.resume) argv.resume = sessionId;
-          await maybeSwitchToFallbackModel({ tool: 'claude', argv, log, errorMessage: errorStr });
+          // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const delay = retryPlan.delay;
+          const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
+          const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel} (session preserved)...`, { level: 'warning' });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;

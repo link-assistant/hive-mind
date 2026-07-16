@@ -18,17 +18,37 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 
-if (typeof use === 'undefined') {
-  await ensureUseM();
+let commandStreamDollarPromise = null;
+
+async function getCommandStreamDollar() {
+  if (!commandStreamDollarPromise) {
+    commandStreamDollarPromise = (async () => {
+      if (typeof globalThis.use === 'undefined') {
+        await ensureUseM();
+      }
+      const { $ } = await globalThis.use('command-stream');
+      return $;
+    })();
+  }
+
+  try {
+    return await commandStreamDollarPromise;
+  } catch (error) {
+    commandStreamDollarPromise = null;
+    throw error;
+  }
 }
 
-const { $ } = await use('command-stream');
+// Re-export the shared status predicates so existing callers that reach them via
+// the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`)
+// keep working. The canonical definitions live in session-status.lib.mjs so the
+// killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
+export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const RUNNING_SESSION_STATUSES = new Set(['executing', 'running']);
-const TERMINAL_SESSION_STATUSES = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error']);
 const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
 const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
@@ -53,6 +73,20 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 // less headroom than this cannot safely pull one. Diagnostic only — never
 // blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
+// Docker-only start gate used to capture the container writable-layer baseline
+// before the task command begins cloning or generating files. The parent
+// releases the gate immediately after `docker inspect --size`; the fallback
+// keeps the task from hanging forever if the parent exits at the wrong time.
+const DOCKER_START_GATE_WAIT_TENTHS = 300;
+// Sentinel start-command's detached docker logger records when it cannot capture
+// the container's real exit code. A terminal `$ --status` carrying this value is
+// ambiguous — the container may still be running — so we cross-check it against
+// a live `docker inspect` before concluding the session finished. See #1939.
+// The upstream emission of this premature sentinel was fixed in
+// start-command 0.29.1 (link-foundation/start#136), which the Hive Mind images
+// now pin; this cross-check is retained as defense-in-depth so an older `$` on
+// an operator's PATH cannot resurrect the bug.
+const DOCKER_UNKNOWN_EXIT_CODE = -1;
 
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
@@ -78,6 +112,16 @@ function shellQuote(value) {
 
 function buildShellCommand(command, args = []) {
   return [command, ...args].map(shellQuote).join(' ');
+}
+
+function buildDockerStartGatePath(sessionId) {
+  return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
+}
+
+function buildDockerStartGatedCommand(taskCommand, sessionId) {
+  const gatePath = buildDockerStartGatePath(sessionId);
+  if (!gatePath) return taskCommand;
+  return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
 }
 
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
@@ -137,15 +181,28 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
 /**
  * Build host auth mounts for a Docker-isolated task.
  *
- * GitHub auth is mounted for every task because solve/hive/task need gh. Tool
- * credentials are deliberately scoped: Codex sessions do not receive Claude
- * files and Claude sessions do not receive Codex files.
+ * GitHub auth is mounted for every task because solve/hive/task need gh. Git
+ * identity (`~/.gitconfig` and the XDG `~/.config/git` directory) is mounted for
+ * every task too: it is tool-agnostic and `solve` aborts early with "Git
+ * identity not configured" when `user.name`/`user.email` are absent, so a child
+ * container that authenticates with gh but inherits no git identity still cannot
+ * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
+ * sessions do not receive Claude files and Claude sessions do not receive Codex
+ * files.
  */
 export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
 
   maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+
+  // Git identity (tool-agnostic, required for commits). Honor the same env vars
+  // git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL)
+  // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
+  // `~/.config/git`. Missing host paths are skipped, so a container image that
+  // already bakes a git identity is left untouched. See issue #1939.
+  maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
+  maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
 
   if (normalizedTool === 'codex') {
     maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
@@ -207,7 +264,8 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
   }
 
-  startArgs.push('--detached', '--session', sessionId, '--', buildShellCommand(command, args));
+  const taskCommand = buildShellCommand(command, args);
+  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));
   return startArgs;
 }
 
@@ -278,8 +336,17 @@ export function generateSessionId() {
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, raw: '' };
   }
+
+  const normalizeBooleanField = value => {
+    if (typeof value === 'boolean') return value;
+    if (value === null || value === undefined) return null;
+    const normalized = String(value).trim().toLowerCase();
+    if (['true', '1', 'yes'].includes(normalized)) return true;
+    if (['false', '0', 'no'].includes(normalized)) return false;
+    return null;
+  };
 
   try {
     const parsed = JSON.parse(raw);
@@ -307,6 +374,7 @@ export function parseSessionStatusOutput(output) {
       workingDirectory: data?.workingDirectory || null,
       sessionName: data?.sessionName || data?.options?.sessionName || null,
       processIds,
+      oomKilled: normalizeBooleanField(data?.oomKilled ?? data?.OOMKilled ?? data?.options?.oomKilled ?? data?.state?.oomKilled ?? data?.State?.OOMKilled),
       raw,
     };
   } catch {
@@ -322,6 +390,7 @@ export function parseSessionStatusOutput(output) {
     const match = raw.match(new RegExp(`^\\s*${name}\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
     return match ? match[1].trim() : null;
   };
+  const readBooleanField = name => normalizeBooleanField(readField(name));
 
   const status = readField('status')?.toLowerCase() || null;
   const exitCodeText = readField('exitCode');
@@ -353,20 +422,107 @@ export function parseSessionStatusOutput(output) {
     workingDirectory: readField('workingDirectory'),
     sessionName: readField('sessionName'),
     processIds,
+    oomKilled: readBooleanField('oomKilled'),
     raw,
   };
 }
 
-export function isExecutingSessionStatus(status) {
-  return RUNNING_SESSION_STATUSES.has(String(status || '').toLowerCase());
-}
-
-export function isTerminalSessionStatus(status) {
-  return TERMINAL_SESSION_STATUSES.has(String(status || '').toLowerCase());
+/**
+ * Decide whether a detached-docker exit code is "unknown" (not a real result).
+ *
+ * start-command's detached docker logger writes the exit-code footer only after
+ * `docker logs -f` returns, capturing the real code via `docker inspect`. When
+ * it cannot capture one it records the sentinel `-1`. A `$ --status` that
+ * reports a terminal status ("executed") while still carrying that sentinel — or
+ * no exit code at all — is therefore ambiguous: the container may actually still
+ * be running. Callers treat such a status as provisional and cross-check the
+ * live container before declaring the session finished. See issue #1939.
+ *
+ * @param {number|null|undefined} exitCode
+ * @returns {boolean} True when the exit code carries no real result.
+ */
+export function isUnknownDockerExitCode(exitCode) {
+  return exitCode === null || exitCode === undefined || Number(exitCode) === DOCKER_UNKNOWN_EXIT_CODE;
 }
 
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
+}
+
+/**
+ * Parse the footer start-command appends to every execution log when the wrapped
+ * command exits. The footer is authoritative about the terminal exit code even
+ * when `$ --status` is wrong: start-command writes it from the command's own
+ * `close`/`exited` handler, so its presence proves the command terminated.
+ *
+ * Footer shape (see start-command spawn-helpers.js):
+ *
+ *     ==================================================
+ *     Finished: 2026-06-14 19:10:49.822
+ *     Exit Code: 137
+ *
+ * Issue #1927: start-command's `enrichDetachedStatus` can flip a completed
+ * `executed/137` record back to `executing` (nulling the exit code) when a
+ * lingering shell keeps the screen session alive — so `$ --status` reports
+ * `executing` forever and the bot never notices the kill. Reading this footer
+ * lets hive-mind detect the real terminal exit regardless of that flip.
+ *
+ * @param {string} text - Log text (typically the tail of the log file)
+ * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ */
+export function parseSessionExitFooter(text) {
+  if (!text) return { finished: false, exitCode: null, endTime: null };
+  // Match the LAST footer block in the text (a re-run could append more than
+  // one). Anchor on the `=` separator so command output that merely prints
+  // "Exit Code: N" mid-stream is not mistaken for the footer.
+  const re = /={10,}\s*\r?\nFinished:\s*([^\r\n]+)\r?\nExit Code:\s*(-?\d+)/g;
+  let match;
+  let last = null;
+  while ((match = re.exec(text)) !== null) last = match;
+  if (!last) return { finished: false, exitCode: null, endTime: null };
+  return { finished: true, exitCode: Number(last[2]), endTime: last[1].trim() };
+}
+
+/**
+ * Read the terminal exit code from the tail of a start-command execution log.
+ *
+ * Only the last `tailBytes` of the file are read (the footer lives at the end),
+ * so this is cheap even for multi-megabyte logs. Never throws — a missing or
+ * unreadable log yields `{ finished: false }`.
+ *
+ * @param {string} logPath
+ * @param {Object} [options]
+ * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
+ * @param {number} [options.tailBytes=16384] - How many trailing bytes to scan
+ * @param {boolean} [options.verbose]
+ * @returns {{finished: boolean, exitCode: number|null, endTime: string|null}}
+ */
+export function readSessionExitFromLog(logPath, options = {}) {
+  const { fsImpl = fs, tailBytes = 16384, verbose = false } = options;
+  if (!logPath) return { finished: false, exitCode: null, endTime: null };
+  try {
+    const { size } = fsImpl.statSync(logPath);
+    if (!size) return { finished: false, exitCode: null, endTime: null };
+    const start = Math.max(0, size - tailBytes);
+    const length = size - start;
+    const buffer = Buffer.alloc(length);
+    const fd = fsImpl.openSync(logPath, 'r');
+    try {
+      fsImpl.readSync(fd, buffer, 0, length, start);
+    } finally {
+      fsImpl.closeSync(fd);
+    }
+    const result = parseSessionExitFooter(buffer.toString('utf8'));
+    if (verbose && result.finished) {
+      console.log(`[VERBOSE] isolation-runner: log footer for ${logPath} reports exit ${result.exitCode} (finished ${result.endTime})`);
+    }
+    return result;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: could not read exit footer from ${logPath}: ${error.message}`);
+    }
+    return { finished: false, exitCode: null, endTime: null };
+  }
 }
 
 /**
@@ -375,11 +531,47 @@ export function shouldFallbackToScreenStatus(statusResult) {
  */
 async function findStartCommandBinary() {
   try {
-    const result = await $`which $`;
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`which $`;
     const path = result.stdout?.toString().trim() || '';
     return path || null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Verbose post-launch diagnostics for a native docker-isolated session.
+ *
+ * Logs, side by side: what `$ --status` reports (status + exit code) and what
+ * the nested Docker daemon reports for the container (running state + image
+ * presence). The two together make problems #1 and #2 of issue #1939
+ * observable on the next run — a status of "executed"/-1 while `docker inspect`
+ * says the container is running is the premature-completion symptom (problem
+ * #1); an isolation image that is absent right after launch points at a missing
+ * host-image passthrough that forced a re-pull (problem #2). Best-effort: any
+ * probe failure is swallowed so diagnostics never disrupt the task.
+ *
+ * @param {string} sessionId - Session UUID (also the container name)
+ * @param {Object} [env] - Environment used to resolve the isolation image
+ */
+async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.env) {
+  try {
+    const status = await querySessionStatus(sessionId, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch $ --status: status=${status.status ?? '(none)'} exitCode=${status.exitCode ?? '(none)'} exists=${status.exists} (issue #1939)`);
+    const containerRunning = await checkDockerContainerRunning(sessionId, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch container '${sessionId}' running=${containerRunning} (issue #1939)`);
+    if (status.exists && isTerminalSessionStatus(status.status) && isUnknownDockerExitCode(status.exitCode) && containerRunning) {
+      console.log(`[VERBOSE] isolation-runner: ⚠️ Docker session '${sessionId}' reports a terminal status with the unknown exit-code sentinel while its container is still running — premature-completion symptom (issue #1939, problem #1)`);
+    }
+    const image = getDockerIsolationImage({ env });
+    const imagePresent = await checkDockerImagePresent(image, false);
+    console.log(`[VERBOSE] isolation-runner: Docker post-launch isolation image '${image}' present=${imagePresent} (issue #1939)`);
+    if (!imagePresent) {
+      console.log(`[VERBOSE] isolation-runner: ⚠️ Docker isolation image '${image}' is absent right after launch — host-image passthrough likely did not seed the nested daemon, so the task re-pulled it (issue #1939, problem #2)`);
+    }
+  } catch {
+    // Diagnostics are best-effort; never let a probe failure affect the task.
   }
 }
 
@@ -393,7 +585,7 @@ async function findStartCommandBinary() {
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
  * @param {boolean} [options.verbose] - Enable verbose logging
- * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string}>}
+ * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null}>}
  */
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
@@ -437,6 +629,8 @@ export async function executeWithIsolation(command, args, options = {}) {
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
       console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+      const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
+      console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }
   }
 
@@ -448,11 +642,29 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
   }
 
+  let containerFilesystemStartBytes = null;
+  if (result.success && backend === 'docker') {
+    try {
+      containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
+    } finally {
+      await releaseDockerContainerStartGate(sessionId, verbose);
+    }
+  }
+
+  // Issue #1939: capture the freshly-launched docker session's reported status
+  // and the live container state together, so the next iteration has the data to
+  // diagnose a premature "executed/-1" status (problem #1) or a surprise image
+  // re-pull (problem #2). Best-effort and verbose-only — never affects the run.
+  if (verbose && backend === 'docker' && result.success) {
+    await logDockerIsolationPostLaunchDiagnostics(sessionId, options.env || process.env);
+  }
+
   if (result.success) {
     return {
       success: true,
       sessionId,
       output: result.output,
+      containerFilesystemStartBytes,
     };
   }
 
@@ -481,6 +693,7 @@ export async function querySessionStatus(sessionId, verbose = false) {
   }
 
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --status ${sessionId} --output-format json`;
 
     const stdout = result.stdout?.toString().trim() || '';
@@ -495,6 +708,79 @@ export async function querySessionStatus(sessionId, verbose = false) {
       console.log(`[VERBOSE] isolation-runner: Status query error: ${error.message}`);
     }
     return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
+  }
+}
+
+/**
+ * Parse output from `$ --list --output-format json`.
+ *
+ * start-command may return a top-level array, or an object with an
+ * `executions`/`sessions` array. Each entry is normalized to the same shape used
+ * by {@link parseSessionStatusOutput} (uuid/status/exitCode/command/isolation/…).
+ * Tolerant of unknown layouts — anything unparseable yields an empty list.
+ *
+ * @param {string} output - Raw stdout from `$ --list`
+ * @returns {Array<{uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null}>}
+ */
+export function parseSessionListOutput(output) {
+  const raw = (output || '').trim();
+  if (!raw) return [];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  const records = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.executions) ? parsed.executions : Array.isArray(parsed?.sessions) ? parsed.sessions : parsed && typeof parsed === 'object' ? [parsed] : [];
+
+  return records
+    .map(data => {
+      if (!data || typeof data !== 'object') return null;
+      const isolationCandidate = (typeof data.isolation === 'string' && data.isolation) || (typeof data.options?.isolated === 'string' && data.options.isolated) || (typeof data.options?.isolation === 'string' && data.options.isolation) || null;
+      return {
+        uuid: data.uuid || data.session || data.sessionId || null,
+        status: typeof data.status === 'string' ? data.status.toLowerCase() : null,
+        exitCode: data.exitCode !== undefined && data.exitCode !== null ? Number(data.exitCode) : null,
+        startTime: data.startTime || null,
+        endTime: data.endTime || null,
+        command: data.command || null,
+        isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
+        workingDirectory: data.workingDirectory || null,
+        sessionName: data.sessionName || data.options?.sessionName || null,
+      };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * List all executions known to start-command via `$ --list --output-format json`.
+ *
+ * Unlike `$ --status`, the `--list` path does NOT run start-command's
+ * `enrichDetachedStatus` liveness gate, so it reports the recorded status/exit
+ * code as stored. Used by the bot's restart-resume scan to discover detached
+ * solve/hive/task sessions that were launched before the bot last started
+ * (issue #1927, requirement #2). Never throws — returns an empty list on any
+ * failure.
+ *
+ * @param {boolean} [verbose]
+ * @returns {Promise<Array<object>>} Normalized session records (see parseSessionListOutput)
+ */
+export async function listIsolationSessions(verbose = false) {
+  const binPath = await findStartCommandBinary();
+  if (!binPath) {
+    if (verbose) console.log('[VERBOSE] isolation-runner: Cannot list sessions - $ binary not found');
+    return [];
+  }
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`${binPath} --list --output-format json`;
+    const stdout = result.stdout?.toString().trim() || '';
+    const sessions = parseSessionListOutput(stdout);
+    if (verbose) console.log(`[VERBOSE] isolation-runner: $ --list returned ${sessions.length} session(s)`);
+    return sessions;
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: $ --list error: ${error.message}`);
+    return [];
   }
 }
 
@@ -523,6 +809,7 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
   }
 
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --stop ${sessionId}`;
     const stdout = result.stdout?.toString() || '';
     const stderr = result.stderr?.toString() || '';
@@ -559,6 +846,7 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
  */
 export async function checkScreenSessionRunning(sessionName, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`screen -ls`;
     const output = result.stdout?.toString() || '';
     const exists = output.includes(sessionName);
@@ -589,6 +877,7 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
  */
 export async function checkDockerContainerRunning(containerName, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Running}}'} ${containerName}`;
     const running = (result.stdout?.toString() || '').trim() === 'true';
     if (verbose) {
@@ -599,6 +888,161 @@ export async function checkDockerContainerRunning(containerName, verbose = false
     // `docker inspect` exits non-zero when no such container exists.
     return false;
   }
+}
+
+export function parseDockerContainerWritableLayerSizeOutput(output) {
+  const text = String(output || '').trim();
+  if (!text) return null;
+  const bytes = Number.parseInt(text.split(/\s+/)[0], 10);
+  return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
+}
+
+/**
+ * Best-effort size of a Docker task container's writable layer.
+ *
+ * `docker inspect --size` exposes `.SizeRw`, which excludes the image's base
+ * layers and counts only filesystem data created or changed by this container.
+ * That is the closest Docker-native representation of per-task disk usage.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<number|null>} Writable layer bytes, or null when unavailable.
+ */
+export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
+  if (!containerName) return null;
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
+    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
+    if (verbose) {
+      const label = bytes === null ? 'unknown' : `${bytes} bytes`;
+      console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
+    }
+    return bytes;
+  } catch (error) {
+    if (verbose) {
+      const stderr = error?.stderr?.toString?.().trim();
+      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+    }
+    return null;
+  }
+}
+
+/**
+ * Release the Docker-only start gate after the writable-layer baseline has been
+ * captured. Best-effort: the gated task also has a timeout fallback.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} true when the gate file was touched.
+ */
+export async function releaseDockerContainerStartGate(containerName, verbose = false) {
+  const gatePath = buildDockerStartGatePath(containerName);
+  if (!containerName || !gatePath) return false;
+  const releaseCommand = `touch ${shellQuote(gatePath)}`;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const $ = await getCommandStreamDollar();
+      await $({ mirror: false })`docker exec ${containerName} sh -c ${releaseCommand}`;
+      if (verbose) {
+        console.log(`[VERBOSE] isolation-runner: released docker start gate for '${containerName}'`);
+      }
+      return true;
+    } catch (error) {
+      lastError = error;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  if (verbose) {
+    const stderr = lastError?.stderr?.toString?.().trim();
+    console.log(`[VERBOSE] isolation-runner: could not release docker start gate for '${containerName}': ${stderr || lastError?.message || lastError}`);
+  }
+  return false;
+}
+
+/**
+ * Best-effort removal for a Docker container backing a native
+ * `$ --isolated docker` session.
+ *
+ * start-command names the container after the `--session` value. The monitor
+ * calls this only after the session is terminal and after the host-side log has
+ * been inspected, so removing the container reclaims its writable layer without
+ * losing the captured task log. Never throws: completion notification must not
+ * fail just because Docker already removed the container.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<{success: boolean, output: string, error: string|null}>}
+ */
+export async function removeDockerContainer(containerName, verbose = false) {
+  if (!containerName) {
+    return { success: false, output: '', error: 'missing container name' };
+  }
+
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker rm -f ${containerName}`;
+    const stdout = result.stdout?.toString() || '';
+    const stderr = result.stderr?.toString() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' succeeded`);
+    }
+    return { success: true, output: stdout || stderr, error: null };
+  } catch (error) {
+    const stderr = error?.stderr?.toString?.() || '';
+    const stdout = error?.stdout?.toString?.() || '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker rm -f '${containerName}' failed: ${stderr.trim() || error?.message || error}`);
+    }
+    return {
+      success: false,
+      output: stdout,
+      error: stderr.trim() || error?.message || String(error),
+    };
+  }
+}
+
+/**
+ * Check whether a tmux session with the given name still exists.
+ * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
+ * so command-stream throwing is treated as "not found".
+ *
+ * @param {string} sessionName
+ * @param {boolean} [verbose]
+ * @returns {Promise<boolean>}
+ */
+export async function checkTmuxSessionRunning(sessionName, verbose = false) {
+  try {
+    const $ = await getCommandStreamDollar();
+    await $({ mirror: false })`tmux has-session -t ${sessionName}`;
+    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': running`);
+    return true;
+  } catch {
+    if (verbose) console.log(`[VERBOSE] isolation-runner: tmux has-session '${sessionName}': not found`);
+    return false;
+  }
+}
+
+/**
+ * Directly probe whether the backend session/container is still alive, bypassing
+ * `$ --status`. This is the cross-check used to detect a session that
+ * start-command still reports as `executing` even though its backing process is
+ * gone (issue #1927). Returns `null` for unknown backends so callers can treat
+ * an indeterminate probe as "no signal" rather than "dead".
+ *
+ * @param {string} sessionId - Session UUID (also the screen name / container name)
+ * @param {string} backend - 'screen' | 'tmux' | 'docker'
+ * @param {boolean} [verbose]
+ * @returns {Promise<boolean|null>}
+ */
+export async function checkBackendSessionAlive(sessionId, backend, verbose = false) {
+  if (backend === 'screen') return checkScreenSessionRunning(sessionId, verbose);
+  if (backend === 'tmux') return checkTmuxSessionRunning(sessionId, verbose);
+  if (backend === 'docker') return checkDockerContainerRunning(sessionId, verbose);
+  return null;
 }
 
 /**
@@ -616,6 +1060,7 @@ export async function checkDockerContainerRunning(containerName, verbose = false
  */
 export async function checkDockerImagePresent(image, verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     await $({ mirror: false })`docker image inspect ${image}`;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker image inspect '${image}': present`);
     return true;
@@ -643,6 +1088,7 @@ export async function checkDockerImagePresent(image, verbose = false) {
  */
 export async function checkDockerStorageDriver(verbose = false) {
   try {
+    const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker info --format ${'{{.Driver}}'}`;
     const driver = (result.stdout?.toString() || '').trim().toLowerCase() || null;
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker storage driver: ${driver || '(unknown)'}`);
@@ -672,6 +1118,7 @@ export async function checkDockerDiskSpace(verbose = false) {
   try {
     let dataRoot = '/var/lib/docker';
     try {
+      const $ = await getCommandStreamDollar();
       const info = await $({ mirror: false })`docker info --format ${'{{.DockerRootDir}}'}`;
       const root = (info.stdout?.toString() || '').trim();
       if (root) dataRoot = root;
@@ -680,6 +1127,7 @@ export async function checkDockerDiskSpace(verbose = false) {
       // fails on it (e.g. the path does not exist) we return null below.
     }
 
+    const $ = await getCommandStreamDollar();
     const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
     // `df -P` guarantees one logical line per filesystem (no wrapping). The last
     // line is the data row: Filesystem 1024-blocks Used Available Capacity Mount
@@ -796,6 +1244,89 @@ export async function preflightDockerIsolation(options = {}) {
 }
 
 /**
+ * Host paths that, when present, propagate a git identity into a docker-isolated
+ * container via getDockerIsolationAuthMounts. Honors the same env vars git reads
+ * for an alternate global config (GIT_CONFIG_GLOBAL) and the XDG base dir, then
+ * the conventional `~/.gitconfig` and `~/.config/git`. See issue #1939.
+ */
+export function resolveHostGitIdentityPaths({ env = process.env, homeDir = os.homedir() } = {}) {
+  return [env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git')];
+}
+
+/**
+ * True when the host exposes a git identity that getDockerIsolationAuthMounts can
+ * mount into an isolated container. See issue #1939.
+ */
+export function hostHasMountableGitIdentity({ env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
+  return resolveHostGitIdentityPaths({ env, homeDir }).some(p => Boolean(existsSync(p)));
+}
+
+/**
+ * Startup git-identity preflight for `--isolation docker`.
+ *
+ * A docker-isolated child container starts from a clean image and inherits the
+ * host's git identity ONLY through the mounted `~/.gitconfig`
+ * (getDockerIsolationAuthMounts). If the host has no git identity to mount, the
+ * child `solve` aborts with "Git identity not configured" even though gh is
+ * authenticated — the exact failure in issue #1939.
+ *
+ * This makes the deployment self-healing: when the host has no mountable git
+ * identity but `gh-setup-git-identity` is installed (the Hive Mind images bake
+ * it in) and gh is authenticated, it derives an identity from the gh account so
+ * the mount has something to propagate. The repair is idempotent — it runs only
+ * when no identity exists, so it never overwrites a configured one — and
+ * best-effort: any failure degrades to a loud, actionable warning rather than a
+ * thrown error. When neither a host identity nor a repair is possible, the
+ * warning tells the operator exactly how to fix it.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.env] - Environment (defaults to process.env)
+ * @param {string} [options.homeDir] - Home dir (injectable for tests)
+ * @param {Function} [options.existsSync] - fs.existsSync (injectable for tests)
+ * @param {Object} [options.logger] - Logger with .log/.warn (defaults to console)
+ * @param {Function} [options.repair] - repairGitIdentity-style probe (injectable for tests)
+ * @returns {Promise<{present: boolean, repaired: boolean, warnings: string[]}>}
+ */
+export async function ensureHostGitIdentityForIsolation(options = {}) {
+  const { env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, logger = console, repair = null } = options;
+  const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
+  const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
+  const result = { present: false, repaired: false, warnings: [] };
+
+  if (hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
+    result.present = true;
+    info('✅ Host git identity present — docker-isolated tasks inherit it via the mounted ~/.gitconfig (issue #1939).');
+    return result;
+  }
+
+  // No mountable identity. Try to derive one from the authenticated gh account
+  // so the next isolated task does not fail with "Git identity not configured".
+  const repairFn =
+    repair ||
+    (async () => {
+      const gitLib = await import('./git.lib.mjs');
+      return gitLib.repairGitIdentity();
+    });
+  let repairOutcome;
+  try {
+    repairOutcome = await repairFn();
+  } catch (error) {
+    repairOutcome = { success: false, error: error?.message || String(error) };
+  }
+
+  if (repairOutcome?.success && hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
+    result.present = true;
+    result.repaired = true;
+    info('✅ Host git identity was missing; derived it from the authenticated gh account via gh-setup-git-identity so docker-isolated tasks can mount it (issue #1939).');
+    return result;
+  }
+
+  result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticated (issue #1939). ` + `Configure one on the bot host: run 'gh-setup-git-identity' (derives it from the authenticated gh account), set 'git config --global user.name/.email', or pass '--auto-gh-configuration-repair' to solve.` + (repairOutcome?.error ? ` Auto-repair attempt failed: ${repairOutcome.error}` : ''));
+  for (const w of result.warnings) warn(`⚠️ ${w}`);
+  return result;
+}
+
+/**
  * Check if an isolated session is still running.
  * Uses `$ --status` first, with a backend-specific fallback (screen -ls for
  * screen, docker inspect for docker) to work around start-command UUID
@@ -818,6 +1349,21 @@ export async function isSessionRunning(sessionId, options = {}) {
       return true;
     }
     if (isTerminalSessionStatus(result.status)) {
+      // Issue #1939: a native docker session can report a terminal status
+      // ("executed") while the container is still alive, carrying the unknown
+      // exit-code sentinel (-1) because start-command's detached logger marks
+      // the launcher process executed before the container exits. Trust the
+      // terminal status only when a real exit code was captured; otherwise
+      // cross-check the live container before declaring the session finished.
+      if (backend === 'docker' && isUnknownDockerExitCode(result.exitCode)) {
+        const containerRunning = await checkDockerContainerRunning(sessionId, verbose);
+        if (containerRunning) {
+          if (verbose) {
+            console.log(`[VERBOSE] isolation-runner: $ --status reports '${result.status}' (exitCode ${result.exitCode}) for docker session '${sessionId}', but docker inspect shows the container is still running — treating as active (issue #1939)`);
+          }
+          return true;
+        }
+      }
       return false;
     }
   }

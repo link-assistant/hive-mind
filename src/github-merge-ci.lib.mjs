@@ -222,7 +222,12 @@ export async function checkBranchCIHealth(owner, repo, branch = 'main', options,
     }
 
     // All runs for the latest commit are completed — check for failures
-    const failedRuns = runs.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out');
+    // Issue #1952: Treat `startup_failure` as a failure too (a workflow that failed to start is a
+    // genuine failure, not a transient state). `cancelled` is intentionally NOT treated as a
+    // failure here: this branch-health check resolves the HEAD SHA up front (issue #1425), and a
+    // cancelled run on the resolved HEAD is normally a superseded/manual cancellation rather than a
+    // timeout — a timeout surfaces as `failure`/`timed_out` at the workflow-run level and is caught.
+    const failedRuns = runs.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out' || r.conclusion === 'startup_failure');
 
     if (failedRuns.length > 0) {
       if (verbose) {

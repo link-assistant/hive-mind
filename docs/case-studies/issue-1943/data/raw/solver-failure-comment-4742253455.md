@@ -1,0 +1,77 @@
+## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+```
+The solver stopped before creating a pull request.
+
+Reason: Playwright MCP preflight failed
+```
+
+### What you can do
+- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.
+
+### 🤖 **Models used:**
+- Tool: Anthropic Claude Code
+- Requested: `opus`
+- **Model: Claude Opus 4.8** (`claude-opus-4-8`)
+
+<details>
+<summary>Click to expand failure log (3KB)</summary>
+
+```
+# Solve.mjs Log - 2026-06-18T13:10:10.409Z
+
+[2026-06-18T13:10:10.411Z] [INFO] 📁 Log file: /home/box/solve-2026-06-18T13-10-10-409Z.log
+[2026-06-18T13:10:10.412Z] [INFO]    (All output will be logged here)
+[2026-06-18T13:10:11.168Z] [INFO] 
+[2026-06-18T13:10:11.173Z] [INFO] 🚀 solve v2.0.5
+[2026-06-18T13:10:11.175Z] [INFO] 🔧 Raw command executed:
+[2026-06-18T13:10:11.175Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/G-Ivan-A/mango_ba_prompts/issues/109 --model opus --tool claude --attach-logs --verbose --no-tool-check --disable-report-issue --language en
+[2026-06-18T13:10:11.176Z] [INFO] 
+[2026-06-18T13:10:11.217Z] [INFO] 
+[2026-06-18T13:10:11.218Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2026-06-18T13:10:11.219Z] [INFO] 
+[2026-06-18T13:10:11.219Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2026-06-18T13:10:11.221Z] [INFO]    The log may contain sensitive information such as:
+[2026-06-18T13:10:11.222Z] [INFO]    • API keys, tokens, or secrets
+[2026-06-18T13:10:11.222Z] [INFO]    • File paths and directory structures
+[2026-06-18T13:10:11.223Z] [INFO]    • Command outputs and error messages
+[2026-06-18T13:10:11.223Z] [INFO]    • Internal system information
+[2026-06-18T13:10:11.224Z] [INFO] 
+[2026-06-18T13:10:11.224Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2026-06-18T13:10:11.225Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2026-06-18T13:10:11.225Z] [INFO] 
+[2026-06-18T13:10:11.225Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2026-06-18T13:10:11.225Z] [INFO] 
+[2026-06-18T13:10:11.226Z] [STDOUT]    Countdown: 5 seconds remaining...
+[2026-06-18T13:10:12.227Z] [STDOUT]    Countdown: 4 seconds remaining...
+[2026-06-18T13:10:13.229Z] [STDOUT]    Countdown: 3 seconds remaining...
+[2026-06-18T13:10:14.231Z] [STDOUT]    Countdown: 2 seconds remaining...
+[2026-06-18T13:10:15.232Z] [STDOUT]    Countdown: 1 seconds remaining...
+[2026-06-18T13:10:16.234Z] [STDOUT]    Proceeding with log attachment enabled.                    
+[2026-06-18T13:10:16.234Z] [INFO] 
+[2026-06-18T13:10:16.285Z] [INFO] 💾 Disk space check: 36846MB available (2048MB required) ✅
+[2026-06-18T13:10:16.289Z] [INFO] 🧠 Memory check: 7416MB available, swap: none, total: 7416MB (256MB required) ✅
+[2026-06-18T13:10:16.312Z] [INFO] ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+[2026-06-18T13:10:16.313Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+[2026-06-18T13:10:16.314Z] [INFO] 🎭 Checking Playwright MCP preflight for Claude Code...
+[2026-06-18T13:10:21.869Z] [ERROR] 
+[2026-06-18T13:10:21.870Z] [ERROR] ❌ Playwright MCP preflight failed for Claude Code
+[2026-06-18T13:10:21.870Z] [ERROR]    Playwright support is enabled by default, so solve stops before starting an AI working session.
+[2026-06-18T13:10:21.870Z] [ERROR]    Fix the MCP registration or run with --no-playwright-mcp only when browser automation is intentionally disabled.
+[2026-06-18T13:10:21.871Z] [INFO] 
+[2026-06-18T13:10:21.872Z] [INFO] 
+[2026-06-18T13:10:21.873Z] [ERROR] ❌ Playwright MCP preflight failed
+[2026-06-18T13:10:21.873Z] [INFO] 📁 Full log file: /home/box/solve-2026-06-18T13-10-10-409Z.log
+[2026-06-18T13:10:21.875Z] [INFO] 
+[2026-06-18T13:10:21.875Z] [INFO] 📄 Notifying issue #109 about solver failure with logs...
+[2026-06-18T13:10:22.082Z] [INFO]   🤖 Model info fetched for comment
+
+```
+
+</details>
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*

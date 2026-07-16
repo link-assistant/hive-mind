@@ -39,6 +39,11 @@ const { detectAndCountFeedback } = feedbackLib;
 const restartShared = await import('./solve.restart-shared.lib.mjs');
 const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIteration, buildUncommittedChangesFeedback, isApiError } = restartShared;
 
+// Issue #1931: deleted/inaccessible repositories, PRs, issues, and branches
+// are terminal states for watch mode, not retryable feedback checks.
+const terminalStateLib = await import('./github-terminal-state.lib.mjs');
+const { checkGitHubTerminalState } = terminalStateLib;
+
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit } = await import('./auto-iteration-limits.lib.mjs');
@@ -60,6 +65,11 @@ const { trackAuthenticatedUserCommentsSince } = autoMergeHelpers;
 const resultsLib = await import('./solve.results.lib.mjs');
 const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = resultsLib;
 
+// Issue #1056: Auto-resume on uncommitted changes — decide whether to call the
+// agent again with --resume <sessionId> instead of restarting from scratch.
+const autoResumeLib = await import('./auto-resume-uncommitted.lib.mjs');
+const { decideAutoResumeOnUncommittedChanges, isAutoResumeOnUncommittedChangesEnabled } = autoResumeLib;
+
 /**
  * Monitor for feedback in a loop and trigger restart when detected
  */
@@ -71,8 +81,12 @@ export const watchForFeedback = async params => {
   const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
 
   // Track latest session data across all iterations for accurate pricing
-  let latestSessionId = null;
+  // Issue #1056: Seed from the *initial* tool execution so the first auto-restart
+  // iteration can attempt --resume on the original session if the user opted in
+  // via --auto-resume-on-uncommitted-changes.
+  let latestSessionId = params.initialSessionId || null;
   let latestAnthropicCost = null;
+  let latestResultModelUsage = params.initialResultModelUsage || null;
 
   // Issue #1290: Track whether auto-restart iterations actually ran and whether logs were uploaded
   // This helps solve.mjs decide whether to upload final logs
@@ -111,8 +125,27 @@ export const watchForFeedback = async params => {
     iteration++;
     const currentTime = new Date();
 
+    const terminalState = await checkGitHubTerminalState({
+      owner,
+      repo,
+      issueNumber,
+      prNumber,
+      sourceBranchName: prBranch || branchName,
+      commandRunner: $,
+    });
+    if (terminalState.terminal && !terminalState.success) {
+      await log('');
+      await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
+      for (const detail of terminalState.details || []) {
+        await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
+      }
+      await log(formatAligned('', 'Action:', 'Stopping watch mode', 2), { level: 'error' });
+      await log('');
+      break;
+    }
+
     // Check if PR is merged
-    const isMerged = await checkPRMerged(owner, repo, prNumber);
+    const isMerged = terminalState.terminal && terminalState.success ? true : await checkPRMerged(owner, repo, prNumber);
     if (isMerged) {
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping watch mode'));
@@ -299,16 +332,43 @@ export const watchForFeedback = async params => {
 
         let restartFeedbackLines = feedbackLines;
         let restartArgv = argv;
-        const shouldUseSessionResume = Boolean(isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode) && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']) && (argv.tool === 'claude' || !argv.tool) && global.previousSessionId);
+        const isUncommittedChangesRestart = isTemporaryWatch && (firstIterationInTemporaryMode || hasUncommittedInTempMode);
+        const isClaudeTool = argv.tool === 'claude' || !argv.tool;
+        const autoResumeOnUncommittedChanges = isUncommittedChangesRestart && isClaudeTool && isAutoResumeOnUncommittedChangesEnabled(argv);
+        let autoResumeDecision = null;
+
+        if (autoResumeOnUncommittedChanges) {
+          let tokenUsage = null;
+          if (latestSessionId && tempDir) {
+            try {
+              const { calculateSessionTokens } = await import('./claude.lib.mjs');
+              tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, latestResultModelUsage);
+            } catch (tokenError) {
+              await log(`   ⚠️  Could not calculate token usage for auto-resume decision: ${tokenError.message}`, { verbose: true });
+            }
+          }
+          autoResumeDecision = decideAutoResumeOnUncommittedChanges({ argv, sessionId: latestSessionId, tokenUsage });
+        }
+
+        // Keep the older issue #661 experiment working independently. The issue
+        // #1056 option takes precedence when enabled because it adds the required
+        // context-headroom safety check.
+        const legacyResumeRequested = isUncommittedChangesRestart && isClaudeTool && (argv.resumeOnAutoRestart || argv['resume-on-auto-restart']);
+        const shouldUseSessionResume = autoResumeOnUncommittedChanges ? autoResumeDecision?.resume === true : Boolean(legacyResumeRequested && global.previousSessionId);
+        const resumeSessionId = autoResumeOnUncommittedChanges ? latestSessionId : global.previousSessionId;
 
         if (shouldUseSessionResume) {
           await log(formatAligned('', 'Experimental session resume: using minimal auto-restart prompt', '', 2));
-          await log(formatAligned('', `Resuming session: ${global.previousSessionId}`, '', 2));
+          await log(formatAligned('', `Resuming session: ${resumeSessionId}`, '', 2));
 
-          if (argv.verbose) {
+          if (autoResumeDecision?.reason === 'ok') {
+            await log(formatAligned('', `Peak context usage: ${autoResumeDecision.peak.toLocaleString()} / ${autoResumeDecision.limit.toLocaleString()} usable tokens (${autoResumeDecision.usedPercent.toFixed(1)}%, threshold ${autoResumeDecision.threshold}%)`, '', 2));
+          }
+
+          if (!autoResumeOnUncommittedChanges && argv.verbose) {
             try {
               const { calculateSessionTokens } = await import('./claude.lib.mjs');
-              const tokenUsage = await calculateSessionTokens(global.previousSessionId, tempDir);
+              const tokenUsage = await calculateSessionTokens(resumeSessionId, tempDir);
               if (tokenUsage?.totalTokens) {
                 await log(formatAligned('', `Previous session tokens: ${tokenUsage.totalTokens.toLocaleString()}`, '', 2));
               }
@@ -322,11 +382,14 @@ export const watchForFeedback = async params => {
           restartFeedbackLines = [minimalPrompt];
           restartArgv = {
             ...argv,
-            resume: global.previousSessionId,
+            resume: resumeSessionId,
             minimalRestartContext: true,
           };
 
           await log(formatAligned('', `Minimal restart prompt size: ${minimalPrompt.length} characters`, '', 2));
+        } else if (autoResumeOnUncommittedChanges) {
+          const skipReason = autoResumeDecision?.reason === 'context_too_full' ? `peak context usage ${autoResumeDecision.usedPercent.toFixed(1)}% reached the ${autoResumeDecision.threshold}% threshold` : autoResumeDecision?.reason === 'no_session_id' ? 'no previous session ID is available' : 'context usage could not be verified';
+          await log(formatAligned('', 'Auto-resume skipped:', `${skipReason}; starting a fresh session`, 2));
         }
 
         // Execute tool using shared utility
@@ -472,6 +535,12 @@ export const watchForFeedback = async params => {
                 await log(`   💰 Anthropic cost: $${latestAnthropicCost.toFixed(6)}`, { verbose: true });
               }
             }
+          }
+
+          // Issue #1056: Track latest model usage so the next auto-resume decision
+          // can re-evaluate context-window usage against the most recent peak.
+          if (toolResult.resultModelUsage) {
+            latestResultModelUsage = toolResult.resultModelUsage;
           }
 
           // Issue #1508: Compute budget stats for auto-restart log comment

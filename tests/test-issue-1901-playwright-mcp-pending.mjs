@@ -3,18 +3,37 @@
  * @hive-mind-test-suite default
  *
  * Issue #1901: a Claude Code system.init event can report Playwright MCP as
- * "pending" while no mcp__playwright__* tools are exposed. Hive Mind must not
- * treat that state as connected browser access.
+ * "pending" while no mcp__playwright__* tools are exposed.
+ *
+ * Latest Claude Code behavior (https://code.claude.com/docs/en/mcp): Tool
+ * Search is enabled by default, so MCP tools are deferred and load on demand,
+ * and a `pending` server is still connecting in the background — Claude waits
+ * for it before using one of its tools. That means a pending system.init state
+ * is NOT a failure and must not abort the working session. Only a terminal
+ * `failed`/`error` status (no browser tools) is genuinely unavailable.
  */
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { createInteractiveHandler } from '../src/interactive-mode.lib.mjs';
-import { isUnavailableMcpStatus } from '../src/interactive-mcp-status.lib.mjs';
-import { ensureConnectedPlaywrightMcpServer, ensureSolvePlaywrightMcpReady, hasConnectedPlaywrightMcpServer } from '../src/playwright-mcp.lib.mjs';
-import { formatVersionMessage } from '../src/version-info.lib.mjs';
 import { asyncTest, getFailCount, printSummary, test } from './test-helpers.mjs';
+
+const fsModule = await import('node:fs');
+const osModule = await import('node:os');
+const pathModule = await import('node:path');
+
+globalThis.use = async name => {
+  if (name === 'command-stream') return { $: () => ({ catch: async () => null }) };
+  if (name === 'fs') return { ...fsModule, default: fsModule };
+  if (name === 'os') return { ...osModule, default: osModule };
+  if (name === 'path') return { ...pathModule, default: pathModule };
+  return await import(name);
+};
+
+const { createInteractiveHandler } = await import('../src/interactive-mode.lib.mjs');
+const { getInteractiveMcpDiagnostics, isConnectingMcpStatus, isFailedMcpStatus, isUnavailableMcpStatus } = await import('../src/interactive-mcp-status.lib.mjs');
+const { ensureConnectedPlaywrightMcpServer, ensureSolvePlaywrightMcpReady, hasConnectedPlaywrightMcpServer } = await import('../src/playwright-mcp.lib.mjs');
+const { formatVersionMessage } = await import('../src/version-info.lib.mjs');
 
 const repoRoot = process.cwd();
 const read = filePath => fs.readFile(path.join(repoRoot, filePath), 'utf-8');
@@ -39,6 +58,49 @@ test('Issue #1901: interactive status detection ignores timeout-action command a
   assert.equal(isUnavailableMcpStatus('timeout'), true);
 });
 
+test('Issue #1901: pending/connecting is a transient (not failed) status', () => {
+  assert.equal(isConnectingMcpStatus('pending'), true);
+  assert.equal(isConnectingMcpStatus('connecting'), true);
+  assert.equal(isFailedMcpStatus('pending'), false);
+  // Connecting is "unavailable yet" but specifically NOT a terminal failure.
+  assert.equal(isUnavailableMcpStatus('pending'), true);
+});
+
+test('Issue #1901: failed/error statuses are terminal failures', () => {
+  for (const status of ['failed', 'error', 'disconnected', 'not connected', 'timed out']) {
+    assert.equal(isFailedMcpStatus(status), true, `${status} should be a terminal failure`);
+  }
+  assert.equal(isFailedMcpStatus('connected'), false);
+  assert.equal(isFailedMcpStatus('enabled'), false);
+});
+
+await asyncTest('Issue #1901: Claude stream handling does NOT abort pending Playwright MCP sessions', async () => {
+  const claudeSource = await read('src/claude.lib.mjs');
+
+  // A pending Playwright MCP server uses Tool Search (tools load on demand), so
+  // the session must not be hard-failed at system.init. Guard against the old
+  // hard-fail being reintroduced.
+  assert.doesNotMatch(claudeSource, /getPlaywrightMcpSessionInitFailure/);
+  assert.doesNotMatch(claudeSource, /This working session cannot use browser automation/);
+});
+
+test('Issue #1901: pending Playwright with Tool Search produces no failure diagnostic', () => {
+  const diagnostics = getInteractiveMcpDiagnostics([{ name: 'playwright', status: 'pending' }], ['Task', 'Bash', 'ToolSearch']);
+  assert.deepEqual(diagnostics, []);
+});
+
+test('Issue #1901: failed Playwright without tools produces a failure diagnostic', () => {
+  const diagnostics = getInteractiveMcpDiagnostics([{ name: 'playwright', status: 'failed' }], ['Task', 'Bash', 'ToolSearch']);
+  assert.equal(diagnostics.length, 1);
+  assert.match(diagnostics[0], /failed to connect/);
+  assert.match(diagnostics[0], /mcp__playwright__/);
+});
+
+test('Issue #1901: connected Playwright with deferred Tool Search tools produces no diagnostic', () => {
+  const diagnostics = getInteractiveMcpDiagnostics([{ name: 'playwright', status: 'connected' }], ['Task', 'Bash', 'ToolSearch']);
+  assert.deepEqual(diagnostics, []);
+});
+
 test('Issue #1901: Codex-style enabled rows still count as available', () => {
   const output = `Name             Command  Args                    Env  Cwd  Status    Auth
 playwright       npx      @playwright/mcp@latest  -    -    enabled   Unsupported`;
@@ -60,7 +122,7 @@ test('Issue #1901: version output rejects pending Playwright MCP rows', () => {
   assert.match(message, /Playwright MCP: `0\.0\.99 \| Claude Code: not connected \| Codex: connected`/);
 });
 
-await asyncTest('Issue #1901: system.init comment warns when Playwright MCP is pending without tools', async () => {
+await asyncTest('Issue #1901: system.init comment shows pending Playwright as connecting, with no failure warning', async () => {
   const comments = [];
   const execFile = async (_cmd, _args, options) => {
     comments.push(JSON.parse(options.input).body);
@@ -78,13 +140,41 @@ await asyncTest('Issue #1901: system.init comment warns when Playwright MCP is p
     type: 'system',
     subtype: 'init',
     session_id: 'issue-1901-session',
-    tools: ['Task', 'Bash', 'Read'],
+    tools: ['Task', 'Bash', 'ToolSearch'],
     mcp_servers: [{ name: 'playwright', status: 'pending' }],
   });
 
   const comment = comments[0];
-  assert.match(comment, /`playwright` \(pending - not connected; MCP tools unavailable\)/);
-  assert.match(comment, /Playwright MCP server is pending, but no `mcp__playwright__/);
+  assert.match(comment, /`playwright` \(pending - connecting; tools load on demand via Tool Search\)/);
+  assert.doesNotMatch(comment, /MCP tools unavailable/);
+  assert.doesNotMatch(comment, /failed to connect/);
+});
+
+await asyncTest('Issue #1901: system.init comment warns when Playwright MCP failed to connect', async () => {
+  const comments = [];
+  const execFile = async (_cmd, _args, options) => {
+    comments.push(JSON.parse(options.input).body);
+    return { stdout: JSON.stringify({ id: 1901, html_url: 'https://github.example/comment/1901' }) };
+  };
+  const handler = createInteractiveHandler({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+    prNumber: 1907,
+    log: async () => {},
+    execFile,
+  });
+
+  await handler.processEvent({
+    type: 'system',
+    subtype: 'init',
+    session_id: 'issue-1901-session-failed',
+    tools: ['Task', 'Bash', 'ToolSearch'],
+    mcp_servers: [{ name: 'playwright', status: 'failed' }],
+  });
+
+  const comment = comments[0];
+  assert.match(comment, /`playwright` \(failed - MCP tools unavailable\)/);
+  assert.match(comment, /Playwright MCP server is failed \(failed to connect\)/);
 });
 
 await asyncTest('Issue #1901: missing MCP registration is repaired with default command', async () => {

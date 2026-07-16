@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * `cleanup` — free disk space by removing stale hive-mind temporary
+ * `hive-cleanup` — free disk space by removing stale hive-mind temporary
  * directories/files while preserving folders that belong to currently-running
  * (active) tasks, protected system paths and any work that is not yet pushed.
  *
@@ -23,6 +23,7 @@
  *   --no-keep-dirty               allow deleting clones with unpushed changes
  *   --processes                   map claude/codex/etc. PIDs to task sessions
  *   --kill-orphaned-agents        signal orphaned terminal-session agents
+ *   --docker-isolation[=<mode>]   cleanup task containers by session UUID
  *   --apt --journal --docker --npm   Ubuntu/system cleanup (opt-in)
  *   --system                      shorthand for --apt --journal --npm
  *   --sudo                        prefix package-manager commands with sudo
@@ -33,10 +34,10 @@
 
 import path from 'node:path';
 import { promises as fsp } from 'node:fs';
-import { execSync } from 'node:child_process';
 
-import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES } from './cleanup.lib.mjs';
-import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees } from './cleanup.os.lib.mjs';
+import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs';
+import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from './cleanup.lib.mjs';
+import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, listDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
 
 const args = process.argv.slice(2);
@@ -71,6 +72,17 @@ function parsePidList(values) {
     .filter(value => Number.isInteger(value) && value > 0);
 }
 
+function parseDockerIsolationMode() {
+  if (hasFlag('--no-docker-isolation')) return 'none';
+  const configured = getFlagValue('--docker-isolation') ?? process.env.HIVE_MIND_CLEANUP_DOCKER_ISOLATION ?? process.env.HIVE_CLEANUP_DOCKER_ISOLATION ?? DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE;
+  try {
+    return normalizeDockerIsolationCleanupMode(configured);
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    process.exit(1);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Early --version / --help handling (no heavy imports).
 // ---------------------------------------------------------------------------
@@ -86,7 +98,7 @@ if (hasFlag('--version')) {
 }
 
 if (hasFlag('--help', '-h')) {
-  console.log(`Usage: cleanup [options]
+  console.log(`Usage: hive-cleanup [options]
 
 Free disk space by removing stale hive-mind temporary directories/files while
 keeping folders that belong to active tasks and protected system paths.
@@ -117,10 +129,16 @@ Process diagnostics:
 System / Ubuntu cleanup (opt-in):
   --apt                       apt-get clean / autoclean / autoremove
   --journal                   journalctl --vacuum-time=2weeks
-  --docker                    docker system prune -f
+  --docker                    docker system prune -f (host-wide Docker cleanup)
   --npm                       npm cache clean --force
   --system                    Shorthand for --apt --journal --npm
   --sudo                      Prefix package-manager commands with sudo
+
+Docker isolation cleanup:
+  --docker-isolation[=<mode>] Clean task containers named by session UUID
+                              [default: ${DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE}]
+                              modes: succeeded, all, none
+  --no-docker-isolation       Disable Docker-isolation task container cleanup
 
   --verbose, -v               Verbose logging
   --version                   Show version number
@@ -150,6 +168,7 @@ const options = {
   apt: hasFlag('--apt', '--system'),
   journal: hasFlag('--journal', '--system'),
   docker: hasFlag('--docker'),
+  dockerIsolationMode: parseDockerIsolationMode(),
   npm: hasFlag('--npm', '--system'),
   sudo: hasFlag('--sudo'),
 };
@@ -238,14 +257,26 @@ async function main() {
   const heldPaths = listProcessHeldPaths(tempRoot);
   await vlog(`Process-held paths: ${[...heldPaths].join(', ') || '(none)'}`);
 
+  // Enumerate every start-command session once (active AND finished) so we can
+  // both detect active tasks and annotate finished folders with the PR/session
+  // they belonged to. Reused as the source for getActiveTasks to avoid a second
+  // `$ --list` call.
+  let sessionTasks = [];
+  let sessionMatchers = [];
+  if (options.useSessions) {
+    sessionTasks = await listSessionTasks({ verbose: options.verbose, resolveBranches: options.resolveBranches });
+    sessionMatchers = buildActiveMatchers(sessionTasks);
+    await vlog(`Known sessions (active + finished): ${sessionTasks.length}`);
+  }
+
   let matchers = [];
   if (options.keepActiveTasks) {
-    const activeTasks = await getActiveTasks({ useSessions: options.useSessions, resolveBranches: options.resolveBranches });
+    const activeTasks = await getActiveTasks({ useSessions: options.useSessions, resolveBranches: options.resolveBranches, sessionTasks });
     matchers = buildActiveMatchers(activeTasks);
     if (activeTasks.length > 0) {
       await log(`🏃 Active tasks detected: ${activeTasks.length}`);
-      for (const t of activeTasks) {
-        await log(`   • ${t.owner}/${t.repo} ${t.type} #${t.number}${t.branch ? ` (branch ${t.branch})` : ''}`);
+      for (const task of activeTasks) {
+        await log(`   • ${formatTaskSummary(task)}`);
       }
     } else {
       await log('🏃 No active tasks detected from running processes/sessions');
@@ -275,6 +306,7 @@ async function main() {
     selfPaths,
     heldPaths,
     matchers,
+    sessionMatchers,
     gitInfoByPath,
   };
   const classified = classifyEntries(entries, ctx);
@@ -289,60 +321,109 @@ async function main() {
   await log('\n🟢 KEPT folders/files:');
   if (classified.keep.length === 0) await log('   (none)');
   for (const item of classified.keep.sort((a, b) => (b.size || 0) - (a.size || 0))) {
-    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}`);
+    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}${formatEntryContext(item)}`);
   }
 
   await log(`\n🗑️  ${options.dryRun ? 'WOULD DELETE' : 'TO DELETE'} folders/files:`);
   if (classified.remove.length === 0) await log('   (none)');
   for (const item of classified.remove.sort((a, b) => (b.size || 0) - (a.size || 0))) {
-    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}`);
+    await log(`   ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeReason(item.reason)}${formatEntryContext(item)}`);
   }
 
-  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)})`);
+  let dockerIsolationPlan = { keep: [], remove: [], mode: options.dockerIsolationMode };
+  if (options.dockerIsolationMode === 'none') {
+    await log('\n🐳 Docker isolation containers: disabled (--docker-isolation=none)');
+  } else {
+    const dockerIsolationContainers = listDockerIsolationContainers();
+    dockerIsolationPlan = planDockerIsolationCleanup({
+      containers: dockerIsolationContainers,
+      sessionTasks,
+      mode: options.dockerIsolationMode,
+    });
+
+    await log(`\n🐳 Docker isolation containers (${dockerIsolationPlan.mode}):`);
+    if (dockerIsolationPlan.keep.length === 0 && dockerIsolationPlan.remove.length === 0) {
+      await log('   (none detected)');
+    } else {
+      await log('   KEPT:');
+      if (dockerIsolationPlan.keep.length === 0) await log('      (none)');
+      for (const item of dockerIsolationPlan.keep) {
+        await log(`      ${formatDockerIsolationContainerSummary(item)} — ${describeDockerIsolationReason(item.reason)}`);
+      }
+
+      await log(`   ${options.dryRun ? 'WOULD REMOVE' : 'TO REMOVE'}:`);
+      if (dockerIsolationPlan.remove.length === 0) await log('      (none)');
+      for (const item of dockerIsolationPlan.remove) {
+        await log(`      ${formatDockerIsolationContainerSummary(item)} — ${describeDockerIsolationReason(item.reason)}`);
+      }
+    }
+  }
+
+  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)}), docker keep ${dockerIsolationPlan.keep.length}, docker remove ${dockerIsolationPlan.remove.length}`);
 
   // 7. Execute deletion (unless dry-run).
+  const hasTempRemovals = classified.remove.length > 0;
+  const hasDockerRemovals = dockerIsolationPlan.remove.length > 0;
   if (options.dryRun) {
     await log('\n✅ Dry run complete. Re-run without --dry-run to delete.');
-  } else if (classified.remove.length === 0) {
+  } else if (!hasTempRemovals && !hasDockerRemovals) {
     await log('\n✅ Nothing to delete.');
   } else {
     if (!options.force) {
-      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}).`);
+      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}) and remove ${dockerIsolationPlan.remove.length} Docker isolation containers.`);
       console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
-      process.stdout.write('> ');
-      let answer = '';
+      let answer;
       try {
-        answer = execSync('read answer && echo $answer', { encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'], shell: '/bin/bash' }).trim();
+        answer = await readConfirmationLine({ prompt: '> ' });
       } catch {
         await log('\n❌ Cancelled');
         return;
       }
-      if (answer.toLowerCase() !== 'yes') {
+      if (!isConfirmationYes(answer)) {
         await log('\n❌ Cancelled');
         return;
       }
     }
 
-    await log('\n🗑️  Deleting...');
-    let deleted = 0;
-    let failed = 0;
-    for (const item of classified.remove) {
-      const ok = removePath(item.path);
-      if (ok) {
-        deleted++;
-        await vlog(`   removed ${item.path}`);
-      } else {
-        failed++;
-        await log(`   ⚠️  failed to remove ${item.path}`, { level: 'warn' });
+    if (hasTempRemovals) {
+      await log('\n🗑️  Deleting...');
+      let deleted = 0;
+      let failed = 0;
+      for (const item of classified.remove) {
+        const ok = removePath(item.path);
+        if (ok) {
+          deleted++;
+          await vlog(`   removed ${item.path}`);
+        } else {
+          failed++;
+          await log(`   ⚠️  failed to remove ${item.path}`, { level: 'warn' });
+        }
       }
+      await log(`\n✅ Deleted ${deleted} entries${failed ? `, ${failed} failed` : ''}.`);
     }
-    await log(`\n✅ Deleted ${deleted} entries${failed ? `, ${failed} failed` : ''}.`);
+
+    if (hasDockerRemovals) {
+      await log('\n🐳 Removing Docker isolation containers...');
+      let removed = 0;
+      let failed = 0;
+      for (const item of dockerIsolationPlan.remove) {
+        const ok = removeDockerContainer(item.name);
+        if (ok) {
+          removed++;
+          await log(`   ✓ ${item.command}`);
+        } else {
+          failed++;
+          await log(`   ⚠️  failed: ${item.command}`, { level: 'warn' });
+        }
+      }
+      await log(`\n✅ Removed ${removed} Docker isolation containers${failed ? `, ${failed} failed` : ''}.`);
+    }
   }
 
   // 8. System / Ubuntu cleanup (opt-in).
   if (options.apt || options.journal || options.docker || options.npm) {
-    await log('\n🧴 System cleanup:');
-    runSystemCleanup({
+    await log(options.dryRun ? '\n🧴 System cleanup (dry-run, estimated reclaim):' : '\n🧴 System cleanup:');
+    await runSystemCleanup({
       apt: options.apt,
       journal: options.journal,
       docker: options.docker,

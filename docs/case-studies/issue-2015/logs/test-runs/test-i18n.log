@@ -1,0 +1,41 @@
+🧪 Running i18n tests...
+
+1) Locale normalization
+  ✅ normalizeLocale handles raw codes
+  ✅ detectLocale returns supported locale or default
+  ✅ getSupportedLocales returns all four
+
+2) Translations
+  ✅ English translations load and t() returns them
+  ✅ Russian translations work
+  ✅ Chinese translations work
+  ✅ Hindi translations work
+  ✅ Parameter substitution works
+  ✅ Missing key returns the key itself
+  ✅ Newline escapes are decoded
+  ✅ Nested locale authoring resolves existing dotted keys
+  ✅ Multiline translations use quoted multiline strings
+  ✅ Locale catalogues use deeper lino nesting without breaking existing keys
+  ✅ Loaded translations expose upstream compatibility aliases
+  ✅ Per-call locale override
+
+3) Per-user (Telegram) locale store
+  ✅ setUserLocale + getUserLocale
+  ✅ setUserLocale rejects invalid
+  ✅ clearUserLocale removes the entry
+  ✅ resolveLocaleFromTelegramCtx priority order
+
+4) Preload
+  ✅ preloadAllLocales does not throw
+
+5) CLI --language integration
+  ✅ task.mjs parser accepts --language ru
+  ✅ task.mjs parser rejects unsupported language
+  ✅ hive auto-registers language via passthrough
+  ✅ SOLVE_OPTION_DEFINITIONS exposes language option
+
+6) Translation parity
+  ✅ every supported locale defines the core "error" key
+  ✅ every supported locale preserves the same translation key set
+
+Results: 26 passed, 0 failed

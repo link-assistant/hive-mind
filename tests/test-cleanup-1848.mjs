@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit tests for the `cleanup` command core logic (issue #1848).
+ * Unit tests for the `hive-cleanup` command core logic (issue #1848).
  *
  * These tests exercise the pure, offline-safe classification/parsing helpers in
  * src/cleanup.lib.mjs — no network, no real filesystem, no /proc. They reproduce
@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict';
 
-import { parseTaskUrl, extractTaskRefsFromCommand, parseRemoteUrl, buildActiveMatchers, folderMatchesActiveTask, matchHiveMindPattern, classifyEntry, classifyEntries, formatBytes, summarize, describeReason, DEFAULT_PROTECTED_NAMES } from '../src/cleanup.lib.mjs';
+import { parseTaskUrl, extractTaskRefsFromCommand, parseRemoteUrl, buildActiveMatchers, folderMatchesActiveTask, matchHiveMindPattern, classifyEntry, classifyEntries, formatBytes, summarize, describeReason, formatEntryContext, formatTaskSummary, DEFAULT_PROTECTED_NAMES } from '../src/cleanup.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -33,7 +33,7 @@ function test(name, fn) {
   }
 }
 
-console.log('\n📋 cleanup command (#1848) Tests\n');
+console.log('\n📋 hive-cleanup command (#1848) Tests\n');
 
 // ---------------------------------------------------------------------------
 // URL / command parsing
@@ -253,6 +253,91 @@ test('summarize aggregates counts and bytes', () => {
   assert.equal(s.removeCount, 2);
   assert.equal(s.keepBytes, 300);
   assert.equal(s.removeBytes, 1000);
+});
+
+test('formatTaskSummary includes PR and session context', () => {
+  const summary = formatTaskSummary({
+    owner: 'link-assistant',
+    repo: 'hive-mind',
+    type: 'pull',
+    number: 1934,
+    branch: 'issue-1930-79b41127892b',
+    sessionId: 'session-123',
+    status: 'executing',
+    workspace: '/tmp/gh-issue-solver-1781543261323',
+  });
+  assert.equal(summary, 'link-assistant/hive-mind PR #1934, branch issue-1930-79b41127892b, session session-123, status executing, workspace /tmp/gh-issue-solver-1781543261323');
+});
+
+test('formatEntryContext includes active task and git context', () => {
+  const item = {
+    activeTask: {
+      owner: 'link-assistant',
+      repo: 'hive-mind',
+      type: 'pull',
+      number: 1934,
+      branch: 'issue-1930-79b41127892b',
+      sessionId: 'session-123',
+    },
+    gitInfo: {
+      branch: 'issue-1930-79b41127892b',
+      remotes: [{ owner: 'link-assistant', repo: 'hive-mind' }],
+      dirty: true,
+    },
+  };
+  assert.equal(formatEntryContext(item), ' (task link-assistant/hive-mind PR #1934, branch issue-1930-79b41127892b, session session-123; repo link-assistant/hive-mind, branch issue-1930-79b41127892b, dirty/unpushed)');
+});
+
+test('formatEntryContext shows the PR/session a finished (non-active) folder belonged to', () => {
+  // Issue #1927 review: even for non-active tasks the listing must show which
+  // PR and session a hive-mind folder was belonging to.
+  const item = {
+    activeTask: null,
+    session: {
+      owner: 'link-assistant',
+      repo: 'hive-mind',
+      type: 'pull',
+      number: 1934,
+      branch: 'issue-1930-79b41127892b',
+      sessionId: 'session-123',
+      status: 'completed',
+    },
+    gitInfo: {
+      branch: 'issue-1930-79b41127892b',
+      remotes: [{ owner: 'link-assistant', repo: 'hive-mind' }],
+      dirty: false,
+    },
+  };
+  assert.equal(formatEntryContext(item), ' (was link-assistant/hive-mind PR #1934, branch issue-1930-79b41127892b, session session-123, status completed; repo link-assistant/hive-mind, branch issue-1930-79b41127892b)');
+});
+
+test('formatEntryContext derives the issue # from the branch when no task/session matched', () => {
+  // No active task and no known session, but the folder branch still tells us
+  // which issue it belongs to.
+  const item = {
+    activeTask: null,
+    session: null,
+    gitInfo: {
+      branch: 'issue-1927-ae9e469b0606',
+      remotes: [{ owner: 'link-assistant', repo: 'hive-mind' }],
+      dirty: false,
+    },
+  };
+  assert.equal(formatEntryContext(item), ' (repo link-assistant/hive-mind, branch issue-1927-ae9e469b0606, issue #1927)');
+});
+
+test('classifyEntries annotates non-active folders with the session they belonged to', () => {
+  const entries = [{ name: 'gh-issue-solver-111', path: '/tmp/gh-issue-solver-111', isDirectory: true, size: 100 }];
+  const gitInfoByPath = new Map([['/tmp/gh-issue-solver-111', { branch: 'issue-1930-79b41127892b', remotes: [{ owner: 'link-assistant', repo: 'hive-mind' }], dirty: false }]]);
+  // The session that worked this folder has already finished (terminal), so it
+  // is NOT an active-task matcher — only a session matcher.
+  const sessionMatchers = buildActiveMatchers([{ owner: 'link-assistant', repo: 'hive-mind', type: 'pull', number: 1934, branch: 'issue-1930-79b41127892b', sessionId: 'sess-abc', status: 'completed' }]);
+  const { remove } = classifyEntries(entries, { matchers: [], sessionMatchers, gitInfoByPath });
+  assert.equal(remove.length, 1);
+  assert.equal(remove[0].reason, 'hive-mind-temp');
+  assert.ok(remove[0].session, 'session annotation present');
+  assert.equal(remove[0].session.number, 1934);
+  assert.equal(remove[0].session.sessionId, 'sess-abc');
 });
 
 test('describeReason returns human-readable labels', () => {

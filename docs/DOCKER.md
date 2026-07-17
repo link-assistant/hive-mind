@@ -11,13 +11,14 @@ This document explains how to run Hive Mind in Docker containers.
 docker pull konard/hive-mind:latest
 
 # Create persistent host directories used by the current Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
 touch -a /root/.hive-mind/claude.json
 
 # Run the container in detached mode with the same mounts we use locally
 docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
@@ -344,20 +345,21 @@ To persist authentication and work between container restarts, mount the actual 
 
 ```bash
 # Host directories used by the current local Docker workflow
-mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+mkdir -p /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents/skills /root/.hive-mind/gh
 touch -a /root/.hive-mind/claude.json
 
 # Run with persistent mounts
 docker run -dit --user box --name hive-mind --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
   -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
   konard/hive-mind:latest bash -l -c 'bash /home/box/start-bot.sh'
 
 # Fix ownership after the container starts
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID /root/.hive-mind/claude /root/.hive-mind/codex /root/.hive-mind/agents /root/.hive-mind/gh
 chown $BOX_UID:$BOX_UID /root/.hive-mind/claude.json
 ```
 
@@ -366,6 +368,15 @@ The mounted Codex directory keeps the files we rely on:
 - `/home/box/.codex/auth.json`
 - `/home/box/.codex/config.toml`
 - `/home/box/.codex/sessions/`
+- `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped plugin enablement)
+
+The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills. Hive Mind propagates both `.codex` and `.agents` into `--isolation docker` task containers. It does not deploy or commit these capabilities to the target repository.
+
+### Required Codex capability preflight
+
+For Codex tasks, Hive Mind reads the issue and all issue comments before launching `codex exec`. Explicitly required plugin selectors (for example, `superpowers@openai-curated`) and skill names (for example, `superpowers:using-superpowers`) are resolved against `codex plugin list --available --json`. Missing repository enablement is installed into the repository-scoped Codex home above and verified before execution.
+
+The scoped home copies current authentication and runtime settings from the mounted parent `.codex`, reuses its marketplace snapshot, and preserves only that repository's plugin blocks. Thus an image update or parent configuration change remains visible while one repository's plugins are not enabled globally. If the mounted directory predates an image-provided marketplace or MCP configuration, refresh that parent configuration first; the preflight reports the missing snapshot or exact capability and a remediation command.
 
 Because this mount fully overrides the image's `/home/box/.codex` directory, it can also preserve an older `config.toml` that does not include the Playwright MCP registration added by newer images. After starting a container with an older persisted Codex directory, re-run:
 

@@ -89,6 +89,14 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker task-container retention after terminal completion: `always`, `on-failure`, or `never`. `on-failure` removes successful containers and keeps failed ones for debug. |
 
+### 4.2. Codex Capability Preflight
+
+The `solve` command automatically discovers explicit Codex plugin and Agent Skill requirements in an issue title, body, and comments. Before `codex exec`, it resolves skills against the current marketplace catalog, installs missing providers, and verifies them. Plugin aliases ending in `@openai-curated-remote` are normalized to the Codex CLI marketplace ID `@openai-curated`.
+
+Enablement is stored per repository at `$CODEX_HOME/hive-mind/repositories/<owner>/<repo>`, not in the operator's global config and not in the target checkout. The scoped config follows parent model and feature settings while retaining its own plugin blocks. Persist the entire `/home/box/.codex` directory across container restarts; optionally persist `/home/box/.agents/skills` for user Agent Skills. Both locations are propagated into Docker-isolated Codex tasks.
+
+When a requirement has no installed or available provider, execution stops before the AI harness starts and prints the exact missing identifier. Run `codex plugin list --available --json` in the parent container to inspect or refresh the configured marketplaces, then retry.
+
 ### 5. Retry Configurations
 
 | Environment Variable                   | Default | Description                         |

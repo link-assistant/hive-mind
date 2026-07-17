@@ -222,6 +222,7 @@ pull request ещё не mergeable, очередь слияния ждёт до
 | `TELEGRAM_SOLVE`                           | true          | Включить команду /solve                                                                     |
 | `TELEGRAM_HIVE`                            | true          | Включить команду /hive                                                                      |
 | `TELEGRAM_TASK`                            | true          | Включить команды /task и /split                                                             |
+| `TELEGRAM_FIX`                             | true          | Включить команду /fix                                                                       |
 | `TELEGRAM_AUTH`                            | true          | Включить экспериментальную приватную команду /auth для владельцев разрешённых чатов         |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false         | Автоматически запускать отдельное live terminal watch сообщение для публичных /solve сессий |
 | `TELEGRAM_BOT_VERBOSE`                     | false         | Включить подробное журналирование                                                           |

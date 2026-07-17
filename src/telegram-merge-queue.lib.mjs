@@ -21,6 +21,7 @@ import { resolveMergeTargetItems } from './github-merge-targets.lib.mjs';
 import { waitForPRReady as waitForPRReadyHelper } from './telegram-merge-wait.lib.mjs';
 import { mergeQueue as mergeQueueConfig } from './config.lib.mjs';
 import { getProgressBar } from './limits.lib.mjs';
+import { cancellableSleep as cancellableSleepUntil } from './interruptible-sleep.lib.mjs';
 
 /**
  * Status enum for merge queue operations
@@ -495,7 +496,17 @@ export class MergeQueueProcessor {
     try {
       // Step 1: Check if PR is mergeable
       item.status = MergeItemStatus.CHECKING_CI;
-      const mergeableCheck = await this.checkPRMergeable(this.owner, this.repo, item.pr.number, this.verbose);
+      // Issue #2072: pass cancellation down so the UNKNOWN-mergeability retry delay aborts early
+      const mergeableCheck = await this.checkPRMergeable(this.owner, this.repo, item.pr.number, this.verbose, { isCancelled: () => this.isCancelled });
+
+      // Issue #2072: a cancel during the mergeability check must skip the PR, not fail it.
+      if (mergeableCheck.cancelled || this.isCancelled) {
+        item.status = MergeItemStatus.SKIPPED;
+        item.error = 'Cancelled';
+        this.stats.skipped++;
+        this.log(`Skipped PR #${item.pr.number}: cancelled during mergeability check`);
+        return;
+      }
 
       if (mergeableCheck.terminal) {
         item.status = MergeItemStatus.FAILED;
@@ -893,7 +904,7 @@ export class MergeQueueProcessor {
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
           return { outcome: 'error', error: error.message };
         }
-        await this.cancellableSleep(pollInterval);
+        await this.sleep(pollInterval);
         continue;
       }
 
@@ -912,25 +923,10 @@ export class MergeQueueProcessor {
         }
       }
 
-      await this.cancellableSleep(pollInterval);
+      await this.sleep(pollInterval);
     }
 
     return { outcome: 'timeout' };
-  }
-
-  /**
-   * Issue #1807: Sleep helper that bails out as soon as cancellation is
-   * requested. Used by the auto-resolve poll loop so a `cancel()` call
-   * doesn't have to wait a full polling interval before taking effect.
-   */
-  async cancellableSleep(ms) {
-    const step = Math.min(ms, 1000);
-    const deadline = Date.now() + ms;
-    while (Date.now() < deadline) {
-      if (this.isCancelled) return;
-      const remaining = deadline - Date.now();
-      await this.sleep(Math.min(step, remaining));
-    }
   }
 
   /**
@@ -1456,10 +1452,17 @@ export class MergeQueueProcessor {
   }
 
   /**
-   * Sleep helper
+   * Sleep helper.
+   *
+   * Issue #2072: this is the single sleep primitive for the queue, and it is
+   * cancellable — it returns as soon as `cancel()` is called (checked every
+   * 100ms) or SIGINT/SIGTERM arrives, instead of sleeping out the full delay.
+   * Every wait in the queue routes through here, so no stage of `/merge` can
+   * hold up a cancel by more than ~100ms. This supersedes the separate
+   * `cancellableSleep` helper added for #1807.
    */
   sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return cancellableSleepUntil(ms, () => this.isCancelled);
   }
 }
 

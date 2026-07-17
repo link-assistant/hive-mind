@@ -528,6 +528,26 @@ Examples:
 如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
 `--auto-resolve` 使用。
 
+#### `/fix` - 自动修复 CI/CD
+
+```
+/fix <github-repository-url> --ci-cd [options]
+
+Examples:
+/fix https://github.com/owner/repo --ci-cd
+/fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
+/fix owner/repo --ci-cd --dry-run
+/fix owner/repo --ci-cd --no-solve
+```
+
+`/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
+修复 issue（使用标准提示词，以及来自
+[`docs/CI-CD-BEST-PRACTICES.md`](docs/CI-CD-BEST-PRACTICES.md) 的模板，按检测到的语言排序）。随后它会将该
+issue 交给 `/solve --development-log --deep-analysis --auto-merge` 处理。所有 `/fix`
+自身不消费的选项（例如 `--tool`、`--model`、`--think`）都会转发给 `/solve`。使用 `--dry-run` 可在不创建
+issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `/solve`。详见
+[自动 CI/CD 修复](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)。
+
 #### `/limits` - 显示用量限制
 
 ```

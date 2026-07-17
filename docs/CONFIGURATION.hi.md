@@ -216,6 +216,7 @@ failed माना जाता है।
 | `TELEGRAM_SOLVE`                           | true       | /solve command सक्षम करें                                                     |
 | `TELEGRAM_HIVE`                            | true       | /hive command सक्षम करें                                                      |
 | `TELEGRAM_TASK`                            | true       | /task और /split commands सक्षम करें                                           |
+| `TELEGRAM_FIX`                             | true       | /fix command सक्षम करें                                                       |
 | `TELEGRAM_AUTH`                            | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें  |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | public /solve sessions के लिए अलग live terminal watch message auto-start करें |
 | `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                    |

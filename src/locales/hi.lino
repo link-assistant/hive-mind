@@ -564,6 +564,11 @@ hi
         enabled "*/split* - GitHub issue को छोटे issues में बाँटें"
         usage "उपयोग: `/split <github-issue-url> [options]` या `/task --split <github-issue-url>`"
         example "उदाहरण: `/split https://github.com/owner/repo/issues/123 --split-count 2`"
+      fix
+        enabled "*/fix* - repository के लिए CI/CD सुधार issue बनाएँ और उसे हल करें"
+        usage "उपयोग: `/fix <github-repository-url> [options]`"
+        example "उदाहरण: `/fix https://github.com/owner/repo --model sonnet`"
+        disabled "*/fix* - ❌ अक्षम"
       hive
         enabled "*/hive* - hive command चलाएँ"
         usage "उपयोग: `/hive <github-url> [options]`"
@@ -590,7 +595,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model

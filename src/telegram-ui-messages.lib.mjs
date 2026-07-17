@@ -23,7 +23,7 @@ export function buildSolveQueuedMessage({ locale = null, tool = 'claude', positi
   return message;
 }
 
-export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '', chatTitle = '', topicId = null, isStopped = false, stopInfo = null, stopReason = '', solveEnabled = true, taskEnabled = true, hiveEnabled = true, solveOverrides = [], hiveOverrides = [], showLimitsEnabled = false, isolationBackend = null, modelDescription = '', restrictedMode = false, authorized = null, allowTopicHint = '' } = {}) {
+export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '', chatTitle = '', topicId = null, isStopped = false, stopInfo = null, stopReason = '', solveEnabled = true, taskEnabled = true, fixEnabled = true, hiveEnabled = true, solveOverrides = [], hiveOverrides = [], showLimitsEnabled = false, isolationBackend = null, modelDescription = '', restrictedMode = false, authorized = null, allowTopicHint = '' } = {}) {
   const message = [];
   addLine(message, 'telegram.help_title', {}, locale);
   message.push('');
@@ -68,6 +68,16 @@ export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '',
     message.push('');
   } else {
     addLine(message, 'telegram.help_task_disabled', {}, locale);
+    message.push('');
+  }
+
+  if (fixEnabled) {
+    addLine(message, 'telegram.help_fix_enabled', {}, locale);
+    addLine(message, 'telegram.help_fix_usage', {}, locale);
+    addLine(message, 'telegram.help_fix_example', {}, locale);
+    message.push('');
+  } else {
+    addLine(message, 'telegram.help_fix_disabled', {}, locale);
     message.push('');
   }
 

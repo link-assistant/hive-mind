@@ -25,6 +25,9 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 | Go                    | [go-ai-driven-development-pipeline-template](https://github.com/link-foundation/go-ai-driven-development-pipeline-template)         |
 | C#                    | [csharp-ai-driven-development-pipeline-template](https://github.com/link-foundation/csharp-ai-driven-development-pipeline-template) |
 | Java                  | [java-ai-driven-development-pipeline-template](https://github.com/link-foundation/java-ai-driven-development-pipeline-template)     |
+| PHP                   | [php-ai-driven-development-pipeline-template](https://github.com/link-foundation/php-ai-driven-development-pipeline-template)       |
+
+> **सुझाव:** आपको template हाथ से चुनने की आवश्यकता नहीं है। `fix <repository-url> --ci-cd` चलाएं ([Automatic CI/CD Remediation](#automatic-cicd-remediation) देखें) और Hive Mind repository की भाषाओं का पता लगाकर आपके लिए मेल खाते templates का चयन कर लेता है।
 
 ## मुख्य CI/CD सिद्धांत
 
@@ -131,6 +134,7 @@ Consistent formatting style debates को समाप्त करती ह�
 | Go                    | gofmt                         |
 | C#                    | dotnet format                 |
 | Java                  | Spotless (Google Java Format) |
+| PHP                   | PHP CS Fixer                  |
 
 सभी templates में pre-commit hooks शामिल हैं जो प्रत्येक commit से पहले automatically formatters चलाते हैं।
 
@@ -146,6 +150,7 @@ Code review तक पहुँचने से पहले bugs पकड़�
 | Go                    | go vet + staticcheck                |
 | C#                    | .NET analyzers (warnings as errors) |
 | Java                  | SpotBugs (maximum effort)           |
+| PHP                   | PHPStan (max level)                 |
 
 ### 5. Fast-Fail Job Ordering
 
@@ -187,6 +192,7 @@ test-suites:
 | JavaScript/TypeScript | @changesets/cli              |
 | Rust                  | changelog.d + custom scripts |
 | Python                | Scriv                        |
+| PHP                   | changelog.d + custom scripts |
 | Go, C#, Java          | Custom changeset workflows   |
 
 **Docs-only PRs को changeset requirements से exempt करें:**
@@ -319,6 +325,53 @@ Developer Machine    →    CI/CD Pipeline    →    Release
 4. **Development शुरू करें** सभी सर्वोत्तम प्रथाओं के साथ पूर्व-कॉन्फ़िगर
 
 AI solvers automatically सभी configured checks के साथ respect करेंगे और iterate करेंगे, CI/CD enforcement के बिना repositories की तुलना में उच्च quality output produce करेंगे।
+
+## Automatic CI/CD Remediation
+
+किसी मौजूदा repository के लिए, आपको इन प्रथाओं को हाथ से लागू करने की आवश्यकता नहीं है। `fix` command पूरे flow को automate करता है:
+
+```bash
+fix https://github.com/owner/repo --ci-cd
+```
+
+यह command:
+
+1. **repository की भाषाओं का पता लगाता है** GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) का उपयोग करके, प्रति भाषा bytes की संख्या के अनुसार क्रमबद्ध।
+2. **मेल खाते CI/CD templates का चयन करता है** ऊपर की table से, इस तरह क्रमबद्ध कि सबसे अधिक उपयोग की जाने वाली भाषा का template पहले आए।
+3. **latest default-branch commit का निरीक्षण करता है** और उसके CI/CD runs एकत्र करता है (जब latest commit के पास कोई run न हो तो default branch पर सबसे हाल के runs पर fall back करता है)।
+4. **एक remediation issue बनाता है** जो failing runs, पता लगाई गई भाषाओं, अनुशंसित templates, और इस दस्तावेज़ की वापसी link को सूचीबद्ध करता है। यह issue **Bug** type के साथ (और `bug` label के साथ) बनाया जाता है, और इसका title तथा text [मानक remediation template](https://github.com/link-assistant/web-capture/issues/139) से लिया जाता है।
+5. **issue को `/solve --development-log --deep-analysis --auto-merge` को सौंपता है**, जो तब तक iterate करता है जब तक fixes merge न हो जाएँ। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को forward किया जाता है।
+
+### issue Bug type क्यों है, और उसमें से क्या छोड़ा जाता है
+
+`--development-log` template के पुराने case-study-folder निर्देश को प्रतिस्थापित करता है और artifacts को `./dev/log/issues/{issue-id}/pulls/{pull-id}` में एकत्र करता है। `/fix` पुराने paragraph को कभी उत्पन्न नहीं करता, चाहे `--no-solve` या options का आंशिक set उपयोग हो। `--deep-analysis` timeline, root-cause, debug-output और upstream-reporting guidance प्रदान करता है, इसलिए `fix` matching paragraphs को conditionally छोड़ता है ताकि वे दो बार न पहुँचें।
+
+यह omission केवल इसलिए सुरक्षित है क्योंकि `/solve` root-cause संबंधी शब्दावली **केवल Bug type के issues के लिए** उत्सर्जित करता है — यही कारण है कि `fix` issue को Bug के रूप में बनाता है। issue types संगठन स्तर पर और labels repository स्तर पर configure होते हैं, इसलिए यदि target repository इनमें से किसी को स्वीकार नहीं करता, तब भी issue उनके बिना बना दिया जाता है।
+
+किसी भी option combination से पुराना paragraph वापस नहीं आता; `--development-log` ही supported collection workflow है। बाकी conditional omissions को `--deep-analysis` नियंत्रित करता है।
+
+### Language → Template Mapping
+
+command पता लगाई गई भाषाओं को templates से इस प्रकार map करता है (JavaScript और TypeScript एक ही template साझा करते हैं):
+
+| Detected Language(s)  | Template                                                         |
+| --------------------- | ---------------------------------------------------------------- |
+| JavaScript/TypeScript | `link-foundation/js-ai-driven-development-pipeline-template`     |
+| Rust                  | `link-foundation/rust-ai-driven-development-pipeline-template`   |
+| Python                | `link-foundation/python-ai-driven-development-pipeline-template` |
+| Go                    | `link-foundation/go-ai-driven-development-pipeline-template`     |
+| C#                    | `link-foundation/csharp-ai-driven-development-pipeline-template` |
+| Java                  | `link-foundation/java-ai-driven-development-pipeline-template`   |
+| PHP                   | `link-foundation/php-ai-driven-development-pipeline-template`    |
+
+जिन भाषाओं के लिए कोई समर्पित template नहीं है (उदाहरण के लिए Shell या Dockerfile) उन्हें जानकारी के लिए issue में सूचीबद्ध किया जाता है, और निकटतम मेल खाते template की अनुशंसा की जाती है।
+
+issue को बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, और `/solve` शुरू किए बिना issue बनाने के लिए `--no-solve` का उपयोग करें:
+
+```bash
+fix owner/repo --ci-cd --dry-run
+fix owner/repo --ci-cd --no-solve
+```
 
 ## संदर्भ
 

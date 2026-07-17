@@ -13,6 +13,8 @@ Hive Mind now resolves the dependency before `codex exec`. It scans the issue an
 - [Requirements traceability](requirements.md)
 - [Online and component research](research.md)
 - [Raw incident evidence](data/incident.md)
+- [Raw Hive Mind issue export](data/issue-2074.json)
+- [Raw original blocked-task export](data/original-issue.json)
 - [Raw CLI experiments](data/experiments.log)
 
 The source issue exposed the blocked session's exact report as a GitHub comment, not a downloadable process transcript. That complete exposed report is preserved in `data/incident.md`; this case study does not claim an unavailable private solver event stream was downloaded.

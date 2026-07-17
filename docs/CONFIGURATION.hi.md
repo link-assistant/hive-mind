@@ -89,6 +89,12 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 | ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | terminal completion के बाद Docker task-container retention: `always`, `on-failure`, या `never`। `on-failure` successful containers हटाता है और failed containers debug के लिए रखता है। |
 
+### 4.2. Codex Capability Preflight
+
+`solve` issue title, body और comments में स्पष्ट Codex plugin तथा Agent Skill requirements को अपने-आप खोजता है। `codex exec` से पहले यह current marketplace catalog से skill provider resolve करता है, missing provider install करता है और result verify करता है। `@openai-curated-remote` alias को Codex CLI के `@openai-curated` ID में normalize किया जाता है।
+
+Enablement हर repository के लिए `$CODEX_HOME/hive-mind/repositories/<owner>/<repo>` में रहता है; global config या target checkout नहीं बदलते। Container restarts के लिए पूरा `/home/box/.codex` persist करें और user skills के लिए optional `/home/box/.agents/skills` persist करें; Docker isolation दोनों paths propagate करता है। Provider न मिलने पर preflight exact identifier दिखाता है और parent container में `codex plugin list --available --json` चलाने का निर्देश देता है।
+
 ### 5. Retry कॉन्फ़िगरेशन
 
 | Environment Variable                   | डिफ़ॉल्ट | विवरण                             |

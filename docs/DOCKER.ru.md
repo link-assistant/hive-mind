@@ -283,6 +283,10 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
+Если весь home не монтируется, сохраняйте отдельно `/home/box/.codex` и необязательный `/home/box/.agents`. Перед `codex exec` Hive Mind читает issue и все комментарии, определяет явно требуемые плагины и Agent Skills и устанавливает провайдер в `.codex/hive-mind/repositories/<owner>/<repo>`. Состояние сохраняется после перезапуска, но плагин не включается глобально. Docker-изоляция передаёт и `.codex`, и `.agents`, не разворачивая и не коммитя файлы навыков в target repository.
+
+Если в catalog нет провайдера, preflight до запуска AI harness сообщает точную capability. Выполните `codex plugin list --available --json` в родительском контейнере для проверки или обновления marketplace. Смонтированный родительский `.codex` заменяет встроенную конфигурацию образа; repository scope обновляет runtime settings родителя, сохраняя собственные plugin enablement blocks.
+
 Если persisted `/home/box/.codex/config.toml` пришёл из старого образа, в нём может не быть Playwright MCP registration, добавленной в новых образах. После запуска контейнера выполните заново:
 
 ```bash

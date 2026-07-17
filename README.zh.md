@@ -210,14 +210,15 @@ docker attach hive-mind
 # --- Persisting auth data across restarts ---
 
 # Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind
+mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
 docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
+docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
 docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
 docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
 
 # Fix ownership to match the box user inside the container:
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
 chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
 
 # On subsequent runs, mount the auth data to keep it between restarts:
@@ -225,10 +226,14 @@ docker run -dit \
   --name hive-mind \
   --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
   konard/hive-mind:latest
 ```
+
+在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。`/home/box/.agents/skills` 中的用户技能也会传入 Docker 隔离任务；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
 
 **Docker 的优势：**
 

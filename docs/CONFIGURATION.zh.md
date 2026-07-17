@@ -89,6 +89,12 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 | ------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker 任务容器在终止完成后的保留策略：`always`、`on-failure` 或 `never`。`on-failure` 会删除成功容器并保留失败容器以便调试。 |
 
+### 4.2. Codex 能力预检
+
+`solve` 会自动发现 issue 标题、正文及评论中明确要求的 Codex 插件和 Agent Skill。在 `codex exec` 之前，它会从当前 marketplace catalog 解析技能提供程序、安装缺失项并验证结果。以 `@openai-curated-remote` 结尾的别名会规范化为 Codex CLI 使用的 `@openai-curated`。
+
+启用状态按仓库存储在 `$CODEX_HOME/hive-mind/repositories/<owner>/<repo>`，不会写入全局配置或目标 checkout。请跨容器重启持久化整个 `/home/box/.codex`，并可选择持久化用户技能目录 `/home/box/.agents/skills`；Docker 隔离任务会传播这两个路径。缺少提供程序时，预检会报告确切标识符，并提示在父容器中运行 `codex plugin list --available --json`。
+
 ### 5. 重试配置
 
 | 环境变量                               | 默认值 | 描述                        |

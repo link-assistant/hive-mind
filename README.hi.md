@@ -210,14 +210,15 @@ docker attach hive-mind
 # --- Persisting auth data across restarts ---
 
 # Extract auth data from a running (or stopped) container to the host:
-mkdir -p ~/.hive-mind
+mkdir -p ~/.hive-mind ~/.hive-mind/agents/skills
 docker cp hive-mind:/home/box/.claude ~/.hive-mind/claude
+docker cp hive-mind:/home/box/.codex ~/.hive-mind/codex
 docker cp hive-mind:/home/box/.claude.json ~/.hive-mind/claude.json
 docker cp hive-mind:/home/box/.config/gh ~/.hive-mind/gh
 
 # Fix ownership to match the box user inside the container:
 BOX_UID=$(docker exec hive-mind id -u box)
-chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/gh
+chown -R $BOX_UID:$BOX_UID ~/.hive-mind/claude ~/.hive-mind/codex ~/.hive-mind/agents ~/.hive-mind/gh
 chown $BOX_UID:$BOX_UID ~/.hive-mind/claude.json
 
 # On subsequent runs, mount the auth data to keep it between restarts:
@@ -225,10 +226,14 @@ docker run -dit \
   --name hive-mind \
   --restart unless-stopped \
   -v /root/.hive-mind/claude:/home/box/.claude \
+  -v /root/.hive-mind/codex:/home/box/.codex \
+  -v /root/.hive-mind/agents:/home/box/.agents \
   -v /root/.hive-mind/claude.json:/home/box/.claude.json \
   -v /root/.hive-mind/gh:/home/box/.config/gh \
   konard/hive-mind:latest
 ```
+
+`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। `/home/box/.agents/skills` के user skills भी Docker-isolated tasks में उपलब्ध होते हैं; capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
 
 **Docker के लाभ:**
 

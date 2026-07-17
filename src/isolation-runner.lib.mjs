@@ -206,6 +206,10 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
 
   if (normalizedTool === 'codex') {
     maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    // Issue #2074: Codex also discovers persistent user Agent Skills from
+    // ~/.agents/skills. Propagate that standard location alongside .codex so
+    // direct and Docker-isolated solver sessions expose the same capabilities.
+    maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
   } else if (normalizedTool === 'claude') {
     maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
     maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);

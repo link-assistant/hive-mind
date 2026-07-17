@@ -275,6 +275,10 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
+यदि पूरा home mount नहीं करते हैं, तो `/home/box/.codex` और optional `/home/box/.agents` को अलग-अलग persist करें। Hive Mind `codex exec` से पहले issue और सभी comments पढ़ता है, स्पष्ट plugin/Agent Skill requirements resolve करता है और plugin को `.codex/hive-mind/repositories/<owner>/<repo>` में install करता है। यह state restart के बाद भी रहती है, plugin globally enable नहीं होता, और Docker isolation `.codex` तथा `.agents` दोनों propagate करता है। Target repository में कोई skill file deploy या commit नहीं होती।
+
+Catalog में provider न होने पर preflight AI harness शुरू होने से पहले exact capability बताता है। Marketplace inspect या refresh करने के लिए parent container में `codex plugin list --available --json` चलाएं। Mounted parent `.codex` image-baked config को replace करता है; repository scope parent runtime settings refresh करता है लेकिन अपने plugin enablement blocks बचाए रखता है।
+
 यदि persisted `/home/box/.codex/config.toml` किसी पुराने image से आया है, तो उसमें newer images द्वारा जोड़ी गई Playwright MCP registration नहीं हो सकती। Container start होने के बाद फिर से चलाएं:
 
 ```bash

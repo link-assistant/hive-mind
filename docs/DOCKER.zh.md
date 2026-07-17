@@ -267,6 +267,10 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。Hive Mind 在 `codex exec` 前读取 issue 及全部评论，解析明确要求的插件和 Agent Skill，并将插件安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。该路径会跨重启保留，同时不会全局启用插件。Docker 隔离任务会同时传播 `.codex` 与 `.agents`，也不会向目标仓库部署或提交技能文件。
+
+若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。父 `.codex` 挂载会覆盖镜像内置配置；仓库作用域会刷新父运行时设置，同时保留自己的插件启用块。
+
 如果持久化的 `/home/box/.codex/config.toml` 来自较旧镜像，可能缺少新版镜像添加的 Playwright MCP 注册。容器启动后可重新运行：
 
 ```bash

@@ -35,6 +35,7 @@ import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } fro
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 
@@ -744,6 +745,7 @@ export const executeCodex = async params => {
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
 
+  const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log });
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -761,11 +763,12 @@ export const executeCodex = async params => {
     owner,
     repo,
     prNumber,
+    capabilityPreflight,
   });
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
 
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
@@ -806,7 +809,10 @@ export const executeCodexCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
-    const codexEnv = getCodexExecEnv(argv.verbose);
+    const codexEnv = applyCodexCapabilityEnv(getCodexExecEnv(argv.verbose), {
+      codexHome: capabilityPreflight?.codexHome,
+      baseCodexHome: capabilityPreflight?.baseCodexHome,
+    });
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode

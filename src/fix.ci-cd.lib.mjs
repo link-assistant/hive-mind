@@ -14,8 +14,9 @@
  *
  * The issue title and body are taken from the standard prompt in
  * https://github.com/link-assistant/web-capture/issues/139, omitting the
- * paragraphs that `--development-log` and `--deep-analysis` already inject into
- * the AI prompt (issue #1733) — see STANDARD_PROMPT_PARAGRAPHS below.
+ * its retired case-study paragraph in favor of `--development-log` and omitting
+ * paragraphs that `--deep-analysis` already injects into the AI prompt (issue
+ * #1733) — see `buildStandardPromptParagraphs` below.
  *
  * Everything that does not touch the network or the filesystem lives here so it
  * can be unit-tested without GitHub access.
@@ -278,10 +279,9 @@ export function summarizeRunFailures(runs) {
 }
 
 /**
- * The `/solve` options that `/fix` always turns on, and whose instructions are
- * therefore omitted from the generated issue body (issue #1733: "use title and
- * description exactly with omission of parts provided by --development-log
- * --deep-analysis options").
+ * The `/solve` options that `/fix` always turns on. `--development-log`
+ * replaces the retired collection paragraph; `--deep-analysis` provides the
+ * remaining instructions omitted from the generated issue body (issue #1733).
  */
 export const SOLVE_OPTION_DEVELOPMENT_LOG = '--development-log';
 export const SOLVE_OPTION_DEEP_ANALYSIS = '--deep-analysis';
@@ -292,24 +292,19 @@ export const FIX_FORWARDED_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPME
  * https://github.com/link-assistant/web-capture/issues/139.
  *
  * `providedBy` lists the `/solve` options that already inject an equivalent
- * instruction into the AI prompt (see `buildDeepAnalysisPrompt` and
- * `buildDevelopmentLogPrompt`). A paragraph is dropped from the issue body only
- * when *every* option that provides it is passed to `/solve`, so an instruction
- * is never dropped on the strength of an option that only covers half of it.
+ * instruction into the AI prompt (see `buildDeepAnalysisPrompt`). A paragraph
+ * is dropped from the issue body when every option that provides it is passed
+ * to `/solve`.
  *
  * The deep-analysis wording below is the "bug" variant, which `/solve` emits
  * only when the issue type is Bug — `/fix` therefore creates the issue with
  * that type (see CI_CD_ISSUE_TYPE).
  *
- * One deliberate difference survives the omission: `--development-log` collects
- * into `./dev/log/issues/{id}/pulls/{pr}` (buildDevelopmentLogDirectory), not
- * into the `./docs/case-studies/issue-{id}` folder the template names. That is
- * the intended outcome — the option's own destination is the current
- * convention (issue #1596) and supersedes the template's — but it means the
- * body must not be re-used with a plain `/solve`, which would collect nowhere.
- * See docs/case-studies/issue-1733/README.md §6.
+ * The old case-study instruction from the upstream template is intentionally
+ * not represented here. `--development-log` is its replacement; generated
+ * issues must never offer or restore the superseded folder convention, even
+ * when callers request an otherwise unabridged prompt (PR #1929 feedback).
  */
-export const CASE_STUDY_PARAGRAPH = 'We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).';
 export const DEBUG_OUTPUT_PARAGRAPH = 'If there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.';
 export const REPORT_UPSTREAM_PARAGRAPH = 'If issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.';
 
@@ -325,10 +320,6 @@ export function buildStandardPromptParagraphs({ templatesSorted } = {}) {
     {
       providedBy: [],
       text: "We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.",
-    },
-    {
-      providedBy: [SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS],
-      text: CASE_STUDY_PARAGRAPH,
     },
     {
       providedBy: [SOLVE_OPTION_DEEP_ANALYSIS],
@@ -466,8 +457,9 @@ export function partitionFixArgs(rawArgs) {
 /**
  * The options `/fix` always turns on when handing the issue to `/solve`
  * (issue #1733: "do similar to what `/solve --development-log --deep-analysis
- * --auto-merge`"). `--development-log` and `--deep-analysis` re-inject exactly
- * the prompt paragraphs `buildCiCdIssueBody` omits from the issue text.
+ * --auto-merge`"). `--development-log` replaces the superseded case-study
+ * workflow, while `--deep-analysis` re-injects the prompt paragraphs
+ * `buildCiCdIssueBody` conditionally omits from the issue text.
  */
 export const FIX_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS, '--auto-merge']);
 

@@ -7,7 +7,7 @@
  */
 
 import assert from 'assert/strict';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildTemplatesSection, CASE_STUDY_PARAGRAPH, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, DEBUG_OUTPUT_PARAGRAPH, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, DEBUG_OUTPUT_PARAGRAPH, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
 import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
 import { isBugIssueType } from '../src/development-log.lib.mjs';
@@ -116,10 +116,11 @@ await test('buildCiCdIssueTitle is the web-capture#139 title verbatim (issue #17
   assert.equal(buildCiCdIssueTitle(), CI_CD_ISSUE_TITLE);
 });
 
-await test('buildStandardPrompt omits paragraphs provided by --development-log --deep-analysis', () => {
+await test('buildStandardPrompt omits the retired and solve-provided paragraphs', () => {
   const prompt = buildStandardPrompt({ templatesSorted: [] });
-  // Omitted: /solve re-injects these once the two options are on.
-  assert.ok(!prompt.includes(CASE_STUDY_PARAGRAPH), 'case-study paragraph must be omitted');
+  // The old case-study path is retired; /solve re-injects the other omitted
+  // instructions through deep analysis.
+  assert.doesNotMatch(prompt, /docs\/case-studies\/issue-\{id\}/, 'legacy case-study path must be omitted');
   assert.ok(!prompt.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output paragraph must be omitted');
   assert.ok(!prompt.includes(REPORT_UPSTREAM_PARAGRAPH), 'report-upstream paragraph must be omitted');
   // Retained: nothing else provides these.
@@ -128,23 +129,29 @@ await test('buildStandardPrompt omits paragraphs provided by --development-log -
   assert.ok(prompt.includes(KEEP_WORKING_PROMPT), 'keep-working paragraph must be retained');
 });
 
-await test('buildStandardPrompt keeps every template paragraph when no option is omitted', () => {
+await test('buildStandardPrompt never restores the legacy case-study paragraph', () => {
   const prompt = buildStandardPrompt({ templatesSorted: [], omittedOptions: [] });
-  assert.ok(prompt.includes(CASE_STUDY_PARAGRAPH));
+  assert.doesNotMatch(prompt, /docs\/case-studies\/issue-\{id\}/, 'legacy case-study paragraph conflicts with --development-log');
   assert.ok(prompt.includes(DEBUG_OUTPUT_PARAGRAPH));
   assert.ok(prompt.includes(REPORT_UPSTREAM_PARAGRAPH));
   assert.ok(prompt.includes(KEEP_WORKING_PROMPT));
 });
 
-await test('buildStandardPrompt keeps a paragraph until every providing option is omitted', () => {
-  // The case-study paragraph is provided by BOTH options, so one alone must not
-  // drop it — otherwise the instruction would be silently lost.
+await test('standard prompt has no development-log-controlled fallback paragraph', () => {
+  const paragraphs = buildStandardPromptParagraphs({ templatesSorted: [] });
+  assert.ok(
+    paragraphs.every(paragraph => !paragraph.providedBy.includes('--development-log')),
+    'development-log replaces the retired paragraph instead of conditionally hiding it'
+  );
+});
+
+await test('buildStandardPrompt never restores the legacy paragraph for partial option sets', () => {
   const devLogOnly = buildStandardPrompt({ templatesSorted: [], omittedOptions: ['--development-log'] });
-  assert.ok(devLogOnly.includes(CASE_STUDY_PARAGRAPH), 'case-study needs both options to be omitted');
+  assert.doesNotMatch(devLogOnly, /docs\/case-studies\/issue-\{id\}/, 'development-log path must replace legacy case studies');
   assert.ok(devLogOnly.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output is deep-analysis-only');
 
   const deepOnly = buildStandardPrompt({ templatesSorted: [], omittedOptions: ['--deep-analysis'] });
-  assert.ok(deepOnly.includes(CASE_STUDY_PARAGRAPH), 'case-study needs both options to be omitted');
+  assert.doesNotMatch(deepOnly, /docs\/case-studies\/issue-\{id\}/, 'legacy case studies must never be supported');
   assert.ok(!deepOnly.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output is provided by --deep-analysis alone');
 });
 
@@ -192,13 +199,14 @@ await test('buildCiCdIssueBody omits the parts /fix re-provides via solve option
   };
 
   const body = buildCiCdIssueBody(params);
-  assert.ok(!body.includes(CASE_STUDY_PARAGRAPH), 'case-study paragraph must be omitted by default');
+  assert.doesNotMatch(body, /docs\/case-studies\/issue-\{id\}/, 'case-study paragraph must be omitted by default');
   assert.ok(!body.includes(DEBUG_OUTPUT_PARAGRAPH), 'debug-output paragraph must be omitted by default');
   assert.ok(!body.includes(REPORT_UPSTREAM_PARAGRAPH), 'report-upstream paragraph must be omitted by default');
 
-  // With no options omitted the body is the full template text again.
+  // Legacy case-study output is never restored, even when no solve option is
+  // omitted. Only the paragraphs genuinely controlled by deep-analysis return.
   const full = buildCiCdIssueBody({ ...params, omittedOptions: [] });
-  assert.ok(full.includes(CASE_STUDY_PARAGRAPH));
+  assert.doesNotMatch(full, /docs\/case-studies\/issue-\{id\}/);
   assert.ok(full.includes(DEBUG_OUTPUT_PARAGRAPH));
   assert.ok(full.includes(REPORT_UPSTREAM_PARAGRAPH));
 });

@@ -344,11 +344,11 @@ fix https://github.com/owner/repo --ci-cd
 
 ### 为什么该 issue 是 Bug 类型，以及它省略了什么
 
-`--development-log` 和 `--deep-analysis` 会让 `/solve` 注入自己的指令：将日志收集到 case-study 文件夹、重建事件时间线、找出每个问题的根本原因、在证据不足时添加调试输出，以及向上游项目报告 issue。在 issue 正文中重复这些指令会导致它们被传递两次，因此 `fix` 会精确省略这两个选项所提供的段落，交由 `/solve` 提供。
+`--development-log` 会取代模板中已废弃的 case-study 文件夹指令，并将产物收集到 `./dev/log/issues/{issue-id}/pulls/{pull-id}`。无论使用 `--no-solve` 还是只启用部分选项，`/fix` 都不会生成已废弃的段落。`--deep-analysis` 会提供时间线、根本原因、调试输出和上游 issue 报告指引，因此 `fix` 会按条件省略相应段落，避免重复传递。
 
 这种省略之所以不会丢失信息，是因为 `/solve` **仅对 Bug 类型的 issue** 输出根本原因相关的措辞 —— 这正是 `fix` 将 issue 创建为 Bug 的原因。issue 类型按组织配置，标签按仓库配置，因此如果目标仓库两者都不接受，issue 仍会在不带它们的情况下被创建。
 
-只有当提供某个段落的*所有*选项都启用时，该段落才会被移除，因此任何指令都不会被悄悄丢失。
+任何选项组合都无法恢复已废弃的段落；`--development-log` 是唯一受支持的数据收集流程。其余条件性省略由 `--deep-analysis` 控制。
 
 ### 语言 → 模板映射
 

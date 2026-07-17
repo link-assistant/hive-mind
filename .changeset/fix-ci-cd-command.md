@@ -13,10 +13,9 @@ a target repository:
   (falling back to the most recent default-branch runs when a release/tag commit
   has none of its own);
 - creates the remediation issue reusing the title and description of the standard
-  prompt (web-capture#139) exactly, minus the paragraphs that `--development-log`
-  and `--deep-analysis` already inject into the AI prompt — a paragraph is dropped
-  only when every option providing it is passed, so a partial overlap never
-  silently removes an instruction. The issue is created as type `Bug`
+  prompt (web-capture#139), with its retired case-study paragraph permanently
+  replaced by `--development-log` and the paragraphs supplied by `--deep-analysis`
+  omitted when that option is enabled. The issue is created as type `Bug`
   (best-effort, since issue types are org-scoped) because that is what makes the
   deep-analysis omission valid, and links to `docs/CI-CD-BEST-PRACTICES.md`;
 - hands the issue off to `/solve --development-log --deep-analysis --auto-merge`,

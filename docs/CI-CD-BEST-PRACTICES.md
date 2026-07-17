@@ -344,11 +344,11 @@ This command:
 
 ### Why the issue is a Bug, and what it leaves out
 
-`--development-log` and `--deep-analysis` make `/solve` inject its own instructions to collect the logs into a case-study folder, reconstruct the timeline, find the root cause of each problem, add debug output when the evidence is insufficient, and report upstream issues. Repeating those instructions in the issue text would deliver them twice, so `fix` omits exactly the paragraphs those two options provide and lets `/solve` supply them.
+`--development-log` replaces the template's retired case-study-folder instruction and collects artifacts under `./dev/log/issues/{issue-id}/pulls/{pull-id}`. `/fix` never emits the retired paragraph, including with `--no-solve` or partial option sets. `--deep-analysis` supplies the timeline, root-cause, debug-output, and upstream-reporting guidance, so `fix` conditionally omits the matching paragraphs instead of delivering them twice.
 
 That omission is only lossless because `/solve` emits the root-cause wording **only for bug-typed issues** — which is why `fix` creates the issue as a Bug. Issue types are configured per organization and labels per repository, so if the target repository accepts neither, the issue is still created without them.
 
-A paragraph is dropped only when _every_ option that provides it is enabled, so no instruction is ever silently lost.
+The retired paragraph cannot be restored by an option combination; `--development-log` is the only supported collection workflow. The remaining conditional omissions are controlled by `--deep-analysis`.
 
 ### Language → Template Mapping
 

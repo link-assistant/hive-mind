@@ -344,11 +344,11 @@ fix https://github.com/owner/repo --ci-cd
 
 ### issue Bug type क्यों है, और उसमें से क्या छोड़ा जाता है
 
-`--development-log` और `--deep-analysis` options `/solve` से अपने स्वयं के निर्देश जुड़वाते हैं: logs को case-study folder में एकत्र करना, घटनाओं की timeline पुनर्निर्मित करना, हर समस्या का root cause खोजना, साक्ष्य अपर्याप्त होने पर debug output जोड़ना, और upstream projects में issues report करना। इन निर्देशों को issue के text में दोहराने से वे दो बार पहुँचेंगे, इसलिए `fix` ठीक उन्हीं paragraphs को छोड़ देता है जो ये दो options प्रदान करते हैं, और उन्हें `/solve` द्वारा उपलब्ध कराने देता है।
+`--development-log` template के पुराने case-study-folder निर्देश को प्रतिस्थापित करता है और artifacts को `./dev/log/issues/{issue-id}/pulls/{pull-id}` में एकत्र करता है। `/fix` पुराने paragraph को कभी उत्पन्न नहीं करता, चाहे `--no-solve` या options का आंशिक set उपयोग हो। `--deep-analysis` timeline, root-cause, debug-output और upstream-reporting guidance प्रदान करता है, इसलिए `fix` matching paragraphs को conditionally छोड़ता है ताकि वे दो बार न पहुँचें।
 
 यह omission केवल इसलिए सुरक्षित है क्योंकि `/solve` root-cause संबंधी शब्दावली **केवल Bug type के issues के लिए** उत्सर्जित करता है — यही कारण है कि `fix` issue को Bug के रूप में बनाता है। issue types संगठन स्तर पर और labels repository स्तर पर configure होते हैं, इसलिए यदि target repository इनमें से किसी को स्वीकार नहीं करता, तब भी issue उनके बिना बना दिया जाता है।
 
-कोई paragraph तभी हटाया जाता है जब उसे प्रदान करने वाले _सभी_ options सक्षम हों, इसलिए कोई भी निर्देश चुपचाप नहीं खोता।
+किसी भी option combination से पुराना paragraph वापस नहीं आता; `--development-log` ही supported collection workflow है। बाकी conditional omissions को `--deep-analysis` नियंत्रित करता है।
 
 ### Language → Template Mapping
 

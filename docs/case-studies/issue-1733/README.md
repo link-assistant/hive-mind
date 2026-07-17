@@ -98,6 +98,12 @@ The PR review comment of 2026-07-16 asked to redo the analysis against the
 updated description, and to apply every change across the whole repository — the
 origin of the Telegram `/fix` command in §5 (R25).
 
+A follow-up review on 2026-07-17 clarified the omission rule: the upstream
+case-study paragraph is not a fallback for partial options or `--no-solve`.
+It represents a retired folder convention that conflicts with
+`--development-log`, so `/fix` must never generate it. The implementation and
+tests now treat `--development-log` as the sole supported replacement.
+
 ---
 
 ## 3. Enumerated Requirements
@@ -110,7 +116,7 @@ origin of the Telegram `/fix` command in §5 (R25).
 | R4  | List those runs in the auto-created issue                                                       | `buildRunsSection` in `src/fix.ci-cd.lib.mjs`                                                                                     |
 | R5  | Use the standard prompt/template from web-capture#139                                           | `buildStandardPromptParagraphs` in `src/fix.ci-cd.lib.mjs`                                                                        |
 | R5a | Use the web-capture#139 **title** exactly (as updated)                                          | `CI_CD_ISSUE_TITLE`                                                                                                               |
-| R5b | Use the description exactly, **omitting** parts `--development-log` / `--deep-analysis` provide | `providedBy` tags + `buildStandardPrompt` filter                                                                                  |
+| R5b | Use the description exactly, **omitting** parts `--development-log` / `--deep-analysis` provide | Retired case-study paragraph excluded; remaining `providedBy` tags + `buildStandardPrompt` filter                                 |
 | R6  | Sort/select CI-CD template links by detected languages                                          | `mapLanguagesToTemplates` + `buildTemplatesSection`                                                                               |
 | R7  | After creating the issue, chain into solving                                                    | `main()` in `src/fix.mjs` spawns `solve.mjs`                                                                                      |
 | R8  | Behave like `/solve --development-log --deep-analysis --auto-merge`                             | `buildSolveArgs` injects all three (deduped)                                                                                      |
@@ -147,8 +153,9 @@ origin of the Telegram `/fix` command in §5 (R25).
 - **`--development-log` / `--deep-analysis` prompt builders** —
   `src/development-log.lib.mjs::buildDevelopmentLogPrompt()` and
   `src/deep-analysis.lib.mjs::buildDeepAnalysisPrompt()` are the authority on
-  what those two options inject into the AI prompt. The `providedBy` tags in
-  `buildStandardPromptParagraphs` are derived from reading them, so R5b is
+  what those options inject into the AI prompt. The legacy case-study paragraph
+  is excluded outright because `--development-log` supersedes it; the remaining
+  `providedBy` tags are derived from `buildDeepAnalysisPrompt`, so R5b is
   grounded in the real prompt text rather than an assumption (§6).
 - **Option passthrough** — `src/hive.mjs` already forwards solve options the
   wrapper does not consume. `/fix` mirrors the spirit with a simpler
@@ -213,14 +220,13 @@ CI/CD runs on `<branch>`") so the generated issue stays actionable.
   no repository suffix — the issue is created in the target repository itself,
   so the suffix would be noise. A test pins the exact string, which is what
   makes a future upstream re-title a visible failure rather than a silent drift.
-- **R5b:** the description is modelled as an **ordered list of tagged
-  paragraphs** (`buildStandardPromptParagraphs`), each carrying `providedBy` —
-  the set of `/solve` options that already inject an equivalent instruction.
-  `buildStandardPrompt` drops a paragraph only when **every** option in its
-  `providedBy` is passed (`.every()`), never when just one is. Concretely:
-  - the case-study paragraph needs _both_ `--development-log` (collection) and
-    `--deep-analysis` (analysis), so `/fix --no-solve` or a caller that forwards
-    only one of the two keeps it;
+- **R5b:** the supported description is modelled as an **ordered list of tagged
+  paragraphs** (`buildStandardPromptParagraphs`). The retired case-study
+  paragraph is not represented at all: `--development-log` is its replacement,
+  including for `--no-solve` and partial-option callers. Each remaining
+  conditional paragraph carries `providedBy`, the set of `/solve` options that
+  inject an equivalent instruction. `buildStandardPrompt` drops it when every
+  option in that set is passed. Concretely:
   - the debug-output and report-upstream paragraphs are provided by
     `--deep-analysis` alone;
   - the template-comparison, best-practices-link and keep-working paragraphs are
@@ -270,22 +276,13 @@ subsystem is required.
 
 Design decisions worth recording:
 
-- **The omission is tag-driven, not textual.** Nothing greps the issue body for
-  sentences to remove; paragraphs are authored once with `providedBy` metadata
-  and filtered. Adding a `/solve` option that subsumes another paragraph is a
-  one-line tag change, and the `.every()` rule means a partial overlap can never
-  silently delete an instruction.
-- **The omission is _not_ perfectly lossless — by design.** `--development-log`
-  collects into `./dev/log/issues/{id}/pulls/{pr}`
-  (`buildDevelopmentLogDirectory`), not into the `./docs/case-studies/issue-{id}`
-  folder the template's paragraph names; that destination comes from a different
-  option, `--prompt-case-studies`. Dropping the paragraph therefore moves the
-  collected data to the development-log directory, which is the current
-  convention (issue #1596) and the reason the option exists. The consequence to
-  be aware of: the generated body is written for a `/solve` run that _has_ those
-  flags — `/fix` always passes them — and re-solving that issue with a plain
-  `/solve` would collect nothing. `/fix --no-solve` keeps the paragraph, so the
-  manual path printed for the user stays self-contained.
+- **The omission is structural, then tag-driven.** Nothing greps the issue body
+  for sentences to remove. The retired case-study paragraph has no constant or
+  paragraph entry and therefore cannot be restored by any option combination.
+  Supported conditional paragraphs are authored once with `providedBy` metadata
+  and filtered. `--development-log` consistently collects into
+  `./dev/log/issues/{id}/pulls/{pr}` (`buildDevelopmentLogDirectory`), the sole
+  current convention established by issue #1596.
 - **Bug issue type is what makes the deep-analysis omission valid.**
   `buildDeepAnalysisPrompt` only emits the root-cause / debug-output /
   report-upstream instructions when the issue type is Bug (`isBugIssueType`).

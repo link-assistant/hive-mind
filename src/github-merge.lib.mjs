@@ -20,6 +20,7 @@ import { parseGitHubUrl } from './github.lib.mjs';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
+import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -48,6 +49,11 @@ export { syncReadyTags, getLinkedPRsFromTimeline, READY_LABEL };
 // separate module to keep this file under the 1500-line limit.
 import { closeLinkedIssueIfNotAutoClosed } from './github-merge-issue-close.lib.mjs';
 export { closeLinkedIssueIfNotAutoClosed };
+
+// Issue #2072: the long CI polling loops live in their own module (file size limit).
+// Re-exported here so existing importers keep working.
+import { waitForCI, waitForBranchCI } from './github-merge-ci-wait.lib.mjs';
+export { waitForCI, waitForBranchCI };
 
 /**
  * Check if 'ready' label exists in repository
@@ -446,15 +452,19 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @param {string} repo - Repository name
  * @param {number} prNumber - Pull request number
  * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{mergeable: boolean, mergeableState?: string|null, mergeStateStatus?: string|null, reason: string|null, terminal?: boolean}>}
+ * @param {Object} [options] - Extra options
+ * @param {Function} [options.isCancelled] - Issue #2072: polled during the retry delay so a cancel aborts the wait
+ * @returns {Promise<{mergeable: boolean, mergeableState?: string|null, mergeStateStatus?: string|null, reason: string|null, terminal?: boolean, cancelled?: boolean}>}
  */
-export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
+export async function checkPRMergeable(owner, repo, prNumber, verbose = false, options = {}) {
+  const { isCancelled = null } = options;
   // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
   // 'UNKNOWN', it means GitHub hasn't calculated the merge state yet. Retry a few times.
   const MAX_UNKNOWN_RETRIES = 3;
   const UNKNOWN_RETRY_DELAY_MS = 5000;
 
   for (let attempt = 0; attempt < MAX_UNKNOWN_RETRIES; attempt++) {
+    if (isCancelled?.()) return { mergeable: false, reason: 'Operation was cancelled', cancelled: true };
     try {
       const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
       const pr = JSON.parse(stdout.trim());
@@ -466,7 +476,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false) {
           if (verbose) {
             console.log(`[VERBOSE] /merge: PR #${prNumber} mergeability is UNKNOWN (attempt ${attempt + 1}/${MAX_UNKNOWN_RETRIES}), retrying in ${UNKNOWN_RETRY_DELAY_MS / 1000}s...`);
           }
-          await new Promise(resolve => setTimeout(resolve, UNKNOWN_RETRY_DELAY_MS));
+          await cancellableSleep(UNKNOWN_RETRY_DELAY_MS, isCancelled);
           continue;
         }
         // All retries exhausted, still UNKNOWN - treat as not mergeable
@@ -605,95 +615,6 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
 }
 
 /**
- * Wait for CI/CD to complete with polling
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - Pull request number
- * @param {Object} options - Wait options
- * @param {number} options.timeout - Maximum wait time in ms (default: 30 minutes)
- * @param {number} options.pollInterval - Polling interval in ms (default: 30 seconds)
- * @param {Function} options.onStatusUpdate - Callback for status updates
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{success: boolean, status: string, error: string|null}>}
- */
-export async function waitForCI(owner, repo, prNumber, options = {}, verbose = false) {
-  const {
-    timeout = 30 * 60 * 1000,
-    pollInterval = 30 * 1000,
-    onStatusUpdate = null,
-    // Issue #1269: Add timeout for callback to prevent infinite blocking
-    callbackTimeout = 60 * 1000, // 1 minute max for callback
-    isCancelled = null, // Issue #1407: Support early exit when cancellation is requested
-  } = options;
-
-  const startTime = Date.now();
-
-  while (Date.now() - startTime < timeout) {
-    // Issue #1407: Check for cancellation before each poll to allow early exit
-    if (isCancelled?.()) return { success: false, status: 'cancelled', error: 'Operation was cancelled' };
-
-    let ciStatus;
-    try {
-      ciStatus = await checkPRCIStatus(owner, repo, prNumber, verbose);
-    } catch (error) {
-      // Issue #1269: Log and continue on CI check errors instead of crashing
-      console.error(`[ERROR] /merge: Error checking CI status for PR #${prNumber}: ${error.message}`);
-      verbose && console.error(`[VERBOSE] /merge: CI check error details:`, error);
-      // Wait and retry
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      continue;
-    }
-
-    if (onStatusUpdate) {
-      // Issue #1269: Wrap callback with timeout to prevent infinite blocking; #1346: capture and clear timeout handle to prevent dangling timer
-      try {
-        let callbackTimeoutId;
-        await Promise.race([
-          onStatusUpdate(ciStatus),
-          new Promise((_, reject) => {
-            callbackTimeoutId = setTimeout(() => reject(new Error(`Callback timeout after ${callbackTimeout}ms`)), callbackTimeout);
-          }),
-        ]).finally(() => clearTimeout(callbackTimeoutId));
-      } catch (callbackError) {
-        // Issue #1269: Log callback errors but continue processing
-        console.error(`[ERROR] /merge: Status update callback failed for PR #${prNumber}: ${callbackError.message}`);
-        verbose && console.error(`[VERBOSE] /merge: Callback error details:`, callbackError);
-        // Continue processing even if callback fails - don't let UI issues block merging
-      }
-    }
-
-    if (ciStatus.status === 'success') {
-      return { success: true, status: 'success', error: null };
-    }
-
-    if (ciStatus.status === 'failure') {
-      return { success: false, status: 'failure', error: 'CI checks failed' };
-    }
-
-    if (ciStatus.status === 'terminal_github_entity_error') {
-      return {
-        success: false,
-        status: 'terminal_github_entity_error',
-        error: ciStatus.error || 'GitHub repository, pull request, issue, or branch is no longer accessible',
-      };
-    }
-
-    if (ciStatus.status === 'pending') {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: Waiting for CI... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`);
-      }
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      continue;
-    }
-
-    // Unknown status - wait and retry
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-  }
-
-  return { success: false, status: 'timeout', error: 'CI check timeout exceeded' };
-}
-
-/**
  * Parse and validate a repository URL for the merge command
  * @param {string} url - Repository URL
  * @returns {{valid: boolean, owner: string|null, repo: string|null, error: string|null}}
@@ -779,109 +700,6 @@ export async function getActiveBranchRuns(owner, repo, branch = 'main', verbose 
     runs,
     hasActiveRuns: runs.length > 0,
     count: runs.length,
-  };
-}
-
-/**
- * Wait for all active workflow runs on a branch to complete
- * Issue #1307: Ensures all CI runs on target branch are complete before merging
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} branch - Branch name (default: main)
- * @param {Object} options - Wait options
- * @param {number} options.timeout - Maximum wait time in ms (default: 45 minutes)
- * @param {number} options.pollInterval - Polling interval in ms (default: 30 seconds)
- * @param {Function} options.onStatusUpdate - Callback for status updates
- * @param {boolean} verbose - Whether to log verbose output
- * @returns {Promise<{success: boolean, waitedForRuns: boolean, completedRuns: number, error: string|null}>}
- */
-export async function waitForBranchCI(owner, repo, branch = 'main', options = {}, verbose = false) {
-  const { timeout = 45 * 60 * 1000, pollInterval = 30 * 1000, onStatusUpdate = null, isCancelled = null } = options;
-
-  const startTime = Date.now();
-  let totalWaitedRuns = 0;
-
-  if (verbose) {
-    console.log(`[VERBOSE] /merge: Checking for active CI runs on ${owner}/${repo} branch ${branch}...`);
-  }
-
-  while (Date.now() - startTime < timeout) {
-    if (isCancelled?.()) return { success: false, waitedForRuns: totalWaitedRuns > 0, completedRuns: totalWaitedRuns, error: 'Operation was cancelled' };
-    let activeRuns;
-    try {
-      activeRuns = await getActiveBranchRuns(owner, repo, branch, verbose);
-    } catch (error) {
-      // Log and continue on errors
-      console.error(`[ERROR] /merge: Error checking branch CI: ${error.message}`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
-      continue;
-    }
-
-    if (onStatusUpdate) {
-      try {
-        await onStatusUpdate({
-          hasActiveRuns: activeRuns.hasActiveRuns,
-          count: activeRuns.count,
-          runs: activeRuns.runs,
-          elapsedMs: Date.now() - startTime,
-        });
-      } catch (callbackError) {
-        // Log callback errors but continue
-        console.error(`[ERROR] /merge: Status update callback failed: ${callbackError.message}`);
-      }
-    }
-
-    if (!activeRuns.hasActiveRuns) {
-      if (verbose) {
-        console.log(`[VERBOSE] /merge: No active CI runs on ${branch} branch. Ready to proceed.`);
-      }
-      return {
-        success: true,
-        waitedForRuns: totalWaitedRuns > 0,
-        completedRuns: totalWaitedRuns,
-        error: null,
-      };
-    }
-
-    totalWaitedRuns = Math.max(totalWaitedRuns, activeRuns.count);
-
-    if (verbose) {
-      const elapsedSec = Math.round((Date.now() - startTime) / 1000);
-      console.log(`[VERBOSE] /merge: Waiting for ${activeRuns.count} active runs on ${branch}... (${elapsedSec}s elapsed)`);
-    }
-
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
-  }
-
-  // Timeout reached
-  // Issue #1722: if the final check throws, do NOT silently report "ready".
-  // Treat it the same as still-active (force a timeout failure), so /merge
-  // waits/retries instead of merging on top of a still-running CI run.
-  let finalCheck;
-  try {
-    finalCheck = await getActiveBranchRuns(owner, repo, branch, verbose);
-  } catch (error) {
-    return {
-      success: false,
-      waitedForRuns: true,
-      completedRuns: totalWaitedRuns,
-      error: `Timeout reached and final CI check failed on ${branch}: ${error.message}`,
-    };
-  }
-  if (finalCheck.hasActiveRuns) {
-    return {
-      success: false,
-      waitedForRuns: true,
-      completedRuns: totalWaitedRuns - finalCheck.count,
-      error: `Timeout waiting for ${finalCheck.count} CI runs on ${branch} branch`,
-    };
-  }
-
-  return {
-    success: true,
-    waitedForRuns: totalWaitedRuns > 0,
-    completedRuns: totalWaitedRuns,
-    error: null,
   };
 }
 

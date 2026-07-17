@@ -12,6 +12,7 @@ import { getWorkflowRunsForSha } from './github-merge.lib.mjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 
 const execRaw = promisify(execCallback);
 // Issue #1726: every gh call must be rate-limit safe.
@@ -54,7 +55,7 @@ export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = 
       runs = await getWorkflowRunsForSha(owner, repo, sha, verbose);
     } catch (error) {
       console.error(`[ERROR] /merge: Error checking commit CI: ${error.message}`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await cancellableSleep(pollInterval, isCancelled);
       continue;
     }
 
@@ -71,7 +72,7 @@ export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = 
       if (verbose) {
         console.log(`[VERBOSE] /merge: No CI runs yet for commit ${sha.substring(0, 7)} (attempt ${noRunsIterations}/${MAX_NO_RUNS_ITERATIONS}). Waiting...`);
       }
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await cancellableSleep(pollInterval, isCancelled);
       continue;
     }
 
@@ -134,7 +135,13 @@ export async function waitForCommitCI(owner, repo, sha, options = {}, verbose = 
       console.log(`[VERBOSE] /merge: Waiting for ${inProgressRuns.length} CI run(s) to complete... (${elapsedSec}s elapsed)`);
     }
 
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    await cancellableSleep(pollInterval, isCancelled);
+  }
+
+  // Issue #2072: a cancel that lands while the timeout is expiring must still report
+  // 'cancelled' rather than falling through to an extra API round-trip below.
+  if (isCancelled?.()) {
+    return { success: false, status: 'cancelled', runs: [], failedRuns: [], error: 'Operation was cancelled' };
   }
 
   // Timeout reached

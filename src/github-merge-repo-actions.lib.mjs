@@ -13,6 +13,7 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { cancellableSleep } from './interruptible-sleep.lib.mjs';
 const execRaw = promisify(execCallback);
 // Issue #1722: raise exec maxBuffer above Node's 1 MB default for paginated gh
 // API responses (workflow runs can easily exceed that on busy repos).
@@ -70,15 +71,21 @@ export async function getAllActiveRepoRuns(owner, repo, verbose = false) {
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {Object} options - Wait options (timeout, pollInterval, onStatusUpdate)
+ * @param {Function} [options.isCancelled] - Issue #2072: polled during the poll delay so a
+ *   cancel (or SIGINT/SIGTERM) aborts the wait instead of sleeping out a full 5-minute interval
  * @param {boolean} verbose - Whether to log verbose output
  * @returns {Promise<{success: boolean, waitedForRuns: boolean, timedOut: boolean, remainingRuns: Array}>}
  */
 export async function waitForAllRepoActions(owner, repo, options = {}, verbose = false) {
-  const { timeout = 45 * 60 * 1000, pollInterval = 5 * 60 * 1000, onStatusUpdate = null } = options;
+  const { timeout = 45 * 60 * 1000, pollInterval = 5 * 60 * 1000, onStatusUpdate = null, isCancelled = null } = options;
   const startTime = Date.now();
   let peakRunCount = 0;
 
   while (Date.now() - startTime < timeout) {
+    // Issue #2072: no stage of the merge flow may hold up a cancel.
+    if (isCancelled?.()) {
+      return { success: false, waitedForRuns: peakRunCount > 0, timedOut: false, cancelled: true, remainingRuns: [] };
+    }
     let active;
     try {
       active = await getAllActiveRepoRuns(owner, repo, verbose);
@@ -86,7 +93,7 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
       // Issue #1722: do not silently treat fetch errors as "no active runs".
       // Log and retry on the next poll instead.
       console.error(`[ERROR] repo-actions: Error checking repo CI: ${error.message}`);
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      await cancellableSleep(pollInterval, isCancelled);
       continue;
     }
     if (onStatusUpdate) {
@@ -100,7 +107,11 @@ export async function waitForAllRepoActions(owner, repo, options = {}, verbose =
       return { success: true, waitedForRuns: peakRunCount > 0, timedOut: false, remainingRuns: [] };
     }
     peakRunCount = Math.max(peakRunCount, active.count);
-    await new Promise(resolve => setTimeout(resolve, pollInterval));
+    await cancellableSleep(pollInterval, isCancelled);
+  }
+  // Issue #2072: a cancel landing as the timeout expires must not trigger another API round-trip.
+  if (isCancelled?.()) {
+    return { success: false, waitedForRuns: peakRunCount > 0, timedOut: false, cancelled: true, remainingRuns: [] };
   }
   // Issue #1722: if the timeout-final check throws, surface that as an error
   // rather than reporting "no remaining runs".

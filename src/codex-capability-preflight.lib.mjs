@@ -173,12 +173,15 @@ const replaceWithRelativeSymlink = async ({ source, target }) => {
   await fs.symlink(path.relative(path.dirname(target), source), target, 'dir');
 };
 
-const copyIfPresent = async (source, target) => {
+const syncFileIfPresent = async (source, target) => {
   try {
     await fs.copyFile(source, target);
     return true;
   } catch (error) {
-    if (error.code === 'ENOENT') return false;
+    if (error.code === 'ENOENT') {
+      await fs.rm(target, { force: true });
+      return false;
+    }
     throw error;
   }
 };
@@ -207,14 +210,16 @@ const syncScopedConfig = async ({ baseConfigPath, scopedConfigPath }) => {
 const prepareScopedCodexHome = async ({ baseCodexHome, codexHome }) => {
   await fs.mkdir(codexHome, { recursive: true });
   await syncScopedConfig({ baseConfigPath: path.join(baseCodexHome, 'config.toml'), scopedConfigPath: path.join(codexHome, 'config.toml') });
-  await copyIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
-  await copyIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
+  await syncFileIfPresent(path.join(baseCodexHome, 'auth.json'), path.join(codexHome, 'auth.json'));
+  await syncFileIfPresent(path.join(baseCodexHome, 'installation_id'), path.join(codexHome, 'installation_id'));
 
   const marketplaceSource = path.join(baseCodexHome, '.tmp', 'plugins');
+  const marketplaceSha = path.join(baseCodexHome, '.tmp', 'plugins.sha');
   try {
     await fs.access(marketplaceSource);
+    await fs.access(marketplaceSha);
     await replaceWithRelativeSymlink({ source: marketplaceSource, target: path.join(codexHome, '.tmp', 'plugins') });
-    await copyIfPresent(path.join(baseCodexHome, '.tmp', 'plugins.sha'), path.join(codexHome, '.tmp', 'plugins.sha'));
+    await fs.copyFile(marketplaceSha, path.join(codexHome, '.tmp', 'plugins.sha'));
   } catch {
     throw new CodexCapabilityPreflightError(`The operator Codex marketplace snapshot is unavailable at ${marketplaceSource}. ` + `Run 'codex plugin list --available --json' once in the operator container, then retry.`);
   }

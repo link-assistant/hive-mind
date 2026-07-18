@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.8.2
+
+### Patch Changes
+
+- 44202ff: Explain invalid pull request base/head conflicts before attempting to retarget the pull request.
+
 ## 2.8.1
 
 ### Patch Changes

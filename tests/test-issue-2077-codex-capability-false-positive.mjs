@@ -23,8 +23,7 @@ import assert from 'node:assert/strict';
 import { CodexCapabilityPreflightError, detectRequiredCodexCapabilities, isCapabilityName, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 
 // 1. The exact line from suenot/marketmaker-images#81 that broke the run.
-const heroPromptLine =
-  '**hero** — A premium dark abstract contrasting a slippage constant with a slippage curve. An order sliding along the curve pays a cost that clearly depends on where it sits. Deep navy-to-black, glassmorphism, glowing particles, depth of field, subtle grid. 16:9. No text.';
+const heroPromptLine = '**hero** — A premium dark abstract contrasting a slippage constant with a slippage curve. An order sliding along the curve pays a cost that clearly depends on where it sits. Deep navy-to-black, glassmorphism, glowing particles, depth of field, subtle grid. 16:9. No text.';
 
 const heroDetection = detectRequiredCodexCapabilities(heroPromptLine);
 assert.deepEqual(heroDetection.skills, [], 'an aspect ratio is not an Agent Skill');
@@ -48,14 +47,14 @@ assert.deepEqual({ plugins: acceptance.plugins, skills: acceptance.skills }, { p
 for (const token of ['16:9', '4:3', '9:30', '3000', '100', '20']) {
   assert.equal(isCapabilityName(token), false, `${token} must not be treated as a capability name`);
 }
-for (const line of [
-  'The service must listen on localhost:3000 before the check runs.',
-  'You need to pay $100 for the required credits.',
-  'Install node@20 and use the toolchain.',
-  'Contact ops@example.com if the required build fails.',
-  'The deploy must finish by 9:30 tomorrow.',
-  'Note: the required output is a PNG.',
-]) {
+
+// The Agent Skills specification permits a leading digit, so validation must be
+// no stricter than the spec: rejection is driven by the absence of any letter,
+// not by the first character.
+for (const token of ['3d-rendering', 'superpowers:2fa-setup', 'k9s@openai-curated', 'plugin_name@market_place']) {
+  assert.equal(isCapabilityName(token), true, `${token} is a legal capability name`);
+}
+for (const line of ['The service must listen on localhost:3000 before the check runs.', 'You need to pay $100 for the required credits.', 'Install node@20 and use the toolchain.', 'Contact ops@example.com if the required build fails.', 'The deploy must finish by 9:30 tomorrow.', 'Note: the required output is a PNG.']) {
   const result = detectRequiredCodexCapabilities(line);
   assert.deepEqual({ plugins: result.plugins, skills: result.skills }, { plugins: [], skills: [] }, `no capability should be inferred from: ${line}`);
 }
@@ -71,11 +70,7 @@ assert(genuine.evidence.length >= 2, 'accepted capabilities record their source 
 
 // 4. An unresolvable requirement degrades to a warning instead of aborting.
 const catalog = { installed: [], available: [] };
-await assert.rejects(
-  () => resolveRequiredPlugins({ requirements: { plugins: ['missing@openai-curated'], skills: [] }, catalog }),
-  CodexCapabilityPreflightError,
-  'the resolver still reports an actionable error to its caller (issue #2074)'
-);
+await assert.rejects(() => resolveRequiredPlugins({ requirements: { plugins: ['missing@openai-curated'], skills: [] }, catalog }), CodexCapabilityPreflightError, 'the resolver still reports an actionable error to its caller (issue #2074)');
 
 const logs = [];
 const runCommand = async ({ command, args }) => {

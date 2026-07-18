@@ -22,12 +22,20 @@ const PLUGIN_SELECTOR = /\b([a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*(?:-remote)?)\b
 const NAMESPACED_SKILL = /\b([a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*)\b/gi;
 const EXPLICIT_BARE_SKILL = /\$([a-z0-9][a-z0-9-]*)|`([a-z0-9][a-z0-9-]*)`\s+(?:agent\s+)?skill/gi;
 
-// Issue #2077: Codex plugin and Agent Skill names are lowercase kebab-case
-// identifiers that always begin with a letter. Requiring that shape rejects the
-// numeric prose tokens the requirement regexes otherwise capture — aspect
-// ratios (`16:9`), clock times (`9:30`), host ports (`localhost:3000`), version
-// selectors (`node@20`) and currency amounts (`$100`).
-const CAPABILITY_TOKEN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+// Issue #2077: a capability name must contain at least one letter.
+//
+// The Agent Skills specification (agentskills.io/specification) allows a
+// leading digit — `3d-rendering` is a legal skill name — so requiring a leading
+// letter would be stricter than the spec. Requiring only that *some* letter is
+// present stays spec-compliant while rejecting the purely numeric prose tokens
+// the requirement regexes otherwise capture: aspect ratios (`16:9`), clock
+// times (`9:30`), host ports (`localhost:3000`), version selectors (`node@20`)
+// and currency amounts (`$100`).
+//
+// Charset follows the spec for skills (`a-z`, `0-9`, `-`) plus the underscore
+// that codex-rs `validate_plugin_segment` accepts for plugin and marketplace
+// segments.
+const CAPABILITY_TOKEN = /^(?=[a-z0-9_-]*[a-z])[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/u;
 
 // Prose and markdown routinely produce `word:word` and `$word` tokens that are
 // never capability references. Excluding them keeps a heuristic scan of free

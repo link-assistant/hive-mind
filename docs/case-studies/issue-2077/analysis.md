@@ -132,12 +132,20 @@ Ruled out from the log, so that this is not re-investigated later:
 A shared `isCapabilityName` predicate now gates every extraction:
 
 ```js
-const CAPABILITY_TOKEN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+const CAPABILITY_TOKEN = /^(?=[a-z0-9_-]*[a-z])[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/u;
 ```
 
 applied to bare names and to _both halves_ of a qualified `name:skill` or
-`plugin@marketplace` reference. A token must start with a letter, so every row in
-the false-positive table above is rejected. A `PROSE_TOKENS` blocklist
+`plugin@marketplace` reference. The rule is **"must contain at least one
+letter"**, which rejects every row in the false-positive table above — each is
+purely numeric on at least one side of its separator.
+
+A first draft required a _leading_ letter, which research showed to be stricter
+than the Agent Skills specification: a leading digit is legal, so `3d-rendering`
+is a valid skill name and would have been wrongly rejected. See
+[research.md](research.md) §1 for the charset citations behind the final rule.
+
+A `PROSE_TOKENS` blocklist
 additionally drops markdown and prose noise (`note:`, `warning:`, `see:`, `$path`,
 `$home`, …), subsuming the previous ad-hoc `['agent','codex','required','the']`
 list. The plugin selector regex gained `(?!\.[a-z])` so email addresses and

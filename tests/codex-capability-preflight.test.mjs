@@ -23,10 +23,9 @@ The required \`pnpm\` command is a dependency, not an Agent Skill.
 `;
 
 assert.equal(normalizePluginSelector('superpowers@openai-curated-remote'), 'superpowers@openai-curated');
-assert.deepEqual(detectRequiredCodexCapabilities(issueText), {
-  plugins: ['superpowers@openai-curated'],
-  skills: ['superpowers:test-driven-development', 'superpowers:using-superpowers'],
-});
+const detected = detectRequiredCodexCapabilities(issueText);
+assert.deepEqual(detected.plugins, ['superpowers@openai-curated']);
+assert.deepEqual(detected.skills, ['superpowers:test-driven-development', 'superpowers:using-superpowers']);
 
 const baseHome = '/persistent/.codex';
 const statePath = buildCodexCapabilityStatePath({ baseCodexHome: baseHome, owner: 'CEHR2005', repo: 'GCS-TS' });

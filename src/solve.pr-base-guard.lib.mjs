@@ -204,6 +204,40 @@ export async function getPullRequestBaseBranch({ owner, repo, prNumber, $, log }
   return baseBranch;
 }
 
+async function getPullRequestBranchRange({ owner, repo, prNumber, $, log }) {
+  if (typeof $ !== 'function') {
+    throw new Error('Cannot verify pull request branches without a command runner');
+  }
+
+  const result = await ghWithRateLimitRetry(() => $`gh pr view ${prNumber} --repo ${owner}/${repo} --json baseRefName,headRefName`, {
+    label: 'gh pr view baseRefName,headRefName',
+    log,
+  });
+  if (result.code !== 0) {
+    const details = commandOutput(result) || 'unknown error';
+    throw new Error(`Could not verify pull request branches for #${prNumber}: ${details}`);
+  }
+
+  let branchRange;
+  try {
+    branchRange = JSON.parse(String(result.stdout || '').trim());
+  } catch {
+    throw new Error(`Could not verify pull request branches for #${prNumber}: gh returned invalid JSON`);
+  }
+
+  const baseBranch = normalizeBranchName(branchRange?.baseRefName);
+  const headBranch = normalizeBranchName(branchRange?.headRefName);
+  if (!baseBranch || !headBranch) {
+    throw new Error(`Could not verify pull request branches for #${prNumber}: gh returned an empty baseRefName or headRefName`);
+  }
+
+  return { baseBranch, headBranch };
+}
+
+function buildBaseEqualsHeadBranchMessage({ prNumber, expectedBaseBranch, currentBaseBranch }) {
+  return `Invalid --base-branch '${expectedBaseBranch}' for PR #${prNumber}: it is the pull request's head branch (the source/work branch), so it cannot also be the base branch (the target branch). The pull request currently targets '${currentBaseBranch}'. Rerun with --base-branch ${currentBaseBranch} to preserve that target, choose another target branch, or omit --base-branch to keep the existing pull request target. Manual intervention is required; no pull request changes were made.`;
+}
+
 export async function ensurePullRequestBaseBranch({ owner, repo, prNumber, argv = {}, log = async () => {}, formatAligned = fallbackFormatAligned, $, onMismatch = 'restore', operation = 'verify' }) {
   const expectedBaseBranch = getExpectedPullRequestBaseBranch({ argv });
   if (!expectedBaseBranch) {
@@ -214,7 +248,7 @@ export async function ensurePullRequestBaseBranch({ owner, repo, prNumber, argv 
     return { checked: false, restored: false, reason: 'missing_pull_request_context' };
   }
 
-  const currentBaseBranch = await getPullRequestBaseBranch({ owner, repo, prNumber, $, log });
+  const { baseBranch: currentBaseBranch, headBranch } = await getPullRequestBranchRange({ owner, repo, prNumber, $, log });
   if (currentBaseBranch === expectedBaseBranch) {
     await log(formatAligned('🎯', 'Base branch locked:', `${expectedBaseBranch} (verified)`, 2), { verbose: true });
     return {
@@ -226,6 +260,16 @@ export async function ensurePullRequestBaseBranch({ owner, repo, prNumber, argv 
   }
 
   await log(formatAligned('⚠️', 'Base branch changed:', `PR #${prNumber} targets ${currentBaseBranch}, expected ${expectedBaseBranch}`, 2), { level: 'warning' });
+
+  if (headBranch === expectedBaseBranch) {
+    throw new Error(
+      buildBaseEqualsHeadBranchMessage({
+        prNumber,
+        expectedBaseBranch,
+        currentBaseBranch,
+      })
+    );
+  }
 
   if (onMismatch === 'throw' || onMismatch === 'fail') {
     throw new Error(
@@ -249,7 +293,7 @@ export async function ensurePullRequestBaseBranch({ owner, repo, prNumber, argv 
     throw new Error(`Could not restore pull request #${prNumber} base branch to ${expectedBaseBranch}: ${details}`);
   }
 
-  const restoredBaseBranch = await getPullRequestBaseBranch({ owner, repo, prNumber, $, log });
+  const { baseBranch: restoredBaseBranch } = await getPullRequestBranchRange({ owner, repo, prNumber, $, log });
   if (restoredBaseBranch !== expectedBaseBranch) {
     throw new Error(`Pull request #${prNumber} still targets ${restoredBaseBranch} after attempting to restore ${expectedBaseBranch}`);
   }

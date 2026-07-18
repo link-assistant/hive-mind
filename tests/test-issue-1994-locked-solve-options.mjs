@@ -168,7 +168,7 @@ test('base branch intervention message tells the agent to continue finishing the
 });
 
 await asyncTest('ensurePullRequestBaseBranch restores a retargeted pull request base', async () => {
-  const $ = createFakeDollar([{ stdout: 'master\n' }, { stdout: '' }, { stdout: 'create/new-concept\n' }]);
+  const $ = createFakeDollar([{ stdout: '{"baseRefName":"master","headRefName":"issue-107-a16883408ed8"}\n' }, { stdout: '' }, { stdout: '{"baseRefName":"create/new-concept","headRefName":"issue-107-a16883408ed8"}\n' }]);
   const logs = [];
 
   const result = await ensurePullRequestBaseBranch({
@@ -181,15 +181,34 @@ await asyncTest('ensurePullRequestBaseBranch restores a retargeted pull request 
     $,
   });
 
-  nodeAssert.deepEqual($.commands, ['gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName --jq .baseRefName', 'gh pr edit 108 --repo Payel-git-ol/Octra --base create/new-concept', 'gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName --jq .baseRefName']);
+  nodeAssert.deepEqual($.commands, ['gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName,headRefName', 'gh pr edit 108 --repo Payel-git-ol/Octra --base create/new-concept', 'gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName,headRefName']);
   nodeAssert.equal(result.restored, true);
   nodeAssert.equal(result.previousBaseBranch, 'master');
   nodeAssert.equal(result.currentBaseBranch, 'create/new-concept');
   nodeAssert.ok(logs.join('\n').includes('Base branch restored'));
 });
 
+await asyncTest('ensurePullRequestBaseBranch rejects a requested base that is the PR head', async () => {
+  const $ = createFakeDollar([{ stdout: '{"baseRefName":"main","headRefName":"issue-4-d90389b4efed"}\n' }]);
+
+  await nodeAssert.rejects(
+    ensurePullRequestBaseBranch({
+      owner: 'uselessgoddess',
+      repo: 'molt',
+      prNumber: 5,
+      argv: { baseBranch: 'issue-4-d90389b4efed' },
+      log: async () => {},
+      formatAligned: (icon, label, value) => `${icon} ${label} ${value}`,
+      $,
+    }),
+    /Invalid --base-branch.*issue-4-d90389b4efed.*head branch.*target branch.*main/is
+  );
+
+  nodeAssert.deepEqual($.commands, ['gh pr view 5 --repo uselessgoddess/molt --json baseRefName,headRefName']);
+});
+
 await asyncTest('ensurePullRequestBaseBranch fails clearly instead of restoring before auto-merge', async () => {
-  const $ = createFakeDollar([{ stdout: 'master\n' }]);
+  const $ = createFakeDollar([{ stdout: '{"baseRefName":"master","headRefName":"issue-107-a16883408ed8"}\n' }]);
 
   await nodeAssert.rejects(
     ensurePullRequestBaseBranch({
@@ -206,7 +225,7 @@ await asyncTest('ensurePullRequestBaseBranch fails clearly instead of restoring 
     /Cannot auto-merge PR #108 because its base branch changed to master.*--base-branch create\/new-concept/
   );
 
-  nodeAssert.deepEqual($.commands, ['gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName --jq .baseRefName']);
+  nodeAssert.deepEqual($.commands, ['gh pr view 108 --repo Payel-git-ol/Octra --json baseRefName,headRefName']);
 });
 
 await asyncTest('ensurePullRequestBaseBranch is a no-op without explicit --base-branch', async () => {

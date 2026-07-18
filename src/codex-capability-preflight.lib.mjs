@@ -16,9 +16,43 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|use)\b/i;
 const NEGATED_REQUIREMENT = /\b(?:does\s+not\s+require|not\s+required|optional)\b/i;
-const PLUGIN_SELECTOR = /\b([a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*(?:-remote)?)\b/gi;
+// `(?!\.[a-z])` keeps email addresses and hostnames (`ops@example.com`) out of
+// the plugin selector space.
+const PLUGIN_SELECTOR = /\b([a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*(?:-remote)?)\b(?!\.[a-z])/gi;
 const NAMESPACED_SKILL = /\b([a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*)\b/gi;
 const EXPLICIT_BARE_SKILL = /\$([a-z0-9][a-z0-9-]*)|`([a-z0-9][a-z0-9-]*)`\s+(?:agent\s+)?skill/gi;
+
+// Issue #2077: a capability name must contain at least one letter.
+//
+// The Agent Skills specification (agentskills.io/specification) allows a
+// leading digit — `3d-rendering` is a legal skill name — so requiring a leading
+// letter would be stricter than the spec. Requiring only that *some* letter is
+// present stays spec-compliant while rejecting the purely numeric prose tokens
+// the requirement regexes otherwise capture: aspect ratios (`16:9`), clock
+// times (`9:30`), host ports (`localhost:3000`), version selectors (`node@20`)
+// and currency amounts (`$100`).
+//
+// Charset follows the spec for skills (`a-z`, `0-9`, `-`) plus the underscore
+// that codex-rs `validate_plugin_segment` accepts for plugin and marketplace
+// segments.
+const CAPABILITY_TOKEN = /^(?=[a-z0-9_-]*[a-z])[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$/u;
+
+// Prose and markdown routinely produce `word:word` and `$word` tokens that are
+// never capability references. Excluding them keeps a heuristic scan of free
+// text from inventing requirements.
+const PROSE_TOKENS = new Set(['agent', 'caution', 'codex', 'default', 'error', 'example', 'file', 'fixme', 'format', 'home', 'http', 'https', 'id', 'important', 'input', 'key', 'line', 'name', 'nb', 'note', 'output', 'path', 'ref', 'required', 'see', 'skill', 'the', 'tip', 'todo', 'type', 'url', 'usage', 'value', 'warning']);
+
+const isCapabilityToken = value => CAPABILITY_TOKEN.test(value) && !PROSE_TOKENS.has(value);
+
+export function isCapabilityName(value) {
+  const token = String(value || '').toLowerCase();
+  const separator = /[:@]/u.exec(token);
+  if (!separator) return isCapabilityToken(token);
+  const [left, right] = [token.slice(0, separator.index), token.slice(separator.index + 1)];
+  // A qualified reference only needs its own halves to be well formed; a prose
+  // word such as `note` is meaningless alone but valid as `note:taking`.
+  return CAPABILITY_TOKEN.test(left) && CAPABILITY_TOKEN.test(right) && !PROSE_TOKENS.has(left);
+}
 
 export class CodexCapabilityPreflightError extends Error {
   constructor(message, details = {}) {
@@ -38,21 +72,30 @@ export function normalizePluginSelector(selector) {
 export function detectRequiredCodexCapabilities(text) {
   const plugins = new Set();
   const skills = new Set();
+  // Every accepted capability keeps the line it came from so `--verbose` can
+  // explain a detection instead of only reporting its consequence (issue #2077).
+  const evidence = [];
+  const rejected = [];
+
+  const accept = (target, value, line) => {
+    if (!isCapabilityName(value)) {
+      rejected.push({ capability: value, line });
+      return;
+    }
+    target.add(value);
+    evidence.push({ capability: value, line });
+  };
 
   for (const rawLine of String(text || '').split(/\r?\n/u)) {
     const line = rawLine.trim();
     if (!line || !REQUIREMENT_WORDS.test(line) || NEGATED_REQUIREMENT.test(line)) continue;
 
-    for (const match of line.matchAll(PLUGIN_SELECTOR)) plugins.add(normalizePluginSelector(match[1]));
-    for (const match of line.matchAll(NAMESPACED_SKILL)) skills.add(match[1].toLowerCase());
-
-    for (const match of line.matchAll(EXPLICIT_BARE_SKILL)) {
-      const name = (match[1] || match[2]).toLowerCase();
-      if (!['agent', 'codex', 'required', 'the'].includes(name)) skills.add(name);
-    }
+    for (const match of line.matchAll(PLUGIN_SELECTOR)) accept(plugins, normalizePluginSelector(match[1]), line);
+    for (const match of line.matchAll(NAMESPACED_SKILL)) accept(skills, match[1].toLowerCase(), line);
+    for (const match of line.matchAll(EXPLICIT_BARE_SKILL)) accept(skills, (match[1] || match[2]).toLowerCase(), line);
   }
 
-  return { plugins: [...plugins].sort(), skills: [...skills].sort() };
+  return { plugins: [...plugins].sort(), skills: [...skills].sort(), evidence, rejected };
 }
 
 const sanitizePathSegment = value => String(value || '').replace(/[^a-zA-Z0-9._-]/gu, '_');
@@ -225,7 +268,27 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome }) => {
   }
 };
 
-export async function runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir, baseCodexHome = process.env.HIVE_MIND_PARENT_CODEX_HOME || process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
+export const isCodexCapabilityStrict = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_STRICT || ''));
+
+export async function runCodexCapabilityPreflight(options = {}) {
+  const { log = async () => {}, env = process.env } = options;
+  try {
+    return await provisionCodexCapabilities(options);
+  } catch (error) {
+    if (!(error instanceof CodexCapabilityPreflightError)) throw error;
+    // Issue #2077: requirements are inferred from free-form issue prose, so a
+    // preflight miss is a guess that failed rather than proof the task cannot
+    // run. Aborting here discarded an otherwise healthy run because an aspect
+    // ratio (`16:9`) was read as a skill name. Degrade to a warning and let
+    // Codex execute with the operator's own capabilities.
+    if (isCodexCapabilityStrict(env)) throw error;
+    await log(`⚠️  Codex capability preflight skipped: ${error.message}`);
+    await log('   Continuing with the operator Codex capabilities. Set HIVE_MIND_CODEX_CAPABILITY_STRICT=1 to fail instead.');
+    return { required: false, degraded: true, error: error.message, plugins: [], codexHome: null };
+  }
+}
+
+async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, baseCodexHome = process.env.HIVE_MIND_PARENT_CODEX_HOME || process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
   if (!owner || !repo || !issueNumber) return { required: false, plugins: [], codexHome: null };
 
   // `executeToolWithBun` uses a shell expression for execution. Preflight uses
@@ -233,9 +296,15 @@ export async function runCodexCapabilityPreflight({ owner, repo, issueNumber, pr
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
   const requirementText = await readIssueRequirementText({ owner, repo, issueNumber, runCommand });
   const requirements = detectRequiredCodexCapabilities(requirementText);
+  for (const { capability, line } of requirements.rejected || []) {
+    await log(`   ⏭️  Ignored non-capability token '${capability}' from: ${line.slice(0, 160)}`, { verbose: true });
+  }
   if (requirements.plugins.length === 0 && requirements.skills.length === 0) return { required: false, plugins: [], codexHome: null };
 
   await log(`🔌 Codex capability preflight: detected ${requirements.plugins.length} plugin and ${requirements.skills.length} skill requirement(s)`);
+  for (const { capability, line } of requirements.evidence || []) {
+    await log(`   🔎 '${capability}' detected from: ${line.slice(0, 160)}`, { verbose: true });
+  }
   const baseEnv = { ...process.env, CODEX_HOME: baseCodexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
   const baseCatalogResult = await runCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
   const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
@@ -271,4 +340,4 @@ export async function runCodexCapabilityPreflight({ owner, repo, issueNumber, pr
   return { required: true, plugins, skills: requirements.skills, codexHome, baseCodexHome };
 }
 
-export default { applyCodexCapabilityEnv, detectRequiredCodexCapabilities, runCodexCapabilityPreflight };
+export default { applyCodexCapabilityEnv, detectRequiredCodexCapabilities, isCapabilityName, runCodexCapabilityPreflight };

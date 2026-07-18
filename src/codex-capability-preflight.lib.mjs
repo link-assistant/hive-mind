@@ -32,42 +32,7 @@ const CAPABILITY_TOKEN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 // Prose and markdown routinely produce `word:word` and `$word` tokens that are
 // never capability references. Excluding them keeps a heuristic scan of free
 // text from inventing requirements.
-const PROSE_TOKENS = new Set([
-  'agent',
-  'caution',
-  'codex',
-  'default',
-  'error',
-  'example',
-  'file',
-  'fixme',
-  'format',
-  'home',
-  'http',
-  'https',
-  'id',
-  'important',
-  'input',
-  'key',
-  'line',
-  'name',
-  'nb',
-  'note',
-  'output',
-  'path',
-  'ref',
-  'required',
-  'see',
-  'skill',
-  'the',
-  'tip',
-  'todo',
-  'type',
-  'url',
-  'usage',
-  'value',
-  'warning',
-]);
+const PROSE_TOKENS = new Set(['agent', 'caution', 'codex', 'default', 'error', 'example', 'file', 'fixme', 'format', 'home', 'http', 'https', 'id', 'important', 'input', 'key', 'line', 'name', 'nb', 'note', 'output', 'path', 'ref', 'required', 'see', 'skill', 'the', 'tip', 'todo', 'type', 'url', 'usage', 'value', 'warning']);
 
 const isCapabilityToken = value => CAPABILITY_TOKEN.test(value) && !PROSE_TOKENS.has(value);
 

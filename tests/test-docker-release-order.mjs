@@ -36,9 +36,23 @@ const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
 // PR docker-pr-check must (1) run the release-order contract test AND
 // (2) actually build the Docker image using @link-assistant/hive-mind@latest
 // and run the container verification script.
+// The build and verification commands live in scripts/ rather than inline in the
+// workflow, to keep release.yml under the 1500-line limit (issue #2082). The
+// contract is unchanged, so this test follows the indirection instead of trusting
+// the job name: it checks that docker-pr-check invokes each script AND that the
+// script still does the thing the job is named for. Asserting only the `bash ...`
+// line would pass against an empty script.
 assert.ok(dockerPrSection.includes('node tests/test-docker-release-order.mjs'), 'docker-pr-check should run this static release-order contract test');
-assert.ok(dockerPrSection.includes('docker build --progress=plain'), 'docker-pr-check should build the Docker image on PRs');
-assert.ok(dockerPrSection.includes('bash /verify-docker-image.sh'), 'docker-pr-check should run verify-docker-image.sh inside the built image');
+assert.ok(dockerPrSection.includes('bash scripts/docker-pr-build.sh'), 'docker-pr-check should build the Docker images on PRs');
+assert.ok(dockerPrSection.includes('bash scripts/docker-pr-verify-containers.sh'), 'docker-pr-check should verify the built containers on PRs');
+
+const dockerPrBuild = await read('scripts/docker-pr-build.sh');
+assert.ok(dockerPrBuild.includes('docker build --progress=plain'), 'docker-pr-build.sh should build the Docker image on PRs');
+assert.ok(dockerPrBuild.includes('set -euo pipefail'), 'docker-pr-build.sh should abort on the first failing command');
+
+const dockerPrVerify = await read('scripts/docker-pr-verify-containers.sh');
+assert.ok(dockerPrVerify.includes('bash /verify-docker-image.sh'), 'docker-pr-verify-containers.sh should run verify-docker-image.sh inside the built image');
+assert.ok(dockerPrVerify.includes('set -euo pipefail'), 'docker-pr-verify-containers.sh should abort on the first failing command');
 
 assert.ok(releaseYml.includes('docker-publish:\n    name: Docker Publish'), 'release workflow should keep the normal Docker publish job');
 assert.ok(releaseYml.includes('needs: [release]'), 'docker-publish should depend on the npm release job');

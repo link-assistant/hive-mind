@@ -99,7 +99,6 @@ test('When checks exist and all pass: noCiConfigured should be false', () => {
   const ciStatusResult = { status: 'success', checks: [{ name: 'CI', conclusion: 'success' }] };
 
   let noCiConfigured = false;
-  let blockers = [];
 
   // Only check for no_checks case
   if (ciStatusResult.status === 'no_checks') {

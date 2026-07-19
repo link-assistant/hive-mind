@@ -149,7 +149,6 @@ test('Feedback lines should only appear in continue mode', () => {
   let initialPromptLines = [];
   initialPromptLines.push('Please solve this issue.');
 
-  const isInitialMode = true; // Simulate initial mode
   // In initial mode, feedback lines are not added
 
   const initialPrompt = initialPromptLines.join('\n');

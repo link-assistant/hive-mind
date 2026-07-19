@@ -278,7 +278,7 @@ runTest('hive --dry-run exits without hanging', () => {
   } catch (error) {
     // Check if it timed out (exit code 124 from timeout command)
     if (error.status === 124) {
-      throw new Error('Command hung and timed out after 15 seconds');
+      throw new Error('Command hung and timed out after 15 seconds', { cause: error });
     }
     // Other exit codes are ok - we just want to ensure it doesn't hang
   }

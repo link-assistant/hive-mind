@@ -32,7 +32,7 @@ function getWorkflowJob(source, jobName) {
   const start = source.indexOf(`  ${jobName}:`);
   assert.notEqual(start, -1, `Missing workflow job: ${jobName}`);
   const tail = source.slice(start + 1);
-  const nextJob = tail.search(/\n  [A-Za-z0-9_-]+:\n/);
+  const nextJob = tail.search(/\n {2}[A-Za-z0-9_-]+:\n/);
   return nextJob === -1 ? source.slice(start) : source.slice(start, start + 1 + nextJob);
 }
 

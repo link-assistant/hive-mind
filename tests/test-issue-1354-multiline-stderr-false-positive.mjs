@@ -18,7 +18,6 @@
  * - Issue #477:  Emoji-prefixed warnings excluded from error detection
  */
 
-import { strict as assert } from 'assert';
 import { isStderrError } from '../src/claude.lib.mjs';
 
 let testsPassed = 0;

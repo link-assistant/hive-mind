@@ -76,12 +76,23 @@ const dockerPrStart = releaseYml.indexOf('  docker-pr-check:');
 const helmPrStart = releaseYml.indexOf('  # === HELM PR CHECK', dockerPrStart);
 const dockerPrSection = releaseYml.slice(dockerPrStart, helmPrStart);
 
+// The DinD build/verify commands were moved out of release.yml into scripts/ to
+// keep that file under the 1500-line limit (issue #2082). The job still supplies
+// DIND_IMAGE_NAME via env; the scripts consume it as "${DIND_IMAGE_NAME}". Assert
+// both halves of that contract — a script invocation alone would pass against an
+// empty script, and an env var alone proves nothing is built.
 assertIncludes(dockerPrSection, 'DIND_IMAGE_NAME: konard/hive-mind-dind', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'docker build --progress=plain -f Dockerfile.dind', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'build-dind-output.log', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, '${{ env.DIND_IMAGE_NAME }}:test', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'docker run --rm --privileged', '.github/workflows/release.yml');
-assertIncludes(dockerPrSection, 'bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"', '.github/workflows/release.yml');
+assertIncludes(dockerPrSection, 'bash scripts/docker-pr-build.sh', '.github/workflows/release.yml');
+assertIncludes(dockerPrSection, 'bash scripts/docker-pr-verify-containers.sh', '.github/workflows/release.yml');
+
+const dockerPrBuild = await read('scripts/docker-pr-build.sh');
+assertIncludes(dockerPrBuild, 'docker build --progress=plain -f Dockerfile.dind', 'scripts/docker-pr-build.sh');
+assertIncludes(dockerPrBuild, 'build-dind-output.log', 'scripts/docker-pr-build.sh');
+assertIncludes(dockerPrBuild, '"${DIND_IMAGE_NAME}:test"', 'scripts/docker-pr-build.sh');
+
+const dockerPrVerifyContainers = await read('scripts/docker-pr-verify-containers.sh');
+assertIncludes(dockerPrVerifyContainers, 'docker run --rm --privileged', 'scripts/docker-pr-verify-containers.sh');
+assertIncludes(dockerPrVerifyContainers, 'bash scripts/verify-dind-exec-defaults.sh "${DIND_IMAGE_NAME}:test"', 'scripts/docker-pr-verify-containers.sh');
 
 assertIncludes(verifyDindExecDefaults, 'container_name="hive-mind-dind-verify"', 'scripts/verify-dind-exec-defaults.sh');
 assertIncludes(verifyDindExecDefaults, 'docker exec "$container_name" whoami', 'scripts/verify-dind-exec-defaults.sh');

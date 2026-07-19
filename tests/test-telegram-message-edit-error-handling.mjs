@@ -20,29 +20,6 @@ const __dirname = dirname(__filename);
 let testsPassed = 0;
 let testsFailed = 0;
 
-function runTest(name, testFn) {
-  process.stdout.write(`Testing ${name}... `);
-  try {
-    const result = testFn();
-    if (result instanceof Promise) {
-      return result
-        .then(() => {
-          console.log('✅ PASSED');
-          testsPassed++;
-        })
-        .catch(error => {
-          console.log(`❌ FAILED: ${error.message}`);
-          testsFailed++;
-        });
-    }
-    console.log('✅ PASSED');
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ FAILED: ${error.message}`);
-    testsFailed++;
-  }
-}
-
 async function runTestAsync(name, testFn) {
   process.stdout.write(`Testing ${name}... `);
   try {
@@ -57,7 +34,7 @@ async function runTestAsync(name, testFn) {
 
 // Import the queue library for testing executeItem error handling
 const queueLibPath = join(__dirname, '..', 'src', 'telegram-solve-queue.lib.mjs');
-const { SolveQueue, getSolveQueue, resetSolveQueue, QueueItemStatus } = await import(queueLibPath);
+const { SolveQueue, resetSolveQueue, QueueItemStatus } = await import(queueLibPath);
 
 // Import limits library to reset cache
 const limitsLibPath = join(__dirname, '..', 'src', 'limits.lib.mjs');
@@ -94,7 +71,7 @@ await runTestAsync('executeItem catches editMessageText errors (issue #1062)', a
   };
 
   // Set up execute callback that returns success
-  queue.executeCallback = async item => {
+  queue.executeCallback = async _item => {
     return {
       success: true,
       output: 'Started session: test-session\nscreen -R test-session',

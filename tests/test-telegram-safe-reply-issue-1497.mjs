@@ -10,7 +10,7 @@
  * 4. Messages with various special characters don't break Markdown parsing
  */
 
-import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
+import { escapeMarkdown } from '../src/telegram-markdown.lib.mjs';
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
 import { buildModelOptionDescription } from '../src/models/index.mjs';
 import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';

@@ -60,7 +60,9 @@ test('Issue #1588: onProgress should not show cancel button after cancellation',
   assert.equal(processor.isCancelled, true, 'Should be cancelled after cancel()');
 
   // Simulate the onProgress logic from telegram-merge-command.lib.mjs
-  const replyMarkupBeforeCancel = false ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: 'merge_cancel_test' }]] };
+  // The pre-cancel branch of the same expression: isCancelled was false at that point.
+  const wasCancelledBefore = false;
+  const replyMarkupBeforeCancel = wasCancelledBefore ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: 'merge_cancel_test' }]] };
   assert.ok(replyMarkupBeforeCancel !== undefined, 'Reply markup should include cancel button when not cancelled');
 
   const replyMarkupAfterCancel = processor.isCancelled ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: 'merge_cancel_test' }]] };

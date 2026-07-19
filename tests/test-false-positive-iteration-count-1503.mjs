@@ -70,7 +70,7 @@ console.log('Unit Tests: Issue #1503 - False positive from iteration count as ch
 console.log('================================================================================\n');
 
 // ===== Simulation of getMergeBlockers (mirrors actual logic) =====
-function simulateMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, checkCount = 1, previousCommitsHadCI = false }) {
+function simulateMergeBlockers({ ciStatusStatus, passedCheckCount: _passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, checkCount = 1, previousCommitsHadCI = false }) {
   const blockers = [];
   const MAX_NO_RUNS_CHECKS = 5;
   const MAX_NO_RUNS_CHECKS_WITH_CI_HISTORY = 10;

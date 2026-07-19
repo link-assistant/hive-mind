@@ -276,6 +276,7 @@ if (exitCode === 0 && agentCompletedSuccessfully) {
 }
 
 assert.strictEqual(streamingErrorDetected, false, 'Streaming error should be cleared after successful completion');
+assert.strictEqual(streamingErrorMessage, null, 'Streaming error message should be cleared after successful completion');
 console.log('  ✅ PASSED: Agent recovery correctly handled - error cleared after successful completion\n');
 
 // Test 18: Verify final error state respects exit code
@@ -484,6 +485,7 @@ console.log('Test 24: step_finish with reason "stop" should mark successful comp
   }
 
   assert.strictEqual(test24StreamingError, false, 'Streaming error should be cleared after step_finish with reason stop');
+  assert.strictEqual(test24StreamingErrorMessage, null, 'Streaming error message should be cleared after step_finish with reason stop');
   console.log('  ✅ PASSED: step_finish with reason "stop" correctly marks successful completion\n');
 }
 
@@ -589,6 +591,7 @@ console.log('Test 26: Full Issue #1296 scenario - timeout then successful comple
 
   // Final error state should be false
   assert.strictEqual(test26StreamingError, false, 'No error should be reported');
+  assert.strictEqual(test26StreamingErrorMessage, null, 'No error message should be reported');
   assert.strictEqual(test26AgentCompleted, true, 'Agent should be marked as completed');
   console.log('  ✅ PASSED: Issue #1296 scenario correctly handled - no false positive error\n');
 }

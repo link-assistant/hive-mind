@@ -12,7 +12,6 @@
 
 import assert from 'node:assert/strict';
 import { parseRepositoryUrl, READY_LABEL, syncReadyTags } from '../src/github-merge.lib.mjs';
-import { extractLinkedIssueNumber } from '../src/github-linking.lib.mjs';
 import { MergeStatus, MergeItemStatus, MERGE_QUEUE_CONFIG, MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
 
 // Test utilities
@@ -22,18 +21,6 @@ let testsFailed = 0;
 function test(name, fn) {
   try {
     fn();
-    console.log(`✅ ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
-
-async function asyncTest(name, fn) {
-  try {
-    await fn();
     console.log(`✅ ${name}`);
     testsPassed++;
   } catch (error) {
@@ -1070,7 +1057,7 @@ test('Issue #1339: checkPRMergeable function has MAX_UNKNOWN_RETRIES constant be
     .then(m => {
       assert.ok(typeof m.checkPRMergeable === 'function', 'checkPRMergeable should be a function');
     })
-    .catch(e => {
+    .catch(_e => {
       // Import may fail if deps not installed - that's ok for this structural test
       assert.ok(true, 'checkPRMergeable function exists (import may be skipped due to missing deps)');
     });

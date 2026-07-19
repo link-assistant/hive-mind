@@ -47,7 +47,7 @@ function assert(condition, testName, details = '') {
 console.log('\n--- Test: Multi-line log message formatting ---');
 
 {
-  const { log, setLogFile, getLogFile } = await import('../src/lib.mjs');
+  const { log, setLogFile } = await import('../src/lib.mjs');
   const os = (await use('os')).default;
 
   const tempLogFile = path.join(os.tmpdir(), `test-log-1572-${Date.now()}.log`);

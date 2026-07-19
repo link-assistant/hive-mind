@@ -11,24 +11,12 @@
  */
 
 import assert from 'node:assert/strict';
-import { SolveQueue, QUEUE_CONFIG, QueueItemStatus, resetSolveQueue, getRunningClaudeProcesses, formatDuration } from '../src/telegram-solve-queue.lib.mjs';
-import { resetLimitCache, getLimitCache, CACHE_TTL } from '../src/limits.lib.mjs';
+import { SolveQueue, QueueItemStatus, resetSolveQueue } from '../src/telegram-solve-queue.lib.mjs';
+import { resetLimitCache } from '../src/limits.lib.mjs';
 
 // Test utilities
 let testsPassed = 0;
 let testsFailed = 0;
-
-function test(name, fn) {
-  try {
-    fn();
-    console.log(`✅ ${name}`);
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ ${name}`);
-    console.log(`   Error: ${error.message}`);
-    testsFailed++;
-  }
-}
 
 async function asyncTest(name, fn) {
   try {
@@ -127,7 +115,7 @@ await asyncTest('findStartableItems only rejects tool queues affected by rejecti
 
   // Enqueue items for different tools
   const claudeItem = queue.enqueue({ url: 'https://github.com/test/repo/issues/1', args: '', requester: 'user1', infoBlock: 'Info 1', tool: 'claude' });
-  const agentItem = queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'user2', infoBlock: 'Info 2', tool: 'agent' });
+  queue.enqueue({ url: 'https://github.com/test/repo/issues/2', args: '', requester: 'user2', infoBlock: 'Info 2', tool: 'agent' });
 
   assert.equal(queue.getStats().queued, 2, 'Should have 2 queued items');
 
@@ -146,7 +134,8 @@ await asyncTest('findStartableItems only rejects tool queues affected by rejecti
     return originalCanStartCommand(options);
   };
 
-  const startableItems = await queue.findStartableItems();
+  // Triggers the rejection path for the claude queue (assertions below check the effect).
+  await queue.findStartableItems();
 
   // Claude queue should be rejected, agent should be startable (assuming resources ok)
   assert.equal(claudeItem.status, QueueItemStatus.FAILED, 'Claude item should be rejected');

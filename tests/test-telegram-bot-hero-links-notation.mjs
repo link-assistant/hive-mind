@@ -44,11 +44,9 @@ function runTest(testName, args, expectedSuccess) {
       const output = stdout + stderr;
       const hasDryRunSuccess = output.includes('Dry-run mode: All validations passed');
       const hasValidationFailure = output.includes('❌ Invalid') || output.includes('Unknown option:') || (output.includes('Error:') && !hasDryRunSuccess);
-      const validatedSolve = output.includes('Validating solve overrides');
-      const validatedHive = output.includes('Validating hive overrides');
 
       let passed = false;
-      let reason = '';
+      let reason;
 
       if (expectedSuccess) {
         if (hasDryRunSuccess && (code === 0 || code === null)) {

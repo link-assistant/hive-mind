@@ -16,7 +16,6 @@
  * - Issue #1165: "command not found" (exit 127) error detection
  */
 
-import { strict as assert } from 'assert';
 import { isStderrError } from '../src/claude.lib.mjs';
 
 let testsPassed = 0;

@@ -10,7 +10,6 @@ const use = await ensureUseM();
 
 const fs = (await use('fs')).promises;
 const path = (await use('path')).default;
-const { $ } = await use('command-stream');
 
 // Configuration
 const MAX_LINES = 2500;
@@ -53,7 +52,7 @@ const checkFileSizes = async () => {
         }
       }
     }
-  } catch (error) {
+  } catch {
     // docs directory doesn't exist, skip
     console.log('📁 No docs directory found, skipping...');
   }

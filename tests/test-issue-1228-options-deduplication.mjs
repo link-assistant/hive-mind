@@ -2,13 +2,6 @@
 // Test script to verify issue #1228 fix: options deduplication in /solve and /hive command responses
 // Verifies that user-provided options are shown separately from locked overrides
 
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const projectRoot = join(__dirname, '..');
-
 console.log('Testing issue #1228: Options deduplication in bot responses...\n');
 
 // Import the mergeArgsWithOverrides function by reading the source

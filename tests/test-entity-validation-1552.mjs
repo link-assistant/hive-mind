@@ -28,7 +28,7 @@ let failed = 0;
  * Simulated version of validateGitHubEntityExistence for unit testing.
  * Mirrors the logic of the real function but uses injected mock responses.
  */
-async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, type, verbose = false, autoAcceptInvite = false }, mocks) {
+async function validateGitHubEntityExistenceWithMocks({ owner, repo, number, type, verbose: _verbose = false, autoAcceptInvite = false }, mocks) {
   // Step 1: Check user/organization existence
   const userResponse = mocks.userCheck?.(owner);
   if (userResponse?.code !== 0) {

@@ -83,7 +83,9 @@ console.log('📋 Minimum CI Check Interval (5 minutes)\n');
 test('60s clamped to 300s', () => assert(clampInterval(60) === 300, `Got ${clampInterval(60)}`));
 test('300s stays 300s', () => assert(clampInterval(300) === 300, `Got ${clampInterval(300)}`));
 test('600s preserved', () => assert(clampInterval(600) === 600, `Got ${clampInterval(600)}`));
-test('Default 60 clamped', () => assert(clampInterval(undefined || 60) === 300, `Got ${clampInterval(60)}`));
+// Mirrors the production call site: an unset config value falls back to 60.
+const unsetInterval = undefined;
+test('Default 60 clamped', () => assert(clampInterval(unsetInterval ?? 60) === 300, `Got ${clampInterval(60)}`));
 
 // ===== Suite 2: Flag behavior =====
 console.log('\n📋 Wait-For-All-Actions Flag Behavior\n');

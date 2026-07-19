@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { SolveQueue, QUEUE_CONFIG, QueueItemStatus, resetSolveQueue, getRunningClaudeProcesses, formatDuration } from '../src/telegram-solve-queue.lib.mjs';
+import { SolveQueue, QUEUE_CONFIG, QueueItemStatus, resetSolveQueue, getRunningClaudeProcesses } from '../src/telegram-solve-queue.lib.mjs';
 import { resetLimitCache, getLimitCache, CACHE_TTL } from '../src/limits.lib.mjs';
 
 // Test utilities

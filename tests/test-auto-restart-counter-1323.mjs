@@ -175,7 +175,6 @@ test('restartCount reflects actual tool executions', () => {
 
   // Simulating 25 check cycles
   for (let check = 1; check <= 25; check++) {
-    const ciPending = check < 25;
     const ciFailure = check === 25;
 
     if (ciFailure) {

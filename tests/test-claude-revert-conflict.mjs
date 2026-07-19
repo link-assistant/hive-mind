@@ -58,7 +58,7 @@ const createTestRepo = async () => {
 console.log('🧪 Testing CLAUDE.md Git Revert Conflict Resolution\n');
 
 // Test 1: Conflict when CLAUDE.md existed before and was appended to, then modified
-async function test1_ConflictWithExistingFile() {
+async function test1ConflictWithExistingFile() {
   const tempDir = await createTestRepo();
 
   try {
@@ -114,7 +114,7 @@ Proceed.
 }
 
 // Test 2: Conflict when CLAUDE.md was created fresh in session
-async function test2_ConflictWithNewFile() {
+async function test2ConflictWithNewFile() {
   const tempDir = await createTestRepo();
 
   try {
@@ -162,7 +162,7 @@ Proceed.
 }
 
 // Test 3: No conflict scenario (baseline)
-async function test3_NoConflict() {
+async function test3NoConflict() {
   const tempDir = await createTestRepo();
 
   try {
@@ -205,9 +205,9 @@ Proceed.
 }
 
 // Run all tests
-await test1_ConflictWithExistingFile();
-await test2_ConflictWithNewFile();
-await test3_NoConflict();
+await test1ConflictWithExistingFile();
+await test2ConflictWithNewFile();
+await test3NoConflict();
 
 // Print summary
 console.log('\n' + '═'.repeat(60));

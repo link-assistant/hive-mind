@@ -31,11 +31,20 @@
 
 import { readFileSync, appendFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
-import { detectPublishFailure, isNonRetryableFailure, buildAuthFailureGuidance } from './publish-failure-classifier.mjs';
+import { detectPublishFailure, isNonRetryableFailure, isVersionConflict, buildAuthFailureGuidance } from './publish-failure-classifier.mjs';
 
 export const PACKAGE_NAME = '@link-assistant/hive-mind';
 const DEFAULT_MAX_RETRIES = 3;
 const DEFAULT_RETRY_DELAY_MS = 10000; // 10 seconds
+
+// Post-publish verification polling. The npm registry serves package metadata
+// through a CDN, so a version can be absent from `npm view` for seconds after
+// `npm publish` returns success (npm/cli#3424, #9043, #593). Issue #2082,
+// finding F5: verifying once, 0.3s after publishing, produced a false negative.
+// ~2+4+8+16+30+30 = 90s of polling before giving up.
+const DEFAULT_VERIFY_ATTEMPTS = 7;
+const DEFAULT_VERIFY_DELAY_MS = 2000;
+const DEFAULT_VERIFY_MAX_DELAY_MS = 30000;
 
 /**
  * Sleep for the specified milliseconds.
@@ -130,8 +139,54 @@ export async function isVersionPublished(runner, version) {
 }
 
 /**
+ * Poll the registry until the version appears, with exponential backoff.
+ *
+ * Publishing and verifying are separate failure domains: a publish that reported
+ * success has already mutated the registry, so the only correct response to a
+ * verification miss is to look again — never to publish again.
+ *
+ * @param {object} opts
+ * @param {(command:string, args:string[]) => Promise<{code:number}>} opts.runner
+ * @param {string} opts.version
+ * @param {number} [opts.attempts]
+ * @param {number} [opts.delayMs]
+ * @param {number} [opts.maxDelayMs]
+ * @param {(ms:number)=>Promise<void>} [opts.sleeper]
+ * @param {Console} [opts.logger]
+ * @returns {Promise<boolean>}
+ */
+export async function waitForVersionOnRegistry({ runner, version, attempts = DEFAULT_VERIFY_ATTEMPTS, delayMs = DEFAULT_VERIFY_DELAY_MS, maxDelayMs = DEFAULT_VERIFY_MAX_DELAY_MS, sleeper = sleep, logger = console }) {
+  let delay = delayMs;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (await isVersionPublished(runner, version)) {
+      logger.log(`Verified ${PACKAGE_NAME}@${version} is live on npm (check ${attempt} of ${attempts})`);
+      return true;
+    }
+    if (attempt < attempts) {
+      logger.log(`${PACKAGE_NAME}@${version} not visible yet (check ${attempt} of ${attempts}); waiting ${delay / 1000}s for registry propagation...`);
+      await sleeper(delay);
+      delay = Math.min(delay * 2, maxDelayMs);
+    }
+  }
+  return false;
+}
+
+/**
  * Publish with retries, multi-layer failure detection, and post-publish
  * verification against the registry.
+ *
+ * Retry granularity matters (issue #2082, finding F5). Re-running the publish
+ * because *verification* failed is what produced this sequence in run
+ * 29647956700 — a green run that published, then fought itself:
+ *
+ *     attempt 1 -> published successfully, tag v2.8.3 created
+ *     verify    -> E404 (0.3s later; the CDN had not propagated it)
+ *     attempt 2 -> "You cannot publish over the previously published versions: 2.8.3"
+ *     attempt 3 -> nothing left to publish; verification finally passed
+ *
+ * So: a publish that reported success is verified by polling and never repeated,
+ * and a conflict on our own version is treated as "already landed" — subject to
+ * verification, so a false claim still fails the release.
  *
  * @param {object} opts
  * @param {(command:string, args:string[]) => Promise<{code:number, stdout?:string, stderr?:string, message?:string}>} opts.runner
@@ -140,9 +195,12 @@ export async function isVersionPublished(runner, version) {
  * @param {number} [opts.retryDelayMs]
  * @param {(ms:number)=>Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
- * @returns {Promise<{ok:boolean, attempt?:number, reason?:string, nonRetryable?:boolean}>}
+ * @returns {Promise<{ok:boolean, attempt?:number, reason?:string, nonRetryable?:boolean, alreadyPublished?:boolean}>}
  */
 export async function publishWithRetry({ runner, version, maxRetries = DEFAULT_MAX_RETRIES, retryDelayMs = DEFAULT_RETRY_DELAY_MS, sleeper = sleep, logger = console }) {
+  const verify = () => waitForVersionOnRegistry({ runner, version, sleeper, logger });
+  const verificationFailed = `post-publish verification failed: ${PACKAGE_NAME}@${version} never appeared on npm`;
+
   let lastReason = 'unknown';
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     logger.log(`Publish attempt ${attempt} of ${maxRetries}...`);
@@ -154,21 +212,33 @@ export async function publishWithRetry({ runner, version, maxRetries = DEFAULT_M
       // the registry. This is the last line of defence against a false-positive
       // release (the exact failure mode of run 29035249489).
       logger.log(`Publish command reported success; verifying ${PACKAGE_NAME}@${version} on npm...`);
-      const published = await isVersionPublished(runner, version);
-      if (published) {
-        logger.log(`Verified ${PACKAGE_NAME}@${version} is live on npm`);
+      if (await verify()) {
         return { ok: true, attempt };
       }
-      lastReason = 'post-publish verification failed: version not found on npm';
-      logger.error(`WARNING: ${lastReason}`);
-    } else {
-      lastReason = analysis.reason;
-      logger.error(`Publish attempt ${attempt} failed: ${analysis.reason}`);
+      // The publish succeeded, so republishing can only ever conflict. Stop.
+      logger.error(`ERROR: ${verificationFailed}`);
+      return { ok: false, attempt, reason: verificationFailed, nonRetryable: false };
+    }
 
-      if (analysis.nonRetryable) {
-        logger.error(buildAuthFailureGuidance(PACKAGE_NAME));
-        return { ok: false, attempt, reason: analysis.reason, nonRetryable: true };
+    // Checked before the non-retryable classifier: npm reports EPUBLISHCONFLICT
+    // with a 403, which would otherwise be misread as an auth failure.
+    if (isVersionConflict(analysis.output, version)) {
+      logger.log(`npm reports ${PACKAGE_NAME}@${version} is already published; verifying...`);
+      if (await verify()) {
+        logger.log(`${PACKAGE_NAME}@${version} was already on npm — treating this release as complete`);
+        return { ok: true, attempt, alreadyPublished: true };
       }
+      const reason = `npm reported version ${version} already exists, but it could not be found on the registry`;
+      logger.error(`ERROR: ${reason}`);
+      return { ok: false, attempt, reason, nonRetryable: false };
+    }
+
+    lastReason = analysis.reason;
+    logger.error(`Publish attempt ${attempt} failed: ${analysis.reason}`);
+
+    if (analysis.nonRetryable) {
+      logger.error(buildAuthFailureGuidance(PACKAGE_NAME));
+      return { ok: false, attempt, reason: analysis.reason, nonRetryable: true };
     }
 
     if (attempt < maxRetries) {

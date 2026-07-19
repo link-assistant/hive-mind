@@ -22,12 +22,6 @@ console.log();
 let passed = 0;
 let failed = 0;
 
-function assert(condition, message) {
-  if (!condition) {
-    throw new Error(`Assertion failed: ${message}`);
-  }
-}
-
 /**
  * Simulated version of autoAcceptInviteForRepo for unit testing.
  * Uses injected fetch/exec functions instead of real gh CLI.

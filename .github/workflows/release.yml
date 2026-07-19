@@ -35,16 +35,22 @@ on:
         required: false
         type: string
 
-# Concurrency: Only one workflow run per branch at a time
-# - For main branch (releases): cancel older runs to prevent blocking newer releases
-#   When multiple commits are pushed quickly, we want the latest to release, not wait
-# - For PR branches: queue runs to avoid cancelling checks on force-pushes
-# IMPORTANT: Docker jobs use !cancelled() instead of always() to ensure they respect
-# concurrency cancellation. Using always() prevents workflow cancellation entirely.
+# Concurrency: Only one workflow run per branch at a time.
+# - main (releases): QUEUE. A run on main publishes to npm and then pushes the
+#   version bump back to main. Cancelling it in between leaves the registry ahead
+#   of the repository — the same split-brain state as issues #2082/F4 and #2082/F5,
+#   reached by a different route. A newer release waits; it is never lost.
+# - Other branches: CANCEL. Nothing is published from a PR run, so a superseded
+#   run is only spending runners.
+# This is the inverse of the original policy, which cancelled on main and queued
+# everywhere else. See tests/ci-workflow-cancellation-2082.test.mjs.
+#
+# IMPORTANT: jobs must use !cancelled() rather than always() in `if:`, or they keep
+# running after a cancellation and defeat the policy above. Enforced by the same test.
 # See: docs/case-studies/issue-1274/README.md and docs/case-studies/issue-1278/README.md
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env: # Force Node.js 24 for actions without native support. See issue #1417.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -53,6 +59,7 @@ jobs:
   # === DETECT CHANGES ===
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       mjs-changed: ${{ steps.changes.outputs.mjs }}
       package-changed: ${{ steps.changes.outputs.package }}
@@ -84,6 +91,7 @@ jobs:
   version-check:
     name: Check for Manual Version Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
     steps:
@@ -102,6 +110,7 @@ jobs:
   changeset-check:
     name: Check for Changesets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
@@ -141,9 +150,10 @@ jobs:
   # === COMPILATION & SYNTAX CHECKS ===
   test-compilation:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
 
     steps:
       - name: Checkout repository
@@ -176,6 +186,7 @@ jobs:
   # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes]
     if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
 
@@ -223,9 +234,10 @@ jobs:
   # See docs/case-studies/issue-1141 for why this is critical.
   check-file-line-limits:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
 
     steps:
       - name: Checkout repository
@@ -249,9 +261,9 @@ jobs:
   # === UNIT TESTS ===
   test-suites:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
-      always() &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
@@ -287,9 +299,9 @@ jobs:
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
-      always() &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
@@ -375,9 +387,9 @@ jobs:
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
-      always() &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
@@ -451,9 +463,10 @@ jobs:
   # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
-    if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
+    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -478,10 +491,10 @@ jobs:
   # === DOCKER PR CHECK ===
   docker-pr-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
     if: |
-      always() &&
       !cancelled() &&
       !contains(needs.*.result, 'failure') &&
       github.event_name == 'pull_request' &&
@@ -522,80 +535,19 @@ jobs:
           echo "Box DinD base image version: konard/box-dind:${BOX_DIND_VERSION}"
           echo "This pinned version ensures stable, reproducible builds."
 
-      - name: Build Docker images
-        # PR builds install @link-assistant/hive-mind@latest (the currently
-        # published version on npm, which may pre-date this PR). The Dockerfile
-        # tolerates a missing configure-claude bin in that case. Release builds
-        # install the exact version just published and enforce the bin strictly.
-        run: |
-          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
-          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
-          echo "Building Docker image from konard/box:${BOX_VERSION} base..."
-          echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
-          echo "This image adds AI-specific tools on top of the Box base."
-          echo "Installing @link-assistant/hive-mind@latest; configure-claude may not yet be present in the published package."
-          echo ""
-
-          # Multi-platform builds (amd64+arm64) are tested in docker-publish during release.
-          # PR checks only validate amd64 using standard docker build (not buildx) so the
-          # image is loaded into the Docker daemon for container verification.
-          docker build --progress=plain -t ${{ env.IMAGE_NAME }}:test . 2>&1 | tee build-output.log
-
-          echo ""
-          echo "Building Docker-in-Docker image from konard/box-dind:${BOX_DIND_VERSION} base..."
-          docker build --progress=plain -f Dockerfile.dind -t ${{ env.DIND_IMAGE_NAME }}:test . 2>&1 | tee build-dind-output.log
-
-          echo ""
-          echo "Docker images built successfully"
-          docker images | grep -E "${{ env.IMAGE_NAME }}|${{ env.DIND_IMAGE_NAME }}|REPOSITORY"
-
-      - name: Verify build completed without errors
-        run: |
-          echo "Checking build logs for critical errors..."
-
-          if grep -E 'unbound variable' build-output.log build-dind-output.log; then
-            echo "ERROR: Unbound variable error detected in Docker build"
-            grep -E 'unbound variable' build-output.log build-dind-output.log || true
-            exit 1
-          fi
-
-          echo "Build log check completed"
+      - name: Build Docker images and check build logs
+        run: bash scripts/docker-pr-build.sh
 
       - name: Verify system & development tools in running containers
-        run: |
-          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
-          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
-          echo "=== Verifying hive-mind Docker image ==="
-          echo "Base: konard/box:${BOX_VERSION} (pinned) + AI-specific tools"
-          echo ""
-
-          # Run verification script inside container (mounts script as read-only volume)
-          # Verifies box user setup (/home/box access), dev tools, AI tools,
-          # and configure-claude (tolerantly for PR builds).
-          docker run --rm \
-            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
-            ${{ env.IMAGE_NAME }}:test \
-            bash /verify-docker-image.sh
-
-          echo ""
-          echo "=== Verifying hive-mind Docker-in-Docker image ==="
-          echo "Base: konard/box-dind:${BOX_DIND_VERSION} (pinned) + AI-specific tools"
-          docker run --rm --privileged \
-            -v "$(pwd)/scripts/verify-docker-image.sh:/verify-docker-image.sh:ro" \
-            ${{ env.DIND_IMAGE_NAME }}:test \
-            bash /verify-docker-image.sh
-
-          bash scripts/verify-dind-exec-defaults.sh "${{ env.DIND_IMAGE_NAME }}:test"
-
-          echo ""
-          echo "All system, development, and nested Docker verification checks passed!"
+        run: bash scripts/docker-pr-verify-containers.sh
 
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check]
     # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
-    if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
 
     steps:
       - name: Checkout repository
@@ -628,8 +580,9 @@ jobs:
   release:
     name: Release
     needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
-    if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -817,6 +770,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -959,6 +913,7 @@ jobs:
     needs: [release, docker-publish-dind]
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1021,6 +976,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       packages: write
@@ -1052,6 +1008,7 @@ jobs:
     name: Instant Release
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -1207,6 +1164,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1349,6 +1307,7 @@ jobs:
     needs: [instant-release, docker-publish-dind-instant]
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1411,6 +1370,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       packages: write
@@ -1442,6 +1402,7 @@ jobs:
     name: Create Changeset PR
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write

@@ -1,0 +1,121 @@
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9570484Z ^[[36;1mnode scripts/publish-to-npm.mjs --should-pull^[[0m
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9623538Z shell: /usr/bin/bash -e {0}
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9623788Z env:
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9624001Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9624274Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9624564Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+Release	UNKNOWN STEP	2026-07-18T14:38:38.9624967Z ##[endgroup]
+Release	UNKNOWN STEP	2026-07-18T14:38:39.8101445Z From https://github.com/link-assistant/hive-mind
+Release	UNKNOWN STEP	2026-07-18T14:38:39.8101981Z  * branch              main       -> FETCH_HEAD
+Release	UNKNOWN STEP	2026-07-18T14:38:39.8177176Z Already up to date.
+Release	UNKNOWN STEP	2026-07-18T14:38:39.8216360Z Current version to publish: 2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:39.8216716Z Checking if version 2.8.3 is already published...
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2469598Z npm error code E404
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2470021Z npm error 404 No match found for version 2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2470485Z npm error 404
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2473122Z npm error 404  The requested resource '@link-assistant/hive-mind@2.8.3' could not be found or you do not have permission to access it.
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2473665Z npm error 404
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2474939Z npm error 404 Note that you can also install from a
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2476781Z npm error 404 tarball, folder, http url, or git url.
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2490431Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-18T14_38_39_866Z-debug-0.log
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2557325Z Version 2.8.3 not found on npm, proceeding with publish...
+Release	UNKNOWN STEP	2026-07-18T14:38:40.2558462Z Publish attempt 1 of 3...
+Release	UNKNOWN STEP	2026-07-18T14:38:40.3431670Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:40.3432372Z > @link-assistant/hive-mind@2.8.3 changeset:publish
+Release	UNKNOWN STEP	2026-07-18T14:38:40.3432940Z > npm run build:pre && changeset publish
+Release	UNKNOWN STEP	2026-07-18T14:38:40.3433181Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:40.4297847Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:40.4298710Z > @link-assistant/hive-mind@2.8.3 build:pre
+Release	UNKNOWN STEP	2026-07-18T14:38:40.4299808Z > chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs
+Release	UNKNOWN STEP	2026-07-18T14:38:40.4300403Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:40.6766183Z 🦋  ^[[36minfo^[[39m npm info @link-assistant/hive-mind
+Release	UNKNOWN STEP	2026-07-18T14:38:40.9467973Z 🦋  ^[[36minfo^[[39m @link-assistant/hive-mind is being published because our local version (2.8.3) has not been published on npm
+Release	UNKNOWN STEP	2026-07-18T14:38:40.9469180Z 🦋  ^[[36minfo^[[39m Publishing ^[[36m"@link-assistant/hive-mind"^[[39m at ^[[32m"2.8.3"^[[39m
+Release	UNKNOWN STEP	2026-07-18T14:38:46.0402267Z 🦋  ^[[32msuccess^[[39m packages published successfully:
+Release	UNKNOWN STEP	2026-07-18T14:38:46.0402998Z 🦋  @link-assistant/hive-mind@2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:46.0403451Z 🦋  Creating git tag...
+Release	UNKNOWN STEP	2026-07-18T14:38:46.0404040Z 🦋  New tag:  v2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:46.0606488Z Publish command reported success; verifying @link-assistant/hive-mind@2.8.3 on npm...
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3396764Z npm error code E404
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3397217Z npm error 404 No match found for version 2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3397525Z npm error 404
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3400223Z npm error 404  The requested resource '@link-assistant/hive-mind@2.8.3' could not be found or you do not have permission to access it.
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3400755Z npm error 404
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3402025Z npm error 404 Note that you can also install from a
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3404331Z npm error 404 tarball, folder, http url, or git url.
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3415500Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-18T14_38_46_107Z-debug-0.log
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3478438Z WARNING: post-publish verification failed: version not found on npm
+Release	UNKNOWN STEP	2026-07-18T14:38:46.3478840Z Waiting 10s before retry...
+Release	UNKNOWN STEP	2026-07-18T14:38:56.3491864Z Publish attempt 2 of 3...
+Release	UNKNOWN STEP	2026-07-18T14:38:56.4302101Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:56.4302799Z > @link-assistant/hive-mind@2.8.3 changeset:publish
+Release	UNKNOWN STEP	2026-07-18T14:38:56.4303198Z > npm run build:pre && changeset publish
+Release	UNKNOWN STEP	2026-07-18T14:38:56.4303371Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:56.5104810Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:56.5105793Z > @link-assistant/hive-mind@2.8.3 build:pre
+Release	UNKNOWN STEP	2026-07-18T14:38:56.5106482Z > chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs
+Release	UNKNOWN STEP	2026-07-18T14:38:56.5106857Z 
+Release	UNKNOWN STEP	2026-07-18T14:38:56.7521129Z 🦋  ^[[36minfo^[[39m npm info @link-assistant/hive-mind
+Release	UNKNOWN STEP	2026-07-18T14:38:57.0181363Z 🦋  ^[[36minfo^[[39m @link-assistant/hive-mind is being published because our local version (2.8.3) has not been published on npm
+Release	UNKNOWN STEP	2026-07-18T14:38:57.0182349Z 🦋  ^[[36minfo^[[39m Publishing ^[[36m"@link-assistant/hive-mind"^[[39m at ^[[32m"2.8.3"^[[39m
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6202734Z 🦋  ^[[31merror^[[39m an error occurred while publishing @link-assistant/hive-mind: undefined You cannot publish over the previously published versi
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6203711Z 🦋  ^[[31merror^[[39m 
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6204219Z 🦋  ^[[31merror^[[39m > @link-assistant/hive-mind@2.8.3 prepare
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6205129Z 🦋  ^[[31merror^[[39m > husky
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6205595Z 🦋  ^[[31merror^[[39m 
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6206645Z 🦋  ^[[31merror^[[39m npm warn publish npm auto-corrected some errors in your package.json when publishing.  Please run "npm pkg fix" to address the
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6207640Z 🦋  ^[[31merror^[[39m npm warn publish errors corrected:
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6208469Z 🦋  ^[[31merror^[[39m npm warn publish "bin[hive]" script name src/hive.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6209623Z 🦋  ^[[31merror^[[39m npm warn publish "bin[solve]" script name src/solve.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6210227Z 🦋  ^[[31merror^[[39m npm warn publish "bin[task]" script name src/task.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6210789Z 🦋  ^[[31merror^[[39m npm warn publish "bin[fix]" script name src/fix.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6211407Z 🦋  ^[[31merror^[[39m npm warn publish "bin[hive-cleanup]" script name src/cleanup.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6212046Z 🦋  ^[[31merror^[[39m npm warn publish "bin[review]" script name src/review.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6212731Z 🦋  ^[[31merror^[[39m npm warn publish "bin[configure-claude]" script name src/configure-claude.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6213428Z 🦋  ^[[31merror^[[39m npm warn publish "bin[start-screen]" script name src/start-screen.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6214090Z 🦋  ^[[31merror^[[39m npm warn publish "bin[hive-screens]" script name src/hive-screens.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6215042Z 🦋  ^[[31merror^[[39m npm warn publish "bin[hive-telegram-bot]" script name src/telegram-bot.mjs was invalid and removed
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6216322Z 🦋  ^[[31merror^[[39m npm notice npm tokens that bypass 2FA are being restricted for account changes and direct publishing. Learn how to prepare: ht
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6217165Z 🦋  ^[[31merror^[[39m npm error You cannot publish over the previously published versions: 2.8.3.
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6217894Z 🦋  ^[[31merror^[[39m npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-18T14_38_57_061Z-debug-0.log
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6218337Z 🦋  ^[[31merror^[[39m 
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6218611Z 🦋  ^[[31merror^[[39m packages failed to publish:
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6218960Z 🦋  @link-assistant/hive-mind@2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6335377Z Publish attempt 2 failed: exit code 1
+Release	UNKNOWN STEP	2026-07-18T14:38:59.6335717Z Waiting 10s before retry...
+Release	UNKNOWN STEP	2026-07-18T14:39:09.6400640Z Publish attempt 3 of 3...
+Release	UNKNOWN STEP	2026-07-18T14:39:09.7217032Z 
+Release	UNKNOWN STEP	2026-07-18T14:39:09.7217717Z > @link-assistant/hive-mind@2.8.3 changeset:publish
+Release	UNKNOWN STEP	2026-07-18T14:39:09.7218247Z > npm run build:pre && changeset publish
+Release	UNKNOWN STEP	2026-07-18T14:39:09.7218494Z 
+Release	UNKNOWN STEP	2026-07-18T14:39:09.8030104Z 
+Release	UNKNOWN STEP	2026-07-18T14:39:09.8030794Z > @link-assistant/hive-mind@2.8.3 build:pre
+Release	UNKNOWN STEP	2026-07-18T14:39:09.8031533Z > chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs
+Release	UNKNOWN STEP	2026-07-18T14:39:09.8031928Z 
+Release	UNKNOWN STEP	2026-07-18T14:39:10.0439514Z 🦋  ^[[36minfo^[[39m npm info @link-assistant/hive-mind
+Release	UNKNOWN STEP	2026-07-18T14:39:10.3324606Z 🦋  ^[[33mwarn^[[39m @link-assistant/hive-mind is not being published because version 2.8.3 is already published on npm
+Release	UNKNOWN STEP	2026-07-18T14:39:10.3325626Z 🦋  ^[[33mwarn^[[39m No unpublished projects to publish
+Release	UNKNOWN STEP	2026-07-18T14:39:10.3461328Z Publish command reported success; verifying @link-assistant/hive-mind@2.8.3 on npm...
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5894071Z 2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5969979Z Verified @link-assistant/hive-mind@2.8.3 is live on npm
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5970704Z Setting GitHub output: published=true
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5972635Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_2ec9c75a-8628-4b02-963d-2ea399e5cad7
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5973348Z Setting GitHub output: published_version=2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5974082Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_2ec9c75a-8628-4b02-963d-2ea399e5cad7
+Release	UNKNOWN STEP	2026-07-18T14:39:10.5974938Z Published @link-assistant/hive-mind@2.8.3 to npm
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6096330Z ##[group]Run echo "published=true" >> $GITHUB_OUTPUT
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6096664Z ^[[36;1mecho "published=true" >> $GITHUB_OUTPUT^[[0m
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6096945Z ^[[36;1mecho "published_version=2.8.3" >> $GITHUB_OUTPUT^[[0m
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6097260Z ^[[36;1mecho "Docker publish will be triggered with version: 2.8.3"^[[0m
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6149965Z shell: /usr/bin/bash -e {0}
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6150404Z env:
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6150593Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6150872Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6151143Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6151354Z ##[endgroup]
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6225205Z Docker publish will be triggered with version: 2.8.3
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6253322Z ##[group]Run node scripts/create-github-release.mjs --release-version "2.8.3" --repository "link-assistant/hive-mind"
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6253987Z ^[[36;1mnode scripts/create-github-release.mjs --release-version "2.8.3" --repository "link-assistant/hive-mind"^[[0m
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6305738Z shell: /usr/bin/bash -e {0}
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6305960Z env:
+Release	UNKNOWN STEP	2026-07-18T14:39:10.6306146Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

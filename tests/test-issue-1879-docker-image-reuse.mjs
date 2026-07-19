@@ -48,11 +48,6 @@ function assertEqual(actual, expected, label) {
   else fail(label, expected, actual);
 }
 
-function assertIncludes(haystack, needle, label) {
-  if (haystack.includes(needle)) pass(label);
-  else fail(label, `string containing ${needle}`, haystack);
-}
-
 function assertNotIncludes(haystack, needle, label) {
   if (!haystack.includes(needle)) pass(label);
   else fail(label, `string NOT containing ${needle}`, haystack);

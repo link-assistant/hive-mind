@@ -5,7 +5,7 @@
 import assert from 'assert';
 
 // Import the model validation module
-const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, parseModelWith1mSuffix, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
+const { CLAUDE_MODELS, MODELS_SUPPORTING_1M_CONTEXT, validateModelName, supports1mContext, getAvailableModelNames, claudeModels } = await import('../src/models/index.mjs');
 const { mapModelToId, availableModels } = await import('../src/claude.lib.mjs');
 const { getMaxOutputTokensForModel, getDefaultMaxThinkingBudgetForModel, claudeCode } = await import('../src/config.lib.mjs');
 

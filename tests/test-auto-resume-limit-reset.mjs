@@ -29,12 +29,6 @@ function runTest(name, testFn) {
   }
 }
 
-function assertEqual(actual, expected, message) {
-  if (actual !== expected) {
-    throw new Error(`${message}: expected "${expected}", got "${actual}"`);
-  }
-}
-
 function assertTrue(value, message) {
   if (!value) {
     throw new Error(`${message}: expected truthy value`);

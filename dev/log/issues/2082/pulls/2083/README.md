@@ -4,12 +4,12 @@ Evidence pack and deep analysis for [issue #2082](https://github.com/link-assist
 
 ## Contents
 
-| Path         | What it holds                                                                                                   |
-| ------------ | --------------------------------------------------------------------------------------------------------------- |
-| `github/`    | Issue #2082, PR #2083, comments, reviews, recent workflow-run index                                             |
-| `ci-logs/`   | Full logs: run 29647956700 (green, 49,914 lines), run 29125268021 (red, 31,365 lines), run 29686761617 metadata |
-| `templates/` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` CI/CD files + full file tree           |
-| `analysis/`  | Per-finding root-cause write-ups (`F1`–`F3`), experiment output, extracted log excerpts, published Helm index   |
+| Path         | What it holds                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `github/`    | Issue #2082, PR #2083, comments, reviews, recent workflow-run index                                                        |
+| `ci-logs/`   | Full logs: run 29647956700 (green, 49,914 lines), run 29125268021 (red, 31,365 lines), run 29686761617 metadata            |
+| `templates/` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` CI/CD files + full file tree                      |
+| `analysis/`  | Per-finding root-cause write-ups (`F1`–`F3`, `F21`–`F23`), experiment output, extracted log excerpts, published Helm index |
 
 Reproduction experiment kept at `experiments/issue-2082-command-stream-throw.mjs`.
 
@@ -17,8 +17,8 @@ Reproduction experiment kept at `experiments/issue-2082-command-stream-throw.mjs
 
 | #   | Requirement (verbatim intent)                                                                | Status of analysis                                                                                         |
 | --- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| R1  | Check for **all false positives** in CI/CD and fix them all                                  | 4 found (F3.1–F3.3, F5)                                                                                    |
-| R2  | Check for **all false negatives** in CI/CD and fix them all                                  | 6 found (F1, F4, F6, F7, F8, F9)                                                                           |
+| R1  | Check for **all false positives** in CI/CD and fix them all                                  | 5 found (F3.1–F3.3, F5, F23)                                                                               |
+| R2  | Check for **all false negatives** in CI/CD and fix them all                                  | 7 found (F1, F4, F6, F7, F8, F9, F21)                                                                      |
 | R3  | Check for **all warnings** in CI/CD and fix them all                                         | 11 distinct classes inventoried (F10–F20)                                                                  |
 | R4  | Check for **all errors** in CI/CD and fix them all                                           | 3 real errors in a _green_ run (F1)                                                                        |
 | R5  | Compare the **full file tree** against the JS pipeline template and reuse all best practices | 19-row gap table — `analysis/F2-template-gap-analysis.md`                                                  |
@@ -36,6 +36,18 @@ is not in any failing run — it is in a _passing_ one.
 > printed `released successfully!` and went green.
 
 Full root cause in `analysis/F1-helm-release-false-negative.md`, proven experimentally.
+
+A second, later result has the same shape one level down: the `lint` job never read the
+`tests/` tree at all (`analysis/F21-tests-tree-never-linted.md`). Enabling it exposed real
+defects in 59 files, and running the resulting suite exposed `F22` — a product bug in
+`getClaudeEnv()` where `CLAUDE_CODE_EFFORT_LEVEL` leaked from the parent shell into the
+child Claude process, handing `effort=max` to models that support no effort levels.
+
+`F22` is worth reading as a method note rather than only a defect: the test that caught it
+had been **passing in CI and failing locally for the same commit**, decided entirely by an
+ambient environment variable that exists where hive-mind's agents run and not on the
+runner. A green CI check is evidence about the runner's environment, not about the
+program.
 
 ## Timeline
 

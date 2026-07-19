@@ -627,6 +627,16 @@ export const getClaudeEnv = (options = {}) => {
     env.MAX_THINKING_TOKENS = String(options.thinkingBudget ?? 0);
   }
 
+  // Remove any inherited CLAUDE_CODE_EFFORT_LEVEL from process.env, mirroring the
+  // MAX_THINKING_TOKENS sanitisation above (Issue #2082). Without this, an effort
+  // level exported by the parent shell survives into the child whenever the logic
+  // below does not compute one — e.g. a model that supports no effort levels at all
+  // (haiku), or --think off. hive-mind's own agents run under Claude Code, which
+  // exports this variable, so the leak fired in exactly the common case: `haiku
+  // --think high` inherited effort=max from the parent. The value below must be a
+  // function of the selected model and think level, never of the ambient shell.
+  delete env.CLAUDE_CODE_EFFORT_LEVEL;
+
   // Set CLAUDE_CODE_EFFORT_LEVEL for models that support it (Issue #1238, Issue #1620)
   if (options.model && supportsEffortLevel(options.model)) {
     const effortOptions = {

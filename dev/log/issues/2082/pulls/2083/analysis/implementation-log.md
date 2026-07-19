@@ -226,3 +226,49 @@ every downstream check, and a skipped job is not a passed job. Resolved here by
 extracting two Docker blocks into `scripts/docker-pr-build.sh` and
 `scripts/docker-pr-verify-containers.sh` (1452 lines) and adding the changeset — but
 the masking behaviour itself is worth a follow-up finding.
+
+---
+
+## F21 / F22 — linting `tests/`, and what it uncovered
+
+**F21.** `npm run lint` and `eslint.config.mjs` both scoped linting to `src/`, `scripts/`
+and `eslint-rules/`. `tests/` — 340 files — was in neither, so the `lint` job had been
+green while never reading the largest `.mjs` tree in the repository.
+
+Enabling the glob surfaced defects in 59 files: `assert.match` regexes containing
+unescaped literal indentation (an assertion that passes for the wrong reason is worse
+than one that fails), a `catch` discarding the original error, and unused bindings.
+
+**Verification.** The contract test was mutation-checked in both directions
+independently — once with the tree removed from `package.json`, once with it removed from
+`eslint.config.mjs` — because a contract test that cannot fail is the very thing F3 is
+about. The second attempt initially mutated nothing: Prettier had reformatted the config
+back to a single line, so the multi-line regex missed. Worth recording, since a
+"passing" mutation check that silently applied no mutation would have proven nothing.
+
+**F22.** Running the newly-linted suite produced 5 failures in
+`test-opus-47-model-support.mjs` — which CI reports as passing.
+
+The first hypothesis was a Node mismatch (sandbox 20, CI 24). Wrong: the behaviour is
+deterministic on both. The actual cause is that `getClaudeEnv()` spreads `process.env`,
+sanitises an inherited `MAX_THINKING_TOKENS` for adaptive-only models, and does nothing
+equivalent for `CLAUDE_CODE_EFFORT_LEVEL`. On every path that computes no level — a model
+supporting none at all (`haiku`), or `--think off` — the parent's value survives into the
+child. Claude Code exports that variable and hive-mind's agents run under Claude Code, so
+`haiku --think high` was inheriting `effort=max`.
+
+The diagnosis was reached by elimination rather than assumption: each predicate feeding
+`adaptiveThinkingOnly` was evaluated directly and all returned `false`, which proved the
+value could not be coming from the assignment block — and `haiku` skips that block
+entirely, yet still carried a level. That left inheritance as the only source.
+
+**The transferable point.** The test had been returning opposite verdicts in the two
+environments for the same commit. CI's green was a fact about the runner's environment,
+not about the program; the local red was the informative one, and was the easier of the
+two to dismiss as local noise.
+
+Three sibling variables (`CLAUDE_CODE_DISABLE_1M_CONTEXT`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`,
+`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) leak identically and are confirmed present in the agent
+environment. They are deliberately **not** changed here — no sanitisation precedent, no
+failing test, and plausibly intentional user configuration. Flagged for an explicit
+decision instead of a silent one. See `F22-effort-level-env-leak.md`.

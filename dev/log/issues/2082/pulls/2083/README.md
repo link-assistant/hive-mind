@@ -9,7 +9,7 @@ Evidence pack and deep analysis for [issue #2082](https://github.com/link-assist
 | `github/`    | Issue #2082, PR #2083, comments, reviews, recent workflow-run index                                                        |
 | `ci-logs/`   | Full logs: run 29647956700 (green, 49,914 lines), run 29125268021 (red, 31,365 lines), run 29686761617 metadata            |
 | `templates/` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` CI/CD files + full file tree                      |
-| `analysis/`  | Per-finding root-cause write-ups (`F1`–`F3`, `F21`–`F23`), experiment output, extracted log excerpts, published Helm index |
+| `analysis/`  | Per-finding root-cause write-ups (`F1`–`F3`, `F21`–`F25`), experiment output, extracted log excerpts, published Helm index |
 
 Reproduction experiment kept at `experiments/issue-2082-command-stream-throw.mjs`.
 
@@ -18,7 +18,7 @@ Reproduction experiment kept at `experiments/issue-2082-command-stream-throw.mjs
 | #   | Requirement (verbatim intent)                                                                | Status of analysis                                                                                         |
 | --- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | R1  | Check for **all false positives** in CI/CD and fix them all                                  | 5 found (F3.1–F3.3, F5, F23)                                                                               |
-| R2  | Check for **all false negatives** in CI/CD and fix them all                                  | 7 found (F1, F4, F6, F7, F8, F9, F21)                                                                      |
+| R2  | Check for **all false negatives** in CI/CD and fix them all                                  | 8 found (F1, F4, F6, F7, F8, F9, F21, F25)                                                                 |
 | R3  | Check for **all warnings** in CI/CD and fix them all                                         | 11 distinct classes inventoried (F10–F20)                                                                  |
 | R4  | Check for **all errors** in CI/CD and fix them all                                           | 3 real errors in a _green_ run (F1)                                                                        |
 | R5  | Compare the **full file tree** against the JS pipeline template and reuse all best practices | 19-row gap table — `analysis/F2-template-gap-analysis.md`                                                  |
@@ -42,6 +42,11 @@ A second, later result has the same shape one level down: the `lint` job never r
 defects in 59 files, and running the resulting suite exposed `F22` — a product bug in
 `getClaudeEnv()` where `CLAUDE_CODE_EFFORT_LEVEL` leaked from the parent shell into the
 child Claude process, handing `effort=max` to models that support no effort levels.
+
+A third, found while verifying the fix for the second, closes the loop: `F25` — a PR reports
+**green with its own code never executed by CI**, because `detect-changes` diffs the latest
+push rather than the PR, and branch protection reads the latest run. Demonstrated live on
+this PR (`analysis/F25-synchronize-diff-green-untested-pr.md`), not reconstructed.
 
 `F22` is worth reading as a method note rather than only a defect: the test that caught it
 had been **passing in CI and failing locally for the same commit**, decided entirely by an
@@ -156,16 +161,29 @@ test that fails when the class reappears:
 The template is **not** vulnerable to F1 (it has no Helm release path) and is ahead of
 hive-mind on F3/F6/F9/F13/F14. One report is warranted in the opposite direction:
 
-- **`link-foundation/js-ai-driven-development-pipeline-template`** — its
-  `scripts/publish-failure-classifier.mjs` has only `NON_RETRYABLE_PATTERNS` and lacks the
-  `detectPublishFailure()` / `FAILURE_PATTERNS` content-based detection that hive-mind
-  added in issue #2028. The template is therefore exposed to the same
-  `changeset publish` exit-code-swallowing false positive. Report with the hive-mind
-  implementation as the reference fix.
+**Filed:**
+[`js-ai-driven-development-pipeline-template#105`](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/105)
+— **F5, the publish/verify race.** Confirmed by reading the template's live
+`scripts/publish-to-npm.mjs`: `attemptPublish()` verifies once after a fixed `sleep(2000)`,
+and a miss returns a failure that is _not_ marked `nonRetryable`, so `main()`'s loop
+re-runs the whole `changeset publish` — which then conflicts. Same structure as hive-mind's
+F5, with a wider but still unbounded race window. Reported with a deterministic
+reproduction (injected runner: publish always succeeds, verification misses twice) and
+hive-mind's `waitForVersionOnRegistry()` / `publishWithRetry()` split as the reference fix.
 
-Also worth filing, pending confirmation against the template's own logs: F5's
-publish/verify race exists in the template's `publish-to-npm.mjs` if it shares the
-verify-then-republish structure.
+**Retracted before filing — the earlier claim in this pack was wrong.** This document
+previously asserted that the template lacked `detectPublishFailure()` / `FAILURE_PATTERNS`
+and was therefore exposed to the exit-code-swallowing false positive from issue #2028. That
+conclusion came from reading only `scripts/publish-failure-classifier.mjs`, which does
+indeed export just `NON_RETRYABLE_PATTERNS`. The template **has** both — they are defined
+locally in `publish-to-npm.mjs`, and `analyzePublishResult()` checks output patterns
+_before_ the exit code. The capability was present; only its location differed from
+hive-mind's.
+
+Worth recording as a method note, since it is the same error this issue is about: absence
+of a symbol in the file where you expect it is not absence from the codebase. Had the
+report been filed on the strength of that single-file reading, it would have been a false
+positive raised in someone else's tracker.
 
 ## Debug/verbose follow-up
 

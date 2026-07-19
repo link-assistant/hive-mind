@@ -61,6 +61,32 @@ This also explains why CI is comparatively stable: the `test-suites` job runs a
 local runs pay for in full. CI is not immune, only better insulated — and an unpkg.com
 slowdown would redden the build with nothing wrong in the repository.
 
+## A second instance, with a much tighter budget
+
+`tests/test-hive-no-silent-failure.mjs` has the same coupling and only a **5-second**
+allowance:
+
+```js
+function runCommandWithTimeout(args, timeoutMs = 5000) {
+```
+
+Against the 7–9s startup measured above, that budget cannot be met, and the test fails
+locally on `--help` and `--version` — the two cheapest commands it has. Verified as
+**pre-existing, not introduced by this PR**: run against `origin/main` in a clean worktree,
+it failed 3/3 times with the same cases.
+
+Running CI's own warm-up step first (`node scripts/preinstall-use-m-packages.mjs`) reduced
+the failures but did **not** eliminate them. That is the useful datum: warming the package
+cache does not remove the per-process `use.js` bootstrap fetch, so recommendation 1 below
+(resolve locally instead of over the network) is the only fix that actually closes the
+window. CI's insulation is thinner than it looks.
+
+This also explains a suite-level artefact. `scripts/run-tests.mjs` stops at the first
+failing file unless `--continue-on-failure` is passed, and `npm test` does not pass it. So
+a single network-flaky file at position 101 of 341 halts the run and leaves the remaining
+240 files unreported — an unrelated CDN stall reads as "the suite failed" with no
+information about the other 70% of it.
+
 ## Why raising the timeout is the wrong fix
 
 It converts an 8-second network dependency into a 30-second one and hides the coupling.

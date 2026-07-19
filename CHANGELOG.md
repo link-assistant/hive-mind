@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.8.4
+
+### Patch Changes
+
+- 4373bc8: Stop treating JSON Schema, structured-data values, and package selectors as required Codex capabilities while preserving explicit skill and catalog plugin discovery.
+
 ## 2.8.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.8.6
+
+### Patch Changes
+
+- 0140e87: Verify required Codex Agent Skills against the catalog the model actually receives instead of trusting plugin enablement, so a plugin reported as installed but whose skills are invisible is reported with an actionable diagnostic rather than passing the preflight.
+
 ## 2.8.5
 
 ### Patch Changes

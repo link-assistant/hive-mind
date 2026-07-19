@@ -167,9 +167,11 @@ runTest('Issue #1571: autoContinueWhenLimitResets should await child exit (never
   let childExited = false;
 
   // Simulate the awaited promise pattern
+  let exitTimer;
+  let checkerTimer;
   const promise = new Promise(resolve => {
     // Simulate child.on('close', ...)
-    setTimeout(() => {
+    exitTimer = setTimeout(() => {
       childExited = true;
       // In real code: process.exit(code); resolve();
       resolve();
@@ -178,7 +180,7 @@ runTest('Issue #1571: autoContinueWhenLimitResets should await child exit (never
 
   // Before the promise resolves, functionReturned should still be false
   const checker = new Promise(resolve => {
-    setTimeout(() => {
+    checkerTimer = setTimeout(() => {
       // At 5ms, the child hasn't exited yet
       assertFalse(childExited, 'Child should not have exited yet at 5ms');
       assertFalse(functionReturned, 'Function should not have returned yet');
@@ -188,6 +190,8 @@ runTest('Issue #1571: autoContinueWhenLimitResets should await child exit (never
 
   await checker;
   await promise;
+  clearTimeout(checkerTimer);
+  clearTimeout(exitTimer);
   functionReturned = true;
 
   assertTrue(childExited, 'Child should have exited');

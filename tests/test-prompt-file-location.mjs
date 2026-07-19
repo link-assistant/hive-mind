@@ -3,7 +3,7 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { readFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { execSync } from 'child_process';
 

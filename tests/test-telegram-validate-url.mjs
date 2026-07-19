@@ -20,7 +20,7 @@ const { parseGitHubUrl } = await import('../src/github.lib.mjs');
  */
 function validateGitHubUrl(args, options = {}) {
   // Default options for /solve command (backward compatibility)
-  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', exampleUrl = 'https://github.com/owner/repo/issues/123' } = options;
+  const { allowedTypes = ['issue', 'pull'], commandName = 'solve', exampleUrl: _exampleUrl = 'https://github.com/owner/repo/issues/123' } = options;
 
   if (args.length === 0) {
     return {

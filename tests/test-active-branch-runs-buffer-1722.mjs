@@ -219,7 +219,9 @@ await asyncTest('getAllActiveRepoRuns propagates gh errors', async () => {
 // Cleanup
 try {
   rmSync(tmp, { recursive: true, force: true });
-} catch {}
+} catch {
+  /* best-effort cleanup of the temp dir */
+}
 
 console.log(`\n${testsPassed} passed, ${testsFailed} failed\n`);
 process.exit(testsFailed > 0 ? 1 : 0);

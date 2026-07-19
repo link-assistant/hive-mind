@@ -46,7 +46,7 @@ function runTest(testName, args, expectedSuccess) {
       const hasValidationFailure = output.includes('❌ Invalid') || output.includes('Unknown argument') || (output.includes('Error:') && !hasDryRunSuccess);
 
       let passed = false;
-      let reason = '';
+      let reason;
 
       if (expectedSuccess) {
         if (hasDryRunSuccess && (code === 0 || code === null)) {

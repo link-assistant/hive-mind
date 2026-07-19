@@ -365,6 +365,7 @@ test('floating-point would mask $0.000001 difference but Decimal does not', () =
   const decDiff = new Decimal(4.145261).minus(new Decimal(4.145262));
   const decFormatted = decDiff.toFixed(6);
   assert.strictEqual(decFormatted, '-0.000001');
+  assert.strictEqual(fpFormatted, '-0.000001');
   // The floating-point result would show $-0.000001 too in this case, but
   // more complex cases with many additions can accumulate error
 });

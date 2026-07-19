@@ -207,34 +207,36 @@ console.log('\n📋 PR #1796 Concurrent Session Scenario Simulation\n');
 
 test('Two concurrent processes produce duplicate Ready to merge without fix', () => {
   // Simulate the PR #1796 bug: two processes, both with readyToMergeCommentPosted=false
-  let processA_flag = false;
-  let processB_flag = false;
+  let processAFlag = false;
+  let processBFlag = false;
 
   // Process A checks and posts
-  const resultA = simulateDualLayerDeduplication(processA_flag, []);
-  processA_flag = resultA.flagAfter;
+  const resultA = simulateDualLayerDeduplication(processAFlag, []);
+  processAFlag = resultA.flagAfter;
+  assert(processAFlag === true, "Process A's in-memory flag is set after posting");
 
   // Process B checks simultaneously (before A's comment is visible)
-  const resultB_noCrossCheck = simulateDualLayerDeduplication(processB_flag, []);
+  const resultBNoCrossCheck = simulateDualLayerDeduplication(processBFlag, []);
 
   // Both post! This is the bug.
   assert(resultA.commentPosted === true, 'Process A posts');
-  assert(resultB_noCrossCheck.commentPosted === true, 'Process B also posts (BUG without cross-process check)');
+  assert(resultBNoCrossCheck.commentPosted === true, 'Process B also posts (BUG without cross-process check)');
 });
 
 test('Two concurrent processes: cross-process check prevents duplicate', () => {
   // With the fix: Process B sees Process A's comment via cross-process check
-  let processA_flag = false;
-  let processB_flag = false;
+  let processAFlag = false;
+  let processBFlag = false;
 
   // Process A posts first
-  const resultA = simulateDualLayerDeduplication(processA_flag, []);
-  processA_flag = resultA.flagAfter;
+  const resultA = simulateDualLayerDeduplication(processAFlag, []);
+  processAFlag = resultA.flagAfter;
+  assert(processAFlag === true, "Process A's in-memory flag is set after posting");
   assert(resultA.commentPosted === true, 'Process A posts successfully');
 
   // Process B checks AFTER A posted (A's comment is now in PR history)
   const existingAfterA = ['## ✅ Ready to merge\n\nPosted by Process A'];
-  const resultB = simulateDualLayerDeduplication(processB_flag, existingAfterA);
+  const resultB = simulateDualLayerDeduplication(processBFlag, existingAfterA);
 
   assert(resultB.commentPosted === false, 'Process B should NOT post (cross-process deduplication)');
   assert(resultB.reason === 'cross-process', 'Should be caught by cross-process check');
@@ -287,21 +289,21 @@ test('Single process iteration numbering is consistent and sequential', () => {
 
 test('Two concurrent processes with independent counters produce confusing interleaving', () => {
   // Simulates what happened in PR #1796
-  let processA_count = 0;
-  let processB_count = 0;
+  let processACount = 0;
+  let processBCount = 0;
   const timeline = [];
 
   // Interleaved events (as they appeared in PR #1796)
-  processA_count++;
-  timeline.push({ process: 'A', iteration: processA_count }); // A:1
-  processA_count++;
-  timeline.push({ process: 'A', iteration: processA_count }); // A:2
-  processA_count++;
-  timeline.push({ process: 'A', iteration: processA_count }); // A:3
-  processB_count++;
-  timeline.push({ process: 'B', iteration: processB_count }); // B:1 ← appears as "jump from 3 to 1"
-  processA_count++;
-  timeline.push({ process: 'A', iteration: processA_count }); // A:4 ← appears as "jump from 1 to 4"
+  processACount++;
+  timeline.push({ process: 'A', iteration: processACount }); // A:1
+  processACount++;
+  timeline.push({ process: 'A', iteration: processACount }); // A:2
+  processACount++;
+  timeline.push({ process: 'A', iteration: processACount }); // A:3
+  processBCount++;
+  timeline.push({ process: 'B', iteration: processBCount }); // B:1 ← appears as "jump from 3 to 1"
+  processACount++;
+  timeline.push({ process: 'A', iteration: processACount }); // A:4 ← appears as "jump from 1 to 4"
 
   // The "jump from 1 to 4" is actually correct per-process numbering
   assert(timeline[3].iteration === 1, 'Process B starts at 1');

@@ -56,28 +56,6 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
  * Spawn a node script, optionally as its own process-group leader (detached), capture stdout,
  * and resolve with { code, stdout, pid } when it exits.
  */
-function runScript(scriptPath, { args = [], env = {}, detached = false } = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [scriptPath, ...args], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, ...env },
-      detached,
-    });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', d => {
-      stdout += d.toString();
-    });
-    child.stderr.on('data', d => {
-      stderr += d.toString();
-    });
-    child.on('error', reject);
-    child.on('close', code => resolve({ code, stdout, stderr, pid: child.pid }));
-    // Expose handle so callers can signal it before it exits.
-    resolve.__child = child;
-    child.__resolved = resolve;
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // Test Suite 1: exit-handler delegateSignalHandling API
@@ -207,12 +185,13 @@ setInterval(() => {}, 1000); // keep process alive until signalled
         env: { ...process.env, DELEGATE: delegate ? '1' : '0' },
       });
       let stdout = '';
+      let signalTimer;
       child.stdout.on('data', d => {
         stdout += d.toString();
         if (stdout.includes('READY') && !child.__signalled) {
           child.__signalled = true;
           // Send SIGINT directly to the harness process (simulates CTRL+C to it).
-          setTimeout(() => {
+          signalTimer = setTimeout(() => {
             try {
               child.kill('SIGINT');
             } catch {
@@ -221,7 +200,10 @@ setInterval(() => {}, 1000); // keep process alive until signalled
           }, 100);
         }
       });
-      child.on('close', code => resolve({ code, stdout }));
+      child.on('close', code => {
+        clearTimeout(signalTimer);
+        resolve({ code, stdout });
+      });
     });
   }
 
@@ -285,11 +267,12 @@ setInterval(() => {}, 1000);
         detached: true,
       });
       let stdout = '';
+      let signalTimer;
       harness.stdout.on('data', d => {
         stdout += d.toString();
         if (stdout.includes('READY') && !harness.__signalled) {
           harness.__signalled = true;
-          setTimeout(() => {
+          signalTimer = setTimeout(() => {
             try {
               // Negative PID → signal the entire harness process group (terminal-like).
               process.kill(-harness.pid, 'SIGINT');
@@ -300,13 +283,14 @@ setInterval(() => {}, 1000);
         }
       });
       harness.on('close', async () => {
-        let marker_content = '';
+        clearTimeout(signalTimer);
+        let markerContent = '';
         try {
-          marker_content = existsSync(marker) ? await readFileMaybe(marker, 'utf-8') : '';
+          markerContent = existsSync(marker) ? await readFileMaybe(marker, 'utf-8') : '';
         } catch {
           /* ignore */
         }
-        resolve({ stdout, marker: marker_content });
+        resolve({ stdout, marker: markerContent });
       });
     });
   }

@@ -283,7 +283,11 @@ const fakeSpawn = (cmd, args) => {
   return {
     on: (event, cb) => {
       listeners[event] = cb;
-      if (event === 'exit') setTimeout(() => cb(0), 0);
+      if (event === 'exit') {
+        const exitTimer = setTimeout(() => cb(0), 0);
+        // Do not hold the event loop open if the caller never awaits the exit.
+        exitTimer.unref?.();
+      }
       return listeners;
     },
   };

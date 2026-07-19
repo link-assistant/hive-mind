@@ -19,8 +19,7 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 const use = await ensureUseM();
 
 const fs = (await use('fs')).promises;
-const path = (await use('path')).default;
-const { execSync, spawn } = await use('child_process');
+const { execSync } = await use('child_process');
 
 // Test results tracking
 let passed = 0;
@@ -206,7 +205,7 @@ console.log('\n📋 Test 5: gh-upload-log availability check');
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       assertTrue(result.trim().length > 0, 'gh-upload-log command is available');
-    } catch (error) {
+    } catch {
       console.log('  ⚠️  gh-upload-log not available (skipping integration test)');
       console.log('     This is expected in environments without gh-upload-log installed');
     }
@@ -238,7 +237,7 @@ console.log('\n📋 Test 6: gh-upload-log empty argument rejection (regression)'
         // to prevent unexpected behavior
         assertTrue(true, 'gh-upload-log handles empty string (our fix prevents this scenario)');
       }
-    } catch (error) {
+    } catch {
       console.log('  ⚠️  Could not test gh-upload-log empty argument (skipping)');
     }
   }
@@ -423,9 +422,9 @@ console.log('\n📋 Test 10: Issue #1173 - Visibility default for safety');
   };
 
   const simulateNewDefault = () => {
-    let isPublicRepo = true;
-    // Detection failed - NEW behavior:
-    isPublicRepo = false; // Default to private for safety
+    // Detection failed - NEW behavior: default to private for safety
+    // (the OLD default here was `true`, see simulateOldDefault above)
+    const isPublicRepo = false;
     return isPublicRepo;
   };
 

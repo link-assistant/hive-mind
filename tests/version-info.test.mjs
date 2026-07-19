@@ -110,7 +110,6 @@ test('formatVersionMessage separates Playwright from Development Tools', () => {
   assert.ok(result.includes('Development Tools'), `Expected Development Tools section but got: ${result}`);
   // Git should only be in Development Tools
   const devToolsIdx = result.indexOf('Development Tools');
-  const browserAutoIdx = result.indexOf('Browser Automation');
   const gitIdx = result.indexOf('Git');
   assert.ok(gitIdx > devToolsIdx, `Git should be in Development Tools section`);
 });

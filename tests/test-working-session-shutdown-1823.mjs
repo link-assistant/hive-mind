@@ -206,6 +206,7 @@ function runHarness({ flag, mode, signalSequence }) {
     });
     let stdout = '';
     let signalsSent = 0;
+    let signalTimer;
     const sendNext = () => {
       if (signalsSent >= signalSequence.length) return;
       const sig = signalSequence[signalsSent++];
@@ -215,16 +216,17 @@ function runHarness({ flag, mode, signalSequence }) {
         /* ignore */
       }
       if (signalsSent < signalSequence.length) {
-        setTimeout(sendNext, 250);
+        signalTimer = setTimeout(sendNext, 250);
       }
     };
     child.stdout.on('data', d => {
       stdout += d.toString();
       if (stdout.includes('READY') && signalsSent === 0) {
-        setTimeout(sendNext, 100);
+        signalTimer = setTimeout(sendNext, 100);
       }
     });
     child.on('close', code => {
+      clearTimeout(signalTimer);
       let markerContent = '';
       try {
         markerContent = existsSync(marker) ? readFileSync(marker, 'utf-8') : '';

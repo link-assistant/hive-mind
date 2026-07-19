@@ -3,7 +3,6 @@
 // Pre-existing orphan test that was not in the legacy default suite and fails
 // when discovered automatically. Tracked under issue #1758 follow-up; opt in
 // via `node scripts/run-tests.mjs --suite needs-triage`.
-import fs from 'fs';
 
 /**
  * Test suite for solution summary attachment functionality
@@ -247,7 +246,7 @@ runTest('attachSolutionSummary posts a "Working session summary" comment (Issue 
   const fs = await import('fs');
   const resultsLibSrc = fs.readFileSync('./src/solve.results.lib.mjs', 'utf-8');
   assertTrue(resultsLibSrc.includes('## Working session summary'), 'comment header should be "Working session summary"');
-  assertFalse(/^[^*\/]*## Solution summary/m.test(resultsLibSrc), 'comment header should no longer say "Solution summary" outside comments');
+  assertFalse(/^[^*/]*## Solution summary/m.test(resultsLibSrc), 'comment header should no longer say "Solution summary" outside comments');
 });
 
 // Issue #1813: The visible "Working session summary" header is not enough to

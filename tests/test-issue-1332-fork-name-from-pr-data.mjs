@@ -209,7 +209,6 @@ runTest('issue #1332 scenario: forkRepoName prevents wrong name construction', (
 
 // Test 14: Fallback behavior when forkRepoName is null
 runTest('fallback to repo when forkRepoName is null', () => {
-  const owner = 'someowner';
   const repo = 'some-repo';
   const forkOwner = 'contributor';
   const forkRepoName = null; // not available from headRepository.name

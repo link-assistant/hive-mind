@@ -17,9 +17,7 @@ import assert from 'assert';
 import { buildPushRejectionExplanation } from '../src/solve.branch-divergence.lib.mjs';
 
 // Test configuration
-const TEST_REPO = process.env.TEST_REPO || 'test-owner/test-repo';
 const TEST_ISSUE = process.env.TEST_ISSUE || '1';
-const SOLVE_COMMAND = process.env.SOLVE_COMMAND || './solve.mjs';
 
 // Helper function to execute commands
 function exec(command, options = {}) {

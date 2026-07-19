@@ -31,18 +31,6 @@ function runTest(name, testFn) {
   }
 }
 
-async function runAsyncTest(name, testFn) {
-  process.stdout.write(`Testing ${name}... `);
-  try {
-    await testFn();
-    console.log('✅ PASSED');
-    testsPassed++;
-  } catch (error) {
-    console.log(`❌ FAILED: ${error.message}`);
-    testsFailed++;
-  }
-}
-
 // Test 1: Check that validateForkParent is exported
 runTest('validateForkParent export', () => {
   const output = execSync(`grep -l "export const validateForkParent" ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });

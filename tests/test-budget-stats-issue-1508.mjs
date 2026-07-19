@@ -10,7 +10,7 @@
  * 4. Per-model cost display in budget stats string
  */
 
-import { buildBudgetStatsString, accumulateModelUsage, mergeResultModelUsage } from '../src/claude.budget-stats.lib.mjs';
+import { buildBudgetStatsString, accumulateModelUsage } from '../src/claude.budget-stats.lib.mjs';
 
 // Test framework
 let testsPassed = 0;

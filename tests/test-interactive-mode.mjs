@@ -757,7 +757,7 @@ await runTest('handler processes tool_result with orphaned surrogate (exact issu
     type: 'assistant',
     message: {
       model: 'claude-opus-4-5-20251101',
-      content: [{ type: 'tool_use', id: 'toolu_surrogate_test', name: 'Bash', input: { command: 'gh api repos/owner/repo/issues/23/comments' } }],
+      content: [{ type: 'tool_use', id: 'toolu_surrogate_test', name: 'Bash', input: { command: 'gh api repos/owner/repo/issues/23/comments --paginate' } }],
     },
     session_id: 'test-pipeline-3',
   });
@@ -867,7 +867,7 @@ await runTest('JSON round-trip: safeJsonStringify output is always parseable', (
     try {
       JSON.parse(json);
     } catch (e) {
-      throw new Error(`safeJsonStringify produced unparseable JSON for input: ${JSON.stringify(testCase)}: ${e.message}`);
+      throw new Error(`safeJsonStringify produced unparseable JSON for input: ${JSON.stringify(testCase)}: ${e.message}`, { cause: e });
     }
   }
 });
@@ -951,7 +951,7 @@ await runTest('processEvent handles system.task_progress without pending task (g
 });
 
 await runTest('processEvent handles system.task_notification (completed)', async () => {
-  const { handler, comments } = makeHandler({ verbose: true });
+  const { handler } = makeHandler({ verbose: true });
   // Create task first
   await handler.processEvent({
     type: 'system',
@@ -1164,7 +1164,7 @@ await runTest('execFileAsync rejects on non-zero exit code', async () => {
     throw new Error('Expected rejection');
   } catch (error) {
     if (error.message === 'Expected rejection') throw error;
-    if (error.code !== 1) throw new Error(`Expected exit code 1, got: ${error.code}`);
+    if (error.code !== 1) throw new Error(`Expected exit code 1, got: ${error.code}`, { cause: error });
   }
 });
 

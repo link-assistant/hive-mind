@@ -45,13 +45,14 @@ console.log('\n📋 Issue #2072: /merge cancellation latency Tests\n');
 
 await asyncTest('cancellableSleep returns as soon as isCancelled flips mid-sleep', async () => {
   let cancelled = false;
-  setTimeout(() => {
+  const cancelTimer = setTimeout(() => {
     cancelled = true;
   }, 150);
 
   const startedAt = Date.now();
   const result = await cancellableSleep(LONG_DELAY_MS, () => cancelled);
   const elapsed = Date.now() - startedAt;
+  clearTimeout(cancelTimer);
 
   assert.equal(result.cancelled, true, 'Should report cancelled');
   assert.ok(elapsed < MAX_CANCEL_LATENCY_MS, `Should abort the sleep promptly, took ${elapsed}ms of ${LONG_DELAY_MS}ms`);
@@ -79,11 +80,12 @@ await asyncTest('MergeQueueProcessor.sleep aborts when cancel() is called', asyn
   // sleep() is the single cancellable primitive for the queue: every wait routes
   // through it, so this covers all stages of /merge at once.
   const processor = new MergeQueueProcessor({ owner: 'test-owner', repo: 'test-repo' });
-  setTimeout(() => processor.cancel(), 150);
+  const cancelTimer = setTimeout(() => processor.cancel(), 150);
 
   const startedAt = Date.now();
   await processor.sleep(LONG_DELAY_MS);
   const elapsed = Date.now() - startedAt;
+  clearTimeout(cancelTimer);
 
   assert.ok(elapsed < MAX_CANCEL_LATENCY_MS, `sleep() should return on cancel, took ${elapsed}ms of ${LONG_DELAY_MS}ms`);
 });
@@ -96,7 +98,7 @@ await asyncTest('waitForPRReady stops within ~100ms of cancel despite a 5-minute
   processor.checkPRMergeable = async () => ({ mergeable: false, reason: 'Waiting on checks' });
 
   const item = { pr: { number: 123 }, status: null, error: null };
-  setTimeout(() => processor.cancel(), 150);
+  const cancelTimer = setTimeout(() => processor.cancel(), 150);
 
   const startedAt = Date.now();
   const result = await waitForPRReady(
@@ -111,6 +113,7 @@ await asyncTest('waitForPRReady stops within ~100ms of cancel despite a 5-minute
     }
   );
   const elapsed = Date.now() - startedAt;
+  clearTimeout(cancelTimer);
 
   assert.equal(result.status, 'cancelled', 'Should report a cancelled status');
   assert.ok(elapsed < MAX_CANCEL_LATENCY_MS, `Should not sleep out the poll interval, took ${elapsed}ms`);

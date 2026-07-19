@@ -6,7 +6,7 @@
  * Tests the error reporting behavior with different flag combinations
  */
 
-import { handleErrorWithIssueCreation, formatLogForIssue, createIssueForError } from '../src/github-error-reporter.lib.mjs';
+import { handleErrorWithIssueCreation, formatLogForIssue } from '../src/github-error-reporter.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS, parseArguments } from '../src/solve.config.lib.mjs';
 
 let testsPassed = 0;

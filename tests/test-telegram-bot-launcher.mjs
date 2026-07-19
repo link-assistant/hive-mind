@@ -408,7 +408,7 @@ await runAsyncTest('Aborts during retry wait', async () => {
   const controller = new AbortController();
 
   // Abort after a short delay (while the retry wait is happening)
-  setTimeout(() => controller.abort(), 50);
+  const abortTimer = setTimeout(() => controller.abort(), 50);
 
   try {
     await launchBotWithRetry(
@@ -423,6 +423,8 @@ await runAsyncTest('Aborts during retry wait', async () => {
     return false; // Should have thrown
   } catch (error) {
     return error.message.includes('aborted') && bot.launchCallCount === 1;
+  } finally {
+    clearTimeout(abortTimer);
   }
 });
 

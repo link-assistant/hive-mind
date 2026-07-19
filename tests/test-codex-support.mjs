@@ -639,7 +639,7 @@ await asyncTest('Codex retries the same model on capacity errors before falling 
   const capacityChunk = Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"error","message":"Selected model is at capacity. Please try a different model."}', '{"type":"turn.failed","error":{"message":"Selected model is at capacity. Please try a different model."}}'].join('\n'));
   const recoveredChunk = Buffer.from(['{"type":"thread.started","thread_id":"thread_capacity_1666"}', '{"type":"turn.started"}', '{"type":"item.completed","item":{"id":"msg_1","type":"agent_message","text":"Recovered after fallback."}}', '{"type":"turn.completed","usage":{"input_tokens":10,"output_tokens":5}}'].join('\n'));
   const fakeDollar =
-    options =>
+    _options =>
     (strings, ...values) => {
       commands.push(renderTaggedTemplateCommand(strings, values));
       const currentAttempt = attempt++;
@@ -699,7 +699,7 @@ await asyncTest('Codex command retries stream disconnects by resuming the same s
   let attempt = 0;
   const disconnectMessage = ['stream disconnected before completion: An error occurred while processing your request.', 'You can retry your request, or contact us through our help center at help.openai.com if the error persists.', 'Please include the request ID 00f1ff7f-106b-4f1e-a689-122e886fcaae in your message.'].join(' ');
   const fakeDollar =
-    options =>
+    _options =>
     (strings, ...values) => {
       commands.push(renderTaggedTemplateCommand(strings, values));
       const currentAttempt = attempt++;
@@ -756,7 +756,7 @@ await asyncTest('Codex command retries stream disconnects by resuming the same s
 await asyncTest('OpenCode resume uses --session so fallback retries can stay on the same session', async () => {
   const commands = [];
   const fakeDollar =
-    options =>
+    _options =>
     (strings, ...values) => {
       commands.push(renderTaggedTemplateCommand(strings, values));
       return {
@@ -792,7 +792,7 @@ await asyncTest('OpenCode resume uses --session so fallback retries can stay on 
 await asyncTest('Agent resume uses --resume with --no-fork to preserve the same session', async () => {
   const commands = [];
   const fakeDollar =
-    options =>
+    _options =>
     (strings, ...values) => {
       commands.push(renderTaggedTemplateCommand(strings, values));
       return {

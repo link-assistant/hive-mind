@@ -95,11 +95,11 @@ runTest('memory-check.mjs basic execution', () => {
   // Should return valid JSON
   try {
     const result = JSON.parse(jsonOutput);
-    if (!result.hasOwnProperty('ram') || !result.hasOwnProperty('disk')) {
+    if (!Object.hasOwn(result, 'ram') || !Object.hasOwn(result, 'disk')) {
       throw new Error('Missing expected properties in JSON output');
     }
   } catch (e) {
-    throw new Error(`Invalid JSON output: ${e.message}`);
+    throw new Error(`Invalid JSON output: ${e.message}`, { cause: e });
   }
 });
 
@@ -134,7 +134,7 @@ runTest('memory-check.mjs disk space check', () => {
     }
   } catch (e) {
     if (e.message.includes('Unlikely')) throw e;
-    throw new Error(`Failed to parse disk check output: ${e.message}`);
+    throw new Error(`Failed to parse disk check output: ${e.message}`, { cause: e });
   }
 });
 
@@ -169,7 +169,7 @@ runTest('memory-check.mjs RAM check', () => {
     }
   } catch (e) {
     if (e.message.includes('Unlikely')) throw e;
-    throw new Error(`Failed to parse RAM check output: ${e.message}`);
+    throw new Error(`Failed to parse RAM check output: ${e.message}`, { cause: e });
   }
 });
 
@@ -228,7 +228,7 @@ runTest('memory-check.mjs platform detection', () => {
     }
   } catch (e) {
     if (e.message.includes('Swap')) throw e;
-    throw new Error(`Failed to check platform info: ${e.message}`);
+    throw new Error(`Failed to check platform info: ${e.message}`, { cause: e });
   }
 });
 
@@ -238,7 +238,7 @@ runTest('memory-check.mjs exit code on success', () => {
     execSync(`${memoryCheckPath} --min-memory 1 --min-disk-space 1 --quiet`, { stdio: 'ignore' });
     // If we get here, exit code was 0 (success)
   } catch (error) {
-    throw new Error(`Should exit with 0 on success, got: ${error.status}`);
+    throw new Error(`Should exit with 0 on success, got: ${error.status}`, { cause: error });
   }
 });
 

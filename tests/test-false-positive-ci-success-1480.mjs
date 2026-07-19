@@ -95,7 +95,7 @@ console.log('===================================================================
  * @param {number} params.checkCount - How many consecutive check cycles (iteration number)
  * @returns {Object}
  */
-function simulateFixedMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, hadPreviousCI = false, checkCount = 1 }) {
+function simulateFixedMergeBlockers({ ciStatusStatus, passedCheckCount = 0, prMergeable = true, repoHasWorkflows = true, workflowRuns = [], hasPRTriggers = true, hasWorkflowFiles = true, commitAgeSeconds = null, hadPreviousCI: _hadPreviousCI = false, checkCount = 1 }) {
   const blockers = [];
   const MAX_NO_RUNS_CHECKS = 5;
   const WORKFLOW_RUN_GRACE_PERIOD_SECONDS = 120;

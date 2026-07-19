@@ -95,6 +95,8 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 
 启用状态按仓库存储在 `$CODEX_HOME/hive-mind/repositories/<owner>/<repo>`，不会写入全局配置或目标 checkout。请跨容器重启持久化整个 `/home/box/.codex`，并可选择持久化用户技能目录 `/home/box/.agents/skills`；Docker 隔离任务会传播这两个路径。缺少提供程序时，预检会报告确切标识符，并提示在父容器中运行 `codex plugin list --available --json`。
 
+验证针对模型实际接收到的内容，而不仅仅是启用状态。只有当插件负载已展开到 `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills` 时，Codex 才会把该插件的 Agent Skills 渲染进提示词；因此插件可能显示为 `installed, enabled`，而模型却看不到它的任何技能。预检会通过 `codex debug prompt-input` 读取渲染后的 `<skills_instructions>` 目录，确认每个所需技能都在其中。若缺失，诊断信息会指出缺失的技能并列出当时可见的技能。使用 `--verbose` 可打印完整的模型可见目录。在没有 `codex debug prompt-input` 的 Codex 版本上，该检查会带 verbose 提示跳过，而不会使运行失败。参见 `docs/case-studies/issue-2084/`。
+
 ### 5. 重试配置
 
 | 环境变量                               | 默认值 | 描述                        |

@@ -70,6 +70,36 @@ export function isNonRetryableFailure(output) {
 }
 
 /**
+ * Whether publish output says the version we are releasing already exists on the
+ * registry (npm's EPUBLISHCONFLICT).
+ *
+ * This is not a failure: it means the release already landed — typically because
+ * an earlier attempt in this same run published successfully and the registry had
+ * not yet propagated it (issue #2082, finding F5). The caller must still verify
+ * the version against the registry before treating it as success.
+ *
+ * The version is matched explicitly so a conflict reported for some *other*
+ * package version is never mistaken for ours.
+ *
+ * @param {string} output - Combined stdout and stderr (and/or error message).
+ * @param {string} version - The version this run is publishing.
+ * @returns {boolean}
+ */
+export function isVersionConflict(output, version) {
+  if (!version) {
+    return false;
+  }
+  const matches = String(output || '').matchAll(/cannot publish over the previously published versions?:\s*(\S+)/gi);
+  for (const match of matches) {
+    // The message ends in a full stop: "...versions: 2.8.3."
+    if (match[1].replace(/[.,]+$/, '') === version) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Build an actionable, human-readable explanation for an authentication /
  * registry-configuration publish failure (most commonly an E404 on the very
  * first publish of a brand-new package via OIDC trusted publishing).

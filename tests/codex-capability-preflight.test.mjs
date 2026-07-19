@@ -87,6 +87,12 @@ const fakeRunCommand = async ({ command, args, env }) => {
     fakePluginInstalled = true;
     return { stdout: JSON.stringify({ pluginId: args[2] }), stderr: '', code: 0 };
   }
+  // Issue #2084: the preflight confirms requirements against the skill catalog
+  // Codex renders into the prompt, not against plugin enablement alone.
+  if (args[0] === 'debug' && args[1] === 'prompt-input') {
+    const rendered = fakePluginInstalled ? '- superpowers:using-superpowers: Use superpowers. (file: /cache/SKILL.md)\\n- superpowers:test-driven-development: TDD. (file: /cache/SKILL.md)' : '';
+    return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
+  }
   throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
 };
 

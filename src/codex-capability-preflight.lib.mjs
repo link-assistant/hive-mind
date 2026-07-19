@@ -155,6 +155,61 @@ const parseJsonCommand = (result, label) => {
 
 const catalogEntries = catalog => [...(catalog?.installed || []), ...(catalog?.available || [])];
 
+// Issue #2084: `codex plugin list` reports enablement, not model visibility.
+//
+// Codex renders the skills the model can actually see into a
+// `<skills_instructions>` block in the prompt. `codex debug prompt-input`
+// prints that prompt, so parsing the block is the only client-side signal that
+// matches what the model receives. Entries are rendered as
+// `- <name>: <description> (file: <path>)`, where `<name>` is bare for skills
+// under `$CODEX_HOME/skills` and `<plugin>:<skill>` for plugin-provided ones.
+const SKILLS_INSTRUCTIONS_BLOCK = /<skills_instructions>([\s\S]*?)<\/skills_instructions>/u;
+const SKILL_CATALOG_ENTRY = /(?:^|\\n)\s*-\s+([a-z0-9][a-z0-9_-]*(?::[a-z0-9][a-z0-9_-]*)?)\s*:/giu;
+
+export const parseModelVisibleSkills = (promptInput = '') => {
+  // `codex debug prompt-input` emits JSON, so newlines inside the prompt arrive
+  // as the two-character escape `\n`. Match both that and real newlines.
+  const block = SKILLS_INSTRUCTIONS_BLOCK.exec(String(promptInput).replace(/\r\n/gu, '\n').replace(/\n/gu, '\\n'));
+  if (!block) return null;
+  const skills = new Set();
+  for (const match of block[1].matchAll(SKILL_CATALOG_ENTRY)) skills.add(match[1].toLowerCase());
+  return skills;
+};
+
+// Verification is advisory when the probe itself cannot run: an older Codex
+// without `debug prompt-input`, or a sandbox that blocks it, must not fail a
+// run that the previous verification would have allowed.
+const readModelVisibleSkills = async ({ command, env, runCommand, log }) => {
+  const result = await runCommand({ command, args: ['debug', 'prompt-input', 'hive-mind capability probe'], env });
+  if (result.code !== 0) {
+    await log(
+      `   ⚠️  Could not read the model-visible skill catalog: ${String(result.stderr || result.stdout)
+        .trim()
+        .slice(0, 200)}`,
+      { verbose: true }
+    );
+    return null;
+  }
+  const skills = parseModelVisibleSkills(result.stdout);
+  if (!skills) await log('   ⚠️  Codex prompt did not contain a <skills_instructions> block; skipping skill visibility verification', { verbose: true });
+  return skills;
+};
+
+const verifyModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills }) => {
+  if (!requiredSkills || requiredSkills.length === 0) return;
+  const visible = await readModelVisibleSkills({ command, env, runCommand, log });
+  if (!visible) return;
+
+  await log(`   🔎 Model-visible skills (${visible.size}): ${[...visible].sort().join(', ') || 'none'}`, { verbose: true });
+  const invisible = requiredSkills.filter(skill => !visible.has(skill.toLowerCase()));
+  if (invisible.length === 0) {
+    await log(`   ✅ Verified ${requiredSkills.length} required skill(s) are visible to the model`);
+    return;
+  }
+
+  throw new CodexCapabilityPreflightError(`Codex reports the required plugins as installed, but the model cannot see: ${invisible.join(', ')}. ` + `Codex exposes a plugin's skills only while its payload is materialized under ` + `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills. ` + `Visible skills were: ${[...visible].sort().join(', ') || 'none'}.`, { missing: invisible });
+};
+
 const skillParts = skill => {
   const separator = skill.indexOf(':');
   return separator === -1 ? { namespace: null, name: skill } : { namespace: skill.slice(0, separator), name: skill.slice(separator + 1) };
@@ -341,6 +396,7 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   }
   if (plugins.length === 0) {
     await log('   ✅ Required Agent Skills are already available from standard skill directories');
+    await verifyModelVisibleSkills({ command, env: baseEnv, runCommand, log, requiredSkills: requirements.skills });
     return { required: true, plugins, skills: requirements.skills, codexHome: null, baseCodexHome };
   }
 
@@ -364,6 +420,13 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   const verified = new Set((verifiedCatalog.installed || []).filter(plugin => plugin.installed && plugin.enabled).map(plugin => normalizePluginSelector(plugin.pluginId)));
   const unverified = plugins.filter(plugin => !verified.has(plugin));
   if (unverified.length > 0) throw new CodexCapabilityPreflightError(`Codex capability installation did not verify successfully: ${unverified.join(', ')}`, { missing: unverified });
+
+  // Issue #2084: enablement is not exposure. The failing run reached this point
+  // with `superpowers@openai-curated` reported as "installed, enabled" while
+  // the model saw zero `superpowers:*` skills, so the run proceeded and then
+  // stalled on the repository's mandatory preflight. Confirm the requirement
+  // against the catalog the model actually receives.
+  await verifyModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
 
   await log(`   Codex capability state: ${codexHome}`, { verbose: true });
   return { required: true, plugins, skills: requirements.skills, codexHome, baseCodexHome };

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 /**
  * Helm chart release script
@@ -9,22 +8,20 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  * This script packages and publishes the Helm chart to the gh-pages branch.
  * It expects Helm to be installed and Git to be configured.
  *
- * Uses link-foundation libraries:
- * - use-m: Dynamic package loading without package.json dependencies
- * - command-stream: Modern shell command execution with streaming support
- * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
+ * The logic lives in scripts/helm-release.lib.mjs so it can be unit-tested
+ * (see tests/helm-release-2082.test.mjs). This file only parses arguments.
+ *
+ * Set HIVE_MIND_CI_VERBOSE=1 to trace every command and its exit code.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
+import { isVerbose } from './run-command.lib.mjs';
+import { releaseHelmChart } from './helm-release.lib.mjs';
 
-// Load use-m dynamically
+import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
+
 const use = await ensureUseM();
-
-// Import link-foundation libraries
-const { $ } = await use('command-stream');
 const { makeConfig } = await use('lino-arguments');
 
-// Parse CLI arguments using lino-arguments
 // Note: Using --release-version instead of --version to avoid conflict with yargs' built-in --version flag
 const config = makeConfig({
   yargs: ({ yargs, getenv }) =>
@@ -43,10 +40,15 @@ const config = makeConfig({
         type: 'string',
         default: getenv('GITHUB_ACTOR', 'github-actions'),
         describe: 'GitHub username for Git commits',
+      })
+      .option('verbose', {
+        type: 'boolean',
+        default: isVerbose(),
+        describe: 'Trace every command and its exit code',
       }),
 });
 
-const { releaseVersion: version, helmRepoUrl, githubActor } = config;
+const { releaseVersion: version, helmRepoUrl, githubActor, verbose } = config;
 
 if (!version) {
   console.error('Error: Version is required');
@@ -54,83 +56,8 @@ if (!version) {
   process.exit(1);
 }
 
-const CHART_PATH = 'helm/hive-mind/Chart.yaml';
-
 try {
-  console.log(`Releasing Helm chart version ${version}...`);
-
-  // Configure Git
-  await $`git config user.name "${githubActor}"`;
-  await $`git config user.email "${githubActor}@users.noreply.github.com"`;
-
-  // Update Chart.yaml with new version
-  console.log(`Updating Chart.yaml to version ${version}...`);
-  let chartContent = readFileSync(CHART_PATH, 'utf8');
-  chartContent = chartContent.replace(/^appVersion: .*/m, `appVersion: "${version}"`);
-  chartContent = chartContent.replace(/^version: .*/m, `version: ${version}`);
-  writeFileSync(CHART_PATH, chartContent);
-  console.log('Updated Chart.yaml:');
-  console.log(readFileSync(CHART_PATH, 'utf8'));
-
-  // Lint the chart
-  console.log('');
-  console.log('Linting Helm chart...');
-  await $`helm lint helm/hive-mind`;
-
-  // Package the chart
-  console.log('');
-  console.log('Packaging Helm chart...');
-  await $`mkdir -p .helm-packages`;
-  await $`helm package helm/hive-mind -d .helm-packages`;
-  await $`ls -la .helm-packages/`;
-
-  // Ensure gh-pages branch exists
-  console.log('');
-  console.log('Checking gh-pages branch...');
-  const branchCheckResult = await $`git ls-remote --exit-code --heads origin gh-pages`.run({ capture: true });
-
-  if (branchCheckResult.code !== 0) {
-    console.log('Creating gh-pages branch...');
-    await $`git checkout --orphan gh-pages`;
-    await $`git reset --hard`;
-    await $`git commit --allow-empty -m "Initialize gh-pages branch for Helm charts"`;
-    await $`git push origin gh-pages`;
-    await $`git checkout -`;
-  }
-
-  // Checkout gh-pages branch
-  console.log('');
-  console.log('Checking out gh-pages branch...');
-  await $`git fetch origin gh-pages:gh-pages`;
-  await $`git checkout gh-pages`;
-
-  // Update Helm repository index
-  console.log('');
-  console.log('Updating Helm repository index...');
-  await $`cp .helm-packages/*.tgz .`;
-  await $`helm repo index . --url "${helmRepoUrl}"`;
-  console.log('Index updated:');
-  console.log(readFileSync('index.yaml', 'utf8'));
-
-  // Commit and push
-  console.log('');
-  console.log('Committing and pushing to gh-pages...');
-  await $`git add -f *.tgz index.yaml`;
-
-  const commitResult = await $`git commit -m "Release Helm chart version ${version}"`.run({ capture: true });
-  if (commitResult.code !== 0) {
-    console.log('No changes to commit');
-  }
-
-  await $`git push origin gh-pages`;
-
-  // Switch back
-  console.log('');
-  console.log('Switching back to previous branch...');
-  await $`git checkout -`;
-
-  console.log('');
-  console.log(`Helm chart version ${version} released successfully!`);
+  await releaseHelmChart({ version, helmRepoUrl, githubActor, verbose });
 } catch (error) {
   console.error('Error releasing Helm chart:', error.message);
   process.exit(1);

@@ -97,6 +97,8 @@ Enablement is stored per repository at `$CODEX_HOME/hive-mind/repositories/<owne
 
 When a requirement has no installed or available provider, execution stops before the AI harness starts and prints the exact missing identifier. Run `codex plugin list --available --json` in the parent container to inspect or refresh the configured marketplaces, then retry.
 
+Verification checks what the model actually receives, not merely what is enabled. Codex renders a plugin's Agent Skills into the prompt only while the plugin payload is materialized under `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills`, so a plugin can report `installed, enabled` while the model sees none of its skills. The preflight therefore reads the rendered `<skills_instructions>` catalog via `codex debug prompt-input` and confirms each required skill appears in it. If one does not, the diagnostic names the missing skill and lists the skills that were visible. Run with `--verbose` to log the full model-visible catalog. On a Codex build without `codex debug prompt-input`, this check is skipped with a verbose note rather than failing the run. See `docs/case-studies/issue-2084/`.
+
 ### 5. Retry Configurations
 
 | Environment Variable                   | Default | Description                         |

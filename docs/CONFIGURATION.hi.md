@@ -95,6 +95,8 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 
 Enablement हर repository के लिए `$CODEX_HOME/hive-mind/repositories/<owner>/<repo>` में रहता है; global config या target checkout नहीं बदलते। Container restarts के लिए पूरा `/home/box/.codex` persist करें और user skills के लिए optional `/home/box/.agents/skills` persist करें; Docker isolation दोनों paths propagate करता है। Provider न मिलने पर preflight exact identifier दिखाता है और parent container में `codex plugin list --available --json` चलाने का निर्देश देता है।
 
+Verification यह जाँचता है कि model को असल में क्या मिलता है, केवल enablement नहीं। Codex किसी plugin के Agent Skills को prompt में तभी render करता है जब plugin payload `$CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills` के अंतर्गत materialized हो; इसलिए plugin `installed, enabled` दिख सकता है जबकि model को उसका कोई skill न दिखे। इसलिए preflight `codex debug prompt-input` के ज़रिए rendered `<skills_instructions>` catalog पढ़ता है और हर आवश्यक skill की पुष्टि करता है। न मिलने पर diagnostic उस skill का नाम देता है और visible skills सूचीबद्ध करता है। पूरा model-visible catalog log करने के लिए `--verbose` चलाएँ। जिस Codex build में `codex debug prompt-input` नहीं है, वहाँ यह check verbose note के साथ skip होता है, run fail नहीं करता। देखें `docs/case-studies/issue-2084/`।
+
 ### 5. Retry कॉन्फ़िगरेशन
 
 | Environment Variable                   | डिफ़ॉल्ट | विवरण                             |

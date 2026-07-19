@@ -7,19 +7,25 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  *   changeset: Run changeset version
  *   instant: Run instant version bump with bump_type (patch|minor|major) and optional description
  *
+ * The logic lives in scripts/version-and-commit.lib.mjs so it can be unit-tested
+ * (see tests/version-and-commit-2082.test.mjs). This file only parses arguments.
+ *
+ * Set HIVE_MIND_CI_VERBOSE=1 to trace every command and its exit code.
+ *
  * Uses link-foundation libraries:
  * - use-m: Dynamic package loading without package.json dependencies
- * - command-stream: Modern shell command execution with streaming support
  * - lino-arguments: Unified configuration from CLI args, env vars, and .lenv files
  */
 
-import { readFileSync, appendFileSync, readdirSync } from 'fs';
+import { appendFileSync, readdirSync } from 'node:fs';
+
+import { isVerbose } from './run-command.lib.mjs';
+import { versionAndCommit } from './version-and-commit.lib.mjs';
 
 // Load use-m dynamically
 const use = await ensureUseM();
 
 // Import link-foundation libraries
-const { $ } = await use('command-stream');
 const { makeConfig } = await use('lino-arguments');
 
 // Parse CLI arguments using lino-arguments
@@ -94,9 +100,8 @@ if (mode === 'instant' && !bumpType) {
 function setOutput(key, value) {
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
-    const content = `${key}=${value}\n`;
     console.log(`Setting GitHub output: ${key}=${value}`);
-    appendFileSync(outputFile, content);
+    appendFileSync(outputFile, `${key}=${value}\n`);
     console.log(`Output written to ${outputFile}`);
   } else {
     console.log(`GITHUB_OUTPUT not set, would have set: ${key}=${value}`);
@@ -108,126 +113,22 @@ function setOutput(key, value) {
  */
 function countChangesets() {
   try {
-    const changesetDir = '.changeset';
-    const files = readdirSync(changesetDir);
-    return files.filter(f => f.endsWith('.md') && f !== 'README.md').length;
+    return readdirSync('.changeset').filter(f => f.endsWith('.md') && f !== 'README.md').length;
   } catch {
     return 0;
   }
 }
 
-/**
- * Get package version
- * @param {string} source - 'local' or 'remote'
- */
-async function getVersion(source = 'local') {
-  if (source === 'remote') {
-    const result = await $`git show origin/main:package.json`.run({
-      capture: true,
-    });
-    return JSON.parse(result.stdout).version;
-  }
-  return JSON.parse(readFileSync('./package.json', 'utf8')).version;
+try {
+  await versionAndCommit({
+    mode,
+    bumpType,
+    description,
+    output: setOutput,
+    countChangesets,
+    verbose: isVerbose(),
+  });
+} catch (error) {
+  console.error('Error:', error.message);
+  process.exit(1);
 }
-
-async function main() {
-  try {
-    // Configure git
-    await $`git config user.name "github-actions[bot]"`;
-    await $`git config user.email "github-actions[bot]@users.noreply.github.com"`;
-
-    // Check if remote main has advanced (handles re-runs after partial success)
-    console.log('Checking for remote changes...');
-    await $`git fetch origin main`;
-
-    const localHeadResult = await $`git rev-parse HEAD`.run({ capture: true });
-    const localHead = localHeadResult.stdout.trim();
-
-    const remoteHeadResult = await $`git rev-parse origin/main`.run({
-      capture: true,
-    });
-    const remoteHead = remoteHeadResult.stdout.trim();
-
-    if (localHead !== remoteHead) {
-      console.log(`Remote main has advanced (local: ${localHead}, remote: ${remoteHead})`);
-      console.log('This may indicate a previous attempt partially succeeded.');
-
-      // Check if the remote version is already the expected bump
-      const remoteVersion = await getVersion('remote');
-      console.log(`Remote version: ${remoteVersion}`);
-
-      // Check if there are changesets to process
-      const changesetCount = countChangesets();
-
-      if (changesetCount === 0) {
-        console.log('No changesets to process and remote has advanced.');
-        console.log('Assuming version bump was already completed in a previous attempt.');
-        setOutput('version_committed', 'false');
-        setOutput('already_released', 'true');
-        setOutput('new_version', remoteVersion);
-        return;
-      } else {
-        console.log('Rebasing on remote main to incorporate changes...');
-        await $`git rebase origin/main`;
-      }
-    }
-
-    // Get current version before bump
-    const oldVersion = await getVersion();
-    console.log(`Current version: ${oldVersion}`);
-
-    if (mode === 'instant') {
-      console.log('Running instant version bump...');
-      // Run instant version bump script
-      // Rely on command-stream's auto-quoting for proper argument handling
-      if (description) {
-        await $`node scripts/instant-version-bump.mjs --bump-type ${bumpType} --description ${description}`;
-      } else {
-        await $`node scripts/instant-version-bump.mjs --bump-type ${bumpType}`;
-      }
-    } else {
-      console.log('Running changeset version...');
-      // Run changeset version to bump versions and update CHANGELOG
-      await $`npm run changeset:version`;
-
-      // Synchronize package-lock.json to match updated package.json version
-      console.log('Synchronizing package-lock.json...');
-      await $`npm install --package-lock-only`;
-    }
-
-    // Get new version after bump
-    const newVersion = await getVersion();
-    console.log(`New version: ${newVersion}`);
-    setOutput('new_version', newVersion);
-
-    // Check if there are changes to commit
-    const statusResult = await $`git status --porcelain`.run({ capture: true });
-    const status = statusResult.stdout.trim();
-
-    if (status) {
-      console.log('Changes detected, committing...');
-
-      // Stage all changes (package.json, package-lock.json, CHANGELOG.md, deleted changesets)
-      await $`git add -A`;
-
-      // Commit with version number as message
-      const commitMessage = newVersion;
-      const escapedMessage = commitMessage.replace(/"/g, '\\"');
-      await $`git commit -m "${escapedMessage}"`;
-
-      // Push directly to main
-      await $`git push origin main`;
-
-      console.log('Version bump committed and pushed to main');
-      setOutput('version_committed', 'true');
-    } else {
-      console.log('No changes to commit');
-      setOutput('version_committed', 'false');
-    }
-  } catch (error) {
-    console.error('Error:', error.message);
-    process.exit(1);
-  }
-}
-
-main();

@@ -53,6 +53,7 @@ jobs:
   # === DETECT CHANGES ===
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       mjs-changed: ${{ steps.changes.outputs.mjs }}
       package-changed: ${{ steps.changes.outputs.package }}
@@ -84,6 +85,7 @@ jobs:
   version-check:
     name: Check for Manual Version Changes
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
     steps:
@@ -102,6 +104,7 @@ jobs:
   changeset-check:
     name: Check for Changesets
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
@@ -141,6 +144,7 @@ jobs:
   # === COMPILATION & SYNTAX CHECKS ===
   test-compilation:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
     if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
@@ -176,6 +180,7 @@ jobs:
   # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes]
     if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
 
@@ -223,6 +228,7 @@ jobs:
   # See docs/case-studies/issue-1141 for why this is critical.
   check-file-line-limits:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
     if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
@@ -249,6 +255,7 @@ jobs:
   # === UNIT TESTS ===
   test-suites:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
       always() &&
@@ -287,6 +294,7 @@ jobs:
   # === EXECUTION TESTS ===
   test-execution:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
       always() &&
@@ -375,6 +383,7 @@ jobs:
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
       always() &&
@@ -451,6 +460,7 @@ jobs:
   # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
     if: always() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true'
@@ -478,6 +488,7 @@ jobs:
   # === DOCKER PR CHECK ===
   docker-pr-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
     if: |
@@ -593,6 +604,7 @@ jobs:
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [detect-changes, changeset-check]
     # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
     if: always() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
@@ -630,6 +642,7 @@ jobs:
     needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
     if: always() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -817,6 +830,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -959,6 +973,7 @@ jobs:
     needs: [release, docker-publish-dind]
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1021,6 +1036,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       packages: write
@@ -1052,6 +1068,7 @@ jobs:
     name: Instant Release
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
@@ -1207,6 +1224,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1349,6 +1367,7 @@ jobs:
     needs: [instant-release, docker-publish-dind-instant]
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -1411,6 +1430,7 @@ jobs:
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
       packages: write
@@ -1442,6 +1462,7 @@ jobs:
     name: Create Changeset PR
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       pull-requests: write

@@ -51,7 +51,12 @@ if [ -f "$RELEASE_YML" ]; then
     WARNINGS+=("$RELEASE_YML")
   fi
 else
-  echo "WARNING: $RELEASE_YML not found, skipping"
+  # $RELEASE_YML is committed to this repository, so it can only be absent if the
+  # checkout is wrong or the file was moved. Skipping with a warning would let the
+  # line-limit check silently verify nothing (issue #2082).
+  echo "ERROR: $RELEASE_YML not found — the line-limit check cannot run"
+  echo "::error::$RELEASE_YML not found. Update RELEASE_YML in scripts/check-file-line-limits.sh if the workflow moved."
+  FAILURES+=("$RELEASE_YML")
 fi
 
 echo ""

@@ -291,7 +291,7 @@ if [ "$ROCQ_VERIFIED" = false ]; then
     ls -la "$HOME/.opam/default/bin/" 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq binaries found in opam bin"
     echo "Installed opam packages:"
     opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq packages found"
-  else
+  else # shell-lint: allow-nonfatal — diagnostics for the ERROR raised below.
     echo "rocq-prover package NOT installed in opam"
     echo "Available opam packages:"
     opam list 2>/dev/null | head -20 || echo "Could not list opam packages"
@@ -319,7 +319,7 @@ echo "=== Verifying AI-specific tools (hive-mind additions) ==="
 if bun pm ls -g &>/dev/null; then
   echo "Bun global packages accessible"
   bun pm ls -g 2>/dev/null | head -20 || true
-else
+else # shell-lint: allow-nonfatal — informational; no bun global package is required.
   echo "WARNING: Could not list bun global packages"
 fi
 
@@ -333,7 +333,7 @@ if command -v configure-claude >/dev/null 2>&1; then
   echo "Verifying quiet Claude Code baseline..."
   configure-claude --settings-path /home/box/.claude/settings.json --verify
   echo "Quiet Claude Code baseline: OK"
-else
+else # shell-lint: allow-nonfatal — see the reasoning below.
   # PR Docker builds install @link-assistant/hive-mind@latest, which can pre-date
   # this PR and therefore not ship the configure-claude bin yet. Release builds
   # install an exact pinned version where the bin must exist (enforced in the

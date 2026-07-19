@@ -283,10 +283,15 @@ const fakeSpawn = (cmd, args) => {
   return {
     on: (event, cb) => {
       listeners[event] = cb;
+      // The timer must stay referenced: closeScreenSession awaits this callback, and
+      // an unref'd timer lets Node exit with the await still pending — exit 13 on
+      // Node >= 22, which is what CI runs. Captured and cleared to satisfy
+      // timers/no-leaked-timers without detaching it from the event loop.
       if (event === 'exit') {
-        const exitTimer = setTimeout(() => cb(0), 0);
-        // Do not hold the event loop open if the caller never awaits the exit.
-        exitTimer.unref?.();
+        const exitTimer = setTimeout(() => {
+          clearTimeout(exitTimer);
+          cb(0);
+        }, 0);
       }
       return listeners;
     },

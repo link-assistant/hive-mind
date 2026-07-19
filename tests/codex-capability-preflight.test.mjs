@@ -96,12 +96,14 @@ await writeFile(path.join(scopedBaseHome, '.tmp', 'plugins.sha'), 'fixture-sha\n
 await writeFile(path.join(scopedBaseHome, 'config.toml'), '[features]\nmulti_agent = true\n');
 await writeFile(path.join(scopedBaseHome, 'auth.json'), '{}\n');
 
+const preflightLogs = [];
 const preflight = await runCodexCapabilityPreflight({
   owner: 'CEHR2005',
   repo: 'GCS-TS',
   issueNumber: 1,
   baseCodexHome: scopedBaseHome,
   runCommand: fakeRunCommand,
+  log: async (message, options) => preflightLogs.push({ message, options }),
 });
 
 assert.equal(preflight.required, true);
@@ -110,6 +112,10 @@ assert.equal(preflight.codexHome, path.join(scopedBaseHome, 'hive-mind', 'reposi
 assert(
   commandCalls.some(call => call.args.join(' ') === 'plugin add superpowers@openai-curated --json'),
   'required plugin is installed before execution'
+);
+assert(
+  preflightLogs.some(entry => entry.message.includes('Verified superpowers@openai-curated in the Codex plugin catalog') && entry.options?.verbose),
+  'verbose diagnostics confirm that the selected plugin exists in the authoritative CLI catalog'
 );
 assert(
   commandCalls.filter(call => call.command === 'codex' && !call.args.includes('--available')).every(call => call.env.CODEX_HOME === preflight.codexHome),

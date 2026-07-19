@@ -21,6 +21,9 @@ const NEGATED_REQUIREMENT = /\b(?:does\s+not\s+require|not\s+required|optional)\
 const PLUGIN_SELECTOR = /\b([a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*(?:-remote)?)\b(?!\.[a-z])/gi;
 const NAMESPACED_SKILL = /\b([a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*)\b/gi;
 const EXPLICIT_BARE_SKILL = /\$([a-z0-9][a-z0-9-]*)|`([a-z0-9][a-z0-9-]*)`\s+(?:agent\s+)?skill/gi;
+const CAPABILITY_PREFIX = /\b(?:depend(?:s|ed)?\s+on|install|invoke|must\s+(?:install|invoke|use)|need(?:ed|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|require(?:d|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|use)\s+(?:(?:the|an?)\s+)?(?:(?:agent\s+)?skill\s+)?(?:named\s+)?[`$]?$/i;
+const CAPABILITY_SUFFIX = /^`?\s+(?:agent\s+)?(?:skill|capability)\b/i;
+const STRUCTURED_DATA_VALUES = new Set(['array', 'boolean', 'false', 'integer', 'null', 'number', 'object', 'string', 'true']);
 
 // Issue #2077: a capability name must contain at least one letter.
 //
@@ -43,6 +46,21 @@ const CAPABILITY_TOKEN = /^(?=[a-z0-9_-]*[a-z])[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$
 const PROSE_TOKENS = new Set(['agent', 'caution', 'codex', 'default', 'error', 'example', 'file', 'fixme', 'format', 'home', 'http', 'https', 'id', 'important', 'input', 'key', 'line', 'name', 'nb', 'note', 'output', 'path', 'ref', 'required', 'see', 'skill', 'the', 'tip', 'todo', 'type', 'url', 'usage', 'value', 'warning']);
 
 const isCapabilityToken = value => CAPABILITY_TOKEN.test(value) && !PROSE_TOKENS.has(value);
+
+const hasExplicitCapabilityContext = (line, match) => {
+  const before = line.slice(0, match.index);
+  const after = line.slice(match.index + match[0].length);
+  if (CAPABILITY_SUFFIX.test(after) || before.endsWith('$')) return true;
+  const value = match[1].slice(match[1].indexOf(':') + 1).toLowerCase();
+  return !STRUCTURED_DATA_VALUES.has(value) && CAPABILITY_PREFIX.test(before);
+};
+
+const hasExplicitPluginContext = (line, match) => {
+  const before = line.slice(0, match.index);
+  const after = line.slice(match.index + match[0].length);
+  const marketplace = match[1].slice(match[1].indexOf('@') + 1);
+  return /(?:^|-)(?:bundled|curated|marketplace|remote)(?:-|$)/iu.test(marketplace) || /\bplugin\s+[`$]?$/iu.test(before) || /^`?\s+plugin\b/iu.test(after);
+};
 
 export function isCapabilityName(value) {
   const token = String(value || '').toLowerCase();
@@ -90,8 +108,16 @@ export function detectRequiredCodexCapabilities(text) {
     const line = rawLine.trim();
     if (!line || !REQUIREMENT_WORDS.test(line) || NEGATED_REQUIREMENT.test(line)) continue;
 
-    for (const match of line.matchAll(PLUGIN_SELECTOR)) accept(plugins, normalizePluginSelector(match[1]), line);
-    for (const match of line.matchAll(NAMESPACED_SKILL)) accept(skills, match[1].toLowerCase(), line);
+    for (const match of line.matchAll(PLUGIN_SELECTOR)) {
+      const selector = normalizePluginSelector(match[1]);
+      if (hasExplicitPluginContext(line, match)) accept(plugins, selector, line);
+      else rejected.push({ capability: selector, line });
+    }
+    for (const match of line.matchAll(NAMESPACED_SKILL)) {
+      const skill = match[1].toLowerCase();
+      if (hasExplicitCapabilityContext(line, match)) accept(skills, skill, line);
+      else rejected.push({ capability: skill, line });
+    }
     for (const match of line.matchAll(EXPLICIT_BARE_SKILL)) accept(skills, (match[1] || match[2]).toLowerCase(), line);
   }
 
@@ -310,6 +336,9 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
   const skillDirectories = [path.join(os.homedir(), '.agents', 'skills'), projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
   const plugins = await resolveRequiredPlugins({ requirements, catalog: baseCatalog, skillDirectories });
+  for (const plugin of plugins) {
+    await log(`   ✅ Verified ${plugin} in the Codex plugin catalog`, { verbose: true });
+  }
   if (plugins.length === 0) {
     await log('   ✅ Required Agent Skills are already available from standard skill directories');
     return { required: true, plugins, skills: requirements.skills, codexHome: null, baseCodexHome };

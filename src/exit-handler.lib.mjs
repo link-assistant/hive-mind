@@ -9,6 +9,11 @@
 // Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
 // Static import is safe: working-session.lib.mjs has no heavy deps and does NOT import this module.
 import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, requestShutdown as requestWorkingSessionShutdown, forceKillActiveChildren as forceKillWorkingSessionChildren } from './working-session.lib.mjs';
+// Issue #2090: preserve the development log on every exit path (usage limit
+// reached, tool failure, repository setup failure, graceful shutdown,
+// auto-continue hand-off). No-op unless solve registered a finalizer, so hive
+// and other consumers of this module are unaffected.
+import { finalizeActiveDevelopmentLog } from './development-log.finalize.lib.mjs';
 
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
@@ -240,6 +245,10 @@ export const logActiveHandles = async (log = null) => {
  */
 export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
   await showExitMessage(reason, code);
+
+  // Issue #2090: collect the working session that is still uncollected (and the
+  // log tail produced after it) before the process goes away.
+  await finalizeActiveDevelopmentLog({ force: true });
 
   if (!skipPreExit && code !== 0 && preExitFunction && !preExitHandlerRan) {
     preExitHandlerRan = true;

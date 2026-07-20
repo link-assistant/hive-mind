@@ -1,0 +1,38 @@
+==> Fetching the curated plugin catalogue
+==> Provisioning the repository-scoped CODEX_HOME
+
+==> FACT 1: a materialised scoped payload exposes the skills
+    superpowers skills visible: 14
+
+==> FACT 2: delete only plugins/cache — the #2088 state
+    config.toml still declares the plugin:
+      [plugins."superpowers@issue2088"]
+      enabled = true
+    codex plugin list reports:
+      PLUGIN                 STATUS         VERSION  PATH                                                      
+      superpowers@issue2088  not installed           /home/box/issue-2088-repro/marketplace/plugins/superpowers
+    superpowers skills visible: 0
+
+==> FACT 3: 'codex plugin add' repairs the payload, and is idempotent
+    repaired catalogue matches the healthy catalogue exactly
+    a repeated install changes nothing
+
+==> FACT 4a: a stale payload reports 'installed, enabled' and exposes nothing
+      superpowers@issue2088  installed, enabled  5.1.3    /home/box/issue-2088-repro/marketplace/plugins/superpowers
+    superpowers skills visible with a gutted payload: 0
+    ...yet 'codex plugin list --json' still reports installed=true, enabled=true
+    're-adding' the plugin repairs the stale payload as well
+
+==> FACT 4b: an unreachable marketplace is repaired from the operator payload
+    copying the operator payload restores the full catalogue offline
+
+==> RESULT
+    healthy payload:            14 skills
+    payload deleted:            0 skills (config still says enabled)
+    after 'codex plugin add':   14 skills
+    stale payload:              0 skills
+    operator payload copied in: 14 skills
+
+Enablement and exposure are independent: the preflight must check the
+materialised payload and the rendered prompt, and repair the payload
+before 'codex exec' rather than reporting the gap and continuing.

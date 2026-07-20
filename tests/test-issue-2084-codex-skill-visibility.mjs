@@ -54,14 +54,22 @@ await writeFile(path.join(baseCodexHome, 'config.toml'), '[features]\nmulti_agen
 
 const entry = { pluginId: 'superpowers@openai-curated', name: 'superpowers', source: { source: 'local', path: pluginRoot } };
 
-// `skillsVisible: false` reproduces issue #2084 exactly: the plugin is enabled
-// and the marketplace snapshot resolves, but the payload that carries the
-// skills was never materialized, so the prompt lists no superpowers skills.
+// `skillsVisible: false` reproduces issue #2084 exactly: the plugin is enabled,
+// the marketplace snapshot resolves and `plugin add` materializes a payload, yet
+// the prompt Codex renders lists no superpowers skills. Materializing on `add`
+// mirrors the real CLI, so this fixture isolates the visibility defect from
+// issue #2088's cache-repair defect.
+const scopedCache = path.join(baseCodexHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS', 'plugins', 'cache', 'openai-curated', 'superpowers', '5.1.3', 'skills');
 const makeRunCommand =
   ({ skillsVisible }) =>
   async ({ command, args }) => {
     if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
     if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: issueText }), stderr: '', code: 0 };
+    if (args[0] === 'plugin' && args[1] === 'add') {
+      await mkdir(path.join(scopedCache, 'using-superpowers'), { recursive: true });
+      await writeFile(path.join(scopedCache, 'using-superpowers', 'SKILL.md'), '---\nname: using-superpowers\n---\n');
+      return { stdout: JSON.stringify({ pluginId: args[2] }), stderr: '', code: 0 };
+    }
     if (args[0] === 'plugin' && args[1] === 'list') {
       return { stdout: JSON.stringify({ installed: [{ ...entry, installed: true, enabled: true, version: '2f1a8948' }], available: [entry] }), stderr: '', code: 0 };
     }
@@ -86,12 +94,25 @@ const run = async ({ skillsVisible, env }) => {
   return { result, logs };
 };
 
-const blocked = await run({ skillsVisible: false });
-assert.equal(blocked.result.degraded, true, 'an enabled-but-invisible plugin no longer passes verification silently');
-assert.match(blocked.result.error, /superpowers:using-superpowers/u, 'the diagnostic names the skill the model could not see');
-assert.match(blocked.result.error, /plugins\/cache/u, 'the diagnostic points at the directory that actually carries plugin skills');
+// Issue #2088 tightened this outcome: the issue names `superpowers:using-superpowers`
+// explicitly, repair cannot materialize it here (this fixture's Codex refuses
+// `plugin add`), so the preflight stops before `codex exec` instead of degrading.
+const blocked = await run({ skillsVisible: false }).then(
+  () => null,
+  error => error
+);
+assert(blocked, 'an enabled-but-invisible, explicitly required plugin no longer passes verification silently');
+assert.match(blocked.message, /superpowers:using-superpowers/u, 'the diagnostic names the skill the model could not see');
+assert.match(blocked.message, /plugins\/cache/u, 'the diagnostic points at the directory that actually carries plugin skills');
+assert.equal(blocked.details.failClosed, true, 'an explicitly declared capability fails closed');
+
+// The advisory escape hatch preserves the previous behaviour for operators who
+// would rather run degraded than not at all.
+const advisory = await run({ skillsVisible: false, env: { HIVE_MIND_CODEX_CAPABILITY_ADVISORY: '1' } });
+assert.equal(advisory.result.degraded, true, 'HIVE_MIND_CODEX_CAPABILITY_ADVISORY=1 restores the degraded-run behaviour');
+assert.match(advisory.result.error, /superpowers:using-superpowers/u);
 assert(
-  blocked.logs.some(entry => entry.message.includes('Model-visible skills') && entry.options?.verbose),
+  advisory.logs.some(entry => entry.message.includes('Model-visible skills') && entry.options?.verbose),
   'verbose diagnostics record the catalog the model received so the next run is debuggable'
 );
 

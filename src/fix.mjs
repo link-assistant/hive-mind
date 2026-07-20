@@ -236,7 +236,10 @@ async function main() {
   });
 }
 
-main().catch(error => {
-  console.error(`❌ ${error.message}`);
+main().catch(async error => {
+  // Issue #2092: printing only error.message hid the SyntaxError cause of the
+  // use-m load failure, leaving the run log undiagnosable.
+  const { formatFatalError } = await import('./error-formatting.lib.mjs');
+  console.error(formatFatalError(error));
   process.exit(1);
 });

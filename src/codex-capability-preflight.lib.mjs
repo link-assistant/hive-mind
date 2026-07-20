@@ -13,6 +13,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|use)\b/i;
 const NEGATED_REQUIREMENT = /\b(?:does\s+not\s+require|not\s+required|optional)\b/i;
@@ -90,18 +92,26 @@ export function normalizePluginSelector(selector) {
 export function detectRequiredCodexCapabilities(text) {
   const plugins = new Set();
   const skills = new Set();
+  // Issue #2088: a fully qualified reference — `plugin@marketplace` in plugin
+  // context, or `plugin:skill` in requirement context — names a capability that
+  // prose cannot produce by accident, so an unrepairable failure for one of
+  // these is a real blocker. A bare `$name` or `` `name` skill `` token is a
+  // guess about free text and stays advisory, which keeps issue #2077's
+  // false-positive protection intact.
+  const explicit = new Set();
   // Every accepted capability keeps the line it came from so `--verbose` can
   // explain a detection instead of only reporting its consequence (issue #2077).
   const evidence = [];
   const rejected = [];
 
-  const accept = (target, value, line) => {
+  const accept = (target, value, line, { qualified = false } = {}) => {
     if (!isCapabilityName(value)) {
       rejected.push({ capability: value, line });
       return;
     }
     target.add(value);
-    evidence.push({ capability: value, line });
+    if (qualified) explicit.add(value);
+    evidence.push({ capability: value, line, explicit: qualified });
   };
 
   for (const rawLine of String(text || '').split(/\r?\n/u)) {
@@ -110,19 +120,21 @@ export function detectRequiredCodexCapabilities(text) {
 
     for (const match of line.matchAll(PLUGIN_SELECTOR)) {
       const selector = normalizePluginSelector(match[1]);
-      if (hasExplicitPluginContext(line, match)) accept(plugins, selector, line);
+      if (hasExplicitPluginContext(line, match)) accept(plugins, selector, line, { qualified: true });
       else rejected.push({ capability: selector, line });
     }
     for (const match of line.matchAll(NAMESPACED_SKILL)) {
       const skill = match[1].toLowerCase();
-      if (hasExplicitCapabilityContext(line, match)) accept(skills, skill, line);
+      if (hasExplicitCapabilityContext(line, match)) accept(skills, skill, line, { qualified: true });
       else rejected.push({ capability: skill, line });
     }
     for (const match of line.matchAll(EXPLICIT_BARE_SKILL)) accept(skills, (match[1] || match[2]).toLowerCase(), line);
   }
 
-  return { plugins: [...plugins].sort(), skills: [...skills].sort(), evidence, rejected };
+  return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected };
 }
+
+export const isExplicitRequirement = (requirements, capability) => (requirements?.explicit || []).includes(String(capability || '').toLowerCase());
 
 const sanitizePathSegment = value => String(value || '').replace(/[^a-zA-Z0-9._-]/gu, '_');
 
@@ -195,19 +207,28 @@ const readModelVisibleSkills = async ({ command, env, runCommand, log }) => {
   return skills;
 };
 
-const verifyModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills }) => {
-  if (!requiredSkills || requiredSkills.length === 0) return;
+// `status: 'unknown'` keeps the probe advisory when it cannot run at all;
+// `status: 'missing'` is a fact about the prompt the model would receive.
+const checkModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills }) => {
+  if (!requiredSkills || requiredSkills.length === 0) return { status: 'satisfied', visible: null, missing: [] };
   const visible = await readModelVisibleSkills({ command, env, runCommand, log });
-  if (!visible) return;
+  if (!visible) return { status: 'unknown', visible: null, missing: [] };
 
   await log(`   🔎 Model-visible skills (${visible.size}): ${[...visible].sort().join(', ') || 'none'}`, { verbose: true });
-  const invisible = requiredSkills.filter(skill => !visible.has(skill.toLowerCase()));
-  if (invisible.length === 0) {
-    await log(`   ✅ Verified ${requiredSkills.length} required skill(s) are visible to the model`);
-    return;
-  }
+  const missing = requiredSkills.filter(skill => !visible.has(skill.toLowerCase()));
+  return { status: missing.length === 0 ? 'satisfied' : 'missing', visible, missing };
+};
 
-  throw new CodexCapabilityPreflightError(`Codex reports the required plugins as installed, but the model cannot see: ${invisible.join(', ')}. ` + `Codex exposes a plugin's skills only while its payload is materialized under ` + `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills. ` + `Visible skills were: ${[...visible].sort().join(', ') || 'none'}.`, { missing: invisible });
+const skillVisibilityError = ({ missing, visible, requirements, repairs = [] }) => new CodexCapabilityPreflightError(`Codex reports the required plugins as installed, but the model cannot see: ${missing.join(', ')}. ` + `Codex exposes a plugin's skills only while its payload is materialized under ` + `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills. ` + `Visible skills were: ${visible ? [...visible].sort().join(', ') || 'none' : 'unknown'}.` + (repairs.length > 0 ? ` Attempted repairs: ${repairs.join(', ')}.` : ''), { missing, failClosed: missing.some(skill => isExplicitRequirement(requirements, skill)) });
+
+const verifyModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills, requirements }) => {
+  const outcome = await checkModelVisibleSkills({ command, env, runCommand, log, requiredSkills });
+  if (outcome.status === 'unknown') return outcome;
+  if (outcome.status === 'satisfied') {
+    if (requiredSkills?.length) await log(`   ✅ Verified ${requiredSkills.length} required skill(s) are visible to the model`);
+    return outcome;
+  }
+  throw skillVisibilityError({ missing: outcome.missing, visible: outcome.visible, requirements });
 };
 
 const skillParts = skill => {
@@ -240,10 +261,14 @@ const skillExistsInDirectories = async (skill, skillDirectories) => {
   return false;
 };
 
-export async function resolveRequiredPlugins({ requirements, catalog, skillDirectories = [] }) {
+// Issue #2088: repairing a payload requires knowing *which* plugin is expected
+// to provide each required skill, so resolution reports the mapping rather than
+// only the set of plugin selectors.
+export async function resolveRequiredCapabilities({ requirements, catalog, skillDirectories = [] }) {
   const entries = catalogEntries(catalog);
   const byId = new Map(entries.map(entry => [normalizePluginSelector(entry.pluginId), entry]));
   const selected = new Map();
+  const providers = new Map();
   const missing = [];
 
   for (const selector of requirements.plugins || []) {
@@ -266,15 +291,29 @@ export async function resolveRequiredPlugins({ requirements, catalog, skillDirec
         break;
       }
     }
-    if (provider) selected.set(normalizePluginSelector(provider.pluginId), provider);
-    else missing.push(skill);
+    if (provider) {
+      selected.set(normalizePluginSelector(provider.pluginId), provider);
+      providers.set(skill, { pluginId: normalizePluginSelector(provider.pluginId), pluginName: provider.name || skillParts(skill).namespace, skillName: skillParts(skill).name });
+    } else missing.push(skill);
   }
 
   if (missing.length > 0) {
-    throw new CodexCapabilityPreflightError(`Required Codex capability unavailable: ${missing.join(', ')}. ` + `Run 'codex plugin list --available --json' in the operator container and configure a marketplace that provides it. ` + `Hive Mind installs discovered capabilities into repository-scoped CODEX_HOME state; it does not enable plugins globally.`, { missing });
+    // A missing capability that the issue named explicitly is a blocker; one
+    // inferred from prose is a guess that failed (issues #2077 and #2088).
+    // Only `plugin@marketplace` selectors qualify here: at this point nothing
+    // has corroborated the detection, and a `plugin:skill` token the catalog has
+    // never heard of is more likely a false positive (issue #2080) than a real
+    // requirement. Once the catalog *does* resolve the provider, a skill that
+    // repair cannot materialize does fail closed further down.
+    const explicitMissing = missing.filter(capability => isExplicitRequirement(requirements, capability) && capability.includes('@'));
+    throw new CodexCapabilityPreflightError(`Required Codex capability unavailable: ${missing.join(', ')}. ` + `Run 'codex plugin list --available --json' in the operator container and configure a marketplace that provides it. ` + `Hive Mind installs discovered capabilities into repository-scoped CODEX_HOME state; it does not enable plugins globally.`, { missing, failClosed: explicitMissing.length > 0 });
   }
 
-  return [...selected.keys()].sort();
+  return { plugins: [...selected.keys()].sort(), providers };
+}
+
+export async function resolveRequiredPlugins(options) {
+  return (await resolveRequiredCapabilities(options)).plugins;
 }
 
 const readIssueRequirementText = async ({ owner, repo, issueNumber, runCommand }) => {
@@ -349,7 +388,54 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome }) => {
   }
 };
 
+// --- issue #2088: repair the repository-scoped plugin payload ----------------
+//
+// `codex plugin list` reporting `installed, enabled` proves only that
+// `config.toml` declares the plugin and that Codex could resolve a source for
+// it. The skill loader reads
+// `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills`, so a
+// scoped home whose cache is missing or stale exposes zero skills while every
+// enablement check passes. Reproduced end to end with a real Codex CLI in
+// experiments/issue-2088/reproduce-cache-repair.sh.
+
+export const buildPluginCachePath = ({ codexHome, pluginId }) => buildAgentPluginCachePath({ agentHome: codexHome, pluginId: normalizePluginSelector(pluginId) });
+
+export const readMaterializedPluginSkills = ({ codexHome, pluginId }) => readAgentMaterializedPluginSkills({ agentHome: codexHome, pluginId: normalizePluginSelector(pluginId) });
+
+// `codex plugin remove` also drops the `[plugins."…"]` block, so a payload
+// restored by copying it back in has to be re-declared to stay enabled.
+const enablePluginInScopedConfig = async ({ agentHome: codexHome, pluginId }) => {
+  const configPath = path.join(codexHome, 'config.toml');
+  const config = await readIfPresent(configPath);
+  if (new RegExp(`^\\[plugins\\."${pluginId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}"\\]`, 'mu').test(config)) return;
+  await fs.writeFile(configPath, `${config.trimEnd()}\n\n[plugins."${pluginId}"]\nenabled = true\n`);
+};
+
+const PLUGIN_PAYLOAD_REPAIRS = buildPluginPayloadRepairs({
+  cli: CODEX_PLUGIN_CLI,
+  onInstalled: ({ result, pluginId }) => parseJsonCommand(result, `Installing required Codex plugin ${pluginId}`),
+  onCopied: enablePluginInScopedConfig,
+});
+
+// The provider map answers "which plugin must expose which skill", which is
+// what turns a payload listing into a health verdict.
+const expectedSkillsByPlugin = providers => {
+  const expected = new Map();
+  for (const provider of providers?.values() || []) {
+    const skill = `${pluginIdParts(provider.pluginId).name}:${provider.skillName}`.toLowerCase();
+    expected.set(provider.pluginId, [...(expected.get(provider.pluginId) || []), skill]);
+  }
+  return expected;
+};
+
+export const repairScopedPluginPayloads = ({ command, env, runCommand, log, codexHome, baseCodexHome, plugins, providers, strategies = PLUGIN_PAYLOAD_REPAIRS, force = false }) => repairPluginPayloads({ command, env, runCommand, log, agentHome: codexHome, copyFrom: baseCodexHome, plugins, expectedSkills: expectedSkillsByPlugin(providers), strategies, force, label: 'repository-scoped Codex' });
+
 export const isCodexCapabilityStrict = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_STRICT || ''));
+
+// Issue #2088: explicitly declared capabilities fail closed. This escape hatch
+// restores the previous advisory-only behaviour for an operator who would
+// rather run degraded than not at all.
+export const isCodexCapabilityAdvisory = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_ADVISORY || ''));
 
 export async function runCodexCapabilityPreflight(options = {}) {
   const { log = async () => {}, env = process.env } = options;
@@ -363,6 +449,15 @@ export async function runCodexCapabilityPreflight(options = {}) {
     // ratio (`16:9`) was read as a skill name. Degrade to a warning and let
     // Codex execute with the operator's own capabilities.
     if (isCodexCapabilityStrict(env)) throw error;
+    // Issue #2088: that reasoning does not extend to a capability the issue
+    // named explicitly and that repair could not materialize. Continuing there
+    // spends a full solver run that is already known to be unable to satisfy
+    // the task, so an explicit requirement fails closed before `codex exec`.
+    if (error.details?.failClosed && !isCodexCapabilityAdvisory(env)) {
+      await log(`❌ Codex capability preflight failed: ${error.message}`);
+      await log('   The issue names this capability explicitly, so Codex was not started. Set HIVE_MIND_CODEX_CAPABILITY_ADVISORY=1 to run degraded instead.');
+      throw error;
+    }
     await log(`⚠️  Codex capability preflight skipped: ${error.message}`);
     await log('   Continuing with the operator Codex capabilities. Set HIVE_MIND_CODEX_CAPABILITY_STRICT=1 to fail instead.');
     return { required: false, degraded: true, error: error.message, plugins: [], codexHome: null };
@@ -390,13 +485,13 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   const baseCatalogResult = await runCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
   const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
   const skillDirectories = [path.join(os.homedir(), '.agents', 'skills'), projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
-  const plugins = await resolveRequiredPlugins({ requirements, catalog: baseCatalog, skillDirectories });
+  const { plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog: baseCatalog, skillDirectories });
   for (const plugin of plugins) {
     await log(`   ✅ Verified ${plugin} in the Codex plugin catalog`, { verbose: true });
   }
   if (plugins.length === 0) {
     await log('   ✅ Required Agent Skills are already available from standard skill directories');
-    await verifyModelVisibleSkills({ command, env: baseEnv, runCommand, log, requiredSkills: requirements.skills });
+    await verifyModelVisibleSkills({ command, env: baseEnv, runCommand, log, requiredSkills: requirements.skills, requirements });
     return { required: true, plugins, skills: requirements.skills, codexHome: null, baseCodexHome };
   }
 
@@ -404,32 +499,61 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   await prepareScopedCodexHome({ baseCodexHome, codexHome });
   const scopedEnv = { ...process.env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 
-  const scopedCatalogResult = await runCommand({ command, args: ['plugin', 'list', '--json'], env: scopedEnv });
-  const scopedCatalog = parseJsonCommand(scopedCatalogResult, 'Repository-scoped Codex plugin discovery');
-  const installed = new Set((scopedCatalog.installed || []).filter(plugin => plugin.installed && plugin.enabled).map(plugin => normalizePluginSelector(plugin.pluginId)));
-
-  for (const plugin of plugins) {
-    if (installed.has(plugin)) continue;
-    const installResult = await runCommand({ command, args: ['plugin', 'add', plugin, '--json'], env: scopedEnv });
-    parseJsonCommand(installResult, `Installing required Codex plugin ${plugin}`);
-    await log(`   ✅ Provisioned ${plugin} in repository-scoped Codex state`);
+  // Issue #2088: install *and repair*. Enablement recorded in the scoped
+  // `config.toml` survives a container restart while the payload under
+  // `plugins/cache` may not, and `codex plugin list` cannot tell those states
+  // apart — so the payload itself is the thing that gets checked and rebuilt.
+  const repair = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand, log, codexHome, baseCodexHome, plugins, providers });
+  for (const entry of repair.report) {
+    if (entry.healthy) await log(`   ✅ Provisioned ${entry.pluginId} in repository-scoped Codex state`);
   }
 
   const verifyResult = await runCommand({ command, args: ['plugin', 'list', '--json'], env: scopedEnv });
   const verifiedCatalog = parseJsonCommand(verifyResult, 'Codex capability verification');
   const verified = new Set((verifiedCatalog.installed || []).filter(plugin => plugin.installed && plugin.enabled).map(plugin => normalizePluginSelector(plugin.pluginId)));
   const unverified = plugins.filter(plugin => !verified.has(plugin));
-  if (unverified.length > 0) throw new CodexCapabilityPreflightError(`Codex capability installation did not verify successfully: ${unverified.join(', ')}`, { missing: unverified });
+  if (unverified.length > 0) {
+    const blockedSkills = repair.unhealthy.flatMap(entry => entry.missing);
+    throw new CodexCapabilityPreflightError(`Codex capability installation did not verify successfully: ${unverified.join(', ')}. ` + (blockedSkills.length > 0 ? `The required skills ${blockedSkills.join(', ')} are therefore unavailable. ` : '') + `Expected the plugin payload under CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills in ${codexHome}. ` + `Attempted repairs: ${repair.applied.join(', ') || 'none'}.`, {
+      missing: unverified,
+      failClosed: unverified.some(plugin => isExplicitRequirement(requirements, plugin)) || blockedSkills.some(skill => isExplicitRequirement(requirements, skill)),
+    });
+  }
 
   // Issue #2084: enablement is not exposure. The failing run reached this point
   // with `superpowers@openai-curated` reported as "installed, enabled" while
   // the model saw zero `superpowers:*` skills, so the run proceeded and then
   // stalled on the repository's mandatory preflight. Confirm the requirement
   // against the catalog the model actually receives.
-  await verifyModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
+  let visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
+  if (visibility.status === 'missing') {
+    // The payload looks materialized but the prompt disagrees: rebuild it from
+    // scratch and re-probe before deciding (issue #2088).
+    await log(`   🛠️  Model cannot see ${visibility.missing.join(', ')}; forcing a repository-scoped plugin payload rebuild`);
+    const forced = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand, log, codexHome, baseCodexHome, plugins, providers, strategies: PLUGIN_PAYLOAD_REPAIRS.slice(1), force: true });
+    repair.applied.push(...forced.applied);
+    visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
+  }
+  if (visibility.status === 'missing') throw skillVisibilityError({ missing: visibility.missing, visible: visibility.visible, requirements, repairs: repair.applied });
+  if (visibility.status === 'unknown' && repair.unhealthy.length > 0) {
+    // Without the probe the materialized payload is the only evidence there is.
+    const missing = repair.unhealthy.flatMap(entry => (entry.missing.length > 0 ? entry.missing : [entry.pluginId]));
+    throw new CodexCapabilityPreflightError(`Repository-scoped Codex plugin payload could not be materialized for: ${missing.join(', ')}. ` + `Expected skills under CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills in ${codexHome}. ` + `Attempted repairs: ${repair.applied.join(', ') || 'none'}.`, { missing, failClosed: missing.some(capability => isExplicitRequirement(requirements, capability)) });
+  }
+  if (visibility.status === 'satisfied' && requirements.skills.length > 0) await log(`   ✅ Verified ${requirements.skills.length} required skill(s) are visible to the model`);
 
   await log(`   Codex capability state: ${codexHome}`, { verbose: true });
-  return { required: true, plugins, skills: requirements.skills, codexHome, baseCodexHome };
+  return { required: true, plugins, skills: requirements.skills, codexHome, baseCodexHome, repairs: repair.applied };
 }
 
-export default { applyCodexCapabilityEnv, detectRequiredCodexCapabilities, isCapabilityName, runCodexCapabilityPreflight };
+export default {
+  applyCodexCapabilityEnv,
+  buildPluginCachePath,
+  detectRequiredCodexCapabilities,
+  isCapabilityName,
+  isExplicitRequirement,
+  readMaterializedPluginSkills,
+  repairScopedPluginPayloads,
+  resolveRequiredCapabilities,
+  runCodexCapabilityPreflight,
+};

@@ -1,0 +1,3 @@
+[use-m] use('command-stream') failed on attempt 1/3: Failed to import module from '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/src/$.mjs'. — retrying
+[use-m] use('command-stream') recovered via a cache-busted import of /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/src/$.mjs
+RECOVERED: typeof $ = function

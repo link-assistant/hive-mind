@@ -43,13 +43,31 @@ export const useWithRetry = async (use, specifier, options = {}) => {
   const sleep = options.sleep ?? defaultSleep;
   const backoffMs = options.backoffMs ?? 1000;
   const log = options.log ?? defaultLog;
+  const importModule = options.importModule ?? defaultImport;
   const extraArgs = options.args ?? [];
   let lastError;
+  let cleanedImportPath = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       return await use(specifier, ...extraArgs);
     } catch (error) {
       lastError = error;
+      // Node's ESM loader caches *failed* module evaluations by resolved URL.
+      // Once `<alias>/src/$.mjs` has thrown a SyntaxError, re-importing the very
+      // same path in this process replays that error even after the file on disk
+      // has been replaced by a healthy reinstall (verified against use-m@8.14.2 —
+      // see docs/case-studies/issue-2092). Deleting and reinstalling is therefore
+      // necessary but not sufficient: the retry must import through a
+      // cache-busting URL, which use-m has no way to do from the inside.
+      if (cleanedImportPath && extractCorruptedFilePath(error) === cleanedImportPath) {
+        try {
+          const recovered = await importModule(cleanedImportPath, attempt);
+          log(`use('${specifier}') recovered via a cache-busted import of ${cleanedImportPath}`);
+          return recovered;
+        } catch (reimportError) {
+          log(`cache-busted import of ${cleanedImportPath} also failed: ${reimportError?.message}`);
+        }
+      }
       const retryable = isCorruptInstallError(error) || isTransientInstallError(error);
       if (attempt === attempts || !retryable) {
         log(`use('${specifier}') failed on attempt ${attempt}/${attempts} and will not be retried: ${error?.message}`);
@@ -73,6 +91,9 @@ export const useWithRetry = async (use, specifier, options = {}) => {
           //     is the alias dir itself (e.g. /.../links-notation-v-latest).
           // For files, walk up to the alias dir; otherwise remove the dir as-is.
           await cleanup(resolveAliasDir(corruptedPath));
+          // Remember the file so the next attempt can bypass Node's poisoned
+          // module cache if use-m hands us the same path again.
+          cleanedImportPath = /Failed to import module from '/.test(error?.message ?? '') ? corruptedPath : null;
         } catch {
           // Best-effort cleanup; fall through to retry regardless.
         }
@@ -158,6 +179,14 @@ export const resolveAliasDir = corruptedPath => {
 const defaultCleanup = async path => {
   const { rm } = await import('node:fs/promises');
   await rm(path, { recursive: true, force: true });
+};
+
+// Cache-busting import: a query string makes Node treat the URL as a distinct
+// module, so the freshly reinstalled file is evaluated instead of the cached
+// SyntaxError from the corrupt one.
+const defaultImport = async (filePath, attempt) => {
+  const { pathToFileURL } = await import('node:url');
+  return import(`${pathToFileURL(filePath).href}?use-m-retry=${attempt}`);
 };
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));

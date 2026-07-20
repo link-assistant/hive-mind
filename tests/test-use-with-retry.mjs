@@ -273,6 +273,70 @@ await test('continues retrying when cleanup itself fails', async () => {
   assert.deepEqual(result, { default: 'ok' });
 });
 
+console.log("\n📋 useWithRetry — Node's poisoned ESM cache (issue #2092)\n");
+
+await test('falls back to a cache-busted import when the same path fails again', async () => {
+  // Reproduces the behaviour observed against real use-m@8.14.2: after the alias
+  // dir is deleted and reinstalled, use-m re-imports the same URL and Node
+  // replays the cached SyntaxError.
+  const entry = '/lib/node_modules/command-stream-v-latest/src/$.mjs';
+  const cleaned = [];
+  const imported = [];
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    throw makeImportError(entry);
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async path => cleaned.push(path),
+    importModule: async (path, attempt) => {
+      imported.push([path, attempt]);
+      return { $: 'dollar' };
+    },
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(cleaned, ['/lib/node_modules/command-stream-v-latest']);
+  assert.deepEqual(imported, [[entry, 2]]);
+  assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('keeps retrying normally when the cache-busted import also fails', async () => {
+  const entry = '/lib/node_modules/command-stream-v-latest/src/$.mjs';
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls < 3) throw makeImportError(entry);
+    return { $: 'dollar' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async () => {},
+    importModule: async () => {
+      throw new Error('still corrupt');
+    },
+  });
+  assert.equal(calls, 3);
+  assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('does not cache-bust for resolve-path failures', async () => {
+  let calls = 0;
+  let importCalls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) throw makeResolveError('links-notation', '/lib/node_modules/links-notation-v-latest');
+    return { ok: true };
+  };
+  const result = await useWithRetry(fakeUse, 'links-notation', {
+    cleanup: async () => {},
+    importModule: async () => {
+      importCalls++;
+      return {};
+    },
+  });
+  assert.equal(importCalls, 0);
+  assert.deepEqual(result, { ok: true });
+});
+
 console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
 
 await test('wrapped use recovers from a corrupt command-stream install', async () => {

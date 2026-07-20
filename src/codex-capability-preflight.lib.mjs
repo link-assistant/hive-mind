@@ -300,6 +300,11 @@ export async function resolveRequiredCapabilities({ requirements, catalog, skill
   if (missing.length > 0) {
     // A missing capability that the issue named explicitly is a blocker; one
     // inferred from prose is a guess that failed (issues #2077 and #2088).
+    // Only `plugin@marketplace` selectors qualify here: at this point nothing
+    // has corroborated the detection, and a `plugin:skill` token the catalog has
+    // never heard of is more likely a false positive (issue #2080) than a real
+    // requirement. Once the catalog *does* resolve the provider, a skill that
+    // repair cannot materialize does fail closed further down.
     const explicitMissing = missing.filter(capability => isExplicitRequirement(requirements, capability) && capability.includes('@'));
     throw new CodexCapabilityPreflightError(`Required Codex capability unavailable: ${missing.join(', ')}. ` + `Run 'codex plugin list --available --json' in the operator container and configure a marketplace that provides it. ` + `Hive Mind installs discovered capabilities into repository-scoped CODEX_HOME state; it does not enable plugins globally.`, { missing, failClosed: explicitMissing.length > 0 });
   }

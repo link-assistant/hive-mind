@@ -71,7 +71,31 @@ because `getenv` and `links-notation` both expose top-level entry files.
 segment, so the *whole* alias install is removed. Falls back to the parent
 directory when no alias segment is present.
 
-### RC4 — the failure was undiagnosable from the log
+### RC4 — Node's ESM cache made the repair ineffective in-process
+
+Found only by running the fix against the **real** loader
+(`experiments/issue-2092/reproduce-real-use-m.mjs`; the unit tests with a faked
+`use` all passed). After `rm -rf <alias>` and a clean reinstall, the retry still
+failed with the identical error:
+
+```
+[use-m] use('command-stream') failed on attempt 1/3: Failed to import module from '…/src/$.mjs'. — retrying
+[use-m] use('command-stream') failed on attempt 2/3: Failed to import module from '…/src/$.mjs'. — retrying
+[use-m] use('command-stream') failed on attempt 3/3 and will not be retried: …
+```
+
+…while the file on disk was demonstrably healthy by then. Node's ESM loader
+caches module *evaluation failures* keyed by resolved URL, so re-importing the
+same absolute path replays the original `SyntaxError` for the lifetime of the
+process. Deleting and reinstalling is necessary but not sufficient.
+
+**Fix:** when use-m reports the same import path a second time, the retry
+imports the repaired file itself through a cache-busting URL
+(`file://…/$.mjs?use-m-retry=2`) and returns that module. Verified end to end
+against `use-m@8.14.2` — see `raw/experiment-real-use-m-recovery.log`. This is
+also why the upstream fix cannot live entirely in use-m without the same trick.
+
+### RC5 — the failure was undiagnosable from the log
 
 `src/fix.mjs:240` was `console.error(\`❌ ${error.message}\`)`. use-m attaches
 the real explanation to `error.cause` (`SyntaxError: Unexpected end of input`),
@@ -102,6 +126,8 @@ after:   fix.mjs → … → await use('command-stream')    ← wrapped by ensur
                  → attempt 1 fails
                      · install failure  → backoff 1s, retry
                      · corrupt install  → rm -rf <pkg>-v-latest, retry
+                                        → same path fails again (poisoned ESM
+                                          cache) → cache-busted import
                  → attempt 2/3 succeeds → run continues
                  → if all attempts fail → formatFatalError prints cause chain
 ```

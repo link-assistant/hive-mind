@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -113,6 +115,23 @@ const findCodexSessionFile = async ({ sessionId, homeDir }) => {
   }
 };
 
+// Copy a byte range of the solve log into the session directory.
+// Issue #2090: each session stores only the slice of the process log that was
+// produced while that session was running, so the union of all session
+// directories is the complete log instead of N truncated copies of the same
+// prefix. Returns the byte offset right after the copied slice.
+const copyLogSlice = async ({ logFile, destinationPath, logStartByte = 0 }) => {
+  const stat = await fs.stat(logFile);
+  // The log was rotated/truncated since the previous collection: copy it whole.
+  const start = Number.isFinite(logStartByte) && logStartByte > 0 && logStartByte <= stat.size ? logStartByte : 0;
+  if (stat.size === 0 || start >= stat.size) {
+    await fs.writeFile(destinationPath, '');
+    return { logStartByte: start, logEndByte: stat.size };
+  }
+  await pipeline(createReadStream(logFile, { start, end: stat.size - 1 }), createWriteStream(destinationPath));
+  return { logStartByte: start, logEndByte: stat.size };
+};
+
 const copyKnownSessionFiles = async ({ repositoryPath, sessionRelativeDirectory, logFile, sessionId, tool, homeDir }) => {
   if (!sessionId) return [];
 
@@ -149,9 +168,16 @@ const copyKnownSessionFiles = async ({ repositoryPath, sessionRelativeDirectory,
 
   const copied = [];
   const seenSources = new Set();
+  // Issue #2090: when the tool renamed the running solve log to
+  // `<sessionId>.log`, this candidate resolves to the very log file that is
+  // already copied as solve.log — copying it again duplicated megabytes per
+  // session (PR link-assistant/formal-ai#809 stored two byte-identical 7 MB
+  // files). Skip it instead.
+  const resolvedLogFile = logFile ? path.resolve(logFile) : null;
   for (const candidate of candidates) {
     if (!candidate.sourcePath || seenSources.has(candidate.sourcePath)) continue;
     seenSources.add(candidate.sourcePath);
+    if (resolvedLogFile && path.resolve(candidate.sourcePath) === resolvedLogFile) continue;
 
     const relativePath = `${sessionRelativeDirectory}/${safeFileName(candidate.destinationName)}`;
     const copiedPath = path.join(sessionDirectory, safeFileName(candidate.destinationName));
@@ -163,7 +189,7 @@ const copyKnownSessionFiles = async ({ repositoryPath, sessionRelativeDirectory,
   return copied;
 };
 
-export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, now = new Date(), homeDir = os.homedir() }) => {
+export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, logStartByte = 0, now = new Date(), homeDir = os.homedir() }) => {
   if (!repositoryPath) {
     throw new Error('repositoryPath is required to write development-log artifacts');
   }
@@ -179,9 +205,14 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
   await fs.mkdir(sessionDirectory, { recursive: true });
 
   let copiedLogRelativePath = null;
+  let logSlice = { logStartByte: 0, logEndByte: 0 };
   if (logFile) {
     copiedLogRelativePath = `${sessionRelativeDirectory}/solve.log`;
-    await fs.copyFile(logFile, path.join(repositoryPath, copiedLogRelativePath));
+    logSlice = await copyLogSlice({
+      logFile,
+      destinationPath: path.join(repositoryPath, copiedLogRelativePath),
+      logStartByte,
+    });
   }
 
   const sessionFiles = await copyKnownSessionFiles({
@@ -195,7 +226,9 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
 
   const metadataRelativePath = `${sessionRelativeDirectory}/metadata.json`;
   const metadata = {
-    schemaVersion: 2,
+    // v3 (issue #2090): one directory per tool session, `solve.log` holds only
+    // this session's slice of the process log (see solveLogRange).
+    schemaVersion: 3,
     collectedAt: now.toISOString(),
     issueNumber: issueNumber ?? null,
     prNumber: prNumber ?? null,
@@ -207,6 +240,7 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
     caseStudyDirectory,
     artifacts: {
       solveLog: copiedLogRelativePath ? addDotSlash(toPosixPath(copiedLogRelativePath)) : null,
+      solveLogRange: copiedLogRelativePath ? { startByte: logSlice.logStartByte, endByte: logSlice.logEndByte } : null,
       sessionFiles,
     },
   };
@@ -221,12 +255,14 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
     copiedLogRelativePath: copiedLogRelativePath ? toPosixPath(copiedLogRelativePath) : null,
     metadataRelativePath: toPosixPath(metadataRelativePath),
     sessionFiles,
+    logStartByte: logSlice.logStartByte,
+    logEndByte: logSlice.logEndByte,
   };
 };
 
 const getCommandOutput = result => (result?.stderr?.toString?.() || result?.stdout?.toString?.() || '').trim();
 
-export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, $, log }) => {
+export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, logStartByte = 0, $, log }) => {
   if (!enabled) {
     return { skipped: 'disabled' };
   }
@@ -237,7 +273,7 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
   }
 
   // Issue #2048: verbose trace so the commit timing (relative to PR readiness signals) is diagnosable from logs.
-  await log?.(`🔍 Development log finalize: issue #${issueNumber ?? '?'}, PR #${prNumber ?? 'pending'}, branch ${branchName ?? 'none'}, session ${sessionId ?? 'none'}`, { verbose: true });
+  await log?.(`🔍 Development log finalize: issue #${issueNumber ?? '?'}, PR #${prNumber ?? 'pending'}, branch ${branchName ?? 'none'}, session ${sessionId ?? 'none'}, log slice from byte ${logStartByte}`, { verbose: true });
 
   try {
     const artifacts = await writeDevelopmentLogArtifacts({
@@ -249,8 +285,10 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
       sessionId,
       branchName,
       rawCommand,
+      logStartByte,
     });
 
+    await log?.(`🧾 Development log artifacts written to ${artifacts.sessionRelativeDirectory} (log bytes ${artifacts.logStartByte}-${artifacts.logEndByte})`, { verbose: true });
     await log?.(`🧾 Development log artifacts written to ${artifacts.developmentLogDirectory}`);
 
     if (!$) {

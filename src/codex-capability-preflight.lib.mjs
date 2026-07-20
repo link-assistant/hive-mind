@@ -13,6 +13,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|use)\b/i;
 const NEGATED_REQUIREMENT = /\b(?:does\s+not\s+require|not\s+required|optional)\b/i;
@@ -391,134 +393,37 @@ const prepareScopedCodexHome = async ({ baseCodexHome, codexHome }) => {
 // enablement check passes. Reproduced end to end with a real Codex CLI in
 // experiments/issue-2088/reproduce-cache-repair.sh.
 
-const pluginIdParts = pluginId => {
-  const value = normalizePluginSelector(pluginId);
-  const separator = value.indexOf('@');
-  return separator === -1 ? { name: value, marketplace: '' } : { name: value.slice(0, separator), marketplace: value.slice(separator + 1) };
-};
+export const buildPluginCachePath = ({ codexHome, pluginId }) => buildAgentPluginCachePath({ agentHome: codexHome, pluginId: normalizePluginSelector(pluginId) });
 
-export const buildPluginCachePath = ({ codexHome, pluginId }) => {
-  const { name, marketplace } = pluginIdParts(pluginId);
-  return path.join(codexHome, 'plugins', 'cache', marketplace, name);
-};
+export const readMaterializedPluginSkills = ({ codexHome, pluginId }) => readAgentMaterializedPluginSkills({ agentHome: codexHome, pluginId: normalizePluginSelector(pluginId) });
 
-const listDirectoryNames = async directory => {
-  try {
-    const entries = await fs.readdir(directory, { withFileTypes: true });
-    return entries.filter(entry => entry.isDirectory() || entry.isSymbolicLink()).map(entry => entry.name);
-  } catch {
-    return [];
-  }
-};
-
-export const readMaterializedPluginSkills = async ({ codexHome, pluginId }) => {
-  const root = buildPluginCachePath({ codexHome, pluginId });
-  const { name } = pluginIdParts(pluginId);
-  const skills = new Set();
-  const versions = await listDirectoryNames(root);
-  for (const version of versions) {
-    for (const skill of await listDirectoryNames(path.join(root, version, 'skills'))) {
-      try {
-        await fs.access(path.join(root, version, 'skills', skill, 'SKILL.md'));
-        skills.add(`${name}:${skill}`.toLowerCase());
-      } catch {
-        // A directory without SKILL.md is not a skill Codex would render.
-      }
-    }
-  }
-  return { root, versions, skills };
-};
-
-const inspectScopedPluginPayloads = async ({ codexHome, plugins, providers }) => {
-  const report = [];
-  for (const pluginId of plugins) {
-    const { name } = pluginIdParts(pluginId);
-    const expected = [...(providers?.values() || [])].filter(provider => provider.pluginId === pluginId).map(provider => `${name}:${provider.skillName}`.toLowerCase());
-    const { root, versions, skills } = await readMaterializedPluginSkills({ codexHome, pluginId });
-    const missing = expected.filter(skill => !skills.has(skill));
-    report.push({ pluginId, root, versions, materialized: [...skills].sort(), missing, healthy: versions.length > 0 && missing.length === 0 });
-  }
-  return report;
-};
-
-const enablePluginInScopedConfig = async ({ codexHome, pluginId }) => {
+// `codex plugin remove` also drops the `[plugins."…"]` block, so a payload
+// restored by copying it back in has to be re-declared to stay enabled.
+const enablePluginInScopedConfig = async ({ agentHome: codexHome, pluginId }) => {
   const configPath = path.join(codexHome, 'config.toml');
   const config = await readIfPresent(configPath);
   if (new RegExp(`^\\[plugins\\."${pluginId.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}"\\]`, 'mu').test(config)) return;
   await fs.writeFile(configPath, `${config.trimEnd()}\n\n[plugins."${pluginId}"]\nenabled = true\n`);
 };
 
-const installScopedPlugin = async ({ command, env, runCommand, pluginId }) => {
-  const result = await runCommand({ command, args: ['plugin', 'add', pluginId, '--json'], env });
-  parseJsonCommand(result, `Installing required Codex plugin ${pluginId}`);
+const PLUGIN_PAYLOAD_REPAIRS = buildPluginPayloadRepairs({
+  cli: CODEX_PLUGIN_CLI,
+  onInstalled: ({ result, pluginId }) => parseJsonCommand(result, `Installing required Codex plugin ${pluginId}`),
+  onCopied: enablePluginInScopedConfig,
+});
+
+// The provider map answers "which plugin must expose which skill", which is
+// what turns a payload listing into a health verdict.
+const expectedSkillsByPlugin = providers => {
+  const expected = new Map();
+  for (const provider of providers?.values() || []) {
+    const skill = `${pluginIdParts(provider.pluginId).name}:${provider.skillName}`.toLowerCase();
+    expected.set(provider.pluginId, [...(expected.get(provider.pluginId) || []), skill]);
+  }
+  return expected;
 };
 
-// Each strategy is a strictly stronger repair than the one before it, so the
-// cheapest one that works is the one that runs.
-const PLUGIN_PAYLOAD_REPAIRS = [
-  {
-    name: 'install',
-    apply: async ({ command, env, runCommand, pluginId }) => {
-      await installScopedPlugin({ command, env, runCommand, pluginId });
-    },
-  },
-  {
-    name: 'reinstall',
-    apply: async ({ command, env, runCommand, pluginId, codexHome }) => {
-      // `plugin remove` clears both the config entry and the cache, and is a
-      // no-op when the plugin is not installed.
-      await runCommand({ command, args: ['plugin', 'remove', pluginId, '--json'], env });
-      await fs.rm(buildPluginCachePath({ codexHome, pluginId }), { recursive: true, force: true });
-      await installScopedPlugin({ command, env, runCommand, pluginId });
-    },
-  },
-  {
-    // Last resort for a scoped home that cannot reach its marketplace snapshot:
-    // the operator home already holds a materialized payload, and copying it
-    // exposes the skills without touching the operator's own state.
-    name: 'copy-operator-payload',
-    apply: async ({ pluginId, codexHome, baseCodexHome }) => {
-      const source = buildPluginCachePath({ codexHome: baseCodexHome, pluginId });
-      const operator = await readMaterializedPluginSkills({ codexHome: baseCodexHome, pluginId });
-      if (operator.versions.length === 0) throw new CodexCapabilityPreflightError(`The operator Codex home has no materialized payload for ${pluginId} at ${source}.`, { missing: [pluginId] });
-      await fs.rm(buildPluginCachePath({ codexHome, pluginId }), { recursive: true, force: true });
-      await fs.mkdir(path.dirname(buildPluginCachePath({ codexHome, pluginId })), { recursive: true });
-      await fs.cp(source, buildPluginCachePath({ codexHome, pluginId }), { recursive: true, dereference: true, force: true });
-      await enablePluginInScopedConfig({ codexHome, pluginId });
-    },
-  },
-];
-
-export const repairScopedPluginPayloads = async ({ command, env, runCommand, log = async () => {}, codexHome, baseCodexHome, plugins, providers, strategies = PLUGIN_PAYLOAD_REPAIRS, force = false }) => {
-  const applied = [];
-  let report = await inspectScopedPluginPayloads({ codexHome, plugins, providers });
-  for (const entry of report) {
-    await log(`   🔎 Scoped payload for ${entry.pluginId}: ${entry.versions.length} version(s), skills: ${entry.materialized.join(', ') || 'none'}`, { verbose: true });
-  }
-
-  for (const strategy of strategies) {
-    const unhealthy = report.filter(entry => force || !entry.healthy);
-    if (unhealthy.length === 0) break;
-    for (const entry of unhealthy) {
-      const reason = entry.versions.length === 0 ? 'payload not materialized' : entry.missing.length > 0 ? `payload missing ${entry.missing.join(', ')}` : 'model cannot see the required skills';
-      await log(`   🛠️  Repairing ${entry.pluginId} in repository-scoped Codex state (${strategy.name}; ${reason})`);
-      try {
-        await strategy.apply({ command, env, runCommand, pluginId: entry.pluginId, codexHome, baseCodexHome });
-        applied.push(`${strategy.name}:${entry.pluginId}`);
-      } catch (error) {
-        await log(`   ⚠️  Repair step '${strategy.name}' failed for ${entry.pluginId}: ${error.message}`, { verbose: true });
-        applied.push(`${strategy.name}:${entry.pluginId} (failed)`);
-      }
-    }
-    force = false;
-    report = await inspectScopedPluginPayloads({ codexHome, plugins, providers });
-    for (const entry of report) {
-      if (entry.healthy) await log(`   ✅ Materialized ${entry.pluginId} payload: ${entry.materialized.join(', ') || 'no skills'}`, { verbose: true });
-    }
-  }
-
-  return { report, applied, unhealthy: report.filter(entry => !entry.healthy) };
-};
+export const repairScopedPluginPayloads = ({ command, env, runCommand, log, codexHome, baseCodexHome, plugins, providers, strategies = PLUGIN_PAYLOAD_REPAIRS, force = false }) => repairPluginPayloads({ command, env, runCommand, log, agentHome: codexHome, copyFrom: baseCodexHome, plugins, expectedSkills: expectedSkillsByPlugin(providers), strategies, force, label: 'repository-scoped Codex' });
 
 export const isCodexCapabilityStrict = (env = process.env) => /^(?:1|true|yes|on)$/iu.test(String(env.HIVE_MIND_CODEX_CAPABILITY_STRICT || ''));
 

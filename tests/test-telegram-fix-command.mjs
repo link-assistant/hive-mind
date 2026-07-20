@@ -213,6 +213,53 @@ await test('/fix is ignored for messages sent before the bot started', async () 
   assert.equal(calls.replies.length, 0);
 });
 
+// Issue #2085: /fix hands its generated issue to /solve, so the operator's
+// TELEGRAM_SOLVE_OVERRIDES must reach the solve started by /fix — otherwise
+// solve defaults like --attach-logs are silently dropped.
+await test('/fix applies operator solve overrides to the forwarded solve args', async () => {
+  const { handleFixCommand, calls } = buildFixHarness({ solveOverrides: ['--attach-logs', '--auto-continue'] });
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
+  assert.equal(calls.executed.length, 1);
+  assert.deepEqual(calls.executed[0].args, [repoUrl, '--ci-cd', '--attach-logs', '--auto-continue']);
+  assert.match(calls.executed[0].infoBlock, /🔒 Solve overrides: --attach-logs --auto-continue/);
+});
+
+await test('/fix solve overrides win over a conflicting user flag value', async () => {
+  const { handleFixCommand, calls } = buildFixHarness({ solveOverrides: ['--model', 'opus'] });
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl} --model sonnet` }));
+  // The user's --model sonnet is dropped and the operator override wins.
+  assert.deepEqual(calls.executed[0].args, [repoUrl, '--ci-cd', '--model', 'opus']);
+});
+
+await test('/fix honors an --isolation override from solve overrides', async () => {
+  const { handleFixCommand, calls } = buildFixHarness({ solveOverrides: ['--isolation', 'tmux', '--attach-logs'] });
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
+  assert.equal(calls.executed[0].isolation, 'tmux');
+  // Isolation is extracted from the overrides, not forwarded to the CLI.
+  assert.deepEqual(calls.executed[0].args, [repoUrl, '--ci-cd', '--attach-logs']);
+});
+
+await test('/fix per-command --isolation still applies when overrides omit it', async () => {
+  const { handleFixCommand, calls } = buildFixHarness({ solveOverrides: ['--attach-logs'] });
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl} --isolation docker` }));
+  assert.equal(calls.executed[0].isolation, 'docker');
+  assert.deepEqual(calls.executed[0].args, [repoUrl, '--ci-cd', '--attach-logs']);
+});
+
+await test('/fix rejects an invalid --isolation value inside solve overrides', async () => {
+  const { handleFixCommand, calls } = buildFixHarness({ solveOverrides: ['--isolation', 'vm'] });
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
+  assert.equal(calls.executed.length, 0);
+  assert.equal(calls.replies.length, 1);
+  assert.match(calls.replies[0], /Invalid --isolation value 'vm' in solve overrides/);
+});
+
+await test('/fix without solve overrides omits the locked-options line', async () => {
+  const { handleFixCommand, calls } = buildFixHarness();
+  await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
+  assert.doesNotMatch(calls.executed[0].infoBlock, /Solve overrides/);
+});
+
 await test('registerFixCommand registers every fix command name with the bot', () => {
   const registered = [];
   const bot = {

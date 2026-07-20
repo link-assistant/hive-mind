@@ -12,6 +12,7 @@ import { validateModelName } from './models/index.mjs';
 import { parseFixRepository } from './fix.ci-cd.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
+import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
@@ -87,7 +88,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, resolveLocale = null } = options;
+  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
 
   async function handleFixCommand(ctx) {
     const commandDisplay = '/fix';
@@ -137,7 +138,22 @@ export function registerFixCommand(bot, options) {
       return;
     }
 
-    const modelError = validateFixModel(filteredArgs);
+    // Issue #2085: /fix hands the generated issue off to /solve, so it must
+    // apply the operator's solve overrides (TELEGRAM_SOLVE_OVERRIDES) exactly
+    // like the /solve handler does — otherwise the solve started by /fix runs
+    // without the operator's defaults (e.g. --attach-logs). The overrides are
+    // forwarded to /solve because /fix passes every option it does not consume
+    // through to solve.mjs. An --isolation override applies to the /fix work
+    // session itself (which contains the nested /solve), mirroring /solve.
+    const { backend: overrideIsolation, filteredArgs: solveOverridesWithoutIsolation } = extractIsolationFromArgs(solveOverrides);
+    if (overrideIsolation && !isValidPerCommandIsolation(overrideIsolation)) {
+      await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(overrideIsolation)}' in solve overrides. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+    const effectiveIsolation = overrideIsolation || perCommandIsolation;
+    const mergedArgs = mergeArgsWithOverrides(filteredArgs, solveOverridesWithoutIsolation);
+
+    const modelError = validateFixModel(mergedArgs);
     if (modelError) {
       await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
       return;
@@ -147,12 +163,13 @@ export function registerFixCommand(bot, options) {
     const userOptionsRaw = built.args.slice(1).join(' ');
     let infoBlock = `Requested by: ${requester}\nRepository: ${escapeMarkdown(built.repository.url)}`;
     if (userOptionsRaw) infoBlock += `\n\n🛠 Options: ${escapeMarkdown(userOptionsRaw)}`;
+    if (solveOverrides.length > 0) infoBlock += `\n\n🔒 Solve overrides: ${escapeMarkdown(solveOverrides.join(' '))}`;
 
     const fixUrlContext = { owner: built.repository.owner, repo: built.repository.repo, normalized: built.repository.url };
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock }), { reply_to_message_id: ctx.message.message_id });
     const fixLocale = resolveLocale ? resolveLocale(ctx) : null;
-    const argsForExec = injectLanguageIfMissing(filteredArgs, fixLocale);
-    await executeAndUpdateMessage(ctx, startingMessage, 'fix', argsForExec, infoBlock, perCommandIsolation || null, getFixToolFromArgs(argsForExec), fixUrlContext);
+    const argsForExec = injectLanguageIfMissing(mergedArgs, fixLocale);
+    await executeAndUpdateMessage(ctx, startingMessage, 'fix', argsForExec, infoBlock, effectiveIsolation || null, getFixToolFromArgs(argsForExec), fixUrlContext);
   }
 
   bot.command(

@@ -7,7 +7,7 @@ issue #1710.
 ## One-paragraph summary
 
 `command-stream` is fetched from the npm registry at runtime, by use-m, at the
-*module top level* of ~40 files — including `src/github.lib.mjs`, which
+_module top level_ of ~40 files — including `src/github.lib.mjs`, which
 `/fix --ci-cd` imports the moment it starts creating the remediation issue. When
 that fetch or the resulting install is damaged, the process dies before any
 `try/catch` can see it. The recovery for exactly this condition already existed
@@ -27,14 +27,14 @@ error output.
 
 ## Contents
 
-| File                                 | Purpose                                                             |
-| ------------------------------------ | ------------------------------------------------------------------- |
+| File                                 | Purpose                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------- |
 | [`timeline.md`](timeline.md)         | Both failing runs minute by minute, plus the #1710→#1712→#2092 lineage |
 | [`analysis.md`](analysis.md)         | Root causes RC1–RC5, the defective control flow, rejected alternatives |
-| [`requirements.md`](requirements.md) | Every requirement from the issue, with status and the codebase sweep |
-| [`research.md`](research.md)         | use-m internals, related upstream issues, library survey            |
-| `raw/`                               | Run 2 log and both experiment transcripts                           |
-| `data/`                              | Issue JSON, comments, and the `use-m@8.14.2` bundle that was analysed |
+| [`requirements.md`](requirements.md) | Every requirement from the issue, with status and the codebase sweep   |
+| [`research.md`](research.md)         | use-m internals, related upstream issues, library survey               |
+| `raw/`                               | Run 2 log and both experiment transcripts                              |
+| `data/`                              | Issue JSON, comments, and the `use-m@8.14.2` bundle that was analysed  |
 
 Reproductions:
 [`experiments/issue-2092/reproduce-real-use-m.mjs`](../../../experiments/issue-2092/reproduce-real-use-m.mjs)

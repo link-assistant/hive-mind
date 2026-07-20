@@ -3,12 +3,10 @@
 // resolving (unpkg/jsdelivr ignore package.json "exports"). The canonical
 // source is src/use.js; edit it and run `npm run sync:entries`. See
 // https://github.com/link-foundation/use-m/issues/60.
-const extractCallerContext = (stack) => {
+const extractCallerContext = stack => {
   // Helper to check if a path is a use-m file
-  const isUseMFile = (path) => {
-    return path.endsWith('/use.mjs') ||
-           path.endsWith('/use.cjs') ||
-           path.endsWith('/use.js');
+  const isUseMFile = path => {
+    return path.endsWith('/use.mjs') || path.endsWith('/use.cjs') || path.endsWith('/use.js');
   };
 
   // In browser environment, use the current document URL as fallback
@@ -28,10 +26,7 @@ const extractCallerContext = (stack) => {
   // to get past our internal function calls
   for (const line of lines) {
     // Skip the first few frames which are internal to use-m
-    if (line.includes('extractCallerContext') ||
-      line.includes('_use') ||
-      line.includes('makeUse') ||
-      (line.includes('<anonymous>') && (line.includes('/use.mjs') || line.includes('/use.cjs') || line.includes('/use.js')))) {
+    if (line.includes('extractCallerContext') || line.includes('_use') || line.includes('makeUse') || (line.includes('<anonymous>') && (line.includes('/use.mjs') || line.includes('/use.cjs') || line.includes('/use.js')))) {
       continue;
     }
 
@@ -84,7 +79,7 @@ const extractCallerContext = (stack) => {
   return null;
 };
 
-const parseModuleSpecifier = (moduleSpecifier) => {
+const parseModuleSpecifier = moduleSpecifier => {
   if (!moduleSpecifier || typeof moduleSpecifier !== 'string' || moduleSpecifier.length <= 0) {
     throw new Error(
       `Name for a package to be imported is not provided.
@@ -107,66 +102,66 @@ Please specify a package name, and an optional version (e.g.: 'lodash', 'lodash@
     modulePath = '';
   }
   return { packageName, version, modulePath };
-}
+};
 
 // Built-in modules that we support across all environments
 // Always use lowercase names for consistency
 const supportedBuiltins = {
   // Universal modules
-  'console': {
+  console: {
     browser: () => ({ default: console, log: console.log, error: console.error, warn: console.warn, info: console.info }),
-    node: () => import('node:console').then(m => ({ default: m.Console, ...m }))
+    node: () => import('node:console').then(m => ({ default: m.Console, ...m })),
   },
-  'crypto': {
+  crypto: {
     browser: () => ({ default: crypto, subtle: crypto.subtle }),
-    node: () => import('node:crypto').then(m => ({ default: m, ...m }))
+    node: () => import('node:crypto').then(m => ({ default: m, ...m })),
   },
-  'url': {
+  url: {
     browser: () => ({ default: URL, URL, URLSearchParams }),
-    node: () => import('node:url').then(m => ({ default: m, ...m }))
+    node: () => import('node:url').then(m => ({ default: m, ...m })),
   },
-  'performance': {
+  performance: {
     browser: () => ({ default: performance, now: performance.now.bind(performance) }),
-    node: () => import('node:perf_hooks').then(m => ({ default: m.performance, performance: m.performance, now: m.performance.now.bind(m.performance), ...m }))
+    node: () => import('node:perf_hooks').then(m => ({ default: m.performance, performance: m.performance, now: m.performance.now.bind(m.performance), ...m })),
   },
 
   // Node.js/Bun only modules
-  'fs': {
+  fs: {
     browser: null, // Not available in browser
-    node: () => import('node:fs').then(m => ({ default: m, ...m }))
+    node: () => import('node:fs').then(m => ({ default: m, ...m })),
   },
   'fs/promises': {
     browser: null, // Not available in browser
     node: async () => {
       const runtime = typeof Bun !== 'undefined' ? 'Bun' : typeof Deno !== 'undefined' ? 'Deno' : 'Node.js';
-      
+
       // For Bun and Deno, use a different approach since their node:fs/promises may not be fully compatible
       if (runtime === 'Bun' || runtime === 'Deno') {
         try {
           const fs = await import('node:fs');
           const { promisify } = await import('node:util');
-          
+
           // Create wrapper functions that match native fs/promises signatures
           // These need to have the correct .length property and be async functions
           const createAsyncWrapper = (promisifiedFn, expectedLength) => {
             // Create an async function with the correct length
             const wrapper = {
-              1: async (a) => promisifiedFn(a),
+              1: async a => promisifiedFn(a),
               2: async (a, b) => promisifiedFn(a, b),
               3: async (a, b, c) => promisifiedFn(a, b, c),
-              4: async (a, b, c, d) => promisifiedFn(a, b, c, d)
+              4: async (a, b, c, d) => promisifiedFn(a, b, c, d),
             }[expectedLength];
-            
+
             // Copy the name if possible
             try {
               Object.defineProperty(wrapper, 'name', { value: promisifiedFn.name });
             } catch (e) {
               // Ignore if name can't be set
             }
-            
+
             return wrapper || promisifiedFn;
           };
-          
+
           // Helper to safely promisify functions that may not exist
           const safePromisify = (fn, expectedLength) => {
             if (typeof fn !== 'function') {
@@ -174,7 +169,7 @@ const supportedBuiltins = {
             }
             return createAsyncWrapper(promisify(fn), expectedLength);
           };
-          
+
           const promisifiedFs = {
             access: safePromisify(fs.access, 2),
             appendFile: safePromisify(fs.appendFile, 3),
@@ -200,9 +195,9 @@ const supportedBuiltins = {
             unlink: safePromisify(fs.unlink, 1),
             utimes: safePromisify(fs.utimes, 3),
             writeFile: safePromisify(fs.writeFile, 3),
-            constants: fs.constants
+            constants: fs.constants,
           };
-          
+
           // Add newer functions if they exist
           if (fs.rm) promisifiedFs.rm = safePromisify(fs.rm, 2);
           if (fs.cp) promisifiedFs.cp = safePromisify(fs.cp, 3);
@@ -216,7 +211,7 @@ const supportedBuiltins = {
           throw new Error(`Failed to create fs/promises fallback for ${runtime}: ${error.message}`, { cause: error });
         }
       }
-      
+
       // For Node.js, use the native implementation
       try {
         const m = await import('node:fs/promises');
@@ -224,61 +219,61 @@ const supportedBuiltins = {
       } catch (error) {
         throw new Error(`Failed to load fs/promises module: ${error.message}`, { cause: error });
       }
-    }
+    },
   },
   'dns/promises': {
     browser: null, // Not available in browser
     node: async () => {
       const m = await import('node:dns/promises');
       return { default: m, ...m };
-    }
+    },
   },
   'stream/promises': {
     browser: null, // Not available in browser
     node: async () => {
       const m = await import('node:stream/promises');
       return { default: m, ...m };
-    }
+    },
   },
   'readline/promises': {
     browser: null, // Not available in browser
     node: async () => {
       const m = await import('node:readline/promises');
       return { default: m, ...m };
-    }
+    },
   },
   'timers/promises': {
     browser: null, // Not available in browser
     node: async () => {
       const m = await import('node:timers/promises');
       return { default: m, ...m };
-    }
+    },
   },
-  'path': {
+  path: {
     browser: null, // Not available in browser
-    node: () => import('node:path').then(m => ({ default: m, ...m }))
+    node: () => import('node:path').then(m => ({ default: m, ...m })),
   },
-  'os': {
+  os: {
     browser: null, // Not available in browser
-    node: () => import('node:os').then(m => ({ default: m, ...m }))
+    node: () => import('node:os').then(m => ({ default: m, ...m })),
   },
-  'util': {
+  util: {
     browser: null, // Not available in browser
-    node: () => import('node:util').then(m => ({ default: m, ...m }))
+    node: () => import('node:util').then(m => ({ default: m, ...m })),
   },
-  'events': {
+  events: {
     browser: null, // Not available in browser
-    node: () => import('node:events').then(m => ({ default: m.EventEmitter, EventEmitter: m.EventEmitter, ...m }))
+    node: () => import('node:events').then(m => ({ default: m.EventEmitter, EventEmitter: m.EventEmitter, ...m })),
   },
-  'stream': {
+  stream: {
     browser: null, // Not available in browser
-    node: () => import('node:stream').then(m => ({ default: m.Stream, Stream: m.Stream, ...m }))
+    node: () => import('node:stream').then(m => ({ default: m.Stream, Stream: m.Stream, ...m })),
   },
-  'buffer': {
+  buffer: {
     browser: null, // Not available in browser (would need polyfill)
-    node: () => import('node:buffer').then(m => ({ default: m, Buffer: m.Buffer, ...m }))
+    node: () => import('node:buffer').then(m => ({ default: m, Buffer: m.Buffer, ...m })),
   },
-  'process': {
+  process: {
     browser: null, // Not available in browser
     node: () => {
       if (typeof Deno !== 'undefined') {
@@ -308,41 +303,41 @@ const supportedBuiltins = {
         // This shouldn't happen but provide a fallback
         throw new Error(`Failed to resolve 'process' module in Deno environment.`);
       }
-      return ({ default: process, ...process });
-    }
+      return { default: process, ...process };
+    },
   },
-  'child_process': {
+  child_process: {
     browser: null,
-    node: () => import('node:child_process').then(m => ({ default: m, ...m }))
+    node: () => import('node:child_process').then(m => ({ default: m, ...m })),
   },
-  'http': {
+  http: {
     browser: null,
-    node: () => import('node:http').then(m => ({ default: m, ...m }))
+    node: () => import('node:http').then(m => ({ default: m, ...m })),
   },
-  'https': {
+  https: {
     browser: null,
-    node: () => import('node:https').then(m => ({ default: m, ...m }))
+    node: () => import('node:https').then(m => ({ default: m, ...m })),
   },
-  'net': {
+  net: {
     browser: null,
-    node: () => import('node:net').then(m => ({ default: m, ...m }))
+    node: () => import('node:net').then(m => ({ default: m, ...m })),
   },
-  'dns': {
+  dns: {
     browser: null,
-    node: () => import('node:dns').then(m => ({ default: m, ...m }))
+    node: () => import('node:dns').then(m => ({ default: m, ...m })),
   },
-  'zlib': {
+  zlib: {
     browser: null,
-    node: () => import('node:zlib').then(m => ({ default: m, ...m }))
+    node: () => import('node:zlib').then(m => ({ default: m, ...m })),
   },
-  'querystring': {
+  querystring: {
     browser: null,
-    node: () => import('node:querystring').then(m => ({ default: m, ...m }))
+    node: () => import('node:querystring').then(m => ({ default: m, ...m })),
   },
-  'assert': {
+  assert: {
     browser: null,
-    node: () => import('node:assert').then(m => ({ default: m.default || m, ...m }))
-  }
+    node: () => import('node:assert').then(m => ({ default: m.default || m, ...m })),
+  },
 };
 
 const resolvers = {
@@ -444,7 +439,7 @@ const resolvers = {
         return baseUse(resolvedPath);
       }
     }
-    
+
     return baseUse(resolvedPath);
   },
   npm: async (moduleSpecifier, pathResolver, options = {}) => {
@@ -461,7 +456,7 @@ const resolvers = {
       throw new Error('Failed to get the current resolver.');
     }
 
-    const fileExists = async (filePath) => {
+    const fileExists = async filePath => {
       try {
         const stats = await stat(filePath);
         return stats.isFile();
@@ -473,7 +468,7 @@ const resolvers = {
       }
     };
 
-    const directoryExists = async (directoryPath) => {
+    const directoryExists = async directoryPath => {
       try {
         const stats = await stat(directoryPath);
         return stats.isDirectory();
@@ -485,7 +480,7 @@ const resolvers = {
       }
     };
 
-    const tryResolveModule = async (packagePath) => {
+    const tryResolveModule = async packagePath => {
       try {
         return await pathResolver(packagePath);
       } catch (error) {
@@ -538,7 +533,7 @@ const resolvers = {
       return version.trim();
     };
 
-    const getInstalledPackageVersion = async (packagePath) => {
+    const getInstalledPackageVersion = async packagePath => {
       try {
         const packageJsonPath = path.join(packagePath, 'package.json');
         const data = await readFile(packageJsonPath, 'utf8');
@@ -549,9 +544,9 @@ const resolvers = {
       }
     };
 
-    const getConfiguredNpmPrefix = (env) => env.npm_config_prefix || env.NPM_CONFIG_PREFIX || '';
+    const getConfiguredNpmPrefix = env => env.npm_config_prefix || env.NPM_CONFIG_PREFIX || '';
 
-    const getNpmGlobalRoot = async (env) => {
+    const getNpmGlobalRoot = async env => {
       const { stdout: globalModulesPath } = await execAsync('npm root -g', { env });
       const trimmedPath = globalModulesPath.trim();
       if (!trimmedPath) {
@@ -560,7 +555,7 @@ const resolvers = {
       return trimmedPath;
     };
 
-    const isWritableDirectoryPath = async (directoryPath) => {
+    const isWritableDirectoryPath = async directoryPath => {
       let currentPath = directoryPath;
       while (currentPath && currentPath !== path.dirname(currentPath)) {
         try {
@@ -586,7 +581,7 @@ const resolvers = {
       }
     };
 
-    const getUseMCachePrefix = (env) => {
+    const getUseMCachePrefix = env => {
       const home = env.HOME || env.USERPROFILE || os.homedir();
       if (!home) {
         return null;
@@ -599,9 +594,7 @@ const resolvers = {
       const nextEnv = { ...env, npm_config_prefix: prefix };
       const pathKey = Object.keys(nextEnv).find(key => key.toLowerCase() === 'path') || 'PATH';
       const binPath = path.join(prefix, 'bin');
-      nextEnv[pathKey] = nextEnv[pathKey]
-        ? `${binPath}${path.delimiter}${nextEnv[pathKey]}`
-        : binPath;
+      nextEnv[pathKey] = nextEnv[pathKey] ? `${binPath}${path.delimiter}${nextEnv[pathKey]}` : binPath;
       return nextEnv;
     };
 
@@ -612,19 +605,12 @@ const resolvers = {
 
       const configuredPrefix = getConfiguredNpmPrefix(env);
       if (configuredPrefix) {
-        throw new Error(
-          `The configured npm global root '${globalModulesPath}' is not writable. ` +
-          `use-m will not override the configured npm prefix '${configuredPrefix}'. ` +
-          `Set npm_config_prefix to a writable directory or make the configured prefix writable.`
-        );
+        throw new Error(`The configured npm global root '${globalModulesPath}' is not writable. ` + `use-m will not override the configured npm prefix '${configuredPrefix}'. ` + `Set npm_config_prefix to a writable directory or make the configured prefix writable.`);
       }
 
       const fallbackPrefix = getUseMCachePrefix(env);
       if (!fallbackPrefix) {
-        throw new Error(
-          `The npm global root '${globalModulesPath}' is not writable, and use-m could not determine a home directory for its npm cache prefix. ` +
-          `Set npm_config_prefix to a writable directory before using npm-backed use-m imports.`
-        );
+        throw new Error(`The npm global root '${globalModulesPath}' is not writable, and use-m could not determine a home directory for its npm cache prefix. ` + `Set npm_config_prefix to a writable directory before using npm-backed use-m imports.`);
       }
 
       const fallbackEnv = withNpmPrefix(env, fallbackPrefix);
@@ -641,11 +627,8 @@ const resolvers = {
         throw new Error(`Failed to create use-m npm cache root '${fallbackGlobalModulesPath}'.`, { cause: error });
       }
 
-      if (!await isWritableDirectoryPath(fallbackGlobalModulesPath)) {
-        throw new Error(
-          `The npm global root '${globalModulesPath}' is not writable, and the use-m npm cache root '${fallbackGlobalModulesPath}' is not writable. ` +
-          `Set npm_config_prefix to a writable directory before using npm-backed use-m imports.`
-        );
+      if (!(await isWritableDirectoryPath(fallbackGlobalModulesPath))) {
+        throw new Error(`The npm global root '${globalModulesPath}' is not writable, and the use-m npm cache root '${fallbackGlobalModulesPath}' is not writable. ` + `Set npm_config_prefix to a writable directory before using npm-backed use-m imports.`);
       }
 
       return { env: fallbackEnv, globalModulesPath: fallbackGlobalModulesPath };
@@ -704,7 +687,7 @@ const resolvers = {
       throw new Error('Failed to get the current resolver.');
     }
 
-    const fileExists = async (filePath) => {
+    const fileExists = async filePath => {
       try {
         const stats = await stat(filePath);
         return stats.isFile();
@@ -716,7 +699,7 @@ const resolvers = {
       }
     };
 
-    const directoryExists = async (directoryPath) => {
+    const directoryExists = async directoryPath => {
       try {
         const stats = await stat(directoryPath);
         return stats.isDirectory();
@@ -728,7 +711,7 @@ const resolvers = {
       }
     };
 
-    const tryResolveModule = async (packagePath) => {
+    const tryResolveModule = async packagePath => {
       try {
         return await pathResolver(packagePath);
       } catch (error) {
@@ -797,7 +780,7 @@ const resolvers = {
       const globalModulesPath = path.join(bunInstallRoot, 'install', 'global', 'node_modules');
       const packagePath = path.join(globalModulesPath, alias);
 
-      if (version !== 'latest' && await directoryExists(packagePath)) {
+      if (version !== 'latest' && (await directoryExists(packagePath))) {
         return packagePath;
       }
 
@@ -862,19 +845,18 @@ const resolvers = {
     const resolvedPath = `https://jspm.dev/${packageName}${version ? `@${version}` : ''}${modulePath}`;
     return resolvedPath;
   },
-}
+};
 
 // Ordered chains of universal-ESM CDN resolvers tried for network/CDN loading.
 // Each entry is a key into `resolvers`; the chains list *distinct* CDN hosts so a
 // single CDN outage no longer breaks `use()` — when the first host fails we fall
 // back to the next. The primary entry preserves the previous default per runtime.
-const networkResolverChain = ['esm', 'jspm', 'skypack']
-const denoResolverChain = ['deno', 'jspm', 'skypack']
+const networkResolverChain = ['esm', 'jspm', 'skypack'];
+const denoResolverChain = ['deno', 'jspm', 'skypack'];
 
 // Normalize a resolver reference (a resolver function, or a key into `resolvers`)
 // into a resolver function.
-const toResolverFunction = (resolver) =>
-  typeof resolver === 'function' ? resolver : resolvers[resolver]
+const toResolverFunction = resolver => (typeof resolver === 'function' ? resolver : resolvers[resolver]);
 
 // Generic, mechanism-agnostic "try sources in order until one works" engine.
 // Tries each `source` in order (optionally retrying each `maxAttemptsPerSource`
@@ -886,39 +868,31 @@ const toResolverFunction = (resolver) =>
 // `makeUse` below) and the use-m bootstrap loader (`loadUseM` in load.mjs /
 // load.cjs), so retry/fallback behaves identically everywhere it is used.
 const loadWithFallback = async (sources, load, options = {}) => {
-  const {
-    maxAttemptsPerSource = 1,
-    retryDelayMs = 0,
-    describeSource = (source) => String(source),
-    label = 'load from any source',
-    hint = '',
-  } = options
+  const { maxAttemptsPerSource = 1, retryDelayMs = 0, describeSource = source => String(source), label = 'load from any source', hint = '' } = options;
   if (!Array.isArray(sources) || sources.length === 0) {
-    throw new Error(`Failed to ${label}: no sources were provided.`)
+    throw new Error(`Failed to ${label}: no sources were provided.`);
   }
   if (typeof load !== 'function') {
-    throw new Error(`Failed to ${label}: a load function is required.`)
+    throw new Error(`Failed to ${label}: a load function is required.`);
   }
-  const failures = []
+  const failures = [];
   for (const source of sources) {
     for (let attempt = 1; attempt <= maxAttemptsPerSource; attempt++) {
       try {
-        return await load(source, attempt)
+        return await load(source, attempt);
       } catch (error) {
-        const reason = error && error.message ? error.message : String(error)
-        failures.push(`${describeSource(source)} (attempt ${attempt}/${maxAttemptsPerSource}): ${reason}`)
+        const reason = error && error.message ? error.message : String(error);
+        failures.push(`${describeSource(source)} (attempt ${attempt}/${maxAttemptsPerSource}): ${reason}`);
         if (attempt < maxAttemptsPerSource && retryDelayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelayMs * attempt))
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs * attempt));
         }
       }
     }
   }
-  throw new Error(
-    `Failed to ${label}.${hint ? ' ' + hint : ''}\nAttempts:\n  - ` + failures.join('\n  - ')
-  )
-}
+  throw new Error(`Failed to ${label}.${hint ? ' ' + hint : ''}\nAttempts:\n  - ` + failures.join('\n  - '));
+};
 
-const baseUse = async (modulePath) => {
+const baseUse = async modulePath => {
   // Dynamically import the module
   try {
     const module = await import(modulePath);
@@ -934,11 +908,7 @@ const baseUse = async (modulePath) => {
       }
 
       // Check if default is the main export and other keys are just function/module metadata
-      const metadataKeys = new Set([
-        'default', '__esModule', 'Symbol(Symbol.toStringTag)',
-        'length', 'name', 'prototype', 'constructor',
-        'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable'
-      ]);
+      const metadataKeys = new Set(['default', '__esModule', 'Symbol(Symbol.toStringTag)', 'length', 'name', 'prototype', 'constructor', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable']);
 
       const nonMetadataKeys = keys.filter(key => !metadataKeys.has(key));
 
@@ -953,7 +923,7 @@ const baseUse = async (modulePath) => {
   } catch (error) {
     throw new Error(`Failed to import module from '${modulePath}'.`, { cause: error });
   }
-}
+};
 
 const getScriptUrl = async () => {
   const error = new Error();
@@ -965,9 +935,9 @@ const getScriptUrl = async () => {
   }
   const { pathToFileURL } = await import('node:url');
   return pathToFileURL(match.groups.path).href;
-}
+};
 
-const makeUse = async (options) => {
+const makeUse = async options => {
   let scriptPath = options?.scriptPath;
   const hasBrowserGlobals = typeof window !== 'undefined' && typeof document !== 'undefined';
   if (!scriptPath && !hasBrowserGlobals && typeof global !== 'undefined' && typeof global['__filename'] !== 'undefined') {
@@ -1020,25 +990,21 @@ const makeUse = async (options) => {
   }
   let pathResolver = options?.pathResolver;
   if (!pathResolver) {
-    const isCJS = typeof module !== "undefined" && !!module.exports;
+    const isCJS = typeof module !== 'undefined' && !!module.exports;
     const hasRequire = typeof require !== 'undefined';
     const hasScriptPath = scriptPath && (!protocol || protocol === 'file:');
     if (hasRequire && hasScriptPath) {
       if (isCJS) {
         pathResolver = require.resolve;
       } else {
-        pathResolver = await import('node:module')
-        .then(module => module.createRequire(scriptPath))
-        .then(require => require.resolve);
+        pathResolver = await import('node:module').then(module => module.createRequire(scriptPath)).then(require => require.resolve);
       }
     } else if (hasRequire) {
       pathResolver = require.resolve;
     } else if (hasScriptPath) {
-      pathResolver = await import('node:module')
-        .then(module => module.createRequire(scriptPath))
-        .then(require => require.resolve);
+      pathResolver = await import('node:module').then(module => module.createRequire(scriptPath)).then(require => require.resolve);
     } else {
-      pathResolver = (path) => path;
+      pathResolver = path => path;
     }
   }
   return async (moduleSpecifier, providedCallerContext) => {
@@ -1069,20 +1035,20 @@ const makeUse = async (options) => {
     }
     return loadWithFallback(
       resolverChain,
-      async (resolver) => {
+      async resolver => {
         const modulePath = await toResolverFunction(resolver)(moduleSpecifier, pathResolver);
         return importModule(modulePath);
       },
       {
         label: `import '${moduleSpecifier}' from any CDN mirror`,
-        describeSource: (resolver) => (typeof resolver === 'function' ? 'custom resolver' : String(resolver)),
+        describeSource: resolver => (typeof resolver === 'function' ? 'custom resolver' : String(resolver)),
       }
     );
   };
-}
+};
 
 let __usePromise = null;
-const use = async (moduleSpecifier) => {
+const use = async moduleSpecifier => {
   const stack = new Error().stack;
 
   // For Bun, we need to capture the stack trace before any other calls
@@ -1109,14 +1075,14 @@ const use = async (moduleSpecifier) => {
   }
   const useInstance = await __usePromise;
   return useInstance(moduleSpecifier, callerContext);
-}
+};
 use.all = async (...moduleSpecifiers) => {
   if (!__usePromise) {
     __usePromise = makeUse();
   }
   const useInstance = await __usePromise;
   return Promise.all(moduleSpecifiers.map(useInstance));
-}
+};
 
 makeUse.parseModuleSpecifier = parseModuleSpecifier;
 makeUse.resolvers = resolvers;
@@ -1127,4 +1093,4 @@ makeUse.networkResolverChain = networkResolverChain;
 makeUse.denoResolverChain = denoResolverChain;
 makeUse.use = use;
 
-makeUse
+makeUse;

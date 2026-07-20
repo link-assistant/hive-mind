@@ -381,12 +381,11 @@ await test('non-corrupt errors propagate through the wrapper', async () => {
 await test('ensureUseM returns a retry-wrapped use', async () => {
   delete globalThis.use;
   const { ensureUseM } = await import('../src/use-m-bootstrap.lib.mjs');
-  let calls = 0;
   const fetchUseMCode = async () => `({ use: async () => { globalThis.__useCalls = (globalThis.__useCalls || 0) + 1; if (globalThis.__useCalls === 1) { const e = new Error("Failed to import module from '/tmp/command-stream-v-latest/src/$.mjs'."); e.cause = new SyntaxError('Unexpected end of input'); throw e; } return { $: 'dollar' }; } })`;
   globalThis.__useCalls = 0;
   const use = await ensureUseM({ fetchUseMCode });
   const result = await use('command-stream');
-  calls = globalThis.__useCalls;
+  const calls = globalThis.__useCalls;
   delete globalThis.__useCalls;
   delete globalThis.use;
   assert.equal(calls, 2);

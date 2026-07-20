@@ -438,6 +438,8 @@ async function main() {
 }
 
 main().catch(async error => {
-  await log(`❌ Error: ${error.message}`, { level: 'error' });
+  // Issue #2092: keep the cause chain so use-m load failures stay diagnosable.
+  const { formatFatalError } = await import('./error-formatting.lib.mjs');
+  await log(formatFatalError(error), { level: 'error' });
   process.exit(1);
 });

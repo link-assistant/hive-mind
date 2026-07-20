@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Unit tests for src/use-with-retry.lib.mjs (Issue #1710, #1712).
+ * Unit tests for src/use-with-retry.lib.mjs (Issue #1710, #1712, #2092).
  *
  * Verifies that the retry helper for `use-m` recovers from the three
  * known hosted-CI flake modes:
@@ -8,12 +8,17 @@
  *   2. "Failed to resolve the path" after an incomplete install.
  *   3. ERR_INVALID_PACKAGE_CONFIG when the installed package.json itself
  *      is corrupt (issue #1712).
+ *   4. "Failed to install <pkg> globally into <dir>" when the global
+ *      `npm install -g` itself fails (issue #2092).
+ *
+ * Also covers wrapUseWithRetry/ensureUseM, which make every `use(...)` call
+ * site in the codebase inherit this recovery (issue #2092).
  *
  * @hive-mind-test-suite default
  */
 
 import assert from 'node:assert/strict';
-import { useWithRetry, isCorruptInstallError, extractCorruptedFilePath } from '../src/use-with-retry.lib.mjs';
+import { useWithRetry, wrapUseWithRetry, resolveAliasDir, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath } from '../src/use-with-retry.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -34,6 +39,8 @@ const makeImportError = filePath => {
   const cause = new SyntaxError('Unexpected end of input');
   return new Error(`Failed to import module from '${filePath}'.`, { cause });
 };
+
+const makeInstallError = (pkg, dir) => new Error(`Failed to install ${pkg} globally into '${dir}'.`);
 
 const makeResolveError = (pkg, dir) => new Error(`Failed to resolve the path to '${pkg}' from '${dir}'.`);
 
@@ -97,6 +104,63 @@ await test('extracts package.json path from invalid-package-config message (issu
 
 await test('returns null when no path is present', () => {
   assert.equal(extractCorruptedFilePath(new Error('Network failed')), null);
+});
+
+console.log('\n📋 isTransientInstallError (issue #2092)\n');
+
+await test('detects a failed global npm install', () => {
+  assert.equal(isTransientInstallError(makeInstallError('command-stream@latest', '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules')), true);
+});
+
+await test('does not flag unrelated errors as transient installs', () => {
+  assert.equal(isTransientInstallError(new Error('Network down')), false);
+  assert.equal(isTransientInstallError(makeImportError('/tmp/getenv-v-latest/index.js')), false);
+});
+
+await test('retries a failed global install with backoff and no cleanup', async () => {
+  let calls = 0;
+  const waits = [];
+  let cleanupCalls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls < 3) {
+      throw makeInstallError('command-stream@latest', '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules');
+    }
+    return { $: 'dollar' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    sleep: async ms => waits.push(ms),
+    backoffMs: 10,
+    cleanup: async () => {
+      cleanupCalls++;
+    },
+  });
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [10, 20]);
+  assert.equal(cleanupCalls, 0);
+  assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('rethrows the install failure after exhausting attempts', async () => {
+  const fakeUse = async () => {
+    throw makeInstallError('command-stream@latest', '/lib/node_modules');
+  };
+  await assert.rejects(() => useWithRetry(fakeUse, 'command-stream', { attempts: 2, sleep: async () => {} }), /Failed to install command-stream@latest globally/);
+});
+
+console.log('\n📋 resolveAliasDir (issue #2092)\n');
+
+await test('walks up nested paths to the alias install dir', () => {
+  assert.equal(resolveAliasDir('/lib/node_modules/command-stream-v-latest/src/$.mjs'), '/lib/node_modules/command-stream-v-latest');
+});
+
+await test('keeps versioned alias dirs intact', () => {
+  assert.equal(resolveAliasDir('/lib/node_modules/getenv-v-1.0.0/index.js'), '/lib/node_modules/getenv-v-1.0.0');
+  assert.equal(resolveAliasDir('/lib/node_modules/getenv-v-latest'), '/lib/node_modules/getenv-v-latest');
+});
+
+await test('falls back to the parent directory without an alias segment', () => {
+  assert.equal(resolveAliasDir('/tmp/pkg/index.js'), '/tmp/pkg');
 });
 
 console.log('\n📋 useWithRetry — happy path\n');
@@ -207,6 +271,125 @@ await test('continues retrying when cleanup itself fails', async () => {
   const result = await useWithRetry(fakeUse, 'getenv', { cleanup });
   assert.equal(calls, 2);
   assert.deepEqual(result, { default: 'ok' });
+});
+
+console.log("\n📋 useWithRetry — Node's poisoned ESM cache (issue #2092)\n");
+
+await test('falls back to a cache-busted import when the same path fails again', async () => {
+  // Reproduces the behaviour observed against real use-m@8.14.2: after the alias
+  // dir is deleted and reinstalled, use-m re-imports the same URL and Node
+  // replays the cached SyntaxError.
+  const entry = '/lib/node_modules/command-stream-v-latest/src/$.mjs';
+  const cleaned = [];
+  const imported = [];
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    throw makeImportError(entry);
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async path => cleaned.push(path),
+    importModule: async (path, attempt) => {
+      imported.push([path, attempt]);
+      return { $: 'dollar' };
+    },
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(cleaned, ['/lib/node_modules/command-stream-v-latest']);
+  assert.deepEqual(imported, [[entry, 2]]);
+  assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('keeps retrying normally when the cache-busted import also fails', async () => {
+  const entry = '/lib/node_modules/command-stream-v-latest/src/$.mjs';
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls < 3) throw makeImportError(entry);
+    return { $: 'dollar' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async () => {},
+    importModule: async () => {
+      throw new Error('still corrupt');
+    },
+  });
+  assert.equal(calls, 3);
+  assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('does not cache-bust for resolve-path failures', async () => {
+  let calls = 0;
+  let importCalls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) throw makeResolveError('links-notation', '/lib/node_modules/links-notation-v-latest');
+    return { ok: true };
+  };
+  const result = await useWithRetry(fakeUse, 'links-notation', {
+    cleanup: async () => {},
+    importModule: async () => {
+      importCalls++;
+      return {};
+    },
+  });
+  assert.equal(importCalls, 0);
+  assert.deepEqual(result, { ok: true });
+});
+
+console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
+
+await test('wrapped use recovers from a corrupt command-stream install', async () => {
+  let calls = 0;
+  const cleaned = [];
+  const rawUse = async () => {
+    calls++;
+    if (calls === 1) {
+      throw makeImportError('/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/src/$.mjs');
+    }
+    return { $: 'dollar' };
+  };
+  const wrapped = wrapUseWithRetry(rawUse, { cleanup: async path => cleaned.push(path) });
+  const result = await wrapped('command-stream');
+  assert.equal(calls, 2);
+  assert.deepEqual(result, { $: 'dollar' });
+  assert.deepEqual(cleaned, ['/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest']);
+});
+
+await test('wrapped use forwards extra arguments', async () => {
+  const seen = [];
+  const wrapped = wrapUseWithRetry(async (...args) => {
+    seen.push(args);
+    return 'ok';
+  });
+  assert.equal(await wrapped('getenv', { alias: 'x' }), 'ok');
+  assert.deepEqual(seen, [['getenv', { alias: 'x' }]]);
+});
+
+await test('wrapping is idempotent', () => {
+  const wrapped = wrapUseWithRetry(async () => 'ok');
+  assert.equal(wrapUseWithRetry(wrapped), wrapped);
+});
+
+await test('non-corrupt errors propagate through the wrapper', async () => {
+  const wrapped = wrapUseWithRetry(async () => {
+    throw new Error('Network unreachable');
+  });
+  await assert.rejects(() => wrapped('getenv'), /Network unreachable/);
+});
+
+await test('ensureUseM returns a retry-wrapped use', async () => {
+  delete globalThis.use;
+  const { ensureUseM } = await import('../src/use-m-bootstrap.lib.mjs');
+  const fetchUseMCode = async () => `({ use: async () => { globalThis.__useCalls = (globalThis.__useCalls || 0) + 1; if (globalThis.__useCalls === 1) { const e = new Error("Failed to import module from '/tmp/command-stream-v-latest/src/$.mjs'."); e.cause = new SyntaxError('Unexpected end of input'); throw e; } return { $: 'dollar' }; } })`;
+  globalThis.__useCalls = 0;
+  const use = await ensureUseM({ fetchUseMCode });
+  const result = await use('command-stream');
+  const calls = globalThis.__useCalls;
+  delete globalThis.__useCalls;
+  delete globalThis.use;
+  assert.equal(calls, 2);
+  assert.deepEqual(result, { $: 'dollar' });
 });
 
 console.log(`\n📊 ${passed + failed} test(s): ✅ ${passed} passed, ❌ ${failed} failed\n`);

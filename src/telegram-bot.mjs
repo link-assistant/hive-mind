@@ -29,6 +29,7 @@ const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config
 const { enhanceUnknownArgumentError } = await import('./option-suggestions.lib.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
+const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // issue #2085
 
 const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
 
@@ -367,49 +368,6 @@ function validateModelInArgs(args, tool = 'claude') {
   return null;
 }
 
-function mergeArgsWithOverrides(userArgs, overrides) {
-  if (!overrides || overrides.length === 0) {
-    return userArgs;
-  }
-
-  // Parse overrides to identify flags and their values
-  const overrideFlags = new Map(); // Map of flag -> value (or null for boolean flags)
-
-  for (let i = 0; i < overrides.length; i++) {
-    const arg = overrides[i];
-    if (arg.startsWith('--')) {
-      // Check if next item is a value (doesn't start with --)
-      if (i + 1 < overrides.length && !overrides[i + 1].startsWith('--')) {
-        overrideFlags.set(arg, overrides[i + 1]);
-        i++; // Skip the value in next iteration
-      } else {
-        overrideFlags.set(arg, null); // Boolean flag
-      }
-    }
-  }
-
-  // Filter user args to remove any that conflict with overrides
-  const filteredArgs = [];
-  for (let i = 0; i < userArgs.length; i++) {
-    const arg = userArgs[i];
-    if (arg.startsWith('--')) {
-      // If this flag exists in overrides, skip it and its value
-      if (overrideFlags.has(arg)) {
-        // Skip the flag
-        // Also skip next arg if it's a value (doesn't start with --)
-        if (i + 1 < userArgs.length && !userArgs[i + 1].startsWith('--')) {
-          i++; // Skip the value too
-        }
-        continue;
-      }
-    }
-    filteredArgs.push(arg);
-  }
-
-  // Merge: filtered user args + overrides
-  return [...filteredArgs, ...overrides];
-}
-
 // Inject --language LOCALE into spawn args if no language flag is already present.
 // Issue #378: telegram bot resolves the user's effective locale and propagates
 // it to spawned solve/hive sessions so the AI tool replies in the same language.
@@ -595,7 +553,7 @@ registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerFixCommand } = await import('./telegram-fix-command.lib.mjs');
-const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
+const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
 const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
 const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
 

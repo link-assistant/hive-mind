@@ -1,0 +1,50 @@
+{
+  "issue": {
+    "id": 2085,
+    "url": "https://github.com/link-assistant/hive-mind/issues/2085",
+    "title": "`/fix --ci-cd` does not call real /solve command with working session, that leads to no defaults for the solve command applied",
+    "author": "konard",
+    "createdAt": "2026-07-19T17:47:05Z",
+    "state": "OPEN"
+  },
+  "related_github": [
+    {
+      "ref": "issue #1733",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1733",
+      "why": "Original request that /fix work as a combination of /task and /solve, passing through all options not consumed by /fix itself."
+    },
+    {
+      "ref": "PR #2083",
+      "url": "https://github.com/link-assistant/hive-mind/pull/2083",
+      "why": "The concrete /fix --ci-cd run cited by the issue. Its solve session metadata.json (rawCommand) is the primary evidence."
+    },
+    {
+      "ref": "PR #2087",
+      "url": "https://github.com/link-assistant/hive-mind/pull/2087",
+      "why": "The working pull request implementing this fix."
+    },
+    {
+      "ref": "issue #1228",
+      "url": "https://github.com/link-assistant/hive-mind/issues/1228",
+      "why": "Prior work on the mergeArgsWithOverrides helper and info-block de-duplication for /solve and /hive."
+    }
+  ],
+  "external_references": [
+    {
+      "title": "yargs advanced documentation",
+      "url": "https://github.com/yargs/yargs/blob/main/docs/advanced.md",
+      "why": "Confirms yargs' last-wins option parsing, which is why overrides are appended at the end of the argument list so they take precedence over user-supplied values."
+    },
+    {
+      "title": "yargs documentation index",
+      "url": "https://yargs.js.org/docs/",
+      "why": "General reference for how solve.mjs / fix.mjs parse options."
+    }
+  ],
+  "primary_evidence": {
+    "file": "data/pr-2083-solve-metadata.json",
+    "field": "rawCommand",
+    "value": "node .../src/solve.mjs https://github.com/link-assistant/hive-mind/issues/2082 --development-log --deep-analysis --auto-merge --language en",
+    "conclusion": "The real solve.mjs was spawned (not a fake), but WITHOUT the operator override --attach-logs, proving the root cause is override omission in the /fix path, not a fake solve execution."
+  }
+}

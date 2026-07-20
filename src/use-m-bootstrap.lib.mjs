@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { wrapUseWithRetry } from './use-with-retry.lib.mjs';
+
 export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m/use.js';
 export const USE_M_BOOTSTRAP_FALLBACK_URL = 'https://unpkg.com/use-m@8.13.8/use.js';
 
@@ -41,12 +43,21 @@ const fallbackFetchUseMCode = () => fetchUseMCodeFromUrl(USE_M_BOOTSTRAP_FALLBAC
 export const ensureUseM = async (options = {}) => {
   const { fetchUseMCode = defaultFetchUseMCode, log = null } = options;
   if (typeof globalThis.use === 'undefined') {
+    let rawUse;
     try {
-      globalThis.use = (await eval(await fetchUseMCode())).use;
+      rawUse = (await eval(await fetchUseMCode())).use;
     } catch (error) {
       if (typeof log === 'function') log(`   use-m latest bootstrap failed (${error.message}); trying ${USE_M_BOOTSTRAP_FALLBACK_URL}`);
-      globalThis.use = (await eval(await fallbackFetchUseMCode())).use;
+      rawUse = (await eval(await fallbackFetchUseMCode())).use;
     }
+    // Issue #2092: a truncated global `npm install -g <pkg>` makes use-m throw
+    // `Failed to import module from '<...>/command-stream-v-latest/src/$.mjs'.`
+    // Only a few call sites used useWithRetry explicitly; wrapping here means
+    // every `await use(...)` in the codebase recovers by deleting the corrupt
+    // install directory and re-fetching.
+    globalThis.use = wrapUseWithRetry(rawUse);
+  } else {
+    globalThis.use = wrapUseWithRetry(globalThis.use);
   }
   return globalThis.use;
 };

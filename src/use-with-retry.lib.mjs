@@ -30,19 +30,38 @@
  * @param {number} [options.attempts=3] - total attempts including the first try.
  * @param {(path: string) => Promise<void>} [options.cleanup] - injectable cleanup
  *   for the corrupted install directory (defaults to recursive `rm`).
+ * @param {(ms: number) => Promise<void>} [options.sleep] - injectable backoff used
+ *   between attempts when the global `npm install -g` itself failed.
+ * @param {number} [options.backoffMs=1000] - base backoff, doubled per attempt.
+ * @param {(message: string) => void} [options.log] - diagnostics sink; defaults to
+ *   `console.error` when `HIVE_MIND_USE_M_DEBUG` is set, otherwise silent.
  * @returns {Promise<unknown>} the module returned by use-m.
  */
 export const useWithRetry = async (use, specifier, options = {}) => {
   const attempts = options.attempts ?? 3;
   const cleanup = options.cleanup ?? defaultCleanup;
+  const sleep = options.sleep ?? defaultSleep;
+  const backoffMs = options.backoffMs ?? 1000;
+  const log = options.log ?? defaultLog;
+  const extraArgs = options.args ?? [];
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await use(specifier);
+      return await use(specifier, ...extraArgs);
     } catch (error) {
       lastError = error;
-      if (attempt === attempts || !isCorruptInstallError(error)) {
+      const retryable = isCorruptInstallError(error) || isTransientInstallError(error);
+      if (attempt === attempts || !retryable) {
+        log(`use('${specifier}') failed on attempt ${attempt}/${attempts} and will not be retried: ${error?.message}`);
         throw error;
+      }
+      log(`use('${specifier}') failed on attempt ${attempt}/${attempts}: ${error?.message} — retrying`);
+      // Mode 4 (issue #2092): `npm install -g` itself failed (network blip,
+      // registry 5xx, DinD DNS not up yet). There is nothing to delete; just
+      // back off and let npm try again.
+      if (isTransientInstallError(error)) {
+        await sleep(backoffMs * 2 ** (attempt - 1));
+        continue;
       }
       const corruptedPath = extractCorruptedFilePath(error);
       if (corruptedPath) {
@@ -53,9 +72,7 @@ export const useWithRetry = async (use, specifier, options = {}) => {
           //   * "Failed to resolve the path to 'pkg' from '<dir>'" — corruptedPath
           //     is the alias dir itself (e.g. /.../links-notation-v-latest).
           // For files, walk up to the alias dir; otherwise remove the dir as-is.
-          const { dirname } = await import('node:path');
-          const target = corruptedPath.endsWith('-v-latest') || /-v-\d/.test(corruptedPath) ? corruptedPath : dirname(corruptedPath);
-          await cleanup(target);
+          await cleanup(resolveAliasDir(corruptedPath));
         } catch {
           // Best-effort cleanup; fall through to retry regardless.
         }
@@ -64,6 +81,20 @@ export const useWithRetry = async (use, specifier, options = {}) => {
   }
   // Unreachable — the loop either returns or throws.
   throw lastError;
+};
+
+/**
+ * Mode 4 (issue #2092): use-m's own `npm install -g <pkg>` step failed, so no
+ * package tree exists yet — `Failed to install command-stream@latest globally
+ * into '/home/box/.nvm/.../node_modules'.` This is transient in Docker-in-Docker
+ * runs where the registry (or DNS) is briefly unreachable, so retry with backoff.
+ *
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export const isTransientInstallError = error => {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  return /^Failed to install .+ globally into /.test(message);
 };
 
 export const isCorruptInstallError = error => {
@@ -101,7 +132,64 @@ export const extractCorruptedFilePath = error => {
   return invalidConfigMatch ? invalidConfigMatch[1] : null;
 };
 
+/**
+ * Walk a corrupted path up to the use-m alias install directory.
+ *
+ * Issue #2092: the failing file can be nested several levels deep inside the
+ * package (`.../command-stream-v-latest/src/$.mjs`). Removing only its parent
+ * directory (`.../src`) leaves a half-package on disk whose package.json still
+ * resolves, so the retry re-imports the same broken tree. Walking up to the
+ * `<pkg>-v-<version>` alias segment removes the whole install instead.
+ *
+ * Falls back to the immediate parent directory when no alias segment is found.
+ *
+ * @param {string} corruptedPath - file or directory path from the error message.
+ * @returns {string} directory to delete before retrying.
+ */
+export const resolveAliasDir = corruptedPath => {
+  const segments = corruptedPath.split('/');
+  const isAlias = segment => /-v-(latest|\d[^/]*)$/.test(segment);
+  for (let index = segments.length - 1; index >= 0; index--) {
+    if (isAlias(segments[index])) return segments.slice(0, index + 1).join('/');
+  }
+  return segments.slice(0, -1).join('/') || corruptedPath;
+};
+
 const defaultCleanup = async path => {
   const { rm } = await import('node:fs/promises');
   await rm(path, { recursive: true, force: true });
+};
+
+const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Off by default so normal runs stay quiet; issue #2092 showed that when the
+// loader dies there is no trace of which specifier or attempt failed.
+const defaultLog = message => {
+  if (process.env.HIVE_MIND_USE_M_DEBUG) console.error(`[use-m] ${message}`);
+};
+
+const USE_RETRY_WRAPPED = Symbol.for('hive-mind.use-with-retry.wrapped');
+
+/**
+ * Wrap a raw use-m `use` function so that *every* call site inherits the
+ * corrupt-install recovery above (issue #2092).
+ *
+ * Before this, only the handful of call sites that explicitly imported
+ * `useWithRetry` (config/queue-config/lino) were protected, while ~40 other
+ * modules called `await use('command-stream')` directly and crashed with
+ * `Failed to import module from '.../command-stream-v-latest/src/$.mjs'.`
+ * whenever the global npm install was truncated.
+ *
+ * The wrapper is idempotent: wrapping an already-wrapped function returns it
+ * unchanged, so repeated `ensureUseM()` calls don't nest retries.
+ *
+ * @param {Function} use - raw use-m loader.
+ * @param {object} [options] - forwarded to useWithRetry (attempts, cleanup).
+ * @returns {Function} retry-wrapped loader.
+ */
+export const wrapUseWithRetry = (use, options = {}) => {
+  if (typeof use !== 'function' || use[USE_RETRY_WRAPPED]) return use;
+  const wrapped = (specifier, ...args) => useWithRetry(use, specifier, { ...options, args });
+  Object.defineProperty(wrapped, USE_RETRY_WRAPPED, { value: true });
+  return wrapped;
 };

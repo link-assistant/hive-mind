@@ -65,9 +65,9 @@ solve https://github.com/link-assistant/formal-ai/issues/808 \
 | 80706         | 10:34:01   | `📌 Session ID: 4b713ee3-58b5-4997-b1ce-953aa0709394` — **session 3**, never collected         |
 | 86883         | —          | end of process; no further finalize marker                                                     |
 
-So the collected `solve.log` stops at log line ~69,789 of 86,883: **80 % of the
-process log by line count is missing from the pull request**, including both
-later sessions.
+So the collected `solve.log` stops at log line ~69,789 of 86,883: the last
+17,094 lines (**20 % of the process log**) are missing from the pull request,
+including both later sessions in their entirety.
 
 ## 4. Requirements extracted from the issue
 

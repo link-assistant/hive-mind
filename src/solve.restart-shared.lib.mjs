@@ -482,8 +482,11 @@ export const executeToolIteration = async params => {
   // chokepoint shared by watch mode, auto-restart-until-mergeable,
   // keep-working, escalation and auto-ensure — otherwise only the very first
   // session of the process ever reached the pull request.
+  // When the tool did not report a session id there is nothing to key a new
+  // directory on, so extend the previously collected session instead of losing
+  // this iteration's part of the log.
   const { finalizeActiveDevelopmentLog } = await import('./development-log.finalize.lib.mjs');
-  await finalizeActiveDevelopmentLog({ sessionId: toolResult?.sessionId ?? null });
+  await (toolResult?.sessionId ? finalizeActiveDevelopmentLog({ sessionId: toolResult.sessionId }) : finalizeActiveDevelopmentLog({ force: true }));
 
   return toolResult;
 };

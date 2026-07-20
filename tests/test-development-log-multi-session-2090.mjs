@@ -215,7 +215,7 @@ try {
   assert.ok(solveSource.includes('createDevelopmentLogFinalizer({'), 'solve.mjs must create (and thereby publish) the development-log finalizer');
 
   const restartSource = await readFile(new URL('../src/solve.restart-shared.lib.mjs', import.meta.url), 'utf8');
-  assert.ok(restartSource.includes('finalizeActiveDevelopmentLog({ sessionId: toolResult?.sessionId ?? null })'), 'every restart iteration must finalize its own session');
+  assert.ok(restartSource.includes('finalizeActiveDevelopmentLog({ sessionId: toolResult.sessionId })'), 'every restart iteration must finalize its own session');
   assert.ok(restartSource.indexOf('finalizeActiveDevelopmentLog') < restartSource.indexOf('return toolResult;'), 'restart finalization must happen before the iteration returns');
 
   const exitHandlerSource = await readFile(new URL('../src/exit-handler.lib.mjs', import.meta.url), 'utf8');

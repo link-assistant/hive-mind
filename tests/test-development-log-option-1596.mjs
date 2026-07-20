@@ -147,7 +147,7 @@ try {
   assert.equal(copiedLog, 'raw solve log\n');
 
   const metadata = JSON.parse(await readFile(join(repositoryPath, result.metadataRelativePath), 'utf8'));
-  assert.equal(metadata.schemaVersion, 2);
+  assert.equal(metadata.schemaVersion, 3); // Issue #2090: per-session log slices.
   assert.equal(metadata.tool, 'codex');
   assert.equal(metadata.sessionId, 'codex-session-123');
   assert.equal(metadata.developmentLogDirectory, './dev/log/issues/1596/pulls/1996');

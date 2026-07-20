@@ -476,6 +476,15 @@ export const executeToolIteration = async params => {
     diskPath: '/',
     label: 'after AI restart iteration',
   });
+
+  // Issue #2090: every restart iteration starts a brand new tool session with
+  // its own session UUID. Collect its development log here — this is the single
+  // chokepoint shared by watch mode, auto-restart-until-mergeable,
+  // keep-working, escalation and auto-ensure — otherwise only the very first
+  // session of the process ever reached the pull request.
+  const { finalizeActiveDevelopmentLog } = await import('./development-log.finalize.lib.mjs');
+  await finalizeActiveDevelopmentLog({ sessionId: toolResult?.sessionId ?? null });
+
   return toolResult;
 };
 

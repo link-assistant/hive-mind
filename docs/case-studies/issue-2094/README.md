@@ -42,6 +42,26 @@ The exact mismatch is expected from the upstream merge: `plugin list` reports
 local configuration and cache state, while prompt construction first replaces
 the reserved marketplace with remote installed state.
 
+## What the override trades away
+
+`remote_plugin = false` also suppresses the account's remote _discoverable_ and
+remotely installed plugin sets for that scope
+([`manager.rs`](https://github.com/openai/codex/blob/5d1fbf26c43abc65a203928b2e31561cb039e06d/codex-rs/core-plugins/src/manager.rs#L849)).
+This is the deliberate direction of the trade: the reserved marketplace is
+replaced rather than merged, so the choice is between the account's partial
+remote bundle and the complete local payload Hive provisioned for the explicit
+requirement. The override is written only inside the repository-scoped home,
+only when capability resolution selected a local `@openai-curated` plugin, and
+never for personal marketplaces or the operator home. A capability that exists
+only remotely would not have resolved from the local catalog in the first place,
+so it cannot be silently lost here.
+
+Scoping matches upstream exactly. The destructive filter compares against
+`OPENAI_CURATED_MARKETPLACE_NAME` alone, not the broader
+`is_openai_curated_marketplace_name` helper that also accepts
+`openai-api-curated`, so Hive checks for exactly `openai-curated` and does not
+disable the remote catalog for marketplaces Codex never filters.
+
 ## Controlled matrix
 
 The real-CLI reproduction is
@@ -63,6 +83,34 @@ The account's remote state changed after the production failure (from zero to
 eight Superpowers skills), but the diagnostic remains decisive: the remote set
 **replaces** the complete local set. It does not merge with it. With the
 production remote set, the first column was zero.
+
+That script needs an authenticated home, so it cannot be run by a reviewer
+without one. The claim it cannot cover on its own — that the scoped
+`config.toml` Hive writes is genuinely consumed by the loader rather than
+silently ignored — is checked by
+[`experiments/issue-2094/verify-remote-plugin-config-key.sh`](../../../experiments/issue-2094/verify-remote-plugin-config-key.sh),
+which needs only a Codex CLI. Against `codex-cli 0.144.6` it confirms that a
+mistyped value is rejected with `invalid type: string "banana", expected a
+boolean ... in features` (proving the key is deserialized from the file), that
+the exact scoped config shape written by the fix loads and still renders a
+prompt, and that an unrecognized `[features]` key is ignored rather than fatal.
+The last point bounds the blast radius of an upstream rename: the override would
+degrade to a no-op and #2089's fail-closed probe would still refuse to start a
+solver without visible skills.
+
+Writing that key is itself a hazard worth stating. TOML expresses one setting in
+three ways — a `[features]` header table, a root-scope dotted `features.remote_plugin`,
+and an inline `features = { … }` — and the dotted spelling is the one Codex's own
+CLI documents. Appending a `[features]` table beside any of the others yields a
+duplicate key, and Codex then refuses to load the config at all, which would
+break every Codex invocation for that repository rather than only the plugin.
+The editor therefore rewrites whichever spelling exists, replaces any existing
+value rather than only a boolean literal, keeps an attached comment, and ignores
+table headers that appear inside multi-line strings.
+[`experiments/issue-2094/toml-editor-cases.mjs`](../../../experiments/issue-2094/toml-editor-cases.mjs)
+checks 30 operator config shapes by parsing every produced document with a real
+TOML parser (python `tomllib`); the same shapes are asserted in the regression
+test.
 
 Additional controls:
 

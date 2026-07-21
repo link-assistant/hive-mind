@@ -358,38 +358,108 @@ const readIfPresent = async filePath => {
   }
 };
 
-const setTomlTableBoolean = ({ config, table, key, value }) => {
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+
+// A line inside a multi-line string is data, not structure: `[plugins."x"]`
+// written inside `"""…"""` is a string, and treating it as a table header would
+// splice a key into the operator's value.
+const markStructuralLines = lines => {
+  const structural = [];
+  let openDelimiter = null;
+  for (const line of lines) {
+    structural.push(openDelimiter === null);
+    let rest = line;
+    for (;;) {
+      if (openDelimiter) {
+        const closeIndex = rest.indexOf(openDelimiter);
+        if (closeIndex === -1) break;
+        rest = rest.slice(closeIndex + openDelimiter.length);
+        openDelimiter = null;
+        continue;
+      }
+      const opened = /"""|'''/u.exec(rest);
+      if (!opened) break;
+      openDelimiter = opened[0];
+      rest = rest.slice(opened.index + opened[0].length);
+    }
+  }
+  return structural;
+};
+
+// TOML accepts the same setting as a header table, a dotted key, or an inline
+// table. Appending `[features]` next to any of the other two is a duplicate-key
+// document that Codex refuses to load, which would break every scoped
+// invocation for the repository — so each spelling is edited in place.
+export const setTomlTableBoolean = ({ config, table, key, value }) => {
   const lines = String(config || '')
     .replace(/\r\n/gu, '\n')
     .split('\n');
-  const tableHeader = `[${table}]`;
-  const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
-  const keyPattern = new RegExp(`^(\\s*${escapedKey}\\s*=\\s*)(?:true|false)(\\s*(?:#.*)?)$`, 'iu');
-  const nextTablePattern = /^\s*\[\[?[^\]]+\]\]?\s*(?:#.*)?$/u;
-  const tableStart = lines.findIndex(line => line.trim().split(/\s+#/u, 1)[0] === tableHeader);
+  const structural = markStructuralLines(lines);
+  const [escapedTable, escapedKey] = [escapeRegExp(table), escapeRegExp(key)];
+  const quoted = name => `(?:${name}|"${name}"|'${name}')`;
+  const tableHeaderPattern = new RegExp(`^\\s*\\[\\s*${quoted(escapedTable)}\\s*\\]\\s*(?:#.*)?$`, 'u');
+  const anyTableHeaderPattern = /^\s*\[\[?[^\]]*\]\]?\s*(?:#.*)?$/u;
+  // The value is everything before an optional trailing comment, so a comment
+  // an operator attached to the setting survives the rewrite.
+  const assignmentPattern = name => new RegExp(`^(\\s*${name}\\s*=\\s*)([^#]*?)(\\s*(?:#.*)?)$`, 'u');
+  const keyPattern = assignmentPattern(quoted(escapedKey));
+  const dottedPattern = assignmentPattern(`${quoted(escapedTable)}\\s*\\.\\s*${quoted(escapedKey)}`);
+  const inlineTablePattern = new RegExp(`^(\\s*${quoted(escapedTable)}\\s*=\\s*\\{)([^}]*)(\\}\\s*(?:#.*)?)$`, 'u');
+  const finish = () => `${lines.join('\n').trimEnd()}\n`;
+  const isStructural = index => structural[index];
 
-  if (tableStart === -1) {
-    while (lines.length > 0 && lines.at(-1) === '') lines.pop();
-    if (lines.length > 0) lines.push('');
-    lines.push(tableHeader, `${key} = ${value}`, '');
-    return lines.join('\n');
+  const tableStart = lines.findIndex((line, index) => isStructural(index) && tableHeaderPattern.test(line));
+  if (tableStart !== -1) {
+    let tableEnd = lines.length;
+    for (let index = tableStart + 1; index < lines.length; index++) {
+      if (isStructural(index) && anyTableHeaderPattern.test(lines[index])) {
+        tableEnd = index;
+        break;
+      }
+    }
+    for (let index = tableStart + 1; index < tableEnd; index++) {
+      // Any existing value is replaced, not only a boolean literal: leaving a
+      // stale `remote_plugin = 1` behind and appending a second assignment is
+      // also a duplicate key.
+      if (isStructural(index) && keyPattern.test(lines[index])) {
+        lines[index] = lines[index].replace(keyPattern, `$1${value}$3`);
+        return finish();
+      }
+    }
+    // Insert after the table's last content line so the key is not separated
+    // from its own table by the blank lines that precede the next one.
+    let insertAt = tableEnd;
+    while (insertAt > tableStart + 1 && lines[insertAt - 1].trim() === '') insertAt--;
+    lines.splice(insertAt, 0, `${key} = ${value}`);
+    return finish();
   }
 
-  let tableEnd = lines.length;
-  for (let index = tableStart + 1; index < lines.length; index++) {
-    if (nextTablePattern.test(lines[index])) {
-      tableEnd = index;
-      break;
+  // Outside any table header the operator may have used a dotted key or an
+  // inline table for the same setting.
+  const rootEnd = lines.findIndex((line, index) => isStructural(index) && anyTableHeaderPattern.test(line));
+  const rootLimit = rootEnd === -1 ? lines.length : rootEnd;
+  for (let index = 0; index < rootLimit; index++) {
+    if (!isStructural(index)) continue;
+    if (dottedPattern.test(lines[index])) {
+      lines[index] = lines[index].replace(dottedPattern, `$1${value}$3`);
+      return finish();
+    }
+    const inlineTable = inlineTablePattern.exec(lines[index]);
+    if (inlineTable) {
+      const [, prefix, contents, suffix] = inlineTable;
+      // The trailing separator is captured so the operator's spacing inside the
+      // braces survives the rewrite.
+      const inlineKeyPattern = new RegExp(`(^|,)(\\s*${quoted(escapedKey)}\\s*=\\s*)[^,]*?(\\s*)(,|$)`, 'u');
+      const nextContents = inlineKeyPattern.test(contents) ? contents.replace(inlineKeyPattern, `$1$2${value}$3$4`) : `${contents.trim() ? `${contents.trimEnd()}, ` : ' '}${key} = ${value} `;
+      lines[index] = `${prefix}${nextContents}${suffix}`;
+      return finish();
     }
   }
-  for (let index = tableStart + 1; index < tableEnd; index++) {
-    if (keyPattern.test(lines[index])) {
-      lines[index] = lines[index].replace(keyPattern, `$1${value}$2`);
-      return `${lines.join('\n').trimEnd()}\n`;
-    }
-  }
-  lines.splice(tableEnd, 0, `${key} = ${value}`);
-  return `${lines.join('\n').trimEnd()}\n`;
+
+  while (lines.length > 0 && lines.at(-1) === '') lines.pop();
+  if (lines.length > 0) lines.push('');
+  lines.push(`[${table}]`, `${key} = ${value}`, '');
+  return lines.join('\n');
 };
 
 // Codex's authenticated remote global catalog owns the reserved
@@ -614,4 +684,5 @@ export default {
   repairScopedPluginPayloads,
   resolveRequiredCapabilities,
   runCodexCapabilityPreflight,
+  setTomlTableBoolean,
 };

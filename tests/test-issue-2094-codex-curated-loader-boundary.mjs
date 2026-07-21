@@ -15,7 +15,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
+import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight, setTomlTableBoolean } from '../src/codex-capability-preflight.lib.mjs';
 import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
@@ -226,6 +226,39 @@ const preflight = async ({ fixture, codex }) =>
   assert.match(scopedConfig, /\[plugins\."superpowers@personal"\]/u);
 
   await rm(fixture.root, { recursive: true, force: true });
+}
+
+// TOML expresses the same setting as a header table, a dotted key or an inline
+// table. Blindly appending `[features]` beside one of the others produces a
+// duplicate key, and Codex then refuses to load the scoped config at all —
+// which would break every Codex invocation for that repository.
+{
+  const override = config => setTomlTableBoolean({ config, table: 'features', key: 'remote_plugin', value: false });
+  const occurrences = (text, pattern) => text.match(pattern)?.length || 0;
+
+  for (const [label, input, expected] of [
+    ['dotted key', 'features.remote_plugin = true\nmodel = "gpt-5"\n', 'features.remote_plugin = false\nmodel = "gpt-5"\n'],
+    ['dotted key with spacing', 'features . remote_plugin = true\n', 'features . remote_plugin = false\n'],
+    ['inline table', 'features = { web_search = true, remote_plugin = true }\n', 'features = { web_search = true, remote_plugin = false }\n'],
+    ['inline table without the key', 'features = { web_search = true }\n', 'features = { web_search = true, remote_plugin = false }\n'],
+    ['empty inline table', 'features = {}\n', 'features = { remote_plugin = false }\n'],
+    ['header with a tight comment', '[features]# toggles\nremote_plugin = true\n', '[features]# toggles\nremote_plugin = false\n'],
+    ['non-boolean existing value', '[features]\nremote_plugin = 1\n', '[features]\nremote_plugin = false\n'],
+    ['quoted key', '[features]\n"remote_plugin" = true\n', '[features]\n"remote_plugin" = false\n'],
+    ['trailing comment preserved', '[features]\nremote_plugin = true # operator note\n', '[features]\nremote_plugin = false # operator note\n'],
+  ]) {
+    const result = override(input);
+    assert.equal(result, expected, `${label}: the existing declaration is edited in place`);
+    assert.equal(occurrences(result, /remote_plugin/gu), 1, `${label}: no duplicate key is emitted`);
+    assert.equal(occurrences(result, /^\s*\[\s*features\s*\]/gmu), occurrences(input, /^\s*\[\s*features\s*\]/gmu), `${label}: no second [features] table is appended`);
+    assert.equal(override(result), result, `${label}: the rewrite is idempotent`);
+  }
+
+  // A table header written inside a multi-line string is data, not structure.
+  assert.equal(override('notice = """\n[features]\nremote_plugin = true\n"""\n'), 'notice = """\n[features]\nremote_plugin = true\n"""\n\n[features]\nremote_plugin = false\n', 'a header inside a string does not capture the override');
+  assert.equal(override('[features]\nnotice = """\n[other]\n"""\n'), '[features]\nnotice = """\n[other]\n"""\nremote_plugin = false\n', 'a header inside a string does not end the table early');
+  // A dotted key under a different table names a different setting.
+  assert.equal(override('[other]\nfeatures.remote_plugin = true\n'), '[other]\nfeatures.remote_plugin = true\n\n[features]\nremote_plugin = false\n', 'only root-scope dotted keys refer to [features]');
 }
 
 console.log('✅ issue #2094: curated local plugins cross the authenticated remote-catalog loader boundary');

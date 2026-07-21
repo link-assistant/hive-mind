@@ -109,8 +109,11 @@ value rather than only a boolean literal, keeps an attached comment, and ignores
 table headers that appear inside multi-line strings.
 [`experiments/issue-2094/toml-editor-cases.mjs`](../../../experiments/issue-2094/toml-editor-cases.mjs)
 checks 30 operator config shapes by parsing every produced document with a real
-TOML parser (python `tomllib`); the same shapes are asserted in the regression
-test.
+TOML parser (python `tomllib`), and
+[`verify-toml-editor-against-cli.mjs`](../../../experiments/issue-2094/verify-toml-editor-against-cli.mjs)
+feeds the rewritten documents to an unauthenticated Codex CLI, where all seven
+previously rejected shapes now load (`codex-cli 0.144.6`). The same shapes are
+asserted in the regression test.
 
 Additional controls:
 

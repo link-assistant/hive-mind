@@ -744,8 +744,8 @@ export const executeCodex = async params => {
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
-
-  const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log });
+  const codexBaseEnv = getCodexExecEnv(argv.verbose);
+  const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv });
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -763,7 +763,7 @@ export const executeCodex = async params => {
     owner,
     repo,
     prNumber,
-    capabilityPreflight,
+    capabilityPreflight: { ...capabilityPreflight, codexBaseEnv },
   });
 };
 
@@ -809,7 +809,7 @@ export const executeCodexCommand = async params => {
     const mappedModel = mapModelToId(argv.model);
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
-    const codexEnv = applyCodexCapabilityEnv(getCodexExecEnv(argv.verbose), {
+    const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });

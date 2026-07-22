@@ -219,7 +219,7 @@ const checkModelVisibleSkills = async ({ command, env, runCommand, log, required
   return { status: missing.length === 0 ? 'satisfied' : 'missing', visible, missing };
 };
 
-const skillVisibilityError = ({ missing, visible, requirements, repairs = [] }) => new CodexCapabilityPreflightError(`Codex reports the required plugins as installed, but the model cannot see: ${missing.join(', ')}. ` + `Codex exposes a plugin's skills only while its payload is materialized under ` + `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills. ` + `Visible skills were: ${visible ? [...visible].sort().join(', ') || 'none' : 'unknown'}.` + (repairs.length > 0 ? ` Attempted repairs: ${repairs.join(', ')}.` : ''), { missing, failClosed: missing.some(skill => isExplicitRequirement(requirements, skill)) });
+const skillVisibilityError = ({ missing, visible, requirements, repairs = [] }) => new CodexCapabilityPreflightError(`Codex reports the required plugins as installed, but the model cannot see: ${missing.join(', ')}. ` + `A plugin must survive Codex loader reconciliation and have a valid payload under ` + `CODEX_HOME/plugins/cache/<marketplace>/<plugin>/<version>/skills before its skills are exposed. ` + `Visible skills were: ${visible ? [...visible].sort().join(', ') || 'none' : 'unknown'}.` + (repairs.length > 0 ? ` Attempted repairs: ${repairs.join(', ')}.` : ''), { missing, failClosed: missing.some(skill => isExplicitRequirement(requirements, skill)) });
 
 const verifyModelVisibleSkills = async ({ command, env, runCommand, log, requiredSkills, requirements }) => {
   const outcome = await checkModelVisibleSkills({ command, env, runCommand, log, requiredSkills });
@@ -316,10 +316,10 @@ export async function resolveRequiredPlugins(options) {
   return (await resolveRequiredCapabilities(options)).plugins;
 }
 
-const readIssueRequirementText = async ({ owner, repo, issueNumber, runCommand }) => {
-  const issueResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}`], env: process.env });
+const readIssueRequirementText = async ({ owner, repo, issueNumber, runCommand, env }) => {
+  const issueResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}`], env });
   const issue = parseJsonCommand(issueResult, 'Codex capability issue discovery');
-  const commentsResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}/comments`, '--paginate'], env: process.env });
+  const commentsResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}/comments`, '--paginate'], env });
   const comments = parseJsonCommand(commentsResult, 'Codex capability comment discovery');
   return [issue?.title, issue?.body, ...(Array.isArray(comments) ? comments.map(comment => comment?.body) : [])].filter(Boolean).join('\n');
 };
@@ -356,6 +356,128 @@ const readIfPresent = async filePath => {
     if (error.code === 'ENOENT') return '';
     throw error;
   }
+};
+
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+
+// A line inside a multi-line string is data, not structure: `[plugins."x"]`
+// written inside `"""…"""` is a string, and treating it as a table header would
+// splice a key into the operator's value.
+const markStructuralLines = lines => {
+  const structural = [];
+  let openDelimiter = null;
+  for (const line of lines) {
+    structural.push(openDelimiter === null);
+    let rest = line;
+    for (;;) {
+      if (openDelimiter) {
+        const closeIndex = rest.indexOf(openDelimiter);
+        if (closeIndex === -1) break;
+        rest = rest.slice(closeIndex + openDelimiter.length);
+        openDelimiter = null;
+        continue;
+      }
+      const opened = /"""|'''/u.exec(rest);
+      if (!opened) break;
+      openDelimiter = opened[0];
+      rest = rest.slice(opened.index + opened[0].length);
+    }
+  }
+  return structural;
+};
+
+// TOML accepts the same setting as a header table, a dotted key, or an inline
+// table. Appending `[features]` next to any of the other two is a duplicate-key
+// document that Codex refuses to load, which would break every scoped
+// invocation for the repository — so each spelling is edited in place.
+export const setTomlTableBoolean = ({ config, table, key, value }) => {
+  const lines = String(config || '')
+    .replace(/\r\n/gu, '\n')
+    .split('\n');
+  const structural = markStructuralLines(lines);
+  const [escapedTable, escapedKey] = [escapeRegExp(table), escapeRegExp(key)];
+  const quoted = name => `(?:${name}|"${name}"|'${name}')`;
+  const tableHeaderPattern = new RegExp(`^\\s*\\[\\s*${quoted(escapedTable)}\\s*\\]\\s*(?:#.*)?$`, 'u');
+  const anyTableHeaderPattern = /^\s*\[\[?[^\]]*\]\]?\s*(?:#.*)?$/u;
+  // The value is everything before an optional trailing comment, so a comment
+  // an operator attached to the setting survives the rewrite.
+  const assignmentPattern = name => new RegExp(`^(\\s*${name}\\s*=\\s*)([^#]*?)(\\s*(?:#.*)?)$`, 'u');
+  const keyPattern = assignmentPattern(quoted(escapedKey));
+  const dottedPattern = assignmentPattern(`${quoted(escapedTable)}\\s*\\.\\s*${quoted(escapedKey)}`);
+  const inlineTablePattern = new RegExp(`^(\\s*${quoted(escapedTable)}\\s*=\\s*\\{)([^}]*)(\\}\\s*(?:#.*)?)$`, 'u');
+  const finish = () => `${lines.join('\n').trimEnd()}\n`;
+  const isStructural = index => structural[index];
+
+  const tableStart = lines.findIndex((line, index) => isStructural(index) && tableHeaderPattern.test(line));
+  if (tableStart !== -1) {
+    let tableEnd = lines.length;
+    for (let index = tableStart + 1; index < lines.length; index++) {
+      if (isStructural(index) && anyTableHeaderPattern.test(lines[index])) {
+        tableEnd = index;
+        break;
+      }
+    }
+    for (let index = tableStart + 1; index < tableEnd; index++) {
+      // Any existing value is replaced, not only a boolean literal: leaving a
+      // stale `remote_plugin = 1` behind and appending a second assignment is
+      // also a duplicate key.
+      if (isStructural(index) && keyPattern.test(lines[index])) {
+        lines[index] = lines[index].replace(keyPattern, `$1${value}$3`);
+        return finish();
+      }
+    }
+    // Insert after the table's last content line so the key is not separated
+    // from its own table by the blank lines that precede the next one.
+    let insertAt = tableEnd;
+    while (insertAt > tableStart + 1 && lines[insertAt - 1].trim() === '') insertAt--;
+    lines.splice(insertAt, 0, `${key} = ${value}`);
+    return finish();
+  }
+
+  // Outside any table header the operator may have used a dotted key or an
+  // inline table for the same setting.
+  const rootEnd = lines.findIndex((line, index) => isStructural(index) && anyTableHeaderPattern.test(line));
+  const rootLimit = rootEnd === -1 ? lines.length : rootEnd;
+  for (let index = 0; index < rootLimit; index++) {
+    if (!isStructural(index)) continue;
+    if (dottedPattern.test(lines[index])) {
+      lines[index] = lines[index].replace(dottedPattern, `$1${value}$3`);
+      return finish();
+    }
+    const inlineTable = inlineTablePattern.exec(lines[index]);
+    if (inlineTable) {
+      const [, prefix, contents, suffix] = inlineTable;
+      // The trailing separator is captured so the operator's spacing inside the
+      // braces survives the rewrite.
+      const inlineKeyPattern = new RegExp(`(^|,)(\\s*${quoted(escapedKey)}\\s*=\\s*)[^,]*?(\\s*)(,|$)`, 'u');
+      const nextContents = inlineKeyPattern.test(contents) ? contents.replace(inlineKeyPattern, `$1$2${value}$3$4`) : `${contents.trim() ? `${contents.trimEnd()}, ` : ' '}${key} = ${value} `;
+      lines[index] = `${prefix}${nextContents}${suffix}`;
+      return finish();
+    }
+  }
+
+  while (lines.length > 0 && lines.at(-1) === '') lines.pop();
+  if (lines.length > 0) lines.push('');
+  lines.push(`[${table}]`, `${key} = ${value}`, '');
+  return lines.join('\n');
+};
+
+// Codex's authenticated remote global catalog owns the reserved
+// `openai-curated` marketplace. In codex-rs 0.144.6 the prompt loader removes
+// every locally configured plugin from that marketplace before merging remote
+// installations. Hive provisions the local marketplace payload, so the scoped
+// home must select that local catalog or plugin list and prompt assembly report
+// contradictory states (issue #2094). This override is deliberately scoped to
+// runs that selected a local curated plugin; personal marketplaces retain the
+// operator's remote catalog setting.
+const configureScopedPluginLoader = async ({ codexHome, plugins, log }) => {
+  const localCurated = plugins.filter(plugin => pluginIdParts(plugin).marketplace === 'openai-curated');
+  if (localCurated.length === 0) return;
+  const configPath = path.join(codexHome, 'config.toml');
+  const config = await readIfPresent(configPath);
+  const nextConfig = setTomlTableBoolean({ config, table: 'features', key: 'remote_plugin', value: false });
+  if (nextConfig !== config) await fs.writeFile(configPath, nextConfig);
+  await log(`   🧭 Scoped Codex loader: remote_plugin=false for ${localCurated.join(', ')}; an authenticated remote catalog otherwise removes local @openai-curated entries before prompt assembly`, { verbose: true });
 };
 
 // Runtime settings follow the operator config while plugin enablement remains
@@ -464,13 +586,13 @@ export async function runCodexCapabilityPreflight(options = {}) {
   }
 }
 
-async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, baseCodexHome = process.env.HIVE_MIND_PARENT_CODEX_HOME || process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
+async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
   if (!owner || !repo || !issueNumber) return { required: false, plugins: [], codexHome: null };
 
   // `executeToolWithBun` uses a shell expression for execution. Preflight uses
   // execFile and therefore selects the installed Codex binary directly.
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
-  const requirementText = await readIssueRequirementText({ owner, repo, issueNumber, runCommand });
+  const requirementText = await readIssueRequirementText({ owner, repo, issueNumber, runCommand, env });
   const requirements = detectRequiredCodexCapabilities(requirementText);
   for (const { capability, line } of requirements.rejected || []) {
     await log(`   ⏭️  Ignored non-capability token '${capability}' from: ${line.slice(0, 160)}`, { verbose: true });
@@ -481,8 +603,13 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   for (const { capability, line } of requirements.evidence || []) {
     await log(`   🔎 '${capability}' detected from: ${line.slice(0, 160)}`, { verbose: true });
   }
-  const baseEnv = { ...process.env, CODEX_HOME: baseCodexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
-  const baseCatalogResult = await runCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
+  // Every Codex-side preflight operation runs from the checkout that the
+  // solver will enter. Besides matching `codex exec`, this keeps any future
+  // repository-local discovery deterministic without relying on Hive's launch
+  // directory (issue #2094).
+  const runCodexCommand = invocation => runCommand({ ...invocation, cwd: projectDir });
+  const baseEnv = { ...env, CODEX_HOME: baseCodexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
+  const baseCatalogResult = await runCodexCommand({ command, args: ['plugin', 'list', '--available', '--json'], env: baseEnv });
   const baseCatalog = parseJsonCommand(baseCatalogResult, 'Codex plugin catalog discovery');
   const skillDirectories = [path.join(os.homedir(), '.agents', 'skills'), projectDir && path.join(projectDir, '.agents', 'skills')].filter(Boolean);
   const { plugins, providers } = await resolveRequiredCapabilities({ requirements, catalog: baseCatalog, skillDirectories });
@@ -491,24 +618,25 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   }
   if (plugins.length === 0) {
     await log('   ✅ Required Agent Skills are already available from standard skill directories');
-    await verifyModelVisibleSkills({ command, env: baseEnv, runCommand, log, requiredSkills: requirements.skills, requirements });
+    await verifyModelVisibleSkills({ command, env: baseEnv, runCommand: runCodexCommand, log, requiredSkills: requirements.skills, requirements });
     return { required: true, plugins, skills: requirements.skills, codexHome: null, baseCodexHome };
   }
 
   const codexHome = buildCodexCapabilityStatePath({ baseCodexHome, owner, repo });
   await prepareScopedCodexHome({ baseCodexHome, codexHome });
-  const scopedEnv = { ...process.env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
+  await configureScopedPluginLoader({ codexHome, plugins, log });
+  const scopedEnv = { ...env, CODEX_HOME: codexHome, HIVE_MIND_PARENT_CODEX_HOME: baseCodexHome };
 
   // Issue #2088: install *and repair*. Enablement recorded in the scoped
   // `config.toml` survives a container restart while the payload under
   // `plugins/cache` may not, and `codex plugin list` cannot tell those states
   // apart — so the payload itself is the thing that gets checked and rebuilt.
-  const repair = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand, log, codexHome, baseCodexHome, plugins, providers });
+  const repair = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, baseCodexHome, plugins, providers });
   for (const entry of repair.report) {
     if (entry.healthy) await log(`   ✅ Provisioned ${entry.pluginId} in repository-scoped Codex state`);
   }
 
-  const verifyResult = await runCommand({ command, args: ['plugin', 'list', '--json'], env: scopedEnv });
+  const verifyResult = await runCodexCommand({ command, args: ['plugin', 'list', '--json'], env: scopedEnv });
   const verifiedCatalog = parseJsonCommand(verifyResult, 'Codex capability verification');
   const verified = new Set((verifiedCatalog.installed || []).filter(plugin => plugin.installed && plugin.enabled).map(plugin => normalizePluginSelector(plugin.pluginId)));
   const unverified = plugins.filter(plugin => !verified.has(plugin));
@@ -525,14 +653,14 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
   // the model saw zero `superpowers:*` skills, so the run proceeded and then
   // stalled on the repository's mandatory preflight. Confirm the requirement
   // against the catalog the model actually receives.
-  let visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
+  let visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, requiredSkills: requirements.skills });
   if (visibility.status === 'missing') {
     // The payload looks materialized but the prompt disagrees: rebuild it from
     // scratch and re-probe before deciding (issue #2088).
     await log(`   🛠️  Model cannot see ${visibility.missing.join(', ')}; forcing a repository-scoped plugin payload rebuild`);
-    const forced = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand, log, codexHome, baseCodexHome, plugins, providers, strategies: PLUGIN_PAYLOAD_REPAIRS.slice(1), force: true });
+    const forced = await repairScopedPluginPayloads({ command, env: scopedEnv, runCommand: runCodexCommand, log, codexHome, baseCodexHome, plugins, providers, strategies: PLUGIN_PAYLOAD_REPAIRS.slice(1), force: true });
     repair.applied.push(...forced.applied);
-    visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand, log, requiredSkills: requirements.skills });
+    visibility = await checkModelVisibleSkills({ command, env: scopedEnv, runCommand: runCodexCommand, log, requiredSkills: requirements.skills });
   }
   if (visibility.status === 'missing') throw skillVisibilityError({ missing: visibility.missing, visible: visibility.visible, requirements, repairs: repair.applied });
   if (visibility.status === 'unknown' && repair.unhealthy.length > 0) {
@@ -556,4 +684,5 @@ export default {
   repairScopedPluginPayloads,
   resolveRequiredCapabilities,
   runCodexCapabilityPreflight,
+  setTomlTableBoolean,
 };

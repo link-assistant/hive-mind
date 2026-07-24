@@ -147,7 +147,10 @@ await testAsync('socket-closed (timeout family) does NOT switch argv.model', asy
 console.log('\n=== 3. Genuine capacity errors still switch (with resolved IDs) ===');
 
 await testAsync('"selected model is at capacity" switches opus -> fallback', async () => {
-  const argv = { model: 'opus', fallbackModel: 'opus-4-7' };
+  // Issue #2096: bare `opus` now resolves to claude-opus-5, whose default fallback
+  // hop is opus-4-8. The auto-set (non-explicit) fallback walks the default chain of
+  // the current model, so opus steps down to opus-4-8.
+  const argv = { model: 'opus', fallbackModel: 'opus-4-8' };
   const log = makeLogSpy();
   const result = await maybeSwitchToFallbackModel({
     tool: 'claude',
@@ -156,11 +159,11 @@ await testAsync('"selected model is at capacity" switches opus -> fallback', asy
     errorMessage: 'The selected model is at capacity. Please try again.',
   });
   assert.strictEqual(result.switched, true, 'genuine capacity must switch the model');
-  assert.strictEqual(argv.model, 'opus-4-7', 'argv.model must move to the configured fallback');
+  assert.strictEqual(argv.model, 'opus-4-8', 'argv.model must move to the configured fallback');
 });
 
 await testAsync('switch warning shows BOTH resolved model IDs (R2)', async () => {
-  const argv = { model: 'opus', fallbackModel: 'opus-4-7' };
+  const argv = { model: 'opus', fallbackModel: 'opus-4-8' };
   const log = makeLogSpy();
   await maybeSwitchToFallbackModel({
     tool: 'claude',
@@ -171,7 +174,7 @@ await testAsync('switch warning shows BOTH resolved model IDs (R2)', async () =>
   const warning = log.calls.find(c => String(c.message).includes('Switching to fallback model'));
   assert.ok(warning, 'expected a switch warning to be logged');
   assert.ok(warning.message.includes(`opus (${resolveModelId('opus', 'claude')})`), `warning must show requested resolved id, got: ${warning.message}`);
-  assert.ok(warning.message.includes(`opus-4-7 (${resolveModelId('opus-4-7', 'claude')})`), `warning must show fallback resolved id, got: ${warning.message}`);
+  assert.ok(warning.message.includes(`opus-4-8 (${resolveModelId('opus-4-8', 'claude')})`), `warning must show fallback resolved id, got: ${warning.message}`);
   assert.strictEqual(warning.opts.level, 'warning', 'switch should be logged at warning level');
 });
 

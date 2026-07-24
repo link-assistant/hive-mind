@@ -567,12 +567,14 @@ test('supportsEffortLevel returns true for Claude Mythos Preview model ids', () 
 test('supportsXHighEffortLevel returns true for Opus 4.7 aliases and ids', () => {
   assert.strictEqual(supportsXHighEffortLevel('opus'), true, 'opus alias should support native xhigh');
   assert.strictEqual(supportsXHighEffortLevel('claude-opus-4-7'), true, 'Opus 4.7 id should support native xhigh');
+  // Issue #2096: Opus 5 also has native xhigh (bare `opus` now maps to claude-opus-5).
+  assert.strictEqual(supportsXHighEffortLevel('opus-5'), true, 'Opus 5 short alias should support native xhigh');
+  assert.strictEqual(supportsXHighEffortLevel('claude-opus-5'), true, 'Opus 5 id should support native xhigh');
 });
 
 test('supportsXHighEffortLevel returns false for other effort-capable models', () => {
   assert.strictEqual(supportsXHighEffortLevel('opus-4-6'), false, 'Opus 4.6 should not support native xhigh');
   assert.strictEqual(supportsXHighEffortLevel('sonnet-4-6'), false, 'Sonnet 4.6 should not support native xhigh');
-  assert.strictEqual(supportsXHighEffortLevel('claude-opus-5'), false, 'Only Opus 4.7 has native xhigh in current docs');
 });
 
 test('getClaudeEnv sets effort=high for Opus 4.5 with --think max because max is not listed for Opus 4.5', () => {
@@ -581,8 +583,10 @@ test('getClaudeEnv sets effort=high for Opus 4.5 with --think max because max is
   assert.strictEqual(env.MAX_THINKING_TOKENS, '31999');
 });
 
-test('getClaudeEnv maps xhigh to max for future Opus effort models until xhigh support is documented', () => {
-  const env = getClaudeEnv({ model: 'claude-opus-5', thinkLevel: 'xhigh' });
+test('getClaudeEnv maps xhigh to max for effort models without native xhigh support', () => {
+  // Issue #2096: Opus 5 now has native xhigh, so use Opus 4.6 (supports max but not
+  // native xhigh) to cover the xhigh -> max fallback path for such models.
+  const env = getClaudeEnv({ model: 'opus-4-6', thinkLevel: 'xhigh' });
   assert.strictEqual(env.CLAUDE_CODE_EFFORT_LEVEL, 'max');
 });
 

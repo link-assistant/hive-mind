@@ -132,7 +132,7 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 | `MCP_TOOL_TIMEOUT`                      | 900000 | MCP 工具执行超时（毫秒，15 分钟）（也可使用：`HIVE_MIND_MCP_TOOL_TIMEOUT`）                    |
 | `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999  | Opus 4.6+ 模型的默认最大思考预算                                                               |
 
-**注意：** Claude 模型支持不同的最大输出 token 数：Opus 4.6（默认 `opus` 别名）支持 128K token，而 Sonnet 4.5、Opus 4.5 和 Haiku 4.5 支持 64K token。MCP 超时时间（默认 15 分钟）可容纳长时间运行的 Playwright 操作。详情请参阅 [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) 和 [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066)。
+**注意：** Claude 模型支持不同的最大输出 token 数：Opus 4.6 及更高版本——包括 Opus 5（默认 `opus` 别名）和 Sonnet 5（默认 `sonnet` 别名）——支持 128K token，而 Sonnet 4.5、Opus 4.5 和 Haiku 4.5 支持 64K token。MCP 超时时间（默认 15 分钟）可容纳长时间运行的 Playwright 操作。详情请参阅 [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) 和 [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066)。
 
 ### 6. 文件和路径设置
 

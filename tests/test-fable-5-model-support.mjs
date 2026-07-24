@@ -356,8 +356,8 @@ test('getClaudeEnv sets the lowest effort for fable with off think', () => {
 // ============================================================
 console.log('\n=== 8. Default Fallback Models ===');
 
-test('defaultFallbackModels.claude maps claude-fable-5 -> opus (Opus 4.8 safety fallback)', () => {
-  assert.strictEqual(defaultFallbackModels.claude['claude-fable-5'], 'opus', 'Fable 5 should fall back to opus (Opus 4.8)');
+test('defaultFallbackModels.claude maps claude-fable-5 -> opus (Opus 5 safety fallback, Issue #2096)', () => {
+  assert.strictEqual(defaultFallbackModels.claude['claude-fable-5'], 'opus', 'Fable 5 should fall back to opus (now Opus 5)');
 });
 
 test('defaultFallbackModels.claude maps claude-mythos-5 -> fable', () => {
@@ -431,8 +431,8 @@ test('validateModelName handles MYTHOS-5 (uppercase)', () => {
 // ============================================================
 console.log('\n=== 11. Backward Compatibility ===');
 
-test('opus alias still maps to claude-opus-4-8', () => {
-  assert.strictEqual(validateModelName('opus', 'claude').mappedModel, 'claude-opus-4-8', 'opus should still map to claude-opus-4-8');
+test('opus alias now maps to claude-opus-5 (Issue #2096)', () => {
+  assert.strictEqual(validateModelName('opus', 'claude').mappedModel, 'claude-opus-5', 'opus should map to claude-opus-5');
 });
 
 test('sonnet alias now maps to claude-sonnet-5 (Issue #2003)', () => {

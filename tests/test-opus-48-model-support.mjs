@@ -26,31 +26,34 @@ const test = (name, fn) => {
 };
 
 // ============================================================
-// Section 1: Opus Default Model Tests (Issue #1832: opus -> Opus 4.8)
+// Section 1: Opus Default Model Tests (bare `opus` now -> Opus 5, Issue #2096)
+// Note: The bare `opus` alias was remapped from Opus 4.8 to Opus 5 in Issue #2096.
+// Opus 4.8 remains fully available via the explicit `opus-4-8`/`claude-opus-4-8`
+// aliases, which are exercised throughout the rest of this file.
 // ============================================================
-console.log('\n=== 1. Opus Default Model Tests (Issue #1832) ===');
+console.log('\n=== 1. Opus Default Model Tests (bare opus -> Opus 5, Issue #2096) ===');
 
-test('opus alias maps to claude-opus-4-8 in CLAUDE_MODELS', () => {
-  assert.strictEqual(CLAUDE_MODELS['opus'], 'claude-opus-4-8', 'opus should map to claude-opus-4-8');
+test('opus alias maps to claude-opus-5 in CLAUDE_MODELS (Issue #2096)', () => {
+  assert.strictEqual(CLAUDE_MODELS['opus'], 'claude-opus-5', 'opus should map to claude-opus-5');
 });
 
-test('opus alias maps to claude-opus-4-8 in availableModels (claude.lib.mjs)', () => {
-  assert.strictEqual(availableModels['opus'], 'claude-opus-4-8', 'opus should map to claude-opus-4-8');
+test('opus alias maps to claude-opus-5 in availableModels (claude.lib.mjs)', () => {
+  assert.strictEqual(availableModels['opus'], 'claude-opus-5', 'opus should map to claude-opus-5');
 });
 
-test('opus alias maps to claude-opus-4-8 in claudeModels (models/index.mjs)', () => {
-  assert.strictEqual(claudeModels['opus'], 'claude-opus-4-8', 'opus should map to claude-opus-4-8');
+test('opus alias maps to claude-opus-5 in claudeModels (models/index.mjs)', () => {
+  assert.strictEqual(claudeModels['opus'], 'claude-opus-5', 'opus should map to claude-opus-5');
 });
 
-test('validateModelName accepts opus and maps to claude-opus-4-8', () => {
+test('validateModelName accepts opus and maps to claude-opus-5', () => {
   const result = validateModelName('opus', 'claude');
   assert(result.valid, `opus should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8', 'opus should map to claude-opus-4-8');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'opus should map to claude-opus-5');
 });
 
-test('mapModelToId maps opus to claude-opus-4-8', () => {
+test('mapModelToId maps opus to claude-opus-5', () => {
   const result = mapModelToId('opus');
-  assert.strictEqual(result, 'claude-opus-4-8', 'mapModelToId should map opus to claude-opus-4-8');
+  assert.strictEqual(result, 'claude-opus-5', 'mapModelToId should map opus to claude-opus-5');
 });
 
 // ============================================================
@@ -158,10 +161,10 @@ test('supports1mContext still returns true for claude-opus-4-6', () => {
   assert.strictEqual(supports1mContext('claude-opus-4-6', 'claude'), true, 'claude-opus-4-6 should still support 1M context');
 });
 
-test('validateModelName accepts opus[1m] (maps to Opus 4.8)', () => {
+test('validateModelName accepts opus[1m] (bare opus now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8[1m]', 'Should map to claude-opus-4-8[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'Should map to claude-opus-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -179,9 +182,9 @@ test('validateModelName accepts opus-4-8[1m]', () => {
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
-test('mapModelToId handles opus[1m] (maps to Opus 4.8)', () => {
+test('mapModelToId handles opus[1m] (bare opus now maps to Opus 5, Issue #2096)', () => {
   const result = mapModelToId('opus[1m]');
-  assert.strictEqual(result, 'claude-opus-4-8[1m]', 'mapModelToId should handle opus[1m]');
+  assert.strictEqual(result, 'claude-opus-5[1m]', 'mapModelToId should handle opus[1m]');
 });
 
 test('mapModelToId handles claude-opus-4-8[1m]', () => {
@@ -332,16 +335,16 @@ test('getDefaultMaxThinkingBudgetForModel returns 31999 for claude-opus-4-8', ()
 // ============================================================
 console.log('\n=== 10. Case Insensitivity Tests ===');
 
-test('validateModelName handles OPUS (uppercase, maps to Opus 4.8)', () => {
+test('validateModelName handles OPUS (uppercase, bare opus now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('OPUS', 'claude');
   assert(result.valid, `OPUS should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8', 'OPUS should map to claude-opus-4-8');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'OPUS should map to claude-opus-5');
 });
 
-test('validateModelName handles OPUS[1M] (uppercase)', () => {
+test('validateModelName handles OPUS[1M] (uppercase, bare opus now maps to Opus 5)', () => {
   const result = validateModelName('OPUS[1M]', 'claude');
   assert(result.valid, `OPUS[1M] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8[1m]', 'OPUS[1M] should map to claude-opus-4-8[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'OPUS[1M] should map to claude-opus-5[1m]');
 });
 
 test('validateModelName handles CLAUDE-OPUS-4-8 (uppercase full ID)', () => {
@@ -591,8 +594,8 @@ test('defaultFallbackModels.claude still maps claude-opus-4-7 -> opus-4-6', () =
   assert.strictEqual(defaultFallbackModels.claude['claude-opus-4-7'], 'opus-4-6', 'Opus 4.7 should still fall back to Opus 4.6');
 });
 
-test('resolveDefaultFallbackModel returns opus-4-7 for opus alias', () => {
-  assert.strictEqual(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-7', 'opus alias should resolve fallback to opus-4-7');
+test('resolveDefaultFallbackModel returns opus-4-8 for opus alias (bare opus now Opus 5, Issue #2096)', () => {
+  assert.strictEqual(resolveDefaultFallbackModel('claude', 'opus'), 'opus-4-8', 'opus alias (Opus 5) should resolve fallback to opus-4-8');
 });
 
 test('resolveDefaultFallbackModel returns opus-4-7 for opus-4-8 alias', () => {

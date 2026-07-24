@@ -183,18 +183,18 @@ test('buildModelInfoString shows header emoji', () => {
 });
 
 test('buildModelInfoString shows model in bold when matches requested (single model)', () => {
-  // Updated for Issue #1832: opus now maps to claude-opus-4-8
+  // Updated for Issue #2096: opus now maps to claude-opus-5
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
     modelsUsed: [
       {
-        modelId: 'claude-opus-4-8',
-        modelInfo: { name: 'Claude Opus 4.8', provider: 'Anthropic', knowledge: '2026-01' },
+        modelId: 'claude-opus-5',
+        modelInfo: { name: 'Claude Opus 5', provider: 'Anthropic', knowledge: '2026-05' },
       },
     ],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.8**'), `Expected bold model but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 5**'), `Expected bold model but got: ${result}`);
   assert.ok(!result.includes('⚠️'), `Should not have warning when model matches but got: ${result}`);
 });
 
@@ -530,13 +530,13 @@ test('buildModelInfoString shows "Main model" + "Additional models" for opus+hai
 
 test('buildModelInfoString shows "Model" (not "Main model") for single model (Issue #1454)', () => {
   // When only one model is used, the label should be "Model" not "Main model"
-  // Updated for Issue #1832: opus now maps to claude-opus-4-8
+  // Updated for Issue #2096: opus now maps to claude-opus-5
   const result = buildModelInfoString({
     requestedModel: 'opus',
     tool: 'claude',
-    modelsUsed: [{ modelId: 'claude-opus-4-8', modelInfo: { name: 'Claude Opus 4.8', provider: 'Anthropic' } }],
+    modelsUsed: [{ modelId: 'claude-opus-5', modelInfo: { name: 'Claude Opus 5', provider: 'Anthropic' } }],
   });
-  assert.ok(result.includes('**Model: Claude Opus 4.8**'), `Expected "Model" label but got: ${result}`);
+  assert.ok(result.includes('**Model: Claude Opus 5**'), `Expected "Model" label but got: ${result}`);
   assert.ok(!result.includes('Main model'), `Should NOT have "Main model" for single model but got: ${result}`);
   assert.ok(!result.includes('Additional models'), `Should NOT have "Additional models" for single model but got: ${result}`);
 });

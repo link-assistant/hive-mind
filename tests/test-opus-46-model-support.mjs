@@ -162,10 +162,10 @@ test('supports1mContext returns false for non-claude tools', () => {
 // ============================================================
 console.log('\n=== 6. [1m] Suffix with validateModelName Tests ===');
 
-test('validateModelName accepts opus[1m] (now maps to Opus 4.8, Issue #1832)', () => {
+test('validateModelName accepts opus[1m] (now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('opus[1m]', 'claude');
   assert(result.valid, `opus[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8[1m]', 'Should map to claude-opus-4-8[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'Should map to claude-opus-5[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -194,9 +194,9 @@ test('validateModelName rejects haiku[1m] (unsupported)', () => {
 // ============================================================
 console.log('\n=== 7. mapModelToId with [1m] Suffix Tests ===');
 
-test('mapModelToId handles opus[1m] (now maps to Opus 4.8, Issue #1832)', () => {
+test('mapModelToId handles opus[1m] (now maps to Opus 5, Issue #2096)', () => {
   const result = mapModelToId('opus[1m]');
-  assert.strictEqual(result, 'claude-opus-4-8[1m]', 'mapModelToId should handle opus[1m]');
+  assert.strictEqual(result, 'claude-opus-5[1m]', 'mapModelToId should handle opus[1m]');
 });
 
 test('mapModelToId handles claude-opus-4-6[1m]', () => {
@@ -355,16 +355,16 @@ test('getMaxOutputTokensForModel returns opus46 max for opus-4-6', () => {
 // ============================================================
 console.log('\n=== 11. Case Insensitivity Tests (Issue #1238) ===');
 
-test('validateModelName handles OPUS (uppercase, now maps to Opus 4.8, Issue #1832)', () => {
+test('validateModelName handles OPUS (uppercase, now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('OPUS', 'claude');
   assert(result.valid, `OPUS should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8', 'OPUS should map to claude-opus-4-8');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'OPUS should map to claude-opus-5');
 });
 
-test('validateModelName handles OPUS[1M] (uppercase, now maps to Opus 4.8, Issue #1832)', () => {
+test('validateModelName handles OPUS[1M] (uppercase, now maps to Opus 5, Issue #2096)', () => {
   const result = validateModelName('OPUS[1M]', 'claude');
   assert(result.valid, `OPUS[1M] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8[1m]', 'OPUS[1M] should map to claude-opus-4-8[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5[1m]', 'OPUS[1M] should map to claude-opus-5[1m]');
 });
 
 // ============================================================

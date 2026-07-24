@@ -132,7 +132,7 @@ Verification यह जाँचता है कि model को असल म�
 | `MCP_TOOL_TIMEOUT`                      | 900000   | MCP tool execution timeout ms में (15 मिनट) (यह भी: `HIVE_MIND_MCP_TOOL_TIMEOUT`)                        |
 | `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999    | Opus 4.6+ models के लिए डिफ़ॉल्ट max thinking budget                                                     |
 
-**नोट:** Claude models अलग-अलग max output tokens का समर्थन करते हैं: Opus 4.6 (डिफ़ॉल्ट `opus` alias) 128K tokens का समर्थन करता है, जबकि Sonnet 4.5, Opus 4.5 और Haiku 4.5 64K tokens का समर्थन करते हैं। MCP timeouts (डिफ़ॉल्ट रूप से 15 मिनट) लंबे समय तक चलने वाले Playwright ऑपरेशन को समायोजित करते हैं। विवरण के लिए [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) और [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) देखें।
+**नोट:** Claude models अलग-अलग max output tokens का समर्थन करते हैं: Opus 4.6 और बाद के — जिसमें Opus 5 (डिफ़ॉल्ट `opus` alias) और Sonnet 5 (डिफ़ॉल्ट `sonnet` alias) शामिल हैं — 128K tokens का समर्थन करते हैं, जबकि Sonnet 4.5, Opus 4.5 और Haiku 4.5 64K tokens का समर्थन करते हैं। MCP timeouts (डिफ़ॉल्ट रूप से 15 मिनट) लंबे समय तक चलने वाले Playwright ऑपरेशन को समायोजित करते हैं। विवरण के लिए [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) और [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066) देखें।
 
 ### 6. फ़ाइल और पथ सेटिंग्स
 

@@ -132,7 +132,7 @@
 | `MCP_TOOL_TIMEOUT`                      | 900000       | Таймаут выполнения инструмента MCP в мс (15 мин) (также: `HIVE_MIND_MCP_TOOL_TIMEOUT`)                          |
 | `HIVE_MIND_MAX_THINKING_BUDGET_OPUS_46` | 31999        | Максимальный бюджет токенов для размышлений для моделей Opus 4.6+                                               |
 
-**Примечание:** Модели Claude поддерживают разное максимальное количество токенов вывода: Opus 4.6 (псевдоним `opus` по умолчанию) поддерживает 128K токенов, тогда как Sonnet 4.5, Opus 4.5 и Haiku 4.5 поддерживают 64K токенов. Таймауты MCP (по умолчанию 15 минут) учитывают длительные операции Playwright. Подробности см. в [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) и [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066).
+**Примечание:** Модели Claude поддерживают разное максимальное количество токенов вывода: Opus 4.6 и новее — включая Opus 5 (псевдоним `opus` по умолчанию) и Sonnet 5 (псевдоним `sonnet` по умолчанию) — поддерживают 128K токенов, тогда как Sonnet 4.5, Opus 4.5 и Haiku 4.5 поддерживают 64K токенов. Таймауты MCP (по умолчанию 15 минут) учитывают длительные операции Playwright. Подробности см. в [Issue #1076](https://github.com/link-assistant/hive-mind/issues/1076) и [Issue #1066](https://github.com/link-assistant/hive-mind/issues/1066).
 
 ### 6. Файлы и пути
 

@@ -29,11 +29,11 @@ const execFileAsync = promisify(execFile);
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
-// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003)
+// Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
+// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096)
 export const claudeModels = {
-  sonnet: 'claude-sonnet-5', // Sonnet 5 (default, Issue #2003)
-  opus: 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
+  sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
+  opus: 'claude-opus-5', // Opus 5 (default, Issue #2096)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
@@ -48,13 +48,15 @@ export const claudeModels = {
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
+  'opus-5': 'claude-opus-5', // Opus 5 short alias (Issue #2096)
   'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
   'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
   'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias (backward compatibility)
   'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832)
+  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832, Issue #2096)
+  'claude-opus-5': 'claude-opus-5', // Opus 5 (Issue #2096)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
   'claude-sonnet-5': 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
@@ -230,7 +232,7 @@ export const geminiModels = {
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
-  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly
+  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly. Opus now maps to Opus 5 (Issue #2096)
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
   codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
@@ -254,10 +256,12 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
+  'claude-opus-5', // Opus 5 — 1M context (Issue #2096)
   'sonnet', // Now maps to Sonnet 5 (Issue #2003)
   'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
-  'opus', // Now maps to Opus 4.8 (Issue #1832)
+  'opus', // Now maps to Opus 5 (Issue #2096)
+  'opus-5', // Short alias (Issue #2096)
   'opus-4-8', // Short alias (Issue #1832)
   'opus-4-7', // Short alias (Issue #1620)
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
@@ -290,6 +294,7 @@ export const CLAUDE_MODELS = {
   ...claudeModels,
   'claude-fable-5': 'claude-fable-5', // Fable 5 full ID (Issue #1875)
   'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID (Issue #1875)
+  'claude-opus-5': 'claude-opus-5', // Opus 5 full ID (Issue #2096)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 full ID (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
   'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
@@ -1231,12 +1236,14 @@ export const resolveModelId = (requestedModel, tool) => {
 export const defaultFallbackModels = {
   claude: {
     // Claude Fable 5's safety classifiers can refuse high-risk requests and hand them
-    // off to Claude Opus 4.8; mirror that documented fallback here (Issue #1875).
+    // off to Claude Opus; mirror that documented fallback here (Issue #1875).
     // See: https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5
     'claude-fable-5': 'opus',
     // Claude Mythos 5 (limited availability) falls back to the generally available
     // Mythos-class model, Claude Fable 5 (Issue #1875).
     'claude-mythos-5': 'fable',
+    // Claude Opus 5 falls back to the prior Opus generation (Issue #2096).
+    'claude-opus-5': 'opus-4-8',
     'claude-opus-4-8': 'opus-4-7',
     'claude-opus-4-7': 'opus-4-6',
     // Claude Sonnet 5 falls back to the prior Sonnet generation (Issue #2003).

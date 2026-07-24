@@ -44,7 +44,9 @@ const containsThinkInstruction = prompt => thinkKeywords.some(k => prompt.includ
 console.log('=== Models with effort support (should NOT get think prompt instructions) ===');
 
 const effortModels = [
-  ['opus', 'Opus alias (maps to Opus 4.7)'],
+  ['opus', 'Opus alias (maps to Opus 5)'],
+  ['opus-5', 'Opus 5 short alias'],
+  ['claude-opus-5', 'Opus 5 full ID'],
   ['opus-4-7', 'Opus 4.7 short alias'],
   ['claude-opus-4-7', 'Opus 4.7 full ID'],
   ['opus-4-6', 'Opus 4.6 short alias'],

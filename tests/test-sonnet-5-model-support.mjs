@@ -52,10 +52,10 @@ test('defaultModels.claude is opus (Issue #2033)', () => {
   assert.strictEqual(defaultModels['claude'], 'opus', 'claude default should be opus');
 });
 
-test('default claude model resolves to the current Opus model (Issue #2033)', () => {
+test('default claude model resolves to the current Opus model (Issue #2033, #2096)', () => {
   const result = validateModelName(defaultModels['claude'], 'claude');
   assert(result.valid, `default should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-opus-4-8', 'default opus should map to claude-opus-4-8');
+  assert.strictEqual(result.mappedModel, 'claude-opus-5', 'default opus should map to claude-opus-5');
 });
 
 test('validateModelName maps sonnet to claude-sonnet-5', () => {

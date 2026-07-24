@@ -209,7 +209,7 @@ export const isOpus46OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
   // Check for explicit opus-4-6 or later versions, or opusplan (Issue #1223)
-  // Note: The 'opus' alias now maps to Opus 4.8 (Issue #1832), so we also check for the alias directly
+  // Note: The 'opus' alias now maps to Opus 5 (Issue #2096), so we also check for the alias directly
   // opusplan uses Opus for planning, so it should get Opus-level settings
   return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-6') || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-4-8') || normalizedModel.includes('opus-5');
 };
@@ -217,7 +217,7 @@ export const isOpus46OrLater = model => {
 const isOpus47 = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // 'opus' alias now maps to Opus 4.8 (Issue #1832), which inherits 4.7 behaviour
+  // 'opus' alias now maps to Opus 5 (Issue #2096), which inherits 4.7/4.8 behaviour
   // opusplan uses Opus for planning, so it gets Opus-level settings
   return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-7') || normalizedModel.includes('opus-4-8');
 };
@@ -246,8 +246,24 @@ export const isOpus47OrLater = model => {
 export const isOpus48OrLater = model => {
   if (!model) return false;
   const normalizedModel = model.toLowerCase();
-  // 'opus' alias now maps to Opus 4.8 (Issue #1832)
+  // 'opus' alias now maps to Opus 5 (Issue #2096)
   return normalizedModel === 'opus' || normalizedModel === 'opusplan' || normalizedModel.includes('opus-4-8') || normalizedModel.includes('opus-5');
+};
+
+/**
+ * Check if a model is Claude Opus 5 (Issue #2096)
+ * Opus 5 (`claude-opus-5`) is the current default for `--tool claude` (the bare
+ * `opus` alias now resolves to it). Like Opus 4.8 it supports the full effort ladder
+ * (low/medium/high/xhigh/max), up to 128k output tokens, a 1M context window, and uses
+ * adaptive thinking only (extended/manual thinking with an explicit budget is
+ * unavailable). See: https://www.anthropic.com/news/claude-opus-5
+ * @param {string} model - The model name or ID
+ * @returns {boolean} True if the model is Claude Opus 5
+ */
+export const isOpus5 = model => {
+  if (!model) return false;
+  const m = model.toLowerCase();
+  return m === 'opus' || m === 'opus-5' || m.includes('opus-5');
 };
 
 const isOpus45 = model => {
@@ -294,7 +310,7 @@ const isMythosPreview = model => {
  * Fable 5 (`claude-fable-5`) is Anthropic's most capable widely released model
  * (generally available June 9, 2026). It is a Mythos-class model wrapped in safety
  * classifiers that can refuse high-risk requests (returning stop_reason "refusal")
- * and fall back to Claude Opus 4.8.
+ * and fall back to Claude Opus (the bare `opus` alias, now Opus 5).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model is Claude Fable 5
  */
@@ -360,11 +376,11 @@ export const supportsAdaptiveThinking = model => {
 /**
  * Check if a model supports the xhigh effort level.
  * Official docs list xhigh for Claude Fable 5, Claude Mythos 5, Claude Opus 4.7,
- * Opus 4.8, and Sonnet 5 (Issue #1832, Issue #1875, Issue #2003).
+ * Opus 4.8, Opus 5, and Sonnet 5 (Issue #1832, Issue #1875, Issue #2003, Issue #2096).
  * @param {string} model - The model name or ID
  * @returns {boolean} True if the model supports xhigh effort
  */
-export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isOpus47(model) || isSonnet5(model);
+export const supportsXHighEffortLevel = model => isFable5OrMythos5(model) || isOpus47(model) || isOpus5(model) || isSonnet5(model);
 
 /**
  * Check if a model supports the max effort level.
@@ -492,9 +508,9 @@ export const describeRequestedThinking = (argv = {}) => {
 export const OPUS_46_EFFORT_LEVELS = ['low', 'medium', 'high', 'max'];
 
 /**
- * Valid effort levels for Opus 4.7 and Opus 4.8 (Issue #1620, Issue #1832)
- * Both models support the additional 'xhigh' level.
- * Opus 4.8 keeps the same effort level set; the default effort level is 'high'
+ * Valid effort levels for Opus 4.7, Opus 4.8, and Opus 5 (Issue #1620, Issue #1832, Issue #2096)
+ * These models support the additional 'xhigh' level.
+ * Opus 5 keeps the same effort level set as Opus 4.8; the default effort level is 'high'
  * (enforced by Claude Code itself, not by this module).
  * See: https://platform.claude.com/docs/en/build-with-claude/effort
  * @type {string[]}

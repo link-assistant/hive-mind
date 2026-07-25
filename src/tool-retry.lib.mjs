@@ -47,7 +47,11 @@ export const classifyRetryableError = value => {
   // overloaded API anyway. Claude Code already exposes its own per-request fallback
   // via `--fallback-model` (wired in claude.lib.mjs), so we keep `--model` stable and
   // simply retry. Therefore isCapacity is false → retry with the same model.
-  if (lower.includes('overloaded') || lower.includes('overloaded_error')) {
+  // Issue #2101: Codex may exhaust its internal WebSocket/HTTPS attempts and
+  // surface only "We're currently experiencing high demand, which may cause
+  // temporary errors." The terminal message omits both the preceding 503 and
+  // the backend's concurrency_limit code, so it must be recognized directly.
+  if (lower.includes('overloaded') || lower.includes('overloaded_error') || lower.includes('currently experiencing high demand') || lower.includes('too many concurrent requests') || lower.includes('concurrency_limit')) {
     return { message, isRetryable: true, isCapacity: false, label: 'API overload' };
   }
 

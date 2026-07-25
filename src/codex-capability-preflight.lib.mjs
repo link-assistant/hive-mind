@@ -366,10 +366,12 @@ const isInstructionFile = ({ name, directoryName }) => AGENT_INSTRUCTION_FILENAM
 /**
  * Bounded walk over the checked-out repository's agent instruction files.
  *
- * Bounded on purpose: depth, file count and file size are all capped, and every
- * exclusion is reported in `skipped` so a truncated scan is visible in the log
- * instead of looking like "nothing to find". Symlinked directories are not
- * followed, which also makes the walk cycle-free.
+ * Bounded on purpose: depth, file count and file size are all capped. A
+ * candidate dropped by the count or size cap is reported in `skipped`, so a
+ * truncated scan is visible in the log instead of looking like "nothing to
+ * find"; directories excluded by name or depth are not reported, because
+ * listing every skipped `node_modules` would bury that signal. Symlinked
+ * directories are not followed, which also makes the walk cycle-free.
  */
 export async function collectAgentInstructionFiles({ projectDir, maxDepth = INSTRUCTION_WALK_LIMITS.maxDepth, maxFiles = INSTRUCTION_WALK_LIMITS.maxFiles, maxBytes = INSTRUCTION_WALK_LIMITS.maxBytes } = {}) {
   const files = [];

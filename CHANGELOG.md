@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.9.1
+
+### Patch Changes
+
+- 3e48cb3: Resume Codex sessions after transient high-demand failures and preserve uncommitted work before uploading failure logs.
+
 ## 2.9.0
 
 ### Minor Changes

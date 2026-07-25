@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Normalize each isolated checkout's absolute Git-root prefix before sccache
+# hashes compiler inputs. This lets equivalent repositories cloned into
+# different temporary directories reuse compiler outputs.
+if command -v git >/dev/null 2>&1; then
+  repository_root="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$repository_root" ]; then
+    export SCCACHE_BASEDIRS="$repository_root"
+  fi
+fi
+
+exec sccache "$@"

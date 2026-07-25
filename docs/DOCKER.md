@@ -187,6 +187,43 @@ completion message includes inspect and cleanup commands. Override the policy
 with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
 `on-failure`).
 
+**Shared Rust compiler cache.** Published Hive Mind images include `sccache`.
+Docker-isolated tasks automatically mount the parent container's
+`~/.cache/hive-mind/sccache` at `/var/cache/hive-mind/sccache` and receive:
+
+```text
+RUSTC_WRAPPER=hive-mind-sccache
+SCCACHE_DIR=/var/cache/hive-mind/sccache
+SCCACHE_CACHE_SIZE=10G
+```
+
+Each repository keeps its own disposable Cargo `target/` tree, while compiler
+outputs are reused across independent task containers. Removing `target/`
+therefore reclaims workspace storage without deleting reusable outputs.
+The wrapper normalizes each temporary checkout's Git-root path so equivalent
+locked dependency graphs can hit across independent containers. Non-Rust tools
+do not read `RUSTC_WRAPPER`, so their behavior is unchanged.
+
+Configure the bounded disk cache on the parent container before starting the
+bot:
+
+| Variable                 | Default                      | Purpose                                         |
+| ------------------------ | ---------------------------- | ----------------------------------------------- |
+| `HIVE_MIND_SCCACHE`      | `1`                          | Set to `0`, `false`, `no`, or `off` to opt out. |
+| `HIVE_MIND_SCCACHE_DIR`  | `~/.cache/hive-mind/sccache` | Parent-container directory shared by tasks.     |
+| `HIVE_MIND_SCCACHE_SIZE` | `10G`                        | sccache disk-cache size and eviction bound.     |
+
+Inspect hits, misses, and current cache size from any running isolated task
+with `sccache --show-stats`. To preserve the compiler cache across replacement
+of the root Hive Mind container, mount a named volume at the default path:
+
+```bash
+docker volume create hive-mind-sccache
+docker run ... \
+  -v hive-mind-sccache:/home/box/.cache/hive-mind/sccache \
+  konard/hive-mind-dind:latest
+```
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 

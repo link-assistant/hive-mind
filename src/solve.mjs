@@ -1117,6 +1117,17 @@ try {
       await log('');
     }
 
+    // Preserve work before remote diagnostics; issue #2101 ended during log upload.
+    try {
+      const { criticalErrorRecovery } = await import('./config.lib.mjs');
+      if (criticalErrorRecovery.autoCommitUncommittedChanges) {
+        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
+        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: toolFailureMessage });
+      }
+    } catch (preserveError) {
+      await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
+    }
+
     // Attach failure logs before exiting (Issues #1212, #1462: fall back to issue if no PR)
     const hasPR = global.createdPR && global.createdPR.number;
     const hasIssue = global.issueNumber;
@@ -1165,19 +1176,6 @@ try {
         // Issue #1212: Always show log upload errors (not just verbose)
         await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
-    }
-
-    // Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by
-    // default." A failed session exits here before the normal auto-commit chokepoint below, so commit
-    // + push any work first. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
-    try {
-      const { criticalErrorRecovery } = await import('./config.lib.mjs');
-      if (criticalErrorRecovery.autoCommitUncommittedChanges) {
-        const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
-        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: toolFailureMessage });
-      }
-    } catch (preserveError) {
-      await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
     }
 
     await safeExit(1, toolFailureMessage);

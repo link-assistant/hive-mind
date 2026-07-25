@@ -53,6 +53,8 @@ const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
 const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
 const DOCKER_CONTAINER_HOME = '/home/box';
+const DOCKER_SCCACHE_DIR = '/var/cache/hive-mind/sccache';
+const DEFAULT_SCCACHE_SIZE = '10G';
 // Default path where the host Docker socket is bind-mounted inside a DinD
 // container so box's host-image passthrough can copy host images into the
 // nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy
@@ -132,6 +134,32 @@ function maybeAddMount(mounts, source, target, existsSync) {
   if (!source) return;
   if (!existsSync(source)) return;
   mounts.push({ source, target });
+}
+
+function envFlagEnabled(value, defaultValue = true) {
+  if (value === undefined || value === null || String(value).trim() === '') return defaultValue;
+  return !['0', 'false', 'no', 'off', 'disabled'].includes(String(value).trim().toLowerCase());
+}
+
+/**
+ * Resolve the host-owned sccache disk backend shared by Docker-isolated tasks.
+ *
+ * The cache is deliberately outside every cloned workspace, so deleting a
+ * repository's target/ directory cannot delete reusable compiler outputs.
+ * RUSTC_WRAPPER is harmless for non-Rust projects because only Cargo/rustc
+ * consults it. Operators can opt out with HIVE_MIND_SCCACHE=0.
+ */
+export function getDockerIsolationSccacheConfig({ env = process.env, homeDir = os.homedir() } = {}) {
+  const enabled = envFlagEnabled(env.HIVE_MIND_SCCACHE);
+  const source = String(env.HIVE_MIND_SCCACHE_DIR || '').trim() || path.join(homeDir, '.cache', 'hive-mind', 'sccache');
+  const maxSize = String(env.HIVE_MIND_SCCACHE_SIZE || '').trim() || DEFAULT_SCCACHE_SIZE;
+  return { enabled, source, target: DOCKER_SCCACHE_DIR, maxSize };
+}
+
+function ensureDockerIsolationSccache({ env = process.env, homeDir = os.homedir(), mkdirSync = fs.mkdirSync } = {}) {
+  const config = getDockerIsolationSccacheConfig({ env, homeDir });
+  if (config.enabled) mkdirSync(config.source, { recursive: true });
+  return config;
 }
 
 /**
@@ -266,6 +294,12 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
 
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
+  }
+
+  const sccache = getDockerIsolationSccacheConfig({ env, homeDir });
+  if (sccache.enabled) {
+    startArgs.push('--volume', `${sccache.source}:${sccache.target}`);
+    startArgs.push('-e', 'RUSTC_WRAPPER=hive-mind-sccache', '-e', `SCCACHE_DIR=${sccache.target}`, '-e', `SCCACHE_CACHE_SIZE=${sccache.maxSize}`);
   }
 
   const taskCommand = buildShellCommand(command, args);
@@ -620,6 +654,14 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
 
+  if (backend === 'docker') {
+    ensureDockerIsolationSccache({
+      env: options.env || process.env,
+      homeDir: options.homeDir || os.homedir(),
+      mkdirSync: options.mkdirSync || fs.mkdirSync,
+    });
+  }
+
   const startCommandArgs = buildStartCommandArgs(command, args, { ...options, sessionId });
 
   if (verbose) {
@@ -628,11 +670,13 @@ export async function executeWithIsolation(command, args, options = {}) {
       const env = options.env || process.env;
       const image = getDockerIsolationImage({ env });
       const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
+      const sccache = getDockerIsolationSccacheConfig({ env, homeDir: options.homeDir || os.homedir() });
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
       console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
+      console.log(`[VERBOSE] isolation-runner: Shared sccache: ${sccache.enabled ? `${sccache.source} -> ${sccache.target} (max ${sccache.maxSize}; inspect with sccache --show-stats)` : 'disabled'}`);
       const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }

@@ -77,6 +77,26 @@ RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head 
 
 ENV PATH="/home/box/.node-bin:${PATH}"
 
+# Install a static sccache client used by Docker-isolated Rust tasks. Each task
+# runs its own lightweight client/server process against a host-owned shared
+# disk backend; project target/ directories remain isolated and disposable.
+ARG SCCACHE_VERSION=0.16.0
+RUN ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64) SCCACHE_ARCH="x86_64" ;; \
+      aarch64) SCCACHE_ARCH="aarch64" ;; \
+      *) echo "Unsupported sccache architecture: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    SCCACHE_PACKAGE="sccache-v${SCCACHE_VERSION}-${SCCACHE_ARCH}-unknown-linux-musl" && \
+    curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/${SCCACHE_PACKAGE}.tar.gz" -o /tmp/sccache.tar.gz && \
+    curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/${SCCACHE_PACKAGE}.tar.gz.sha256" -o /tmp/sccache.sha256 && \
+    echo "$(cat /tmp/sccache.sha256)  /tmp/sccache.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/sccache.tar.gz -C /tmp && \
+    mkdir -p /home/box/.local/bin && \
+    install -m 0755 "/tmp/${SCCACHE_PACKAGE}/sccache" /home/box/.local/bin/sccache && \
+    rm -rf /tmp/sccache.tar.gz /tmp/sccache.sha256 "/tmp/${SCCACHE_PACKAGE}" && \
+    sccache --version
+
 # --- Install opam binary ---
 # The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
 # opam binary in ~/.local/bin so verification and interactive use are stable.

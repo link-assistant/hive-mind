@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { resolveDockerTaskWorkspaceRoot } from './docker-task-workspace.lib.mjs';
 
 // Repository management module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -259,7 +260,10 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
     // Workspace mode: create structured workspace with repository/ and tmp/ subdirectories
     const { owner, repo, issueNumber } = workspaceInfo;
     const timestamp = Date.now();
-    const workspaceDir = buildWorkspacePath(owner, repo, issueNumber, timestamp);
+    // Every Docker task has its own filesystem, so a stable in-container path
+    // cannot collide with another task. Keeping that path identical is
+    // important for Cargo/sccache cache keys across independent containers.
+    const workspaceDir = resolveDockerTaskWorkspaceRoot() || buildWorkspacePath(owner, repo, issueNumber, timestamp);
 
     // Create the workspace structure:
     // {workspace}/repository - where the repo will be cloned
@@ -277,7 +281,8 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
     await log(formatAligned('', 'Repository dir:', repoDir, 2));
     await log(formatAligned('', 'Temp dir:', workspaceTmpDir, 2));
   } else {
-    tempDir = path.join(os.tmpdir(), `gh-issue-solver-${Date.now()}`);
+    const isolatedWorkspace = resolveDockerTaskWorkspaceRoot();
+    tempDir = isolatedWorkspace ? path.join(isolatedWorkspace, 'repository') : path.join(os.tmpdir(), `gh-issue-solver-${Date.now()}`);
     await fs.mkdir(tempDir, { recursive: true });
     await log(`\nCreating temporary directory: ${tempDir}`);
   }

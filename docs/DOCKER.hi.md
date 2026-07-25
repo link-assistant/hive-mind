@@ -139,6 +139,21 @@ host-side start-command log उपलब्ध रहता है। Failed run
 और Telegram completion message inspect और cleanup commands शामिल करता है। Policy override करने के लिए
 `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` उपयोग करें (default: `on-failure`)।
 
+**साझा Rust compiler cache।** प्रकाशित Hive Mind images में `sccache` शामिल है। Docker-isolated
+tasks parent container के `~/.cache/hive-mind/sccache` को
+`/var/cache/hive-mind/sccache` पर mount करते हैं और
+`RUSTC_WRAPPER=hive-mind-sccache`, `SCCACHE_DIR=/var/cache/hive-mind/sccache` तथा
+`SCCACHE_CACHE_SIZE=10G` सेट करते हैं। हर repository का Cargo `target/` अलग और disposable
+रहता है; उसे हटाने से reusable compiler outputs नहीं मिटते। Wrapper अस्थायी Git-root paths को
+normalize करता है और isolated containers एक समान in-container workspace path उपयोग करते हैं,
+इसलिए समान locked dependency graph अलग tasks में cache hit कर सकता है। Non-Rust tools
+`RUSTC_WRAPPER` नहीं पढ़ते, इसलिए उनका व्यवहार नहीं बदलता।
+
+Parent container में `HIVE_MIND_SCCACHE=0` से opt out करें,
+`HIVE_MIND_SCCACHE_DIR` से cache directory बदलें और `HIVE_MIND_SCCACHE_SIZE` (default `10G`)
+से size तथा LRU eviction सीमित करें। Hits, misses और cache size देखने के लिए
+`sccache --show-stats` चलाएँ।
+
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:
 

@@ -133,6 +133,17 @@ docker pull "konard/hive-mind-dind:${TAG:-latest}"
 Telegram 完成消息会包含检查和清理命令。可通过
 `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` 覆盖策略（默认：`on-failure`）。
 
+**共享 Rust 编译器缓存。** 发布的 Hive Mind 镜像包含 `sccache`。Docker 隔离任务会自动把父容器的
+`~/.cache/hive-mind/sccache` 挂载到 `/var/cache/hive-mind/sccache`，并设置
+`RUSTC_WRAPPER=hive-mind-sccache`、`SCCACHE_DIR=/var/cache/hive-mind/sccache` 和
+`SCCACHE_CACHE_SIZE=10G`。各仓库仍保留独立且可删除的 Cargo `target/`；删除它不会清除可复用的编译输出。
+包装器会规范化临时 Git 根路径，而隔离容器使用相同的容器内工作区路径，因此相同的锁定依赖图可跨任务命中缓存。
+非 Rust 工具不会读取 `RUSTC_WRAPPER`，行为不变。
+
+可通过父容器环境变量配置：`HIVE_MIND_SCCACHE=0` 用于退出，
+`HIVE_MIND_SCCACHE_DIR` 用于更改父容器缓存目录，`HIVE_MIND_SCCACHE_SIZE`（默认 `10G`）
+用于限制大小和 LRU 驱逐。运行 `sccache --show-stats` 可查看命中、未命中和缓存大小。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash

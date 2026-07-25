@@ -201,8 +201,10 @@ Each repository keeps its own disposable Cargo `target/` tree, while compiler
 outputs are reused across independent task containers. Removing `target/`
 therefore reclaims workspace storage without deleting reusable outputs.
 The wrapper normalizes each temporary checkout's Git-root path so equivalent
-locked dependency graphs can hit across independent containers. Non-Rust tools
-do not read `RUSTC_WRAPPER`, so their behavior is unchanged.
+locked dependency graphs can hit across independent containers; Docker tasks
+also use the same in-container workspace path (their filesystems remain
+isolated). Non-Rust tools do not read `RUSTC_WRAPPER`, so their behavior is
+unchanged.
 
 Configure the bounded disk cache on the parent container before starting the
 bot:

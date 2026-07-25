@@ -13,6 +13,7 @@ import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:f
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveDockerTaskWorkspaceRoot } from '../src/docker-task-workspace.lib.mjs';
 import { buildDockerIsolationStartArgs, getDockerIsolationSccacheConfig } from '../src/isolation-runner.lib.mjs';
 
 const cacheSource = '/var/cache/hive-mind/sccache';
@@ -31,6 +32,8 @@ assert.deepEqual(config, {
   target: '/var/cache/hive-mind/sccache',
   maxSize: '20G',
 });
+assert.equal(resolveDockerTaskWorkspaceRoot({ env: { HIVE_MIND_PARENT_SESSION_ID: 'task-one' }, tmpDir: '/tmp' }), '/tmp/hive-mind-docker-task-workspace');
+assert.equal(resolveDockerTaskWorkspaceRoot({ env: {}, tmpDir: '/tmp' }), null, 'non-Docker solves retain unique workspace paths');
 
 function startArgs(sessionId, env = enabledEnv) {
   return buildDockerIsolationStartArgs('solve', ['https://github.com/example/rust/issues/1'], {
@@ -50,6 +53,10 @@ for (const args of [firstTask, secondTask]) {
   assert.ok(args.includes('RUSTC_WRAPPER=hive-mind-sccache'), 'Cargo automatically discovers the path-normalizing sccache wrapper');
   assert.ok(args.includes('SCCACHE_DIR=/var/cache/hive-mind/sccache'), 'sccache uses the shared compiler-output directory');
   assert.ok(args.includes('SCCACHE_CACHE_SIZE=20G'), 'cache eviction is bounded by the configured size');
+  assert.ok(
+    args.some(value => value.startsWith('HIVE_MIND_PARENT_SESSION_ID=')),
+    'task receives the marker that selects a stable in-container workspace path'
+  );
   assert.ok(!args.some(value => value.includes('target')), 'project target/ directories are never shared');
 }
 

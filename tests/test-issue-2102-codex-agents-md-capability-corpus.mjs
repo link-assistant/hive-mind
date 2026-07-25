@@ -542,6 +542,43 @@ const REJECTION_ROUTER_ERROR = '2026-07-23T12:16:31.965122Z ERROR codex_core::to
   await rm(fixture.root, { recursive: true, force: true });
 }
 
+// ---------------------------------------------------------------------------
+// 7. The real bytes: both production transcripts of CEHR2005/GCS-TS PR #6 are
+//    committed under docs/case-studies/issue-2102/raw/, so the detector is
+//    verified against the stream that actually produced the incident rather
+//    than against a hand-written approximation of it.
+// ---------------------------------------------------------------------------
+{
+  const rawDir = path.join(import.meta.dirname, '..', 'docs', 'case-studies', 'issue-2102', 'raw');
+  // solve wraps every codex line in `[timestamp] [LEVEL] `; codex itself never
+  // emits that prefix, so stripping it reconstructs the parser's real input.
+  const solvePrefix = /^\[\d{4}-\d{2}-\d{2}T[^\]]+\]\s+\[(?:INFO|STDOUT|STDERR|WARNING|ERROR)\]\s?/u;
+  for (const [name, callId] of [
+    ['solution-draft-log-pr-1784809014365.txt', 'call_ccuteZ4s1AdV1wKVgJdt0Fk5'],
+    ['solution-draft-log-pr-1784812579100.txt', 'call_ITzX3fjc0OCnTmjE7Q0iMCSp'],
+  ]) {
+    const transcript = await readFile(path.join(rawDir, name), 'utf8');
+    const state = parseCodexExecJsonOutput(
+      transcript
+        .split(/\r?\n/u)
+        .map(line => line.replace(solvePrefix, ''))
+        .join('\n')
+    );
+    assert.equal(state.eventCounts['turn.completed'], 1, `${name}: the production run really did exit with a completed turn`);
+    assert.equal(state.fileChanges.length, 0, `${name}: and really did produce no file changes`);
+    assert.deepEqual(
+      state.pluginInstallRejections.map(entry => entry.source),
+      ['tool_result', 'router'],
+      `${name}: both rejection shapes are recovered from the production stream`
+    );
+    assert.equal(state.pluginInstallRejections[0].callId, callId, `${name}: the captured call id matches the transcript`);
+    assert.equal(state.pluginInstallRejections[0].pluginId, 'superpowers@openai-curated-remote');
+
+    const health = getCodexPluginProvisioningHealth(state, { capabilityPreflight: { required: false, plugins: [] } });
+    assert.equal(health.healthy, false, `${name}: the incident run would now be reported as a failure instead of a success`);
+  }
+}
+
 await rm(projectRoot, { recursive: true, force: true });
 
 console.log('✅ issue #2102: repository AGENTS.md requirements reach the Codex capability preflight');

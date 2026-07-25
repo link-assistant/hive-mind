@@ -1,0 +1,25 @@
+=== instruction files discovered under /tmp/gcs-ts-e2e
+  • AGENTS.md (3249 chars)
+  • packages/gcs-engine/AGENTS.md (1185 chars)
+
+=== corpus without the repository AGENTS.md (the shipped v2.8.11 behaviour)
+  sources : issue #5
+  plugins : none
+  skills  : none
+
+=== corpus with the repository instruction files (issue #2102 fix)
+  sources : issue #5, AGENTS.md, packages/gcs-engine/AGENTS.md
+  plugins : superpowers@openai-curated
+  skills  : superpowers:dispatching-parallel-agents, superpowers:requesting-code-review, superpowers:subagent-driven-development, superpowers:systematic-debugging, superpowers:test-driven-development, superpowers:using-git-worktrees, superpowers:using-superpowers, superpowers:verification-before-completion
+  explicit: superpowers:dispatching-parallel-agents, superpowers:requesting-code-review, superpowers:subagent-driven-development, superpowers:systematic-debugging, superpowers:test-driven-development, superpowers:using-git-worktrees, superpowers:using-superpowers, superpowers:verification-before-completion, superpowers@openai-curated
+  evidence:
+    ↳ [AGENTS.md] explicit superpowers@openai-curated
+    ↳ [AGENTS.md] explicit superpowers:using-superpowers
+    ↳ [AGENTS.md] explicit superpowers@openai-curated
+    ↳ [AGENTS.md] explicit superpowers:using-git-worktrees
+    ↳ [AGENTS.md] explicit superpowers:subagent-driven-development
+    ↳ [AGENTS.md] explicit superpowers:test-driven-development
+    ↳ [AGENTS.md] explicit superpowers:systematic-debugging
+    ↳ [AGENTS.md] explicit superpowers:verification-before-completion
+    ↳ [AGENTS.md] explicit superpowers:requesting-code-review
+    ↳ [AGENTS.md] explicit superpowers:dispatching-parallel-agents

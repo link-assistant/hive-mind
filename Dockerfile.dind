@@ -112,7 +112,8 @@ RUN ARCH="$(uname -m)" && \
     curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/${SCCACHE_PACKAGE}.tar.gz" -o /tmp/sccache.tar.gz && \
     curl -fsSL "https://github.com/mozilla/sccache/releases/download/v${SCCACHE_VERSION}/${SCCACHE_PACKAGE}.tar.gz.sha256" -o /tmp/sccache.sha256 && \
     echo "$(cat /tmp/sccache.sha256)  /tmp/sccache.tar.gz" | sha256sum -c - && \
-    tar -xzf /tmp/sccache.tar.gz && \
+    tar -xzf /tmp/sccache.tar.gz -C /tmp && \
+    mkdir -p /home/box/.local/bin && \
     install -m 0755 "/tmp/${SCCACHE_PACKAGE}/sccache" /home/box/.local/bin/sccache && \
     rm -rf /tmp/sccache.tar.gz /tmp/sccache.sha256 "/tmp/${SCCACHE_PACKAGE}" && \
     sccache --version

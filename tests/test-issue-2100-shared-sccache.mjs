@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +34,13 @@ assert.deepEqual(config, {
 });
 assert.equal(resolveDockerTaskWorkspaceRoot({ env: { HIVE_MIND_PARENT_SESSION_ID: 'task-one' }, tmpDir: '/tmp' }), '/tmp/hive-mind-docker-task-workspace');
 assert.equal(resolveDockerTaskWorkspaceRoot({ env: {}, tmpDir: '/tmp' }), null, 'non-Docker solves retain unique workspace paths');
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+for (const dockerfile of ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile']) {
+  const contents = readFileSync(path.join(repositoryRoot, dockerfile), 'utf8');
+  assert.match(contents, /tar -xzf \/tmp\/sccache\.tar\.gz -C \/tmp/, `${dockerfile} extracts sccache where the install step expects it`);
+  assert.match(contents, /mkdir -p \/home\/box\/\.local\/bin/, `${dockerfile} creates the clean-image install directory`);
+}
 
 function startArgs(sessionId, env = enabledEnv) {
   return buildDockerIsolationStartArgs('solve', ['https://github.com/example/rust/issues/1'], {
@@ -78,7 +85,7 @@ try {
   const fakeSccache = path.join(fakeBin, 'sccache');
   writeFileSync(fakeSccache, '#!/bin/sh\nprintf "%s" "$SCCACHE_BASEDIRS"\n');
   chmodSync(fakeSccache, 0o755);
-  const wrapper = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'hive-mind-sccache');
+  const wrapper = path.join(repositoryRoot, 'src', 'hive-mind-sccache');
   const wrapped = spawnSync(wrapper, ['rustc', '--version'], {
     cwd: nestedDirectory,
     env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH}` },

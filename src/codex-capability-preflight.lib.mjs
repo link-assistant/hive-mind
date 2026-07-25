@@ -14,16 +14,20 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { CODEX_PLUGIN_CLI, buildPluginCachePath as buildAgentPluginCachePath, buildPluginPayloadRepairs, pluginIdParts, readMaterializedPluginSkills as readAgentMaterializedPluginSkills, repairPluginPayloads } from './agent-plugin-cache.lib.mjs';
+import { AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME } from './agents-md-claude-support.lib.mjs';
 
 const execFileAsync = promisify(execFile);
-const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|use)\b/i;
+const REQUIREMENT_WORDS = /\b(?:depend(?:s|ency)?|install|invoke|mandatory|must|need(?:ed|s)?|preflight|required?|requires|us(?:e|es|ing))\b/i;
 const NEGATED_REQUIREMENT = /\b(?:does\s+not\s+require|not\s+required|optional)\b/i;
 // `(?!\.[a-z])` keeps email addresses and hostnames (`ops@example.com`) out of
 // the plugin selector space.
 const PLUGIN_SELECTOR = /\b([a-z0-9][a-z0-9-]*@[a-z0-9][a-z0-9-]*(?:-remote)?)\b(?!\.[a-z])/gi;
 const NAMESPACED_SKILL = /\b([a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*)\b/gi;
 const EXPLICIT_BARE_SKILL = /\$([a-z0-9][a-z0-9-]*)|`([a-z0-9][a-z0-9-]*)`\s+(?:agent\s+)?skill/gi;
-const CAPABILITY_PREFIX = /\b(?:depend(?:s|ed)?\s+on|install|invoke|must\s+(?:install|invoke|use)|need(?:ed|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|require(?:d|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|use)\s+(?:(?:the|an?)\s+)?(?:(?:agent\s+)?skill\s+)?(?:named\s+)?[`$]?$/i;
+// Issue #2102: `us(?:e|ing)` covers the imperative form (`Use \`ns:skill\``) and
+// the participle a repository AGENTS.md uses for the same instruction
+// (`Execute approved plans in an isolated worktree using \`ns:skill\``).
+const CAPABILITY_PREFIX = /\b(?:depend(?:s|ed)?\s+on|install|invoke|must\s+(?:install|invoke|use)|need(?:ed|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|require(?:d|s)?(?:\s+to)?(?:\s+(?:install|invoke|use))?|us(?:e|ing))\s+(?:(?:the|an?)\s+)?(?:(?:agent\s+)?skill\s+)?(?:named\s+)?[`$]?$/i;
 const CAPABILITY_SUFFIX = /^`?\s+(?:agent\s+)?(?:skill|capability)\b/i;
 const STRUCTURED_DATA_VALUES = new Set(['array', 'boolean', 'false', 'integer', 'null', 'number', 'object', 'string', 'true']);
 
@@ -48,6 +52,11 @@ const CAPABILITY_TOKEN = /^(?=[a-z0-9_-]*[a-z])[a-z0-9](?:[a-z0-9_-]*[a-z0-9])?$
 const PROSE_TOKENS = new Set(['agent', 'caution', 'codex', 'default', 'error', 'example', 'file', 'fixme', 'format', 'home', 'http', 'https', 'id', 'important', 'input', 'key', 'line', 'name', 'nb', 'note', 'output', 'path', 'ref', 'required', 'see', 'skill', 'the', 'tip', 'todo', 'type', 'url', 'usage', 'value', 'warning']);
 
 const isCapabilityToken = value => CAPABILITY_TOKEN.test(value) && !PROSE_TOKENS.has(value);
+
+const skillParts = skill => {
+  const separator = skill.indexOf(':');
+  return separator === -1 ? { namespace: null, name: skill } : { namespace: skill.slice(0, separator), name: skill.slice(separator + 1) };
+};
 
 const hasExplicitCapabilityContext = (line, match) => {
   const before = line.slice(0, match.index);
@@ -89,7 +98,7 @@ export function normalizePluginSelector(selector) {
     .replace(/@openai-curated-remote$/u, '@openai-curated');
 }
 
-export function detectRequiredCodexCapabilities(text) {
+export function detectRequiredCodexCapabilities(text, { source = null } = {}) {
   const plugins = new Set();
   const skills = new Set();
   // Issue #2088: a fully qualified reference — `plugin@marketplace` in plugin
@@ -106,12 +115,12 @@ export function detectRequiredCodexCapabilities(text) {
 
   const accept = (target, value, line, { qualified = false } = {}) => {
     if (!isCapabilityName(value)) {
-      rejected.push({ capability: value, line });
+      rejected.push({ capability: value, line, source });
       return;
     }
     target.add(value);
     if (qualified) explicit.add(value);
-    evidence.push({ capability: value, line, explicit: qualified });
+    evidence.push({ capability: value, line, explicit: qualified, source });
   };
 
   for (const rawLine of String(text || '').split(/\r?\n/u)) {
@@ -121,12 +130,22 @@ export function detectRequiredCodexCapabilities(text) {
     for (const match of line.matchAll(PLUGIN_SELECTOR)) {
       const selector = normalizePluginSelector(match[1]);
       if (hasExplicitPluginContext(line, match)) accept(plugins, selector, line, { qualified: true });
-      else rejected.push({ capability: selector, line });
+      else rejected.push({ capability: selector, line, source });
     }
-    for (const match of line.matchAll(NAMESPACED_SKILL)) {
-      const skill = match[1].toLowerCase();
-      if (hasExplicitCapabilityContext(line, match)) accept(skills, skill, line, { qualified: true });
-      else rejected.push({ capability: skill, line });
+    // Issue #2102: a conjunction shares one requirement verb. `invoke `a:x` and
+    // `a:y`` only puts `a:x` in capability context, so a later reference to a
+    // namespace already qualified on the same line inherits the qualification
+    // instead of being dropped. Restricting inheritance to the same namespace,
+    // and still rejecting structured-data values, keeps issues #2077 and #2080
+    // from resurfacing: prose cannot produce a second `ns:name` token for a
+    // namespace that was just named in an explicit requirement.
+    const lineSkills = [...line.matchAll(NAMESPACED_SKILL)].map(match => ({ skill: match[1].toLowerCase(), qualified: hasExplicitCapabilityContext(line, match) }));
+    const qualifiedNamespaces = new Set(lineSkills.filter(entry => entry.qualified).map(entry => skillParts(entry.skill).namespace));
+    for (const entry of lineSkills) {
+      const { namespace, name } = skillParts(entry.skill);
+      const inherited = qualifiedNamespaces.has(namespace) && !STRUCTURED_DATA_VALUES.has(name);
+      if (entry.qualified || inherited) accept(skills, entry.skill, line, { qualified: true });
+      else rejected.push({ capability: entry.skill, line, source });
     }
     for (const match of line.matchAll(EXPLICIT_BARE_SKILL)) accept(skills, (match[1] || match[2]).toLowerCase(), line);
   }
@@ -231,11 +250,6 @@ const verifyModelVisibleSkills = async ({ command, env, runCommand, log, require
   throw skillVisibilityError({ missing: outcome.missing, visible: outcome.visible, requirements });
 };
 
-const skillParts = skill => {
-  const separator = skill.indexOf(':');
-  return separator === -1 ? { namespace: null, name: skill } : { namespace: skill.slice(0, separator), name: skill.slice(separator + 1) };
-};
-
 const pluginProvidesSkill = async (plugin, skill) => {
   const sourcePath = plugin?.source?.path;
   if (!sourcePath) return false;
@@ -316,13 +330,179 @@ export async function resolveRequiredPlugins(options) {
   return (await resolveRequiredCapabilities(options)).plugins;
 }
 
-const readIssueRequirementText = async ({ owner, repo, issueNumber, runCommand, env }) => {
+const readIssueRequirementSegments = async ({ owner, repo, issueNumber, runCommand, env }) => {
   const issueResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}`], env });
   const issue = parseJsonCommand(issueResult, 'Codex capability issue discovery');
   const commentsResult = await runCommand({ command: 'gh', args: ['api', `repos/${owner}/${repo}/issues/${issueNumber}/comments`, '--paginate'], env });
   const comments = parseJsonCommand(commentsResult, 'Codex capability comment discovery');
-  return [issue?.title, issue?.body, ...(Array.isArray(comments) ? comments.map(comment => comment?.body) : [])].filter(Boolean).join('\n');
+  const bodies = (Array.isArray(comments) ? comments : []).map(comment => comment?.body).filter(Boolean);
+  return {
+    segments: [{ source: `issue #${issueNumber}`, text: [issue?.title, issue?.body].filter(Boolean).join('\n') }, ...bodies.map((text, index) => ({ source: `comment ${index + 1}`, text }))],
+    sources: [`issue #${issueNumber}`, ...(bodies.length > 0 ? [`${bodies.length} comment${bodies.length === 1 ? '' : 's'}`] : [])],
+  };
 };
+
+// Issue #2102: the requirement corpus has to include the instructions the target
+// repository gives the agent. CEHR2005/GCS-TS#5 delegated its entire mandatory
+// workflow to `AGENTS.md` ("Follow the repository and nested engine `AGENTS.md`
+// instructions"), so an issue-only corpus detected nothing, provisioning was
+// skipped, and the model was left to call `request_plugin_install` — which
+// `codex exec` can never satisfy.
+//
+// `CLAUDE.md` is scanned for parity with `--tool claude` (see
+// `agents-md-claude-support.lib.mjs`, which presents `AGENTS.md` under that name)
+// and `.codex/*.md` for repositories that keep Codex-specific rules there.
+const AGENT_INSTRUCTION_FILENAMES = new Set([...AGENTS_MD_FILENAMES, CLAUDE_MD_FILENAME, 'claude.md']);
+const CODEX_INSTRUCTION_DIRECTORY = '.codex';
+// Vendored dependencies, build output and VCS internals carry instructions that
+// belong to other projects; reading them would invent requirements the task
+// never had.
+const SKIPPED_INSTRUCTION_DIRECTORIES = new Set(['__pycache__', 'build', 'coverage', 'dist', 'node_modules', 'out', 'target', 'tmp', 'vendor', 'venv']);
+const WALKED_HIDDEN_DIRECTORIES = new Set([CODEX_INSTRUCTION_DIRECTORY, '.github']);
+const INSTRUCTION_WALK_LIMITS = Object.freeze({ maxDepth: 3, maxFiles: 24, maxBytes: 256 * 1024 });
+
+const isInstructionFile = ({ name, directoryName }) => AGENT_INSTRUCTION_FILENAMES.has(name) || (directoryName === CODEX_INSTRUCTION_DIRECTORY && name.toLowerCase().endsWith('.md'));
+
+/**
+ * Bounded walk over the checked-out repository's agent instruction files.
+ *
+ * Bounded on purpose: depth, file count and file size are all capped, and every
+ * exclusion is reported in `skipped` so a truncated scan is visible in the log
+ * instead of looking like "nothing to find". Symlinked directories are not
+ * followed, which also makes the walk cycle-free.
+ */
+export async function collectAgentInstructionFiles({ projectDir, maxDepth = INSTRUCTION_WALK_LIMITS.maxDepth, maxFiles = INSTRUCTION_WALK_LIMITS.maxFiles, maxBytes = INSTRUCTION_WALK_LIMITS.maxBytes } = {}) {
+  const files = [];
+  const skipped = [];
+  if (!projectDir) return { files, skipped };
+
+  const candidates = [];
+  const walk = async (directory, relative, depth) => {
+    let entries;
+    try {
+      entries = await fs.readdir(directory, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    const directoryName = relative ? path.posix.basename(relative) : '';
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const relativePath = relative ? `${relative}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (depth >= maxDepth) continue;
+        if (SKIPPED_INSTRUCTION_DIRECTORIES.has(entry.name)) continue;
+        if (entry.name.startsWith('.') && !WALKED_HIDDEN_DIRECTORIES.has(entry.name)) continue;
+        await walk(path.join(directory, entry.name), relativePath, depth + 1);
+      } else if (entry.isFile() && isInstructionFile({ name: entry.name, directoryName })) {
+        candidates.push({ relativePath, absolutePath: path.join(directory, entry.name), depth });
+      }
+    }
+  };
+  await walk(projectDir, '', 0);
+
+  candidates.sort((left, right) => left.depth - right.depth || left.relativePath.localeCompare(right.relativePath));
+  for (const candidate of candidates) {
+    let stats;
+    try {
+      stats = await fs.stat(candidate.absolutePath);
+    } catch {
+      continue;
+    }
+    if (stats.size > maxBytes) {
+      skipped.push({ relativePath: candidate.relativePath, reason: 'too-large', bytes: stats.size });
+      continue;
+    }
+    if (files.length >= maxFiles) {
+      skipped.push({ relativePath: candidate.relativePath, reason: 'max-files' });
+      continue;
+    }
+    try {
+      files.push({ relativePath: candidate.relativePath, text: await fs.readFile(candidate.absolutePath, 'utf8'), bytes: stats.size });
+    } catch {
+      // An unreadable instruction file is not a requirement source.
+    }
+  }
+  return { files, skipped };
+}
+
+/**
+ * Issue #2102 escape hatch: `--require-codex-plugin` /
+ * `HIVE_MIND_CODEX_REQUIRED_PLUGINS` let an operator state a requirement that no
+ * text declares. A selector without a marketplace cannot be installed by
+ * `codex plugin add`, so it is reported rather than silently ignored.
+ */
+export function parseRequiredCapabilityOverrides(value) {
+  const tokens = (Array.isArray(value) ? value : [value])
+    .flatMap(entry =>
+      String(entry ?? '')
+        .split(/[,;\s]+/u)
+        .map(token => token.trim())
+    )
+    .filter(Boolean);
+  const plugins = new Set();
+  const invalid = [];
+  for (const token of tokens) {
+    const selector = normalizePluginSelector(token);
+    if (selector.includes('@') && isCapabilityName(selector)) plugins.add(selector);
+    else invalid.push(token);
+  }
+  return { plugins: [...plugins].sort(), invalid };
+}
+
+/**
+ * Requirement corpus for the Codex capability preflight: the issue (title, body,
+ * comments), the checked-out repository's agent instruction files, and operator
+ * overrides. `sources` names everything that was scanned so a zero-requirement
+ * result is explainable from the log alone (issue #2102).
+ */
+export async function collectCodexCapabilityRequirements({ owner, repo, issueNumber, projectDir, runCommand = defaultRunCommand, env = process.env, requiredPlugins, instructionLimits } = {}) {
+  const segments = [];
+  const sources = [];
+
+  if (owner && repo && issueNumber) {
+    const issue = await readIssueRequirementSegments({ owner, repo, issueNumber, runCommand, env });
+    segments.push(...issue.segments);
+    sources.push(...issue.sources);
+  }
+
+  const instructions = await collectAgentInstructionFiles({ projectDir, ...instructionLimits });
+  for (const file of instructions.files) {
+    segments.push({ source: file.relativePath, text: file.text });
+    sources.push(file.relativePath);
+  }
+
+  const plugins = new Set();
+  const skills = new Set();
+  const explicit = new Set();
+  const evidence = [];
+  const rejected = [];
+  for (const segment of segments) {
+    const detected = detectRequiredCodexCapabilities(segment.text, { source: segment.source });
+    for (const plugin of detected.plugins) plugins.add(plugin);
+    for (const skill of detected.skills) skills.add(skill);
+    for (const capability of detected.explicit) explicit.add(capability);
+    evidence.push(...detected.evidence);
+    rejected.push(...detected.rejected);
+  }
+
+  for (const { label, value } of [
+    { label: '--require-codex-plugin', value: requiredPlugins },
+    { label: 'HIVE_MIND_CODEX_REQUIRED_PLUGINS', value: env?.HIVE_MIND_CODEX_REQUIRED_PLUGINS },
+  ]) {
+    const overrides = parseRequiredCapabilityOverrides(value);
+    if (overrides.plugins.length === 0 && overrides.invalid.length === 0) continue;
+    sources.push(label);
+    for (const selector of overrides.plugins) {
+      plugins.add(selector);
+      // An operator override is as explicit as a requirement gets, so it fails
+      // closed like any other declared capability (issue #2088).
+      explicit.add(selector);
+      evidence.push({ capability: selector, line: `${label}=${selector}`, explicit: true, source: label });
+    }
+    for (const token of overrides.invalid) rejected.push({ capability: token, line: `${label}=${token} (expected plugin@marketplace)`, source: label });
+  }
+
+  return { plugins: [...plugins].sort(), skills: [...skills].sort(), explicit: [...explicit].sort(), evidence, rejected, sources, skippedInstructionFiles: instructions.skipped };
+}
 
 const replaceWithRelativeSymlink = async ({ source, target }) => {
   try {
@@ -586,22 +766,35 @@ export async function runCodexCapabilityPreflight(options = {}) {
   }
 }
 
-async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
-  if (!owner || !repo || !issueNumber) return { required: false, plugins: [], codexHome: null };
+async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir, requiredPlugins, env = process.env, baseCodexHome = env.HIVE_MIND_PARENT_CODEX_HOME || env.CODEX_HOME || path.join(os.homedir(), '.codex'), codexPath = 'codex', runCommand = defaultRunCommand, log = async () => {} } = {}) {
+  // Issue #2102: requirements no longer come from the issue alone, so a missing
+  // issue number (a pull-request continuation, for example) must not skip the
+  // repository's own AGENTS.md/CLAUDE.md files or an operator override. Owner and
+  // repo are still required: the scoped CODEX_HOME is keyed on them.
+  if (!owner || !repo) return { required: false, plugins: [], codexHome: null };
 
   // `executeToolWithBun` uses a shell expression for execution. Preflight uses
   // execFile and therefore selects the installed Codex binary directly.
   const command = /\s/u.test(codexPath) ? 'codex' : codexPath;
-  const requirementText = await readIssueRequirementText({ owner, repo, issueNumber, runCommand, env });
-  const requirements = detectRequiredCodexCapabilities(requirementText);
-  for (const { capability, line } of requirements.rejected || []) {
-    await log(`   ⏭️  Ignored non-capability token '${capability}' from: ${line.slice(0, 160)}`, { verbose: true });
+  const requirements = await collectCodexCapabilityRequirements({ owner, repo, issueNumber, projectDir, runCommand, env, requiredPlugins });
+  const scanned = `sources: ${requirements.sources.join(', ') || 'none'}`;
+  for (const { capability, line, source } of requirements.rejected || []) {
+    await log(`   ⏭️  Ignored non-capability token '${capability}' from ${source || 'requirement text'}: ${line.slice(0, 160)}`, { verbose: true });
   }
-  if (requirements.plugins.length === 0 && requirements.skills.length === 0) return { required: false, plugins: [], codexHome: null };
+  for (const { relativePath, reason, bytes } of requirements.skippedInstructionFiles || []) {
+    await log(`   ⏭️  Skipped instruction file ${relativePath} (${reason}${reason === 'too-large' ? `: ${bytes} bytes` : ''})`, { verbose: true });
+  }
+  // Issue #2102: a silent early return made a missed requirement indistinguishable
+  // from a task that has none. Name what was scanned so the next report is
+  // diagnosable from the log alone.
+  if (requirements.plugins.length === 0 && requirements.skills.length === 0) {
+    await log(`🔌 Codex capability preflight: no plugin or skill requirements detected (${scanned})`, { verbose: true });
+    return { required: false, plugins: [], codexHome: null, sources: requirements.sources };
+  }
 
-  await log(`🔌 Codex capability preflight: detected ${requirements.plugins.length} plugin and ${requirements.skills.length} skill requirement(s)`);
-  for (const { capability, line } of requirements.evidence || []) {
-    await log(`   🔎 '${capability}' detected from: ${line.slice(0, 160)}`, { verbose: true });
+  await log(`🔌 Codex capability preflight: detected ${requirements.plugins.length} plugin and ${requirements.skills.length} skill requirement(s) (${scanned})`);
+  for (const { capability, line, source } of requirements.evidence || []) {
+    await log(`   🔎 '${capability}' detected from ${source || 'requirement text'}: ${line.slice(0, 160)}`, { verbose: true });
   }
   // Every Codex-side preflight operation runs from the checkout that the
   // solver will enter. Besides matching `codex exec`, this keeps any future
@@ -677,9 +870,12 @@ async function provisionCodexCapabilities({ owner, repo, issueNumber, projectDir
 export default {
   applyCodexCapabilityEnv,
   buildPluginCachePath,
+  collectAgentInstructionFiles,
+  collectCodexCapabilityRequirements,
   detectRequiredCodexCapabilities,
   isCapabilityName,
   isExplicitRequirement,
+  parseRequiredCapabilityOverrides,
   readMaterializedPluginSkills,
   repairScopedPluginPayloads,
   resolveRequiredCapabilities,

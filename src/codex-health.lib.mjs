@@ -11,6 +11,7 @@
 // Both are re-exported from codex.lib.mjs for backward compatibility, so existing
 // importers (and tests) can keep importing them from either module.
 
+import { normalizePluginSelector } from './codex-capability-preflight.lib.mjs';
 import { isENOSPC } from './lib.mjs';
 
 const unwrapCodexErrorMessage = value => {
@@ -115,6 +116,84 @@ export const getCodexErrorEventSummary = codexJsonState => {
   };
 };
 
+// Issue #2102: `request_plugin_install` can never succeed under `codex exec`.
+// The tool validates its `plugin_id` against the server-driven
+// `<recommended_plugins>` list with an exact string comparison, and `codex exec`
+// auto-cancels the elicitation it would raise, so a model that reaches for it is
+// stuck in a loop it cannot exit. In the captured GCS-TS#5 runs that produced no
+// work at all, the only trace was in codex's OTEL text stream (the tool is a
+// builtin, so there is no NDJSON `mcp_tool_call` item to inspect):
+//
+//   INFO codex_otel.log_only: event.name="codex.tool_result"
+//     tool_name=request_plugin_install call_id=… arguments={"plugin_id":"…"}
+//     … success=false output=plugin_id must match one of the entries in the
+//     <recommended_plugins> list
+//   ERROR codex_core::tools::router: error=plugin_id must match one of the
+//     entries in the <recommended_plugins> list
+//
+// Both patterns are anchored at the beginning of the line rather than matched
+// anywhere in it: codex echoes the stdout of every command it runs back into its
+// own stream (issue #1955), and this repository's own case-study logs contain
+// these very lines. An echoed copy is always preceded by the emitting tool's own
+// prefix (`tool_name=shell … output=…`), so requiring `request_plugin_install` to
+// be the tool of the line's *own* event, and the router error to open the line,
+// keeps replayed text from being read as a live rejection.
+const PLUGIN_INSTALL_MESSAGE_TEXT = 'plugin_id must match one of the entries in the <recommended_plugins> list';
+const PLUGIN_INSTALL_MESSAGE_PATTERN = /plugin_id must match one of the entries in the <recommended_plugins> list/;
+const PLUGIN_INSTALL_TOOL_RESULT = /^(?:\S+\s+)?(?:TRACE|DEBUG|INFO|WARN|ERROR)\s+codex_otel\.log_only:\s+event\.name="codex\.tool_result"\s+tool_name=request_plugin_install\b/;
+const PLUGIN_INSTALL_ROUTER_ERROR = /^(?:\S+\s+)?ERROR\s+codex_core::tools::router:\s+error=plugin_id must match one of the entries in the <recommended_plugins> list/;
+const PLUGIN_INSTALL_CALL_ID = /\bcall_id=(\S+)/;
+const PLUGIN_INSTALL_PLUGIN_ID = /"plugin_id"\s*:\s*"([^"]+)"/;
+const PLUGIN_INSTALL_SUCCESS = /\bsuccess=(true|false)\b/;
+
+export const matchCodexPluginInstallRejection = line => {
+  const text = String(line || '');
+  if (PLUGIN_INSTALL_ROUTER_ERROR.test(text)) return { source: 'router', callId: null, pluginId: null, message: PLUGIN_INSTALL_MESSAGE_TEXT };
+  if (!PLUGIN_INSTALL_TOOL_RESULT.test(text)) return null;
+  if (!PLUGIN_INSTALL_MESSAGE_PATTERN.test(text)) return null;
+  if (PLUGIN_INSTALL_SUCCESS.exec(text)?.[1] === 'true') return null;
+  return { source: 'tool_result', callId: PLUGIN_INSTALL_CALL_ID.exec(text)?.[1] || null, pluginId: PLUGIN_INSTALL_PLUGIN_ID.exec(text)?.[1] || null, message: PLUGIN_INSTALL_MESSAGE_TEXT };
+};
+
+// Issue #2102: a rejected runtime install means the capability preflight did not
+// provision what the task needs, so the run cannot do the work it was asked to
+// do. It is reported as a failure only when nothing was produced: a model may
+// probe `request_plugin_install` and then complete the task without the plugin,
+// and failing that run retroactively would discard real output.
+export const getCodexPluginProvisioningHealth = (codexJsonState, { capabilityPreflight = null } = {}) => {
+  const rejections = codexJsonState?.pluginInstallRejections || [];
+  const requestedPlugins = [...new Set(rejections.map(entry => entry.pluginId).filter(Boolean))].sort();
+  const fileChanges = codexJsonState?.fileChanges || [];
+  const producedWork = fileChanges.length > 0;
+  const detected = rejections.length > 0;
+
+  const reasons = [];
+  const guidance = [];
+  if (detected) {
+    reasons.push(`Codex called request_plugin_install${requestedPlugins.length > 0 ? ` for ${requestedPlugins.join(', ')}` : ''} and codex rejected it: ${PLUGIN_INSTALL_MESSAGE_TEXT}. Under codex exec this tool can never install a plugin, so the model cannot recover on its own.`);
+    reasons.push(capabilityPreflight?.required ? `The Hive Mind Codex capability preflight ran for ${(capabilityPreflight.plugins || []).join(', ') || 'no plugins'}, so the plugin the model asked for was not among the requirements it discovered.` : 'The Hive Mind Codex capability preflight detected no requirements for this task, so nothing was provisioned before codex exec.');
+    for (const plugin of requestedPlugins.length > 0 ? requestedPlugins : ['<plugin>@<marketplace>']) {
+      // Issue #2102: the model asks for `@openai-curated-remote`, which is a
+      // synthesized namespace that `codex plugin add` cannot install; the
+      // preflight's normalization maps it onto the installable `@openai-curated`
+      // marketplace, so the guidance must quote the selector that actually works.
+      guidance.push(`Declare the requirement so the preflight provisions it: --require-codex-plugin ${normalizePluginSelector(plugin)} (or HIVE_MIND_CODEX_REQUIRED_PLUGINS).`);
+    }
+    guidance.push('Requirements declared in the target repository AGENTS.md / CLAUDE.md are discovered automatically; run with --verbose to see the sources the preflight scanned.');
+  }
+
+  return {
+    healthy: !detected || producedWork,
+    detected,
+    producedWork,
+    requestedPlugins,
+    rejections,
+    message: detected ? reasons[0] : null,
+    reasons,
+    guidance,
+  };
+};
+
 // Issue #1990: A Codex run can exit 0 with no fatal `turn.failed`/error event yet
 // still be fundamentally broken. Under docker isolation two long-running
 // `solve --tool codex` tasks reported SUCCESS (Exit Code: 0) while their
@@ -188,4 +267,48 @@ export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = 
     turnFailed,
     reasons,
   };
+};
+
+// Reporting helpers for the run gates in codex.lib.mjs. They live here with the
+// analysis they narrate so codex.lib.mjs stays inside the 1500-line budget
+// (issues #1730 / #1990).
+export const logCodexResourceSnapshot = async ({ getResourceSnapshot, log }) => {
+  const resourcesAfter = await getResourceSnapshot();
+  await log('\n📈 System resources after execution:', { verbose: true });
+  await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+  await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+};
+
+export const reportCodexCompletionFailure = async ({ completionHealth, log, getResourceSnapshot }) => {
+  await log('\n\n❌ Codex exited 0 but the run did not complete — treating as failure', { level: 'error' });
+  for (const reason of completionHealth.reasons) {
+    await log(`   • ${reason}`, { level: 'error' });
+  }
+  await log(`   📊 turn.started=${completionHealth.turnStarted}, turn.completed=${completionHealth.turnCompleted}, turn.failed=${completionHealth.turnFailed}`, { verbose: true });
+  if (completionHealth.diskPressureDetected) {
+    await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
+    for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
+      await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
+    }
+    await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
+  }
+  await logCodexResourceSnapshot({ getResourceSnapshot, log });
+};
+
+export const reportCodexPluginProvisioning = async ({ pluginProvisioning, log }) => {
+  if (!pluginProvisioning.detected) return;
+  if (!pluginProvisioning.healthy) {
+    await log('\n\n❌ Codex could not obtain a required plugin at runtime — treating as failure', { level: 'error' });
+    for (const reason of pluginProvisioning.reasons) {
+      await log(`   • ${reason}`, { level: 'error' });
+    }
+    for (const hint of pluginProvisioning.guidance) {
+      await log(`   💡 ${hint}`, { level: 'error' });
+    }
+    return;
+  }
+  await log(`\n⚠️ Codex asked to install ${pluginProvisioning.requestedPlugins.join(', ') || 'a plugin'} at runtime and was rejected, but the run still produced changes`, { level: 'warning' });
+  for (const hint of pluginProvisioning.guidance) {
+    await log(`   💡 ${hint}`, { level: 'warning', verbose: true });
+  }
 };

@@ -17,8 +17,8 @@ const os = (await use('os')).default;
 import { log } from './lib.mjs';
 // Issues #1955 / #1990: run-health analysis lives in its own module to keep this
 // file under the max-lines budget. Re-exported below for backward compatibility.
-import { getCodexErrorEventSummary, getCodexCompletionHealth } from './codex-health.lib.mjs';
-export { getCodexErrorEventSummary, getCodexCompletionHealth };
+import { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, logCodexResourceSnapshot, matchCodexPluginInstallRejection, reportCodexCompletionFailure, reportCodexPluginProvisioning } from './codex-health.lib.mjs';
+export { getCodexErrorEventSummary, getCodexCompletionHealth, getCodexPluginProvisioningHealth, matchCodexPluginInstallRejection };
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
@@ -351,6 +351,7 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     itemErrors: state.itemErrors || [],
     turnFailures: state.turnFailures || [],
     streamErrors: state.streamErrors || [],
+    pluginInstallRejections: state.pluginInstallRejections || [],
     observedUsageFieldSets: state.observedUsageFieldSets || [],
     observedModelDiagnosticPaths: state.observedModelDiagnosticPaths || [],
   };
@@ -371,6 +372,11 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     try {
       data = sanitizeObjectStrings(JSON.parse(line));
     } catch {
+      // Issue #2102: `request_plugin_install` is a codex builtin, so its rejection
+      // never arrives as an NDJSON item — it only exists in the interleaved OTEL
+      // text stream, which is exactly the set of lines that fail to parse here.
+      const rejection = matchCodexPluginInstallRejection(line);
+      if (rejection) nextState.pluginInstallRejections.push(rejection);
       continue;
     }
 
@@ -745,7 +751,10 @@ export const executeCodex = async params => {
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
   const codexBaseEnv = getCodexExecEnv(argv.verbose);
-  const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv });
+  // Issue #2102: the target repository's own agent instruction files are part of
+  // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
+  // is the explicit escape hatch for requirements no document states.
+  const capabilityPreflight = await runCodexCapabilityPreflight({ owner, repo, issueNumber, projectDir: tempDir, codexPath, log, env: codexBaseEnv, requiredPlugins: argv.requireCodexPlugin });
   // Execute the Codex command
   return await executeCodexCommand({
     tempDir,
@@ -961,6 +970,7 @@ export const executeCodexCommand = async params => {
         itemErrors: [],
         turnFailures: [],
         streamErrors: [],
+        pluginInstallRejections: [],
         observedUsageFieldSets: [],
         observedModelDiagnosticPaths: [],
       };
@@ -1127,13 +1137,25 @@ export const executeCodexCommand = async params => {
         await log(`⚠️ Codex public pricing estimate unavailable: ${pricingInfo.error}`, { level: 'warning', verbose: true });
       }
       const resultModelUsage = pricingInfo?.tokenUsage ? buildCodexResultModelUsage(firstActualModelId, pricingInfo.tokenUsage, pricingInfo) : null;
+      // Every exit from this run reports the same accounting fields; only the
+      // outcome-specific ones differ. `lastTextContent` is the result summary
+      // captured from the JSON output stream (issue #1263).
+      const buildRunResult = outcome => ({
+        sessionId,
+        limitReached,
+        limitResetTime,
+        pricingInfo,
+        publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
+        resultModelUsage,
+        subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
+        codexJsonDetails: codexJsonState,
+        resultSummary: lastTextContent || null,
+        ...outcome,
+      });
 
       // Check for authentication errors first - these should never be retried
       if (authError) {
-        const resourcesAfter = await getResourceSnapshot();
-        await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
-        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+        await logCodexResourceSnapshot({ getResourceSnapshot, log });
 
         // Throw an error to stop retries and propagate the auth failure
         const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
@@ -1199,25 +1221,9 @@ export const executeCodexCommand = async params => {
           await log(`   Error events: item=${codexErrorSummary.counts.item}, turn=${codexErrorSummary.counts.turn}, stream=${codexErrorSummary.counts.stream}`, { level: 'error' });
         }
 
-        const resourcesAfter = await getResourceSnapshot();
-        await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
-        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+        await logCodexResourceSnapshot({ getResourceSnapshot, log });
 
-        return {
-          success: false,
-          sessionId,
-          limitReached,
-          limitResetTime,
-          pricingInfo,
-          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
-          resultModelUsage,
-          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
-          codexJsonDetails: codexJsonState,
-          errorInfo: codexErrorSummary,
-          result: codexErrorSummary.message,
-          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
-        };
+        return buildRunResult({ success: false, errorInfo: codexErrorSummary, result: codexErrorSummary.message });
       }
 
       if (exitCode !== 0) {
@@ -1269,24 +1275,22 @@ export const executeCodexCommand = async params => {
           await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
         }
 
-        const resourcesAfter = await getResourceSnapshot();
-        await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
-        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+        await logCodexResourceSnapshot({ getResourceSnapshot, log });
 
-        return {
-          success: false,
-          sessionId,
-          limitReached,
-          limitResetTime,
-          pricingInfo,
-          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
-          resultModelUsage,
-          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
-          codexJsonDetails: codexJsonState,
-          errorInfo: getCodexErrorEventSummary(codexJsonState),
-          resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
-        };
+        return buildRunResult({ success: false, errorInfo: getCodexErrorEventSummary(codexJsonState) });
+      }
+
+      // Issue #2102: a rejected `request_plugin_install` means codex asked for a
+      // capability the preflight did not provision, and under `codex exec` that
+      // request can never succeed — so a run that produced nothing is blocked,
+      // not finished. Reporting it as a named failure (instead of an empty
+      // success) is what makes the missing requirement visible.
+      const pluginProvisioning = getCodexPluginProvisioningHealth(codexJsonState, { capabilityPreflight });
+      await reportCodexPluginProvisioning({ pluginProvisioning, log });
+      if (!pluginProvisioning.healthy) {
+        if (sessionId && !argv.resume) argv.resume = sessionId;
+
+        return buildRunResult({ success: false, errorInfo: getCodexErrorEventSummary(codexJsonState), pluginProvisioning, result: [pluginProvisioning.message, ...pluginProvisioning.guidance].join(' ') });
       }
 
       // Issue #1990: exit code 0 and the absence of a fatal codex error event are
@@ -1297,23 +1301,7 @@ export const executeCodexCommand = async params => {
       // container filesystem needed to inspect and retry the failure (#1990).
       const completionHealth = getCodexCompletionHealth(codexJsonState, { lastMessage });
       if (!completionHealth.healthy) {
-        await log('\n\n❌ Codex exited 0 but the run did not complete — treating as failure', { level: 'error' });
-        for (const reason of completionHealth.reasons) {
-          await log(`   • ${reason}`, { level: 'error' });
-        }
-        await log(`   📊 turn.started=${completionHealth.turnStarted}, turn.completed=${completionHealth.turnCompleted}, turn.failed=${completionHealth.turnFailed}`, { verbose: true });
-        if (completionHealth.diskPressureDetected) {
-          await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
-          for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {
-            await log(`      ↳ [${evidence.source}] ${evidence.text}`, { level: 'error' });
-          }
-          await log('   💡 Free disk space before retrying. Under docker isolation the container is preserved on failure for inspection.', { level: 'error' });
-        }
-
-        const resourcesAfter = await getResourceSnapshot();
-        await log('\n📈 System resources after execution:', { verbose: true });
-        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
-        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+        await reportCodexCompletionFailure({ completionHealth, log, getResourceSnapshot });
 
         // Issue #1990: preserve the codex session so an outer full restart can
         // resume with context (mirrors the transient-error retry above and the
@@ -1323,23 +1311,7 @@ export const executeCodexCommand = async params => {
         // restart at the orchestration level.
         if (sessionId && !argv.resume) argv.resume = sessionId;
 
-        return {
-          success: false,
-          sessionId,
-          limitReached,
-          limitResetTime,
-          pricingInfo,
-          publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
-          resultModelUsage,
-          subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
-          codexJsonDetails: codexJsonState,
-          errorInfo: getCodexErrorEventSummary(codexJsonState),
-          completionHealth,
-          incompleteSession: completionHealth.incompleteSession,
-          diskPressureDetected: completionHealth.diskPressureDetected,
-          result: completionHealth.reasons.join(' '),
-          resultSummary: lastTextContent || null,
-        };
+        return buildRunResult({ success: false, errorInfo: getCodexErrorEventSummary(codexJsonState), completionHealth, pluginProvisioning, incompleteSession: completionHealth.incompleteSession, diskPressureDetected: completionHealth.diskPressureDetected, result: completionHealth.reasons.join(' ') });
       }
 
       await log('\n\n✅ Codex command completed');
@@ -1351,18 +1323,7 @@ export const executeCodexCommand = async params => {
         await log('⚠️ No result summary captured from Codex output or last-message file', { level: 'warning', verbose: true });
       }
 
-      return {
-        success: true,
-        sessionId,
-        limitReached,
-        limitResetTime,
-        pricingInfo,
-        publicPricingEstimate: pricingInfo?.totalCostUSD ?? null,
-        resultModelUsage,
-        subAgentCalls: codexJsonState.subAgentCalls.length > 0 ? codexJsonState.subAgentCalls : null,
-        codexJsonDetails: codexJsonState,
-        resultSummary: lastTextContent || null, // Issue #1263: Use last text content from JSON output stream
-      };
+      return buildRunResult({ success: true, pluginProvisioning });
     } catch (error) {
       // Don't report auth errors to Sentry as they are user configuration issues
       if (!error.isAuthError) {

@@ -247,6 +247,7 @@ const KNOWN_OPTION_NAMES = [
   'keep-going-until-all-requirements-are-fully-done',
   'keep-working',
   'keep-going',
+  'require-codex-plugin',
 ];
 
 /**

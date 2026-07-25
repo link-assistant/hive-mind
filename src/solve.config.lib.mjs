@@ -715,6 +715,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     type: 'string',
     description: 'Comma-separated list of MCP server names that gemini-cli is allowed to call (passes --allowed-mcp-server-names to gemini-cli). Only used when --tool gemini.',
   },
+  // Issue #2102: the Codex capability preflight discovers requirements from the
+  // issue text and the target repository's agent instruction files (AGENTS.md,
+  // CLAUDE.md, .codex/). This is the escape hatch for a requirement no document
+  // states — codex's own `request_plugin_install` can never install anything
+  // under `codex exec`, so declaring it here is the only way in.
+  'require-codex-plugin': {
+    type: 'string',
+    description: 'Comma-separated list of Codex plugins (plugin@marketplace) that must be installed into the scoped CODEX_HOME before codex exec starts, in addition to the ones discovered from the issue text and the repository AGENTS.md/CLAUDE.md files. Fails the run when a listed plugin is unavailable. Equivalent to HIVE_MIND_CODEX_REQUIRED_PLUGINS. Only used when --tool codex.',
+  },
 };
 
 function hasRawOption(rawArgs, optionName) {

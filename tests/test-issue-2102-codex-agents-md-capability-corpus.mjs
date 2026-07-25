@@ -30,6 +30,8 @@ import path from 'node:path';
 
 import { buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, readMaterializedPluginSkills, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 import { executeCodexCommand, parseCodexExecJsonOutput } from '../src/codex.lib.mjs';
+import { detectMalformedFlags } from '../src/option-suggestions.lib.mjs';
+import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 // The two modules below are imported as namespaces on purpose: the API this
 // regression introduces does not exist yet, and a namespace import keeps the RED
 // run a readable assertion failure instead of a module-link SyntaxError.
@@ -85,7 +87,7 @@ const makeGhRunCommand = ({ title = ISSUE_TITLE, body = ISSUE_BODY, comments = [
     calls.push(invocation);
     const { command, args } = invocation;
     if (command !== 'gh') throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
-    if (args[2]?.endsWith('/comments')) return { stdout: JSON.stringify(comments.map(comment => ({ body: comment }))), stderr: '', code: 0 };
+    if (args.some(arg => arg.endsWith('/comments'))) return { stdout: JSON.stringify(comments.map(comment => ({ body: comment }))), stderr: '', code: 0 };
     return { stdout: JSON.stringify({ title, body }), stderr: '', code: 0 };
   };
   return { calls, runCommand };
@@ -219,6 +221,7 @@ await writeProject(projectRoot, {
     'apps/AGENTS.md': '- Must install third@openai-curated.\n',
     'apps/web/AGENTS.md': '- Must install fourth@openai-curated.\n',
     'huge/AGENTS.md': `- Must install oversized@openai-curated.\n${'x'.repeat(4096)}`,
+    'tools/AGENTS.md': '- Must install fifth@openai-curated.\n',
   });
 
   const bounded = await collectAgentInstructionFiles({ projectDir: boundsRoot, maxDepth: 1, maxFiles: 3, maxBytes: 512 });
@@ -227,6 +230,7 @@ await writeProject(projectRoot, {
     ['AGENTS.md', 'CLAUDE.md', 'apps/AGENTS.md'],
     'depth and file-count caps hold'
   );
+  assert(!bounded.files.some(file => file.relativePath === 'apps/web/AGENTS.md'), 'the depth cap holds');
   assert(
     bounded.skipped.some(entry => entry.relativePath === 'huge/AGENTS.md' && entry.reason === 'too-large'),
     'an oversized instruction file is skipped and reported'
@@ -258,6 +262,14 @@ await writeProject(projectRoot, {
   assert.deepEqual(fromEnv.plugins, ['superpowers@openai-curated'], 'HIVE_MIND_CODEX_REQUIRED_PLUGINS adds a requirement');
   assert(fromEnv.sources.includes('HIVE_MIND_CODEX_REQUIRED_PLUGINS'));
   await rm(bareProject, { recursive: true, force: true });
+
+  // The library API is only reachable if the CLI exposes it, and the option has
+  // to be known to the argument-shape diagnostics like every other option.
+  assert.equal(SOLVE_OPTION_DEFINITIONS['require-codex-plugin']?.type, 'string', 'issue #2102: --require-codex-plugin is a real solve option');
+  assert(
+    detectMalformedFlags(['--', 'require-codex-plugin']).errors.some(error => error.includes('"--require-codex-plugin"')),
+    'the option is known to the malformed-flag detector'
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -289,7 +301,7 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
   const runCommand = async invocation => {
     calls.push(invocation);
     const { command, args, env } = invocation;
-    if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: JSON.stringify([{ body: ISSUE_COMMENT }]), stderr: '', code: 0 };
+    if (command === 'gh' && args.some(arg => arg.endsWith('/comments'))) return { stdout: JSON.stringify([{ body: ISSUE_COMMENT }]), stderr: '', code: 0 };
     if (command === 'gh') return { stdout: JSON.stringify({ title: ISSUE_TITLE, body: ISSUE_BODY }), stderr: '', code: 0 };
     if (command !== 'codex') throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
 
@@ -322,7 +334,7 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
       const filtered = fixture.pluginId.endsWith('@openai-curated') && remoteCatalogActive;
       const { skills } = await readMaterializedPluginSkills({ codexHome, pluginId: fixture.pluginId });
       const exposed = filtered ? [] : [...skills].sort();
-      const rendered = ['- imagegen: Generate images. (file: /system/SKILL.md)', ...exposed.map(skill => `- superpowers:${skill}: Skill. (file: ${cacheRoot}/SKILL.md)`)].join('\n');
+      const rendered = ['- imagegen: Generate images. (file: /system/SKILL.md)', ...exposed.map(skill => `- ${skill}: Skill. (file: ${cacheRoot}/SKILL.md)`)].join('\n');
       return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
     }
     throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -357,7 +369,7 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
   const materialized = await readMaterializedPluginSkills({ codexHome: result.codexHome, pluginId: fixture.pluginId });
   assert.equal(materialized.skills.size, 14, 'the complete 14-skill Superpowers payload is materialized');
   assert(
-    logs.some(entry => entry.message.includes('detected 1 plugin and 10 skill requirement(s)') && entry.message.includes('sources: issue #5, 1 comment, AGENTS.md, packages/gcs-engine/AGENTS.md')),
+    logs.some(entry => entry.message.includes('detected 1 plugin and 8 skill requirement(s)') && entry.message.includes('sources: issue #5, 1 comment, AGENTS.md, packages/gcs-engine/AGENTS.md')),
     `the preflight reports what it scanned; got: ${JSON.stringify(logs.map(entry => entry.message))}`
   );
   await rm(fixture.root, { recursive: true, force: true });

@@ -1,5 +1,5 @@
-const AGENTS_MD_FILENAMES = Object.freeze(['AGENTS.md', 'agents.md']);
-const CLAUDE_MD_FILENAME = 'CLAUDE.md';
+export const AGENTS_MD_FILENAMES = Object.freeze(['AGENTS.md', 'agents.md']);
+export const CLAUDE_MD_FILENAME = 'CLAUDE.md';
 
 const noopLog = async () => {};
 const fallbackFormatAligned = (_icon, label, value) => `${label} ${value}`;

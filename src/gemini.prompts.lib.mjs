@@ -199,6 +199,7 @@ Preparing pull request.
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.
    - When you push, push only to branch ${branchName}.
+   - Before changing an existing pull request's base branch, make sure the pushed remote head already contains the new base branch. Push that ancestry first, verify it with the remote head SHA, and only then change the pull request base; retargeting an unrelated remote head can close or strand the pull request.
    - When you finish, create a pull request from branch ${branchName}. If PR ${prNumber} already exists for this branch, update it instead.
    - When you mention a result, include the pull request URL or comment URL.
 

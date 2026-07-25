@@ -851,6 +851,7 @@ hi
         Workflow और सहयोग।
            - जब आप branch जाँचें, git branch --show-current से सत्यापित करें।
            - जब आप push करें, केवल branch {{branchName}} पर push करें।
+           - किसी मौजूदा pull request की base branch बदलने से पहले सुनिश्चित करें कि push किया गया remote head नई base branch को पहले से समाहित करता है। पहले उस ancestry को push करें, remote head SHA से सत्यापित करें, और उसके बाद ही pull request की base बदलें; असंबंधित remote head को retarget करने से pull request बंद या अनुपयोगी हो सकता है।
            - जब आप समाप्त करें, branch {{branchName}} से PR बनाएँ। (टिप्पणी: PR {{prNumber}} पहले से मौजूद है, उसे अपडेट करें)
            - जब आप workflow व्यवस्थित करें, डिफ़ॉल्ट branch (main या master) में सीधे merges के बजाय PRs का उपयोग करें।
            - जब आप commits प्रबंधित करें, बाद के विश्लेषण के लिए commit इतिहास संरक्षित रखें।

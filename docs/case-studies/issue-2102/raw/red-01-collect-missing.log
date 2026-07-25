@@ -1,0 +1,20 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: issue #2102: the preflight must expose a bounded agent-instruction-file walk
++ actual - expected
+
++ 'undefined'
+- 'function'
+
+    at file:///tmp/gh-issue-solver-1785006353753/tests/test-issue-2102-codex-agents-md-capability-corpus.mjs:134:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'undefined',
+  expected: 'function',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.18.0

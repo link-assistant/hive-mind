@@ -89,6 +89,30 @@ Hive Mind 应用程序支持通过环境变量和命令行选项进行广泛配�
 | ------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker 任务容器在终止完成后的保留策略：`always`、`on-failure` 或 `never`。`on-failure` 会删除成功容器并保留失败容器以便调试。 |
 
+#### Formal AI 调度
+
+每个 Hive Mind 工具都可以显式选择 `formal-ai` 模型：
+
+```bash
+solve ISSUE_URL --tool agent --model formal-ai
+solve ISSUE_URL --tool codex --model formal-ai
+solve ISSUE_URL --tool claude --model formal-ai
+solve ISSUE_URL --tool opencode --model formal-ai
+solve ISSUE_URL --tool qwen --model formal-ai
+solve ISSUE_URL --tool gemini --model formal-ai
+```
+
+Hive Mind 通过 `formal-ai with <tool>` 运行这些命令。若无其他配置，包装器会启动临时 agent-mode 服务器，并在工具退出时删除临时客户端配置。持久服务器可使用以下变量：
+
+| 环境变量                       | 默认值      | 描述                                                                                                                                  |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_FORMAL_AI_PATH`     | `formal-ai` | 包装器可执行文件路径。                                                                                                                |
+| `HIVE_MIND_FORMAL_AI_BASE_URL` | _未设置_    | 现有 Formal AI 服务器的 HTTP(S) 源地址。向包装器添加 `--no-start-server --base-url <origin>`，并将其传递给 Docker 隔离的 solve 任务。 |
+
+根目录的 `docker-compose.yml` 会在 `http://link-assistant-formal-ai:8080` 启动持久服务，并将内存保存在 `formal-ai-memory` 卷中。详见 [Docker 支持](DOCKER.zh.md)。
+
+`formal-ai` 仍须显式启用。在 [issue #2059 案例研究](case-studies/issue-2059/capability-gate.md)中的编码阶梯证明其能够可靠编辑代码并完整完成 issue 到 PR 的流程之前，默认模型不会改变。
+
 ### 4.2. Codex 能力预检
 
 `solve` 会自动发现 issue 标题、正文及评论中明确要求的 Codex 插件和 Agent Skill。在 `codex exec` 之前，它会从当前 marketplace catalog 解析技能提供程序、安装缺失项并验证结果。以 `@openai-curated-remote` 结尾的别名会规范化为 Codex CLI 使用的 `@openai-curated`。

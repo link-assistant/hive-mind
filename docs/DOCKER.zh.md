@@ -68,6 +68,48 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 DinD 镜像与 `konard/hive-mind:latest` 分开发布，因此不需要嵌套 Docker 的用户可以继续使用现有的低权限镜像。
 
+### 选项 4：持久 Formal AI 服务
+
+所有 Hive Mind 运行时镜像都包含固定版本的 `formal-ai` 包装器。单独的 `Dockerfile.formal-ai` 基于根 `konard/hive-mind-dind` Telegram 镜像，并运行：
+
+```bash
+formal-ai serve --agent-mode --host 0.0.0.0 --port 8080
+```
+
+仓库中的 Compose 文件提供完整拓扑：
+
+```bash
+docker compose build
+docker compose up -d formal-ai
+docker compose run --rm hive-mind-solver \
+  https://github.com/owner/repo/issues/123 --tool codex --model formal-ai
+```
+
+服务及其 Docker 网络都命名为 `link-assistant-formal-ai`，命名卷 `formal-ai-memory` 会在重启后继续保存 `/home/box/.formal-ai`。Solver 会收到：
+
+```text
+HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
+```
+
+Hive Mind 会将该端点传给每个 `--isolation docker` 任务。对于 Compose 主机名 `link-assistant-formal-ai`，根容器会在启动前解析外层网络地址，并把可路由 IP 交给嵌套任务。自定义外部主机名保持不变，以保留 DNS、虚拟主机路由和 HTTPS 证书验证。自定义嵌套 Docker 部署应将服务和根容器接入可相互路由的网络。当前 `start-command` Docker 后端可以传递环境变量，但不提供 Docker `--network` 选项，因此特殊网络策略可能需要把此变量设为嵌套任务可访问的地址。
+
+手动部署示例：
+
+```bash
+docker network create link-assistant-formal-ai
+docker volume create formal-ai-memory
+docker build -f Dockerfile.formal-ai -t hive-mind-formal-ai:local .
+docker run -d --privileged --restart unless-stopped \
+  --name formal-ai --network link-assistant-formal-ai \
+  --network-alias link-assistant-formal-ai \
+  -v formal-ai-memory:/home/box/.formal-ai \
+  hive-mind-formal-ai:local
+docker run --rm --network link-assistant-formal-ai \
+  -e HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080 \
+  konard/hive-mind:latest \
+  solve ISSUE_URL --tool agent --model formal-ai
+```
+
 #### 宿主镜像透传（避免重复下载数 GB 镜像）
 
 当机器人以 `--isolation docker` 在发布版 DinD 镜像内运行时，每个任务都会以*嵌套*的

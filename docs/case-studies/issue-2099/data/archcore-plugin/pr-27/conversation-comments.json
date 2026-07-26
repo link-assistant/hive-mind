@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060144769",
+    "html_url": "https://github.com/archcore-ai/plugin/pull/27#issuecomment-5060144769",
+    "issue_url": "https://api.github.com/repos/archcore-ai/plugin/issues/27",
+    "id": 5060144769,
+    "node_id": "IC_kwDOR6G6f88AAAABLZuugQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-23T15:17:19Z",
+    "updated_at": "2026-07-23T15:17:19Z",
+    "body": "CI approval needed: the fresh Plugin Tests run for commit `8bce7fd460cfd2b49e8cbcc2c39718df67cc74cb` is gated as `action_required` before any jobs are created: https://github.com/archcore-ai/plugin/actions/runs/30019746799\\n\\nI verified the run SHA and timestamp, attempted to download its log (GitHub reports `log not found` because there are zero jobs), and attempted the fork-run approval endpoint; the available credentials receive HTTP 403 (repository admin rights required). Please approve the workflow run so the already-green local suite can execute in CI.",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060144769/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060158357",
+    "html_url": "https://github.com/archcore-ai/plugin/pull/27#issuecomment-5060158357",
+    "issue_url": "https://api.github.com/repos/archcore-ai/plugin/issues/27",
+    "id": 5060158357,
+    "node_id": "IC_kwDOR6G6f88AAAABLZvjlQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-23T15:18:40Z",
+    "updated_at": "2026-07-23T15:18:40Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.6 Sol\n- Provider: OpenAI\n- Public pricing estimate: $29.805555\n\n### 📊 **Context and tokens usage:**\n- 641.0K / 200K (320%) input tokens, 94.1K / 128K (73%) output tokens\n\nTotal: (641.0K + 19.2M cached) input tokens, 94.1K output tokens, $29.805555 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.6-sol`\n- Thinking level: xhigh (~31999 tokens)\n- **Model: GPT-5.6 Sol** (`gpt-5.6-sol`)\n\n### 📎 **Log file uploaded as Gist** (6369KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/b1d37aa8eb8ad0133100c28e022ae79f/raw/986abcd9c07747ed8a1c7daf9fba59808e8ac08d/tmp-solution-draft-log-pr-1784819910120.txt.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/archcore-ai/plugin/issues/comments/5060158357/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

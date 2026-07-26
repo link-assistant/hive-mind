@@ -22,6 +22,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -502,6 +503,11 @@ export const executeAgentCommand = async params => {
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
+    const toolInvocation = resolveFormalAiToolInvocation({
+      tool: 'agent',
+      model: argv.model,
+      toolPath: agentPath,
+    });
 
     // Build agent command arguments
     let agentArgs = `--model ${mappedModel}`;
@@ -546,30 +552,31 @@ export const executeAgentCommand = async params => {
         await fs.writeFile(promptFile, combinedPrompt);
       }
 
-      const fullCommand = streamingInput ? `(cd "${tempDir}" && ${agentPath} ${agentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${agentPath} ${agentArgs})`;
+      const fullCommand = streamingInput ? `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${agentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${agentArgs})`;
 
-      await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-      await log(`${fullCommand}`);
-      await log('');
+      const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+      if (preparedResult) return preparedResult;
 
       if (streamingInput) {
-        execCommand = $({
+        const commandRunner = $({
           cwd: tempDir,
           stdin: 'pipe',
           mirror: false,
           env: agentEnv,
-        })`${agentPath} ${agentArgs}`;
+        });
+        execCommand = toolInvocation.formalAi ? commandRunner`${toolInvocation.command} ${toolInvocation.args} ${agentArgs}` : commandRunner`${toolInvocation.command} ${agentArgs}`;
         const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
         if (!attached) {
           throw new Error('Agent live stream-json input requested, but stdin attachment failed');
         }
       } else {
         // Pipe the prompt file to agent via stdin for the legacy one-shot path.
-        execCommand = $({
+        const commandRunner = $({
           cwd: tempDir,
           mirror: false,
           env: agentEnv,
-        })`cat ${promptFile} | ${agentPath} ${agentArgs}`;
+        });
+        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} ${agentArgs}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);

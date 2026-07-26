@@ -89,6 +89,30 @@ Hive Mind एप्लिकेशन environment variables और command-line 
 | ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | terminal completion के बाद Docker task-container retention: `always`, `on-failure`, या `never`। `on-failure` successful containers हटाता है और failed containers debug के लिए रखता है। |
 
+#### Formal AI dispatch
+
+हर Hive Mind tool के लिए `formal-ai` को स्पष्ट model के रूप में चुना जा सकता है:
+
+```bash
+solve ISSUE_URL --tool agent --model formal-ai
+solve ISSUE_URL --tool codex --model formal-ai
+solve ISSUE_URL --tool claude --model formal-ai
+solve ISSUE_URL --tool opencode --model formal-ai
+solve ISSUE_URL --tool qwen --model formal-ai
+solve ISSUE_URL --tool gemini --model formal-ai
+```
+
+Hive Mind इन commands को `formal-ai with <tool>` के माध्यम से चलाता है। अतिरिक्त configuration न होने पर wrapper एक temporary agent-mode server शुरू करता है और tool के exit होने पर temporary client configuration हटा देता है। Persistent server के लिए ये variables उपयोग करें:
+
+| Environment Variable           | डिफ़ॉल्ट    | विवरण                                                                                                                                                             |
+| ------------------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_FORMAL_AI_PATH`     | `formal-ai` | Wrapper executable का path।                                                                                                                                       |
+| `HIVE_MIND_FORMAL_AI_BASE_URL` | _unset_     | मौजूदा Formal AI server का HTTP(S) origin। Wrapper में `--no-start-server --base-url <origin>` जोड़ता है और Docker-isolated solve jobs में इसे propagate करता है। |
+
+Root `docker-compose.yml` persistent service को `http://link-assistant-formal-ai:8080` पर शुरू करता है और उसकी memory `formal-ai-memory` volume में रखता है। [Docker सहायता](DOCKER.hi.md) देखें।
+
+`formal-ai` अभी opt-in है। [Issue #2059 case study](case-studies/issue-2059/capability-gate.md) की coding ladder द्वारा reliable code edits और पूरा issue-to-PR flow सिद्ध होने तक default models नहीं बदलते।
+
 ### 4.2. Codex Capability Preflight
 
 `solve` issue title, body और comments में स्पष्ट Codex plugin तथा Agent Skill requirements को अपने-आप खोजता है। `codex exec` से पहले यह current marketplace catalog से skill provider resolve करता है, missing provider install करता है और result verify करता है। `@openai-curated-remote` alias को Codex CLI के `@openai-curated` ID में normalize किया जाता है।

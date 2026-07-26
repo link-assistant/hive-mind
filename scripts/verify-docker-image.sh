@@ -315,6 +315,8 @@ echo "=== All system & development tools verification checks PASSED ==="
 echo ""
 echo "=== Verifying AI-specific tools (hive-mind additions) ==="
 
+check_tool "Formal AI" formal-ai --version
+
 # Global bun packages
 if bun pm ls -g &>/dev/null; then
   echo "Bun global packages accessible"

@@ -89,6 +89,30 @@ All environment variables are managed through the `src/config.lib.mjs` module wh
 | ------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `HIVE_MIND_KEEP_TASK_CONTAINER` | `on-failure` | Docker task-container retention after terminal completion: `always`, `on-failure`, or `never`. `on-failure` removes successful containers and keeps failed ones for debug. |
 
+#### Formal AI dispatch
+
+`formal-ai` is an explicit model choice for every Hive Mind tool:
+
+```bash
+solve ISSUE_URL --tool agent --model formal-ai
+solve ISSUE_URL --tool codex --model formal-ai
+solve ISSUE_URL --tool claude --model formal-ai
+solve ISSUE_URL --tool opencode --model formal-ai
+solve ISSUE_URL --tool qwen --model formal-ai
+solve ISSUE_URL --tool gemini --model formal-ai
+```
+
+Hive Mind runs these commands through `formal-ai with <tool>`. Without additional configuration, the wrapper starts a temporary agent-mode server and removes its temporary client configuration when the tool exits. Use these variables for a persistent server:
+
+| Environment Variable           | Default     | Description                                                                                                                                                  |
+| ------------------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_FORMAL_AI_PATH`     | `formal-ai` | Wrapper executable path.                                                                                                                                     |
+| `HIVE_MIND_FORMAL_AI_BASE_URL` | _(unset)_   | HTTP(S) origin of an existing Formal AI server. Adds `--no-start-server --base-url <origin>` to the wrapper and propagates it to Docker-isolated solve jobs. |
+
+The root `docker-compose.yml` starts the persistent service at `http://link-assistant-formal-ai:8080` and stores its memory in the `formal-ai-memory` volume. See [Docker Support](DOCKER.md#persistent-formal-ai-service).
+
+`formal-ai` remains opt-in. The default models do not change until the coding ladder described in [the issue #2059 case study](case-studies/issue-2059/capability-gate.md) demonstrates reliable code edits and complete issue-to-PR runs.
+
 ### 4.2. Codex Capability Preflight
 
 The `solve` command automatically discovers explicit Codex plugin and Agent Skill requirements in an issue title, body, and comments. Before `codex exec`, it resolves skills against the current marketplace catalog, installs missing providers, and verifies them. Plugin aliases ending in `@openai-curated-remote` are normalized to the Codex CLI marketplace ID `@openai-curated`.

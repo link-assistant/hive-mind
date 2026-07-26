@@ -68,6 +68,48 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 DinD-образ публикуется отдельно от `konard/hive-mind:latest`, поэтому пользователи без необходимости во вложенном Docker могут продолжать использовать существующий образ с меньшими привилегиями.
 
+### Вариант 4: постоянный сервис Formal AI
+
+Все runtime-образы Hive Mind включают закреплённую версию обёртки `formal-ai`. Отдельный `Dockerfile.formal-ai` наследуется от корневого Telegram-образа `konard/hive-mind-dind` и запускает:
+
+```bash
+formal-ai serve --agent-mode --host 0.0.0.0 --port 8080
+```
+
+Файл Compose в репозитории описывает полную топологию:
+
+```bash
+docker compose build
+docker compose up -d formal-ai
+docker compose run --rm hive-mind-solver \
+  https://github.com/owner/repo/issues/123 --tool codex --model formal-ai
+```
+
+Сервис и его Docker-сеть имеют имя `link-assistant-formal-ai`, а именованный том `formal-ai-memory` сохраняет `/home/box/.formal-ai` между перезапусками. Solver получает:
+
+```text
+HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
+```
+
+Hive Mind передаёт endpoint каждой задаче `--isolation docker`. Для Compose-имени `link-assistant-formal-ai` корневой контейнер разрешает адрес во внешней сети непосредственно перед запуском и передаёт вложенной задаче маршрутизируемый IP. Нестандартные внешние имена остаются без изменений, сохраняя DNS, virtual-host routing и проверку HTTPS-сертификата. В нестандартных nested-Docker-развёртываниях подключите сервис и корневой контейнер к общей маршрутизируемой сети. Текущий Docker backend `start-command` передаёт переменные окружения, но не предоставляет Docker-опцию `--network`, поэтому необычные сетевые политики могут требовать адреса, доступного из вложенных task-контейнеров.
+
+Пример ручного развёртывания:
+
+```bash
+docker network create link-assistant-formal-ai
+docker volume create formal-ai-memory
+docker build -f Dockerfile.formal-ai -t hive-mind-formal-ai:local .
+docker run -d --privileged --restart unless-stopped \
+  --name formal-ai --network link-assistant-formal-ai \
+  --network-alias link-assistant-formal-ai \
+  -v formal-ai-memory:/home/box/.formal-ai \
+  hive-mind-formal-ai:local
+docker run --rm --network link-assistant-formal-ai \
+  -e HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080 \
+  konard/hive-mind:latest \
+  solve ISSUE_URL --tool agent --model formal-ai
+```
+
 #### Проброс образов с хоста (избегаем повторной загрузки многогигабайтных образов)
 
 Когда бот работает с `--isolation docker` внутри release DinD-образа, каждая задача

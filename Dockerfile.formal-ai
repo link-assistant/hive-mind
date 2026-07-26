@@ -1,0 +1,28 @@
+# Persistent Formal AI service for Hive Mind.
+#
+# This deliberately extends the root Telegram/DinD image so the service and
+# isolated solve jobs have the same agentic CLIs. The pinned builder keeps this
+# file buildable before a new Hive Mind tag reaches every registry mirror.
+
+ARG FORMAL_AI_VERSION=0.305.0
+ARG HIVE_MIND_VERSION=latest
+# Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
+FROM rust:1.96-slim-bookworm AS formal-ai-builder
+ARG FORMAL_AI_VERSION
+RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+
+FROM konard/hive-mind-dind:${HIVE_MIND_VERSION}
+
+USER root
+COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
+RUN chmod 0755 /usr/local/bin/formal-ai && formal-ai --version
+
+USER box
+ENV HOME=/home/box \
+    FORMAL_AI_MEMORY_PATH=/home/box/.formal-ai/memory.lino
+RUN mkdir -p /home/box/.formal-ai
+
+EXPOSE 8080
+VOLUME ["/home/box/.formal-ai"]
+
+CMD ["formal-ai", "serve", "--agent-mode", "--host", "0.0.0.0", "--port", "8080"]

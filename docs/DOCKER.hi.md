@@ -68,6 +68,48 @@ docker run --rm --runtime=sysbox-runc -it konard/hive-mind-dind:latest bash
 
 DinD image `konard/hive-mind:latest` से अलग publish होती है, इसलिए जिन्हें nested Docker नहीं चाहिए वे existing lower-privilege image इस्तेमाल कर सकते हैं।
 
+### विकल्प 4: Persistent Formal AI Service
+
+सभी Hive Mind runtime images में pinned `formal-ai` wrapper शामिल है। अलग `Dockerfile.formal-ai` root `konard/hive-mind-dind` Telegram image को extend करता है और यह चलाता है:
+
+```bash
+formal-ai serve --agent-mode --host 0.0.0.0 --port 8080
+```
+
+Repository का Compose file पूरा topology देता है:
+
+```bash
+docker compose build
+docker compose up -d formal-ai
+docker compose run --rm hive-mind-solver \
+  https://github.com/owner/repo/issues/123 --tool codex --model formal-ai
+```
+
+Service और उसका Docker network दोनों `link-assistant-formal-ai` नाम से configured हैं, और named `formal-ai-memory` volume restarts के बाद `/home/box/.formal-ai` को सुरक्षित रखता है। Solver को यह मिलता है:
+
+```text
+HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
+```
+
+Hive Mind endpoint को हर `--isolation docker` task में forward करता है। Compose hostname `link-assistant-formal-ai` के लिए root container launch से ठीक पहले outer-network address resolve करके nested task को routable IP देता है। Custom external hostnames unchanged रहते हैं, जिससे DNS, virtual-host routing और HTTPS certificate verification सुरक्षित रहते हैं। Custom nested-Docker deployments में service और root container को shared routable network से जोड़ें। Current `start-command` Docker backend environment variables forward करता है लेकिन Docker `--network` option expose नहीं करता, इसलिए unusual network policies में variable को nested task से routable address पर set करना पड़ सकता है।
+
+Manual deployment:
+
+```bash
+docker network create link-assistant-formal-ai
+docker volume create formal-ai-memory
+docker build -f Dockerfile.formal-ai -t hive-mind-formal-ai:local .
+docker run -d --privileged --restart unless-stopped \
+  --name formal-ai --network link-assistant-formal-ai \
+  --network-alias link-assistant-formal-ai \
+  -v formal-ai-memory:/home/box/.formal-ai \
+  hive-mind-formal-ai:local
+docker run --rm --network link-assistant-formal-ai \
+  -e HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080 \
+  konard/hive-mind:latest \
+  solve ISSUE_URL --tool agent --model formal-ai
+```
+
 #### Host-image passthrough (मल्टी-GB images फिर से download होने से बचाएं)
 
 जब bot release DinD image के अंदर `--isolation docker` के साथ चलता है, तो हर task एक _nested_

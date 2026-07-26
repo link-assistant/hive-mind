@@ -15,6 +15,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 import crypto from 'crypto';
 import { spawn } from 'node:child_process';
+import { lookup as lookupHost } from 'node:dns/promises';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -53,6 +54,7 @@ const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
 const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
 const DOCKER_CONTAINER_HOME = '/home/box';
+const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD
 // container so box's host-image passthrough can copy host images into the
 // nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy
@@ -228,6 +230,44 @@ function resolveImageVariant(image, env = process.env) {
 }
 
 /**
+ * Resolve an outer Compose HTTP service before handing its origin to a nested
+ * Docker daemon. The nested daemon has its own DNS namespace, but it can route
+ * to the outer service's address through the parent container.
+ *
+ * HTTPS names are deliberately preserved for certificate verification.
+ */
+export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = lookupHost } = {}) {
+  const baseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL;
+  if (!baseUrl) return env;
+
+  let parsed;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    return env;
+  }
+
+  if (parsed.protocol !== 'http:' || parsed.hostname !== FORMAL_AI_COMPOSE_HOSTNAME) {
+    return env;
+  }
+
+  try {
+    const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
+    const selected = addresses.find(candidate => candidate.family === 4) || addresses[0];
+    if (!selected?.address) return env;
+
+    const host = selected.family === 6 ? `[${selected.address}]` : selected.address;
+    return {
+      ...env,
+      HIVE_MIND_FORMAL_AI_BASE_URL: `${parsed.protocol}//${host}${parsed.port ? `:${parsed.port}` : ''}`,
+    };
+  } catch {
+    // Keep the hostname for deployments whose nested DNS can resolve it.
+    return env;
+  }
+}
+
+/**
  * Build the `$` (start-command) arguments that launch a Docker-isolated task
  * using start-command's NATIVE Docker backend (`$ --isolated docker`).
  *
@@ -263,6 +303,13 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   // a future image forgets to. start-command has no --workdir flag, so the
   // working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+
+  // A persistent Formal AI server normally runs beside the Telegram/root
+  // container. Docker-isolated `/solve` jobs must receive the same endpoint;
+  // otherwise the wrapper starts a per-job server and loses shared memory.
+  if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
+    startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
+  }
 
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
@@ -620,14 +667,21 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
 
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...options, sessionId });
+  const effectiveOptions =
+    backend === 'docker'
+      ? {
+          ...options,
+          env: await resolveFormalAiIsolationEnv(options.env || process.env),
+        }
+      : options;
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId });
 
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
-      const env = options.env || process.env;
+      const env = effectiveOptions.env || process.env;
       const image = getDockerIsolationImage({ env });
-      const mounts = getDockerIsolationAuthMounts({ tool: options.tool, env, homeDir: options.homeDir || os.homedir(), existsSync: options.existsSync || fs.existsSync });
+      const mounts = getDockerIsolationAuthMounts({ tool: effectiveOptions.tool, env, homeDir: effectiveOptions.homeDir || os.homedir(), existsSync: effectiveOptions.existsSync || fs.existsSync });
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);

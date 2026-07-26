@@ -502,6 +502,11 @@ Free Models via Kilo Gateway (with --tool agent):
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-5-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/glm-4.5-air-free
 /solve https://github.com/owner/repo/issues/123 --tool agent --model kilo/deepseek-r1-free
+
+# किसी भी समर्थित agentic CLI को Formal AI के माध्यम से route करें
+/solve https://github.com/owner/repo/issues/123 --tool agent --model formal-ai
+/solve https://github.com/owner/repo/issues/123 --tool codex --model formal-ai
+/solve https://github.com/owner/repo/issues/123 --tool claude --model formal-ai
 ```
 
 > **📖 मुफ्त मॉडल गाइड**: OpenCode Zen और Kilo Gateway प्रदाताओं सहित सभी मुफ्त मॉडलों के बारे में व्यापक जानकारी के लिए [docs/FREE_MODELS.hi.md](./docs/FREE_MODELS.hi.md) देखें।

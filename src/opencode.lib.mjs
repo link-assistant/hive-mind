@@ -20,6 +20,7 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
@@ -212,6 +213,56 @@ export const executeOpenCodeCommand = async params => {
       }
     }
 
+    // Take resource snapshot before execution
+    const resourcesBefore = await getResourceSnapshot();
+    await log('📈 System resources before execution:', { verbose: true });
+    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
+    await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
+
+    const opencodeEnv = { ...process.env };
+
+    // Apply Playwright MCP session state before launching OpenCode.
+    if (argv.playwrightMcp === false) {
+      Object.assign(opencodeEnv, await getOpenCodePlaywrightMcpDisableEnv({ env: opencodeEnv, cwd: tempDir, log }));
+      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
+    }
+
+    // Build OpenCode command
+    let execCommand;
+
+    // Map model alias to full ID
+    const mappedModel = mapModelToId(argv.model);
+    const toolInvocation = resolveFormalAiToolInvocation({
+      tool: 'opencode',
+      model: argv.model,
+      toolPath: opencodePath,
+    });
+    const streamingTokenUsage = createAgentTokenUsage();
+
+    // Build opencode command arguments
+    let opencodeArgs = `run --format json --model ${mappedModel}`;
+
+    if (argv.resume) {
+      await log(`🔄 Resuming from session: ${argv.resume}`);
+      opencodeArgs = `run --format json --session ${argv.resume} --model ${mappedModel}`;
+    }
+
+    // For OpenCode, we pass the prompt via stdin
+    // The system prompt is typically not supported separately in opencode
+    // We'll combine system and user prompts into a single message
+    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
+
+    // Write the combined prompt to a file for piping
+    // Use OS temporary directory instead of repository workspace to avoid polluting the repo
+    const promptFile = path.join(os.tmpdir(), `opencode_prompt_${Date.now()}_${process.pid}.txt`);
+    await fs.writeFile(promptFile, combinedPrompt);
+
+    // Build the full command - pipe the prompt file to opencode
+    const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${opencodeArgs})`;
+
+    const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    if (preparedResult) return preparedResult;
+
     // Create OpenCode configuration file with unrestricted permissions
     // This allows OpenCode to access files outside the working directory without prompting
     // Fixes issue #755: "Permission required to run: Access file outside working directory"
@@ -240,52 +291,6 @@ export const executeOpenCodeCommand = async params => {
       await log(`⚠️  Warning: Could not create OpenCode config file: ${configError.message}`, { level: 'warning' });
     }
 
-    // Take resource snapshot before execution
-    const resourcesBefore = await getResourceSnapshot();
-    await log('📈 System resources before execution:', { verbose: true });
-    await log(`   Memory: ${resourcesBefore.memory.split('\n')[1]}`, { verbose: true });
-    await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
-
-    const opencodeEnv = { ...process.env };
-
-    // Apply Playwright MCP session state before launching OpenCode.
-    if (argv.playwrightMcp === false) {
-      Object.assign(opencodeEnv, await getOpenCodePlaywrightMcpDisableEnv({ env: opencodeEnv, cwd: tempDir, log }));
-      await log('🎭 Playwright MCP physically disabled for this OpenCode session via --no-playwright-mcp', { verbose: true });
-    }
-
-    // Build OpenCode command
-    let execCommand;
-
-    // Map model alias to full ID
-    const mappedModel = mapModelToId(argv.model);
-    const streamingTokenUsage = createAgentTokenUsage();
-
-    // Build opencode command arguments
-    let opencodeArgs = `run --format json --model ${mappedModel}`;
-
-    if (argv.resume) {
-      await log(`🔄 Resuming from session: ${argv.resume}`);
-      opencodeArgs = `run --format json --session ${argv.resume} --model ${mappedModel}`;
-    }
-
-    // For OpenCode, we pass the prompt via stdin
-    // The system prompt is typically not supported separately in opencode
-    // We'll combine system and user prompts into a single message
-    const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
-
-    // Write the combined prompt to a file for piping
-    // Use OS temporary directory instead of repository workspace to avoid polluting the repo
-    const promptFile = path.join(os.tmpdir(), `opencode_prompt_${Date.now()}_${process.pid}.txt`);
-    await fs.writeFile(promptFile, combinedPrompt);
-
-    // Build the full command - pipe the prompt file to opencode
-    const fullCommand = `(cd "${tempDir}" && cat "${promptFile}" | ${opencodePath} ${opencodeArgs})`;
-
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(`${fullCommand}`);
-    await log('');
-
     const buildPricingInfo = async () => {
       const tokenUsage = streamingTokenUsage;
       if (tokenUsage.stepCount === 0) {
@@ -298,17 +303,19 @@ export const executeOpenCodeCommand = async params => {
     try {
       // Pipe the prompt file to opencode via stdin
       if (argv.resume) {
-        execCommand = $({
+        const commandRunner = $({
           cwd: tempDir,
           mirror: false,
           env: opencodeEnv,
-        })`cat ${promptFile} | ${opencodePath} run --format json --session ${argv.resume} --model ${mappedModel}`;
+        });
+        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} run --format json --session ${argv.resume} --model ${mappedModel}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --session ${argv.resume} --model ${mappedModel}`;
       } else {
-        execCommand = $({
+        const commandRunner = $({
           cwd: tempDir,
           mirror: false,
           env: opencodeEnv,
-        })`cat ${promptFile} | ${opencodePath} run --format json --model ${mappedModel}`;
+        });
+        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} run --format json --model ${mappedModel}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --model ${mappedModel}`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);

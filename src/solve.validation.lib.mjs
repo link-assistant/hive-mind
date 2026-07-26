@@ -303,7 +303,22 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
   // Skip tool connection validation if in dry-run mode or explicitly requested
   if (!skipToolConnection) {
     let isToolConnected;
-    if (argv.useAgentCommander) {
+    const { isFormalAiModel } = await import('./models/index.mjs');
+    if (isFormalAiModel(model)) {
+      const { validateFormalAiToolConnection } = await import('./formal-ai.lib.mjs');
+      const formalAiValidation = await validateFormalAiToolConnection(argv.tool || 'claude');
+      isToolConnected = formalAiValidation.valid;
+      if (isToolConnected) {
+        await log(`✅ Formal AI wrapper and ${argv.tool || 'claude'} CLI are available`);
+        if (formalAiValidation.version) {
+          await log(`📦 ${argv.tool || 'claude'} CLI version: ${formalAiValidation.version}`);
+        }
+      } else {
+        await log(`❌ Formal AI dispatch validation failed: ${formalAiValidation.error}`, { level: 'error' });
+        await log('   Install or update the wrapper with: cargo install formal-ai', { level: 'error' });
+        return false;
+      }
+    } else if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       isToolConnected = await agentCommanderLib.validateAgentCommanderConnection({
         tool: argv.tool || 'claude',

@@ -31,6 +31,7 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels } from './models/index.mjs';
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
@@ -816,6 +817,11 @@ export const executeCodexCommand = async params => {
 
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
+    const toolInvocation = resolveFormalAiToolInvocation({
+      tool: 'codex',
+      model: argv.model,
+      toolPath: codexPath,
+    });
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
@@ -889,11 +895,10 @@ export const executeCodexCommand = async params => {
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
     }
 
-    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${codexPath} ${codexArgs})`;
+    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
 
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(`${fullCommand}`);
-    await log('');
+    const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    if (preparedResult) return preparedResult;
 
     try {
       let interactiveHandler = null;

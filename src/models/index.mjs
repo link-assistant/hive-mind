@@ -28,10 +28,26 @@ const execFileAsync = promisify(execFile);
 
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
+export const FORMAL_AI_MODEL_ALIAS = 'formal-ai';
+export const FORMAL_AI_PROVIDER_MODEL_ID = 'formalai/formal-ai';
+
+const formalAiNativeModelAliases = {
+  [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_MODEL_ALIAS,
+  [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_MODEL_ALIAS,
+};
+
+const formalAiProviderModelAliases = {
+  [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_PROVIDER_MODEL_ID,
+  [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_PROVIDER_MODEL_ID,
+};
+
+export const isFormalAiModel = model => model === FORMAL_AI_MODEL_ALIAS || model === FORMAL_AI_PROVIDER_MODEL_ID;
+
 // Claude models (Anthropic API)
 // Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
 // (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096)
 export const claudeModels = {
+  ...formalAiNativeModelAliases,
   sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
   opus: 'claude-opus-5', // Opus 5 (default, Issue #2096)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
@@ -72,6 +88,7 @@ export const claudeModels = {
 // Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
 // Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
 export const agentModels = {
+  ...formalAiProviderModelAliases,
   // OpenCode Zen free models (current)
   grok: 'opencode/grok-code',
   'grok-code': 'opencode/grok-code',
@@ -111,6 +128,7 @@ export const agentModels = {
 
 // OpenCode models (OpenCode API)
 export const opencodeModels = {
+  ...formalAiProviderModelAliases,
   gpt4: 'openai/gpt-4',
   gpt4o: 'openai/gpt-4o',
   claude: 'anthropic/claude-3-5-sonnet',
@@ -124,6 +142,7 @@ export const opencodeModels = {
 
 // Codex models (OpenAI API)
 export const codexModels = {
+  ...formalAiNativeModelAliases,
   gpt5: 'gpt-5',
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',
@@ -196,6 +215,7 @@ export const CODEX_MODEL_VARIANTS = getCodexModelVariants();
 
 // Qwen Code models
 export const qwenModels = {
+  ...formalAiNativeModelAliases,
   qwen: 'qwen3-coder-plus',
   'qwen-coder': 'qwen3-coder-plus',
   qwen3: 'qwen3-coder-plus',
@@ -210,6 +230,7 @@ export const qwenModels = {
 // Keep aliases aligned with the Gemini CLI model aliases documented in
 // docs/cli/cli-reference.md: auto, pro, flash, and flash-lite.
 export const geminiModels = {
+  ...formalAiNativeModelAliases,
   auto: 'auto',
   gemini: 'gemini-2.5-flash',
   flash: 'gemini-2.5-flash',
@@ -492,6 +513,10 @@ export const mapModelForTool = (tool, model) => {
  * @returns {boolean} True if the model is compatible with the tool
  */
 export const isModelCompatibleWithTool = (tool, model) => {
+  if (isFormalAiModel(model)) {
+    return ['claude', 'agent', 'opencode', 'codex', 'qwen', 'gemini'].includes(tool);
+  }
+
   const mappedModel = mapModelForTool(tool, model);
 
   switch (tool) {
@@ -539,12 +564,12 @@ export const getValidModelsForTool = tool => {
 // Primary (non-alias, non-deprecated) short names shown in CLI help descriptions
 // These are the recommended model names users should see in --model help text
 export const primaryModelNames = {
-  claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable'],
-  opencode: ['grok', 'gpt4o'],
-  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark'],
-  agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free'],
-  qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash'],
-  gemini: ['flash', 'pro', 'flash-lite', 'auto'],
+  claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', FORMAL_AI_MODEL_ALIAS],
+  opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
+  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', FORMAL_AI_MODEL_ALIAS],
+  agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
+  qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash', FORMAL_AI_MODEL_ALIAS],
+  gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
 };
 
 /**

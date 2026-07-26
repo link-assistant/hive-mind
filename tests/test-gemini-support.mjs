@@ -54,7 +54,7 @@ function renderTaggedTemplateCommand(strings, values) {
 
 test('Gemini model defaults and aliases are centralized', () => {
   assert.equal(defaultModels.gemini, 'flash');
-  assert.deepEqual(primaryModelNames.gemini, ['flash', 'pro', 'flash-lite', 'auto']);
+  assert.deepEqual(primaryModelNames.gemini, ['flash', 'pro', 'flash-lite', 'auto', 'formal-ai']);
   assert.equal(resolveModelId('flash', 'gemini'), 'gemini-2.5-flash');
   assert.equal(resolveModelId('pro', 'gemini'), 'gemini-2.5-pro');
   assert.equal(resolveModelId('flash-lite', 'gemini'), 'gemini-2.5-flash-lite');

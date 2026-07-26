@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.10.0
+
+### Minor Changes
+
+- a1a1f63: Allow `--model formal-ai` with every supported agentic CLI, route execution through `formal-ai with`, and provide a persistent Formal AI Docker service.
+
 ## 2.9.2
 
 ### Patch Changes

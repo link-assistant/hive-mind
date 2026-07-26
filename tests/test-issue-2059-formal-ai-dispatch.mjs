@@ -7,15 +7,21 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { executeAgentCommand } from '../src/agent.lib.mjs';
-import { buildDockerIsolationStartArgs } from '../src/isolation-runner.lib.mjs';
+import { executeClaudeCommand } from '../src/claude.lib.mjs';
+import { executeCodexCommand } from '../src/codex.lib.mjs';
+import { executeGeminiCommand } from '../src/gemini.lib.mjs';
+import { buildDockerIsolationStartArgs, resolveFormalAiIsolationEnv } from '../src/isolation-runner.lib.mjs';
 import { getValidModelsForTool, isModelCompatibleWithTool, mapModelForTool, primaryModelNames, validateModelName } from '../src/models/index.mjs';
 import { resolveFormalAiToolInvocation, validateFormalAiToolConnection } from '../src/formal-ai.lib.mjs';
+import { executeOpenCodeCommand } from '../src/opencode.lib.mjs';
+import { executeQwenCommand } from '../src/qwen.lib.mjs';
 
 const projectRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -90,8 +96,8 @@ test('a configured persistent server disables the wrapper-owned temporary server
   });
 
   assert.equal(invocation.command, '/opt/formal ai/formal-ai');
-  assert.deepEqual(invocation.args, ['with', '--base-url', 'http://link-assistant-formal-ai:8080', '--no-start-server', 'codex']);
-  assert.equal(invocation.displayCommand, "'/opt/formal ai/formal-ai' with --base-url http://link-assistant-formal-ai:8080 --no-start-server codex");
+  assert.deepEqual(invocation.args, ['with', '--no-start-server', '--base-url', 'http://link-assistant-formal-ai:8080', 'codex']);
+  assert.equal(invocation.displayCommand, "'/opt/formal ai/formal-ai' with --no-start-server --base-url http://link-assistant-formal-ai:8080 codex");
 });
 
 test('--tool agent --model formal-ai --only-prepare-command reaches command preparation without execution', async () => {
@@ -122,6 +128,66 @@ test('--tool agent --model formal-ai --only-prepare-command reaches command prep
   assert.match(result.preparedCommand, /formal-ai with agent --model formalai\/formal-ai/);
   assert.ok(logLines.some(line => line.includes('AI execution skipped')));
 });
+
+const preparedCommandParams = (tempDir, toolPathKey, toolPath) => ({
+  tempDir,
+  workspaceTmpDir: tempDir,
+  branchName: 'issue-2059-test',
+  prompt: 'Solve issue 2059',
+  systemPrompt: '',
+  escapedSystemPrompt: '',
+  argv: {
+    model: 'formal-ai',
+    onlyPrepareCommand: true,
+    verbose: false,
+    uselessToolsDisabled: false,
+    playwrightMcp: true,
+  },
+  log: async () => {},
+  setLogFile: () => {},
+  getLogFile: () => null,
+  formatAligned: (_icon, label, value = '') => `${label} ${value}`.trim(),
+  getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+  forkedRepo: null,
+  feedbackLines: [],
+  [toolPathKey]: toolPath,
+  $: () => {
+    throw new Error('The native CLI must not execute in prepare-only mode');
+  },
+  owner: null,
+  repo: null,
+  prNumber: null,
+  issueNumber: null,
+});
+
+for (const [tool, execute, pathKey] of [
+  ['claude', executeClaudeCommand, 'claudePath'],
+  ['opencode', executeOpenCodeCommand, 'opencodePath'],
+  ['codex', executeCodexCommand, 'codexPath'],
+  ['qwen', executeQwenCommand, 'qwenPath'],
+  ['gemini', executeGeminiCommand, 'geminiPath'],
+]) {
+  test(`--tool ${tool} prepares the wrapped executor command without execution`, async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), `issue-2059-${tool}-`));
+    const previousHome = process.env.HOME;
+    if (tool === 'claude') process.env.HOME = tempDir;
+
+    try {
+      const result = await execute(preparedCommandParams(tempDir, pathKey, tool));
+
+      assert.equal(result.success, true);
+      assert.equal(result.preparedOnly, true);
+      assert.match(result.preparedCommand, new RegExp(`formal-ai with ${tool}`));
+      assert.match(result.preparedCommand, new RegExp(`["']?--model["']? ["']?${FORMAL_AI_MODEL_BY_TOOL[tool]}["']?`));
+    } finally {
+      if (tool === 'claude') {
+        if (previousHome === undefined) delete process.env.HOME;
+        else process.env.HOME = previousHome;
+      }
+      await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+}
 
 test('Formal AI connection validation checks the wrapper and selected CLI without starting a server', async () => {
   const calls = [];
@@ -160,20 +226,56 @@ test('Docker-isolated solve jobs receive the configured persistent Formal AI end
   assert.equal(args[envIndex - 1], '-e');
 });
 
+test('nested Docker receives a parent-resolved sidecar address instead of outer-daemon DNS', async () => {
+  const env = await resolveFormalAiIsolationEnv(
+    {
+      HIVE_MIND_FORMAL_AI_BASE_URL: 'http://link-assistant-formal-ai:8080',
+      KEEP_ME: 'yes',
+    },
+    {
+      lookup: async hostname => {
+        assert.equal(hostname, 'link-assistant-formal-ai');
+        return [{ address: '172.30.0.7', family: 4 }];
+      },
+    }
+  );
+
+  assert.equal(env.HIVE_MIND_FORMAL_AI_BASE_URL, 'http://172.30.0.7:8080');
+  assert.equal(env.KEEP_ME, 'yes');
+});
+
+test('nested Docker preserves arbitrary external Formal AI hostnames', async () => {
+  const originalEnv = {
+    HIVE_MIND_FORMAL_AI_BASE_URL: 'http://formal-ai.example.test:8080',
+  };
+  const env = await resolveFormalAiIsolationEnv(originalEnv, {
+    lookup: async () => {
+      throw new Error('public and custom hostnames must not be resolved by the outer container');
+    },
+  });
+
+  assert.equal(env, originalEnv);
+});
+
 test('Docker assets install the wrapper and define a persistent Formal AI service', async () => {
-  const [dockerfile, dindDockerfile, coolifyDockerfile, serverDockerfile, compose] = await Promise.all([readFile(join(projectRoot, 'Dockerfile'), 'utf8'), readFile(join(projectRoot, 'Dockerfile.dind'), 'utf8'), readFile(join(projectRoot, 'coolify/Dockerfile'), 'utf8'), readFile(join(projectRoot, 'Dockerfile.formal-ai'), 'utf8'), readFile(join(projectRoot, 'docker-compose.yml'), 'utf8')]);
+  const [dockerfile, dindDockerfile, coolifyDockerfile, serverDockerfile, compose, verifyImageScript] = await Promise.all([readFile(join(projectRoot, 'Dockerfile'), 'utf8'), readFile(join(projectRoot, 'Dockerfile.dind'), 'utf8'), readFile(join(projectRoot, 'coolify/Dockerfile'), 'utf8'), readFile(join(projectRoot, 'Dockerfile.formal-ai'), 'utf8'), readFile(join(projectRoot, 'docker-compose.yml'), 'utf8'), readFile(join(projectRoot, 'scripts/verify-docker-image.sh'), 'utf8')]);
 
   for (const [name, contents] of [
     ['Dockerfile', dockerfile],
     ['Dockerfile.dind', dindDockerfile],
     ['coolify/Dockerfile', coolifyDockerfile],
   ]) {
+    assert.match(contents, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, `${name} must build against a runtime-compatible glibc`);
     assert.match(contents, /formal-ai --version/, `${name} must verify that the Formal AI wrapper is installed`);
   }
 
+  assert.match(serverDockerfile, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, 'the service must build against a runtime-compatible glibc');
   assert.match(serverDockerfile, /FROM konard\/hive-mind-dind:/, 'the service image must extend the root Telegram/DinD image');
   assert.match(serverDockerfile, /formal-ai", "serve", "--agent-mode"/, 'the service image must start the agent-mode API');
+  assert.match(verifyImageScript, /check_tool "Formal AI" formal-ai --version/, 'image verification must exercise the installed wrapper');
   assert.match(compose, /hostname: link-assistant-formal-ai/, 'the service must have the requested stable network hostname');
+  assert.match(compose, /aliases:\s+- link-assistant-formal-ai/, 'the stable hostname must be registered in Compose DNS');
+  assert.match(compose, /formal-ai-network:\s+name: link-assistant-formal-ai/, 'Compose must create the requested stable Docker network');
   assert.match(compose, /formal-ai-memory:\/home\/box\/\.formal-ai/, 'the Formal AI memory must survive service restarts');
   assert.match(compose, /HIVE_MIND_FORMAL_AI_BASE_URL=http:\/\/link-assistant-formal-ai:8080/, 'Hive Mind must use the persistent service endpoint');
 });

@@ -253,7 +253,8 @@ if (argv.planModel) {
 if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
 
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
-const skipToolConnectionCheck = argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
+const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
 const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
 await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCheck, argv.model, argv))) {
@@ -864,6 +865,7 @@ try {
     await safeExit(shutdownExitCode, 'Graceful shutdown after AI working session', { skipPreExit: true });
   }
 
+  if (toolResult.preparedOnly) await safeExit(0, 'Command prepared', { skipPreExit: true });
   const { success } = toolResult;
   sessionId = toolResult.sessionId;
   let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;

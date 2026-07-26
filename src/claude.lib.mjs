@@ -22,6 +22,7 @@ import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Iss
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
@@ -614,13 +615,13 @@ export const executeClaudeCommand = async params => {
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
+    const toolInvocation = resolveFormalAiToolInvocation({ tool: 'claude', model: argv.model, toolPath: claudePath });
     const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
     const resolvedSubAgentModel = argv.subAgentModel ? mapClaudeSubAgentModelToEnvValue(argv.subAgentModel) : undefined; // Issue #1978
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
-    // Issue #1949: Let Claude Code handle transient overload (529) fallback via its own
-    // `--fallback-model` flag (it re-tries the primary each turn) instead of us swapping
-    // `--model`. Only for plain `--model` runs (not opusplan) with a distinct fallback.
+    // Issue #1949: Let Claude Code's `--fallback-model` handle transient overloads and retry
+    // the primary each turn. Only for plain `--model` runs with a distinct fallback.
     const mappedFallbackModel = argv.fallbackModel ? mapModelToId(argv.fallbackModel) : undefined;
     const useClaudeFallbackModel = !resolvedPlanModel && mappedFallbackModel && mappedFallbackModel !== effectiveModel;
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
@@ -650,10 +651,9 @@ export const executeClaudeCommand = async params => {
     } else {
       claudeArgs += ` -p "${escapedPromptForAttempt}" --append-system-prompt "${escapedSystemPrompt}"`;
     }
-    const fullCommand = `(cd "${tempDir}" && ${claudePath} ${claudeArgs} | jq -c .)`;
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(`${fullCommand}`);
-    await log('');
+    const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${claudeArgs} | jq -c .)`;
+    const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    if (preparedResult) return preparedResult;
     if (argv.verbose) {
       await log(`📋 User prompt:\n---BEGIN USER PROMPT---\n${promptForAttempt}\n---END USER PROMPT---`, { verbose: true });
       await log(`📋 System prompt:\n---BEGIN SYSTEM PROMPT---\n${systemPrompt}\n---END SYSTEM PROMPT---`, { verbose: true });
@@ -684,15 +684,15 @@ export const executeClaudeCommand = async params => {
       if (useClaudeFallbackModel && argv.verbose) await log(`📊 Claude --fallback-model: ${mappedFallbackModel} (Issue #1949 — primary --model ${effectiveModel} stays stable across overload retries)`, { verbose: true });
       if (argv.resume) {
         const simpleEscapedPrompt = promptForAttempt.replace(/"/g, '\\"');
-        execCommand = $({ cwd: tempDir, mirror: false, env: claudeEnv })`${claudePath} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = toolInvocation.formalAi ? $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} ${toolInvocation.args} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"` : $({ cwd: tempDir, mirror: false, env: claudeEnv })`${toolInvocation.command} --resume ${argv.resume} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} -p "${simpleEscapedPrompt}" --append-system-prompt "${simpleEscapedSystem}"`;
       } else if (streamingInput) {
         // Issue #817: Drive Claude via --input-format stream-json on a pipe
         // stdin. Initial prompt + later PR comments are written as NDJSON
         // frames by attachStreamingInput (see bidirectional-interactive.lib.mjs).
         const streamingInputArgs = ['-p', '--input-format', 'stream-json'];
-        execCommand = $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = toolInvocation.formalAi ? $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} ${toolInvocation.args} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"` : $({ cwd: tempDir, stdin: 'pipe', mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} ${streamingInputArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       } else {
-        execCommand = $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${claudePath} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
+        execCommand = toolInvocation.formalAi ? $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} ${toolInvocation.args} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"` : $({ cwd: tempDir, stdin: promptForAttempt, mirror: false, env: claudeEnv })`${toolInvocation.command} --output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel} ${fallbackModelArgs} ${mcpDisableArgs} ${disallowedToolsArgs} --append-system-prompt "${simpleEscapedSystem}"`;
       }
       if (streamingInput) {
         await attachStreamingInput(bidirectionalHandler, execCommand, promptForAttempt, log, !!argv.verbose);

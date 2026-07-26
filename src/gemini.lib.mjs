@@ -18,6 +18,7 @@ import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Iss
 const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels } from './models/index.mjs';
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -423,6 +424,11 @@ export const executeGeminiCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.gemini);
+    const toolInvocation = resolveFormalAiToolInvocation({
+      tool: 'gemini',
+      model: argv.model || defaultModels.gemini,
+      toolPath: geminiPath,
+    });
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
     if (argv.resume) {
@@ -432,11 +438,11 @@ export const executeGeminiCommand = async params => {
     // Issue #1809: build args via shared helper so verbose/sandbox/include-dirs
     // toggles stay consistent between the logged command and the real invocation.
     const geminiArgList = buildGeminiArgs(argv, mappedModel, { tempDir, workspaceTmpDir });
-    const fullCommand = `(cd ${shellQuote(tempDir)} && ${geminiPath} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
+    const fullGeminiArgList = [...toolInvocation.args, ...geminiArgList];
+    const fullCommand = `(cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
 
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(fullCommand);
-    await log('');
+    const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    if (preparedResult) return preparedResult;
 
     let geminiJsonState = {};
     let allOutput = '';
@@ -455,7 +461,7 @@ export const executeGeminiCommand = async params => {
         cwd: tempDir,
         stdin: combinedPrompt,
         mirror: false,
-      })`${geminiPath} ${geminiArgList}`;
+      })`${toolInvocation.command} ${fullGeminiArgList}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

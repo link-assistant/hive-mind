@@ -21,6 +21,12 @@
 # We pin 2.3.5 (latest patch on top of that fix).
 # Latest Box releases: https://github.com/link-foundation/box/releases
 
+ARG FORMAL_AI_VERSION=0.305.0
+# Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
+FROM rust:1.96-slim-bookworm AS formal-ai-builder
+ARG FORMAL_AI_VERSION
+RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+
 FROM konard/box-dind:2.3.5
 ARG HIVE_MIND_VERSION=latest
 
@@ -100,6 +106,9 @@ RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head 
     fi
 
 ENV PATH="/home/box/.node-bin:${PATH}"
+
+COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
+RUN formal-ai --version
 
 # The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
 # opam binary in ~/.local/bin so verification and interactive use are stable.

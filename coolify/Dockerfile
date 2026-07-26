@@ -18,6 +18,12 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
+ARG FORMAL_AI_VERSION=0.305.0
+# Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
+FROM rust:1.96-slim-bookworm AS formal-ai-builder
+ARG FORMAL_AI_VERSION
+RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+
 FROM konard/box:2.3.5
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
@@ -73,6 +79,10 @@ RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head 
     fi
 
 ENV PATH="/home/box/.node-bin:${PATH}"
+
+# Install the same pinned wrapper as the root and DinD images.
+COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
+RUN formal-ai --version
 
 # --- Install opam binary ---
 # The Box full image includes the Rocq/Coq opam switch data. Keep an explicit

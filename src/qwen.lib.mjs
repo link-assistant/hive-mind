@@ -19,6 +19,7 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { qwenModels, defaultModels } from './models/index.mjs';
+import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -504,15 +505,19 @@ export const executeQwenCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.qwen);
+    const toolInvocation = resolveFormalAiToolInvocation({
+      tool: 'qwen',
+      model: argv.model || defaultModels.qwen,
+      toolPath: qwenPath,
+    });
     const resumeSession = argv.resume || null;
     const resumeArgs = resumeSession ? ` --resume ${shellQuote(resumeSession)}` : '';
     const appendSystemPromptArg = systemPrompt ? ` --append-system-prompt "$(cat ${shellQuote(systemPromptFile)})"` : '';
-    const commandScript = `cd ${shellQuote(tempDir)} && ${shellQuote(qwenPath)} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
-    const fullCommand = `(cd "${tempDir}" && ${qwenPath} --model "${mappedModel}" --output-format stream-json --yolo${resumeSession ? ` --resume "${resumeSession}"` : ''}${systemPrompt ? ` --append-system-prompt "$(cat "${systemPromptFile}")"` : ''} --prompt "$(cat "${promptFile}")")`;
+    const commandScript = `cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
+    const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} --model "${mappedModel}" --output-format stream-json --yolo${resumeSession ? ` --resume "${resumeSession}"` : ''}${systemPrompt ? ` --append-system-prompt "$(cat "${systemPromptFile}")"` : ''} --prompt "$(cat "${promptFile}")")`;
 
-    await log(`\n${formatAligned('📝', 'Raw command:', '')}`);
-    await log(fullCommand);
-    await log('');
+    const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
+    if (preparedResult) return preparedResult;
 
     try {
       const execCommand = dollar({

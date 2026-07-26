@@ -3,6 +3,11 @@ version: '3.8'
 services:
   hive-mind-solver:
     build: .
+    depends_on:
+      formal-ai:
+        condition: service_healthy
+    networks:
+      - formal-ai-network
     volumes:
       # Mount GitHub credentials
       - ~/.config/gh:/home/box/.persisted-configs/gh:ro
@@ -15,6 +20,7 @@ services:
       # Pass through any needed environment variables
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
     command: |
       bash -c "
         # Restore credentials first
@@ -25,3 +31,32 @@ services:
     # Allow passing arguments to solve.mjs
     stdin_open: true
     tty: true
+
+  formal-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile.formal-ai
+    hostname: link-assistant-formal-ai
+    networks:
+      formal-ai-network:
+        aliases:
+          - link-assistant-formal-ai
+    privileged: true
+    volumes:
+      - formal-ai-memory:/home/box/.formal-ai
+      - formal-ai-docker:/var/lib/docker
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health >/dev/null']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  formal-ai-memory:
+  formal-ai-docker:
+
+networks:
+  formal-ai-network:
+    name: link-assistant-formal-ai

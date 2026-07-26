@@ -86,7 +86,7 @@ test('Codex validates hidden codex-auto-review model id from CLI catalog', () =>
 
 test('Codex primary model names prioritize gpt-5.6-sol and current visible catalog entries', () => {
   // Issue #2027: gpt-5.6-sol leads the primary catalog, with gpt-5.5 kept as the stable fallback.
-  assert.deepEqual(primaryModelNames.codex, ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark']);
+  assert.deepEqual(primaryModelNames.codex, ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', 'formal-ai']);
   assert.equal(primaryModelNames.codex.includes('codex-auto-review'), false);
 });
 

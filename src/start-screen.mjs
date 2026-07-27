@@ -4,6 +4,9 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 
 const execAsync = promisify(exec);
 

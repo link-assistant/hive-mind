@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { sanitizeForPublication } from '../token-sanitization.lib.mjs';
 
 /**
  * YouTrack to GitHub Issue Synchronization Module
@@ -66,10 +67,10 @@ export async function syncYouTrackIssueToGitHub(youTrackIssue, owner, repo, youT
 
   // Format title with YouTrack ID for automatic linking
   // Format: "[PROJECT-123] Original Title" or "PROJECT-123: Original Title"
-  const ghTitle = `[${youTrackId}] ${youTrackIssue.summary}`;
+  const ghTitle = await sanitizeForPublication(`[${youTrackId}] ${youTrackIssue.summary}`);
 
   // Build issue body with YouTrack details
-  const ghBody = `## YouTrack Issue
+  const ghBody = await sanitizeForPublication(`## YouTrack Issue
 
 **ID:** ${youTrackId}
 **Link:** ${youTrackUrl}
@@ -82,7 +83,7 @@ ${youTrackIssue.description || 'No description provided.'}
 ---
 *This issue is automatically synchronized from YouTrack. Any commits or PRs that reference \`${youTrackId}\` will be automatically linked in YouTrack.*
 
-**Note:** To process this issue, ensure the 'help wanted' label exists in your repository.`;
+**Note:** To process this issue, ensure the 'help wanted' label exists in your repository.`);
 
   // Check if issue already exists
   const existingIssue = await findGitHubIssueForYouTrack(youTrackId, owner, repo, $);

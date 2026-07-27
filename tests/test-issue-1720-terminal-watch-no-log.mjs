@@ -89,7 +89,8 @@ console.log('\n--- /log replies to the originating message (so Telegraf carries 
 const logTempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'log-1720-'));
 const sessionUuid = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 const logFilePath = path.join(logTempDir, `${sessionUuid}.log`);
-await fs.writeFile(logFilePath, 'log content\n');
+const rawLogSecret = 'abcdefghijklmnop';
+await fs.writeFile(logFilePath, `log content\nAPI_TOKEN=${rawLogSecret}\n`);
 
 const replyDocCalls = [];
 const replyTextCalls = [];
@@ -127,7 +128,9 @@ const ctx = {
     return { message_id: 1 };
   },
   replyWithDocument: async (doc, opts) => {
-    replyDocCalls.push({ doc, opts });
+    const content = await fs.readFile(doc.source, 'utf8');
+    const mode = (await fs.stat(doc.source)).mode & 0o777;
+    replyDocCalls.push({ doc, opts, content, mode });
     return { message_id: 2 };
   },
   telegram: {
@@ -140,6 +143,15 @@ await fakeBot._handler(ctx);
 assert(replyDocCalls.length === 1, '/log issues exactly one replyWithDocument call for a public-repo session', { replyDocCalls: replyDocCalls.length });
 const docCall = replyDocCalls[0];
 assert(docCall?.opts?.reply_to_message_id === 555, '/log replies to the message that contained the command', { opts: docCall?.opts });
+assert(docCall?.doc?.source !== logFilePath, '/log uploads a separate sanitized artifact');
+assert(!docCall?.content?.includes(rawLogSecret) && docCall?.content?.includes('abc…nop'), '/log masks credentials before Telegram upload', { content: docCall?.content });
+assert(docCall?.mode === 0o600, '/log upload artifact is owner-readable only', { mode: docCall?.mode });
+const uploadArtifactWasCleaned = await fs
+  .access(docCall.doc.source)
+  .then(() => false)
+  .catch(() => true);
+assert(uploadArtifactWasCleaned, '/log cleans the sanitized upload artifact');
+assert((await fs.readFile(logFilePath, 'utf8')).includes(rawLogSecret), '/log leaves the raw local audit log unchanged');
 // Telegraf's Context#replyWithDocument transparently injects message_thread_id from
 // ctx.message into the outgoing payload (see node_modules/telegraf/lib/context.js).
 // We do not need to set it ourselves — but we must use ctx.replyWithDocument (not

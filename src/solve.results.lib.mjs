@@ -31,10 +31,10 @@ const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Issue #1745: process-wide sanitization counters used to print a one-line
 // "we masked N secrets" summary at the end of each run.
-const { formatSanitizationSummary } = await import('./token-sanitization.lib.mjs');
+const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublicationFile } = await import('./token-sanitization.lib.mjs');
 // Issue #1745: post-finish retroactive sanitization of bot-authored PR
-// comments and the PR description. Runs by default; can be skipped via
-// --dangerously-skip-output-sanitization.
+// comments and the PR description. This external repair boundary always runs
+// when PR coordinates are available.
 const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
 
 // Import continuation functions (session resumption, PR detection)
@@ -153,7 +153,7 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
 
   const fs = (await use('fs')).promises;
   const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
-  await fs.writeFile(tempBodyFile, linkResult.body);
+  await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
 
   try {
     const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
@@ -638,25 +638,19 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
   // bot-authored PR comments and the PR description, runs them through
   // sanitizeOutput, and edits in place if a leak slipped past the live
-  // sanitizer. Honors --dangerously-skip-output-sanitization and the related
-  // active-tokens flag.
+  // sanitizer. Publication repair is a strict external boundary, so local
+  // diagnostic bypass flags never disable it.
   try {
     const owner = argv.owner;
     const repo = argv.repo;
     const prNumber = argv.prNumber;
-    const skipOutputSanitization = argv['dangerously-skip-output-sanitization'] === true;
-    const skipActiveTokensOutputSanitization = argv['dangerously-skip-active-tokens-output-sanitization'] === true;
-    if (owner && repo && prNumber && !skipOutputSanitization) {
+    if (owner && repo && prNumber) {
       const sweepResult = await runPostFinishSweep({
         $,
         owner,
         repo,
         prNumber,
         log,
-        sanitizationOptions: {
-          warnOnMismatch: false,
-          skipActiveTokensOutputSanitization,
-        },
       });
       if (sweepResult.totalEdited > 0) {
         await log(`🔒 Post-finish sweep: edited ${sweepResult.totalEdited} bot-authored item(s) to mask leaked tokens.`);
@@ -771,7 +765,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
           // (let the agent handle it on restart instead)
           if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
-            const updatedTitle = pr.title.replace(/^\[WIP\]\s*/, '');
+            const updatedTitle = await sanitizeForPublication(pr.title.replace(/^\[WIP\]\s*/, ''));
             await log(`  📝 Removing [WIP] prefix from PR title...`);
             const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
             if (titleResult.code === 0) {
@@ -819,7 +813,7 @@ Fixes ${issueRef}
 *This PR was created automatically by the AI issue solver*`;
 
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
-            await fs.writeFile(tempBodyFile, newDescription);
+            await writeSanitizedPublicationFile(tempBodyFile, newDescription);
 
             try {
               const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;

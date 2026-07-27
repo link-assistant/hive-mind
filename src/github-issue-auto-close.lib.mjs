@@ -27,6 +27,7 @@
 
 import { prClosesIssue, extractLinkedIssueNumber } from './github-linking.lib.mjs';
 import { wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 /**
  * Determine whether GitHub will automatically close a PR's linked issues when
@@ -216,7 +217,7 @@ export async function ensureLinkedIssueClosedAfterMerge({ $: rawDollar, log = nu
     }
 
     // Close the issue explicitly, leaving an explanatory trail.
-    const comment = [`Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).`, '', 'GitHub only auto-closes linked issues for pull requests merged into the default branch,', 'so hive-mind closed this issue explicitly after the merge.', '', '_Automated by hive-mind ([#1895](https://github.com/link-assistant/hive-mind/issues/1895))._'].join('\n');
+    const comment = await sanitizeForPublication([`Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).`, '', 'GitHub only auto-closes linked issues for pull requests merged into the default branch,', 'so hive-mind closed this issue explicitly after the merge.', '', '_Automated by hive-mind ([#1895](https://github.com/link-assistant/hive-mind/issues/1895))._'].join('\n'));
 
     const closeResult = await $`gh issue close ${issueNumber} --repo ${owner}/${repo} --reason completed --comment ${comment}`;
     if (closeResult.code === 0) {

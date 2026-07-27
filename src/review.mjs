@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore, setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 
 // Early exit paths - handle these before loading all modules to speed up testing
 const earlyArgs = process.argv.slice(2);
@@ -44,7 +47,6 @@ const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
-import { log, setLogFile, getLogFile, formatAligned, extractToolErrorCore } from './lib.mjs';
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';

@@ -601,10 +601,6 @@ export const executeClaudeCommand = async params => {
         $,
         log,
         verbose: argv.verbose,
-        // Issue #1745: thread the three independent dangerous-skip flags through
-        // so the comment-posting path can honor them; flags default to false.
-        skipOutputSanitization: argv['dangerously-skip-output-sanitization'] === true,
-        skipActiveTokensOutputSanitization: argv['dangerously-skip-active-tokens-output-sanitization'] === true,
         // Issue #1843: upload & embed images by default; --no-interactive-image-upload opts out.
         imageUploadEnabled: argv['interactive-image-upload'] !== false,
       });

@@ -15,9 +15,13 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
  * @module token-sanitization
  */
 
-// Import shared utility from lib.mjs
-import { maskToken, log, isENOSPC } from './lib.mjs';
+// Import shared utilities. The dependency-free core is also used directly by
+// lib.mjs, so it must not depend on this asynchronous Secretlint layer.
+import { log, isENOSPC } from './lib.mjs';
+import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
+
+export { createCredentialStreamSanitizer };
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Dynamic imports for runtime dependencies
@@ -28,6 +32,7 @@ const getFsModule = async () => (await import('fs')).promises;
 // Lazy-loaded secretlint modules (initialized on first use)
 let secretlintCore = null;
 let secretlintConfig = null;
+let githubCommandTokensCache = null;
 
 // Issue #1745: process-wide counters for how many tokens were masked. The
 // final-summary path (solve.mjs / hive.mjs) reads these to print a one-line
@@ -107,10 +112,10 @@ const initSecretlint = async () => {
     };
 
     return true;
-  } catch (error) {
+  } catch (_error) {
     // secretlint not available - fall back to custom patterns only
     if (global.verboseMode) {
-      await log(`  ⚠️  Secretlint not available, using fallback patterns: ${error.message}`, { verbose: true });
+      await log('  ⚠️  Secretlint is not available; publication boundaries will remain blocked.', { verbose: true });
     }
     secretlintConfig = false;
     return false;
@@ -240,6 +245,9 @@ export const getGitHubTokensFromFiles = async () => {
  * @returns {Promise<string[]>} Array of tokens found
  */
 export const getGitHubTokensFromCommand = async () => {
+  if (githubCommandTokensCache) {
+    return [...githubCommandTokensCache];
+  }
   if (typeof globalThis.use === 'undefined') {
     await ensureUseM();
   }
@@ -276,6 +284,7 @@ export const getGitHubTokensFromCommand = async () => {
     }
   }
 
+  githubCommandTokensCache = [...tokens];
   return tokens;
 };
 
@@ -284,11 +293,14 @@ export const getGitHubTokensFromCommand = async () => {
  * @param {string} content - Content to scan
  * @returns {Promise<Array<{start: number, end: number, token: string, ruleId: string}>>} Array of detected secrets with rule info
  */
-const detectSecretsWithSecretlint = async content => {
+const detectSecretsWithSecretlint = async (content, options = {}) => {
   const secrets = [];
 
   const available = await initSecretlint();
   if (!available || !secretlintCore || !secretlintConfig) {
+    if (options.required) {
+      throw new Error('Secretlint scanner is unavailable.');
+    }
     return secrets;
   }
 
@@ -309,6 +321,12 @@ const detectSecretsWithSecretlint = async content => {
       if (message.range && message.range.length === 2) {
         const [start, end] = message.range;
         const token = content.substring(start, end);
+        // The synchronous core may already have sanitized the credential
+        // portion of a larger structured value (for example a database DSN).
+        // Do not let a broad Secretlint range erase the remaining safe context.
+        if (token.includes('[REDACTED]') || /…/.test(token)) {
+          continue;
+        }
         secrets.push({
           start,
           end,
@@ -319,8 +337,11 @@ const detectSecretsWithSecretlint = async content => {
       }
     }
   } catch (error) {
+    if (options.required) {
+      throw new Error('Secretlint scanner failed.', { cause: error });
+    }
     if (global.verboseMode) {
-      await log(`  ⚠️  Secretlint detection error: ${error.message}`, { verbose: true });
+      await log('  ⚠️  Secretlint detection failed.', { verbose: true });
     }
   }
 
@@ -404,7 +425,7 @@ const detectSecretsWithCustomPatterns = content => {
     while ((match = pattern.exec(content)) !== null) {
       const token = match[0];
       // Skip if already masked (contains consecutive asterisks)
-      if (/\*{3,}/.test(token)) {
+      if (/\*{3,}/.test(token) || token.includes('[REDACTED]') || /…/.test(token)) {
         continue;
       }
       secrets.push({
@@ -455,6 +476,44 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
 };
 
 /**
+ * Run the dependency-free sanitizer without changing exact strings covered by
+ * the legacy local-output exclusion carve-out. Publication callers never pass
+ * exclusions and therefore cannot reach this compatibility behavior.
+ */
+const sanitizeCredentialTextPreservingExclusions = (input, excludedSet) => {
+  const text = String(input ?? '');
+  if (excludedSet.size === 0) return sanitizeCredentialText(text);
+
+  const excludedTokens = [...excludedSet].sort((a, b) => b.length - a.length);
+  let output = '';
+  let cursor = 0;
+
+  while (cursor < text.length) {
+    let nextIndex = -1;
+    let nextToken = '';
+    for (const token of excludedTokens) {
+      const index = text.indexOf(token, cursor);
+      if (index === -1) continue;
+      if (nextIndex === -1 || index < nextIndex || (index === nextIndex && token.length > nextToken.length)) {
+        nextIndex = index;
+        nextToken = token;
+      }
+    }
+
+    if (nextIndex === -1) {
+      output += sanitizeCredentialText(text.slice(cursor));
+      break;
+    }
+
+    output += sanitizeCredentialText(text.slice(cursor, nextIndex));
+    output += nextToken;
+    cursor = nextIndex + nextToken.length;
+  }
+
+  return output;
+};
+
+/**
  * Sanitize arbitrary outbound output by masking sensitive tokens while avoiding false positives
  * Uses DUAL APPROACH: Both secretlint AND custom patterns run independently
  *
@@ -470,7 +529,7 @@ const compareDetectionResults = async (secretlintSecrets, customSecrets) => {
  * @returns {Promise<string>} Sanitized output with tokens masked
  */
 export const sanitizeOutput = async (output, options = {}) => {
-  let sanitized = output;
+  let sanitized = String(output ?? '');
   const { warnOnMismatch = global.verboseMode, skipOutputSanitization = false, skipActiveTokensOutputSanitization = false, excludeTokens = [] } = options;
   const excludedSet = new Set((excludeTokens || []).filter(t => typeof t === 'string' && t.length > 0));
   const isExcluded = token => excludedSet.has(token);
@@ -513,6 +572,29 @@ export const sanitizeOutput = async (output, options = {}) => {
       return sanitized;
     }
 
+    // Always apply the dependency-free structured/vendor pass before optional
+    // scanners. Record custom-pattern matches before that pass because the
+    // core deliberately masks them first; otherwise the legacy local-output
+    // summary counters would no longer observe those replacements.
+    const preCoreCustomSecrets = detectSecretsWithCustomPatterns(sanitized);
+    let corePatternMasks = 0;
+    for (const secret of preCoreCustomSecrets) {
+      if (isExcluded(secret.token)) continue;
+      if (sanitizeCredentialText(secret.token, { includeEnvironmentCredentials: false }) !== secret.token) {
+        corePatternMasks++;
+      }
+    }
+
+    const beforeCore = sanitized;
+    sanitized = sanitizeCredentialTextPreservingExclusions(sanitized, excludedSet);
+    if (sanitized !== beforeCore) {
+      // Structured credentials that do not have a standalone vendor pattern
+      // still count as one sanitization event for the operator-facing summary.
+      const coreMaskCount = Math.max(corePatternMasks, 1);
+      sanitizationStats.patternMasks += coreMaskCount;
+      sanitizationStats.totalMasked += coreMaskCount;
+    }
+
     // Step 2: DUAL APPROACH - Run both detection methods independently
     const [secretlintSecrets, customSecrets] = await Promise.all([detectSecretsWithSecretlint(sanitized), Promise.resolve(detectSecretsWithCustomPatterns(sanitized))]);
 
@@ -524,9 +606,8 @@ export const sanitizeOutput = async (output, options = {}) => {
       stats.secretlintOnlyWarnings = secretlintOnly;
       await log(`  ⚠️  PATTERN GAP: Secretlint found ${secretlintOnly.length} secret(s) that our custom patterns missed:`, { verbose: true });
       for (const secret of secretlintOnly) {
-        // Show truncated token and rule that detected it
-        const truncated = secret.token.length > 20 ? `${secret.token.substring(0, 10)}...${secret.token.substring(secret.token.length - 5)}` : secret.token;
-        await log(`      • Rule: ${secret.ruleId}, Token preview: ${truncated}`, { verbose: true });
+        // Rule identifiers are useful diagnostics; token previews are not.
+        await log(`      • Rule: ${secret.ruleId}`, { verbose: true });
       }
       await log(`      Consider adding custom patterns for these secret types to improve our detection.`, { verbose: true });
     }
@@ -634,13 +715,91 @@ export const sanitizeOutput = async (output, options = {}) => {
       level: isNoSpace ? 'error' : 'warning',
     });
     if (isNoSpace) {
-      await log(`  ❌ ENOSPC: No space left on device during log sanitization. Skipping sanitization.`);
+      await log(`  ❌ ENOSPC: No space left on device during output sanitization. Output was blocked.`);
       await log(`     Consider freeing disk space (e.g., rm -rf ~/.claude/debug/*.txt) and retrying.`);
     } else {
-      await log(`  ⚠️  Warning: Could not fully sanitize log content: ${error.message}`, { verbose: true });
+      await log(`  ⚠️  Warning: Output sanitization failed; unsafe output was blocked.`, { verbose: true });
     }
+    return CREDENTIAL_SANITIZATION_FAILURE_MESSAGE;
   }
 
+  return sanitized;
+};
+
+export class CredentialSanitizationError extends Error {
+  constructor(options = {}) {
+    super(CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, options);
+    this.name = 'CredentialSanitizationError';
+    this.code = CREDENTIAL_SANITIZATION_ERROR_CODE;
+  }
+}
+
+/**
+ * Exact publication-boundary sanitizer.
+ *
+ * Unlike best-effort local diagnostics, outbound mutations require both the
+ * synchronous maintained patterns and Secretlint to complete successfully.
+ * The final bytes are scanned again immediately before a caller publishes
+ * them. Any scanner failure or residual finding blocks publication.
+ */
+export const sanitizeForPublication = async (input, options = {}) => {
+  try {
+    const scanner =
+      options.scanner ||
+      (async value => {
+        const sanitized = await sanitizeOutput(value, {
+          warnOnMismatch: false,
+          // Publication boundaries intentionally ignore all dangerous bypass
+          // flags and user-content exclusions.
+          skipOutputSanitization: false,
+          skipActiveTokensOutputSanitization: false,
+          excludeTokens: [],
+        });
+        if (sanitized === CREDENTIAL_SANITIZATION_FAILURE_MESSAGE) {
+          throw new Error('Primary sanitizer failed.');
+        }
+        return sanitized;
+      });
+    const sanitized = String(await scanner(String(input ?? '')));
+    const residualScanner =
+      options.residualScanner ||
+      (async value => {
+        const residuals = findCredentialResiduals(value);
+        const secretlintResiduals = await detectSecretsWithSecretlint(value, { required: true });
+        const knownTokenResiduals = await containsKnownToken(value);
+        return [...residuals, ...secretlintResiduals, ...knownTokenResiduals];
+      });
+    const residuals = await residualScanner(sanitized);
+    if (!Array.isArray(residuals) || residuals.length > 0) {
+      throw new Error('Residual credential material detected.');
+    }
+    return sanitized;
+  } catch (cause) {
+    reportError(new Error('Credential publication boundary blocked unsafe output.'), {
+      context: 'credential_publication_boundary',
+      level: 'warning',
+    });
+    throw new CredentialSanitizationError({ cause });
+  }
+};
+
+/**
+ * Write an exact outbound payload to an owner-readable file after the
+ * fail-closed publication scan. Returns the bytes written for callers that
+ * also need to compare or reuse them.
+ */
+export const writeSanitizedPublicationFile = async (filePath, input) => {
+  const sanitized = await sanitizeForPublication(input);
+  const fs = await getFsModule();
+  // Publication intermediates are always new files. Exclusive creation avoids
+  // following a pre-planted symlink in a shared temporary directory.
+  const handle = await fs.open(filePath, 'wx', 0o600);
+  try {
+    await handle.writeFile(sanitized, { encoding: 'utf8' });
+    await handle.chmod(0o600);
+  } finally {
+    await handle.close();
+  }
   return sanitized;
 };
 
@@ -706,7 +865,7 @@ export const getEnvironmentTokens = () => {
   const out = [];
   for (const name of KNOWN_LOCAL_TOKEN_ENV_VARS) {
     const value = process.env[name];
-    if (typeof value === 'string' && value.length >= 12) {
+    if (typeof value === 'string' && value.length > 0) {
       out.push({ name, value });
     }
   }
@@ -888,6 +1047,8 @@ export const extractTokensFromUserContent = async (text, options = {}) => {
 
 // Default export for convenience
 export default {
+  CredentialSanitizationError,
+  createCredentialStreamSanitizer,
   isSafeToken,
   isHexInSafeContext,
   getGitHubTokensFromFiles,
@@ -900,6 +1061,8 @@ export default {
   getEnvironmentTokens,
   getAllKnownLocalTokens,
   containsKnownToken,
+  sanitizeForPublication,
+  writeSanitizedPublicationFile,
   sanitizeCommentBody,
   getSanitizationStats,
   resetSanitizationStats,

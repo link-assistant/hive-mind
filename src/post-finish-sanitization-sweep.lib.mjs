@@ -21,7 +21,7 @@
  * @module post-finish-sanitization-sweep
  */
 
-import { sanitizeOutput, getSanitizationStats } from './token-sanitization.lib.mjs';
+import { sanitizeForPublication, getSanitizationStats } from './token-sanitization.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): caller passes $ already wrapped through wrapDollarWithGhRetry
 
 /**
@@ -57,7 +57,7 @@ const detectBotLogin = async $ => {
  * @param {Object}   [args.sanitizationOptions] forwarded to sanitizeOutput
  * @returns {Promise<{scanned:number, edited:number, errors:number}>}
  */
-export const sweepPrConversationComments = async ({ $, owner, repo, prNumber, botLogin, log = async () => {}, sanitizationOptions = {} }) => {
+export const sweepPrConversationComments = async ({ $, owner, repo, prNumber, botLogin, log = async () => {}, sanitizationOptions: _sanitizationOptions = {} }) => {
   const stats = { scanned: 0, edited: 0, errors: 0 };
   let response;
   try {
@@ -86,7 +86,7 @@ export const sweepPrConversationComments = async ({ $, owner, repo, prNumber, bo
     stats.scanned++;
     let sanitized;
     try {
-      sanitized = await sanitizeOutput(c.body, sanitizationOptions);
+      sanitized = await sanitizeForPublication(c.body);
     } catch (err) {
       await log(`⚠️ post-finish sweep: sanitize comment ${c.id} failed: ${err.message || err}`);
       stats.errors++;
@@ -116,7 +116,7 @@ export const sweepPrConversationComments = async ({ $, owner, repo, prNumber, bo
  * @param {Object} args
  * @returns {Promise<{scanned:number, edited:number, errors:number}>}
  */
-export const sweepPrDescription = async ({ $, owner, repo, prNumber, log = async () => {}, sanitizationOptions = {} }) => {
+export const sweepPrDescription = async ({ $, owner, repo, prNumber, log = async () => {}, sanitizationOptions: _sanitizationOptions = {} }) => {
   const stats = { scanned: 0, edited: 0, errors: 0 };
   let response;
   try {
@@ -142,7 +142,7 @@ export const sweepPrDescription = async ({ $, owner, repo, prNumber, log = async
   stats.scanned++;
   let sanitized;
   try {
-    sanitized = await sanitizeOutput(body, sanitizationOptions);
+    sanitized = await sanitizeForPublication(body);
   } catch (err) {
     await log(`⚠️ post-finish sweep: sanitize PR body failed: ${err.message || err}`);
     stats.errors++;

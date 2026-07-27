@@ -11,6 +11,7 @@ import { handleCompareApiNotReady } from './solve.auto-pr-compare-readiness.lib.
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTransientCompareApiError } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too. Issue #1829: isTransientCompareApiError lets the compare-API readiness gate degrade gracefully on transient diff-render failures.
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
+import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
@@ -906,17 +907,19 @@ ${prBody}`,
         // single transient 5xx (e.g. `HTTP 504: 504 Gateway Timeout
         // (https://api.github.com/graphql)`) or rate-limit response retries
         // instead of aborting the whole solve session.
+        let prBodyFile = null;
+        let prTitleFile = null;
         try {
           // Write PR body to temp file to avoid shell escaping issues
-          const prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
-          await fs.writeFile(prBodyFile, prBody);
+          prBodyFile = `/tmp/pr-body-${Date.now()}.md`;
+          await writeSanitizedPublicationFile(prBodyFile, prBody);
 
           // Write PR title to temp file to avoid shell escaping issues with quotes/apostrophes
           // This solves the issue where titles containing apostrophes (e.g., "don't") would cause
           // "Unterminated quoted string" errors
-          const prTitle = `[WIP] ${issueTitle}`;
-          const prTitleFile = `/tmp/pr-title-${Date.now()}.txt`;
-          await fs.writeFile(prTitleFile, prTitle);
+          const prTitle = await sanitizeForPublication(`[WIP] ${issueTitle}`);
+          prTitleFile = `/tmp/pr-title-${Date.now()}.txt`;
+          await writeSanitizedPublicationFile(prTitleFile, prTitle);
 
           // Build command with optional assignee and handle forks
           // Note: targetBranch is already defined above
@@ -993,22 +996,6 @@ ${prBody}`,
               throw firstError;
             }
           }
-
-          // Clean up temp files
-          await fs.unlink(prBodyFile).catch(unlinkError => {
-            reportError(unlinkError, {
-              context: 'pr_body_file_cleanup',
-              prBodyFile,
-              operation: 'delete_temp_file',
-            });
-          });
-          await fs.unlink(prTitleFile).catch(unlinkError => {
-            reportError(unlinkError, {
-              context: 'pr_title_file_cleanup',
-              prTitleFile,
-              operation: 'delete_temp_file',
-            });
-          });
 
           // Log gh pr create output for debugging (Issue #1462)
           if (argv.verbose) {
@@ -1279,6 +1266,9 @@ ${prBody}`,
           } else {
             throw new Error(`PR creation failed: ${cleanError}`, { cause: prCreateError });
           }
+        } finally {
+          if (prBodyFile) await fs.unlink(prBodyFile).catch(() => {});
+          if (prTitleFile) await fs.unlink(prTitleFile).catch(() => {});
         }
       }
     }

@@ -86,6 +86,8 @@ Hive Mind में औसत प्रोग्रामर से अलग �
 - कभी भी उत्पादन टोकन या क्रेडेंशियल का उपयोग न करना
 - इस सिस्टम के साथ उपयोग किए गए सभी टोकन को रद्द और प्रतिस्थापित करने के लिए तैयार रहना
 
+Hive Mind अपने प्रबंधित terminal, log, telemetry, upload और GitHub publication paths में पहचाने गए credentials को sanitize करता है। Scanner विफल होने पर publication रोक दिया जाता है, लेकिन यह किसी autonomous tool को किसी असंबंधित exfiltration path का उपयोग करने से नहीं रोकता। Masking contract, supported formats, maintenance process और incident-response guidance के लिए [Credential sanitization](./docs/CREDENTIAL-SANITIZATION.hi.md) देखें।
+
 `hive.mjs` चलाने के लिए न्यूनतम सिस्टम आवश्यकताएँ:
 
 ```

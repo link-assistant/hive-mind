@@ -34,7 +34,7 @@ async function runTest(name, testFn) {
 
 /** Create a handler with default test mocks, overridable per-test. */
 let mockCommentIdCounter = 1000;
-function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123, verbose = false, onComment } = {}) {
+function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123, verbose = false, onComment, handlerOptions = {} } = {}) {
   const comments = [];
   const edits = [];
   const logs = [];
@@ -63,7 +63,7 @@ function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123,
     logs.push(msg);
     return Promise.resolve();
   };
-  const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose, execFile: mockExecFile });
+  const handler = createInteractiveHandler({ owner, repo, prNumber, $: mock$, log: mockLog, verbose, execFile: mockExecFile, ...handlerOptions });
   return { handler, comments, edits, logs };
 }
 
@@ -305,6 +305,26 @@ await runTest('processEvent handles assistant text', async () => {
   });
   const state = handler.getState();
   if (state.messageCount !== 1) throw new Error('Expected messageCount to be 1');
+});
+
+await runTest('interactive GitHub comments ignore local sanitization bypass flags', async () => {
+  const rawSecret = 'abcdefghijklmnop';
+  const { handler, comments } = makeHandler({
+    handlerOptions: {
+      skipOutputSanitization: true,
+      skipActiveTokensOutputSanitization: true,
+      excludeTokens: [rawSecret],
+    },
+  });
+  await handler.processEvent({
+    type: 'assistant',
+    message: {
+      content: [{ type: 'text', text: `API_TOKEN=${rawSecret}` }],
+    },
+  });
+  const published = comments.at(-1)?.body || '';
+  if (published.includes(rawSecret)) throw new Error('External comment retained a credential');
+  if (!published.includes('abc…nop')) throw new Error(`Expected exact masked value, got: ${published}`);
 });
 
 await runTest('processEvent handles tool_use', async () => {

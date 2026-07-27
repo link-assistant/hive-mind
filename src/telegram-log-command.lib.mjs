@@ -21,14 +21,39 @@
  */
 
 import path from 'path';
+import os from 'os';
 import fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
+import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 const UUID_RE = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
 const ISOLATION_BACKENDS = new Set(['screen', 'tmux', 'docker']);
 // Telegram bots may upload documents up to 50 MB via sendDocument.
 // https://core.telegram.org/bots/api#senddocument
 const TELEGRAM_DOCUMENT_MAX_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Build a private, sanitized upload artifact without modifying the raw audit
+ * log. The returned cleanup function must be called after the network request.
+ */
+async function prepareSanitizedLogUpload(logPath, caption) {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-telegram-log-'));
+  await fs.chmod(tempDir, 0o700);
+  const sanitizedPath = path.join(tempDir, path.basename(logPath));
+
+  try {
+    const [rawLog, safeCaption] = await Promise.all([fs.readFile(logPath, 'utf8'), sanitizeForPublication(caption)]);
+    await writeSanitizedPublicationFile(sanitizedPath, rawLog);
+    return {
+      path: sanitizedPath,
+      caption: safeCaption,
+      cleanup: () => fs.rm(tempDir, { recursive: true, force: true }),
+    };
+  } catch (error) {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    throw error;
+  }
+}
 
 /**
  * Extract the first RFC 4122 v4-shaped UUID found in `text`.
@@ -305,11 +330,15 @@ export async function registerLogCommand(bot, options) {
 
     if (decision.destination === 'chat') {
       // Public repository → reply with the document directly in the chat.
+      let upload;
       try {
-        await ctx.replyWithDocument({ source: logPath, filename }, { reply_to_message_id: message.message_id, caption, parse_mode: 'Markdown' });
+        upload = await prepareSanitizedLogUpload(logPath, caption);
+        await ctx.replyWithDocument({ source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown' });
       } catch (error) {
         console.error('[ERROR] /log: replyWithDocument failed:', error);
-        await ctx.reply(`❌ Failed to upload log: ${error.message || String(error)}`, { reply_to_message_id: message.message_id });
+        await ctx.reply('❌ Failed to sanitize or upload the log.', { reply_to_message_id: message.message_id });
+      } finally {
+        await upload?.cleanup();
       }
       return;
     }
@@ -348,16 +377,21 @@ export async function registerLogCommand(bot, options) {
       console.error('[ERROR] /log: DM forwarding step failed:', error);
     }
 
+    let upload;
     try {
+      upload = await prepareSanitizedLogUpload(logPath, caption);
       const replyOpts = forwardedMessageId ? { reply_to_message_id: forwardedMessageId, caption, parse_mode: 'Markdown' } : { caption, parse_mode: 'Markdown' };
-      await ctx.telegram.sendDocument(userId, { source: logPath, filename }, replyOpts);
+      replyOpts.caption = upload.caption;
+      await ctx.telegram.sendDocument(userId, { source: upload.path, filename }, replyOpts);
     } catch (error) {
       console.error('[ERROR] /log: sendDocument to DM failed:', error);
       // Tell the user, in their original chat, that DM delivery failed
       // (commonly because they have not started a chat with the bot).
-      const friendly = error?.code === 403 || /chat not found|bot can't initiate conversation/i.test(error?.message || '') ? 'I could not send you a DM. Please open a private chat with me and send /start, then try again.' : `Failed to send the log via DM: ${error.message || String(error)}`;
+      const friendly = error?.code === 403 || /chat not found|bot can't initiate conversation/i.test(error?.message || '') ? 'I could not send you a DM. Please open a private chat with me and send /start, then try again.' : 'Failed to sanitize or send the log via DM.';
       await ctx.reply(`❌ ${friendly}`, { reply_to_message_id: message.message_id });
       return;
+    } finally {
+      await upload?.cleanup();
     }
 
     // Acknowledge in the original chat (only if it wasn't already a DM).

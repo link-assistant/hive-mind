@@ -215,7 +215,7 @@ export const resetTrackedToolCommentIds = () => {
  * @param {string} options.body
  * @returns {Promise<{ok: boolean, commentId: string|null, stderr?: string}>}
  */
-export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, sanitizationOptions }) => {
+export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, sanitizationOptions: _sanitizationOptions }) => {
   if (!$) {
     throw new Error('postTrackedComment requires a command-stream $ helper');
   }
@@ -225,10 +225,10 @@ export const postTrackedComment = async ({ $, owner, repo, targetNumber, body, s
   // We use the /issues/<n>/comments endpoint because it works identically
   // for both PRs and issues (a PR is an issue at this endpoint).
   const apiPath = `repos/${owner}/${repo}/issues/${targetNumber}/comments`;
-  const { sanitizeOutput } = await import('./token-sanitization.lib.mjs');
-  // Issue #1745: caller may pass dangerous-skip flags + carve-out tokens.
-  // Defaults preserve fail-closed behavior: full sanitization.
-  const sanitizedBody = await sanitizeOutput(body, sanitizationOptions || {});
+  const { sanitizeForPublication } = await import('./token-sanitization.lib.mjs');
+  // This is the exact outbound mutation boundary. Dangerous local-output
+  // bypasses and user-content carve-outs must not weaken GitHub publication.
+  const sanitizedBody = await sanitizeForPublication(body);
   const payload = JSON.stringify({ body: sanitizedBody });
 
   // command-stream's options key is `stdin`, not `input` — unknown keys are

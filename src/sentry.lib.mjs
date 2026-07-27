@@ -1,5 +1,24 @@
 // Sentry integration library for hive-mind
 import { isSentryEnabled, captureException, captureMessage, startTransaction } from './instrument.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+
+const sanitizeError = error => {
+  const source = error instanceof Error ? error : new Error(String(error));
+  const sanitized = new Error(sanitizeCredentialText(source.message));
+  sanitized.name = source.name;
+  if (source.stack) sanitized.stack = sanitizeCredentialText(source.stack);
+  return sanitized;
+};
+
+const sanitizeContext = (value, seen = new WeakSet()) => {
+  if (typeof value === 'string') return sanitizeCredentialText(value);
+  if (value instanceof Error) return sanitizeError(value);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+  if (Array.isArray(value)) return value.map(item => sanitizeContext(item, seen));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeContext(item, seen)]));
+};
 
 // Lazy import of Sentry to handle cases where it's not installed
 let Sentry = null;
@@ -84,7 +103,7 @@ export const withSentry = (fn, name, op = 'task') => {
       return result;
     } catch (error) {
       transaction.setStatus('internal_error');
-      captureException(error, {
+      captureException(sanitizeError(error), {
         operation: name,
         args: args.length > 0 ? `${args.length} arguments` : 'no arguments',
       });
@@ -139,7 +158,7 @@ export const logToSentry = (message, level = 'info', context = {}) => {
     return;
   }
 
-  captureMessage(message, level, context);
+  captureMessage(sanitizeCredentialText(message), level, sanitizeContext(context));
 };
 
 /**
@@ -153,7 +172,7 @@ export const reportError = (error, context = {}) => {
     return;
   }
 
-  captureException(error, { ...context, level: 'error' });
+  captureException(sanitizeError(error), { ...sanitizeContext(context), level: 'error' });
 };
 
 /**
@@ -169,7 +188,7 @@ export const reportWarning = (warning, context = {}) => {
 
   // Convert string warnings to Error objects for better stack traces
   const warningError = typeof warning === 'string' ? new Error(warning) : warning;
-  captureException(warningError, { ...context, level: 'warning' });
+  captureException(sanitizeError(warningError), { ...sanitizeContext(context), level: 'warning' });
 };
 
 /**
@@ -183,7 +202,7 @@ export const addBreadcrumb = async breadcrumb => {
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.addBreadcrumb(breadcrumb);
+    sentry.addBreadcrumb(sanitizeContext(breadcrumb));
   }
 };
 
@@ -198,7 +217,7 @@ export const setUserContext = async user => {
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setUser(user);
+    sentry.setUser(sanitizeContext(user));
   }
 };
 
@@ -214,7 +233,7 @@ export const setExtraContext = async (key, value) => {
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setExtra(key, value);
+    sentry.setExtra(key, sanitizeContext(value));
   }
 };
 
@@ -229,7 +248,7 @@ export const setTags = async tags => {
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setTags(tags);
+    sentry.setTags(sanitizeContext(tags));
   }
 };
 

@@ -13,6 +13,9 @@
  */
 
 import { runHiveScreens } from './hive-screens.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 
 const exitCode = await runHiveScreens(process.argv.slice(2));
 process.exit(exitCode);

@@ -86,6 +86,8 @@ We strongly recommend:
 - Never using production tokens or credentials
 - Being prepared to revoke and replace all tokens used with this system
 
+Hive Mind sanitizes recognized credentials in its maintained terminal, log, telemetry, upload, and GitHub publication paths. Publication is blocked if the scanner fails, but this does not prevent an autonomous tool from using an unrelated exfiltration path. See [Credential sanitization](./docs/CREDENTIAL-SANITIZATION.md) for the masking contract, supported formats, maintenance process, and incident-response guidance.
+
 Minimum system requirements to run `hive.mjs`:
 
 ```

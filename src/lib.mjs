@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+
+export { maskToken };
 
 // Shared library functions for hive-mind project
 
@@ -36,7 +39,8 @@ if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
 }
 
-const fs = (await use('fs')).promises;
+const fsModule = await use('fs');
+const fs = fsModule.promises;
 
 // Global reference for log file (can be set by importing module)
 export let logFile = null;
@@ -83,15 +87,20 @@ export const log = async (message, options = {}) => {
     return;
   }
 
+  const sanitizedMessage = sanitizeCredentialText(message);
+
   // Write to file if log file is set
   // Issue #1572: Handle multi-line messages by timestamping each line,
   // so continuation lines don't appear without timestamps in the log file
   if (logFile) {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
-    const lines = String(message).split('\n');
+    const lines = sanitizedMessage.split('\n');
     const logMessage = lines.map(line => `${prefix} ${line}`).join('\n');
-    await fs.appendFile(logFile, logMessage + '\n').catch(error => {
+    try {
+      await fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 });
+      await fs.chmod(logFile, 0o600);
+    } catch (error) {
       // Silent fail for file append errors to avoid infinite loop
       // but report to Sentry in verbose mode
       if (global.verboseMode) {
@@ -101,7 +110,7 @@ export const log = async (message, options = {}) => {
           logFile,
         });
       }
-    });
+    }
   }
 
   // Write to console based on level
@@ -110,15 +119,15 @@ export const log = async (message, options = {}) => {
   try {
     switch (level) {
       case 'error':
-        console.error(message);
+        console.error(sanitizedMessage);
         break;
       case 'warning':
       case 'warn':
-        console.warn(message);
+        console.warn(sanitizedMessage);
         break;
       case 'info':
       default:
-        console.log(message);
+        console.log(sanitizedMessage);
         break;
     }
   } finally {
@@ -151,18 +160,20 @@ export const setupVerboseLogInterceptor = () => {
     if (logFile && args.length > 0) {
       const firstArg = String(args[0]);
       if (firstArg.includes('[VERBOSE]')) {
-        const message = args.map(a => String(a)).join(' ');
+        const message = sanitizeCredentialText(args.map(a => String(a)).join(' '));
         const logMessage = `[${new Date().toISOString()}] [VERBOSE] ${message}`;
         _writingFromLog = true;
-        fs.appendFile(logFile, logMessage + '\n').catch(() => {
-          // Silent fail to avoid infinite loops
-        });
+        fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
+          .then(() => fs.chmod(logFile, 0o600))
+          .catch(() => {
+            // Silent fail to avoid infinite loops
+          });
       }
     }
 
     // Always call original console.log (with guard flag set if [VERBOSE])
     try {
-      originalConsoleLog(...args);
+      originalConsoleLog(...args.map(value => (typeof value === 'string' || Buffer.isBuffer(value) ? sanitizeCredentialText(value) : value)));
     } finally {
       _writingFromLog = false;
     }
@@ -206,9 +217,12 @@ const invokeWriteCallback = (callback, error = null) => {
 const appendInternalDiagnostic = async message => {
   if (!logFile) return;
   const prefix = `[${new Date().toISOString()}] [INTERNAL]`;
-  await fs.appendFile(logFile, `${prefix} ${message}\n`).catch(() => {
-    // Silent fail to avoid recursive logging errors
-  });
+  await fs
+    .appendFile(logFile, `${prefix} ${sanitizeCredentialText(message)}\n`, { mode: 0o600 })
+    .then(() => fs.chmod(logFile, 0o600))
+    .catch(() => {
+      // Silent fail to avoid recursive logging errors
+    });
 };
 
 const formatStreamDiagnostic = stream => {
@@ -278,14 +292,51 @@ export const setupStdioLogInterceptor = () => {
 
   const originalStdoutWrite = process.stdout.write.bind(process.stdout);
   const originalStderrWrite = process.stderr.write.bind(process.stderr);
+  const stdoutSanitizer = createCredentialStreamSanitizer();
+  const stderrSanitizer = createCredentialStreamSanitizer();
   installBrokenPipeGuard(process.stdout, 'stdout');
   installBrokenPipeGuard(process.stderr, 'stderr');
 
+  // Node does not guarantee that the final write contains a newline. Flush
+  // retained records on both graceful and explicit exits so buffering never
+  // drops the sanitized tail of terminal output or its persistent log.
+  const flushPendingRecord = (sanitizer, originalWrite, streamName) => {
+    const sanitizedChunk = sanitizer.flush();
+    if (!sanitizedChunk) return;
+    try {
+      originalWrite(sanitizedChunk);
+    } catch (error) {
+      if (!isBrokenPipeError(error)) throw error;
+    }
+    if (logFile && sanitizedChunk.trim()) {
+      try {
+        const logMessage = `[${new Date().toISOString()}] [${streamName.toUpperCase()}] ${sanitizedChunk}`;
+        fsModule.appendFileSync(logFile, logMessage + (sanitizedChunk.endsWith('\n') ? '' : '\n'), { mode: 0o600 });
+        fsModule.chmodSync(logFile, 0o600);
+      } catch {
+        // Exit-time logging cannot safely report another error.
+      }
+    }
+  };
+  const flushPendingOutput = () => {
+    flushPendingRecord(stdoutSanitizer, originalStdoutWrite, 'stdout');
+    flushPendingRecord(stderrSanitizer, originalStderrWrite, 'stderr');
+  };
+  process.once('beforeExit', flushPendingOutput);
+  process.once('exit', flushPendingOutput);
+
   process.stdout.write = (chunk, encoding, callback) => {
-    // Always write to terminal first, unless the output pipe is already broken.
+    const normalizedCallback = normalizeWriteCallback(encoding, callback);
+    const sanitizedChunk = stdoutSanitizer.write(chunk);
+    if (!sanitizedChunk) {
+      invokeWriteCallback(normalizedCallback);
+      return true;
+    }
+
+    // Write only the completed, sanitized record to the terminal.
     const result = safeTerminalWrite({
       originalWrite: originalStdoutWrite,
-      chunk,
+      chunk: sanitizedChunk,
       encoding,
       callback,
       streamName: 'stdout',
@@ -293,12 +344,14 @@ export const setupStdioLogInterceptor = () => {
 
     // Also append to log file if set, but skip if this write originated from log()
     if (logFile && !_writingFromLog) {
-      const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
+      const text = sanitizedChunk;
       if (text.trim()) {
         const logMessage = `[${new Date().toISOString()}] [STDOUT] ${text.replace(/\n$/, '')}`;
-        fs.appendFile(logFile, logMessage + '\n').catch(() => {
-          // Silent fail to avoid infinite loops
-        });
+        fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
+          .then(() => fs.chmod(logFile, 0o600))
+          .catch(() => {
+            // Silent fail to avoid infinite loops
+          });
       }
     }
 
@@ -306,10 +359,17 @@ export const setupStdioLogInterceptor = () => {
   };
 
   process.stderr.write = (chunk, encoding, callback) => {
-    // Always write to terminal first, unless the output pipe is already broken.
+    const normalizedCallback = normalizeWriteCallback(encoding, callback);
+    const sanitizedChunk = stderrSanitizer.write(chunk);
+    if (!sanitizedChunk) {
+      invokeWriteCallback(normalizedCallback);
+      return true;
+    }
+
+    // Write only the completed, sanitized record to the terminal.
     const result = safeTerminalWrite({
       originalWrite: originalStderrWrite,
-      chunk,
+      chunk: sanitizedChunk,
       encoding,
       callback,
       streamName: 'stderr',
@@ -317,40 +377,19 @@ export const setupStdioLogInterceptor = () => {
 
     // Also append to log file if set, but skip if this write originated from log()
     if (logFile && !_writingFromLog) {
-      const text = typeof chunk === 'string' ? chunk : chunk.toString(encoding || 'utf8');
+      const text = sanitizedChunk;
       if (text.trim()) {
         const logMessage = `[${new Date().toISOString()}] [STDERR] ${text.replace(/\n$/, '')}`;
-        fs.appendFile(logFile, logMessage + '\n').catch(() => {
-          // Silent fail to avoid infinite loops
-        });
+        fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
+          .then(() => fs.chmod(logFile, 0o600))
+          .catch(() => {
+            // Silent fail to avoid infinite loops
+          });
       }
     }
 
     return result;
   };
-};
-
-/**
- * Mask sensitive tokens in text
- * @param {string} token - Token to mask
- * @param {Object} options - Masking options
- * @param {number} [options.minLength=12] - Minimum length to mask
- * @param {number} [options.startChars=3] - Number of characters to show at start
- * @param {number} [options.endChars=3] - Number of characters to show at end
- * @returns {string} Masked token
- */
-export const maskToken = (token, options = {}) => {
-  const { minLength = 12, startChars = 3, endChars = 3 } = options;
-
-  if (!token || token.length < minLength) {
-    return token; // Don't mask very short strings
-  }
-
-  const start = token.substring(0, startChars);
-  const end = token.substring(token.length - endChars);
-  const middle = '*'.repeat(Math.max(token.length - (startChars + endChars), 3));
-
-  return start + middle + end;
 };
 
 /**

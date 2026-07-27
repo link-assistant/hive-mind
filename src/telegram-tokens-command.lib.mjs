@@ -66,7 +66,7 @@ const isOperatorOfAnyAllowedChat = async ({ telegram, userId, allowedChatIds }) 
 
 /**
  * Format the token list for display. Each line: `name (source): masked`.
- * The masked form is `first-3 *** last-3` per maskToken's new default.
+ * The masked form is `first-3…last-3` per maskToken's default.
  */
 export const formatTokenList = tokens => {
   if (!tokens || tokens.length === 0) {

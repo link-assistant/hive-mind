@@ -1,5 +1,17 @@
 // Lazy-load config only when needed to avoid loading use-m at module initialization
 // This prevents network fetches that can hang during --help or --version
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+
+const sanitizeEventValue = (value, seen = new WeakSet()) => {
+  if (typeof value === 'string') return sanitizeCredentialText(value);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return value;
+  seen.add(value);
+  for (const [key, item] of Object.entries(value)) {
+    value[key] = sanitizeEventValue(item, seen);
+  }
+  return value;
+};
 
 // Check if Sentry should be disabled
 const shouldDisableSentry = () => {
@@ -86,6 +98,8 @@ if (!shouldDisableSentry()) {
 
       // Before send hook to filter out sensitive data
       beforeSend(event) {
+        sanitizeEventValue(event);
+
         // Filter out sensitive environment variables
         if (event.contexts && event.contexts.runtime && event.contexts.runtime.env) {
           const sensitiveKeys = ['API_KEY', 'TOKEN', 'SECRET', 'PASSWORD', 'ANTHROPIC'];

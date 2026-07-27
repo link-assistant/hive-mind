@@ -1,4 +1,5 @@
 import { normalizeLocale, t } from './i18n.lib.mjs';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const FORMATTING_FALLBACK_INSTALLED = Symbol.for('hiveMind.telegramFormattingFallbackInstalled');
 const DEFAULT_FORMATTING_FALLBACK_WARNING = '⚠️ Formatting error detected. Showing plain text fallback.';
@@ -385,7 +386,7 @@ export async function safeReply(ctx, text, options = {}) {
   const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
   const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
   return await sendTelegramTextChunks({
-    text,
+    text: await sanitizeForPublication(text),
     telegramOptions: firstOptions,
     fallbackLocale,
     verbose,
@@ -398,7 +399,7 @@ export async function safeEditMessageText(telegram, chatId, messageId, inlineMes
   const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
   const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
   return await editTelegramTextChunks({
-    text,
+    text: await sanitizeForPublication(text),
     telegramOptions: firstOptions,
     fallbackLocale,
     verbose,
@@ -419,9 +420,10 @@ function wrapTelegramSendMessage(telegram, defaults = {}) {
     args[2] = telegramOptions;
 
     if (typeof text !== 'string') return await original.apply(this, args);
+    const sanitizedText = await sanitizeForPublication(text);
 
     return await sendTelegramTextChunks({
-      text,
+      text: sanitizedText,
       telegramOptions,
       fallbackLocale: fallbackLocale || defaults.fallbackLocale,
       verbose: verbose || defaults.verbose,
@@ -447,9 +449,10 @@ function wrapTelegramEditMessageText(telegram, defaults = {}) {
     args[4] = telegramOptions;
 
     if (typeof text !== 'string') return await original.apply(this, args);
+    const sanitizedText = await sanitizeForPublication(text);
 
     return await editTelegramTextChunks({
-      text,
+      text: sanitizedText,
       telegramOptions,
       fallbackLocale: fallbackLocale || defaults.fallbackLocale,
       verbose: verbose || defaults.verbose,

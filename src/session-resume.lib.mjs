@@ -11,11 +11,10 @@
  *   1. **Use the LAST session id.** A single `/solve` run can spin up *many*
  *      tool sessions — auto-continue across usage-limit resets, uncommitted-
  *      changes restarts (`solve.watch`), and manual `--resume` chains. Every one
- *      prints a `Session ID:` marker to the captured log in chronological order,
- *      and start-command also renames the per-session log to `<sessionId>.log`.
+ *      prints a `Session ID:` marker to the captured log in chronological order.
  *      The most advanced context lives in the *last* of these, so resuming must
- *      pick the last id — never the first. {@link selectLastSessionId} /
- *      {@link findLatestSessionLogId} enforce that rule.
+ *      pick the last id — never the first. {@link selectLastSessionId} and
+ *      {@link readLastSessionIdFromLog} enforce that rule.
  *
  *   2. **Never storm.** Auto-resuming a killed session must be bounded so a job
  *      that reliably OOMs cannot spawn an infinite relaunch loop (which would be
@@ -41,6 +40,8 @@ const SESSION_ID_MARKER_RE = /Session ID:\s*`?([^\s`]+)`?/gi;
 // `<sessionId>.log` files start-command writes. Used to validate directory
 // scans so unrelated `*.log` files are never mistaken for a session.
 const SESSION_LOG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEFAULT_LOG_SCAN_CHUNK_BYTES = 262144;
+const LOG_SCAN_OVERLAP_BYTES = 1024;
 
 /**
  * Extract every tool session id printed to a log, in the order they appear.
@@ -79,34 +80,52 @@ export function selectLastSessionId(text) {
 }
 
 /**
- * Read the LAST tool session id from a `/solve` execution log. Only the tail of
- * the file is scanned (the most recent session marker lives near the end), so
- * this stays cheap on multi-megabyte logs. Never throws — a missing/unreadable
- * log yields `null`.
+ * Read the LAST tool session id from a `/solve` execution log. The file is
+ * scanned backwards in bounded chunks: this normally stops after the tail
+ * chunk, while still finding a valid marker that precedes a long tool trace.
+ * Adjacent chunks overlap so a marker split at a chunk boundary is not lost.
+ * Never throws — a missing/unreadable log yields `null`.
  *
  * @param {string} logPath
  * @param {Object} [options]
  * @param {Object} [options.fsImpl=fs] - Injectable fs (for tests)
- * @param {number} [options.tailBytes=262144] - Trailing bytes to scan (256 KiB)
+ * @param {number} [options.tailBytes=262144] - Bytes per backwards scan chunk
  * @param {boolean} [options.verbose]
  * @returns {string|null}
  */
 export function readLastSessionIdFromLog(logPath, options = {}) {
-  const { fsImpl = fs, tailBytes = 262144, verbose = false } = options;
+  const { fsImpl = fs, tailBytes = DEFAULT_LOG_SCAN_CHUNK_BYTES, verbose = false } = options;
   if (!logPath) return null;
   try {
     const stat = fsImpl.statSync(logPath);
-    const start = Math.max(0, stat.size - tailBytes);
+    const chunkBytes = Number.isFinite(tailBytes) && tailBytes > 0 ? Math.floor(tailBytes) : DEFAULT_LOG_SCAN_CHUNK_BYTES;
     const fd = fsImpl.openSync(logPath, 'r');
     try {
-      const length = stat.size - start;
-      const buffer = Buffer.alloc(length);
-      fsImpl.readSync(fd, buffer, 0, length, start);
-      const id = selectLastSessionId(buffer.toString('utf8'));
-      if (verbose && id) {
-        console.log(`[VERBOSE] session-resume: last tool session id in ${logPath} is ${id}`);
+      let end = stat.size;
+      let laterPrefix = Buffer.alloc(0);
+      let chunksScanned = 0;
+      while (end > 0) {
+        const start = Math.max(0, end - chunkBytes);
+        const length = end - start;
+        const buffer = Buffer.alloc(length);
+        const bytesRead = fsImpl.readSync(fd, buffer, 0, length, start);
+        const current = bytesRead === length ? buffer : buffer.subarray(0, bytesRead);
+        const scanBuffer = laterPrefix.length > 0 ? Buffer.concat([current, laterPrefix]) : current;
+        const id = selectLastSessionId(scanBuffer.toString('utf8'));
+        chunksScanned += 1;
+        if (id) {
+          if (verbose) {
+            console.log(`[VERBOSE] session-resume: last tool session id in ${logPath} is ${id} (scanned ${chunksScanned} chunk${chunksScanned === 1 ? '' : 's'})`);
+          }
+          return id;
+        }
+        laterPrefix = current.subarray(0, Math.min(current.length, LOG_SCAN_OVERLAP_BYTES));
+        end = start;
       }
-      return id;
+      if (verbose) {
+        console.log(`[VERBOSE] session-resume: no tool session id found in ${logPath} after scanning ${chunksScanned} chunk${chunksScanned === 1 ? '' : 's'}`);
+      }
+      return null;
     } finally {
       fsImpl.closeSync(fd);
     }
@@ -121,10 +140,10 @@ export function readLastSessionIdFromLog(logPath, options = {}) {
 /**
  * Find the id of the most-recently-modified `<sessionId>.log` in a directory.
  *
- * start-command renames each tool session's log to `<sessionId>.log`, so the
- * newest such file is the last session of the run — a second, filesystem-based
- * source for the "use the last session" rule that works even when the captured
- * stdout log has been rotated away. Never throws.
+ * This helper is safe only when `dir` is already known to contain logs for one
+ * task. A shared start-command directory cannot attribute its newest UUID log
+ * to a particular `/solve` run, so completion notifications must not use this
+ * as a fallback. Never throws.
  *
  * @param {Object} options
  * @param {string} options.dir - Directory holding `<sessionId>.log` files
@@ -215,7 +234,8 @@ export function buildResumeCommand({ sessionInfo = {}, lastSessionId = null, bin
   const url = sessionInfo.url || (Array.isArray(sessionInfo.args) ? sessionInfo.args[0] : null);
   if (!url) return null;
 
-  const bin = binary || command;
+  const commandAlias = typeof sessionInfo.commandAlias === 'string' && /^[a-z0-9_-]+$/i.test(sessionInfo.commandAlias) ? sessionInfo.commandAlias : null;
+  const bin = binary || (commandAlias ? `/${commandAlias}` : command);
   let args;
   if (Array.isArray(sessionInfo.args) && sessionInfo.args.length > 0) {
     args = stripResumeFlag(sessionInfo.args);

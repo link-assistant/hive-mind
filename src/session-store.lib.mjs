@@ -33,7 +33,9 @@ import path from 'node:path';
 // excluded so the snapshot stays small and safe to reload.
 // `args` (#1927 review follow-up) is persisted so a killed /solve can be resumed
 // with its exact original invocation plus `--resume <lastSessionId>`.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'isolationBackend', 'sessionId', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
+// `commandAlias` (#2109) preserves the Telegram spelling (`solve`, `codex`,
+// `claude`, etc.) so a bot notification never suggests a terminal-only command.
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors

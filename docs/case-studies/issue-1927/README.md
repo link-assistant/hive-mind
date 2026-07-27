@@ -318,10 +318,12 @@ OOM-killed, the surviving parent had no way to pick the work back up. That is wh
 **Use the LAST session id.** A single `/solve` run prints _many_ `Session ID:` markers to
 its captured log — one per auto-continue across a usage-limit reset, per uncommitted-changes
 restart, and per manual `--resume` chain. The most advanced context lives in the **last** of
-these, so `readLastSessionIdFromLog()` scans the log tail and `selectLastSessionId()` returns
-the last marker (never the first). `findLatestSessionLogId()` is a filesystem fallback that
-picks the most-recently-modified `<sessionId>.log` start-command wrote, for the case where
-the captured stdout log has rotated away.
+these, so `readLastSessionIdFromLog()` scans backwards through the captured log in bounded
+chunks and `selectLastSessionId()` returns the last marker (never the first).
+Issue [#2109](../issue-2109/README.md) later proved that a fixed-size tail can miss a marker
+and that start-command's backend log directory is shared by unrelated tasks. Completion
+notifications therefore no longer use `findLatestSessionLogId()` as a fallback; it is safe
+only when its caller already has a genuinely task-scoped directory.
 
 **Never storm; stay backward compatible.** The bot deliberately **surfaces** the resume
 command rather than auto-relaunching: a job that reliably OOMs would otherwise spawn an

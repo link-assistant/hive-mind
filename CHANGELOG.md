@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.10.1
+
+### Patch Changes
+
+- a9b0967: Fix killed Telegram task resume instructions by recovering the last tool session from the complete task log, rejecting unrelated shared-directory session logs, and preserving the original slash-command alias through queued and restarted sessions.
+
 ## 2.10.0
 
 ### Minor Changes

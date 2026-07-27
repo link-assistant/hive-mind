@@ -53,6 +53,7 @@ class SolveQueueItem {
     this.ctx = options.ctx;
     this.requester = options.requester;
     this.infoBlock = options.infoBlock;
+    this.commandAlias = options.commandAlias || null; // #2109: retain Telegram spelling for resume guidance
     this.tool = options.tool || 'claude';
     // Issue #1983: preserve per-command isolation through queued execution.
     this.perCommandIsolation = options.perCommandIsolation || null;
@@ -1442,16 +1443,14 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
           startTime: new Date(),
           url: item.url,
           command: 'solve',
+          commandAlias: item.commandAlias || null,
           tool: item.tool || 'claude',
           infoBlock: item.infoBlock,
-          // Issue #1688: propagate URL context + requester so the completion
-          //   notification can append a 'Pull request:' line and skip
-          //   notifying the requester twice via /subscribe.
+          args: Array.isArray(item.args) ? [...item.args] : undefined,
+          // #1688: propagate URL context and requester to completion.
           urlContext: item.urlContext || null,
           requesterUserId: item.requesterUserId ?? null,
-          // Issue #594: --show-limits virtual option carries the start-of-task
-          //   snapshot from the queueing point through to the completion
-          //   handler so it can render an end-of-task delta.
+          // #594: carry the start-of-task limits snapshot to completion.
           showLimits: item.showLimits === true,
           limitsAtStart: item.limitsAtStart || null,
           locale: item.locale || null,

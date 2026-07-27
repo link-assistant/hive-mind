@@ -90,11 +90,13 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
             startTime: new Date(),
             url: item.url,
             command: item.command || 'solve',
+            commandAlias: item.commandAlias || null,
             isolationBackend: iso.backend,
             sessionId: sid,
             containerFilesystemStartBytes: Number.isFinite(r.containerFilesystemStartBytes) ? r.containerFilesystemStartBytes : null,
             tool,
             infoBlock: item.infoBlock,
+            args: Array.isArray(item.args) ? [...item.args] : undefined,
             // Issue #1688: propagate URL context + requester through the queue so the
             //   completion notification can append a 'Pull request:' line and skip
             //   notifying the requester twice via /subscribe.

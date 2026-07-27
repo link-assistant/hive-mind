@@ -25,8 +25,7 @@ import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
-import path from 'node:path';
-import { readLastSessionIdFromLog, findLatestSessionLogId, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -913,14 +912,11 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
             // The id must be the AI TOOL's session id, not the isolation session
             //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
-            //   Prefer the last `Session ID:` marker in the captured log; fall
-            //   back to the newest `<sessionId>.log` start-command wrote in the
-            //   same directory. If neither exists, offer no command (a bogus
-            //   resume id would be worse than none).
-            let lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
-            if (!lastSessionId && logPath) {
-              lastSessionId = findLatestSessionLogId({ dir: path.dirname(logPath), verbose });
-            }
+            //   Scan backwards through this task's captured log for its last
+            //   `Session ID:` marker. Do not guess from neighboring UUID-named
+            //   logs: start-command stores unrelated tasks in the same backend
+            //   directory, which caused issue #2109's invalid resume id.
+            const lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
             const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
             const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
             if (resumeSection) {

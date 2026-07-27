@@ -8,6 +8,11 @@ import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-comm
 import { getDefaultTaskModel, parseTaskArguments } from './task.config.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+
+setupStdioLogInterceptor();
 
 const earlyArgs = process.argv.slice(2);
 
@@ -73,10 +78,14 @@ const logFile = path.join(scriptDir, `task-${timestamp}.log`);
 async function log(message, options = {}) {
   const { level = 'info', verbose = false } = options;
   if (verbose && !argv.verbose) return;
-  await fs.appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`).catch(() => {});
-  if (level === 'error') console.error(message);
-  else if (level === 'warning' || level === 'warn') console.warn(message);
-  else console.log(message);
+  const sanitizedMessage = sanitizeCredentialText(message);
+  await fs
+    .appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${sanitizedMessage}\n`, { mode: 0o600 })
+    .then(() => fs.chmod(logFile, 0o600))
+    .catch(() => {});
+  if (level === 'error') console.error(sanitizedMessage);
+  else if (level === 'warning' || level === 'warn') console.warn(sanitizedMessage);
+  else console.log(sanitizedMessage);
 }
 
 function formatAligned(icon, label, value, indent = 0) {
@@ -172,7 +181,8 @@ async function fetchIssueRestId(issue) {
 }
 
 async function createChildIssue(parentIssue, task, index, splitCount) {
-  const args = ['issue', 'create', '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--title', task.title, '--body', formatChildIssueBody({ parentIssue, task, index, splitCount })];
+  const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(task.title), sanitizeForPublication(formatChildIssueBody({ parentIssue, task, index, splitCount }))]);
+  const args = ['issue', 'create', '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--title', safeTitle, '--body', safeBody];
   if (parentIssue.labels.length > 0) {
     args.push('--label', parentIssue.labels.join(','));
   }
@@ -196,9 +206,11 @@ async function linkChildIssue(parentIssue, childIssue) {
 
 async function updateParentIssue(parentIssue, childIssues) {
   const body = appendOrReplaceParentSplitSection(parentIssue.body, childIssues);
-  await commandOutput('gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', body]);
+  const safeBody = await sanitizeForPublication(body);
+  await commandOutput('gh', ['issue', 'edit', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeBody]);
   const childList = childIssues.map(issue => `- #${issue.number} ${issue.title}`).join('\n');
-  await commandOutput('gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', `Split into ${childIssues.length} tasks:\n\n${childList}`]);
+  const safeComment = await sanitizeForPublication(`Split into ${childIssues.length} tasks:\n\n${childList}`);
+  await commandOutput('gh', ['issue', 'comment', String(parentIssue.number), '--repo', `${parentIssue.owner}/${parentIssue.repo}`, '--body', safeComment]);
 }
 
 async function runSplitMode() {
@@ -268,7 +280,8 @@ ${results.clarification ? `Clarification analysis:\n${results.clarification}\n\n
 }
 
 try {
-  await fs.writeFile(logFile, `# Task Log - ${new Date().toISOString()}\n\n`);
+  await fs.writeFile(logFile, `# Task Log - ${new Date().toISOString()}\n\n`, { mode: 0o600 });
+  await fs.chmod(logFile, 0o600);
   await log(`📁 Log file: ${logFile}`);
   await log('\n🎯 Task Processing Started');
   await log(formatAligned('📝', 'Task input:', taskInput));

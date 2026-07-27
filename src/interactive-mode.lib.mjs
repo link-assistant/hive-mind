@@ -45,12 +45,12 @@ import { formatInteractiveMcpServersList, getInteractiveMcpDiagnostics } from '.
 // Use the session-started marker as the single source of truth for the
 // header string, keeping posting and filtering in lock-step.
 import { INTERACTIVE_SESSION_STARTED_MARKER, trackToolCommentId } from './tool-comments.lib.mjs';
-// Issue #1745: every comment body posted by the AI bridge MUST flow through
-// sanitizeCommentBody() before leaving the process. The leak in
+// Issue #1745/#2111: every comment body posted by the AI bridge MUST flow
+// through the strict publication sanitizer before leaving the process. The leak in
 // xlab2016/space_db_private#20 happened because raw bash-tool stdout
 // (including TELEGRAM_BOT_TOKEN=...) was published verbatim. See
 // docs/case-studies/issue-1745/analysis.md for the full timeline.
-import { containsKnownToken, getAllKnownLocalTokens, sanitizeCommentBody } from './token-sanitization.lib.mjs';
+import { containsKnownToken, getAllKnownLocalTokens, sanitizeForPublication } from './token-sanitization.lib.mjs';
 import { reportInteractiveLeak } from './telegram-leak-notifier.lib.mjs';
 
 /**
@@ -73,15 +73,6 @@ export const createInteractiveHandler = options => {
     log,
     verbose = false,
     execFile: execFileFn,
-    // Issue #1745: dangerous-skip flags. All default to false; passing them
-    // through lets the operator opt out of pattern-based sanitization (for
-    // controlled debugging in private repos) while keeping active-token
-    // masking on by default.
-    skipOutputSanitization = false,
-    skipActiveTokensOutputSanitization = false,
-    // Pre-existing user content carve-out (issue body / non-bot comments /
-    // pre-existing code). When provided, sanitizer leaves these tokens untouched.
-    excludeTokens = [],
     // Issue #1843: when true (default), base64 tool-result images are embedded
     // inline; when false they degrade to a metadata note. See createImageRenderer.
     imageUploadEnabled = true,
@@ -158,39 +149,33 @@ export const createInteractiveHandler = options => {
       hits = [];
     }
 
-    let sanitized;
     try {
-      sanitized = await sanitizeCommentBody(body, {
-        knownTokens,
-        skipOutputSanitization,
-        skipActiveTokensOutputSanitization,
-        excludeTokens,
-      });
-    } catch (err) {
-      await log(`⚠️ Interactive mode: sanitizeCommentBody failed: ${err.message} — falling back to raw body MASKED`);
-      // Fail closed: if sanitization fails entirely, drop the body to a safe
-      // placeholder rather than leaking. Better to lose detail than secrets.
-      sanitized = '[redacted: sanitization failed]';
-    }
+      const sanitized = await sanitizeForPublication(body);
 
-    if (hits.length > 0) {
-      await log(`🚨 Interactive mode: known-local token(s) detected in outbound comment — sanitizer masked them. Sources: ${hits.map(h => h.source).join(', ')}`);
-      try {
-        await reportInteractiveLeak({
-          owner,
-          repo,
-          prNumber,
-          tokenHits: hits,
-          log,
-        });
-      } catch (err) {
-        if (verbose) {
-          await log(`⚠️ Interactive mode: leak notifier failed: ${err.message}`, { verbose: true });
+      if (hits.length > 0) {
+        await log(`🚨 Interactive mode: known-local token(s) detected in outbound comment — sanitizer masked them. Sources: ${hits.map(h => h.source).join(', ')}`);
+        try {
+          await reportInteractiveLeak({
+            owner,
+            repo,
+            prNumber,
+            tokenHits: hits,
+            log,
+          });
+        } catch (err) {
+          if (verbose) {
+            await log(`⚠️ Interactive mode: leak notifier failed: ${err.message}`, { verbose: true });
+          }
         }
       }
-    }
 
-    return sanitized;
+      return sanitized;
+    } catch (error) {
+      // Publication is an external trust boundary. Legacy skip/exclusion
+      // options accepted by createInteractiveHandler must never weaken it.
+      await log('⚠️ Interactive mode: credential sanitization failed; GitHub mutation blocked.');
+      throw error;
+    }
   };
 
   /**

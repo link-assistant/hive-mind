@@ -39,6 +39,10 @@ import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs'
 import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from './cleanup.lib.mjs';
 import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, listDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+
+setupStdioLogInterceptor();
 
 const args = process.argv.slice(2);
 
@@ -179,15 +183,22 @@ const scriptDir = path.dirname(process.argv[1]);
 const logFile = path.join(scriptDir, `cleanup-${timestamp}.log`);
 
 async function log(message, { level = 'info' } = {}) {
-  await fsp.appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${message}\n`).catch(() => {});
-  if (level === 'error') console.error(message);
-  else if (level === 'warn' || level === 'warning') console.warn(message);
-  else console.log(message);
+  const sanitizedMessage = sanitizeCredentialText(message);
+  await fsp
+    .appendFile(logFile, `[${new Date().toISOString()}] [${level.toUpperCase()}] ${sanitizedMessage}\n`, { mode: 0o600 })
+    .then(() => fsp.chmod(logFile, 0o600))
+    .catch(() => {});
+  if (level === 'error') console.error(sanitizedMessage);
+  else if (level === 'warn' || level === 'warning') console.warn(sanitizedMessage);
+  else console.log(sanitizedMessage);
 }
 
 function vlog(message) {
   if (options.verbose) return log(message);
-  return fsp.appendFile(logFile, `[${new Date().toISOString()}] [DEBUG] ${message}\n`).catch(() => {});
+  return fsp
+    .appendFile(logFile, `[${new Date().toISOString()}] [DEBUG] ${sanitizeCredentialText(message)}\n`, { mode: 0o600 })
+    .then(() => fsp.chmod(logFile, 0o600))
+    .catch(() => {});
 }
 
 /**
@@ -210,7 +221,8 @@ function computeSelfPaths(tempRoot) {
 }
 
 async function main() {
-  await fsp.writeFile(logFile, `# Cleanup Log - ${new Date().toISOString()}\n\n`).catch(() => {});
+  await fsp.writeFile(logFile, `# Cleanup Log - ${new Date().toISOString()}\n\n`, { mode: 0o600 }).catch(() => {});
+  await fsp.chmod(logFile, 0o600).catch(() => {});
 
   const tempRoot = getTempRoot();
   await log('🧹 hive-mind cleanup');

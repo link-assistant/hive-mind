@@ -8,6 +8,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createInterface } from 'readline';
 import { log, cleanErrorMessage, getAbsoluteLogPath } from './lib.mjs';
 import { reportError, isSentryEnabled } from './sentry.lib.mjs';
+import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -85,14 +86,13 @@ const getCurrentGitHubUser = async () => {
  * @returns {Promise<string|null>} Gist URL or null on failure
  */
 const createSecretGist = async (logContent, filename) => {
+  const tempFile = `/tmp/${filename}`;
   try {
-    const tempFile = `/tmp/${filename}`;
-    await fs.writeFile(tempFile, logContent);
+    await writeSanitizedPublicationFile(tempFile, logContent);
 
     const result = await $`gh gist create ${tempFile} --secret --desc "Error log for hive-mind"`;
     if (result.exitCode === 0) {
       const gistUrl = result.stdout.toString().trim();
-      await fs.unlink(tempFile).catch(() => {});
       return gistUrl;
     }
   } catch (error) {
@@ -100,6 +100,8 @@ const createSecretGist = async (logContent, filename) => {
       context: 'create_secret_gist',
       operation: 'gh_gist_create',
     });
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
   }
   return null;
 };
@@ -183,7 +185,7 @@ export const createIssueForError = async options => {
 
     await log('\n🔄 Creating GitHub issue...');
 
-    const issueTitle = error.message || errorMessage || `${errorType} in hive-mind`;
+    const issueTitle = await sanitizeForPublication(error.message || errorMessage || `${errorType} in hive-mind`);
 
     let issueBody = '## Error Details\n\n';
     issueBody += `**Type**: ${errorType}\n`;
@@ -232,11 +234,14 @@ export const createIssueForError = async options => {
     issueBody += `*This issue was automatically created by @${currentUser} using hive-mind error reporting*\n`;
 
     const tempBodyFile = `/tmp/hive-mind-issue-body-${Date.now()}.md`;
-    await fs.writeFile(tempBodyFile, issueBody);
+    await writeSanitizedPublicationFile(tempBodyFile, issueBody);
 
-    const result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
-
-    await fs.unlink(tempBodyFile).catch(() => {});
+    let result;
+    try {
+      result = await $`gh issue create --repo link-assistant/hive-mind --title ${issueTitle} --body-file ${tempBodyFile} --label bug`;
+    } finally {
+      await fs.unlink(tempBodyFile).catch(() => {});
+    }
 
     if (result.exitCode === 0) {
       const issueUrl = result.stdout.toString().trim();

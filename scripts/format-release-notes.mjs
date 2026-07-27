@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 
@@ -231,8 +232,8 @@ try {
   formattedBody += `\n\n---\n\n${npmBadge}`;
 
   // Update the release using JSON input to properly handle special characters
-  const updatePayload = JSON.stringify({ body: formattedBody });
-  await $`gh api repos/${repository}/releases/${releaseId} -X PATCH --input -`.run({ stdin: updatePayload });
+  const updatePayload = JSON.stringify({ body: await sanitizeForPublication(formattedBody) });
+  await $({ stdin: updatePayload })`gh api repos/${repository}/releases/${releaseId} -X PATCH --input -`;
 
   console.log(`Formatted release notes for v${versionWithoutV}`);
   if (prNumbers.length > 0) {

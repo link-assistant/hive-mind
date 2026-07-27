@@ -3,6 +3,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import { parseGitHubUrl } from './github.lib.mjs';
+import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 export const TASK_ISSUE_TITLE_MAX_LENGTH = 256;
 
@@ -216,9 +217,10 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
   const bodyFile = path.join(tempDir, 'body.md');
 
   try {
-    await fs.writeFile(bodyFile, body);
+    await writeSanitizedPublicationFile(bodyFile, body);
+    const sanitizedTitle = await sanitizeForPublication(title);
 
-    const result = await run('gh', buildCreateIssueArgs({ repository, title, bodyFile, issueType, labels }));
+    const result = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType, labels }));
     if (result.code === 0) return parseCreatedTaskIssueOutput(result.stdout);
 
     const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
@@ -228,7 +230,7 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     }
 
     await log?.(`⚠️  Could not create issue with type/labels (${output || `exit code ${result.code}`}); retrying without them`);
-    const retry = await run('gh', buildCreateIssueArgs({ repository, title, bodyFile }));
+    const retry = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile }));
     if (retry.code !== 0) {
       const retryOutput = `${retry.stderr || ''}${retry.stdout || ''}`.trim();
       throw new Error(retryOutput || `gh issue create exited with code ${retry.code}`);

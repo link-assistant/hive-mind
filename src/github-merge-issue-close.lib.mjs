@@ -22,6 +22,7 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { extractLinkedIssueNumber } from './github-linking.lib.mjs';
 import { classifyIssueLinkStatus } from './github-issue-auto-close.lib.mjs';
 import { getDefaultBranch } from './github-merge.lib.mjs';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const execRaw = promisify(execCallback);
 
@@ -76,7 +77,7 @@ export async function closeLinkedIssueIfNotAutoClosed(owner, repo, prNumber, ver
       // If state lookup fails, fall through and attempt the close.
     }
 
-    const comment = `Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).\n\nGitHub only auto-closes linked issues for pull requests merged into the default branch, so hive-mind closed this issue explicitly after the merge.\n\n_Automated by hive-mind ([#1895](https://github.com/link-assistant/hive-mind/issues/1895))._`;
+    const comment = await sanitizeForPublication(`Closed by #${prNumber}, which targeted the non-default branch \`${baseBranch}\` (repository default: \`${defaultBranch}\`).\n\nGitHub only auto-closes linked issues for pull requests merged into the default branch, so hive-mind closed this issue explicitly after the merge.\n\n_Automated by hive-mind ([#1895](https://github.com/link-assistant/hive-mind/issues/1895))._`);
     await exec(`gh issue close ${issueNumber} --repo ${owner}/${repo} --reason completed --comment ${JSON.stringify(comment)}`);
     if (verbose) console.log(`[VERBOSE] /merge: Closed issue #${issueNumber} explicitly (PR #${prNumber} merged into non-default branch '${baseBranch}')`);
     return { closed: true, skipped: false, reason: 'closed-explicitly', issueNumber: Number(issueNumber) };

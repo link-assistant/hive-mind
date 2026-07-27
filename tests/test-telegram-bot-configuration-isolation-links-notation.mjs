@@ -68,7 +68,8 @@ proc.on('close', code => {
   const output = stdout + stderr;
   const expectations = [
     ['exits successfully', code === 0],
-    ['loads token from --configuration', output.includes('Token: test-token...')],
+    ['loads and safely masks token from --configuration', output.includes('Token: tes…658')],
+    ['never prints the raw token', !output.includes('test-token-issue-1658')],
     ['validates solve overrides', output.includes('✅ Solve overrides validated successfully')],
     ['validates hive overrides', output.includes('✅ Hive overrides validated successfully')],
     ['keeps isolation flag in summary', output.includes('--isolation')],

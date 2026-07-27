@@ -1,8 +1,7 @@
 import fs from 'node:fs/promises';
-import { createReadStream, createWriteStream } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -87,9 +86,21 @@ const fileExists = async filePath => {
   }
 };
 
+const writePrivatePublicationFile = async (destinationPath, content) => {
+  const sanitized = await sanitizeForPublication(content);
+  await fs.writeFile(destinationPath, sanitized, { encoding: 'utf8', mode: 0o600 });
+  // writeFile preserves the mode of an existing file, so enforce it after
+  // every write as well.
+  await fs.chmod(destinationPath, 0o600);
+};
+
 const copyIfExists = async ({ sourcePath, destinationPath }) => {
   if (!(await fileExists(sourcePath))) return false;
-  await fs.copyFile(sourcePath, destinationPath);
+  // Raw local audit sources remain available to the operator but must not be
+  // group/world-readable. Only the sanitized copy enters the repository.
+  await fs.chmod(sourcePath, 0o600);
+  const content = await fs.readFile(sourcePath, 'utf8');
+  await writePrivatePublicationFile(destinationPath, content);
   return true;
 };
 
@@ -122,13 +133,15 @@ const findCodexSessionFile = async ({ sessionId, homeDir }) => {
 // prefix. Returns the byte offset right after the copied slice.
 const copyLogSlice = async ({ logFile, destinationPath, logStartByte = 0 }) => {
   const stat = await fs.stat(logFile);
+  await fs.chmod(logFile, 0o600);
   // The log was rotated/truncated since the previous collection: copy it whole.
   const start = Number.isFinite(logStartByte) && logStartByte > 0 && logStartByte <= stat.size ? logStartByte : 0;
   if (stat.size === 0 || start >= stat.size) {
-    await fs.writeFile(destinationPath, '');
+    await writePrivatePublicationFile(destinationPath, '');
     return { logStartByte: start, logEndByte: stat.size };
   }
-  await pipeline(createReadStream(logFile, { start, end: stat.size - 1 }), createWriteStream(destinationPath));
+  const bytes = await fs.readFile(logFile);
+  await writePrivatePublicationFile(destinationPath, bytes.subarray(start, stat.size).toString('utf8'));
   return { logStartByte: start, logEndByte: stat.size };
 };
 
@@ -245,7 +258,7 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
     },
   };
 
-  await fs.writeFile(path.join(repositoryPath, metadataRelativePath), `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  await writePrivatePublicationFile(path.join(repositoryPath, metadataRelativePath), `${JSON.stringify(metadata, null, 2)}\n`);
 
   return {
     developmentLogDirectory,
@@ -258,6 +271,21 @@ export const writeDevelopmentLogArtifacts = async ({ repositoryPath, logFile, is
     logStartByte: logSlice.logStartByte,
     logEndByte: logSlice.logEndByte,
   };
+};
+
+const verifyDevelopmentLogDirectory = async directoryPath => {
+  const entries = await fs.readdir(directoryPath, { recursive: true, withFileTypes: true });
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const parentPath = entry.parentPath || entry.path;
+    const filePath = path.join(parentPath, entry.name);
+    const exactBytes = await fs.readFile(filePath, 'utf8');
+    const rescanned = await sanitizeForPublication(exactBytes);
+    if (rescanned !== exactBytes) {
+      throw new Error('Development-log publication rescan found residual credential material.');
+    }
+    await fs.chmod(filePath, 0o600);
+  }
 };
 
 const getCommandOutput = result => (result?.stderr?.toString?.() || result?.stdout?.toString?.() || '').trim();
@@ -294,6 +322,11 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     if (!$) {
       return { ...artifacts, committed: false, pushed: false };
     }
+
+    // Scan the exact directory bytes immediately before staging. This catches
+    // future artifacts added by this workflow even if their writer forgot to
+    // call the publication helper.
+    await verifyDevelopmentLogDirectory(path.join(repositoryPath, artifacts.relativeDirectory));
 
     const addResult = await $({ cwd: repositoryPath })`git add -f -- ${artifacts.relativeDirectory}`;
     if (addResult.code !== 0) {

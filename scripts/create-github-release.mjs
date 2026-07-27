@@ -14,6 +14,7 @@ import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
  */
 
 import { readFileSync } from 'fs';
+import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from '../src/github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 // Load use-m dynamically
@@ -75,14 +76,12 @@ try {
   // This avoids shell escaping issues that occur when passing text via command-line arguments
   // (Previously caused apostrophes like "didn't" to appear as "didn'''" in releases)
   const payload = JSON.stringify({
-    tag_name: tag,
-    name: version,
-    body: releaseNotes,
+    tag_name: await sanitizeForPublication(tag),
+    name: await sanitizeForPublication(version),
+    body: await sanitizeForPublication(releaseNotes),
   });
 
-  await $`gh api repos/${repository}/releases -X POST --input -`.run({
-    stdin: payload,
-  });
+  await $({ stdin: payload })`gh api repos/${repository}/releases -X POST --input -`;
 
   console.log(`Created GitHub release: ${tag}`);
 } catch (error) {

@@ -215,16 +215,14 @@ runTest('maskToken masks long token correctly', () => {
   const masked = maskToken(token);
   // Per issue #1745: default keeps only first 3 + last 3 chars
   assertContains(masked, 'ghp', 'Should preserve 3-char prefix');
-  assertContains(masked, '*', 'Should contain asterisks');
+  assertContains(masked, '…', 'Should contain a Unicode ellipsis');
   assertContains(masked, '678', 'Should preserve 3-char suffix');
 });
 
-runTest('maskToken returns short tokens unchanged', () => {
+runTest('maskToken fully redacts short tokens', () => {
   const token = 'short';
   const masked = maskToken(token);
-  // maskToken doesn't mask tokens shorter than minLength (default 12)
-  // This is intentional - very short strings are unlikely to be sensitive tokens
-  assertEqual(masked, token, 'Short tokens should be returned unchanged');
+  assertEqual(masked, '[REDACTED]', 'Tokens at or below 12 characters must be fully redacted');
 });
 
 // ==== sanitizeLogContent function tests - False Positives Prevention ====
@@ -292,7 +290,7 @@ await runAsyncTest('GitHub PAT (ghp_) IS masked', async () => {
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask GitHub PAT');
   assertContains(sanitized, 'ghp', 'Should preserve 3-char prefix in mask');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('OAuth token (gho_) IS masked', async () => {
@@ -316,7 +314,7 @@ await runAsyncTest('Fine-grained PAT (github_pat_) IS masked', async () => {
   const content = `Fine-grained PAT: ${token}`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask fine-grained PAT');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('Multiple tokens in same log ARE masked', async () => {
@@ -357,7 +355,7 @@ Real GitHub token that should be masked: ghp_realtoken12345678901234567890123456
 
   // True positives SHOULD be masked
   assertNotContains(sanitized, 'ghp_realtoken12345678901234567890123456789012', 'Should mask GitHub token');
-  assertContains(sanitized, 'ghp*', 'Should show 3-char masked prefix');
+  assertContains(sanitized, maskToken('ghp_realtoken12345678901234567890123456789012'), 'Should use the standard 3+3 mask');
 });
 
 await runAsyncTest('Git operations with commit hashes', async () => {
@@ -406,11 +404,11 @@ await runAsyncTest('Content with no tokens remains unchanged', async () => {
 });
 
 await runAsyncTest('Mixed case tokens are handled', async () => {
-  const content = 'Token: GHP_AbCdEf123456789012345678901234567890';
+  const token = 'GHP_AbCdEf123456789012345678901234567890';
+  const content = `Token: ${token}`;
   const sanitized = await sanitizeLogContent(content);
-  // GitHub token prefixes are case-sensitive (ghp_, not GHP_)
-  // But the token pattern should still match for security
-  assertContains(sanitized, 'GHP_AbCdEf123456789012345678901234567890', 'Mixed case non-standard prefix should be preserved');
+  assertNotContains(sanitized, token, 'Credential values must be masked even when a vendor prefix has unusual casing');
+  assertContains(sanitized, maskToken(token), 'Should use the standard mask for the credential value');
 });
 
 await runAsyncTest('Token at very beginning of content', async () => {
@@ -450,7 +448,7 @@ await runAsyncTest('OpenAI project API key (sk-proj-) IS masked', async () => {
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask OpenAI project API key');
   assertContains(sanitized, 'sk-', 'Should preserve 3-char prefix in mask');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('OpenAI service account key (sk-svcacct-) IS masked', async () => {
@@ -482,7 +480,7 @@ await runAsyncTest('Anthropic API key (sk-ant-api03-) IS masked', async () => {
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask Anthropic API key');
   assertContains(sanitized, 'sk-', 'Should preserve 3-char prefix in mask');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('Anthropic API key with different version (sk-ant-api01-) IS masked', async () => {
@@ -507,7 +505,7 @@ await runAsyncTest('Google API / Gemini key (AIza*) IS masked', async () => {
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask Google API key');
   assertContains(sanitized, 'AIz', 'Should preserve 3-char prefix in mask');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('Google Gemini API key IS masked', async () => {
@@ -526,7 +524,7 @@ await runAsyncTest('HuggingFace API token (hf_*) IS masked', async () => {
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask HuggingFace token');
   assertContains(sanitized, 'hf_', 'Should preserve 3-char prefix in mask');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 await runAsyncTest('HuggingFace token in Python code IS masked', async () => {
@@ -738,7 +736,7 @@ await runAsyncTest('Realistic OpenAI legacy token IS masked', async () => {
   const content = `OPENAI_API_KEY="${token}"`;
   const sanitized = await sanitizeLogContent(content);
   assertNotContains(sanitized, token, 'Should mask realistic OpenAI token');
-  assertContains(sanitized, '*', 'Should contain asterisks');
+  assertContains(sanitized, '…', 'Should contain a Unicode ellipsis');
 });
 
 // Realistic Anthropic token: sk-ant-api03-{93 chars}AA = 108 chars total

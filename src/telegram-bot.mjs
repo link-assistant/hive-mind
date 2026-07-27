@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { maskToken, setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 // Early exit for --version (issue #1318: avoid dotenvx MISSING_ENV_FILE warnings)
 if (process.argv.includes('--version')) {
   const v = await import('./version.lib.mjs').then(m => m.getVersion()).catch(() => 'unknown');
@@ -212,7 +215,7 @@ if (hiveEnabled && hiveOverrides.length > 0) {
 if (config.dryRun) {
   console.log('\n✅ Dry-run mode: All validations passed successfully!');
   console.log('\nConfiguration summary:');
-  console.log('  Token:', BOT_TOKEN ? `${BOT_TOKEN.substring(0, 10)}...` : 'not set');
+  console.log('  Token:', BOT_TOKEN ? maskToken(BOT_TOKEN) : 'not set');
   if (allowedChats && allowedChats.length > 0) {
     console.log('  Allowed chats:', lino.format(allowedChats));
   } else {

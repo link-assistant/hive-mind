@@ -17,6 +17,9 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle, buildSolveArgs, partitionFixArgs, summarizeRunFailures } from './fix.ci-cd.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

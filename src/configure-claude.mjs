@@ -15,6 +15,9 @@
  */
 
 import { CONFIGURE_CLAUDE_HELP, formatVerifyReport, parseConfigureClaudeArgs, resolveSettingsPath, runConfigureClaude, verifyConfigureClaude } from './configure-claude.lib.mjs';
+import { setupStdioLogInterceptor } from './lib.mjs';
+
+setupStdioLogInterceptor();
 
 const args = parseConfigureClaudeArgs(process.argv.slice(2));
 

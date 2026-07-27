@@ -16,6 +16,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { execGhWithRetry } from '../src/github-rate-limit.lib.mjs';
+import { sanitizeForPublication } from '../src/token-sanitization.lib.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -225,7 +226,9 @@ async function createTestRepository() {
   // Also explicitly specify the base branch since we renamed it to 'main'
   const prTitle = 'Test PR for feedback lines';
   const prBody = 'This PR is for testing comment detection';
-  const prResult = await gh$(`gh pr create --repo ${username}/${testRepo} --base main --title '${prTitle}' --body '${prBody}'`);
+  const safePrTitle = await sanitizeForPublication(prTitle);
+  const safePrBody = await sanitizeForPublication(prBody);
+  const prResult = await gh$(`gh pr create --repo ${username}/${testRepo} --base main --title '${safePrTitle}' --body '${safePrBody}'`);
   if (prResult.code !== 0) {
     throw new Error(`Failed to create PR: ${prResult.stderr}`);
   }

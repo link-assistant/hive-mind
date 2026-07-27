@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -142,14 +146,24 @@ export const parseGhUploadLogOutput = outputValue => {
  * @param {boolean} [options.verbose=false] - Enable verbose logging
  * @returns {Promise<{success: boolean, url: string|null, rawUrl: string|null, type: 'gist'|'repository'|null, chunks: number, repositoryName?: string|null, repositoryPath?: string|null}>}
  */
-export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false }) => {
+export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description, verbose = false, runUpload = runGhUploadLogCommand }) => {
   const result = { success: false, url: null, rawUrl: null, type: null, chunks: 1 };
+  let privateTempDirectory = null;
 
   try {
+    const exactSourceBytes = await fs.readFile(logFile, 'utf8');
+    const sanitizedLog = await sanitizeForPublication(exactSourceBytes);
+    const sanitizedDescription = description ? await sanitizeForPublication(description) : description;
+    privateTempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-log-upload-'));
+    await fs.chmod(privateTempDirectory, 0o700);
+    const privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
+    await fs.writeFile(privateLogFile, sanitizedLog, { encoding: 'utf8', mode: 0o600 });
+    await fs.chmod(privateLogFile, 0o600);
+
     const commandArgs = buildGhUploadLogArgs({
-      logFile,
+      logFile: privateLogFile,
       isPublic,
-      description,
+      description: sanitizedDescription,
       verbose,
     });
 
@@ -157,7 +171,7 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
       await log(`  📤 Running: ${formatGhUploadLogCommand(commandArgs)}`, { verbose: true });
     }
 
-    const uploadResult = await runGhUploadLogCommand(commandArgs);
+    const uploadResult = await runUpload(commandArgs);
     const output = (uploadResult.stdout?.toString() || '') + (uploadResult.stderr?.toString() || '');
 
     if (uploadResult.code !== 0) {
@@ -291,6 +305,10 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     });
     await log(`  ❌ Error running gh-upload-log: ${error.message}`);
     return result;
+  } finally {
+    if (privateTempDirectory) {
+      await fs.rm(privateTempDirectory, { recursive: true, force: true }).catch(() => {});
+    }
   }
 };
 

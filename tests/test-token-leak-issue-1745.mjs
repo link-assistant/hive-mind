@@ -17,7 +17,7 @@
  *     test);
  *   - calls sanitizeCommentBody() — the function newly invoked from
  *     postComment/editComment;
- *   - asserts the raw token is gone, the masked form (3-char prefix + ***
+ *   - asserts the raw token is gone, the masked form (3-char prefix + …
  *     + 3-char suffix) is present, and containsKnownToken() reports a hit.
  *
  * @see docs/case-studies/issue-1745/analysis.md
@@ -96,7 +96,7 @@ await runAsyncTest('sanitizeCommentBody masks env-injected TELEGRAM_BOT_TOKEN', 
     // The masked form keeps first-3 + last-3 per the new default.
     assertContains(maskToken(SYNTHETIC_BOT_TOKEN), '849', 'first 3 chars preserved');
     assertContains(maskToken(SYNTHETIC_BOT_TOKEN), 'EST', 'last 3 chars preserved');
-    assertContains(maskToken(SYNTHETIC_BOT_TOKEN), '*', 'asterisks present');
+    assertContains(maskToken(SYNTHETIC_BOT_TOKEN), '…', 'Unicode ellipsis present');
   } finally {
     if (ORIGINAL_TELEGRAM_BOT_TOKEN === undefined) {
       delete process.env.TELEGRAM_BOT_TOKEN;
@@ -207,7 +207,7 @@ runTest('maskToken default is 3+3 chars (issue #1745 spec)', () => {
   assertContains(masked, 'ghp', 'first 3 chars preserved');
   assertContains(masked, '678', 'last 3 chars preserved');
   // First 5 chars should NOT be all preserved together (e.g. 'ghp_1' is 5).
-  // The mask should now be 'ghp***...***678' rather than 'ghp_1***...*5678'.
+  // The mask is `ghp…678`, never a longer partial reveal such as `ghp_1…678`.
   assert(!masked.startsWith('ghp_1'), 'must not preserve first 5 chars (3-char default)');
 });
 

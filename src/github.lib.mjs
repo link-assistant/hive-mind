@@ -7,8 +7,8 @@ import { log, maskToken, cleanErrorMessage, isENOSPC, ghCmdRetry } from './lib.m
 import { reportError } from './sentry.lib.mjs';
 import { describeRequestedThinking, githubLimits, timeouts } from './config.lib.mjs';
 import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRepositories as batchCheckArchived } from './github.batch.lib.mjs';
-import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent } from './token-sanitization.lib.mjs';
-export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent }; // Re-export for backward compatibility
+import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
@@ -336,7 +336,6 @@ export async function attachLogToGitHub(options) {
     repo,
     $,
     log,
-    sanitizeLogContent,
     verbose = false,
     errorMessage,
     customTitle = `🤖 ${SOLUTION_DRAFT_LOG_MARKER}`,
@@ -452,7 +451,7 @@ export async function attachLogToGitHub(options) {
     if (verbose) {
       await log('  🔍 Sanitizing log content to mask GitHub tokens...', { verbose: true });
     }
-    let logContent = await sanitizeLogContent(rawLogContent);
+    let logContent = await sanitizeForPublication(rawLogContent);
 
     // Escape code blocks in the log content to prevent them from breaking markdown formatting
     if (verbose) {
@@ -637,17 +636,21 @@ ${logContent}
         // Create temp log file with sanitized content (no compression, just gh-upload-log)
         const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
         // Use the original sanitized content for upload since it's a plain text file
-        await fs.writeFile(tempLogFile, await sanitizeLogContent(rawLogContent));
+        await writeSanitizedPublicationFile(tempLogFile, rawLogContent);
 
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
-        const uploadResult = await uploadLogWithGhUploadLog({
-          logFile: tempLogFile,
-          isPublic: isPublicRepo,
-          description: uploadDescription,
-          verbose,
-        });
-        await fs.unlink(tempLogFile).catch(() => {});
+        let uploadResult;
+        try {
+          uploadResult = await uploadLogWithGhUploadLog({
+            logFile: tempLogFile,
+            isPublic: isPublicRepo,
+            description: uploadDescription,
+            verbose,
+          });
+        } finally {
+          await fs.unlink(tempLogFile).catch(() => {});
+        }
 
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks)
@@ -782,12 +785,16 @@ ${sessionNote}
 *${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
           }
           const tempCommentFile = `/tmp/log-upload-comment-${targetType}-${Date.now()}.md`;
-          await fs.writeFile(tempCommentFile, logUploadComment);
+          await writeSanitizedPublicationFile(tempCommentFile, logUploadComment);
           // Issue #1625: post via postTrackedCommentFromFile so the returned
           // comment ID is registered in-memory and excluded from the
           // "did the AI post anything?" check.
-          const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempCommentFile });
-          await fs.unlink(tempCommentFile).catch(() => {});
+          let posted;
+          try {
+            posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempCommentFile });
+          } finally {
+            await fs.unlink(tempCommentFile).catch(() => {});
+          }
           if (posted.ok) {
             const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });
             await log(`  ${status.emoji} ${status.label} uploaded to ${targetName} as ${isPublicRepo ? 'public' : 'private'} ${uploadTypeLabel}${chunkInfo}${posted.commentId ? ` (comment id=${posted.commentId})` : ''}`);
@@ -846,12 +853,16 @@ async function attachRegularComment(options, logComment) {
   const logStats = await fs.stat(logFile);
 
   const tempFile = `/tmp/log-comment-${targetType}-${Date.now()}.md`;
-  await fs.writeFile(tempFile, logComment);
+  await writeSanitizedPublicationFile(tempFile, logComment);
 
   // Issue #1625: track the posted comment ID so it's excluded from the
   // AI-authored-comment check in --auto-attach-solution-summary.
-  const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
-  await fs.unlink(tempFile).catch(() => {});
+  let posted;
+  try {
+    posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber, bodyFile: tempFile });
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
+  }
 
   if (posted.ok) {
     const status = getLogUploadTerminalStatus({ errorMessage, errorDuringExecution, isUsageLimit });

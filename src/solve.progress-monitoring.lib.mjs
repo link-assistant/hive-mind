@@ -27,6 +27,7 @@
 // Issue #1625: centralized markers + tracking helpers so the live-progress
 // comment is excluded from --auto-attach-solution-summary's AI-comment check.
 import { LIVE_PROGRESS_SECTION_START_MARKER, LIVE_PROGRESS_SECTION_END_MARKER, postTrackedCommentFromFile, trackToolCommentId } from './tool-comments.lib.mjs';
+import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
 /**
@@ -225,9 +226,12 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         // Edit existing comment
         const fs = (await import('fs')).promises;
         const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
-        await fs.writeFile(tempFile, progressSection);
-        await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`;
-        await fs.unlink(tempFile).catch(() => {});
+        await writeSanitizedPublicationFile(tempFile, progressSection);
+        try {
+          await $`gh api repos/${owner}/${repo}/issues/comments/${state.commentId} --method PATCH --field body=@${tempFile}`;
+        } finally {
+          await fs.unlink(tempFile).catch(() => {});
+        }
       } else {
         // Create new comment. Issue #1625: post via postTrackedCommentFromFile
         // so the comment ID is captured directly from the GitHub API response
@@ -235,9 +239,13 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
         // posted comments from the "did the AI post anything?" check).
         const fs = (await import('fs')).promises;
         const tempFile = `/tmp/pr-progress-comment-${prNumber}-${Date.now()}.md`;
-        await fs.writeFile(tempFile, progressSection);
-        const posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber: prNumber, bodyFile: tempFile });
-        await fs.unlink(tempFile).catch(() => {});
+        await writeSanitizedPublicationFile(tempFile, progressSection);
+        let posted;
+        try {
+          posted = await postTrackedCommentFromFile({ $, owner, repo, targetNumber: prNumber, bodyFile: tempFile });
+        } finally {
+          await fs.unlink(tempFile).catch(() => {});
+        }
 
         if (posted.ok && posted.commentId) {
           state.commentId = posted.commentId;
@@ -300,9 +308,12 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       // Write to temp file and update PR
       const fs = (await import('fs')).promises;
       const tempBodyFile = `/tmp/pr-progress-${prNumber}-${Date.now()}.md`;
-      await fs.writeFile(tempBodyFile, updatedBody);
-      await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
-      await fs.unlink(tempBodyFile).catch(() => {});
+      await writeSanitizedPublicationFile(tempBodyFile, updatedBody);
+      try {
+        await $`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
+      } finally {
+        await fs.unlink(tempBodyFile).catch(() => {});
+      }
 
       const stats = calculateProgress(todos);
       await log(`📊 Updated PR progress: ${stats.percentage}% (${stats.completed}/${stats.total} tasks completed)`);

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.10.2
+
+### Patch Changes
+
+- 4e41ee5: Sanitize credentials consistently across terminal output, logs, development-log artifacts, error telemetry, uploads, and GitHub publication boundaries.
+
 ## 2.10.1
 
 ### Patch Changes

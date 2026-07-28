@@ -1,0 +1,35 @@
+{
+  "auditedAt": "2026-07-28T20:39:37Z",
+  "commandStream": {
+    "version": "0.17.2",
+    "publishedAt": "2026-07-26T23:45:46.988Z",
+    "repositoryTag": "js-v0.17.2",
+    "repositoryCommit": "1132c71",
+    "npmIntegrity": "sha512-SEHSZgtfV6/llMw7mm0q/1w559EZd56rPmcGjkTWEkFwjtunqMM20qh8cr33S7CQ6FRfIVoiMjTPyvvnFOTvcw==",
+    "npmEntryCount": 466,
+    "requiredFiles": [
+      {
+        "path": "src/$.mjs",
+        "size": 12555
+      },
+      {
+        "path": "src/$.trace.mjs",
+        "size": 1439
+      },
+      {
+        "path": "src/terminal-capture.mjs",
+        "size": 13500
+      }
+    ]
+  },
+  "useM": {
+    "previousVersion": "8.14.2",
+    "fixedVersion": "8.14.3",
+    "publishedAt": "2026-07-28T19:28:19.389Z",
+    "repositoryTag": "v8.14.3",
+    "repositoryCommit": "8c5a55d144d8655efa805d02a3f234e8dfd6a9d4",
+    "upstreamIssue": "https://github.com/link-foundation/use-m/issues/66",
+    "upstreamPullRequest": "https://github.com/link-foundation/use-m/pull/67",
+    "cleanupFollowUpIssue": "https://github.com/link-foundation/use-m/issues/68"
+  }
+}

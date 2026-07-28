@@ -1,17 +1,20 @@
 # Root-cause analysis
 
-## Observed failure
+## Observed failures
 
-The alias entry point existed:
+### Incomplete aliases
+
+The alias entry point existed in two independent runs:
 
 ```text
 .../command-stream-v-latest/src/$.mjs
 ```
 
-but Node could not resolve a relative file imported from it:
+but Node could not resolve two different relative files imported from it:
 
 ```text
 .../command-stream-v-latest/src/terminal-capture.mjs
+.../command-stream-v-latest/src/$.trace.mjs
 code: ERR_MODULE_NOT_FOUND
 ```
 
@@ -20,37 +23,72 @@ This distinguishes the failure from issue #2092's truncated `$.mjs`
 state: enough of the alias exists for use-m to reuse it, but not enough for Node
 to evaluate it.
 
-## Root causes
+An `npm pack command-stream@0.17.2 --dry-run --json` audit found all three files
+in the published tarball: `src/$.mjs` (12,555 bytes), `src/$.trace.mjs` (1,439
+bytes), and `src/terminal-capture.mjs` (13,500 bytes). The tag and tarball agree.
+There is therefore no evidence of a `command-stream` packaging defect.
+
+### Cleanup failure after the upstream fix
+
+`use-m@8.14.3`, published at 19:28 UTC, added the requested corrupt-alias
+self-heal. The 20:04 UTC run reached it but failed while removing the alias:
+
+```text
+Failed to remove corrupt npm alias '.../command-stream-v-latest'.
+Caused by: ENOTEMPTY .../command-stream-v-latest/examples
+```
+
+The upstream helper called `rm(path, { recursive: true, force: true })`.
+Node documents that `ENOTEMPTY`, `EBUSY`, `EMFILE`, `ENFILE`, and `EPERM` are
+retried only when recursive removal has a positive `maxRetries`; the default is
+zero. The concurrent writer stress experiment reproduces `ENOTEMPTY` with the
+zero-retry call and succeeds with five retries. The evidence proves a mutation
+race or equivalent transient filesystem condition, but does not identify which
+process performed the competing mutation.
+
+## Root causes and gaps
 
 1. **Incomplete alias install.** A versioned global package directory was visible
    before or after an interrupted/partial installation, while an internal file
-   was absent. The evidence does not identify whether interruption, concurrent
-   mutation, or filesystem behavior caused the partial tree; all produce the
-   same recoverable state.
+   was absent. Two different missing files from a complete tarball rule out a
+   deterministic missing-file release.
 2. **Classifier gap.** `isCorruptInstallError()` recognized syntax corruption,
    invalid `package.json`, and use-m resolution failure, but not Node's
    `ERR_MODULE_NOT_FOUND` nested as the cause of use-m's import wrapper.
 3. **Sticky reuse.** use-m sees the alias directory as installed, so without
    removing it a later load can reuse the same incomplete tree.
+4. **Zero-retry cleanup.** The new use-m repair and Hive Mind's downstream
+   cleanup both relied on `fsPromises.rm()` defaults, so `ENOTEMPTY` escaped
+   rather than receiving the retry behavior Node provides.
+5. **New wrapper signature.** Hive Mind did not classify or extract the alias
+   from use-m 8.14.3's `Failed to remove corrupt npm alias ...` error.
 
 ## Selected solution
 
-Recognize `ERR_MODULE_NOT_FOUND` only when it is the cause of use-m's
-`Failed to import module from '…'` error. This guard avoids retrying arbitrary
-application-level missing imports. Existing shared recovery then:
+The shared recovery recognizes two narrow signatures:
 
-1. extracts the entry-point path from the wrapper;
-2. walks upward to the `<package>-v-<version>` alias;
-3. removes that entire alias;
-4. calls use-m again, causing a clean install;
-5. uses the existing cache-busted import fallback if Node replays a failed ESM
-   evaluation for the same entry URL.
+1. `ERR_MODULE_NOT_FOUND` only when it is the cause of use-m's exact
+   `Failed to import module from '…'` wrapper;
+2. use-m's exact `Failed to remove (corrupt|incomplete) npm alias '…'.` wrapper
+   only when its cause is one of Node's documented recursive-rm retry codes.
+
+It then extracts or derives the `<package>-v-<version>` alias, removes it with
+`recursive`, `force`, five retries, and 100 ms linear retry delay, and calls
+use-m again. The existing cache-busted import fallback remains available if
+Node replays a failed ESM evaluation for the same entry URL.
 
 Because `ensureUseM()` wraps `globalThis.use`, this applies to all dependency
 imports rather than only `command-stream` or the failing `/fix` path.
 
 ## Alternatives
 
+- **Pin `command-stream`:** rejected because the 0.17.2 registry tarball contains
+  every missing file. An older version can be left incomplete by the same
+  install/mutation failure.
+- **Pin use-m 8.14.2:** rejected because it removes upstream self-healing and its
+  downstream cleanup still had the same zero-retry `rm` behavior.
+- **Use only use-m 8.14.3 self-healing:** insufficient because the supplied
+  post-release log demonstrates its cleanup can fail before reinstall.
 - **Retry only in `/fix`:** rejected because the failure happens during shared
   module loading and affects every command.
 - **Add retries at every `use(...)`:** rejected because it duplicates policy and
@@ -66,8 +104,15 @@ imports rather than only `command-stream` or the failing `/fix` path.
 
 ## Verification strategy
 
-The unit test recreates the exact nested error and asserts both classification
-and whole-alias cleanup. The hermetic experiment asks Node to import an entry
-whose relative dependency is absent, confirms `ERR_MODULE_NOT_FOUND`, then
-simulates a clean reinstall during shared recovery. Full default tests, lint,
-format, syntax, and file-size checks provide regression coverage.
+The unit tests recreate both exact wrapper errors and assert classification,
+path extraction, whole-alias cleanup, and retry. A separate unit test verifies
+the default cleanup passes `maxRetries: 5` and `retryDelay: 100` to recursive
+`rm`. The hermetic missing-file experiment confirms Node's real
+`ERR_MODULE_NOT_FOUND` shape. The concurrent writer experiment provokes real
+`ENOTEMPTY` and verifies retry-budget cleanup. Full default tests, lint, format,
+syntax, and file-size checks provide regression coverage.
+
+The original incomplete-install problem was reported and fixed in
+[use-m #66](https://github.com/link-foundation/use-m/issues/66) /
+[PR #67](https://github.com/link-foundation/use-m/pull/67). The cleanup race is
+reported separately as [use-m #68](https://github.com/link-foundation/use-m/issues/68).

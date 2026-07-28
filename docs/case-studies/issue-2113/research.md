@@ -3,15 +3,34 @@
 ## Upstream use-m
 
 - [use-m issue #66](https://github.com/link-foundation/use-m/issues/66) already
-  tracks the underlying design problem: global installs are not retried and
-  corrupt alias directories remain sticky. Issue #2113 adds a fourth concrete
+  tracked the underlying design problem: global installs were not retried and
+  corrupt alias directories remained sticky. Issue #2113 added a fourth concrete
   corrupt-tree signature: a wrapped `ERR_MODULE_NOT_FOUND` for an internal file.
   The exact evidence, reproduction, guard, and suggested fix were added in
   [this upstream report](https://github.com/link-foundation/use-m/issues/66#issuecomment-5107282485).
-- use-m 8.14.2 installs npm aliases such as
+- [use-m PR #67](https://github.com/link-foundation/use-m/pull/67) merged at
+  19:26 UTC and `use-m@8.14.3` was published at 19:28 UTC. It added install
+  retries, corrupt-alias repair, and cache-busted recovery.
+- The supplied 20:04 UTC run confirms 8.14.3 reached its new repair path, then
+  failed with `ENOTEMPTY` because `removePackageAlias()` used recursive `rm`
+  without `maxRetries`. The follow-up is reported as
+  [use-m #68](https://github.com/link-foundation/use-m/issues/68).
+- use-m installs npm aliases such as
   `command-stream-v-latest@npm:command-stream@latest`, then dynamically imports
-  the resolved entry point. Hive Mind's shared wrapper remains an appropriate
-  downstream workaround until upstream owns install validation and recovery.
+  the resolved entry point. Hive Mind's narrow shared wrapper remains a
+  downstream defense for older versions and cleanup failures.
+
+## command-stream
+
+- The current release is `command-stream@0.17.2`, published on 2026-07-26 and
+  matching repository tag `js-v0.17.2`.
+- `npm pack command-stream@0.17.2 --dry-run --json` reports 466 entries and the
+  registry integrity recorded in `raw/dependency-audit.json`. The tarball
+  includes the 12,555-byte `src/$.mjs`, 1,439-byte `src/$.trace.mjs`, and
+  13,500-byte `src/terminal-capture.mjs`.
+- The two production aliases were missing different members of that complete
+  set. Pinning an older command-stream cannot prevent an interrupted or
+  concurrently-mutated alias, so no command-stream defect was reported.
 
 ## Node.js
 
@@ -21,6 +40,14 @@
 - The same documentation states ESM has a separate cache from `require.cache`
   and that query-string variants load as distinct modules. That supports the
   existing cache-busting recovery retained from issue #2092.
+- [Node's `fsPromises.rm` documentation](https://nodejs.org/api/fs.html#fspromisesrmpath-options)
+  explicitly lists `ENOTEMPTY`, `EBUSY`, `EMFILE`, `ENFILE`, and `EPERM` as
+  retryable during recursive removal. `maxRetries` defaults to zero and
+  `retryDelay` defaults to 100 ms. The selected five-retry budget uses this
+  platform-supported mechanism.
+- Node's promise-based filesystem documentation also warns that concurrent
+  modifications are not synchronized. The cleanup stress experiment models
+  that condition directly.
 
 ## npm
 
@@ -30,6 +57,10 @@
 - [npm package-spec documentation](https://docs.npmjs.com/cli/v11/using-npm/package-spec/)
   defines `<alias>@npm:<name>` as the alias syntax reified in `node_modules`,
   matching use-m's versioned alias layout.
+- [npm pack documentation](https://docs.npmjs.com/cli/v11/commands/npm-pack)
+  defines `--dry-run` as a no-change report of what pack/publish would include.
+  This makes the registry tarball inventory appropriate evidence when checking
+  whether command-stream omitted either missing module.
 
 ## Related Hive Mind work
 

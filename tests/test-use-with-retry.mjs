@@ -50,6 +50,12 @@ const makeInvalidPackageConfigError = pkgJsonPath => {
   return err;
 };
 
+const makeMissingTransitiveModuleError = (entryPath, missingPath) => {
+  const cause = new Error(`Cannot find module '${missingPath}' imported from ${entryPath}`);
+  cause.code = 'ERR_MODULE_NOT_FOUND';
+  return new Error(`Failed to import module from '${entryPath}'.`, { cause });
+};
+
 console.log('\n📋 isCorruptInstallError\n');
 
 await test('detects SyntaxError cause as corrupt install', () => {
@@ -75,6 +81,12 @@ await test('detects ERR_INVALID_PACKAGE_CONFIG on cause', () => {
   assert.equal(isCorruptInstallError(err), true);
 });
 
+await test('detects a missing transitive module inside an installed package (issue #2113)', () => {
+  const entry = '/opt/node_modules/command-stream-v-latest/src/$.mjs';
+  const missing = '/opt/node_modules/command-stream-v-latest/src/terminal-capture.mjs';
+  assert.equal(isCorruptInstallError(makeMissingTransitiveModuleError(entry, missing)), true);
+});
+
 await test('detects "Invalid package config" by message (no code)', () => {
   // Defensive: if the error bubbles through use-m without preserving `code`,
   // the message-prefix match still flags it as corrupt.
@@ -84,6 +96,9 @@ await test('detects "Invalid package config" by message (no code)', () => {
 
 await test('does not flag unrelated errors', () => {
   assert.equal(isCorruptInstallError(new Error('Network down')), false);
+  const unrelatedMissingModule = new Error("Cannot find package 'missing' imported from /app/index.mjs");
+  unrelatedMissingModule.code = 'ERR_MODULE_NOT_FOUND';
+  assert.equal(isCorruptInstallError(unrelatedMissingModule), false);
   assert.equal(isCorruptInstallError(null), false);
   assert.equal(isCorruptInstallError(undefined), false);
 });
@@ -234,6 +249,24 @@ await test('retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (is
   // package.json path → cleanup() walks up to the alias dir before rm -rf.
   assert.deepEqual(cleanedPaths, ['/tmp/getenv-v-latest']);
   assert.deepEqual(result, { default: 'recovered' });
+});
+
+await test('retries after a transitive module is missing and cleans up the whole alias dir (issue #2113)', async () => {
+  const entry = '/tmp/command-stream-v-latest/src/$.mjs';
+  const missing = '/tmp/command-stream-v-latest/src/terminal-capture.mjs';
+  const cleanedPaths = [];
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) throw makeMissingTransitiveModuleError(entry, missing);
+    return { $: 'recovered' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async path => cleanedPaths.push(path),
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(cleanedPaths, ['/tmp/command-stream-v-latest']);
+  assert.deepEqual(result, { $: 'recovered' });
 });
 
 await test('does not retry on unrelated errors', async () => {

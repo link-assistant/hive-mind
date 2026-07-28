@@ -16,8 +16,10 @@
  *   3. Node throws `Invalid package config <dir>/package.json.` with
  *      `code: 'ERR_INVALID_PACKAGE_CONFIG'` — the package.json itself
  *      is corrupt/truncated and cannot even be parsed (issue #1712).
+ *   4. Node throws `ERR_MODULE_NOT_FOUND` for a file imported by the package
+ *      entry point — npm left an incomplete package tree (issue #2113).
  *
- * The recovery is identical for all three: delete the broken alias install
+ * The recovery is identical for all four: delete the broken alias install
  * directory and ask use-m to re-fetch. A clean reinstall almost always
  * succeeds. This helper centralises that retry so every call site picks
  * it up.
@@ -128,9 +130,13 @@ export const isCorruptInstallError = error => {
   // resolve/import logic gets a chance to run.
   if (error?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
   if (cause?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
+  // Mode 4 (issue #2113): the installed entry point exists, but one of the
+  // files it imports does not. Restrict this to use-m's import wrapper so an
+  // unrelated application-level ERR_MODULE_NOT_FOUND is not retried.
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (/^Failed to import module from '/.test(message) && cause?.code === 'ERR_MODULE_NOT_FOUND') return true;
   // Mode 2 (also seen on hosted CI): npm install completes but the package
   // tree is incomplete, so use-m can't resolve the entry point.
-  const message = typeof error?.message === 'string' ? error.message : '';
   if (/^Failed to resolve the path to /.test(message)) return true;
   // Fallback string match for ERR_INVALID_PACKAGE_CONFIG (in case the error
   // bubbles through use-m without preserving the `code` property).

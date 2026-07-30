@@ -23,6 +23,7 @@ import { opencodeModels, defaultModels } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
+import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 
@@ -336,6 +337,48 @@ export const executeOpenCodeCommand = async params => {
       let lastTextContent = ''; // Issue #1263: Track last text content for result summary
       let allOutput = ''; // Collect all output for error detection
 
+      // Issue #2119: frame records by balanced JSON instead of by newlines, so
+      // pretty-printed, concatenated and chunk-split records are all counted.
+      // The previous per-chunk try/catch also aborted parsing of the whole
+      // chunk as soon as one line was not JSON.
+      const stdoutScanner = createJsonStreamScanner();
+      const stderrScanner = createJsonStreamScanner();
+
+      const handleOpenCodeRecords = events => {
+        for (const event of events) {
+          if (event.type !== 'json') continue;
+          const data = sanitizeObjectStrings(event.value);
+          // Issue #1968: a bare `null`/primitive record must not abort the
+          // rest of the chunk (data.type access would throw on null).
+          if (data === null || typeof data !== 'object') continue;
+          accumulateAgentStepFinishUsage(streamingTokenUsage, data);
+          // Track text content for result summary
+          // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
+          if (data.type === 'text' && data.text) {
+            lastTextContent = data.text;
+          } else if (data.type === 'assistant' && data.message?.content) {
+            const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+            for (const item of content) {
+              if (item.type === 'text' && item.text) {
+                lastTextContent = item.text;
+              }
+            }
+          } else if (data.type === 'message' && data.content) {
+            if (typeof data.content === 'string') {
+              lastTextContent = data.content;
+            } else if (Array.isArray(data.content)) {
+              for (const item of data.content) {
+                if (item.type === 'text' && item.text) {
+                  lastTextContent = item.text;
+                }
+              }
+            }
+          } else if (data.type === 'result' && data.result) {
+            lastTextContent = data.result;
+          }
+        }
+      };
+
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
@@ -343,44 +386,8 @@ export const executeOpenCodeCommand = async params => {
           lastMessage = output;
           allOutput += output;
 
-          // Issue #1263: Try to parse JSON output to extract text content for result summary
-          try {
-            const lines = output.split('\n');
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              const data = sanitizeObjectStrings(JSON.parse(line));
-              // Issue #1968: a bare `null`/primitive NDJSON line must not abort the
-              // rest of the chunk (data.type access would throw on null).
-              if (data === null || typeof data !== 'object') continue;
-              accumulateAgentStepFinishUsage(streamingTokenUsage, data);
-              // Track text content for result summary
-              // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
-              if (data.type === 'text' && data.text) {
-                lastTextContent = data.text;
-              } else if (data.type === 'assistant' && data.message?.content) {
-                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                for (const item of content) {
-                  if (item.type === 'text' && item.text) {
-                    lastTextContent = item.text;
-                  }
-                }
-              } else if (data.type === 'message' && data.content) {
-                if (typeof data.content === 'string') {
-                  lastTextContent = data.content;
-                } else if (Array.isArray(data.content)) {
-                  for (const item of data.content) {
-                    if (item.type === 'text' && item.text) {
-                      lastTextContent = item.text;
-                    }
-                  }
-                }
-              } else if (data.type === 'result' && data.result) {
-                lastTextContent = data.result;
-              }
-            }
-          } catch {
-            // Not JSON, continue
-          }
+          // Issue #1263: Parse JSON output to extract text content for result summary
+          handleOpenCodeRecords(stdoutScanner.write(output));
         }
 
         if (chunk.type === 'stderr') {
@@ -389,46 +396,17 @@ export const executeOpenCodeCommand = async params => {
             await log(errorOutput, { stream: 'stderr' });
             allOutput += errorOutput;
 
-            // Issue #1263: Also try to parse stderr for text content
-            try {
-              const lines = errorOutput.split('\n');
-              for (const line of lines) {
-                if (!line.trim()) continue;
-                const data = sanitizeObjectStrings(JSON.parse(line));
-                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
-                if (data === null || typeof data !== 'object') continue;
-                accumulateAgentStepFinishUsage(streamingTokenUsage, data);
-                if (data.type === 'text' && data.text) {
-                  lastTextContent = data.text;
-                } else if (data.type === 'assistant' && data.message?.content) {
-                  const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                  for (const item of content) {
-                    if (item.type === 'text' && item.text) {
-                      lastTextContent = item.text;
-                    }
-                  }
-                } else if (data.type === 'message' && data.content) {
-                  if (typeof data.content === 'string') {
-                    lastTextContent = data.content;
-                  } else if (Array.isArray(data.content)) {
-                    for (const item of data.content) {
-                      if (item.type === 'text' && item.text) {
-                        lastTextContent = item.text;
-                      }
-                    }
-                  }
-                } else if (data.type === 'result' && data.result) {
-                  lastTextContent = data.result;
-                }
-              }
-            } catch {
-              // Not JSON, continue
-            }
+            // Issue #1263: Also parse stderr for text content
+            handleOpenCodeRecords(stderrScanner.write(errorOutput));
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
       }
+
+      // Release any record that was still being assembled when the stream ended.
+      handleOpenCodeRecords(stdoutScanner.flush());
+      handleOpenCodeRecords(stderrScanner.flush());
 
       // Clean up the opencode.json config file to avoid polluting the repository
       try {

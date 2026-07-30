@@ -17,8 +17,9 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { defaultModels, geminiModels } from './models/index.mjs';
+import { defaultModels, geminiModels, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -128,6 +129,15 @@ const pickTokenValue = (...values) => {
     if (value !== undefined && value !== null) return toTokenCount(value);
   }
   return 0;
+};
+
+/**
+ * Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
+ * server, so the session must not be attributed to Google.
+ */
+export const buildGeminiPricingInfo = mappedModel => {
+  if (isFormalAiModel(mappedModel)) return buildFormalAiPricingInfo(mappedModel);
+  return { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null };
 };
 
 export const buildGeminiResultModelUsage = (modelId, stats = null) => {
@@ -587,8 +597,8 @@ export const executeGeminiCommand = async params => {
           messageCount: geminiJsonState.messageCount || 0,
           toolUseCount: geminiJsonState.toolUseCount || 0,
           resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-          publicPricingEstimate: null,
+          pricingInfo: buildGeminiPricingInfo(mappedModel),
+          publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
           resultSummary: geminiJsonState.resultSummary || null,
           // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
           errorInfo: { message: buildToolErrorMessage({ lastMessage: errorText, exitCode, fallback: `Gemini command failed with exit code ${exitCode}`, toolLabel: 'Gemini' }), exitCode },
@@ -631,8 +641,8 @@ export const executeGeminiCommand = async params => {
           messageCount: geminiJsonState.messageCount || 0,
           toolUseCount: geminiJsonState.toolUseCount || 0,
           resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-          publicPricingEstimate: null,
+          pricingInfo: buildGeminiPricingInfo(mappedModel),
+          publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
           resultSummary: geminiJsonState.resultSummary || null,
           completionHealth,
           incompleteSession: completionHealth.incompleteSession,
@@ -655,8 +665,8 @@ export const executeGeminiCommand = async params => {
         messageCount: geminiJsonState.messageCount || 0,
         toolUseCount: geminiJsonState.toolUseCount || 0,
         resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-        pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-        publicPricingEstimate: null,
+        pricingInfo: buildGeminiPricingInfo(mappedModel),
+        publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
         resultSummary: geminiJsonState.resultSummary || null,
       };
     } catch (error) {

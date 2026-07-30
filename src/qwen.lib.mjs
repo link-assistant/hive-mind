@@ -18,8 +18,9 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { qwenModels, defaultModels } from './models/index.mjs';
+import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
@@ -249,7 +250,7 @@ const applyQwenUsageToState = (state, event) => {
   applyQwenUsageObject(state, rawUsage, findFirstValue(event, QWEN_USAGE_PATHS.model));
 };
 
-const buildQwenPricingInfo = (state, mappedModel) => {
+export const buildQwenPricingInfo = (state, mappedModel) => {
   const tokenUsage = cloneQwenTokenUsage(state?.tokenUsage);
   if (!tokenUsage || tokenUsage.stepCount === 0) {
     return {
@@ -263,6 +264,17 @@ const buildQwenPricingInfo = (state, mappedModel) => {
   tokenUsage.requestedModelId ||= mappedModel || 'qwen';
   tokenUsage.respondedModelId ||= tokenUsage.requestedModelId;
   const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId;
+
+  // Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
+  // server, so the session belongs to Link.Assistant at $0.00 - not to Qwen Code.
+  if (isFormalAiModel(mappedModel) || isFormalAiModel(modelId)) {
+    return {
+      pricingInfo: { ...buildFormalAiPricingInfo(modelId, tokenUsage), source: 'qwen-stream-json' },
+      publicPricingEstimate: 0,
+      tokenUsage,
+      resultModelUsage: buildQwenResultModelUsage(tokenUsage),
+    };
+  }
 
   return {
     pricingInfo: {

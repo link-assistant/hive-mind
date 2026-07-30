@@ -26,6 +26,7 @@ import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifyS
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 
@@ -844,11 +845,8 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           verbose,
         });
 
-        // Issue #1688/#1905: When the original /solve URL was an issue, look up
-        //   the created PR so the completion message can include both an
-        //   `Issue:` and a `Pull request:` line. The linked-issue API can lag
-        //   behind the solver's own verification log, so we also inspect the
-        //   completed session log before giving up.
+        // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
+        // linked-issue API lags, from the completed solve log.
         let pullRequestUrl = null;
         try {
           pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, {
@@ -863,10 +861,25 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
-        // Issue #594: when --show-limits was used at command time, capture an
-        //   end-of-task limits snapshot and append a delta block to the
-        //   completion message. The cached helpers respect a 20-min TTL so
-        //   parallel sessions don't stampede the upstream API.
+        let pullRequestState = null;
+        const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+        try {
+          pullRequestState = await resolveFailedSessionPullRequestState({
+            pullRequestUrl,
+            outcome: completionOutcome,
+            lookupPullRequestState: options.lookupPullRequestState,
+            verbose,
+            sessionName,
+            exitCode: finalExitCode,
+            status: resolvedStatus,
+            logPath: statusResult?.logPath || sessionInfo?.logPath,
+          });
+        } catch (stateError) {
+          if (verbose) console.log(`[VERBOSE] Pull request state resolution failed for ${sessionName}: ${stateError?.message || stateError}`);
+        }
+
+        // Issue #594: append an end-of-task limits snapshot/delta. Cached
+        // helpers prevent parallel sessions from stampeding the upstream API.
         const limitsExtraSections = [];
         if (sessionInfo?.showLimits) {
           try {
@@ -895,15 +908,8 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
 
-        // Issue #1927 (review follow-up): when a /solve session was KILLED
-        //   (OOM/SIGKILL — the silent failure this issue is about), surface a
-        //   ready-to-run `--resume <lastSessionId>` command so the surviving
-        //   parent (the operator, or an automation watching the bot) can pick the
-        //   work back up. We deliberately do NOT auto-relaunch here: a job that
-        //   reliably OOMs would storm. The rule "use the LAST of multiple
-        //   sessions" is honored by reading the last `Session ID:` marker from
-        //   the captured log. Purely additive — failures never block the
-        //   completion notification, preserving backward compatibility.
+        // Issue #1927: for a killed /solve, offer a command using the last tool
+        // session ID in the log. Do not auto-relaunch work that may reliably OOM.
         const resumeExtraSections = [];
         try {
           const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
@@ -961,6 +967,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           exitCode: finalExitCode,
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
+          pullRequestState,
           extraSections: [...limitsExtraSections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
 

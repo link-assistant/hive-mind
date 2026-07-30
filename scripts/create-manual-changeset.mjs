@@ -71,7 +71,7 @@ ${description}
 
   // Format with Prettier
   console.log('\nFormatting with Prettier...');
-  await $`npx prettier --write "${changesetFile}"`;
+  await $`npx prettier --write ${changesetFile}`;
 
   console.log('\nChangeset created and formatted successfully');
 } catch (error) {

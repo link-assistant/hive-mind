@@ -101,7 +101,7 @@ ${youTrackIssue.description || 'No description provided.'}
     if (needsUpdate) {
       await log(`   📝 Updating issue #${existingIssue.number} for ${youTrackId}...`);
 
-      const updateResult = await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}"`;
+      const updateResult = await $`gh issue edit ${existingIssue.number} --repo ${owner}/${repo} --title ${ghTitle} --body ${ghBody}`;
 
       if (updateResult.code === 0) {
         await log(`   ✅ Updated issue #${existingIssue.number}`);
@@ -130,7 +130,7 @@ ${youTrackIssue.description || 'No description provided.'}
     await log(`   ➕ Creating GitHub issue for ${youTrackId}...`);
 
     try {
-      const createResult = await $`gh issue create --repo ${owner}/${repo} --title "${ghTitle}" --body "${ghBody}" --label "help wanted"`;
+      const createResult = await $`gh issue create --repo ${owner}/${repo} --title ${ghTitle} --body ${ghBody} --label "help wanted"`;
 
       if (createResult.code === 0) {
         const issueUrl = createResult.stdout.toString().trim();

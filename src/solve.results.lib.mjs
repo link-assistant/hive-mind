@@ -158,7 +158,7 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
   await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
 
   try {
-    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
     await fs.unlink(tempBodyFile).catch(() => {});
 
     if (updateResult.code === 0) {
@@ -787,7 +787,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             const updatedTitle = await sanitizeForPublication(pr.title.replace(/^\[WIP\]\s*/, ''));
             await log(`  📝 Removing [WIP] prefix from PR title...`);
-            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title ${updatedTitle}`;
             if (titleResult.code === 0) {
               await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
             } else {
@@ -836,7 +836,7 @@ Fixes ${issueRef}
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
 
             try {
-              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
               await fs.unlink(tempBodyFile).catch(() => {});
 
               if (descResult.code === 0) {

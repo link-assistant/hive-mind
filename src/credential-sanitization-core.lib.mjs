@@ -71,9 +71,33 @@ const VENDOR_PATTERNS = Object.freeze([
 ]);
 
 const SENSITIVE_KEY = String.raw`(?:[A-Za-z0-9_.-]*(?:api[-_]?key|account[-_]?key|client[-_]?secret|consumer[-_]?secret|webhook[-_]?secret|access[-_]?token|refresh[-_]?token|auth[-_]?token|password|passwd|pwd|private[-_]?key|secret|token|session[-_]?key|session[-_]?token|cookie|docker[-_]?auth|registry[-_]?auth|shared[-_]?access[-_]?signature|sas[-_]?token)[A-Za-z0-9_.-]*|auth|authorization)`;
+
+// Issue #2119: token *accounting* is not a credential. Every AI provider SDK
+// spells usage telemetry with the plural "tokens" (`tokens`, `inputTokens`,
+// `prompt_tokens`, `total_tokens`) or with an explicit quantity suffix
+// (`token_count`, `tokenLimit`). Masking those numbers corrupted the NDJSON
+// telemetry in published logs and destroyed token/cost accounting, while
+// protecting nothing: a credential is never a bare number under a plural name.
+// The exemption stays deliberately narrow - it requires both a counter-shaped
+// key and a purely numeric value, so `access_token=123456` is still masked.
+const TOKEN_COUNTER_KEY = /(?:tokens|token(?:count|limit|usage|budget|used|size|s?remaining)|(?:count|limit|usage|budget|used|size)tokens?)$/;
+const NUMERIC_VALUE = /^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i;
+
+const normalizeAssignmentKey = prefix =>
+  String(prefix ?? '')
+    .replace(/\s*(?:=>|[:=])\s*$/, '')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .toLowerCase();
+
+const isTokenCounterAssignment = (prefix, value) => NUMERIC_VALUE.test(String(value ?? '').trim()) && TOKEN_COUNTER_KEY.test(normalizeAssignmentKey(prefix));
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
 const QUOTED_ASSIGNMENT = new RegExp(`((?:["']?${SENSITIVE_KEY}["']?)\\s*(?:=>|[:=])\\s*)(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:["']?${SENSITIVE_KEY}["']?)\\s*(?:=>|[:=])\\s*)(?!["']|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+// Issue #2119: a value that *opens* a JSON/JS structure is punctuation, not a
+// secret. Without this guard `"tokens": {` was rewritten to `"tokens": [REDACTED]`,
+// which silently truncated the object and made the whole record unparseable.
+// The guard only rejects a structural character in first position, so a
+// credential that merely contains a brace (`password=ab{cd`) is still masked whole.
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:["']?${SENSITIVE_KEY}["']?)\\s*(?:=>|[:=])\\s*)(?!["']|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
@@ -136,8 +160,8 @@ export const sanitizeCredentialText = (input, options = {}) => {
 
   // XML and JSON/YAML/TOML/INI/shell-style assignments.
   output = output.replace(XML_CREDENTIAL, (_match, start, _key, value, end) => `${start}${maskValue(value.trim())}${end}`);
-  output = output.replace(QUOTED_ASSIGNMENT, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);
-  output = output.replace(UNQUOTED_ASSIGNMENT, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
+  output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, quote, value) => (isTokenCounterAssignment(prefix, value) ? match : `${prefix}${quote}${maskValue(value)}${quote}`));
+  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) ? match : `${prefix}${maskValue(value)}`));
 
   // CLI arguments and sensitive query parameters.
   output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);

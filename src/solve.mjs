@@ -1228,13 +1228,8 @@ try {
 
   // Issue #2048: commit+push dev log BEFORE any PR readiness signal so its CI gates readiness (was last, breaking CI post-signal; PR #2046, docs/case-studies/issue-2048). Idempotent: trailing call is a no-op. prettier-ignore
   await finalizeDevelopmentLog();
-  // Issue #1263 / #1728: Working session summary attachment.
-  // Routed through the shared maybeAttachWorkingSessionSummary helper so that
-  // top-level solve, auto-restart-until-mergeable, and watch-mode iterations
-  // all use identical attach logic. The helper internally honours
-  // --attach-solution-summary (always attach) and --auto-attach-solution-summary
-  // (attach only if no AI comment was posted during the session).
-  await maybeAttachWorkingSessionSummary({
+  // Issue #1263 / #1728 / #2115: shared summary attachment and usage display.
+  const { budgetStatsData: workingSessionBudgetStatsData = null } = await maybeAttachWorkingSessionSummary({
     argv,
     resultSummary,
     workStartTime,
@@ -1243,10 +1238,14 @@ try {
     prNumber,
     issueNumber,
     success,
+    publicPricingEstimate,
+    anthropicTotalCostUSD,
+    pricingInfo,
+    sessionUsage: { sessionId, tempDir, resultModelUsage, streamTokenUsage, subAgentCalls },
   });
 
   // Search for newly created pull requests and comments
-  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls);
+  const verifyResult = await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD, publicPricingEstimate, pricingInfo, errorDuringExecution, sessionType, resultModelUsage, streamTokenUsage, subAgentCalls, workingSessionBudgetStatsData);
   const logsAlreadyUploaded = verifyResult?.logUploadSuccess || false;
 
   // Issue #1162: Auto-restart when PR title/description still has placeholder content

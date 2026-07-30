@@ -28,6 +28,8 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+const { buildCostInfoString } = await import('./github-cost-info.lib.mjs');
+const { buildBudgetStatsString } = await import('./claude.budget-stats.lib.mjs');
 
 // Issue #1745: process-wide sanitization counters used to print a one-line
 // "we masked N secrets" summary at the end of each run.
@@ -663,11 +665,9 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
   }
 };
 
-// Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null) => {
-  await log('\n🔍 Searching for created pull requests or comments...');
-
-  // Issue #1491, #1526: Build budget stats data for GitHub comment (computed once, used in both PR and issue paths)
+// Build token/context data once so every end-of-session publication can use the
+// same observed facts (working-session summary and attached log alike).
+export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, tempDir = null, resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, pricingInfo = null }) => {
   let budgetStatsData = null;
   if (argv.tokensBudgetStats && sessionId && tempDir) {
     try {
@@ -692,6 +692,26 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       if (argv.verbose) await log(`  ⚠️  Could not build agent budget stats: ${agentBudgetError.message}`, { verbose: true });
     }
   }
+  return budgetStatsData;
+};
+
+// Verify results by searching for new PRs and comments
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, precomputedBudgetStatsData = null) => {
+  await log('\n🔍 Searching for created pull requests or comments...');
+
+  // Issue #1491, #1526, #2115: reuse data already calculated for the working
+  // session summary; retain the fallback for callers that do not precompute it.
+  const budgetStatsData =
+    precomputedBudgetStatsData ??
+    (await buildSessionBudgetStatsData({
+      argv,
+      sessionId,
+      tempDir,
+      resultModelUsage,
+      streamTokenUsage,
+      subAgentCalls,
+      pricingInfo,
+    }));
 
   try {
     // Get the current user's GitHub username
@@ -1241,7 +1261,15 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
  * @param {string} options.repo - Repository name
  * @returns {Promise<boolean>} - True if comment was posted successfully
  */
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo }) => {
+export const buildWorkingSessionSummaryDetails = ({ publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null } = {}) => {
+  const costInfo = buildCostInfoString(publicPricingEstimate, anthropicTotalCostUSD, pricingInfo, {
+    includeTokenUsage: false,
+  });
+  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
+  return `${costInfo}${budgetStats}`.trim();
+};
+
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1256,10 +1284,16 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
   }
 
   try {
+    const usageDetails = buildWorkingSessionSummaryDetails({
+      publicPricingEstimate,
+      anthropicTotalCostUSD,
+      pricingInfo,
+      budgetStatsData,
+    });
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
-${resultSummary}
+${resultSummary}${usageDetails ? `\n\n${usageDetails}` : ''}
 
 ---
 *${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
@@ -1316,7 +1350,7 @@ ${resultSummary}
  * @param {boolean} [options.success=true] - skip attachment for failed iterations
  * @returns {Promise<{attached: boolean, reason: string}>}
  */
-export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true }) => {
+export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null, sessionUsage = null }) => {
   if (!success) {
     return { attached: false, reason: 'iteration_failed' };
   }
@@ -1352,6 +1386,25 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
     return { attached: false, reason: 'no_attach_decision' };
   }
 
-  const ok = await attachSolutionSummary({ resultSummary, prNumber, issueNumber, owner, repo });
-  return { attached: !!ok, reason: ok ? 'attached' : 'post_failed' };
+  const resolvedBudgetStatsData =
+    budgetStatsData ??
+    (sessionUsage
+      ? await buildSessionBudgetStatsData({
+          argv,
+          pricingInfo,
+          ...sessionUsage,
+        })
+      : null);
+  const ok = await attachSolutionSummary({
+    resultSummary,
+    prNumber,
+    issueNumber,
+    owner,
+    repo,
+    publicPricingEstimate,
+    anthropicTotalCostUSD,
+    pricingInfo,
+    budgetStatsData: resolvedBudgetStatsData,
+  });
+  return { attached: !!ok, reason: ok ? 'attached' : 'post_failed', budgetStatsData: resolvedBudgetStatsData };
 };

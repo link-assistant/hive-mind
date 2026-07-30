@@ -1071,6 +1071,10 @@ No further AI sessions will be started automatically for this run. Please review
               prNumber,
               issueNumber,
               success: true,
+              publicPricingEstimate: toolResult.publicPricingEstimate,
+              anthropicTotalCostUSD: latestAnthropicCost,
+              pricingInfo: toolResult.pricingInfo,
+              budgetStatsData: autoMergeBudgetStatsData,
             });
           } catch (summaryError) {
             reportError(summaryError, {

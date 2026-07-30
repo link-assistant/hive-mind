@@ -67,7 +67,7 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESTART_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 
 const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
 const { buildReadyForReviewComment } = externalReviewLimitLib;
@@ -81,6 +81,13 @@ const { maybeAttachWorkingSessionSummary, ensurePullRequestIssueLink } = results
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit, shouldSyncBeforeRestart } = await import('./auto-iteration-limits.lib.mjs');
+// Issue #2119: one auto-restart budget shared with solve.watch.lib.mjs. solve.mjs
+// runs both loops in the same process, so before this a limit of 5 allowed 10 AI
+// sessions and the two loops published incompatible progress labels
+// ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
+const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
@@ -101,7 +108,8 @@ export const watchUntilMergeable = async params => {
   const MIN_CI_CHECK_INTERVAL_SECONDS = 120;
   const watchInterval = Math.max(rawWatchInterval, MIN_CI_CHECK_INTERVAL_SECONDS);
   const isAutoMerge = argv.autoMerge || false;
-  const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
+  // Issue #2119: join the shared budget instead of starting a second counter.
+  const maxAutoRestartIterations = beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
   const maxAutoResumeIterations = normalizeAutoIterationLimit(argv.autoResumeMaxIterations);
   // Issue #1503/#1573/#1612: repo-wide action gating is opt-in strict mode.
   // The config default may be bypassed when this module is reused directly, so normalize here.
@@ -112,7 +120,8 @@ export const watchUntilMergeable = async params => {
   let latestAnthropicCost = null;
 
   // Issue #1323: Track actual AI restarts separately from check cycle iterations
-  let restartCount = 0;
+  // Issue #2119: the count now lives in the shared budget module, so restarts
+  // already spent by the watch loop earlier in this run are counted here too.
   let limitResumeCount = 0;
 
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
@@ -133,7 +142,7 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
   await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
-  await log(formatAligned('', 'Max restart iterations:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
+  await log(formatAligned('', 'Max restart iterations:', formatAutoRestartLimit(), 2));
   await log(formatAligned('', 'Max limit resumes:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
@@ -691,38 +700,24 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
       }
 
       if (shouldRestart) {
-        if (hasReachedAutoIterationLimit(restartCount, maxAutoRestartIterations)) {
-          await log('');
-          await log(formatAligned('⚠️', 'AUTO-RESTART LIMIT REACHED', `Stopping after ${restartCount} restart iteration${restartCount !== 1 ? 's' : ''}`));
-          await log(formatAligned('', 'Configured limit:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
-          await log(formatAligned('', 'Remaining blockers:', restartReason, 2));
-          await log('');
-
-          try {
-            const limitComment = `## ⚠️ Auto-restart limit reached
-
-Hive Mind stopped auto-restart-until-mergeable after ${restartCount} restart iteration${restartCount !== 1 ? 's' : ''}.
-
-**Configured limit:** ${formatAutoIterationLimit(maxAutoRestartIterations)}
-**Remaining reason:** ${restartReason}
-
-No further AI sessions will be started automatically for this run. Please review the remaining blockers manually or rerun with a higher \`--auto-restart-max-iterations\` value.
-
----
-*Auto-restart-until-mergeable stopped by the safety limit.*`;
-            await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: limitComment });
-          } catch (commentError) {
-            reportError(commentError, {
-              context: 'post_auto_restart_limit_comment',
-              owner,
-              repo,
-              prNumber,
-              operation: 'comment_on_pr',
-            });
-            await log(formatAligned('', '⚠️  Could not post auto-restart limit comment to PR', '', 2));
-          }
-
-          return { success: false, reason: 'auto_restart_limit_reached', latestSessionId, latestAnthropicCost };
+        // Issue #2119: the run-wide budget is exhausted (it may already have been
+        // spent by the watch loop). Fail and auto-commit through the same shared
+        // exhaustion path the uncommitted-changes loop uses, so the outcome and
+        // the published comment are identical no matter which loop hit the limit.
+        if (hasExhaustedAutoRestartBudget()) {
+          const exhaustion = await failOnAutoRestartBudgetExhausted({
+            owner,
+            repo,
+            prNumber,
+            tempDir,
+            branchName: prBranch || branchName,
+            $,
+            log,
+            formatAligned,
+            blocker: restartReason,
+            subsystem: 'auto-restart-until-mergeable',
+          });
+          return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
         }
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
@@ -759,17 +754,21 @@ No further AI sessions will be started automatically for this run. Please review
         }
 
         // Issue #1323: Increment restart count only when a tool execution is about to start.
-        restartCount++;
+        // Issue #2119: claim it from the run-wide shared budget.
+        const restartCount = consumeAutoRestartIteration();
 
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
-        await log(formatAligned('', 'Restart iteration:', maxAutoRestartIterations === 0 ? `${restartCount}` : `${restartCount}/${maxAutoRestartIterations}`, 2));
+        await log(formatAligned('', 'Restart iteration:', formatAutoRestartLabel(restartCount), 2));
         await log('');
 
         // Post a comment to PR about the restart after preflight succeeds, so every
         // posted restart notification corresponds to an actual tool session.
         try {
-          const limitText = maxAutoRestartIterations === 0 ? 'No automatic restart limit is configured.' : `This run will stop after ${maxAutoRestartIterations} restart iteration${maxAutoRestartIterations !== 1 ? 's' : ''}.`;
-          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} triggered (iteration ${restartCount})\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
+          const limitText = maxAutoRestartIterations === 0 ? 'No automatic restart limit is configured.' : `This run will stop after ${maxAutoRestartIterations} restart iteration${maxAutoRestartIterations !== 1 ? 's' : ''} in total.`;
+          // Issue #2119: the same `N/M` heading the uncommitted-changes loop posts.
+          // "triggered (iteration N)" hid the limit and made one auto-restart
+          // system look like two.
+          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${formatAutoRestartLabel(restartCount)}\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));
@@ -1093,8 +1092,10 @@ No further AI sessions will be started automatically for this run. Please review
             try {
               const logFile = getLogFile();
               if (logFile) {
-                // Issue #1323: Use restartCount (actual AI executions) instead of iteration (check cycles)
-                const customTitle = `🔄 Auto-restart-until-mergeable Log (iteration ${restartCount})`;
+                // Issue #1323: Use the restart count (actual AI executions) instead of iteration (check cycles)
+                // Issue #2119: `N/M` like every other auto-restart label, so the
+                // limit is visible in the log title too.
+                const customTitle = `🔄 ${AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER} ${formatAutoRestartLabel()}`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',

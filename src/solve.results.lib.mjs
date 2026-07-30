@@ -67,6 +67,9 @@ const { reportError } = sentryLib;
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
 
+// Issue #2119: the one place that decides whether a pull request changed anything.
+const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -801,14 +804,14 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             await log(`  📝 Updating PR description to remove placeholder text...`);
 
-            // Build a summary of the changes from the PR diff
-            const diffResult = await $`gh pr diff ${pr.number} --repo ${owner}/${repo} 2>&1`;
-            const diffOutput = diffResult.code === 0 ? diffResult.stdout.toString() : '';
-
-            // Count files changed
-            const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
-            const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
-            const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+            // Issue #2119: measure the net diff. The reproduction PRs published
+            // "1 file(s) modified, 1 line(s) added" for a pull request that
+            // changed nothing, because the stats were never checked for being
+            // empty.
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $ });
+            if (!changeStats.hasChanges) {
+              await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
+            }
 
             // Get the issue title for context
             const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
@@ -822,9 +825,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 This pull request implements a solution for ${issueRef}: ${issueTitle}
 
 ### Changes
-- ${filesChanged} file(s) modified
-- ${additions} line(s) added
-- ${deletions} line(s) removed
+${formatChangeSummary(changeStats)}
 
 ### Issue Reference
 Fixes ${issueRef}

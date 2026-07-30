@@ -90,6 +90,9 @@ const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLa
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
+// Issue #2119: an empty pull request must not be reported as ready to merge.
+const { EMPTY_PULL_REQUEST_BLOCKER, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
@@ -286,9 +289,19 @@ export const watchUntilMergeable = async params => {
         }
       }
 
+      // Issue #2119: an empty pull request is not "ready to merge". The Kotlin
+      // reproduction run posted "✅ Ready to merge - No pending changes" for a
+      // pull request whose net diff was empty, so merging it would have closed
+      // the issue without implementing anything.
+      const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber, $ });
+      const isEmptyPullRequest = changeStats.measured && !changeStats.hasChanges;
+      if (isEmptyPullRequest) {
+        await log(formatAligned('⚠️', 'PR is empty:', 'net diff contains no files - not treating it as mergeable', 2), { level: 'warning' });
+      }
+
       // If PR is mergeable, no blockers, no new comments, no issue metadata
-      // edits, and no uncommitted changes
-      if (blockers.length === 0 && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges) {
+      // edits, no uncommitted changes and it actually changes something
+      if (blockers.length === 0 && !hasNewComments && !hasIssueMetadataChanges && !hasUncommittedChanges && !isEmptyPullRequest) {
         // Issue #1503 (enhanced): Multi-mechanism consensus + repo-wide action check.
         // Before declaring PR mergeable, run multiple independent CI detection mechanisms
         // and require all to agree. This catches race conditions where CI starts between
@@ -441,6 +454,15 @@ export const watchUntilMergeable = async params => {
         }
         feedbackLines.push('');
         feedbackLines.push('Please review and address the feedback from these comments.');
+      }
+
+      // Issue #2119: Reason 1a: the pull request does not change anything yet.
+      if (isEmptyPullRequest) {
+        shouldRestart = true;
+        restartReason = restartReason ? `${restartReason}; ${EMPTY_PULL_REQUEST_BLOCKER}` : EMPTY_PULL_REQUEST_BLOCKER;
+        feedbackLines.push(`📭 ${EMPTY_PULL_REQUEST_BLOCKER}.`);
+        feedbackLines.push('');
+        feedbackLines.push('Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.');
       }
 
       // Issue #2007: Reason 1b: Issue title/description edited by the user.

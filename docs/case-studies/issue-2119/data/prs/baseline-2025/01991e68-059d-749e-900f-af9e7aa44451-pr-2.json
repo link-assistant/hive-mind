@@ -1,0 +1,24 @@
+{
+  "additions": 69,
+  "body": "## Summary\n- Implemented Hello World program in Rust (`main.rs`) with proper comments and build instructions\n- Created GitHub Actions workflow (`.github/workflows/test-hello-world.yml`) that automatically tests the program\n- Program outputs exactly \"Hello, World!\" as required\n- Follows Rust best practices and idioms\n\n## Test plan\n- [x] Program compiles successfully with `rustc main.rs`  \n- [x] Program outputs exactly \"Hello, World!\" when run\n- [x] GitHub Actions workflow triggers on push/PR to main branch\n- [x] Workflow sets up Rust environment, compiles, runs, and verifies output\n- [x] All requirements from issue #1 are satisfied\n\n## Files Added\n- `main.rs` - Hello World program in Rust with comprehensive comments\n- `.github/workflows/test-hello-world.yml` - CI/CD workflow for automated testing\n\nResolves #1\n\n🤖 Generated with [Claude Code](https://claude.ai/code)",
+  "changedFiles": 2,
+  "commits": [
+    {
+      "authoredDate": "2025-09-06T09:49:40Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "Konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude" }
+      ],
+      "committedDate": "2025-09-06T09:49:40Z",
+      "messageBody": "- Add main.rs with Hello World implementation following Rust best practices\n- Include comprehensive comments explaining the code and build instructions\n- Create GitHub Actions workflow that tests the program on push/PR\n- Workflow verifies output matches exactly \"Hello, World!\"\n- All requirements from issue #1 have been implemented\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+      "messageHeadline": "Implement Hello World program in Rust with GitHub Actions workflow",
+      "oid": "fa664d649aaa8feff15097252dd43643b6b6234c"
+    }
+  ],
+  "createdAt": "2025-09-06T09:49:54Z",
+  "deletions": 0,
+  "number": 2,
+  "state": "OPEN",
+  "title": "Implement Hello World in Rust with GitHub Actions",
+  "url": "https://github.com/konard/test-hello-world-01991e68-059d-749e-900f-af9e7aa44451/pull/2"
+}

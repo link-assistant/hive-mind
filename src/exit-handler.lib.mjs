@@ -14,7 +14,6 @@ import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, r
 // auto-continue hand-off). No-op unless solve registered a finalizer, so hive
 // and other consumers of this module are unaffected.
 import { finalizeActiveDevelopmentLog } from './development-log.finalize.lib.mjs';
-import { getConfirmedTerminalOutcome, resolveInternalExitCode } from './solve-terminal-outcome.lib.mjs';
 
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
@@ -245,30 +244,17 @@ export const logActiveHandles = async (log = null) => {
  *   guidance for the pre-exit notifier.
  */
 export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
-  const requestedCode = code;
-  const confirmedOutcome = getConfirmedTerminalOutcome();
-  code = resolveInternalExitCode(requestedCode);
-  if (code !== requestedCode && confirmedOutcome) {
-    skipPreExit = true;
-    const outcomeLabel = `${confirmedOutcome.owner}/${confirmedOutcome.repo}#${confirmedOutcome.prNumber}`;
-    const warning = `⚠️  Internal post-merge failure requested exit ${requestedCode} (${reason}); preserving exit 0 because ${outcomeLabel} is already merged.`;
-    try {
-      if (logFunction) await logFunction(warning, { level: 'warning' });
-      else console.warn(warning);
-    } catch {
-      console.warn(warning);
-    }
-    reason = `Pull request ${outcomeLabel} merged; post-merge failure recorded`;
-  }
-
-  // Issue #2090: collect the working session that is still uncollected (and the
-  // log tail produced after it) before the process goes away.
+  // Issue #2117: every best-effort step below is diagnostic housekeeping. It may
+  // fail, but it must never change the exit code the caller asked for — neither
+  // by masking a failure nor by turning a success into an uncaught exception.
   try {
     await showExitMessage(reason, code);
   } catch (error) {
     console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
   }
 
+  // Issue #2090: collect the working session that is still uncollected (and the
+  // log tail produced after it) before the process goes away.
   try {
     await finalizeActiveDevelopmentLog({ force: true });
   } catch {
@@ -469,9 +455,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
       if (logFunction) {
         await logFunction(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
       }
-      const exitCode = resolveInternalExitCode(1);
-      const reason = exitCode === 0 ? 'Pull request merged; post-merge exception recorded' : 'Uncaught exception occurred';
-      await showExitMessage(reason, exitCode);
+      await showExitMessage('Uncaught exception occurred', 1);
       try {
         const sentry = await getSentry();
         if (sentry && sentry.close) {
@@ -480,7 +464,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
       } catch {
         // Ignore Sentry.close() errors
       }
-      process.exit(exitCode);
+      process.exit(1);
     });
 
     // Handle unhandled rejections
@@ -495,9 +479,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
       if (logFunction) {
         await logFunction(`\n❌ Unhandled Rejection: ${reason}`, { level: 'error' });
       }
-      const exitCode = resolveInternalExitCode(1);
-      const exitReason = exitCode === 0 ? 'Pull request merged; post-merge rejection recorded' : 'Unhandled rejection occurred';
-      await showExitMessage(exitReason, exitCode);
+      await showExitMessage('Unhandled rejection occurred', 1);
       try {
         const sentry = await getSentry();
         if (sentry && sentry.close) {
@@ -506,7 +488,7 @@ export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) =
       } catch {
         // Ignore Sentry.close() errors
       }
-      process.exit(exitCode);
+      process.exit(1);
     });
   }
 };

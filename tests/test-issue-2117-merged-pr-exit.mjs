@@ -77,7 +77,11 @@ await monitorSessions(
       exitCode: 1,
       startTime: '2026-07-30T06:14:58.000Z',
       endTime: '2026-07-30T06:38:56.000Z',
+      logPath: '/tmp/issue-2117-monitor.log',
     }),
+    // A genuine post-merge failure: start-command's anchored footer corroborates
+    // the non-zero exit, so the monitor reports it without the #2117 deferral.
+    exitFromLog: () => ({ finished: true, exitCode: 1, endTime: '2026-07-30 06:38:56.000' }),
     lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2118',
     lookupPullRequestState: async url => {
       assert(url.endsWith('/pull/2118'), 'PR state lookup receives the resolved pull request URL');

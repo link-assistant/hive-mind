@@ -1,224 +1,224 @@
-# Issue 2117 case study: merged pull request reported as failed
+# Issue 2117 case study: a successful work session reported as "failed (exit code: 1)"
 
 ## Executive summary
 
-The report combines two real events: Hive Mind successfully merged
-`link-foundation/use-m#69`, then its container exited with code 1. The Docker
-entrypoint and detached-session monitor preserve the inner process status, so
-the exit code was not fabricated. GitHub independently records the merge at
-`2026-07-30T06:38:12Z`, and Hive Mind posted its auto-merge success comment one
-second later.
+The `/codex` run on `link-foundation/use-m#68` did everything right: it opened
+`use-m#69`, merged it at `06:38:12Z`, and the containerized `solve` process
+exited **0** at `06:38:16Z`. Telegram nevertheless announced
+**"❌ Work session failed (exit code: 1)"**.
 
-The exact statement that threw after the merge is not present in the retained
-artifact. The attached solve log is an interim snapshot ending at `06:35:36Z`,
-almost three minutes before the merge. The original container, final
-start-command log/footer, and Docker state were no longer retained when this
-investigation began. Naming a specific exception would therefore be
-speculation.
+Nothing in Hive Mind's own exit path produced that `1`, and nothing in the
+container did either. The exit code was **fabricated by start-command** and
+handed to the Telegram monitor by `$ --status`:
 
-The root lifecycle defect is nevertheless concrete and reproducible: Hive Mind
-did not persist the durable merge success in process state. Any later internal
-exception could still reach an exit-1 path and override the already-completed
-goal. `solve` also installed two competing pairs of process-error handlers, and
-its finalizer awaited housekeeping steps without independent failure
-boundaries.
+- start-command derives the exit code of a detached docker session from an
+  **unanchored** `/Exit Code:\s*(-?\d+)/g` scan over the **whole** execution log
+  and takes the **last** match
+  (`src/lib/status-formatter.js#readExitCodeFromLog`, v0.30.3).
+- At `06:17:26Z` the agent printed the tail of an **older, unrelated**
+  start-command log (from a `2026-07-28` `/fix` run) while investigating the
+  issue. That quoted text ends with `Exit Code: 1`.
+- The real footer is appended by a **host-side watcher** only _after_ the
+  container is removed: `docker logs -f … ; docker inspect … ; docker rm -f … ;
+printf '…\nFinished: %s\nExit Code: %s\n'`
+  (`src/lib/docker-cleanup.js#buildDetachedDockerCompletionScript`).
+- The bot polled `$ --status` inside that window. The container was already
+  gone, so liveness was unknown, and `enrichDetachedStatus()` honoured the
+  "footer" it found — which at that instant was still the agent's quoted
+  `Exit Code: 1`, roughly two seconds before the genuine `Exit Code: 0` was
+  written.
 
-The fix closes that entire failure class:
+The evidence is unambiguous: the same `$ --status` command run later — after
+the footer existed — reports `status executed` / `exitCode 0` for the very same
+session (`data/start-command-status-output.txt`).
 
-- latch the successful terminal outcome immediately when GitHub reports or
-  performs the merge, before any post-merge `await`;
-- convert later _internal_ failure exits to exit 0 while retaining the error in
-  the log;
-- skip failure comments, failure auto-close, and pre-exit failure notifications
-  after a confirmed merge;
-- use only `solve`'s richer process-error handlers instead of racing a duplicate
-  global pair;
-- make final cleanup, log-reference, Sentry, and active-handle steps independent
-  best-effort operations;
-- retain the split-outcome Telegram message for old deployments and genuinely
-  external terminations that application code cannot prevent (for example
-  SIGKILL or OOM).
+The fix therefore has two parts:
+
+1. **Upstream** (the actual defect): reported to
+   [link-foundation/start#150](https://github.com/link-foundation/start/issues/150)
+   with a reproducible example, a workaround and a concrete code fix (anchor the
+   footer regex, scan only the log tail, prefer `docker inspect .State.ExitCode`,
+   and write the footer before removing the container).
+2. **Downstream** (defense in depth, this pull request): the session monitor no
+   longer trusts an uncorroborated docker terminal failure. It reads Hive Mind's
+   own **anchored** footer parser first and lets it win, and defers an
+   unverified docker failure for up to 60 s so the real footer can appear.
 
 ## Visual comparison
 
-| Before: contradictory failure                           | After: both outcomes reported                                 |
+| Before: fabricated failure                              | After: the real outcome                                       |
 | ------------------------------------------------------- | ------------------------------------------------------------- |
 | ![Original Telegram message](data/issue-screenshot.png) | ![Expected Telegram message after the fix](after-message.png) |
 
 ## Evidence and timeline
 
-All times are UTC on 2026-07-30.
+All times are UTC on 2026-07-30. Sources: `data/outer-session.log.txt` (the
+host-side start-command execution log, obtained via `$ --upload-log`),
+`data/session.log.txt` (the inner solve log attached to PR 69),
+`data/start-command-status-output.txt`, and the GitHub API snapshots in `data/`.
 
-| Time      | Event                                        | Confidence and source                                                                                     |
-| --------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 06:14:58  | Work session starts                          | Solve log header and Telegram session metadata.                                                           |
-| 06:35:31  | Codex completes successfully                 | `turn.completed`, `✅ Codex command completed`, clean worktree, and healthy resource snapshot in the log. |
-| 06:35:34  | Hive Mind posts its working summary to PR 69 | GitHub conversation comment `5127479150`.                                                                 |
-| 06:35:36  | Attached solve-log snapshot ends             | Last timestamp in `data/session.log.txt`; this proves the artifact is not the final runner log.           |
-| 06:35:45  | The 2.5 MB log snapshot is posted to PR 69   | GitHub conversation comment `5127481018`.                                                                 |
-| 06:38:12  | PR 69 is merged                              | GitHub `mergedAt`; merge commit `15cb68541a93bde3ba9b621651d6c841f4b21d1d`.                               |
-| 06:38:13  | Hive Mind posts its merge-complete comment   | GitHub conversation comment `5127503934`; proves the solver reached its merge-success branch.             |
-| ~06:38:56 | Telegram reports the container's exit code 1 | Screenshot duration and completion notification.                                                          |
+| Time         | Event                                                                                   | Source                                                          |
+| ------------ | --------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 06:14:21.348 | start-command records the detached docker session `e2bf4bf1…`                           | `outer-session.log.txt:1-12`; `startTime` in the status record  |
+| 06:14:58     | `solve` starts inside the container                                                     | Inner log header                                                |
+| 06:17:26     | The agent prints the tail of a **2026-07-28** log that ends with `Exit Code: 1`         | `outer-session.log.txt:2051` (a Codex `item.completed` payload) |
+| 06:35:34     | Hive Mind posts its working summary to PR 69                                            | Comment `5127479150`                                            |
+| 06:38:12     | PR 69 is merged (`15cb6854…`)                                                           | GitHub `mergedAt`                                               |
+| 06:38:13     | Hive Mind posts its merge-complete comment                                              | Comment `5127503934`                                            |
+| 06:38:16.232 | `solve` finishes: `📈 Resource usage (solve exit 0)`, `✅ Process completed`            | `outer-session.log.txt:10400-10409`                             |
+| ~06:38:19    | The bot polls `$ --status`; container removed, footer not yet written → **exit code 1** | Telegram duration 23m 58s counted from `06:14:21.348`           |
+| 06:38:21.188 | The watcher appends the genuine footer `Exit Code: 0`                                   | `outer-session.log.txt:10411-10413`                             |
+| 20:27:36.145 | `$ --status` for the same session now reports `status executed`, `exitCode 0`           | `start-command-status-output.txt`                               |
 
-Additional findings:
+Two details confirm the mechanism rather than merely fitting it:
 
-- The only command error in the retained inner trace is a missing `jq` binary
-  returning 127. Codex recovered with `gh --jq`, completed its turn, and Hive
-  Mind continued successfully; this is not the terminal exit 1.
-- After the agent finished, 10.4 GB of memory and 153.7 GB of disk remained.
-  The evidence does not support OOM or disk exhaustion.
-- The `konard/box-dind:2.3.5` entrypoint hands off through `exec`, the standard
-  Box entrypoint also ends with `exec "$@"`, and start-command stores Docker's
-  real `State.ExitCode`. None maps success to code 1.
-- PR 69's head remains `dd7b034`. The expected `.gitkeep` cleanup commit was
-  never pushed, even though normal ordering performs that cleanup after
-  auto-merge. This confines the interruption to the post-merge lifecycle.
-
-The retained evidence does **not** contain the outer exception, stack, final
-start-command footer/status payload, or Docker `State` record. Those are needed
-to identify the historical triggering statement.
+- The whole 10 413-line log contains exactly **two** `Exit Code:` occurrences:
+  the quoted foreign one at line 2051 and the genuine footer at line 10413.
+- `enrichDetachedStatus()` never persists its correction (it clones the record),
+  which is why the store still said `executing` fourteen hours later and why the
+  `endTime` in konard's output is `20:27:36.145Z` — the moment `--status` was
+  run, not the moment the session ended. The record the bot saw at 06:38 was
+  computed the same way, from the log content available at that instant.
 
 ## Root-cause analysis
 
-### Confirmed lifecycle root cause
+### Upstream root cause (start-command v0.30.3)
 
-Before this fix, GitHub merge success was only a return value from
-`startAutoRestartUntilMergeable()`. It was not durable process state.
-Post-merge work still followed:
-
-1. final log reconciliation;
-2. `.gitkeep` cleanup and push;
-3. development-log finalization;
-4. work-session shutdown;
-5. temporary-directory cleanup, Sentry close, active-handle diagnostics, and
-   `safeExit(0)`.
-
-An exception in that tail entered `handleMainExecutionError()` or an
-uncaught-exception/unhandled-rejection listener, all of which unconditionally
-requested exit 1. Thus the code allowed this invalid transition:
-
-```text
-GitHub merge confirmed → post-merge internal error → process exit 1
+```js
+// src/lib/status-formatter.js
+const matches = [...content.matchAll(/Exit Code:\s*(-?\d+)/g)];
+return parseInt(matches[matches.length - 1][1], 10);
 ```
 
-Two independently registered process-error listener pairs could also race:
-`installGlobalExitHandlers()` was registered first, while `solve` later added
-handlers that preserve work and attach diagnostics. The global listener could
-terminate the process before the richer handler completed.
+The pattern is unanchored, applied to the entire log, and the last match wins.
+Any wrapped command that prints `Exit Code: N` — an agent quoting a log, a test
+fixture, a CI transcript — can therefore dictate the session's reported exit
+code. The exposure window is created by the completion watcher, which removes
+the container **before** it writes the footer, so between container exit and
+footer write `$ --status` sees "backend gone + a footer-looking line".
 
-The historical exception that selected one of these paths is unavailable, but
-the missing success invariant—not the wording of the notification—is the root
-cause that made the contradictory terminal result possible.
+Reproduced twice, without mocks:
 
-### Presentation root cause
+- `experiments/issue-2117/upstream-repro-cli.sh` — pure CLI, `alpine:3`, a
+  command that prints `Exit Code: 1` and then exits/gets killed. Reported
+  result: `status executed`, `exitCode 1` (expected `137` or the `-1`
+  sentinel). Captured output: `data/upstream-repro-output.txt`.
+- `experiments/issue-2117/reproduce-false-exit-code.mjs` — the same fabrication
+  driven through a real execution store.
 
-The Telegram formatter classified the whole task only from runner status. It
-did not query the already-resolved pull request's terminal GitHub state, so a
-real runner failure overwrote the equally real completed goal.
+Filed as [link-foundation/start#150](https://github.com/link-foundation/start/issues/150).
 
-### Why no upstream issue was filed
+### Downstream root cause (Hive Mind)
 
-No retained trace attributes the internal exception to start-command, Docker,
-GitHub CLI, or Box, and each audited boundary faithfully propagates status.
-Without a minimal upstream reproduction, filing against one of those projects
-would not be actionable. The new guard and completion-evidence trace make a
-future external termination diagnosable without guessing.
+`getIsolationSessionState()` accepted a terminal status from `$ --status`
+verbatim. Hive Mind already has a stricter parser — `parseSessionExitFooter()`
+matches only an **anchored** `={10,}` / `Finished:` / `Exit Code: N` block in
+the last 16 KB of the log, so quoted text cannot forge it — but that parser was
+only consulted on other code paths. The monitor therefore inherited an upstream
+fabrication it had the means to detect.
 
-## Solution and guarantee boundary
+### Why the earlier "post-merge exit guard" was reverted
 
-`solve-terminal-outcome.lib.mjs` stores the first confirmed merge with its
-repository and PR identity. Every auto-merge success/detection path records it
-before logging, comments, issue closing, or other awaited work.
+The first pass at this issue (commit `adb16e33`) assumed the container really
+had exited 1 after the merge and suppressed exit-1 after a confirmed merge. The
+archived log disproves the premise — `solve` exited 0 — and the guard was
+actively harmful: it would have converted _genuine_ post-merge failures into
+silent successes. It was removed together with `src/solve-terminal-outcome.lib.mjs`.
+Its two genuinely useful side effects were kept: every step of the exit path is
+now independently best-effort (diagnostics can never change the requested exit
+code), and `solve` no longer installs a second, racing pair of process-error
+handlers. `tests/test-issue-2117-exit-path-resilience.mjs` locks both in,
+including an assertion that no exit-code override may return.
 
-Internal exits then follow one invariant:
+## The fix in this pull request
 
-```text
-before merge: requested exit 1 → exit 1
-after confirmed merge: requested internal exit 1 → log warning + exit 0
-```
+`src/session-monitor.lib.mjs` + `src/session-monitor.docker-terminal.lib.mjs`:
 
-Post-merge exceptions are still sent to the available log and Sentry on a
-best-effort basis, but they do not post a misleading failure notification or
-close a completed PR. The finalizer continues after each housekeeping failure
-and always reaches the selected exit path. `solve` disables the redundant
-global process-error listeners while retaining global signal handling.
+1. **The anchored footer wins.** When a session reports terminal and the log
+   contains Hive Mind's anchored footer, the footer's exit code and derived
+   status replace whatever `$ --status` claimed.
+2. **Uncorroborated docker failures are provisional.** A docker session that
+   reports a non-zero exit with no anchored footer is treated as still running
+   for up to `DOCKER_TERMINAL_FOOTER_GRACE_MS` (60 s). The first sighting is
+   persisted as `dockerTerminalUnverifiedFirstSeenAt`, so the deferral survives a
+   bot restart and cannot be reset forever by polling.
+3. **Real failures still surface.** Once the grace period expires without a
+   footer (e.g. the watcher itself was killed), the reported exit code is
+   accepted — a genuine failure is reported, just up to a minute later. The
+   `-1` sentinel path (issue #1939), non-docker backends, OOM kills (#2015) and
+   the stale-`executing` reconciliation (#1927) are explicitly unaffected.
 
-This prevents Hive Mind's own post-merge code from producing the reported exit
-code 1. No Node.js code can convert an uncatchable SIGKILL, kernel OOM kill,
-host crash, or forced container removal into a clean exit; those events
-intentionally remain observable, and the Telegram split-outcome fallback
-reports both facts.
+Because the run in this incident was a success, the split-outcome message
+("Pull request merged, but the work session exited with code: 1") is no longer
+what a user would see here — a plain success is. That message is retained for
+what it was designed for: a merge followed by a _corroborated_ runner failure.
 
 ## Reproduction and verification
 
-The root regression starts a real Node child, confirms PR 69 as merged, and
-calls `safeExit(1, "simulated post-merge failure")`. Before the fix no terminal
-outcome guard existed. After the fix the child:
-
-- logs that the internal exit 1 was suppressed after the confirmed merge;
-- exits with process status 0;
-- preserves exit 1 before a merge;
-- reaches `safeExit(0)` even when cleanup, Sentry close, and handle diagnostics
-  all throw.
-
-The notification regression separately supplies runner status `executed`, exit
-code 1, and a GitHub-verified merged PR. It verifies the fallback message:
-
-> ⚠️ Pull request merged, but the work session exited with code: 1
-
-Run:
-
 ```sh
-node tests/test-issue-2117-post-merge-exit-guard.mjs
-node tests/test-issue-2117-merged-pr-exit.mjs
-npm test
-npm run lint
-npm run format:check
+# upstream defect (needs docker and `$` on PATH)
+bash experiments/issue-2117/upstream-repro-cli.sh
+
+# regression tests
+node tests/test-issue-2117-false-terminal-exit-code.mjs   # 21 assertions
+node tests/test-issue-2117-merged-pr-exit.mjs             # 10 assertions
+node tests/test-issue-2117-exit-path-resilience.mjs       #  7 assertions
+node tests/test-issue-1927-killed-detection.mjs
+node tests/test-issue-2015-oom-killed-status.mjs
+
+npm test && npm run lint && npm run format:check
 ```
+
+`tests/test-issue-2117-false-terminal-exit-code.mjs` replays this incident end
+to end: the status provider reports `executed`/`exitCode 1` while the log holds
+no anchored footer, the monitor keeps the session running, the footer
+`Exit Code: 0` then appears, and the user receives
+`✅ Work session finished successfully`.
 
 ## Follow-up investigation protocol
 
-If a split outcome recurs, it must now be an external termination or a
-deployment predating this fix:
+When a session outcome looks contradictory:
 
-1. preserve the final start-command execution log, not only the mid-run PR
-   attachment;
-2. capture `$ --status <session-id>` as JSON before cleanup;
-3. capture `docker inspect <container>` fields `State.Status`,
-   `State.ExitCode`, `State.Error`, `State.OOMKilled`, `State.FinishedAt`, and
-   health state;
-4. correlate those timestamps with the completion-evidence line and GitHub's
-   `merged_at`;
-5. file upstream only when a minimal command shows that component returning an
-   incorrect status.
+1. keep the **host-side** start-command log (`$ --upload-log <session>`), not
+   only the inner log attached to the PR;
+2. run `$ --status <session>` again once the run is over — enrichment is
+   recomputed on every call, so a later reading is often the correct one;
+3. `grep -n "Exit Code:" <log>` — more than one match means the run is exposed
+   to the upstream fabrication;
+4. compare the footer's `Finished:` timestamp with the moment the notification
+   was sent; a notification that precedes the footer is the signature of this bug.
 
 ## Sources
 
-- GitHub REST pull-request API:
-  <https://docs.github.com/en/rest/pulls/pulls>
+- start-command `readExitCodeFromLog` / `enrichDetachedStatus`:
+  `src/lib/status-formatter.js` (v0.30.3, npm `start-command`)
+- start-command detached-docker completion watcher:
+  `src/lib/docker-cleanup.js#buildDetachedDockerCompletionScript` (v0.30.3)
+- Upstream report filed for this defect:
+  <https://github.com/link-foundation/start/issues/150>
+- Related upstream sentinel report (exit `-1`):
+  <https://github.com/link-foundation/start/issues/136>
+- Related Hive Mind fixes for the same class of status misreading:
+  <https://github.com/link-assistant/hive-mind/issues/1927>,
+  <https://github.com/link-assistant/hive-mind/issues/1939>,
+  <https://github.com/link-assistant/hive-mind/issues/2015>
 - Docker run exit status:
   <https://docs.docker.com/engine/containers/run/#exit-status>
 - Docker inspect:
   <https://docs.docker.com/reference/cli/docker/inspect/>
-- Node child-process exit semantics:
-  <https://nodejs.org/api/child_process.html>
-- Box DIND handoff at the deployed tag:
-  <https://github.com/link-foundation/box/blob/v2.3.5/ubuntu/24.04/dind/dind-entrypoint.sh>
-- Box standard entrypoint at the deployed tag:
-  <https://github.com/link-foundation/box/blob/v2.3.5/scripts/entrypoint.sh>
-- Related start-command sentinel report (exit `-1`, not this exit `1`):
-  <https://github.com/link-foundation/start/issues/136>
-- Related Hive Mind post-merge lifecycle fixes:
-  <https://github.com/link-assistant/hive-mind/pull/1348>,
-  <https://github.com/link-assistant/hive-mind/pull/1432>,
-  <https://github.com/link-assistant/hive-mind/pull/1517>
 
 ## Archived artifacts
 
-`data/` contains the issue snapshot and comments, the initial PR 2118 snapshot
-and its three comment/review streams, the linked use-m issue and PR snapshots
-with their comment/review streams, the exact log comment, authenticated raw
-gist, successful use-m CI metadata and log, and issue screenshot. PR 2118
-continued to receive feedback after that initial archive; the live streams were
-re-read before this follow-up. `SHA256SUMS` protects the archived data files
-from accidental modification.
+`data/` contains:
+
+- `outer-session.log.txt` — the host-side start-command execution log
+  (the decisive artifact: both `Exit Code:` occurrences and the real footer);
+- `start-command-status-output.txt` — `$ --status` for the same session,
+  showing `status executed` / `exitCode 0`;
+- `upstream-repro-output.txt` — output of the pure-CLI upstream reproduction;
+- `session.log.txt` — the inner solve log attached to PR 69;
+- `issue-screenshot.png` — the false "Work session failed" notification;
+- GitHub API snapshots for issue 2117, PR 2118 (conversation/review/reviews),
+  use-m issue 68 and PR 69, and the successful use-m CI run.
+
+`SHA256SUMS` protects the archived data files from accidental modification.

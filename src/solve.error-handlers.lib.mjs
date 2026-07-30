@@ -12,44 +12,6 @@ import { reportError } from './sentry.lib.mjs';
 // Import GitHub error reporter
 import { handleErrorWithIssueCreation } from './github-error-reporter.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
-import { getConfirmedTerminalOutcome } from './solve-terminal-outcome.lib.mjs';
-
-const exitAfterConfirmedMergeError = async ({ error, errorType, log, cleanErrorMessage, absoluteLogPath }) => {
-  const outcome = getConfirmedTerminalOutcome();
-  if (!outcome) return false;
-
-  const outcomeLabel = `${outcome.owner}/${outcome.repo}#${outcome.prNumber}`;
-  const writeWarning = async message => {
-    try {
-      await log(message, { level: 'warning' });
-    } catch {
-      console.warn(message);
-    }
-  };
-  let errorMessage;
-  try {
-    errorMessage = cleanErrorMessage(error);
-  } catch {
-    errorMessage = error?.message || String(error);
-  }
-  try {
-    reportError(error, {
-      context: 'solve_post_merge',
-      errorType,
-      owner: outcome.owner,
-      repo: outcome.repo,
-      prNumber: outcome.prNumber,
-      operation: 'preserve_confirmed_merge_outcome',
-    });
-  } catch {
-    // Sentry is diagnostic only; its failure must not override the merge.
-  }
-  await writeWarning(`\n⚠️  ${errorType} error after ${outcomeLabel} was confirmed merged: ${errorMessage}`);
-  await writeWarning('   The error remains available for investigation, but it cannot override the completed merge.');
-  await writeWarning(`   📁 Full log file: ${absoluteLogPath}`);
-  await safeExit(1, 'Post-merge error recorded', { skipPreExit: true });
-  return true;
-};
 
 export const isErrorIssueAutoCreationDisabled = argv => !!(argv?.disableReportIssue || argv?.disableIssueAutoCreationOnError);
 
@@ -180,8 +142,6 @@ export const createUncaughtExceptionHandler = options => {
   const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
 
   return async error => {
-    if (await exitAfterConfirmedMergeError({ error, errorType: 'Uncaught exception', log, cleanErrorMessage, absoluteLogPath })) return;
-
     await log(`\n❌ Uncaught Exception: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -213,8 +173,6 @@ export const createUnhandledRejectionHandler = options => {
   const { log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
 
   return async reason => {
-    if (await exitAfterConfirmedMergeError({ error: reason, errorType: 'Unhandled rejection', log, cleanErrorMessage, absoluteLogPath })) return;
-
     await log(`\n❌ Unhandled Rejection: ${cleanErrorMessage(reason)}`, { level: 'error' });
     await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
 
@@ -286,8 +244,6 @@ export const handleNoPrAvailableError = async ({ isContinueMode, tempDir, issueN
  */
 export const handleMainExecutionError = async options => {
   const { error, log, cleanErrorMessage, absoluteLogPath, shouldAttachLogs, argv, global, owner, repo, getLogFile, attachLogToGitHub, sanitizeLogContent, cleanupContext, $ } = options;
-
-  if (await exitAfterConfirmedMergeError({ error, errorType: 'Execution', log, cleanErrorMessage, absoluteLogPath })) return;
 
   // Special handling for authentication errors
   if (error.isAuthError) {

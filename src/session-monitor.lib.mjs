@@ -27,8 +27,14 @@ import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.li
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
+// Issue #2117: a docker terminal failure that no anchored log footer corroborates
+// may be an exit code start-command fabricated from the command's own output.
+import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
+import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
+export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -522,134 +528,16 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   return true;
 }
 
-/**
- * Issue #1927: minimum age before a session that `$ --status` still reports as
- * `executing` is allowed to be declared dead purely on a backend-liveness probe
- * (the screen/tmux/docker session is gone). This avoids a race where a session
- * that has just been launched — but whose backend has not registered yet — is
- * falsely reported as killed. The authoritative log-footer check is NOT gated by
- * this, because a written "Exit Code:" footer is proof the command terminated.
- */
-export const STALE_EXECUTING_MIN_AGE_MS = 90 * 1000;
-export const DOCKER_BACKEND_GONE_GRACE_MS = 2 * 60 * 1000;
-const DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD = 'dockerBackendGoneFirstSeenAt';
-
-function sessionStartMs(sessionInfo) {
-  const start = sessionInfo?.startTime;
-  if (!start) return null;
-  const date = start instanceof Date ? start : new Date(start);
-  const ms = date.getTime();
-  return Number.isFinite(ms) ? ms : null;
+function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
+  clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
 }
 
-function isDockerIsolation(sessionInfo, statusResult) {
-  return sessionInfo?.isolationBackend === 'docker' || statusResult?.isolation === 'docker';
+function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, verbose }) {
+  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
 
-function getDockerBackendGoneFirstSeenMs(sessionInfo) {
-  const raw = sessionInfo?.[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD];
-  if (!raw) return null;
-  const ms = new Date(raw).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
-
-function clearDockerBackendGoneMarker(sessionName, sessionInfo) {
-  if (!sessionInfo?.[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD]) return;
-  delete sessionInfo[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD];
-  persistSessionSnapshot(sessionName, sessionInfo);
-}
-
-/**
- * Cross-check whether a session that `$ --status` still reports as `executing`
- * has actually terminated. Issue #1927: start-command's status can get stuck on
- * `executing` after the process was killed (a lingering shell keeps the screen
- * session alive, flipping executed→executing), so a SIGKILLed /solve was never
- * reported. Two independent signals are consulted, strongest first:
- *
- *   1. The execution log FOOTER. When start-command wrote "Exit Code: N" the
- *      command terminated, full stop — regardless of what `--status` claims.
- *      This is authoritative and catches the dominant lingering-shell case.
- *   2. Backend LIVENESS. If no footer was written (e.g. the wrapper itself was
- *      hard-killed) but the backing screen/tmux/docker session is gone, the
- *      process cannot still be executing. Gated by STALE_EXECUTING_MIN_AGE_MS to
- *      avoid a just-launched-not-yet-registered race.
- *
- * @returns {Promise<{exitCode: number|null, status: string, reason: string}|null>}
- *   Terminal details when the session is actually dead, else null (still running).
- */
-async function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive }) {
-  // 1. Authoritative: the log footer.
-  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  if (logPath) {
-    const readFooter = exitFromLog || runner.readSessionExitFromLog;
-    const footer = readFooter ? readFooter(logPath, { verbose }) : null;
-    if (footer?.finished) {
-      const status = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
-      return { exitCode: footer.exitCode, status, reason: `log-footer(exit ${footer.exitCode})` };
-    }
-  }
-
-  // 2. Liveness probe, only once the session is old enough to have registered.
-  const startMs = sessionStartMs(sessionInfo);
-  const ageMs = startMs != null ? Date.now() - startMs : Infinity;
-  if (ageMs >= STALE_EXECUTING_MIN_AGE_MS && sessionInfo?.isolationBackend) {
-    const probe = backendAlive || runner.checkBackendSessionAlive;
-    const alive = probe ? await probe(sessionInfo.sessionId || sessionName, sessionInfo.isolationBackend, verbose) : null;
-    // Only `false` (definitively gone) counts as killed; `null` (unknown backend)
-    // is treated as "no signal" so we don't kill on an indeterminate probe.
-    if (alive === false) {
-      if (isDockerIsolation(sessionInfo, statusResult)) {
-        const nowMs = Date.now();
-        const firstSeenMs = getDockerBackendGoneFirstSeenMs(sessionInfo);
-        if (firstSeenMs === null) {
-          sessionInfo[DOCKER_BACKEND_GONE_FIRST_SEEN_FIELD] = new Date(nowMs).toISOString();
-          persistSessionSnapshot(sessionName, sessionInfo);
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} docker backend is gone but no terminal status/footer is available yet; deferring killed classification for ${DOCKER_BACKEND_GONE_GRACE_MS}ms`);
-          }
-          return null;
-        }
-        if (nowMs - firstSeenMs < DOCKER_BACKEND_GONE_GRACE_MS) {
-          if (verbose) {
-            console.log(`[VERBOSE] Session ${sessionName} docker backend is still gone; waiting for terminal status/footer before reporting killed`);
-          }
-          return null;
-        }
-      }
-      return { exitCode: null, status: 'killed', reason: 'backend-gone' };
-    }
-    if (alive === true) {
-      clearDockerBackendGoneMarker(sessionName, sessionInfo);
-    }
-  }
-
-  return null;
-}
-
-function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog }) {
-  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  let footer = null;
-  if (logPath) {
-    const readFooter = exitFromLog || runner.readSessionExitFromLog;
-    footer = readFooter ? readFooter(logPath, { verbose }) : null;
-  }
-
-  const statusExitCode = normalizeExitCode(statusResult?.exitCode);
-  const footerExitCode = footer?.finished ? normalizeExitCode(footer.exitCode) : null;
-  let exitCode = 137;
-  if (statusExitCode !== null && statusExitCode > 0) {
-    exitCode = statusExitCode;
-  } else if (footerExitCode !== null && footerExitCode > 0) {
-    exitCode = footerExitCode;
-  }
-  const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
-  const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
-
-  if (verbose) {
-    console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true; treating it as terminal oom-killed (exit ${exitCode})`);
-  }
-
-  return { running: false, exitCode, status: 'oom-killed', statusResult: corrected, stale: true };
+function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
+  return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
 
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
@@ -679,25 +567,30 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
           const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
           return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
         }
+        // Back to a plain `executing` report: any earlier unverified terminal
+        // failure was provisional and is now moot (issue #2117).
+        clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
         return { running: true, exitCode: null, status: statusResult.status, statusResult };
       }
       if (runner.isTerminalSessionStatus(statusResult.status)) {
-        let exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
-        // Issue #1927: when start-command reports a terminal status but a missing
-        // or sentinel (-1) exit code — which its lingering-shell reverse-flip can
-        // produce — recover the real code from the log footer so a SIGKILL is not
-        // mislabelled as a generic failure.
-        if ((exitCode === null || exitCode === -1) && (statusResult.logPath || sessionInfo?.logPath)) {
-          const readFooter = exitFromLog || runner.readSessionExitFromLog;
-          const footer = readFooter ? readFooter(statusResult.logPath || sessionInfo.logPath, { verbose }) : null;
-          if (footer?.finished) {
-            exitCode = footer.exitCode;
-            const correctedStatus = classifyExitStatus(footer.exitCode) || statusResult.status;
-            if (verbose) {
-              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${statusResult.exitCode}; recovered real exit ${exitCode} (${correctedStatus}) from log footer`);
-            }
-            return { running: false, exitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode } };
+        const exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
+        const logPath = statusResult.logPath || sessionInfo?.logPath || null;
+        // The log FOOTER is the authoritative terminal result. It is anchored on
+        // the `=====` separator (see parseSessionExitFooter), so — unlike the
+        // exit code `$ --status` derives from an unanchored full-log scan — it
+        // cannot be forged by output the wrapped command printed (issue #2117).
+        // Prefer it whenever it exists: that both recovers a real code from a
+        // missing/sentinel status (issue #1927) and overrides a fabricated one.
+        const readFooter = exitFromLog || runner.readSessionExitFromLog;
+        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
+        if (footer?.finished) {
+          const footerExitCode = footer.exitCode;
+          const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
+          if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
+            console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}; the log footer says exit ${footerExitCode} (${correctedStatus}) and wins (issues #1927/#2117)`);
           }
+          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
+          return { running: false, exitCode: footerExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: footerExitCode } };
         }
         // Issue #1939: a native docker session can report a terminal status
         // ("executed") with the unknown exit-code sentinel (-1) while the
@@ -705,8 +598,19 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
         // a real terminal exit, such a status is provisional — fall through to
         // isSessionRunning() below, which cross-checks the live container via
         // `docker inspect` before we notify the user the work finished.
-        const ambiguousDockerTerminal = sessionInfo.isolationBackend === 'docker' && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
+        const dockerSession = isDockerIsolation(sessionInfo, statusResult);
+        const ambiguousDockerTerminal = dockerSession && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
+        // Issue #2117: a docker terminal FAILURE with no corroborating footer is
+        // provisional too — start-command can fabricate that exit code from the
+        // command's own output. Give the real footer a moment to appear instead
+        // of announcing a failure the run never had.
+        const normalizedExitCode = normalizeExitCode(exitCode);
+        const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
+        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, verbose })) {
+          return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
+        }
         if (!ambiguousDockerTerminal) {
+          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
           return { running: false, exitCode, status: statusResult.status, statusResult };
         }
       }

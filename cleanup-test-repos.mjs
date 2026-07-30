@@ -21,10 +21,13 @@
  */
 
 import { isConfirmationYes, readConfirmationLine } from './src/confirmation.lib.mjs';
-import { fetchUseMCodeFromCdn } from './src/use-m-bootstrap.lib.mjs';
+import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
 
-// Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await fetchUseMCodeFromCdn());
+// Use use-m to dynamically import modules for cross-runtime compatibility.
+// Issue #2113: bootstrap through the shared helper so this utility inherits the
+// same corrupt/incomplete-alias recovery as the rest of the codebase instead of
+// crashing on a partially installed global package.
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');

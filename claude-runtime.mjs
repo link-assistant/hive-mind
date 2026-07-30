@@ -11,17 +11,20 @@
  *   ./claude-runtime.mjs --status    # Check current runtime
  */
 
-// Use use-m to dynamically import modules for cross-runtime compatibility
-if (typeof use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
-}
+// Use use-m to dynamically import modules for cross-runtime compatibility.
+// Issue #2113: bootstrap through the shared helper so this utility inherits the
+// same corrupt/incomplete-alias recovery as the rest of the codebase instead of
+// crashing on a partially installed global package.
+import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
+
+const use = await ensureUseM();
 
 const yargsModule = await use('yargs@17.7.2');
 const yargs = yargsModule.default || yargsModule;
 const { hideBin } = await use('yargs@17.7.2/helpers');
 
 // Import Claude library functions
-const claudeLib = await import('./claude.lib.mjs');
+const claudeLib = await import('./src/claude.lib.mjs');
 const { handleClaudeRuntimeSwitch } = claudeLib;
 
 // Configure command line arguments

@@ -14,6 +14,7 @@ import { isFlagEnabled as isWorkingSessionFlagEnabled, isWorkingSessionActive, r
 // auto-continue hand-off). No-op unless solve registered a finalizer, so hive
 // and other consumers of this module are unaffected.
 import { finalizeActiveDevelopmentLog } from './development-log.finalize.lib.mjs';
+import { getConfirmedTerminalOutcome, resolveInternalExitCode } from './solve-terminal-outcome.lib.mjs';
 
 // Lazy-load Sentry to avoid keeping the event loop alive when not needed
 let Sentry = null;
@@ -244,11 +245,35 @@ export const logActiveHandles = async (log = null) => {
  *   guidance for the pre-exit notifier.
  */
 export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
-  await showExitMessage(reason, code);
+  const requestedCode = code;
+  const confirmedOutcome = getConfirmedTerminalOutcome();
+  code = resolveInternalExitCode(requestedCode);
+  if (code !== requestedCode && confirmedOutcome) {
+    skipPreExit = true;
+    const outcomeLabel = `${confirmedOutcome.owner}/${confirmedOutcome.repo}#${confirmedOutcome.prNumber}`;
+    const warning = `⚠️  Internal post-merge failure requested exit ${requestedCode} (${reason}); preserving exit 0 because ${outcomeLabel} is already merged.`;
+    try {
+      if (logFunction) await logFunction(warning, { level: 'warning' });
+      else console.warn(warning);
+    } catch {
+      console.warn(warning);
+    }
+    reason = `Pull request ${outcomeLabel} merged; post-merge failure recorded`;
+  }
 
   // Issue #2090: collect the working session that is still uncollected (and the
   // log tail produced after it) before the process goes away.
-  await finalizeActiveDevelopmentLog({ force: true });
+  try {
+    await showExitMessage(reason, code);
+  } catch (error) {
+    console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
+  }
+
+  try {
+    await finalizeActiveDevelopmentLog({ force: true });
+  } catch {
+    // Best-effort finalization must never change the selected process exit.
+  }
 
   if (!skipPreExit && code !== 0 && preExitFunction && !preExitHandlerRan) {
     preExitHandlerRan = true;
@@ -267,7 +292,11 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
   // Issue #1431: Drain/unref active handles so the event loop exits naturally.
   // This resolves the root causes of dangling ReadStream (stdin), Socket (undici),
   // ChildProcess (command-stream), and WriteStream (stdout/stderr) handles.
-  await drainHandles();
+  try {
+    await drainHandles();
+  } catch {
+    // Best-effort handle draining must never change the selected process exit.
+  }
 
   // Close Sentry to flush any pending events and allow the process to exit cleanly.
   // Use Promise.race with a hard timeout to guarantee sentry.close() never hangs
@@ -291,7 +320,7 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
 /**
  * Install global exit handlers to ensure log path is always shown
  */
-export const installGlobalExitHandlers = () => {
+export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) => {
   // Handle normal exit
   process.on('exit', code => {
     // Synchronous fallback - can't use async here
@@ -427,53 +456,59 @@ export const installGlobalExitHandlers = () => {
     process.exit(143);
   });
 
-  // Handle uncaught exceptions
-  process.on('uncaughtException', async error => {
-    if (cleanupFunction) {
+  if (handleProcessErrors) {
+    // Handle uncaught exceptions
+    process.on('uncaughtException', async error => {
+      if (cleanupFunction) {
+        try {
+          await cleanupFunction();
+        } catch {
+          // Ignore cleanup errors on exception
+        }
+      }
+      if (logFunction) {
+        await logFunction(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
+      }
+      const exitCode = resolveInternalExitCode(1);
+      const reason = exitCode === 0 ? 'Pull request merged; post-merge exception recorded' : 'Uncaught exception occurred';
+      await showExitMessage(reason, exitCode);
       try {
-        await cleanupFunction();
+        const sentry = await getSentry();
+        if (sentry && sentry.close) {
+          await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
+        }
       } catch {
-        // Ignore cleanup errors on exception
+        // Ignore Sentry.close() errors
       }
-    }
-    if (logFunction) {
-      await logFunction(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
-    }
-    await showExitMessage('Uncaught exception occurred', 1);
-    try {
-      const sentry = await getSentry();
-      if (sentry && sentry.close) {
-        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
-      }
-    } catch {
-      // Ignore Sentry.close() errors
-    }
-    process.exit(1);
-  });
+      process.exit(exitCode);
+    });
 
-  // Handle unhandled rejections
-  process.on('unhandledRejection', async reason => {
-    if (cleanupFunction) {
+    // Handle unhandled rejections
+    process.on('unhandledRejection', async reason => {
+      if (cleanupFunction) {
+        try {
+          await cleanupFunction();
+        } catch {
+          // Ignore cleanup errors on rejection
+        }
+      }
+      if (logFunction) {
+        await logFunction(`\n❌ Unhandled Rejection: ${reason}`, { level: 'error' });
+      }
+      const exitCode = resolveInternalExitCode(1);
+      const exitReason = exitCode === 0 ? 'Pull request merged; post-merge rejection recorded' : 'Unhandled rejection occurred';
+      await showExitMessage(exitReason, exitCode);
       try {
-        await cleanupFunction();
+        const sentry = await getSentry();
+        if (sentry && sentry.close) {
+          await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
+        }
       } catch {
-        // Ignore cleanup errors on rejection
+        // Ignore Sentry.close() errors
       }
-    }
-    if (logFunction) {
-      await logFunction(`\n❌ Unhandled Rejection: ${reason}`, { level: 'error' });
-    }
-    await showExitMessage('Unhandled rejection occurred', 1);
-    try {
-      const sentry = await getSentry();
-      if (sentry && sentry.close) {
-        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
-      }
-    } catch {
-      // Ignore Sentry.close() errors
-    }
-    process.exit(1);
-  });
+      process.exit(exitCode);
+    });
+  }
 };
 
 /**

@@ -86,6 +86,7 @@ const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
+const { confirmPullRequestMerged } = await import('./solve-terminal-outcome.lib.mjs');
 
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
@@ -175,6 +176,7 @@ export const watchUntilMergeable = async params => {
       commandRunner: $,
     });
     if (terminalState.terminal && terminalState.success) {
+      confirmPullRequestMerged({ owner, repo, prNumber });
       await log('');
       await log(formatAligned('🎉', 'PR MERGED!', 'Stopping auto-restart-until-mergeable mode'));
       await log(formatAligned('', 'Pull request:', `#${prNumber} has been merged`, 2));
@@ -343,6 +345,7 @@ export const watchUntilMergeable = async params => {
           const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
           if (mergeResult.success) {
+            confirmPullRequestMerged({ owner, repo, prNumber });
             await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
             await log(formatAligned('', 'Pull request:', `#${prNumber} has been auto-merged`, 2));
 
@@ -1271,6 +1274,7 @@ export const attemptAutoMerge = async params => {
   });
   if (terminalState.terminal) {
     if (terminalState.success) {
+      confirmPullRequestMerged({ owner, repo, prNumber });
       await log(formatAligned('🎉', 'PR already merged:', `#${prNumber}`, 2));
       return { success: true, reason: 'merged' };
     }
@@ -1334,6 +1338,7 @@ export const attemptAutoMerge = async params => {
   const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
 
   if (mergeResult.success) {
+    confirmPullRequestMerged({ owner, repo, prNumber });
     await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
 
     // Post success comment

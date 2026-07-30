@@ -160,7 +160,7 @@ const cleanupWrapper = async () => {
 };
 const interruptWrapper = createInterruptWrapper({ cleanupContext, checkForUncommittedChanges, shouldAttachLogs, attachLogToGitHub, getLogFile, sanitizeLogContent, $, log });
 initializeExitHandler(getAbsoluteLogPath, log, cleanupWrapper, interruptWrapper, ({ code, reason, failureActionSection }) => notifyIssueAboutPrePullRequestFailure({ code, reason, failureActionSection, argv, globalState: global, $, log, getLogFile, shouldAttachLogs, attachLogToGitHub, sanitizeLogContent, rawCommand }));
-installGlobalExitHandlers();
+installGlobalExitHandlers({ handleProcessErrors: false }); // #2117: solve's richer process-error handlers below must not race a duplicate pair.
 // Issue #1823: Configure the working-session guard. When the experimental
 // --do-not-shutdown-in-the-middle-of-working-session flag is set (hive passes it to every
 // worker), an interrupt received during an AI working session is deferred: solve lets the AI

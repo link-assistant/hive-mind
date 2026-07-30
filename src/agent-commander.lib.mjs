@@ -13,6 +13,7 @@ import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArg
 import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -389,8 +390,11 @@ export const executeWithAgentCommander = async params => {
 
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log = defaultLog, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-  const statusOutput = gitStatusResult.stdout?.toString().trim() || '';
+  const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout?.toString().trim() || '');
 
   if (!statusOutput) {
     await log('✅ No uncommitted changes found');

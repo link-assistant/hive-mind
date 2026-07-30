@@ -29,6 +29,7 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
@@ -1069,6 +1070,11 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // Verify clone was successful (exit code 0 AND a valid working tree exists)
     if (cloneResult.code === 0 && repoIsValid) {
       await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
+
+      // Issue #2119: AI tools drop scratch state (`.formal-ai/`, `.playwright-mcp/`)
+      // into the workspace. Exclude it here, once, so every later `git status` and
+      // `git add -A` agrees instead of reading it as the AI's uncommitted work.
+      await ensureAiToolScratchIgnored(tempDir, log);
 
       // Verify and fix remote configuration
       const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;

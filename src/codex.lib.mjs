@@ -41,6 +41,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'reasoning_output_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
@@ -1404,11 +1405,13 @@ export const executeCodexCommand = async params => {
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   // Similar to Claude and OpenCode version, check for uncommitted changes
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: keep AI tool scratch state out of this check and of `git add -A`.
+  await ensureAiToolScratchIgnored(tempDir, log);
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
 
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
 
       if (statusOutput) {
         await log('📝 Found uncommitted changes');

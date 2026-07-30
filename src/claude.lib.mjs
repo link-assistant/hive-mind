@@ -501,6 +501,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
 };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 export { isStderrError };
 export const executeClaudeCommand = async params => {
   const {
@@ -1426,10 +1427,13 @@ export const executeClaudeCommand = async params => {
 };
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
       if (statusOutput) {
         await log('📝 Found uncommitted changes');
         await log('Changes:');

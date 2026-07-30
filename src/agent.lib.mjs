@@ -21,10 +21,12 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import semver from 'semver';
-import { agentModels, defaultModels, freeToBaseModelMap } from './models/index.mjs';
+import { agentModels, defaultModels, freeToBaseModelMap, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
+import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 
@@ -111,6 +113,10 @@ const getBaseModelForPricing = modelName => {
  *   - opencodeCost: Actual billed cost from OpenCode Zen (free for most models)
  */
 export const calculateAgentPricing = async (modelId, tokenUsage) => {
+  // Issue #2119: Formal AI requests never reach OpenCode Zen, so neither the
+  // provider label nor a models.dev price lookup applies to them.
+  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
+
   // Extract the model name from provider/model format
   // e.g., 'opencode/grok-code' -> 'grok-code'
   const modelName = modelId.includes('/') ? modelId.split('/').pop() : modelId;
@@ -632,80 +638,92 @@ export const executeAgentCommand = async params => {
         }
       };
 
+      // Issue #2119: agentic CLIs do not all emit strict one-record-per-line
+      // NDJSON. `formal-ai with agent --verbose` emits pretty-printed,
+      // multi-line records, and records can also be concatenated without a
+      // separator (issue #1250) or split across process chunks. A line-based
+      // JSON.parse dropped every structured event in those cases, which is how
+      // a session that really used 21677/22834 tokens was published as
+      // "Token usage: 0 input, 0 output" with no session id and no result
+      // summary. The scanner frames records by balanced JSON instead of by
+      // newlines, and surfaces anything that is not JSON as plain text.
+      const stdoutScanner = createJsonStreamScanner();
+      const stderrScanner = createJsonStreamScanner();
+
+      const handleAgentJsonEvent = async (raw, value) => {
+        const data = sanitizeObjectStrings(value);
+        // Issue #1968: a bare `null`/primitive record must not abort event
+        // processing (any data.X access would throw on null).
+        if (data === null || typeof data !== 'object') return;
+        // Output formatted JSON
+        await log(JSON.stringify(data, null, 2));
+        // Capture session ID from the first message (agent may use stdout or stderr)
+        const eventSessionId = data.sessionID || data.session_id || data.sessionId;
+        if (!sessionId && eventSessionId) {
+          sessionId = eventSessionId;
+          await log(`📌 Session ID: ${sessionId}`);
+        }
+        // Issue #1250: Accumulate token usage during streaming
+        accumulateTokenUsage(data);
+        await markBidirectionalStateFromAgentEvent(data);
+        // Issue #1201: Detect error events during streaming for reliable detection
+        if (data.type === 'error' || data.type === 'step_error') {
+          streamingErrorDetected = true;
+          streamingErrorMessage = data.message || data.error || raw.substring(0, 100);
+          await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
+        }
+        // Issue #1263: Track text content for result summary
+        // Agent outputs text via 'text', 'assistant', or 'message' type events
+        if (data.type === 'text' && data.text) {
+          lastTextContent = data.text;
+        } else if (data.type === 'assistant' && data.message?.content) {
+          // Extract text from assistant message content
+          const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
+          for (const item of content) {
+            if (item.type === 'text' && item.text) {
+              lastTextContent = item.text;
+            }
+          }
+        } else if (data.type === 'message' && data.content) {
+          // Direct message content
+          if (typeof data.content === 'string') {
+            lastTextContent = data.content;
+          } else if (Array.isArray(data.content)) {
+            for (const item of data.content) {
+              if (item.type === 'text' && item.text) {
+                lastTextContent = item.text;
+              }
+            }
+          }
+        } else if (data.type === 'result' && data.result) {
+          // Explicit result message (like Claude outputs)
+          lastTextContent = data.result;
+        }
+        // Issue #1276: Detect successful completion events
+        // When agent emits session.idle or log with "exiting loop" message, it completed successfully
+        // This means any previous error events were recovered from (e.g., timeout then retry)
+        if (isAgentSuccessfulCompletionEvent(data)) {
+          agentCompletedSuccessfully = true;
+        }
+        // Issue #1296: Detect step_finish with reason "stop" as successful completion
+        // This is a clear marker of success - agent finished normally, not due to error or limit
+        // When this event appears, we should ignore any error events that appeared earlier in the stream
+        // (e.g., timeout errors that were recovered from via retry logic)
+        if (data.type === 'step_finish' && data.part?.reason === 'stop') agentCompletedSuccessfully = true;
+      };
+
+      const handleAgentStreamEvents = async events => {
+        for (const event of events) {
+          if (event.type === 'json') await handleAgentJsonEvent(event.raw, event.value);
+          // Not JSON - log as plain text
+          else await log(event.value);
+        }
+      };
+
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          // Split output into individual lines for NDJSON parsing
-          // Agent outputs NDJSON (newline-delimited JSON) format where each line is a separate JSON object
-          // This allows us to parse each event independently and extract structured data like session IDs
-          const lines = output.split('\n');
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const data = sanitizeObjectStrings(JSON.parse(line));
-              // Issue #1968: a bare `null`/primitive NDJSON line must not abort
-              // event processing (any data.X access would throw on null).
-              if (data === null || typeof data !== 'object') continue;
-              // Output formatted JSON
-              await log(JSON.stringify(data, null, 2));
-              // Capture session ID from the first message
-              const eventSessionId = data.sessionID || data.session_id || data.sessionId;
-              if (!sessionId && eventSessionId) {
-                sessionId = eventSessionId;
-                await log(`📌 Session ID: ${sessionId}`);
-              }
-              // Issue #1250: Accumulate token usage during streaming
-              accumulateTokenUsage(data);
-              await markBidirectionalStateFromAgentEvent(data);
-              // Issue #1201: Detect error events during streaming for reliable detection
-              if (data.type === 'error' || data.type === 'step_error') {
-                streamingErrorDetected = true;
-                streamingErrorMessage = data.message || data.error || line.substring(0, 100);
-                await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
-              }
-              // Issue #1263: Track text content for result summary
-              // Agent outputs text via 'text', 'assistant', or 'message' type events
-              if (data.type === 'text' && data.text) {
-                lastTextContent = data.text;
-              } else if (data.type === 'assistant' && data.message?.content) {
-                // Extract text from assistant message content
-                const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-                for (const item of content) {
-                  if (item.type === 'text' && item.text) {
-                    lastTextContent = item.text;
-                  }
-                }
-              } else if (data.type === 'message' && data.content) {
-                // Direct message content
-                if (typeof data.content === 'string') {
-                  lastTextContent = data.content;
-                } else if (Array.isArray(data.content)) {
-                  for (const item of data.content) {
-                    if (item.type === 'text' && item.text) {
-                      lastTextContent = item.text;
-                    }
-                  }
-                }
-              } else if (data.type === 'result' && data.result) {
-                // Explicit result message (like Claude outputs)
-                lastTextContent = data.result;
-              }
-              // Issue #1276: Detect successful completion events
-              // When agent emits session.idle or log with "exiting loop" message, it completed successfully
-              // This means any previous error events were recovered from (e.g., timeout then retry)
-              if (isAgentSuccessfulCompletionEvent(data)) {
-                agentCompletedSuccessfully = true;
-              }
-              // Issue #1296: Detect step_finish with reason "stop" as successful completion
-              // This is a clear marker of success - agent finished normally, not due to error or limit
-              // When this event appears, we should ignore any error events that appeared earlier in the stream
-              // (e.g., timeout errors that were recovered from via retry logic)
-              if (data.type === 'step_finish' && data.part?.reason === 'stop') agentCompletedSuccessfully = true;
-            } catch {
-              // Not JSON - log as plain text
-              await log(line);
-            }
-          }
+          await handleAgentStreamEvents(stdoutScanner.write(output));
           lastMessage = output;
           fullOutput += output; // Collect for both pricing calculation and error detection
         }
@@ -714,69 +732,8 @@ export const executeAgentCommand = async params => {
           const errorOutput = chunk.data.toString();
           if (errorOutput) {
             // Agent sends all output (including verbose logs and structured events) to stderr
-            // Process each line as NDJSON, same as stdout handling
-            const stderrLines = errorOutput.split('\n');
-            for (const stderrLine of stderrLines) {
-              if (!stderrLine.trim()) continue;
-              try {
-                const stderrData = sanitizeObjectStrings(JSON.parse(stderrLine));
-                // Issue #1968: skip bare `null`/primitive lines (see stdout handler above).
-                if (stderrData === null || typeof stderrData !== 'object') continue;
-                // Output formatted JSON (same formatting as stdout)
-                await log(JSON.stringify(stderrData, null, 2));
-                // Capture session ID from stderr too (agent sends it via stderr)
-                const eventSessionId = stderrData.sessionID || stderrData.session_id || stderrData.sessionId;
-                if (!sessionId && eventSessionId) {
-                  sessionId = eventSessionId;
-                  await log(`📌 Session ID: ${sessionId}`);
-                }
-                // Issue #1250: Accumulate token usage during streaming (stderr)
-                accumulateTokenUsage(stderrData);
-                await markBidirectionalStateFromAgentEvent(stderrData);
-                // Issue #1201: Detect error events during streaming (stderr) for reliable detection
-                if (stderrData.type === 'error' || stderrData.type === 'step_error') {
-                  streamingErrorDetected = true;
-                  streamingErrorMessage = stderrData.message || stderrData.error || stderrLine.substring(0, 100);
-                  await log(`⚠️  Error event detected in stream: ${streamingErrorMessage}`, { level: 'warning' });
-                }
-                // Issue #1263: Track text content for result summary (stderr)
-                if (stderrData.type === 'text' && stderrData.text) {
-                  lastTextContent = stderrData.text;
-                } else if (stderrData.type === 'assistant' && stderrData.message?.content) {
-                  const content = Array.isArray(stderrData.message.content) ? stderrData.message.content : [stderrData.message.content];
-                  for (const item of content) {
-                    if (item.type === 'text' && item.text) {
-                      lastTextContent = item.text;
-                    }
-                  }
-                } else if (stderrData.type === 'message' && stderrData.content) {
-                  if (typeof stderrData.content === 'string') {
-                    lastTextContent = stderrData.content;
-                  } else if (Array.isArray(stderrData.content)) {
-                    for (const item of stderrData.content) {
-                      if (item.type === 'text' && item.text) {
-                        lastTextContent = item.text;
-                      }
-                    }
-                  }
-                } else if (stderrData.type === 'result' && stderrData.result) {
-                  lastTextContent = stderrData.result;
-                }
-                // Issue #1276: Detect successful completion events (stderr)
-                // When agent emits session.idle or log with "exiting loop" message, it completed successfully
-                if (isAgentSuccessfulCompletionEvent(stderrData)) {
-                  agentCompletedSuccessfully = true;
-                }
-                // Issue #1296: Detect step_finish with reason "stop" as successful completion (stderr)
-                // This is a clear marker of success - agent finished normally, not due to error or limit
-                if (stderrData.type === 'step_finish' && stderrData.part?.reason === 'stop') {
-                  agentCompletedSuccessfully = true;
-                }
-              } catch {
-                // Not JSON - log as plain text
-                await log(stderrLine);
-              }
-            }
+            // Process it exactly like stdout so telemetry is never stream-specific
+            await handleAgentStreamEvents(stderrScanner.write(errorOutput));
             // Also collect stderr for error detection
             fullOutput += errorOutput;
           }
@@ -784,6 +741,10 @@ export const executeAgentCommand = async params => {
           exitCode = chunk.code;
         }
       }
+
+      // Release any record that was still being assembled when the stream ended.
+      await handleAgentStreamEvents(stdoutScanner.flush());
+      await handleAgentStreamEvents(stderrScanner.flush());
 
       // Simplified error detection for agent tool
       // Issue #886: Trust exit code - agent now properly returns code 1 on errors with JSON error response
@@ -795,24 +756,17 @@ export const executeAgentCommand = async params => {
       // 2. Explicit JSON error messages from agent (type: "error")
       // 3. Usage limit detection (handled separately)
       const detectAgentErrors = stdoutOutput => {
-        const lines = stdoutOutput.split('\n');
+        // Issue #2119: frame records by balanced JSON, not by newlines, so
+        // pretty-printed and concatenated records are still inspected.
+        for (const record of parseJsonRecords(stdoutOutput)) {
+          const msg = sanitizeObjectStrings(record);
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
+          // Issue #1968: ignore bare `null`/primitive records (msg.type would throw on null).
+          if (msg === null || typeof msg !== 'object') continue;
 
-          try {
-            const msg = sanitizeObjectStrings(JSON.parse(line));
-
-            // Issue #1968: ignore bare `null`/primitive lines (msg.type would throw on null).
-            if (msg === null || typeof msg !== 'object') continue;
-
-            // Check for explicit error message types from agent
-            if (msg.type === 'error' || msg.type === 'step_error') {
-              return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
-            }
-          } catch {
-            // Not JSON - ignore for error detection
-            continue;
+          // Check for explicit error message types from agent
+          if (msg.type === 'error' || msg.type === 'step_error') {
+            return { detected: true, type: 'AgentError', match: msg.message || msg.error || JSON.stringify(msg).substring(0, 100) };
           }
         }
 

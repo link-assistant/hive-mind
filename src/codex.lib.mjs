@@ -25,13 +25,15 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'codex', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { defaultModels } from './models/index.mjs';
+import { defaultModels, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
@@ -581,6 +583,9 @@ export const calculateCodexPricingFromModelInfo = (modelId, tokenUsage, modelInf
 
 export const calculateCodexPricing = async (modelId, tokenUsage) => {
   if (!modelId) return null;
+  // Issue #2119: a Formal AI session is served by the local Link.Assistant
+  // model server, so OpenAI pricing must not be applied to it.
+  if (isFormalAiModel(modelId)) return buildFormalAiPricingInfo(modelId, tokenUsage);
   try {
     const modelInfo = await fetchModelInfo(modelId, { preferredProviderIds: ['openai'] });
     return calculateCodexPricingFromModelInfo(modelId, tokenUsage, modelInfo);
@@ -976,13 +981,21 @@ export const executeCodexCommand = async params => {
         observedModelDiagnosticPaths: [],
       };
 
+      // Issue #2119: a process chunk boundary can fall in the middle of an
+      // NDJSON record. Parsing each raw chunk dropped both halves of a split
+      // record (token usage, session id, auth errors). Buffer whole lines so
+      // the line-oriented Codex parser never sees a partial record.
+      const codexStdoutLines = createLineBuffer();
+      const codexStderrLines = createLineBuffer();
+
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
-          const output = chunk.data.toString();
+          const raw = chunk.data.toString();
           if (argv.verbose) {
-            await log(output);
+            await log(raw);
           }
-          lastMessage = output;
+          lastMessage = raw;
+          const output = codexStdoutLines.write(raw);
 
           codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel);
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
@@ -1022,15 +1035,37 @@ export const executeCodexCommand = async params => {
         }
 
         if (chunk.type === 'stderr') {
-          const errorOutput = chunk.data.toString();
-          if (errorOutput && argv.verbose) {
-            await log(errorOutput, { stream: 'stderr' });
+          const rawError = chunk.data.toString();
+          if (rawError && argv.verbose) {
+            await log(rawError, { stream: 'stderr' });
           }
+          const errorOutput = codexStderrLines.write(rawError);
           codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel);
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
         }
+      }
+
+      // Release any line that was still being assembled when the stream ended.
+      for (const remaining of [codexStdoutLines.flush(), codexStderrLines.flush()]) {
+        if (!remaining.trim()) continue;
+        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel);
+        await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
+      }
+
+      if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
+        sessionId = codexJsonState.sessionId;
+        await log(`📌 Session ID: ${sessionId}`);
+      }
+      if (codexJsonState.resultSummary) {
+        lastTextContent = codexJsonState.resultSummary;
+      }
+      if (codexJsonState.authError && !authError) {
+        authError = true;
+        await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
+        await log('   This error cannot be resolved by retrying.', { level: 'error' });
+        await log('   💡 Please run: codex login', { level: 'error' });
       }
 
       if (interactiveHandler) {

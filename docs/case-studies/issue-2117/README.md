@@ -12,6 +12,12 @@ The confirmed product defect is the status model: the notification collapsed two
 
 The Docker container remains subject to the existing failure retention policy.
 
+## Visual comparison
+
+| Before: one contradictory failure                       | After: split outcome                                          |
+| ------------------------------------------------------- | ------------------------------------------------------------- |
+| ![Original Telegram message](data/issue-screenshot.png) | ![Expected Telegram message after the fix](after-message.png) |
+
 ## Evidence and timeline
 
 All times are UTC on 2026-07-30.

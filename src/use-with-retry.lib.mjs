@@ -143,9 +143,14 @@ export const isCorruptInstallError = error => {
   const message = typeof error?.message === 'string' ? error.message : '';
   if (/^Failed to import module from '/.test(message) && cause?.code === 'ERR_MODULE_NOT_FOUND') return true;
   // Mode 5 (issue #2113): use-m@8.14.3 added its own alias self-heal, but its
-  // recursive rm uses Node's default maxRetries=0. A concurrent mutation can
-  // therefore escape as ENOTEMPTY (or another rm-retry code). Let the shared
-  // wrapper retry removal with an explicit retry budget.
+  // recursive rm used Node's default maxRetries=0, so a concurrent mutation
+  // escaped as ENOTEMPTY (or another rm-retry code). use-m@8.14.4 fixed this
+  // upstream (use-m #68) by giving removePackageAlias its own retry budget.
+  // The downstream guard is deliberately kept: the bootstrap can still land on
+  // an older use-m (a pinned CDN fallback, a preinstalled global, or a cached
+  // bundle), and even 8.14.4 rethrows this exact wrapper once its own budget is
+  // exhausted — in which case a fresh removal plus reinstall is still the right
+  // recovery.
   if (ALIAS_CLEANUP_ERROR.test(message) && RETRYABLE_RM_CODES.has(cause?.code)) return true;
   // Mode 2 (also seen on hosted CI): npm install completes but the package
   // tree is incomplete, so use-m can't resolve the entry point.

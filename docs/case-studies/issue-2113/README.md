@@ -23,6 +23,12 @@ internal `ERR_MODULE_NOT_FOUND` and retryable use-m alias-cleanup failures,
 removes the whole versioned alias with a bounded retry budget, and retries the
 dependency load for every existing and future `use(...)` call site.
 
+Upstream has since adopted both reports: `use-m@8.14.4` (2026-07-30) closed
+use-m #68 with the suggested retry budget. A re-verification pass confirmed that
+release, re-audited every claim below, and found one remaining downstream gap —
+the CDN bootstrap fallback still pinned `use-m@8.13.8`, the last release with no
+corrupt-alias recovery at all — which is now repinned and regression-tested.
+
 ## Contents
 
 - [`timeline.md`](timeline.md) reconstructs the observed sequence and prior fixes.

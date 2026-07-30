@@ -15,10 +15,27 @@
   failed with `ENOTEMPTY` because `removePackageAlias()` used recursive `rm`
   without `maxRetries`. The follow-up is reported as
   [use-m #68](https://github.com/link-foundation/use-m/issues/68).
+- [use-m #68](https://github.com/link-foundation/use-m/issues/68) was closed on
+  2026-07-30 at 06:38:13 UTC and `use-m@8.14.4` was published at 06:39:50 UTC.
+  A tarball diff of 8.14.3 against 8.14.4 shows the suggested
+  `maxRetries: 5` / `retryDelay: 100` applied to `removePackageAlias()` in all
+  six bundled entry points (`src/use.{mjs,cjs,js}` and `use.{mjs,cjs,js}`), with
+  no other behavioral change. Both upstream reports raised from this issue are
+  now fixed and released.
+- Reading the 8.14.4 source shows its recovery is narrower than its release
+  notes suggest: repair is skipped for specifiers with a subpath
+  (`if (options?.repair || modulePath) throw error;`), import repair runs once
+  per call, and `isPackageInstalled()` treats any existing directory as a valid
+  install. These gaps are why the downstream wrapper is retained.
 - use-m installs npm aliases such as
   `command-stream-v-latest@npm:command-stream@latest`, then dynamically imports
   the resolved entry point. Hive Mind's narrow shared wrapper remains a
   downstream defense for older versions and cleanup failures.
+- Version availability was checked directly against the registry and the CDN:
+  `npm view use-m dist-tags` reports `latest: 8.14.4`, and
+  `https://unpkg.com/use-m@8.14.4/use.js` serves HTTP 200 with the retry budget
+  present. The previously pinned `https://unpkg.com/use-m@8.13.8/use.js` bundle
+  contains no `removePackageAlias` at all.
 
 ## command-stream
 

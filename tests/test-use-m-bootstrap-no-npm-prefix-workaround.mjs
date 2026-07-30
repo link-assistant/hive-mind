@@ -34,7 +34,18 @@ assert.doesNotMatch(bootstrapSource, /npm-global-prefix/, 'ensureUseM should not
 assert.doesNotMatch(bootstrapSource, /ensureWritableNpmGlobalPrefix/, 'ensureUseM should not run a local npm prefix preflight');
 assert.doesNotMatch(bootstrapSource, /npm_config_prefix|NPM_CONFIG_PREFIX|npm root -g|\.npm-global/, 'ensureUseM should not contain local npm prefix policy');
 assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUseM should still try the upstream use-m bootstrap first');
-assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@8\.13\.8\/use\.js/, 'ensureUseM should keep a known working bootstrap fallback');
+assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@\d+\.\d+\.\d+\/use\.js/, 'ensureUseM should keep a known working pinned bootstrap fallback');
+
+// Issue #2113: the fallback must not silently downgrade dependency loading to a
+// use-m without corrupt-alias recovery. 8.14.3 added alias self-healing and
+// 8.14.4 gave its recursive removal a retry budget, so the pin may move forward
+// but never back below that floor.
+const SELF_HEALING_USE_M_FLOOR = [8, 14, 4];
+const fallbackVersion = USE_M_BOOTSTRAP_FALLBACK_URL.match(/use-m@(\d+)\.(\d+)\.(\d+)\//);
+assert.ok(fallbackVersion, 'the bootstrap fallback should pin an exact use-m version');
+const fallbackParts = fallbackVersion.slice(1, 4).map(Number);
+const comparedToFloor = fallbackParts.findIndex((part, index) => part !== SELF_HEALING_USE_M_FLOOR[index]);
+assert.ok(comparedToFloor === -1 || fallbackParts[comparedToFloor] > SELF_HEALING_USE_M_FLOOR[comparedToFloor], `the bootstrap fallback should pin use-m >= ${SELF_HEALING_USE_M_FLOOR.join('.')} so the degraded path keeps corrupt-alias recovery, got ${fallbackParts.join('.')}`);
 
 const calls = [];
 const code = await fetchUseMCodeFromCdn({

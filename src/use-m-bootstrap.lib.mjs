@@ -3,7 +3,14 @@
 import { wrapUseWithRetry } from './use-with-retry.lib.mjs';
 
 export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m/use.js';
-export const USE_M_BOOTSTRAP_FALLBACK_URL = 'https://unpkg.com/use-m@8.13.8/use.js';
+// Issue #2113: the fallback is only reached when unpkg cannot serve the `latest`
+// bundle, but until now it pinned 8.13.8 — the last release *without* any
+// corrupt-alias self-healing. A CDN hiccup therefore silently downgraded every
+// dependency import to the least resilient loader available. 8.14.4 is the first
+// release that both repairs corrupt aliases (8.14.3, use-m #66/#67) and removes
+// them with a retry budget (8.14.4, use-m #68), so the degraded path now keeps
+// upstream recovery instead of losing it.
+export const USE_M_BOOTSTRAP_FALLBACK_URL = 'https://unpkg.com/use-m@8.14.4/use.js';
 
 const isMissingUseMBundle = code => /^Not found: \/use-m@[^/]+\/use\.js\s*$/.test(code.trim());
 

@@ -17,6 +17,9 @@
 | 2026-07-28 20:04:52 | use-m reaches self-healing but recursive alias removal loses an `ENOTEMPTY` race in `examples`; the command exits 1.                                                                              |
 | 2026-07-28 20:37:11 | PR feedback supplies both additional logs and asks for command-stream ownership and pinning analysis.                                                                                             |
 | 2026-07-28          | The package audit clears command-stream, real stress reproduction confirms the zero-retry cleanup gap, and use-m #68 reports it upstream.                                                         |
+| 2026-07-30 06:38:13 | use-m #68 is closed after upstream adopts the suggested retry budget verbatim.                                                                                                                    |
+| 2026-07-30 06:39:50 | `use-m@8.14.4` is published with `maxRetries: 5` and `retryDelay: 100` in `removePackageAlias()`.                                                                                                 |
+| 2026-07-30          | A re-verification pass confirms the upstream fix, re-audits every analysis claim, and finds the CDN bootstrap fallback still pinned to 8.13.8 — the last release with no alias recovery at all.   |
 
 The first two runs and changing absent file rule out a simple "package was never
 installed" or deterministic bad-release interpretation. The final run confirms

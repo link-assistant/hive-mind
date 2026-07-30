@@ -62,6 +62,47 @@ process performed the competing mutation.
    rather than receiving the retry behavior Node provides.
 5. **New wrapper signature.** Hive Mind did not classify or extract the alias
    from use-m 8.14.3's `Failed to remove corrupt npm alias ...` error.
+6. **Degraded CDN fallback.** `ensureUseM()` falls back to a pinned bundle when
+   unpkg cannot serve `latest`. That pin was `use-m@8.13.8`, verified to contain
+   neither `removePackageAlias()` nor `isRecoverableNpmImportError()`. A CDN
+   hiccup therefore silently downgraded every dependency import to the least
+   resilient loader available, exactly when reliability matters most.
+
+## Upstream resolution (2026-07-30)
+
+use-m #68 was closed at 06:38:13 UTC and `use-m@8.14.4` was published at
+06:39:50 UTC. Diffing the 8.14.3 and 8.14.4 tarballs shows the suggested fix
+adopted verbatim, in the single shared helper, across all six bundled entry
+points:
+
+```js
+await rm(packagePath, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+```
+
+Because `ensureUseM()` loads `https://unpkg.com/use-m/use.js`, production picks
+this up automatically with no pin to bump.
+
+### Why the downstream guards are still kept
+
+Reading the 8.14.4 source rather than assuming its coverage shows the shared
+wrapper is still doing work that upstream does not:
+
+- **Subpath specifiers are never self-healed.** The npm resolver's repair branch
+  reads `if (options?.repair || modulePath) throw error;`, so any specifier with
+  a subpath skips repair entirely. This repository calls
+  `use('yargs@17.7.2/helpers')`, which upstream will not recover.
+- **Import repair is one-shot.** `isRecoverableNpmImportError()` triggers a
+  single repair-and-reimport. A second corruption in the same process is fatal
+  upstream, while the shared wrapper still has attempts left.
+- **Sticky reuse persists.** `isPackageInstalled()` only checks
+  `directoryExists()` for exact versions, and compares `package.json` version for
+  `latest`. An incomplete tree with an intact `package.json` still counts as
+  installed.
+- **Budget exhaustion rethrows the same wrapper.** Five retries reduce but do not
+  eliminate the race; when it is exhausted, 8.14.4 throws the identical
+  `Failed to remove corrupt npm alias '…'.` error the classifier handles.
+- **Older loaders remain reachable.** The CDN fallback pin, preinstalled globals,
+  and cached bundles can all supply a use-m without any of this recovery.
 
 ## Selected solution
 
@@ -79,6 +120,10 @@ Node replays a failed ESM evaluation for the same entry URL.
 
 Because `ensureUseM()` wraps `globalThis.use`, this applies to all dependency
 imports rather than only `command-stream` or the failing `/fix` path.
+
+The CDN bootstrap fallback is additionally repinned from `use-m@8.13.8` to
+`use-m@8.14.4`, so the degraded path retains upstream alias repair instead of
+losing it. A regression test asserts the pin never moves back below that floor.
 
 ## Alternatives
 

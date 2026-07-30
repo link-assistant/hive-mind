@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.10.3
+
+### Patch Changes
+
+- 3cfd6c2: Show cost and token/context budget facts in automated working-session summaries.
+
 ## 2.10.2
 
 ### Patch Changes

@@ -69,6 +69,7 @@ const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { buildNoChangesNotice, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -1270,7 +1271,7 @@ export const buildWorkingSessionSummaryDetails = ({ publicPricingEstimate = null
   return `${costInfo}${budgetStats}`.trim();
 };
 
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null }) => {
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null, changeStats = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1291,10 +1292,16 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
       pricingInfo,
       budgetStatsData,
     });
+    // Issue #2119: publish what the session actually produced. The reported
+    // summary said "The `pwd` command completed" and printed the solver's own
+    // /tmp workspace, on a pull request that was still empty.
+    const noChangesNotice = buildNoChangesNotice(changeStats);
+    const summaryBody = redactWorkspacePaths(resultSummary);
+
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
-${resultSummary}${usageDetails ? `\n\n${usageDetails}` : ''}
+${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}${usageDetails ? `\n\n${usageDetails}` : ''}
 
 ---
 *${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
@@ -1396,6 +1403,10 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
           ...sessionUsage,
         })
       : null);
+  // Issue #2119: a summary posted on a pull request that changed nothing must
+  // say so, instead of reading as a report of completed work.
+  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;
+
   const ok = await attachSolutionSummary({
     resultSummary,
     prNumber,
@@ -1406,6 +1417,7 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
     anthropicTotalCostUSD,
     pricingInfo,
     budgetStatsData: resolvedBudgetStatsData,
+    changeStats,
   });
   return { attached: !!ok, reason: ok ? 'attached' : 'post_failed', budgetStatsData: resolvedBudgetStatsData };
 };

@@ -98,22 +98,22 @@ showed redacted token counters, because the credential sanitizer treated
 
 ## 4. Requirements extracted from the issue
 
-| #   | Requirement (verbatim intent)                                                                 | Where it is addressed                                             |
-| --- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| R1  | Provider must be `Link.Assistant`, not `OpenCode Zen` / `Anthropic`                           | D1 — `8f7f173a`                                                   |
-| R2  | The model is free: cost must be $0                                                            | D2, D3 — `8f7f173a`                                               |
-| R3  | Fix all other false positives, false negatives, errors and warnings in the comments and logs  | D4–D13                                                            |
-| R4  | One auto-restart system, `N/M` labelled, hard stop after the limit                            | D5 — `f8d4c91c`                                                   |
-| R5  | After the limit: actually fail, with auto-commit on fail recovery, so the result is visible   | D6 — `f8d4c91c`                                                   |
-| R6  | Solve everything belonging to Hive Mind in this pull request                                  | §5, all 13 defects                                                |
-| R7  | Report everything belonging to Formal AI upstream, asking for generalization and self-healing | §8, [`upstream-formal-ai.md`](./upstream-formal-ai.md)            |
-| R8  | Find all other `test-hello-world-*` examples; guarantee quality with tests                    | §2 (all six found), §7 (test inventory)                           |
-| R9  | Uniform support for gemini and qwen                                                           | D4b — `16d8b243`, `tests/test-formal-ai-uniform-tools-2119.mjs`   |
-| R10 | Collect all logs; single big upstream issue with all materials linked                         | [`data/`](./data), §8                                             |
-| R11 | Compile the data into `./docs/case-studies/issue-2119` and do a deep analysis                 | this document                                                     |
-| R12 | Where data is insufficient, add debug output / verbose mode for the next iteration            | §9                                                                |
-| R13 | Report to other repositories where applicable, with reproductions and fix suggestions         | §8 (Formal AI; `link-assistant/agent` covered by the same report) |
-| R14 | Apply every fix across the entire codebase, not just where it was observed                    | §5 — each fix names its sweep                                     |
+| #   | Requirement (verbatim intent)                                                                 | Where it is addressed                                           |
+| --- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| R1  | Provider must be `Link.Assistant`, not `OpenCode Zen` / `Anthropic`                           | D1 — `8f7f173a`                                                 |
+| R2  | The model is free: cost must be $0                                                            | D2, D3 — `8f7f173a`                                             |
+| R3  | Fix all other false positives, false negatives, errors and warnings in the comments and logs  | D4–D13                                                          |
+| R4  | One auto-restart system, `N/M` labelled, hard stop after the limit                            | D5 — `f8d4c91c`                                                 |
+| R5  | After the limit: actually fail, with auto-commit on fail recovery, so the result is visible   | D6 — `f8d4c91c`                                                 |
+| R6  | Solve everything belonging to Hive Mind in this pull request                                  | §5, all 13 defects                                              |
+| R7  | Report everything belonging to Formal AI upstream, asking for generalization and self-healing | §8, [`upstream-formal-ai.md`](./upstream-formal-ai.md)          |
+| R8  | Find all other `test-hello-world-*` examples; guarantee quality with tests                    | §2 (all six found), §7 (test inventory)                         |
+| R9  | Uniform support for gemini and qwen                                                           | D4b — `16d8b243`, `tests/test-formal-ai-uniform-tools-2119.mjs` |
+| R10 | Collect all logs; single big upstream issue with all materials linked                         | [`data/`](./data), §8                                           |
+| R11 | Compile the data into `./docs/case-studies/issue-2119` and do a deep analysis                 | this document                                                   |
+| R12 | Where data is insufficient, add debug output / verbose mode for the next iteration            | §9                                                              |
+| R13 | Report to other repositories where applicable, with reproductions and fix suggestions         | §8 — formal-ai#879, agent#285                                   |
+| R14 | Apply every fix across the entire codebase, not just where it was observed                    | §5 — each fix names its sweep                                   |
 
 ## 5. The thirteen defects: evidence, root cause, fix
 
@@ -345,6 +345,8 @@ until it is wired the same way.
 
 ## 8. What belongs upstream
 
+### 8.1 Formal AI — [link-assistant/formal-ai#879](https://github.com/link-assistant/formal-ai/issues/879)
+
 The three runs also demonstrate five Formal AI defects, none of which Hive Mind can fix.
 They are collected in [`upstream-formal-ai.md`](./upstream-formal-ai.md) and filed as a
 single issue against `github.com/link-assistant/formal-ai`, framed — as the issue asks —
@@ -359,18 +361,56 @@ authentication in header` from `https://api.openai.com/v1/responses`.
 5. Output is pretty-printed rather than NDJSON, and carries no usage metadata
    (`rawMetadata: "{\"formalai\":{}}"`) — the shape that caused D4.
 
-Issues in `link-assistant/agent` itself are covered by the same report, since the `agent`
-run is the one that produced defect 1.
+It cross-references the existing Formal AI issues it touches: #859 (hello world fails in
+Codex while it works in Claude Code and OpenCode), #848 (the coding-task ladder), #864
+(proactive issue reporting on a failure of thinking) and #847 (task decomposition).
+
+### 8.2 Agent CLI — [link-assistant/agent#285](https://github.com/link-assistant/agent/issues/285)
+
+Re-reading the `agent` run's log for the prompt Formal AI actually received turned up
+three defects that belong to `link-assistant/agent` itself, all verified against that
+repository's `main`:
+
+1. **Unknown models get the weakest prompt, silently.**
+   `js/src/session/system.ts` selects the system prompt by substring-matching the model
+   id (`gpt-5`, `gpt-`/`o1`/`o3`, `gemini-`, `claude`, `polaris-alpha`, `grok-code`) and
+   falls through to `PROMPT_ANTHROPIC_WITHOUT_TODO` (`prompt/qwen.txt`) for everything
+   else. `formalai/formal-ai` matches nothing, so the run that produced no Scala was
+   driven by a prompt with **zero** todo/task-tracking instructions (`grep -ci todo`: 0 in
+   `qwen.txt`, 12 in `anthropic.txt`) — and nothing in the log says which prompt was
+   chosen.
+2. **The agent tells the model it is `opencode`.** `prompt/qwen.txt:1` opens with `You are
+opencode, …` and lines 8-11 route feedback to `https://github.com/sst/opencode/issues`
+   and docs to `https://opencode.ai`. Eight prompt files carry the string (9 hits in
+   `anthropic.txt` and `polaris.txt`, 8 in `qwen.txt`). Any harness that asks the agent to
+   report its own failure — hive-mind's report-issue flow, formal-ai#864 — is being aimed
+   at the wrong repository.
+3. **Session records carry a hard-coded version.** The same session logs
+   `"service": "default", "version": "0.25.3"` and
+   `"service": "session", "version": "agent-cli-1.0.0"`; the latter is the literal at
+   `js/src/session/index.ts:229`, while `js/package.json` says `0.25.3`. Stored sessions
+   are therefore unattributable to a release.
+
+Each is reported with a code-level fix framed as generalization: resolve the prompt from
+declared model capabilities with a logged default instead of substring matching, keep the
+product identity in one interpolated place instead of eight text files, and derive the
+version from the manifest so the three reported values cannot diverge.
 
 ## 9. Where the data was insufficient (R12)
 
 Two questions the archived logs cannot answer, and the instrumentation added so the next
 run can:
 
-- **Why did the `agent` run target `./examples`?** The log records the final tool calls
-  but not the prompt Formal AI actually received. The shared JSON framer now surfaces
-  every record — including the ones the line parser was silently dropping — so the next
-  run's log contains the request as well as the response.
+- **Why did the `agent` run target `./examples`?** Partly answered on the second reading.
+  The log does carry the system prompt, in the request `bodyPreview` records at lines
+  1452 and 1563 of
+  [`agent-scala-solution-draft.log`](./data/logs/agent-scala-solution-draft.log), and it
+  is the without-todo prompt (`prompt/qwen.txt`) that Agent CLI selects for any model id
+  it does not recognise — see §8.2. That explains the missing plan/verify discipline; it
+  does not explain the specific choice of `./examples`, for which the user-turn content
+  would be needed. The shared JSON framer now surfaces every record — including the ones
+  the line parser was silently dropping — so the next run's log carries the full request
+  alongside the response rather than only the fragments that happened to parse.
 - **Where was the `formal-ai` alias lost on the codex path?** The failure log shows the
   outbound request to `api.openai.com` but not the resolution step that chose it.
   `resolveFormalAiToolInvocation` is now the single dispatch point for all six tools, so

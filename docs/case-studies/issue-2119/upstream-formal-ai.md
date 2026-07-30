@@ -5,6 +5,11 @@ This is the consolidated report filed against
 evidence in [`README.md`](./README.md). It is kept in the repository so the Hive Mind
 side of the investigation and the upstream side stay linked.
 
+**Filed as [link-assistant/formal-ai#879](https://github.com/link-assistant/formal-ai/issues/879)**
+on 2026-07-30. The three Agent CLI defects found in the same logs are reported separately,
+where they belong: [link-assistant/agent#285](https://github.com/link-assistant/agent/issues/285)
+(see §8.2 of the case study).
+
 Everything below concerns Formal AI itself. The thirteen defects Hive Mind owns are
 fixed in https://github.com/link-assistant/hive-mind/pull/2120 and are **not** part of
 this report.

@@ -21,11 +21,56 @@
  * and never revisited), and the Kotlin run went on to post "✅ Ready to merge -
  * No pending changes" for a pull request that changed nothing at all.
  *
+ * The third reproduction run failed before the AI committed anything, so its
+ * pull request kept the scaffolding file itself:
+ *
+ *   https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2
+ *   .gitkeep | 1 +
+ *
+ * That is the same "nothing was implemented" state wearing a file count, so the
+ * solver's own placeholder is excluded from the counts here rather than being
+ * reported as the AI's work.
+ *
  * This module is the single place that answers the question, so both the
  * description writer and the mergeability watcher agree.
  */
 
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+
+/**
+ * The solver's own scaffolding files, recognised by the content it writes into
+ * them (`src/solve.auto-pr.lib.mjs`). A pull request whose whole diff is one of
+ * these contains no solution: the placeholder exists only to give an empty
+ * branch something to open a pull request from, and is reverted once the AI
+ * commits real work.
+ *
+ * Matching on content, not on the file name, keeps a repository's own
+ * `.gitkeep` or `CLAUDE.md` edits counted as the real changes they are.
+ */
+const PLACEHOLDER_CONTENT_PATTERNS = new Map([
+  ['.gitkeep', [/^\+#\s*\.gitkeep file auto-generated at .+ for PR creation at branch /m]],
+  ['CLAUDE.md', [/^\+Issue to solve: \S+/m, /^\+Your prepared branch: \S+/m]],
+]);
+
+/** Split a unified diff into one section per file. */
+const splitDiffByFile = diff => {
+  const sections = [];
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
+      sections.push({ path: match ? match[2] : '', body: '' });
+      continue;
+    }
+    if (sections.length > 0) sections[sections.length - 1].body += `${line}\n`;
+  }
+  return sections;
+};
+
+/** True when this file section is nothing but the solver's own placeholder. */
+const isPlaceholderSection = section => {
+  const patterns = PLACEHOLDER_CONTENT_PATTERNS.get(section.path);
+  return Boolean(patterns) && patterns.every(pattern => pattern.test(section.body));
+};
 
 /**
  * Measure the net diff of a pull request.
@@ -39,9 +84,11 @@ import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
  * @param {string} params.repo
  * @param {number} params.prNumber
  * @param {Function} params.$ command-stream tagged-template executor
- * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, measured: boolean}>}
- *   `measured` is false when the diff could not be fetched, in which case
- *   callers must not treat the pull request as empty.
+ * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, placeholderOnly: boolean, measured: boolean}>}
+ *   The counts cover the AI's own work: the solver's placeholder file is
+ *   excluded and reported through `placeholderOnly` instead. `measured` is
+ *   false when the diff could not be fetched, in which case callers must not
+ *   treat the pull request as empty.
  */
 export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $ }) => {
   let diffOutput = '';
@@ -56,11 +103,23 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $ }) =>
     // Leave measured false: an unreachable API must not read as "no changes".
   }
 
-  const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
-  const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
-  const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+  const sections = splitDiffByFile(diffOutput);
+  const placeholderSections = sections.filter(isPlaceholderSection);
+  const realSections = sections.filter(section => !isPlaceholderSection(section));
 
-  return { hasChanges: filesChanged > 0, filesChanged, additions, deletions, measured };
+  const countMatches = (pattern, text) => (text.match(pattern) || []).length;
+  const filesChanged = realSections.length;
+  const additions = realSections.reduce((total, section) => total + countMatches(/^\+[^+]/gm, section.body), 0);
+  const deletions = realSections.reduce((total, section) => total + countMatches(/^-[^-]/gm, section.body), 0);
+
+  return {
+    hasChanges: filesChanged > 0,
+    filesChanged,
+    additions,
+    deletions,
+    placeholderOnly: filesChanged === 0 && placeholderSections.length > 0,
+    measured,
+  };
 };
 
 /**
@@ -78,6 +137,9 @@ export const formatChangeSummary = stats => {
     return '- The diff could not be read, so the change summary is unavailable';
   }
   if (!stats.hasChanges) {
+    if (stats.placeholderOnly) {
+      return '- No files were changed by this pull request yet (it contains only the placeholder file the solver commits to open a pull request)';
+    }
     return '- No files were changed by this pull request yet';
   }
   return [`- ${stats.filesChanged} file(s) modified`, `- ${stats.additions} line(s) added`, `- ${stats.deletions} line(s) removed`].join('\n');
@@ -93,4 +155,12 @@ export const formatChangeSummary = stats => {
  */
 export const EMPTY_PULL_REQUEST_BLOCKER = 'The pull request contains no changes (its net diff is empty), so there is nothing to merge';
 
-export default { getPullRequestChangeStats, formatChangeSummary, EMPTY_PULL_REQUEST_BLOCKER };
+/**
+ * The same blocker, naming the placeholder when that is all the diff contains.
+ *
+ * @param {{placeholderOnly?: boolean}|null} stats
+ * @returns {string}
+ */
+export const buildEmptyPullRequestBlocker = (stats = null) => (stats?.placeholderOnly ? 'The pull request contains only the placeholder file the solver commits to open a pull request, so there is nothing to merge' : EMPTY_PULL_REQUEST_BLOCKER);
+
+export default { getPullRequestChangeStats, formatChangeSummary, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker };

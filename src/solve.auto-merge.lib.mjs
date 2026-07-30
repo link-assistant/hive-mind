@@ -91,7 +91,7 @@ const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaus
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 
 // Issue #2119: an empty pull request must not be reported as ready to merge.
-const { EMPTY_PULL_REQUEST_BLOCKER, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
@@ -295,8 +295,9 @@ export const watchUntilMergeable = async params => {
       // the issue without implementing anything.
       const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber, $ });
       const isEmptyPullRequest = changeStats.measured && !changeStats.hasChanges;
+      const emptyPullRequestBlocker = buildEmptyPullRequestBlocker(changeStats);
       if (isEmptyPullRequest) {
-        await log(formatAligned('⚠️', 'PR is empty:', 'net diff contains no files - not treating it as mergeable', 2), { level: 'warning' });
+        await log(formatAligned('⚠️', 'PR is empty:', changeStats.placeholderOnly ? 'only the solver placeholder file is in the diff - not treating it as mergeable' : 'net diff contains no files - not treating it as mergeable', 2), { level: 'warning' });
       }
 
       // If PR is mergeable, no blockers, no new comments, no issue metadata
@@ -459,8 +460,8 @@ export const watchUntilMergeable = async params => {
       // Issue #2119: Reason 1a: the pull request does not change anything yet.
       if (isEmptyPullRequest) {
         shouldRestart = true;
-        restartReason = restartReason ? `${restartReason}; ${EMPTY_PULL_REQUEST_BLOCKER}` : EMPTY_PULL_REQUEST_BLOCKER;
-        feedbackLines.push(`📭 ${EMPTY_PULL_REQUEST_BLOCKER}.`);
+        restartReason = restartReason ? `${restartReason}; ${emptyPullRequestBlocker}` : emptyPullRequestBlocker;
+        feedbackLines.push(`📭 ${emptyPullRequestBlocker}.`);
         feedbackLines.push('');
         feedbackLines.push('Implement the requested change and commit it to the pull request branch. Do not report the work as done while the diff is empty.');
       }

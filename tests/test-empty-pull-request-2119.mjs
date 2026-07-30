@@ -20,6 +20,14 @@
  * pending changes". Merging that would have closed the issue with nothing
  * implemented, which is the worst kind of false positive: it looks like success.
  *
+ * The third run stopped before the AI committed anything, so its pull request
+ * kept the solver's own placeholder file - `.gitkeep | 1 +` and nothing else:
+ *
+ *   https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2
+ *
+ * That is the same "nothing was implemented" state wearing a file count, so the
+ * placeholder is excluded from the counts too.
+ *
  * @hive-mind-test-suite default
  */
 
@@ -28,7 +36,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { EMPTY_PULL_REQUEST_BLOCKER, formatChangeSummary, getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
+import { EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, formatChangeSummary, getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +62,49 @@ const changed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-h
 assert.equal(changed.hasChanges, true, 'a pull request that adds a file has changes');
 assert.equal(changed.filesChanged, 1);
 assert.equal(changed.additions, 3, 'the `+++ b/...` header is not counted as an added line');
+
+// --- the solver's own placeholder is not a change ----------------------------
+
+// The third reproduction run never got as far as a commit, so its pull request
+// still holds the placeholder `src/solve.auto-pr.lib.mjs` writes to make an
+// empty branch openable:
+//   https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2
+const gitkeepPlaceholderDiff = ['diff --git a/.gitkeep b/.gitkeep', 'new file mode 100644', 'index 0000000..b5cf1f4', '--- /dev/null', '+++ b/.gitkeep', '@@ -0,0 +1 @@', '+# .gitkeep file auto-generated at 2026-07-30T14:24:59.267Z for PR creation at branch issue-1-09b0c76bd0e4 for issue https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/issues/1'].join('\n');
+const claudeMdPlaceholderDiff = ['diff --git a/CLAUDE.md b/CLAUDE.md', 'new file mode 100644', '--- /dev/null', '+++ b/CLAUDE.md', '@@ -0,0 +1,3 @@', '+Issue to solve: https://github.com/konard/test-hello-world/issues/1', '+Your prepared branch: issue-1-09b0c76bd0e4', '+Proceed.'].join('\n');
+
+for (const [label, diff] of [
+  ['.gitkeep', gitkeepPlaceholderDiff],
+  ['CLAUDE.md', claudeMdPlaceholderDiff],
+]) {
+  const stats = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-hello-world', prNumber: 2, $: fake$({ stdout: diff }) });
+  assert.equal(stats.hasChanges, false, `${label}: a pull request holding only the solver placeholder implements nothing`);
+  assert.equal(stats.filesChanged, 0, `${label}: the placeholder is not counted as the AI's work`);
+  assert.equal(stats.additions, 0, `${label}: the placeholder's lines are not counted either`);
+  assert.equal(stats.placeholderOnly, true, `${label}: the caller can tell an empty diff from a placeholder-only one`);
+  assert.ok(formatChangeSummary(stats).includes('placeholder'), `${label}: the description names the placeholder instead of claiming a file was modified`);
+  assert.ok(buildEmptyPullRequestBlocker(stats).includes('placeholder'), `${label}: the restart reason names the placeholder`);
+}
+
+// Matching is on the generated content, so a repository's own `.gitkeep` or
+// `CLAUDE.md` stays the real change it is.
+const ownGitkeepDiff = ['diff --git a/docs/.gitkeep b/.gitkeep', 'new file mode 100644', '--- /dev/null', '+++ b/.gitkeep', '@@ -0,0 +1 @@', '+keep this directory'].join('\n');
+const ownGitkeep = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-hello-world', prNumber: 2, $: fake$({ stdout: ownGitkeepDiff }) });
+assert.equal(ownGitkeep.hasChanges, true, 'a `.gitkeep` without the auto-generated marker is a real change');
+assert.equal(ownGitkeep.filesChanged, 1);
+assert.equal(ownGitkeep.placeholderOnly, false);
+
+// A real file next to the placeholder counts once: the placeholder drops out,
+// the solution stays.
+const mixed = await getPullRequestChangeStats({ owner: 'konard', repo: 'test-hello-world', prNumber: 2, $: fake$({ stdout: `${gitkeepPlaceholderDiff}\n${realDiff}` }) });
+assert.equal(mixed.hasChanges, true, 'the placeholder does not hide real work');
+assert.equal(mixed.filesChanged, 1, 'only the real file is counted');
+assert.equal(mixed.additions, 3, 'the placeholder line is excluded from the addition count');
+assert.equal(mixed.placeholderOnly, false, 'a pull request with real work is not placeholder-only');
+
+// An empty diff is empty, not placeholder-only - the two get different wording.
+assert.equal(empty.placeholderOnly, false);
+assert.equal(buildEmptyPullRequestBlocker(empty), EMPTY_PULL_REQUEST_BLOCKER);
+assert.equal(buildEmptyPullRequestBlocker(), EMPTY_PULL_REQUEST_BLOCKER, 'the blocker has a sensible default');
 
 // An unreachable API must never be mistaken for "nothing changed" - that would
 // turn a transient network failure into an endless restart loop.
@@ -81,7 +132,7 @@ const autoMergeSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-me
 assert.ok(autoMergeSource.includes("await import('./pull-request-changes.lib.mjs')"), 'the auto-merge watcher measures the diff');
 assert.ok(autoMergeSource.includes('const isEmptyPullRequest = changeStats.measured && !changeStats.hasChanges'), 'an unmeasured diff does not count as empty');
 assert.ok(/!hasUncommittedChanges && !isEmptyPullRequest/.test(autoMergeSource), 'the "ready to merge" branch is gated on the pull request not being empty');
-assert.ok(autoMergeSource.includes('EMPTY_PULL_REQUEST_BLOCKER'), 'an empty pull request is reported as a restart reason');
+assert.ok(autoMergeSource.includes('buildEmptyPullRequestBlocker(changeStats)'), 'an empty pull request is reported as a restart reason, naming the placeholder when that is all there is');
 
 const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.lib.mjs'), 'utf8');
 assert.ok(resultsSource.includes('formatChangeSummary(changeStats)'), 'the generated description renders the shared change summary');

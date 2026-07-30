@@ -580,6 +580,10 @@ export const watchForFeedback = async params => {
               prNumber,
               issueNumber,
               success: true,
+              publicPricingEstimate: toolResult.publicPricingEstimate,
+              anthropicTotalCostUSD: latestAnthropicCost,
+              pricingInfo: toolResult.pricingInfo,
+              budgetStatsData: autoRestartBudgetStatsData,
             });
           } catch (summaryError) {
             reportError(summaryError, {

@@ -25,6 +25,7 @@ import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } fro
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
+import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -232,41 +233,17 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null) => {
     partialLine: state.partialLine || '',
   };
 
-  const trimmedOutput = output.trim();
-  if (trimmedOutput && !nextState.partialLine) {
-    try {
-      const parsed = JSON.parse(trimmedOutput);
-      for (const event of Array.isArray(parsed) ? parsed : [parsed]) {
-        applyGeminiJsonEvent(event, nextState, modelId);
-      }
-      return nextState;
-    } catch {
-      // stream-json emits one JSON object per line; fall through to JSONL parsing.
-    }
-  }
+  // Issue #2119: frame the stream by balanced JSON values instead of by lines.
+  // `formal-ai with gemini` emits pretty-printed, multi-line records, so every
+  // line failed to parse and every event - including the token usage - was
+  // dropped. Scanning for balanced values also covers records concatenated
+  // without a separator and records split across two process chunks.
+  const { records, rest } = takeJsonRecords(`${nextState.partialLine}${String(output ?? '')}`);
+  nextState.partialLine = rest;
 
-  const bufferedOutput = `${nextState.partialLine}${output}`;
-  nextState.partialLine = '';
-  const lines = bufferedOutput.split(/\r?\n/);
-  const hasTrailingLineBreak = /\r?\n$/.test(bufferedOutput);
-  const completeLines = hasTrailingLineBreak ? lines : lines.slice(0, -1);
-  const possiblePartialLine = hasTrailingLineBreak ? '' : lines.at(-1) || '';
-
-  for (const line of completeLines) {
-    if (!line.trim()) continue;
-
-    try {
-      applyGeminiJsonEvent(JSON.parse(line), nextState, modelId);
-    } catch {
-      continue;
-    }
-  }
-
-  if (possiblePartialLine.trim()) {
-    try {
-      applyGeminiJsonEvent(JSON.parse(possiblePartialLine), nextState, modelId);
-    } catch {
-      nextState.partialLine = possiblePartialLine;
+  for (const record of records) {
+    for (const event of Array.isArray(record) ? record : [record]) {
+      applyGeminiJsonEvent(event, nextState, modelId);
     }
   }
 

@@ -26,6 +26,7 @@ import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } fro
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
+import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -328,35 +329,19 @@ export const parseQwenStreamJsonOutput = (output, state = {}) => {
   const text = output?.toString?.() ?? String(output || '');
   nextState.plainText += text;
 
-  const parseCandidate = value => {
-    const trimmed = value.trim();
-    if (!trimmed) return true;
+  // Issue #2119: frame the stream by balanced JSON values instead of by lines.
+  // `formal-ai with qwen` emits pretty-printed, multi-line records, so every
+  // line failed to parse and every event - including the token usage - was
+  // dropped. Scanning for balanced values also covers records concatenated
+  // without a separator and records split across two process chunks.
+  const { records, rest } = takeJsonRecords(`${nextState.buffer}${text}`);
+  nextState.buffer = rest;
 
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) addQwenEventToState(nextState, item);
-      } else {
-        addQwenEventToState(nextState, parsed);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const combined = `${nextState.buffer}${text}`;
-  nextState.buffer = '';
-
-  const lines = combined.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    const isLastLine = index === lines.length - 1;
-    if (!line.trim()) continue;
-
-    const parsed = parseCandidate(line);
-    if (!parsed && isLastLine) {
-      nextState.buffer = line;
+  for (const record of records) {
+    if (Array.isArray(record)) {
+      for (const item of record) addQwenEventToState(nextState, item);
+    } else {
+      addQwenEventToState(nextState, record);
     }
   }
 

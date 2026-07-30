@@ -149,6 +149,30 @@ export const createJsonStreamScanner = (options = {}) => {
     flush() {
       return scan(true, []);
     },
+    /** The unconsumed tail: an incomplete record or text line. */
+    pending() {
+      return pending;
+    },
+  };
+};
+
+/**
+ * Split a buffered stream into complete JSON records plus the unconsumed tail.
+ *
+ * Stateless counterpart of `createJsonStreamScanner`, for the parsers that keep
+ * their buffer inside a plain state object they hand back to their caller
+ * (`parseGeminiJsonOutput`, `parseQwenStreamJsonOutput`) instead of holding a
+ * closure across chunks.
+ *
+ * @param {string} buffered carried-over tail followed by the new chunk
+ * @returns {{records: Array<Object>, rest: string}}
+ */
+export const takeJsonRecords = buffered => {
+  const scanner = createJsonStreamScanner();
+  const events = scanner.write(String(buffered ?? ''));
+  return {
+    records: events.filter(event => event.type === 'json').map(event => event.value),
+    rest: scanner.pending(),
   };
 };
 

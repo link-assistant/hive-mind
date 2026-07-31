@@ -117,8 +117,7 @@ export const installsFromNpm = specifier => {
   return !isBuiltin(`${parsed.packageName}${parsed.modulePath}`);
 };
 
-export const defaultLockRoot = () =>
-  process.env.HIVE_MIND_USE_M_LOCK_DIR || path.join(os.tmpdir(), 'hive-mind-use-m-locks');
+export const defaultLockRoot = () => process.env.HIVE_MIND_USE_M_LOCK_DIR || path.join(os.tmpdir(), 'hive-mind-use-m-locks');
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -182,12 +181,7 @@ export const acquireAliasLock = async (key, options = {}) => {
       // Best-effort ownership breadcrumb: it makes a stuck lock diagnosable
       // (`cat /tmp/hive-mind-use-m-locks/<alias>.lock/owner.json`) but nothing
       // depends on it being readable.
-      await fs
-        .writeFile(
-          path.join(lockPath, 'owner.json'),
-          `${JSON.stringify({ pid: process.pid, hostname: os.hostname(), key, startedAt: new Date(startedAt).toISOString() }, null, 2)}\n`
-        )
-        .catch(() => {});
+      await fs.writeFile(path.join(lockPath, 'owner.json'), `${JSON.stringify({ pid: process.pid, hostname: os.hostname(), key, startedAt: new Date(startedAt).toISOString() }, null, 2)}\n`).catch(() => {});
       log(`acquired install lock for '${key}' at ${lockPath}`);
 
       // Keep the mtime fresh so other processes do not mistake a slow install
@@ -309,12 +303,24 @@ export const wrapUseWithSingleFlight = (use, options = {}) => {
     // memoising nor serialising them is safe — pass them straight through.
     if (!alias) return use(specifier, ...args);
 
-    const call = () => use(specifier, ...args);
+    // Issue #2113: both failing runs were started with `--verbose` and the log
+    // showed only the final crash. Tracing every load (specifier, alias,
+    // duration) is what makes the next incident diagnosable from the log alone.
+    const call = async () => {
+      const startedAt = Date.now();
+      log(`use('${specifier}') loading (alias ${alias})`);
+      try {
+        const module = await use(specifier, ...args);
+        log(`use('${specifier}') loaded in ${Date.now() - startedAt}ms`);
+        return module;
+      } catch (error) {
+        log(`use('${specifier}') failed after ${Date.now() - startedAt}ms: ${error?.message}`);
+        throw error;
+      }
+    };
     // Only npm-backed specifiers need the alias mutex and the file lock; a
     // built-in has no install step to protect.
-    const start = installsFromNpm(specifier)
-      ? () => runOnAliasChain(state, alias, () => withAliasLock(alias, call, { ...options, disabled, log }))
-      : call;
+    const start = installsFromNpm(specifier) ? () => runOnAliasChain(state, alias, () => withAliasLock(alias, call, { ...options, disabled, log })) : call;
 
     // Extra arguments select a different resolver/context, so results are not
     // interchangeable; those calls skip the memo but still take the lock.

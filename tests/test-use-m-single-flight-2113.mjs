@@ -20,15 +20,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import {
-  aliasForSpecifier,
-  parseSpecifier,
-  installsFromNpm,
-  acquireAliasLock,
-  withAliasLock,
-  wrapUseWithSingleFlight,
-  resetSingleFlightState,
-} from '../src/use-m-single-flight.lib.mjs';
+import { aliasForSpecifier, parseSpecifier, installsFromNpm, acquireAliasLock, withAliasLock, wrapUseWithSingleFlight, resetSingleFlightState } from '../src/use-m-single-flight.lib.mjs';
 import { wrapUseWithRetry } from '../src/use-with-retry.lib.mjs';
 
 let passed = 0;
@@ -314,8 +306,7 @@ await test('ensureUseM installs the single-flight guard', async () => {
   resetSingleFlightState();
   delete globalThis.use;
   const { ensureUseM } = await import('../src/use-m-bootstrap.lib.mjs');
-  const fetchUseMCode = async () =>
-    '({ use: async () => { globalThis.__2113Calls = (globalThis.__2113Calls || 0) + 1; return { $: "dollar" }; } })';
+  const fetchUseMCode = async () => '({ use: async () => { globalThis.__2113Calls = (globalThis.__2113Calls || 0) + 1; return { $: "dollar" }; } })';
   globalThis.__2113Calls = 0;
   const use = await ensureUseM({ fetchUseMCode });
   const results = await Promise.all(Array.from({ length: 12 }, () => use('command-stream')));

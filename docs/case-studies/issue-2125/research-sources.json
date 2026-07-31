@@ -1,0 +1,52 @@
+[
+  {
+    "title": "Hive Mind issue #2125",
+    "url": "https://github.com/link-assistant/hive-mind/issues/2125",
+    "role": "Primary requirements: the generated issue contained CI/CD run duplicates"
+  },
+  {
+    "title": "link-assistant/agent issue #287",
+    "url": "https://github.com/link-assistant/agent/issues/287",
+    "role": "The defective output: 20 table rows for 2 workflows"
+  },
+  {
+    "title": "Hive Mind issue #1733",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1733",
+    "role": "Defines the /fix --ci-cd workflow and its issue body"
+  },
+  {
+    "title": "Hive Mind PR #1929",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1929",
+    "role": "Implementation of the run table and the default-branch fallback"
+  },
+  {
+    "title": "Hive Mind issue #2121",
+    "url": "https://github.com/link-assistant/hive-mind/issues/2121",
+    "role": "Added /task --ci-cd, which reuses the same run collector"
+  },
+  {
+    "title": "GitHub REST API — List workflow runs for a repository",
+    "url": "https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository",
+    "role": "Confirms the endpoint returns one object per run and offers no 'latest run per workflow' filter; branch/head_sha/per_page (max 100) are the relevant parameters"
+  },
+  {
+    "title": "GitHub CLI — gh run list",
+    "url": "https://cli.github.com/manual/gh_run_list",
+    "role": "Prior art considered: lists runs and can filter by --workflow, but does not deduplicate to the latest run per workflow"
+  },
+  {
+    "title": "GitHub CLI — gh workflow list",
+    "url": "https://cli.github.com/manual/gh_workflow_list",
+    "role": "Prior art considered: enumerating workflows then querying each one's latest run would cost N+1 API calls"
+  },
+  {
+    "title": "js-ai-driven-development-pipeline-template",
+    "url": "https://github.com/link-foundation/js-ai-driven-development-pipeline-template",
+    "role": "Checked for an equivalent run-table renderer to mirror the fix into; none exists"
+  },
+  {
+    "title": "rust-ai-driven-development-pipeline-template",
+    "url": "https://github.com/link-foundation/rust-ai-driven-development-pipeline-template",
+    "role": "Checked for an equivalent run-table renderer to mirror the fix into; none exists"
+  }
+]

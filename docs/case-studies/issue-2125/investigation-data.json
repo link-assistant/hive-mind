@@ -1,0 +1,85 @@
+{
+  "capturedAt": "2026-07-31",
+  "issue": {
+    "number": 2125,
+    "url": "https://github.com/link-assistant/hive-mind/issues/2125",
+    "title": "/task --ci-cd created an issue with CI/CD runs duplicates",
+    "state": "OPEN",
+    "commentCount": 0
+  },
+  "preparedPullRequest": {
+    "number": 2126,
+    "url": "https://github.com/link-assistant/hive-mind/pull/2126",
+    "initialDraft": true,
+    "initialReviewCount": 0,
+    "initialConversationCommentCount": 0,
+    "initialInlineCommentCount": 0
+  },
+  "generatedIssue": {
+    "repository": "link-assistant/agent",
+    "number": 287,
+    "url": "https://github.com/link-assistant/agent/issues/287",
+    "createdAt": "2026-07-31T18:10:10Z",
+    "createdBy": "/task --ci-cd",
+    "tableRows": 20,
+    "distinctWorkflows": 2,
+    "rowsPerWorkflow": {
+      "JS CI/CD Pipeline": 14,
+      "Rust CI/CD Pipeline": 6
+    },
+    "reportedSummary": "CI/CD runs found: 20 (9 not passing)"
+  },
+  "targetRepository": {
+    "fullName": "link-assistant/agent",
+    "defaultBranch": "main",
+    "latestCommit": {
+      "message": "0.25.4",
+      "sha": "fd42c4b6a56822e3239a2098a29062714c9c3585",
+      "url": "https://github.com/link-assistant/agent/commit/fd42c4b6a56822e3239a2098a29062714c9c3585"
+    },
+    "runsForLatestCommit": 0,
+    "runsOnDefaultBranchTotal": 155,
+    "distinctWorkflowIdsOnDefaultBranch": [219620721, 219620722]
+  },
+  "rootCauses": [
+    {
+      "id": "RC1",
+      "component": "src/fix.ci-cd.lib.mjs buildRunsSection",
+      "finding": "rendered one table row per API run object, with no notion of workflow identity"
+    },
+    {
+      "id": "RC2",
+      "component": "src/fix.ci-cd-issue.lib.mjs getRecentBranchRuns",
+      "finding": "the default-branch fallback returns runs across many commits (a different shape than the head_sha query) and did not select workflow_id/created_at/run_attempt"
+    },
+    {
+      "id": "RC3",
+      "component": "src/fix.ci-cd.lib.mjs summarizeRunFailures",
+      "finding": "counted raw runs, inflating \"N not passing\" with months-old failures"
+    }
+  ],
+  "fix": {
+    "added": ["runWorkflowKey", "dedupeRunsByWorkflow", "countDuplicateRuns", "buildRunsSection includeCommit option", "prepareCiCdIssue fetchedRuns/duplicateRuns + verbose collapse log"],
+    "fallbackPerPage": {
+      "before": 20,
+      "after": 100
+    },
+    "verifiedOnRealPayload": {
+      "inputRuns": 20,
+      "renderedRows": 2
+    }
+  },
+  "relatedWork": [
+    {
+      "issue": 1733,
+      "pullRequest": 1929,
+      "finding": "introduced /fix --ci-cd and the shared issue-body builders"
+    },
+    {
+      "issue": 2121,
+      "pullRequest": 2122,
+      "finding": "introduced /task --ci-cd, reusing prepareCiCdIssue"
+    }
+  ],
+  "upstreamReports": []
+}

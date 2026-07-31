@@ -4,7 +4,7 @@
  */
 
 import { spawn } from 'child_process';
-import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle } from './fix.ci-cd.lib.mjs';
+import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle, dedupeRunsByWorkflow } from './fix.ci-cd.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 
 function runCommand(command, args, options = {}) {
@@ -70,7 +70,9 @@ async function getLatestCommit(repository, branch, run, warn) {
   }
 }
 
-const RUNS_JQ = '[.workflow_runs[] | {name: .name, status: .status, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha}]';
+// `workflow_id`, `created_at` and `run_attempt` are what let
+// `dedupeRunsByWorkflow` keep the latest run of each workflow (issue #2125).
+const RUNS_JQ = '[.workflow_runs[] | {id: .id, name: .name, workflow_id: .workflow_id, path: .path, status: .status, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha, created_at: .created_at, run_attempt: .run_attempt}]';
 
 async function getRunsForCommit(repository, sha, run, warn) {
   if (!sha) return [];
@@ -87,7 +89,7 @@ async function getRunsForCommit(repository, sha, run, warn) {
 async function getRecentBranchRuns(repository, branch, run, warn) {
   if (!branch) return [];
   try {
-    const json = await commandOutput(run, 'gh', ['api', `repos/${repository.fullName}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=20`, '--jq', RUNS_JQ]);
+    const json = await commandOutput(run, 'gh', ['api', `repos/${repository.fullName}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`, '--jq', RUNS_JQ]);
     const parsed = JSON.parse(json);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
@@ -96,7 +98,7 @@ async function getRecentBranchRuns(repository, branch, run, warn) {
   }
 }
 
-export async function prepareCiCdIssue({ repository, run = runCommand, warn = message => console.warn(message) }) {
+export async function prepareCiCdIssue({ repository, run = runCommand, warn = message => console.warn(message), log = null }) {
   const [languages, defaultBranch] = await Promise.all([detectLanguages(repository, run, warn), getDefaultBranch(repository, run, warn)]);
   const commit = await getLatestCommit(repository, defaultBranch, run, warn);
   let runs = await getRunsForCommit(repository, commit?.sha, run, warn);
@@ -110,11 +112,22 @@ export async function prepareCiCdIssue({ repository, run = runCommand, warn = me
     }
   }
 
+  // The branch fallback returns every run of every workflow across many
+  // commits; the issue must list one row per workflow (issue #2125).
+  const fetchedRuns = runs.length;
+  runs = dedupeRunsByWorkflow(runs);
+  const duplicates = fetchedRuns - runs.length;
+  if (duplicates > 0 && typeof log === 'function') {
+    log(`ℹ️  Collapsed ${duplicates} older CI/CD run(s) — keeping the latest run of each workflow (${runs.length} workflow(s), source: ${runsSource}).`);
+  }
+
   return {
     repository,
     defaultBranch,
     commit,
     runs,
+    fetchedRuns,
+    duplicateRuns: duplicates,
     languages,
     runsSource,
     title: buildCiCdIssueTitle(),
@@ -123,7 +136,7 @@ export async function prepareCiCdIssue({ repository, run = runCommand, warn = me
 }
 
 export async function createCiCdIssue({ repository, prepared = null, run = runCommand, log = null, warn = message => console.warn(message) }) {
-  const issueDraft = prepared || (await prepareCiCdIssue({ repository, run, warn }));
+  const issueDraft = prepared || (await prepareCiCdIssue({ repository, run, warn, log }));
   const issue = await createTaskIssue({
     repository,
     title: issueDraft.title,

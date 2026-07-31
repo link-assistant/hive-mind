@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.11.0
+
+### Minor Changes
+
+- 3613953: Add `/task --ci-cd <repository>` as a CI/CD remediation issue-only fallback for `/fix`.
+
 ## 2.10.5
 
 ### Patch Changes

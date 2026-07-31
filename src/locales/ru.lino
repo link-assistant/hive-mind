@@ -556,9 +556,9 @@ ru
       locked
         options "🔒 Заблокированные опции: `{{options}}`"
       task
-        enabled "*/task* - Создать задачу GitHub из ссылки на репозиторий и текста задачи"
-        usage "Использование: `/task <github-repository-url>` с текстом задачи после команды или ответом `/task`"
-        example "Пример: `/task https://github.com/owner/repo`, затем текст задачи на следующих строках"
+        enabled "*/task* - Создать issue GitHub из текста или контекста CI/CD"
+        usage "Использование: `/task <github-repository-url>` с текстом или `/task --ci-cd <github-repository-url>`"
+        example "Пример: `/task --ci-cd https://github.com/owner/repo` создаёт только issue для исправления CI/CD"
         disabled "*/task* / */split* - ❌ Отключено"
       split
         enabled "*/split* - Разделить задачу GitHub на меньшие задачи"

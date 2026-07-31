@@ -556,9 +556,9 @@ zh
       locked
         options "🔒 锁定选项：`{{options}}`"
       task
-        enabled "*/task* - 根据仓库链接和 issue 文本创建 GitHub issue"
-        usage "用法：`/task <github-repository-url>` 后接 issue 文本，或回复 `/task`"
-        example "示例：`/task https://github.com/owner/repo`，然后在后续行写 issue 文本"
+        enabled "*/task* - 根据文本或 CI/CD 上下文创建 GitHub issue"
+        usage "用法：`/task <github-repository-url>` 后接 issue 文本，或 `/task --ci-cd <github-repository-url>`"
+        example "示例：`/task --ci-cd https://github.com/owner/repo` 只创建 CI/CD 修复 issue"
         disabled "*/task* / */split* - ❌ 已禁用"
       split
         enabled "*/split* - 将 GitHub issue 拆分为更小的 issue"

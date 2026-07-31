@@ -556,9 +556,9 @@ hi
       locked
         options "🔒 लॉक किए गए विकल्प: `{{options}}`"
       task
-        enabled "*/task* - repository लिंक और issue text से GitHub issue बनाएँ"
-        usage "उपयोग: `/task <github-repository-url>` के बाद issue text, या `/task` से reply करें"
-        example "उदाहरण: `/task https://github.com/owner/repo`, फिर अगली पंक्तियों में issue text"
+        enabled "*/task* - text या CI/CD context से GitHub issue बनाएँ"
+        usage "उपयोग: `/task <github-repository-url>` के बाद issue text, या `/task --ci-cd <github-repository-url>`"
+        example "उदाहरण: `/task --ci-cd https://github.com/owner/repo` केवल CI/CD remediation issue बनाता है"
         disabled "*/task* / */split* - ❌ अक्षम"
       split
         enabled "*/split* - GitHub issue को छोटे issues में बाँटें"

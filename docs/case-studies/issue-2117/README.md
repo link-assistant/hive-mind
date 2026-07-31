@@ -141,7 +141,10 @@ including an assertion that no exit-code override may return.
    reports a non-zero exit with no anchored footer is treated as still running
    for up to `DOCKER_TERMINAL_FOOTER_GRACE_MS` (60 s). The first sighting is
    persisted as `dockerTerminalUnverifiedFirstSeenAt`, so the deferral survives a
-   bot restart and cannot be reset forever by polling.
+   bot restart and cannot be reset forever by polling. The deferral only applies
+   while the reported `endTime` is fresh: start-command stamps a fabricated
+   result with `endTime = new Date()`, so a record that says it ended more than
+   the grace period ago cannot be in this race and is reported immediately.
 3. **Real failures still surface.** Once the grace period expires without a
    footer (e.g. the watcher itself was killed), the reported exit code is
    accepted — a genuine failure is reported, just up to a minute later. The
@@ -160,7 +163,7 @@ what it was designed for: a merge followed by a _corroborated_ runner failure.
 bash experiments/issue-2117/upstream-repro-cli.sh
 
 # regression tests
-node tests/test-issue-2117-false-terminal-exit-code.mjs   # 21 assertions
+node tests/test-issue-2117-false-terminal-exit-code.mjs   # 24 assertions
 node tests/test-issue-2117-merged-pr-exit.mjs             # 10 assertions
 node tests/test-issue-2117-exit-path-resilience.mjs       #  7 assertions
 node tests/test-issue-1927-killed-detection.mjs

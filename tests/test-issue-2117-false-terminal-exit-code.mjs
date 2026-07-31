@@ -60,13 +60,13 @@ assert(realFooter.finished === true && realFooter.exitCode === 0, 'the real anch
 // 2. getIsolationSessionState: the footer wins over a disagreeing status.
 // ---------------------------------------------------------------------------
 
-function stubRunner({ status, exitCode, footer = { finished: false, exitCode: null, endTime: null }, isSessionRunning = false, isolation = 'docker' }) {
+function stubRunner({ status, exitCode, footer = { finished: false, exitCode: null, endTime: null }, isSessionRunning = false, isolation = 'docker', endTime = undefined }) {
   return {
     isExecutingSessionStatus,
     isTerminalSessionStatus,
     isUnknownDockerExitCode,
     readSessionExitFromLog: () => footer,
-    querySessionStatus: async () => ({ exists: true, status, exitCode, isolation, logPath: '/tmp/session-2117.log' }),
+    querySessionStatus: async () => ({ exists: true, status, exitCode, isolation, endTime, logPath: '/tmp/session-2117.log' }),
     isSessionRunning: async () => isSessionRunning,
   };
 }
@@ -117,6 +117,20 @@ assert(successNoFooter.running === false && successNoFooter.exitCode === 0, 'a t
 __setIsolationRunnerForTests(stubRunner({ status: 'failed', exitCode: 1, isolation: 'screen' }));
 const screenFailure = await getIsolationSessionStateForTests(SESSION, { isolationBackend: 'screen', sessionId: SESSION });
 assert(screenFailure.running === false && screenFailure.exitCode === 1, 'non-docker terminal failures are unaffected by the docker-only deferral');
+
+// The fabrication race is only open while the reported end time is fresh: a
+// docker failure that ended long ago has had all the time it needed for the
+// footer, so it is reported without delay (this is the issue #1979 case).
+__setIsolationRunnerForTests(stubRunner({ status: 'failed', exitCode: 2, endTime: '2026-06-24T10:03:00.000Z' }));
+const staleInfo = { isolationBackend: 'docker', sessionId: SESSION };
+const staleFailure = await getIsolationSessionStateForTests(SESSION, staleInfo);
+assert(staleFailure.running === false && staleFailure.exitCode === 2, 'a docker failure whose reported end time predates the grace period is not deferred');
+assert(!staleInfo.dockerTerminalUnverifiedFirstSeenAt, 'no deferral marker is recorded for an old terminal record');
+
+// A failure that ended moments ago is still deferred, end time or not.
+__setIsolationRunnerForTests(stubRunner({ status: 'failed', exitCode: 2, endTime: new Date().toISOString() }));
+const freshFailure = await getIsolationSessionStateForTests(SESSION, { isolationBackend: 'docker', sessionId: SESSION });
+assert(freshFailure.running === true, 'a docker failure reported as having just ended is still deferred');
 
 __setIsolationRunnerForTests(null);
 

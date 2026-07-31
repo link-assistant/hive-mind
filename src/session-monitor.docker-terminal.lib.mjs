@@ -30,6 +30,29 @@ export const DOCKER_TERMINAL_FOOTER_GRACE_MS = 60 * 1000;
 export const DOCKER_TERMINAL_UNVERIFIED_FIRST_SEEN_FIELD = 'dockerTerminalUnverifiedFirstSeenAt';
 
 /**
+ * Whether the reported end of the session is recent enough for the fabrication
+ * race to still be open.
+ *
+ * start-command only invents a terminal result for a record it still has stored
+ * as `executing`, and it stamps that invention with `endTime = new Date()`
+ * (`status-formatter.js#enrichDetachedStatus`) — so a fabricated failure always
+ * looks like it ended just now, no matter how long ago the container really
+ * stopped. A record that reports an end time older than the grace period, on the
+ * other hand, has had all the time it needed for the footer to be written;
+ * deferring it would only postpone a real failure notification.
+ *
+ * @param {string|Date|null|undefined} endTime - End time from the status record.
+ * @param {number} nowMs - Current epoch milliseconds.
+ * @returns {boolean} True when the race cannot be ruled out.
+ */
+function terminalClaimIsRecent(endTime, nowMs) {
+  if (!endTime) return true; // No timestamp at all: the race cannot be ruled out.
+  const endMs = endTime instanceof Date ? endTime.getTime() : new Date(endTime).getTime();
+  if (!Number.isFinite(endMs)) return true;
+  return nowMs - endMs < DOCKER_TERMINAL_FOOTER_GRACE_MS;
+}
+
+/**
  * Drop the deferral marker once the session's outcome is resolved (footer
  * written, session running again, or the status accepted).
  *
@@ -52,12 +75,21 @@ export function clearUnverifiedDockerTerminalMarker(sessionInfo, persistSnapshot
  * @param {object|null|undefined} sessionInfo - Tracked session snapshot (mutated).
  * @param {object} options
  * @param {number|null} options.exitCode - Exit code `$ --status` reported.
+ * @param {string|Date|null} [options.endTime] - End time the status record reports.
  * @param {boolean} options.verbose - Whether to explain the decision.
  * @param {function} options.persistSnapshot - Callback persisting the snapshot.
  * @returns {boolean} True while the status is still provisional.
  */
-export function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, verbose, persistSnapshot }) {
+export function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime = null, verbose, persistSnapshot }) {
   const nowMs = Date.now();
+
+  if (!terminalClaimIsRecent(endTime, nowMs)) {
+    if (verbose) {
+      console.log(`[VERBOSE] Session ${sessionName} reports a terminal failure (exit ${exitCode}) that ended at ${endTime}, longer than ${DOCKER_TERMINAL_FOOTER_GRACE_MS}ms ago; the log footer had time to appear, so the reported exit code is accepted (issue #2117)`);
+    }
+    return false;
+  }
+
   const raw = sessionInfo?.[DOCKER_TERMINAL_UNVERIFIED_FIRST_SEEN_FIELD];
   const firstSeenMs = raw ? new Date(raw).getTime() : null;
 

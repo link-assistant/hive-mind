@@ -532,8 +532,8 @@ function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
   clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
 }
 
-function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, verbose }) {
-  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
+function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime, verbose }) {
+  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, endTime, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
 
 function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
@@ -603,10 +603,12 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
         // Issue #2117: a docker terminal FAILURE with no corroborating footer is
         // provisional too — start-command can fabricate that exit code from the
         // command's own output. Give the real footer a moment to appear instead
-        // of announcing a failure the run never had.
+        // of announcing a failure the run never had. Only a *freshly* reported
+        // end time can still be in that race, so an older terminal record is
+        // still reported without delay.
         const normalizedExitCode = normalizeExitCode(exitCode);
         const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
-        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, verbose })) {
+        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
           return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
         }
         if (!ambiguousDockerTerminal) {

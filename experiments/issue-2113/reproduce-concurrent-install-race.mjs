@@ -5,7 +5,7 @@
  * destroys the package tree.
  *
  * use-m runs one `npm install -g <alias>@npm:<pkg>@<version>` per `use()` call
- * and has no in-flight deduplication, while Hive Mind has 36 modules under
+ * and has no in-flight deduplication, while Hive Mind has 38 modules under
  * `src/` whose body starts with a top-level `await use('command-stream')`. Node
  * evaluates sibling top-level-await subgraphs concurrently, so a cold container
  * launches dozens of simultaneous installs of one directory.
@@ -35,7 +35,7 @@ import process from 'node:process';
 import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
-// 24 mirrors the real fan-out: 36 modules import command-stream at top level,
+// 24 mirrors the real fan-out: 31 modules import command-stream at top level,
 // and the observed damage starts well below that. At 8 the race often does not
 // trigger at all (npm finishes each install before the next one reaches its
 // cleanup step), which is why the failure looked "random" in production.
@@ -100,8 +100,6 @@ await withPrefix(async prefix => {
   const failed = results.filter(result => !result.ok);
   process.stdout.write(`   ${failed.length}/${results.length} installs failed in ${Date.now() - started}ms\n`);
   summarise(failed);
-  const present = CONTROL_PACKAGES.filter(name =>
-    existsSync(path.join(prefix, 'lib', 'node_modules', aliasFor(name), 'package.json'))
-  );
+  const present = CONTROL_PACKAGES.filter(name => existsSync(path.join(prefix, 'lib', 'node_modules', aliasFor(name), 'package.json')));
   process.stdout.write(`   ${present.length}/${CONTROL_PACKAGES.length} aliases installed cleanly\n`);
 });

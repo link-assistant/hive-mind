@@ -47,13 +47,14 @@ if (process.argv[2] === '--child') {
   }
 
   const started = Date.now();
-  const results = await Promise.allSettled(
-    Array.from({ length: CONCURRENCY }, () => globalThis.use(SPECIFIER))
-  );
+  const results = await Promise.allSettled(Array.from({ length: CONCURRENCY }, () => globalThis.use(SPECIFIER)));
   const failures = results.filter(result => result.status === 'rejected');
   process.stdout.write(`   ${failures.length}/${results.length} loads failed in ${Date.now() - started}ms\n`);
   for (const failure of failures.slice(0, 3)) {
-    const message = String(failure.reason?.message ?? failure.reason).split('\n').slice(0, 4).join('\n      ');
+    const message = String(failure.reason?.message ?? failure.reason)
+      .split('\n')
+      .slice(0, 4)
+      .join('\n      ');
     process.stdout.write(`      ${message}\n`);
   }
   process.exit(failures.length > 0 ? 1 : 0);

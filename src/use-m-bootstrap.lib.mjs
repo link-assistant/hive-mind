@@ -66,7 +66,8 @@ export const ensureUseM = async (options = {}) => {
     //
     // Issue #2113: retrying alone is not enough. use-m runs one
     // `npm install -g <alias>@npm:<pkg>@<version>` per `use()` call with no
-    // in-flight dedup, and 36 modules under src/ start with a top-level
+    // in-flight dedup, and 38 modules under src/ load command-stream through
+    // use(), 31 of them with a top-level
     // `await use('command-stream')`. Node evaluates sibling top-level-await
     // subgraphs concurrently, so a cold container fires dozens of simultaneous
     // global installs of the *same* alias directory; they delete and re-extract

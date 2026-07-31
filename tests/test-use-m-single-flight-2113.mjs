@@ -3,7 +3,7 @@
  * Unit tests for src/use-m-single-flight.lib.mjs (Issue #2113).
  *
  * Root cause under test: use-m runs one `npm install -g <alias>@npm:<pkg>@<v>`
- * per `use()` call with no in-flight deduplication, and 36 modules under `src/`
+ * per `use()` call with no in-flight deduplication, and 38 modules under `src/`
  * start with a top-level `await use('command-stream')`. Node evaluates sibling
  * top-level-await subgraphs concurrently, so a cold run fires dozens of
  * simultaneous global installs of the same directory and they corrupt each

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { wrapUseWithRetry } from './use-with-retry.lib.mjs';
+import { wrapUseWithSingleFlight } from './use-m-single-flight.lib.mjs';
 
 export const USE_M_BOOTSTRAP_URL = 'https://unpkg.com/use-m/use.js';
 // Issue #2113: the fallback is only reached when unpkg cannot serve the `latest`
@@ -62,9 +63,21 @@ export const ensureUseM = async (options = {}) => {
     // Only a few call sites used useWithRetry explicitly; wrapping here means
     // every `await use(...)` in the codebase recovers by deleting the corrupt
     // install directory and re-fetching.
-    globalThis.use = wrapUseWithRetry(rawUse);
+    //
+    // Issue #2113: retrying alone is not enough. use-m runs one
+    // `npm install -g <alias>@npm:<pkg>@<version>` per `use()` call with no
+    // in-flight dedup, and 36 modules under src/ start with a top-level
+    // `await use('command-stream')`. Node evaluates sibling top-level-await
+    // subgraphs concurrently, so a cold container fires dozens of simultaneous
+    // global installs of the *same* alias directory; they delete and re-extract
+    // each other's trees, producing the ENOTEMPTY and half-extracted-package
+    // failures recorded in the issue. Every retry re-enters the same race, so
+    // the single-flight layer wraps the retry layer: identical loads collapse
+    // into one install, and installs of the same alias are serialised within
+    // and across processes.
+    globalThis.use = wrapUseWithSingleFlight(wrapUseWithRetry(rawUse));
   } else {
-    globalThis.use = wrapUseWithRetry(globalThis.use);
+    globalThis.use = wrapUseWithSingleFlight(wrapUseWithRetry(globalThis.use));
   }
   return globalThis.use;
 };

@@ -1,0 +1,117 @@
+## same alias — 24 concurrent installs of command-stream
+   22/24 installs failed in 15783ms
+      npm error code ENOENT
+      npm error syscall rename
+      npm error path /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest
+      npm error dest /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/.command-stream-v-latest-mXFMmA1v
+      npm error errno -2
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless/lib-headless'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api/node_addon_api.gyp'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu/README.md'
+      npm error code ENOTEMPTY
+      npm error syscall rmdir
+      npm error path /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/screenshots
+      npm error errno -39
+      npm error ENOTEMPTY: directory not empty, rmdir '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/screenshots'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/jq-colors-streaming.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm error code ENOENT
+      npm error syscall rename
+      npm error path /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest
+      npm error dest /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/.command-stream-v-latest-mXFMmA1v
+      npm error errno -2
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless/lib-headless'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/screenshots'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/dist/gifenc.js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/IMPLEMENTATION_NOTES.md'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/screenshots'
+      npm warn cleanup Failed to remove some directories [
+      npm warn cleanup   [
+      npm warn cleanup     '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest',
+      npm warn cleanup     [Error: ENOTEMPTY: directory not empty, rmdir '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'] {
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/src/win'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/src'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless/lib-headless/xterm-headless.js.map'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs/screenshots/terminal-artifacts/recording.gif'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/dist/gifenc.js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn cleanup Failed to remove some directories [
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/test-direct-pipe.sh'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/which-command-gh-test.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm error code ENOENT
+      npm error syscall rename
+      npm error path /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest
+      npm error dest /tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/.command-stream-v-latest-mXFMmA1v
+      npm error errno -2
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/jq-colors-streaming.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/test-yes-cancellation.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/test-yes-detailed.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api/node_addon_api.gyp'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/src/color.js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/tui-e2e.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm error code ENOTEMPTY
+      npm error syscall rmdir
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/docs'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api/node_api.gyp'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/src'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/add-test-timeouts.js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples/trace-stderr-output.mjs'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/examples'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds/linux-x64/pty.node'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js/LICENSE'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api/nothing.c'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless/lib-headless'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/gifenc/src'
+      npm warn cleanup Failed to remove some directories [
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/prebuilds'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/node_modules/node-pty/typings'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-npm-aTcxfV/lib/node_modules/command-stream-v-latest/src'
+      npm error code ENOENT
+      npm error syscall spawn sh
+   alias directory does not exist after the race — every later import fails
+
+## control — 5 concurrent installs of different packages
+   0/5 installs failed in 1687ms
+   5/5 aliases installed cleanly

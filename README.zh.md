@@ -560,6 +560,10 @@ issue 交给 `/solve --development-log --deep-analysis --auto-merge` 处理。�
 issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `/solve`。详见
 [自动 CI/CD 修复](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)。
 
+如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 只执行相同的 CI/CD issue
+生成步骤。该命令会返回新建 issue 的 URL；回复
+`/solve --development-log --deep-analysis --auto-merge` 即可通过常规 solve 流程继续修复。
+
 #### `/limits` - 显示用量限制
 
 ```

@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Hive Mind issue #2121",
+    "url": "https://github.com/link-assistant/hive-mind/issues/2121",
+    "role": "Primary requirements and failure screenshot"
+  },
+  {
+    "title": "Hive Mind issue #1733",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1733",
+    "role": "Defines the full /fix --ci-cd workflow"
+  },
+  {
+    "title": "Hive Mind PR #1929",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1929",
+    "role": "Most recent implementation and architecture of /fix --ci-cd"
+  },
+  {
+    "title": "Hive Mind issue #1734",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1734",
+    "role": "Defines /task as issue creation followed by an optional /solve reply"
+  },
+  {
+    "title": "Hive Mind PR #1735",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1735",
+    "role": "Original Telegram /task issue-creation implementation"
+  },
+  {
+    "title": "GitHub REST API: List repository languages",
+    "url": "https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repository-languages",
+    "role": "Confirms language values are bytes of code per language"
+  },
+  {
+    "title": "GitHub REST API: List workflow runs for a repository",
+    "url": "https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-repository",
+    "role": "Confirms head_sha and branch workflow-run filters"
+  },
+  {
+    "title": "GitHub REST API: Get a commit",
+    "url": "https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#get-a-commit",
+    "role": "Confirms a branch name can be used as a commit reference"
+  },
+  {
+    "title": "GitHub CLI manual: gh issue create",
+    "url": "https://cli.github.com/manual/gh_issue_create",
+    "role": "Confirms body-file, label, and issue-type creation options"
+  }
+]

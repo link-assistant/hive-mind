@@ -83,7 +83,7 @@ async function main() {
   const repository = parsed.repository;
   console.log(`🔧 /fix --ci-cd for ${repository.fullName}`);
 
-  const prepared = await prepareCiCdIssue({ repository });
+  const prepared = await prepareCiCdIssue({ repository, log: message => console.log(`   ${message}`) });
   const { defaultBranch, commit, runs, runsSource, title, body } = prepared;
 
   const { total, failing } = summarizeRunFailures(runs);

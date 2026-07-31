@@ -7,7 +7,7 @@
  */
 
 import assert from 'assert/strict';
-import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, DEBUG_OUTPUT_PARAGRAPH, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, countDuplicateRuns, DEBUG_OUTPUT_PARAGRAPH, dedupeRunsByWorkflow, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from '../src/fix.ci-cd-issue.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
 import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
@@ -223,6 +223,91 @@ await test('buildCiCdIssueBody uses a branch-fallback heading when runsSource is
   });
   assert.match(body, /Recent CI\/CD runs on `main`/);
   assert.ok(!body.includes('Latest default-branch CI/CD runs'));
+});
+
+await test('dedupeRunsByWorkflow keeps the latest run per workflow (issue #2125)', () => {
+  // Reproduces link-assistant/agent#287: the default-branch fallback returned
+  // 20 runs of only 2 workflows, and every one of them became a table row.
+  const runs = [
+    { id: 3, name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-07-30T18:52:56Z', head_sha: 'cff4148471a8' },
+    { id: 2, name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'success', created_at: '2026-07-27T04:04:46Z', head_sha: 'acd21f2552e2' },
+    { id: 1, name: 'Rust CI/CD Pipeline', workflow_id: 2, status: 'completed', conclusion: 'failure', created_at: '2026-07-04T00:13:55Z', head_sha: '7af549d416b9' },
+  ];
+  const deduped = dedupeRunsByWorkflow(runs);
+  assert.deepEqual(
+    deduped.map(run => run.id),
+    [3, 1]
+  );
+  assert.equal(countDuplicateRuns(runs), 1);
+
+  // Same workflow name, different workflow files — not duplicates.
+  assert.equal(
+    dedupeRunsByWorkflow([
+      { name: 'CI', workflow_id: 10 },
+      { name: 'CI', workflow_id: 11 },
+    ]).length,
+    2
+  );
+  // Re-run attempts of one workflow collapse to the newest attempt.
+  const attempts = dedupeRunsByWorkflow([
+    { id: 5, name: 'CI', workflow_id: 1, run_attempt: 1, created_at: '2026-07-30T18:00:00Z' },
+    { id: 5, name: 'CI', workflow_id: 1, run_attempt: 2, created_at: '2026-07-30T18:00:00Z' },
+  ]);
+  assert.equal(attempts.length, 1);
+  assert.equal(attempts[0].run_attempt, 2);
+});
+
+await test('buildRunsSection collapses duplicate workflow runs and can show commits (issue #2125)', () => {
+  const runs = [
+    { name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-07-30T18:52:56Z', head_sha: 'cff4148471a84639', html_url: 'https://example.com/run/3' },
+    { name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'success', created_at: '2026-07-27T04:04:46Z', head_sha: 'acd21f2552e27890', html_url: 'https://example.com/run/2' },
+  ];
+  const table = buildRunsSection(runs);
+  assert.equal(table.split('\n').length, 3, 'header, separator and a single data row');
+  assert.match(table, /run\/3/);
+  assert.ok(!table.includes('run/2'));
+
+  const withCommit = buildRunsSection(runs, { includeCommit: true });
+  assert.match(withCommit, /\| Workflow \| Status \| Conclusion \| Commit \| Run \|/);
+  assert.match(withCommit, /`cff4148`/);
+});
+
+await test('summarizeRunFailures counts one run per workflow (issue #2125)', () => {
+  const runs = [
+    { name: 'CI', workflow_id: 1, status: 'completed', conclusion: 'success', created_at: '2026-07-30T00:00:00Z' },
+    { name: 'CI', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-07-01T00:00:00Z' },
+  ];
+  assert.deepEqual(summarizeRunFailures(runs), { total: 1, failing: 0 });
+});
+
+await test('prepareCiCdIssue deduplicates the default-branch fallback runs (issue #2125)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const logs = [];
+  const branchRuns = [
+    { id: 3, name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-07-30T18:52:56Z', head_sha: 'cff4148471a84639', html_url: 'https://github.com/owner/repo/actions/runs/3' },
+    { id: 2, name: 'JS CI/CD Pipeline', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-07-27T04:04:46Z', head_sha: 'acd21f2552e27890', html_url: 'https://github.com/owner/repo/actions/runs/2' },
+    { id: 1, name: 'Rust CI/CD Pipeline', workflow_id: 2, status: 'completed', conclusion: 'failure', created_at: '2026-07-04T00:13:55Z', head_sha: '7af549d416b9c22d', html_url: 'https://github.com/owner/repo/actions/runs/1' },
+  ];
+  const run = async (command, args) => {
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'abcdef1234567890', message: '0.25.4', url: 'https://github.com/owner/repo/commit/abcdef1234567890' }), stderr: '' };
+    // Release commit: no runs for the exact sha, so /fix falls back to branch runs.
+    if (endpoint.includes('actions/runs?head_sha=')) return { code: 0, stdout: '[]', stderr: '' };
+    if (endpoint.includes('actions/runs?branch=')) return { code: 0, stdout: JSON.stringify(branchRuns), stderr: '' };
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run, log: message => logs.push(message) });
+  assert.equal(prepared.runsSource, 'branch');
+  assert.equal(prepared.fetchedRuns, 3);
+  assert.equal(prepared.duplicateRuns, 1);
+  assert.equal(prepared.runs.length, 2);
+  assert.equal(logs.filter(message => message.includes('Collapsed 1')).length, 1, 'verbose line explains the collapse');
+  assert.match(prepared.body, /Recent CI\/CD runs on `main`/);
+  assert.match(prepared.body, /\*\*CI\/CD runs found:\*\* 2 \(2 not passing\)/);
+  assert.ok(!prepared.body.includes('actions/runs/2'), 'the older JS run must not be listed again');
 });
 
 await test('buildRunsSection honors a custom empty message', () => {

@@ -566,6 +566,11 @@ Examples:
 `--no-solve` का उपयोग करें। विवरण के लिए
 [स्वचालित CI/CD सुधार](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation) देखें।
 
+यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` केवल वही CI/CD
+issue-generation चरण चलाता है। यह बनाए गए issue का URL लौटाता है; सामान्य solve workflow
+से remediation जारी रखने के लिए `/solve --development-log --deep-analysis --auto-merge`
+से reply करें।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```

@@ -5,7 +5,7 @@
  */
 
 import assert from 'assert/strict';
-import { applyTaskCommandDefaults, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs, registerTaskCommands } from '../src/telegram-task-command.lib.mjs';
+import { applyTaskCommandDefaults, buildTaskCiCdCommandArgs, buildTaskCommandArgs, findTaskIssueUrl, getTaskCommandNameFromText, getTaskToolFromArgs, registerTaskCommands } from '../src/telegram-task-command.lib.mjs';
 import { buildTaskIssueTitle, parseTaskIssueCreationInput, resolveTaskIssueCreationInput, stripTaskCommandPrefix } from '../src/task.issue-creation.lib.mjs';
 
 let passed = 0;
@@ -66,6 +66,24 @@ await test('tool can be parsed from task command arguments', () => {
 
 const repoUrl = 'https://github.com/link-assistant/hive-mind';
 const issueText = 'Make task issue creation work\n\nPreserve the full body.';
+
+for (const option of ['--ci-cd', '—ci-cd']) {
+  await test(`/task ${option} accepts the option before the repository URL`, () => {
+    const built = buildTaskCiCdCommandArgs(`/task ${option} ${repoUrl}`);
+    assert.deepEqual(built.repository, {
+      owner: 'link-assistant',
+      repo: 'hive-mind',
+      fullName: 'link-assistant/hive-mind',
+      url: repoUrl,
+    });
+  });
+}
+
+await test('/task --ci-cd rejects a missing repository and issue or pull-request URLs', () => {
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd').repository, null);
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd https://github.com/link-assistant/hive-mind/issues/2121').repository, null);
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd https://github.com/link-assistant/hive-mind/pull/2122').repository, null);
+});
 
 for (const [name, input] of [
   ['repository link before issue text', `${repoUrl}\n${issueText}`],
@@ -220,6 +238,53 @@ await test('task issue creation replies with the created issue URL', async () =>
   assert.equal(edits[0].messageId, 301);
   assert.match(edits[0].text, /https:\/\/github\.com\/link-assistant\/hive-mind\/issues\/1734/);
   assert.match(edits[0].text, /Reply to this message with \/solve/);
+});
+
+await test('/task --ci-cd creates the standard CI/CD issue without starting /fix', async () => {
+  const bot = { command() {} };
+  const generated = [];
+  const executions = [];
+  const edits = [];
+  const { handleTaskCommand } = registerTaskCommands(bot, {
+    VERBOSE: false,
+    taskEnabled: true,
+    addBreadcrumb: async () => {},
+    isOldMessage: () => false,
+    isGroupChat: () => true,
+    isTopicAuthorized: () => true,
+    buildAuthErrorMessage: () => 'not authorized',
+    isChatStopped: () => false,
+    getStoppedChatRejectMessage: () => 'stopped',
+    safeReply: async () => {
+      throw new Error('safeReply should not be used for valid CI/CD issue creation');
+    },
+    executeAndUpdateMessage: async (...args) => executions.push(args),
+    createCiCdIssue: async options => {
+      generated.push(options);
+      return { url: 'https://github.com/link-assistant/hive-mind/issues/2123' };
+    },
+  });
+
+  const ctx = {
+    chat: { id: 100, type: 'group' },
+    from: { id: 200, username: 'tester' },
+    message: { message_id: 300, text: `/task —ci-cd ${repoUrl}` },
+    reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
+    telegram: {
+      editMessageText: async (chatId, messageId, inlineMessageId, text) => {
+        edits.push({ chatId, messageId, inlineMessageId, text });
+      },
+    },
+  };
+
+  await handleTaskCommand(ctx);
+
+  assert.equal(generated.length, 1);
+  assert.equal(generated[0].repository.fullName, 'link-assistant/hive-mind');
+  assert.equal(executions.length, 0, '/task --ci-cd must not run the full /fix workflow');
+  assert.equal(edits.length, 1);
+  assert.match(edits[0].text, /issues\/2123/);
+  assert.match(edits[0].text, /\/solve --development-log --deep-analysis --auto-merge/);
 });
 
 // Issue #1916: end-to-end handler path for replying to an issue-text message

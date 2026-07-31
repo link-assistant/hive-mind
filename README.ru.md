@@ -566,6 +566,11 @@ Examples:
 `/solve`. Подробнее см.
 [Автоматическое исправление CI/CD](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation).
 
+Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` выполняет
+только тот же этап создания issue для CI/CD. Команда возвращает URL созданного
+issue; ответьте `/solve --development-log --deep-analysis --auto-merge`, чтобы
+продолжить исправление обычным процессом solve.
+
 #### `/limits` — Показать лимиты использования
 
 ```

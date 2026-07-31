@@ -556,9 +556,9 @@ en
       locked
         options "🔒 Locked options: `{{options}}`"
       task
-        enabled "*/task* - Create a GitHub issue from a repository link and issue text"
-        usage "Usage: `/task <github-repository-url>` followed by issue text, or reply with `/task`"
-        example "Example: `/task https://github.com/owner/repo` then the issue text on following lines"
+        enabled "*/task* - Create a GitHub issue from text or CI/CD context"
+        usage "Usage: `/task <github-repository-url>` followed by issue text, or `/task --ci-cd <github-repository-url>`"
+        example "Example: `/task --ci-cd https://github.com/owner/repo` creates only the CI/CD remediation issue"
         disabled "*/task* / */split* - ❌ Disabled"
       split
         enabled "*/split* - Split a GitHub issue into smaller issues"

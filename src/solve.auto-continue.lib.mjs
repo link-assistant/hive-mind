@@ -162,6 +162,14 @@ export const autoContinueWhenLimitResets = async (issueUrl, sessionId, argv, sho
       await log(`🔄 Session will be RESTARTED (fresh start without previous context)`);
     }
 
+    // Issue #2123: the resumed/restarted process is launched with the ISSUE url, so without
+    // --auto-continue it would not enter continue mode, would not find the existing PR, and
+    // therefore would never convert that PR back to draft (nor post the auto-resume/auto-restart
+    // session comment). Preserve the flag so the new session attaches to the same PR.
+    if (argv.autoContinue) {
+      resumeArgs.push('--auto-continue');
+    }
+
     // Preserve auto-resume/auto-restart flag for subsequent limit hits
     if (argv.autoResumeOnLimitReset) {
       resumeArgs.push('--auto-resume-on-limit-reset');

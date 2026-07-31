@@ -33,6 +33,8 @@ const lib = await import('./lib.mjs');
 const { log, formatAligned, extractToolErrorCore } = lib;
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
+// Issue #2123: shared draft/ready transitions for working sessions.
+const { ensurePullRequestIsDraft } = await import('./pr-draft-state.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -184,6 +186,23 @@ export const executeToolIteration = async params => {
     diskPath: '/',
     label: 'before AI restart iteration',
   });
+
+  // Issue #2123: every restart/resume iteration is a new working session, so the PR must be
+  // put back into draft before the AI starts changing it. This single call covers watch mode,
+  // temporary auto-restart, auto-restart-until-mergeable, escalate, keep-working,
+  // auto-ensure-requirements and the PR-placeholder restart, which all funnel through here.
+  if (prNumber) {
+    await ensurePullRequestIsDraft({
+      owner,
+      repo,
+      prNumber,
+      $,
+      log,
+      formatAligned,
+      reason: 'restart iteration',
+      reportError,
+    });
+  }
 
   // Import necessary modules for tool execution
   const memoryCheck = await import('./memory-check.mjs');

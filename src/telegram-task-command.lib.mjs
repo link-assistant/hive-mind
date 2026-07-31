@@ -2,6 +2,8 @@ import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
+import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
+import { parseFixRepository } from './fix.ci-cd.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
@@ -21,6 +23,10 @@ export function getTaskCommandNameFromText(text) {
 
 export function hasTaskSplitFlag(args) {
   return args.includes('--split') || args.some(arg => arg.startsWith('--split='));
+}
+
+export function hasTaskCiCdFlag(args) {
+  return args.includes('--ci-cd');
 }
 
 export function applyTaskCommandDefaults(args, commandName = 'task') {
@@ -66,6 +72,16 @@ export function buildTaskCommandArgs(text) {
   };
 }
 
+export function buildTaskCiCdCommandArgs(text) {
+  const args = parseCommandArgs(text);
+  const repositoryRaw = args.find(arg => !arg.startsWith('-') && parseFixRepository(arg)) || null;
+  return {
+    args,
+    repositoryRaw,
+    repository: repositoryRaw ? parseFixRepository(repositoryRaw) : null,
+  };
+}
+
 function getReplyText(message) {
   const reply = message?.reply_to_message;
   if (!reply || reply.forum_topic_created) return '';
@@ -97,7 +113,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, resolveLocale = null } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -138,6 +154,36 @@ export function registerTaskCommands(bot, options) {
 
     const parsedArgs = parseCommandArgs(ctx.message.text);
     const splitMode = commandName === 'split' || hasTaskSplitFlag(parsedArgs);
+    const ciCdMode = commandName === 'task' && hasTaskCiCdFlag(parsedArgs);
+
+    if (splitMode && ciCdMode) {
+      await safeReply(ctx, '❌ `--ci-cd` and `--split` cannot be used together.', { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
+    if (ciCdMode) {
+      const built = buildTaskCiCdCommandArgs(ctx.message.text);
+      if (!built.repository) {
+        await safeReply(ctx, `❌ Missing GitHub repository URL. Usage: \`${commandDisplay} --ci-cd <github-repository-url>\`\n\nExample: \`${commandDisplay} --ci-cd https://github.com/owner/repo\``, { reply_to_message_id: ctx.message.message_id });
+        return;
+      }
+
+      const statusMessage = await ctx.reply(`Collecting CI/CD context and creating a GitHub issue in ${built.repository.fullName}...`, {
+        reply_to_message_id: ctx.message.message_id,
+        disable_web_page_preview: true,
+      });
+
+      try {
+        const createdIssue = await createCiCdIssueFn({
+          repository: built.repository,
+          log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
+        });
+        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with /solve --development-log --deep-analysis --auto-merge to continue the full CI/CD remediation workflow.`);
+      } catch (error) {
+        await editTelegramMessage(ctx, statusMessage, `Error creating CI/CD issue:\n${error.message || String(error)}`);
+      }
+      return;
+    }
 
     if (!splitMode) {
       const replyText = getReplyText(ctx.message);

@@ -67,14 +67,22 @@ await test('tool can be parsed from task command arguments', () => {
 const repoUrl = 'https://github.com/link-assistant/hive-mind';
 const issueText = 'Make task issue creation work\n\nPreserve the full body.';
 
-await test('/task --ci-cd accepts an option before the repository URL', () => {
-  const built = buildTaskCiCdCommandArgs(`/task --ci-cd ${repoUrl}`);
-  assert.deepEqual(built.repository, {
-    owner: 'link-assistant',
-    repo: 'hive-mind',
-    fullName: 'link-assistant/hive-mind',
-    url: repoUrl,
+for (const option of ['--ci-cd', '—ci-cd']) {
+  await test(`/task ${option} accepts the option before the repository URL`, () => {
+    const built = buildTaskCiCdCommandArgs(`/task ${option} ${repoUrl}`);
+    assert.deepEqual(built.repository, {
+      owner: 'link-assistant',
+      repo: 'hive-mind',
+      fullName: 'link-assistant/hive-mind',
+      url: repoUrl,
+    });
   });
+}
+
+await test('/task --ci-cd rejects a missing repository and issue or pull-request URLs', () => {
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd').repository, null);
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd https://github.com/link-assistant/hive-mind/issues/2121').repository, null);
+  assert.equal(buildTaskCiCdCommandArgs('/task --ci-cd https://github.com/link-assistant/hive-mind/pull/2122').repository, null);
 });
 
 for (const [name, input] of [
@@ -260,7 +268,7 @@ await test('/task --ci-cd creates the standard CI/CD issue without starting /fix
   const ctx = {
     chat: { id: 100, type: 'group' },
     from: { id: 200, username: 'tester' },
-    message: { message_id: 300, text: `/task --ci-cd ${repoUrl}` },
+    message: { message_id: 300, text: `/task —ci-cd ${repoUrl}` },
     reply: async () => ({ chat: { id: 100 }, message_id: 301 }),
     telegram: {
       editMessageText: async (chatId, messageId, inlineMessageId, text) => {

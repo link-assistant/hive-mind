@@ -8,6 +8,7 @@
 
 import assert from 'assert/strict';
 import { buildCiCdIssueBody, buildCiCdIssueTitle, buildRunsSection, buildSolveArgs, buildStandardPrompt, buildStandardPromptParagraphs, buildTemplatesSection, CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TITLE, CI_CD_ISSUE_TYPE, CI_CD_TEMPLATES, DEBUG_OUTPUT_PARAGRAPH, FIX_SOLVE_OPTIONS, mapLanguagesToTemplates, normalizeLanguages, parseFixRepository, partitionFixArgs, REPORT_UPSTREAM_PARAGRAPH, summarizeRunFailures, templateUrl } from '../src/fix.ci-cd.lib.mjs';
+import { createCiCdIssue, prepareCiCdIssue } from '../src/fix.ci-cd-issue.lib.mjs';
 import { KEEP_WORKING_PROMPT } from '../src/solve.keep-working.detect.lib.mjs';
 import { buildCreateIssueArgs, createTaskIssue } from '../src/task.issue-creation.lib.mjs';
 import { isBugIssueType } from '../src/development-log.lib.mjs';
@@ -279,6 +280,59 @@ await test('buildCreateIssueArgs passes the issue type and labels to gh', () => 
 
   // Without optional metadata the args stay exactly as /task builds them today.
   assert.deepEqual(buildCreateIssueArgs({ repository: { fullName: 'owner/repo' }, title: 'T', bodyFile: '/tmp/body.md' }), ['issue', 'create', '--repo', 'owner/repo', '--title', 'T', '--body-file', '/tmp/body.md']);
+});
+
+await test('shared CI/CD issue service collects context and creates the same typed issue', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (args[0] === 'api' && endpoint.endsWith('/languages')) {
+      return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    }
+    if (args[0] === 'api' && endpoint === 'repos/owner/repo') {
+      return { code: 0, stdout: 'main\n', stderr: '' };
+    }
+    if (args[0] === 'api' && endpoint === 'repos/owner/repo/commits/main') {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          sha: 'abcdef1234567890',
+          message: 'Latest change',
+          url: 'https://github.com/owner/repo/commit/abcdef1234567890',
+        }),
+        stderr: '',
+      };
+    }
+    if (args[0] === 'api' && endpoint.includes('actions/runs?head_sha=')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify([{ name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'https://github.com/owner/repo/actions/runs/1' }]),
+        stderr: '',
+      };
+    }
+    if (args[0] === 'issue' && args[1] === 'create') {
+      return { code: 0, stdout: 'https://github.com/owner/repo/issues/7\n', stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+  assert.equal(prepared.defaultBranch, 'main');
+  assert.equal(prepared.runsSource, 'commit');
+  assert.equal(prepared.title, CI_CD_ISSUE_TITLE);
+  assert.match(prepared.body, /Latest default-branch CI\/CD runs/);
+  assert.match(prepared.body, /js-ai-driven-development-pipeline-template/);
+
+  const issue = await createCiCdIssue({ repository, prepared, run });
+  assert.equal(issue.url, 'https://github.com/owner/repo/issues/7');
+  const createCall = calls.find(call => call.args[0] === 'issue' && call.args[1] === 'create');
+  assert.ok(createCall);
+  assert.ok(createCall.args.includes('--type'));
+  assert.ok(createCall.args.includes('Bug'));
+  assert.ok(createCall.args.includes('--label'));
+  assert.ok(createCall.args.includes('bug'));
 });
 
 await test('createTaskIssue retries without type/labels when the repo rejects them', async () => {

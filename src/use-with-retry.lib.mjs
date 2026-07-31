@@ -16,12 +16,20 @@
  *   3. Node throws `Invalid package config <dir>/package.json.` with
  *      `code: 'ERR_INVALID_PACKAGE_CONFIG'` — the package.json itself
  *      is corrupt/truncated and cannot even be parsed (issue #1712).
+ *   4. Node throws `ERR_MODULE_NOT_FOUND` for a file imported by the package
+ *      entry point — npm left an incomplete package tree (issue #2113).
+ *   5. use-m's self-heal throws `Failed to remove corrupt npm alias ...`
+ *      because a concurrent filesystem mutation made recursive removal fail
+ *      with a retryable code such as `ENOTEMPTY` (issue #2113).
  *
- * The recovery is identical for all three: delete the broken alias install
+ * The recovery is identical for all five: delete the broken alias install
  * directory and ask use-m to re-fetch. A clean reinstall almost always
  * succeeds. This helper centralises that retry so every call site picks
  * it up.
  */
+
+const ALIAS_CLEANUP_ERROR = /^Failed to remove (?:corrupt|incomplete) npm alias '([^']+)'\.$/;
+const RETRYABLE_RM_CODES = new Set(['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM']);
 
 /**
  * @param {(specifier: string) => Promise<unknown>} use - the use-m loader.
@@ -94,8 +102,9 @@ export const useWithRetry = async (use, specifier, options = {}) => {
           // Remember the file so the next attempt can bypass Node's poisoned
           // module cache if use-m hands us the same path again.
           cleanedImportPath = /Failed to import module from '/.test(error?.message ?? '') ? corruptedPath : null;
-        } catch {
+        } catch (cleanupError) {
           // Best-effort cleanup; fall through to retry regardless.
+          log(`cleanup of ${resolveAliasDir(corruptedPath)} failed: ${cleanupError?.message}`);
         }
       }
     }
@@ -128,9 +137,23 @@ export const isCorruptInstallError = error => {
   // resolve/import logic gets a chance to run.
   if (error?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
   if (cause?.code === 'ERR_INVALID_PACKAGE_CONFIG') return true;
+  // Mode 4 (issue #2113): the installed entry point exists, but one of the
+  // files it imports does not. Restrict this to use-m's import wrapper so an
+  // unrelated application-level ERR_MODULE_NOT_FOUND is not retried.
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (/^Failed to import module from '/.test(message) && cause?.code === 'ERR_MODULE_NOT_FOUND') return true;
+  // Mode 5 (issue #2113): use-m@8.14.3 added its own alias self-heal, but its
+  // recursive rm used Node's default maxRetries=0, so a concurrent mutation
+  // escaped as ENOTEMPTY (or another rm-retry code). use-m@8.14.4 fixed this
+  // upstream (use-m #68) by giving removePackageAlias its own retry budget.
+  // The downstream guard is deliberately kept: the bootstrap can still land on
+  // an older use-m (a pinned CDN fallback, a preinstalled global, or a cached
+  // bundle), and even 8.14.4 rethrows this exact wrapper once its own budget is
+  // exhausted — in which case a fresh removal plus reinstall is still the right
+  // recovery.
+  if (ALIAS_CLEANUP_ERROR.test(message) && RETRYABLE_RM_CODES.has(cause?.code)) return true;
   // Mode 2 (also seen on hosted CI): npm install completes but the package
   // tree is incomplete, so use-m can't resolve the entry point.
-  const message = typeof error?.message === 'string' ? error.message : '';
   if (/^Failed to resolve the path to /.test(message)) return true;
   // Fallback string match for ERR_INVALID_PACKAGE_CONFIG (in case the error
   // bubbles through use-m without preserving the `code` property).
@@ -150,7 +173,10 @@ export const extractCorruptedFilePath = error => {
   // extract the package.json path so the caller's cleanup() walks up to
   // the alias dir.
   const invalidConfigMatch = message.match(/Invalid package config (\S+?package\.json)/);
-  return invalidConfigMatch ? invalidConfigMatch[1] : null;
+  if (invalidConfigMatch) return invalidConfigMatch[1];
+  // Mode 5 (issue #2113): use-m already reports the whole alias directory.
+  const cleanupMatch = message.match(ALIAS_CLEANUP_ERROR);
+  return cleanupMatch ? cleanupMatch[1] : null;
 };
 
 /**
@@ -176,10 +202,14 @@ export const resolveAliasDir = corruptedPath => {
   return segments.slice(0, -1).join('/') || corruptedPath;
 };
 
-const defaultCleanup = async path => {
-  const { rm } = await import('node:fs/promises');
-  await rm(path, { recursive: true, force: true });
+export const removeAliasWithRetry = async (path, options = {}) => {
+  const remove = options.rm ?? (await import('node:fs/promises')).rm;
+  const maxRetries = options.maxRetries ?? 5;
+  const retryDelay = options.retryDelay ?? 100;
+  await remove(path, { recursive: true, force: true, maxRetries, retryDelay });
 };
+
+const defaultCleanup = removeAliasWithRetry;
 
 // Cache-busting import: a query string makes Node treat the URL as a distinct
 // module, so the freshly reinstalled file is evaluated instead of the cached

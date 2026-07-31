@@ -9,6 +9,10 @@
 import { AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+
+// Issue #2123: draft/ready transitions live in one shared module so every session
+// start/restart/resume path behaves identically.
+import { ensurePullRequestIsDraft, ensurePullRequestIsReady } from './pr-draft-state.lib.mjs';
 /**
  * Session type definitions for different work session contexts
  * See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -70,39 +74,30 @@ function getSessionCommentContent(sessionType, timestamp) {
  * @param {string} [options.sessionType='new'] - One of SESSION_TYPES values
  */
 export async function startWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, sessionType = SESSION_TYPES.NEW }) {
-  // Record work start time and convert PR to draft if in continue/watch mode
+  // Record work start time and convert PR to draft.
+  //
+  // Issue #2123: the draft conversion used to be gated behind `argv.watch || argv.autoContinue`,
+  // so plain `--resume`/continue-mode sessions left the PR marked "ready for review" while the
+  // AI was still working on it. Any continue-mode session with a PR now converts it to draft.
   const workStartTime = new Date();
-  if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
+  const shouldPostSessionComment = argv.watch || argv.autoContinue;
+  if (isContinueMode && prNumber) {
     await log(`\n${formatAligned('🚀', 'Starting work session:', workStartTime.toISOString())}`);
 
-    // Convert PR back to draft if not already
-    try {
-      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
-      if (prStatusResult.code === 0) {
-        const isDraft = prStatusResult.stdout.toString().trim() === 'true';
-        if (!isDraft) {
-          await log(formatAligned('📝', 'Converting PR:', 'Back to draft mode...', 2));
-          const convertResult = await $`gh pr ready ${prNumber} --repo ${global.owner}/${global.repo} --undo`;
-          if (convertResult.code === 0) {
-            await log(formatAligned('✅', 'PR converted:', 'Now in draft mode', 2));
-          } else {
-            await log('Warning: Could not convert PR to draft', { level: 'warning' });
-          }
-        } else {
-          await log(formatAligned('✅', 'PR status:', 'Already in draft mode', 2));
-        }
-      }
-    } catch (error) {
-      const sentryLib = await import('./sentry.lib.mjs');
-      const { reportError } = sentryLib;
-      reportError(error, {
-        context: 'convert_pr_to_draft',
-        prNumber,
-        operation: 'pr_status_change',
-      });
-      await log('Warning: Could not check/convert PR draft status', { level: 'warning' });
-    }
+    const { reportError } = await import('./sentry.lib.mjs');
+    await ensurePullRequestIsDraft({
+      owner: global.owner,
+      repo: global.repo,
+      prNumber,
+      $,
+      log,
+      formatAligned,
+      reason: `session start: ${sessionType}`,
+      reportError,
+    });
+  }
 
+  if (isContinueMode && prNumber && shouldPostSessionComment) {
     // Post a comment marking the start of work session with appropriate header based on session type.
     // Issue #1625: Use postTrackedComment so the comment ID is registered in-memory and can be
     // excluded from the "did the AI post anything?" check in checkForAiCreatedComments().
@@ -131,14 +126,17 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
 }
 
 export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false }) {
-  // Post end work session comment and convert PR back to ready if in continue mode
-  if (isContinueMode && prNumber && (argv.watch || argv.autoContinue)) {
+  // Post end work session comment and convert PR back to ready if in continue mode.
+  // Issue #2123: the ready conversion mirrors startWorkSession's draft conversion, so it must
+  // run for every continue-mode session, not only for --watch/--auto-continue ones.
+  if (isContinueMode && prNumber) {
     const workEndTime = new Date();
+    const shouldPostSessionComment = argv.watch || argv.autoContinue;
     await log(`\n${formatAligned('🏁', 'Ending work session:', workEndTime.toISOString())}`);
 
     // Only post end comment if logs were NOT already attached
     // The attachLogToGitHub comment already serves as finishing status with "Now working session is ended" text
-    if (!logsAttached) {
+    if (shouldPostSessionComment && !logsAttached) {
       // Post a comment marking the end of work session.
       // Issue #1625: Track the comment ID so it won't be mistaken for AI-authored content.
       try {
@@ -159,36 +157,21 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
         });
         await log('Warning: Could not post work end comment', { level: 'warning' });
       }
-    } else {
+    } else if (shouldPostSessionComment) {
       await log(formatAligned('ℹ️', 'Skipping:', 'End comment (logs already attached with session end message)', 2));
     }
 
-    // Convert PR back to ready for review
-    try {
-      const prStatusResult = await $`gh pr view ${prNumber} --repo ${global.owner}/${global.repo} --json isDraft --jq .isDraft`;
-      if (prStatusResult.code === 0) {
-        const isDraft = prStatusResult.stdout.toString().trim() === 'true';
-        if (isDraft) {
-          await log(formatAligned('🔀', 'Converting PR:', 'Back to ready for review...', 2));
-          const convertResult = await $`gh pr ready ${prNumber} --repo ${global.owner}/${global.repo}`;
-          if (convertResult.code === 0) {
-            await log(formatAligned('✅', 'PR converted:', 'Ready for review', 2));
-          } else {
-            await log('Warning: Could not convert PR to ready', { level: 'warning' });
-          }
-        } else {
-          await log(formatAligned('✅', 'PR status:', 'Already ready for review', 2));
-        }
-      }
-    } catch (error) {
-      const sentryLib = await import('./sentry.lib.mjs');
-      const { reportError } = sentryLib;
-      reportError(error, {
-        context: 'convert_pr_to_ready',
-        prNumber,
-        operation: 'pr_status_change',
-      });
-      await log('Warning: Could not convert PR to ready status', { level: 'warning' });
-    }
+    // Convert PR back to ready for review (issue #2123: shared implementation)
+    const { reportError } = await import('./sentry.lib.mjs');
+    await ensurePullRequestIsReady({
+      owner: global.owner,
+      repo: global.repo,
+      prNumber,
+      $,
+      log,
+      formatAligned,
+      reason: 'session end',
+      reportError,
+    });
   }
 }

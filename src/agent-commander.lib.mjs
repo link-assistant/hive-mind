@@ -11,7 +11,9 @@ import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
+import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -257,16 +259,25 @@ const enrichPricingInfoWithTokenUsage = ({ pricingInfo = null, usage = null, too
   };
 };
 
-export const summarizeAgentCommanderResult = ({ result, tool }) => {
+export const summarizeAgentCommanderResult = ({ result, tool, model = null }) => {
   const plainOutput = result?.output?.plain || '';
   if (result?.metadata && typeof result.metadata === 'object') {
     const metadata = result.metadata;
     const streamTokenUsage = metadata.streamTokenUsage || result.usage || null;
-    const pricingInfo = enrichPricingInfoWithTokenUsage({
+    const enrichedPricingInfo = enrichPricingInfoWithTokenUsage({
       pricingInfo: metadata.pricingInfo || null,
       usage: streamTokenUsage,
       tool,
       publicPricingEstimate: metadata.publicPricingEstimate ?? metadata.pricingInfo?.totalCostUSD ?? null,
+    });
+    // Issue #2119: a Formal AI session belongs to Link.Assistant at $0.00, no
+    // matter which agentic CLI agent-commander drove it.
+    const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+      model,
+      pricingInfo: enrichedPricingInfo,
+      publicPricingEstimate: metadata.publicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,
+      anthropicTotalCostUSD: metadata.anthropicTotalCostUSD ?? null,
+      tokenUsage: streamTokenUsage,
     });
     return {
       success: metadata.success === true,
@@ -274,8 +285,8 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
       limitReached: !!metadata.limitReached,
       limitResetTime: metadata.limitResetTime || null,
       limitTimezone: metadata.limitTimezone || null,
-      anthropicTotalCostUSD: metadata.anthropicTotalCostUSD ?? null,
-      publicPricingEstimate: metadata.publicPricingEstimate ?? pricingInfo?.totalCostUSD ?? null,
+      anthropicTotalCostUSD,
+      publicPricingEstimate,
       pricingInfo,
       resultSummary: metadata.resultSummary || null,
       resultModelUsage: metadata.resultModelUsage || null,
@@ -291,12 +302,19 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
   const usage = result?.usage || null;
   const resultMessage = [...messages].reverse().find(message => message?.type === 'result') || null;
   const totalCost = typeof resultMessage?.total_cost_usd === 'number' ? resultMessage.total_cost_usd : null;
-  const publicPricingEstimate = tool === 'agent' && typeof usage?.totalCost === 'number' ? usage.totalCost : null;
-  const pricingInfo = enrichPricingInfoWithTokenUsage({
-    pricingInfo: publicPricingEstimate !== null ? { totalCostUSD: publicPricingEstimate, source: 'agent-commander' } : null,
+  const rawPublicPricingEstimate = tool === 'agent' && typeof usage?.totalCost === 'number' ? usage.totalCost : null;
+  const enrichedPricingInfo = enrichPricingInfoWithTokenUsage({
+    pricingInfo: rawPublicPricingEstimate !== null ? { totalCostUSD: rawPublicPricingEstimate, source: 'agent-commander' } : null,
     usage,
     tool,
-    publicPricingEstimate,
+    publicPricingEstimate: rawPublicPricingEstimate,
+  });
+  const { pricingInfo, publicPricingEstimate, anthropicTotalCostUSD } = applyFormalAiPricingOverride({
+    model,
+    pricingInfo: enrichedPricingInfo,
+    publicPricingEstimate: rawPublicPricingEstimate ?? enrichedPricingInfo?.totalCostUSD ?? null,
+    anthropicTotalCostUSD: tool === 'claude' ? totalCost : null,
+    tokenUsage: usage,
   });
 
   return {
@@ -305,8 +323,8 @@ export const summarizeAgentCommanderResult = ({ result, tool }) => {
     limitReached: usageLimit.isUsageLimit,
     limitResetTime: usageLimit.resetTime,
     limitTimezone: usageLimit.timezone,
-    anthropicTotalCostUSD: tool === 'claude' ? totalCost : null,
-    publicPricingEstimate: publicPricingEstimate ?? pricingInfo?.totalCostUSD ?? null,
+    anthropicTotalCostUSD,
+    publicPricingEstimate,
     pricingInfo,
     resultSummary: extractResultSummary(messages, plainOutput),
     resultModelUsage: null,
@@ -367,13 +385,16 @@ export const executeWithAgentCommander = async params => {
 
   const result = await controller.stop();
   await log(`[agent-commander] ${tool} exited with code ${result.exitCode}`);
-  return summarizeAgentCommanderResult({ result, tool });
+  return summarizeAgentCommanderResult({ result, tool, model: argv.model });
 };
 
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log = defaultLog, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
-  const statusOutput = gitStatusResult.stdout?.toString().trim() || '';
+  const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout?.toString().trim() || '');
 
   if (!statusOutput) {
     await log('✅ No uncommitted changes found');

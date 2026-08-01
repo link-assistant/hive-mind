@@ -46,7 +46,12 @@ const { checkGitHubTerminalState } = terminalStateLib;
 
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
-const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIterationLimit } = await import('./auto-iteration-limits.lib.mjs');
+// Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
+// a limit of 5 means 5 AI sessions in total rather than 5 per subsystem, and
+// every label renders in the same `N/M` form.
+const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
@@ -78,7 +83,9 @@ export const watchForFeedback = async params => {
 
   const watchInterval = argv.watchInterval || 60; // seconds
   const isTemporaryWatch = argv.temporaryWatch || false;
-  const maxAutoRestartIterations = normalizeAutoIterationLimit(argv.autoRestartMaxIterations);
+  // Issue #2119: claim the shared budget; the same limit is honoured by the
+  // auto-merge restart loop that solve.mjs runs afterwards.
+  const maxAutoRestartIterations = beginAutoRestartBudget({ maxIterations: argv.autoRestartMaxIterations });
 
   // Track latest session data across all iterations for accurate pricing
   // Issue #1056: Seed from the *initial* tool execution so the first auto-restart
@@ -105,7 +112,7 @@ export const watchForFeedback = async params => {
     await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
     await log(formatAligned('', 'Mode:', 'Auto-restart (NOT --watch mode)', 2));
     await log(formatAligned('', 'Stop conditions:', 'All changes committed OR PR merged OR max iterations reached', 2));
-    await log(formatAligned('', 'Max iterations:', formatAutoIterationLimit(maxAutoRestartIterations), 2));
+    await log(formatAligned('', 'Max iterations:', formatAutoRestartLimit(), 2));
     await log(formatAligned('', 'Note:', 'No wait time between iterations in auto-restart mode', 2));
   } else {
     await log(formatAligned('👁️', 'WATCH MODE ACTIVATED', ''));
@@ -118,8 +125,12 @@ export const watchForFeedback = async params => {
   await log('');
 
   let iteration = 0;
-  let autoRestartCount = 0;
+  // Issue #2119: mirrors the shared budget counter so every label in this loop
+  // reports the run-wide iteration number, not a per-subsystem one.
+  let autoRestartCount = getAutoRestartIterationsUsed();
   let firstIterationInTemporaryMode = isTemporaryWatch;
+  // Issue #2119: set when the budget runs out, so the caller learns the run failed.
+  let budgetExhaustion = null;
 
   while (true) {
     iteration++;
@@ -211,13 +222,25 @@ export const watchForFeedback = async params => {
         break;
       }
 
-      // Check if we've reached max iterations
-      if (hasReachedAutoIterationLimit(autoRestartCount, maxAutoRestartIterations)) {
-        await log('');
-        await log(formatAligned('⚠️', 'MAX ITERATIONS REACHED', `Exiting auto-restart mode after ${autoRestartCount} iterations`));
-        await log(formatAligned('', 'Some uncommitted changes may remain', '', 2));
-        await log(formatAligned('', 'Please review and commit manually if needed', '', 2));
-        await log('');
+      // Issue #2119: the shared budget is exhausted. Previously this logged a
+      // warning and broke out of the loop, leaving the very uncommitted changes
+      // that triggered every restart on a temporary clone that is then deleted.
+      // Now the run fails and the work is auto-committed first, so the result
+      // stays visible in the PR.
+      if (hasExhaustedAutoRestartBudget()) {
+        const changes = await getUncommittedChangesDetails(tempDir);
+        budgetExhaustion = await failOnAutoRestartBudgetExhausted({
+          owner,
+          repo,
+          prNumber,
+          tempDir,
+          branchName: prBranch || branchName,
+          $,
+          log,
+          formatAligned,
+          blocker: changes.length > 0 ? `uncommitted changes remained: ${changes.join(', ')}` : 'uncommitted changes remained',
+          subsystem: 'auto-restart on uncommitted changes',
+        });
         break;
       }
     }
@@ -274,17 +297,18 @@ export const watchForFeedback = async params => {
           }
           await log('');
 
-          // Increment auto-restart counter and log restart number
-          autoRestartCount++;
+          // Issue #2119: claim one iteration from the run-wide budget shared with
+          // the auto-merge restart loop.
+          autoRestartCount = consumeAutoRestartIteration();
           autoRestartIterationsRan = true; // Issue #1290: Mark that auto-restart iterations ran
           lastIterationLogUploaded = false; // Reset log upload tracking for new iteration
-          const restartLabel = firstIterationInTemporaryMode ? 'Initial restart' : `Restart ${autoRestartCount}/${maxAutoRestartIterations}`;
+          const restartLabel = `Restart ${formatAutoRestartLabel(autoRestartCount)}`;
           await log(formatAligned('🔄', `${restartLabel}:`, `Running ${argv.tool.toUpperCase()} to handle uncommitted changes...`));
 
           // Post a comment to PR about auto-restart
           if (prNumber) {
             try {
-              const remainingIterations = maxAutoRestartIterations === 0 ? null : maxAutoRestartIterations - autoRestartCount;
+              const remainingIterations = getRemainingAutoRestartIterations();
 
               // Get uncommitted files list for the comment
               let uncommittedFilesList = '';
@@ -292,7 +316,7 @@ export const watchForFeedback = async params => {
                 uncommittedFilesList = '\n\n**Uncommitted files:**\n```\n' + changes.join('\n') + '\n```';
               }
 
-              const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+              const iterationLabel = formatAutoRestartLabel(autoRestartCount);
               const stopText = remainingIterations === null ? 'Auto-restart is configured with no iteration limit.' : `Auto-restart will stop after changes are committed or discarded, or after ${remainingIterations} more iteration${remainingIterations !== 1 ? 's' : ''}.`;
               const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${iterationLabel}\n\nDetected uncommitted changes from previous run. Starting new session to review and commit or discard them.${uncommittedFilesList}\n\n---\n*${stopText} Please wait until working session will end and give your feedback.*`;
               // Issue #1625: Track so this doesn't falsely count as AI-authored.
@@ -471,7 +495,7 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Failure Log" format to distinguish from success logs
-                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const iterationLabel = formatAutoRestartLabel(autoRestartCount);
                 const customTitle = `⚠️ Auto-restart ${iterationLabel} Failure Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
@@ -607,7 +631,7 @@ export const watchForFeedback = async params => {
               const logFile = getLogFile();
               if (logFile) {
                 // Use "Auto-restart X/Y Log" format as requested in issue #1107
-                const iterationLabel = maxAutoRestartIterations === 0 ? `${autoRestartCount}` : `${autoRestartCount}/${maxAutoRestartIterations}`;
+                const iterationLabel = formatAutoRestartLabel(autoRestartCount);
                 const customTitle = `🔄 Auto-restart ${iterationLabel} Log`;
                 const logUploadSuccess = await attachLogToGitHub({
                   logFile,
@@ -733,6 +757,11 @@ export const watchForFeedback = async params => {
     latestAnthropicCost,
     autoRestartIterationsRan, // True if any auto-restart iterations actually ran
     lastIterationLogUploaded, // True if the last iteration's logs were uploaded
+    // Issue #2119: false when the shared auto-restart budget ran out, so the run
+    // is reported as failed instead of silently exiting with work still pending.
+    success: !budgetExhaustion,
+    reason: budgetExhaustion?.reason || null,
+    autoRestartLimitReached: Boolean(budgetExhaustion),
   };
 };
 

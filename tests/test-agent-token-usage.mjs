@@ -165,14 +165,28 @@ runTest('handles token values of 0', () => {
 // ==== Issue #1250: Streaming accumulation tests ====
 console.log('\n📋 Test Group: Issue #1250 - Streaming accumulation\n');
 
-runTest('Issue #1250: concatenated JSON without newlines fails parsing', () => {
-  // This demonstrates why the fix was needed - when NDJSON lines are concatenated
-  // without newlines, JSON.parse fails because it sees two objects together
+runTest('Issue #1250: concatenated JSON without newlines is recovered (issue #2119)', () => {
+  // Concatenated records used to be lost entirely, because parsing was framed by
+  // newlines and `{...}{...}` is not valid JSON on a single line. Issue #2119
+  // replaced line framing with balanced-JSON framing, so both records are now
+  // recovered by post-hoc parsing as well as by streaming accumulation.
   const concatenated = '{"type":"step_finish","part":{"tokens":{"input":100,"output":50}}}{"type":"step_finish","part":{"tokens":{"input":200,"output":100}}}';
   const result = parseAgentTokenUsage(concatenated);
 
-  // This should fail to parse both - demonstrating the bug that the streaming fix addresses
-  assertEqual(result.stepCount, 0, 'Concatenated JSON without newlines fails to parse');
+  assertEqual(result.stepCount, 2, 'Concatenated JSON records are both counted');
+  assertEqual(result.inputTokens, 300, 'Concatenated input tokens accumulate');
+  assertEqual(result.outputTokens, 150, 'Concatenated output tokens accumulate');
+});
+
+runTest('Issue #2119: pretty-printed JSON records are recovered', () => {
+  // `formal-ai with agent --verbose` emits indented, multi-line records, so every
+  // line failed to parse and the whole session reported 0 input / 0 output tokens.
+  const pretty = `${JSON.stringify({ type: 'step_finish', part: { tokens: { input: 21677, output: 22834 } } }, null, 2)}\n`;
+  const result = parseAgentTokenUsage(pretty);
+
+  assertEqual(result.stepCount, 1, 'Pretty-printed record is counted');
+  assertEqual(result.inputTokens, 21677, 'Pretty-printed input tokens are counted');
+  assertEqual(result.outputTokens, 22834, 'Pretty-printed output tokens are counted');
 });
 
 runTest('Issue #1250: properly newline-delimited JSON parses correctly', () => {
@@ -293,16 +307,18 @@ runTest('Issue #1313: streaming accumulation correctly sums tokens like in the b
   assertEqual(streamingTokenUsage.stepCount, 1, 'Streaming should count 1 step');
 });
 
-runTest('Issue #1313: concatenated JSON (old bug scenario) gives 0 tokens', () => {
-  // This demonstrates the EXACT scenario that caused Issue #1313:
-  // When NDJSON lines are concatenated without newlines, post-hoc parsing gives 0 tokens.
-  // The streaming accumulation fix (Issue #1250) solved this by NOT relying on post-hoc parsing.
+runTest('Issue #1313: concatenated JSON is no longer lost by post-hoc parsing', () => {
+  // This is the EXACT scenario that caused Issue #1313: NDJSON lines concatenated
+  // without newlines used to make post-hoc parsing return 0 tokens. Streaming
+  // accumulation (issue #1250) worked around it; balanced-JSON framing
+  // (issue #2119) fixes the post-hoc path too, so both agree.
   const concatenatedOutput = '{"type":"step_finish","part":{"tokens":{"input":406,"output":353,"reasoning":281,"cache":{"read":33880,"write":0}}}}' + '{"type":"step_finish","part":{"tokens":{"input":100,"output":50,"reasoning":0,"cache":{"read":5000,"write":0}}}}';
 
-  // parseAgentTokenUsage (post-hoc) fails because two JSON objects are concatenated
   const result = parseAgentTokenUsage(concatenatedOutput);
-  assertEqual(result.stepCount, 0, 'Post-hoc parsing of concatenated JSON returns 0 (the old bug)');
-  assertEqual(result.inputTokens, 0, 'Should return 0 input (demonstrates why streaming fix was needed)');
+  assertEqual(result.stepCount, 2, 'Post-hoc parsing recovers both concatenated records');
+  assertEqual(result.inputTokens, 506, 'Should sum input tokens across concatenated records');
+  assertEqual(result.outputTokens, 403, 'Should sum output tokens across concatenated records');
+  assertEqual(result.cacheReadTokens, 38880, 'Should sum cache reads across concatenated records');
 });
 
 // ==== accumulateTokenUsage function tests ====
@@ -744,7 +760,7 @@ runTest('Issue #1313: the exact gist log data parses non-zero tokens', () => {
   if (usage.inputTokens === 0) throw new Error('BUG REPRODUCED: streaming accumulation returns 0 for valid data!');
 });
 
-runTest('Issue #1313: demonstrates old post-hoc bug with concatenated JSON', () => {
+runTest('Issue #1313: post-hoc parsing now agrees with streaming on concatenated JSON', () => {
   // Old code tried JSON.parse(fullOutput) where fullOutput had concatenated JSON objects
   // This is exactly what happened in the v1.21.4 code before the streaming fix
   const concatenatedNDJSON = '{"type":"step_finish","part":{"tokens":{"input":406,"output":353}}}' + '{"type":"step_finish","part":{"tokens":{"input":512,"output":128}}}';
@@ -759,12 +775,13 @@ runTest('Issue #1313: demonstrates old post-hoc bug with concatenated JSON', () 
     oldApproachResult = null; // Failed to parse - returns no tokens (the bug)
   }
 
-  assertEqual(oldApproachResult, null, 'Old approach: JSON.parse fails on concatenated JSON');
+  assertEqual(oldApproachResult, null, 'Old approach: a single JSON.parse fails on concatenated JSON');
 
-  // New approach: parseAgentTokenUsage processes line by line
-  // But even this can fail if there are no newlines (the bug was that lines got concatenated)
+  // Issue #2119: parseAgentTokenUsage frames records by balanced JSON instead of
+  // by newlines, so concatenation no longer hides either record.
   const parseResult = parseAgentTokenUsage(concatenatedNDJSON);
-  assertEqual(parseResult.stepCount, 0, 'parseAgentTokenUsage also fails on concatenated JSON (no newlines)');
+  assertEqual(parseResult.stepCount, 2, 'parseAgentTokenUsage recovers both concatenated records');
+  assertEqual(parseResult.inputTokens, 918, 'parseAgentTokenUsage sums concatenated input tokens');
 
   // The REAL fix: streaming accumulation processes each chunk as it arrives
   // So it never sees concatenated output - it processes events one by one

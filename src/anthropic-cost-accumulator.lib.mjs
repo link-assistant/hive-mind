@@ -42,6 +42,8 @@
  * future model. See docs/case-studies/issue-1886/ for the full analysis.
  */
 
+import { isFormalAiModel } from './models/index.mjs'; // Issue #2119
+
 // Module-level singleton: the cumulative Anthropic cost for the active logical
 // session (including anything seeded by a true resume from a prior process).
 let cumulativeAnthropicCostUSD = 0;
@@ -119,6 +121,40 @@ export const getCumulativeAnthropicCost = () => cumulativeAnthropicCostUSD;
  * @returns {boolean} true once a positive cost has been seeded or accumulated
  */
 export const hasCumulativeAnthropicCost = () => cumulativeAnthropicCostUSD > 0;
+
+/**
+ * Interpret a Claude `result` event's `total_cost_usd`.
+ *
+ * Issue #1886: a non-success terminal event (e.g. a usage-limit hit) still
+ * reports this process's cost, so it is kept as an accumulation fallback rather
+ * than as the authoritative total.
+ *
+ * Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
+ * server, so the session never billed Anthropic. Claude Code nevertheless
+ * reports a `total_cost_usd` derived from Anthropic list prices for the model
+ * name it sees ($0.252315 in the issue) - a false positive that must not reach
+ * the accumulator or the published cost comment.
+ *
+ * @param {Object} params
+ * @param {Object} params.data the parsed `result` stream event
+ * @param {string|null} params.model the model requested on the command line
+ * @param {Function} params.log logger
+ * @returns {Promise<{total?: number, fallback?: number}|null>} the captured cost, or null when none applies
+ */
+export const captureAnthropicResultCost = async ({ data, model, log }) => {
+  const cost = data?.total_cost_usd;
+  if (cost === undefined || cost === null) return null;
+  if (isFormalAiModel(model)) {
+    await log(`💰 Ignoring Anthropic cost $${cost.toFixed(6)} reported for a Formal AI session (Link.Assistant, free)`, { verbose: true });
+    return null;
+  }
+  if (data.subtype === 'success') {
+    await log(`💰 Anthropic official cost captured from success result: $${cost.toFixed(6)}`, { verbose: true });
+    return { total: cost };
+  }
+  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result kept as fallback for accumulation: $${cost.toFixed(6)}`, { verbose: true });
+  return { fallback: cost };
+};
 
 /**
  * Reset the accumulator. Intended for tests; production code starts scopes via

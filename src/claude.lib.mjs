@@ -17,11 +17,12 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { createEmptySubSessionUsage, accumulateModelUsage, mergeResultModelUsage, createSubAgentCallEntry, accumulateSubAgentUsage, getRawRequestInputTokens, displaySessionTokenUsage } from './claude.budget-stats.lib.mjs';
 import { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand } from './claude.command-builder.lib.mjs';
-import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056
+import { beginAnthropicCostScope, seedCumulativeAnthropicCost, addAnthropicRunCost, captureAnthropicResultCost } from './anthropic-cost-accumulator.lib.mjs'; // Issues #1886, #2056, #2119
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments.lib.mjs'; // Issue #1625
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
+import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
@@ -500,6 +501,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
 };
 // Extracted to claude.stderr.lib.mjs (Issue #477, #1337)
 import { isStderrError } from './claude.stderr.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 export { isStderrError };
 export const executeClaudeCommand = async params => {
   const {
@@ -876,14 +878,9 @@ export const executeClaudeCommand = async params => {
                   }
                 }
                 if (data.subtype === 'success') resultSuccessReceived = true;
-                if (data.subtype === 'success' && data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  anthropicTotalCostUSD = data.total_cost_usd;
-                  await log(`💰 Anthropic official cost captured from success result: $${anthropicTotalCostUSD.toFixed(6)}`, { verbose: true });
-                } else if (data.total_cost_usd !== undefined && data.total_cost_usd !== null) {
-                  // Issue #1886: non-success terminal (e.g. usage-limit hit) still reports this process's cost — keep as accumulation fallback.
-                  anthropicCostFromAnyResult = data.total_cost_usd;
-                  await log(`💰 Anthropic cost from ${data.subtype || 'unknown'} result kept as fallback for accumulation: $${data.total_cost_usd.toFixed(6)}`, { verbose: true });
-                }
+                const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
+                if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
+                if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
                 // Issue #1263: Extract result summary (AI's summary of work done) for --attach-solution-summary
                 if (data.subtype === 'success' && data.result && typeof data.result === 'string') {
                   resultSummary = data.result;
@@ -1070,10 +1067,9 @@ export const executeClaudeCommand = async params => {
               if (data.result && typeof data.result === 'string') resultSummary = data.result;
               if (data.modelUsage) resultModelUsage = data.modelUsage;
             }
-            if (data.total_cost_usd != null) {
-              if (data.subtype === 'success') anthropicTotalCostUSD = data.total_cost_usd;
-              else anthropicCostFromAnyResult = data.total_cost_usd;
-            }
+            const capturedCost = await captureAnthropicResultCost({ data, model: argv.model, log });
+            if (capturedCost?.total !== undefined) anthropicTotalCostUSD = capturedCost.total;
+            if (capturedCost?.fallback !== undefined) anthropicCostFromAnyResult = capturedCost.fallback;
           }
           // Issue #1472: Forward remaining buffer event to interactive handler (was previously missed)
           if (interactiveHandler) {
@@ -1422,14 +1418,22 @@ export const executeClaudeCommand = async params => {
     }
   }; // End of executeWithRetry function
   // Start the execution with retry logic
-  return await executeWithRetry();
+  const claudeResult = (await executeWithRetry()) || {};
+  // Issue #2119: `--model formal-ai` runs against the local Link.Assistant model
+  // server. Claude reports no pricing record of its own, so without this the
+  // session was published with Anthropic's cost and no provider at all.
+  const formalAiPricing = applyFormalAiPricingOverride({ model: argv.model, pricingInfo: claudeResult.pricingInfo ?? null, publicPricingEstimate: claudeResult.publicPricingEstimate ?? null, anthropicTotalCostUSD: claudeResult.anthropicTotalCostUSD ?? null, tokenUsage: claudeResult.streamTokenUsage ?? null });
+  return { ...claudeResult, ...formalAiPricing };
 };
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
       if (statusOutput) {
         await log('📝 Found uncommitted changes');
         await log('Changes:');

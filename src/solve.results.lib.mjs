@@ -67,6 +67,10 @@ const { reportError } = sentryLib;
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
 
+// Issue #2119: the one place that decides whether a pull request changed anything.
+const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { buildNoChangesNotice, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -158,7 +162,7 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
   await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
 
   try {
-    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
     await fs.unlink(tempBodyFile).catch(() => {});
 
     if (updateResult.code === 0) {
@@ -787,7 +791,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             const updatedTitle = await sanitizeForPublication(pr.title.replace(/^\[WIP\]\s*/, ''));
             await log(`  📝 Removing [WIP] prefix from PR title...`);
-            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title "${updatedTitle}"`;
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title ${updatedTitle}`;
             if (titleResult.code === 0) {
               await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
             } else {
@@ -801,14 +805,14 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             await log(`  📝 Updating PR description to remove placeholder text...`);
 
-            // Build a summary of the changes from the PR diff
-            const diffResult = await $`gh pr diff ${pr.number} --repo ${owner}/${repo} 2>&1`;
-            const diffOutput = diffResult.code === 0 ? diffResult.stdout.toString() : '';
-
-            // Count files changed
-            const filesChanged = (diffOutput.match(/^diff --git/gm) || []).length;
-            const additions = (diffOutput.match(/^\+[^+]/gm) || []).length;
-            const deletions = (diffOutput.match(/^-[^-]/gm) || []).length;
+            // Issue #2119: measure the net diff. The reproduction PRs published
+            // "1 file(s) modified, 1 line(s) added" for a pull request that
+            // changed nothing, because the stats were never checked for being
+            // empty.
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $ });
+            if (!changeStats.hasChanges) {
+              await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
+            }
 
             // Get the issue title for context
             const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
@@ -822,9 +826,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 This pull request implements a solution for ${issueRef}: ${issueTitle}
 
 ### Changes
-- ${filesChanged} file(s) modified
-- ${additions} line(s) added
-- ${deletions} line(s) removed
+${formatChangeSummary(changeStats)}
 
 ### Issue Reference
 Fixes ${issueRef}
@@ -836,7 +838,7 @@ Fixes ${issueRef}
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
 
             try {
-              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file "${tempBodyFile}"`;
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
               await fs.unlink(tempBodyFile).catch(() => {});
 
               if (descResult.code === 0) {
@@ -1269,7 +1271,7 @@ export const buildWorkingSessionSummaryDetails = ({ publicPricingEstimate = null
   return `${costInfo}${budgetStats}`.trim();
 };
 
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null }) => {
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null, changeStats = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1290,10 +1292,16 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
       pricingInfo,
       budgetStatsData,
     });
+    // Issue #2119: publish what the session actually produced. The reported
+    // summary said "The `pwd` command completed" and printed the solver's own
+    // /tmp workspace, on a pull request that was still empty.
+    const noChangesNotice = buildNoChangesNotice(changeStats);
+    const summaryBody = redactWorkspacePaths(resultSummary);
+
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
-${resultSummary}${usageDetails ? `\n\n${usageDetails}` : ''}
+${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}${usageDetails ? `\n\n${usageDetails}` : ''}
 
 ---
 *${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
@@ -1395,6 +1403,10 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
           ...sessionUsage,
         })
       : null);
+  // Issue #2119: a summary posted on a pull request that changed nothing must
+  // say so, instead of reading as a report of completed work.
+  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;
+
   const ok = await attachSolutionSummary({
     resultSummary,
     prNumber,
@@ -1405,6 +1417,7 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
     anthropicTotalCostUSD,
     pricingInfo,
     budgetStatsData: resolvedBudgetStatsData,
+    changeStats,
   });
   return { attached: !!ok, reason: ok ? 'attached' : 'post_failed', budgetStatsData: resolvedBudgetStatsData };
 };

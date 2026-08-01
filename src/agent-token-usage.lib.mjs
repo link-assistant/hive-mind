@@ -2,6 +2,7 @@
 
 import Decimal from 'decimal.js-light';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { parseJsonRecords } from './json-stream.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens } from './context-fill.lib.mjs';
 
 export const createTokenFieldAvailability = () => ({
@@ -95,15 +96,10 @@ export const accumulateAgentStepFinishUsage = (usage, data) => {
 export const parseAgentTokenUsage = output => {
   const usage = createAgentTokenUsage();
 
-  for (const rawLine of output.split('\n')) {
-    const line = rawLine.trim();
-    if (!line || !line.startsWith('{')) continue;
-
-    try {
-      accumulateAgentStepFinishUsage(usage, sanitizeObjectStrings(JSON.parse(line)));
-    } catch {
-      continue;
-    }
+  // Issue #2119: records are framed by balanced JSON rather than by newlines,
+  // so pretty-printed (multi-line) and concatenated records are counted too.
+  for (const record of parseJsonRecords(output)) {
+    accumulateAgentStepFinishUsage(usage, sanitizeObjectStrings(record));
   }
 
   return usage;

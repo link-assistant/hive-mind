@@ -69,7 +69,7 @@ try {
     console.log(`Formatting release notes for ${tag}...`);
     // Pass the trigger commit SHA for PR detection
     // This allows proper PR lookup even if the changelog doesn't have a commit hash
-    await $`node scripts/format-release-notes.mjs --release-id "${releaseId}" --release-version "${tag}" --repository "${repository}" --commit-sha "${commitSha}"`;
+    await $`node scripts/format-release-notes.mjs --release-id ${releaseId} --release-version ${tag} --repository ${repository} --commit-sha ${commitSha}`;
     console.log(`Formatted release notes for ${tag}`);
   }
 } catch (error) {

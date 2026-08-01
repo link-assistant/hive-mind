@@ -17,12 +17,15 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { defaultModels, geminiModels } from './models/index.mjs';
+import { defaultModels, geminiModels, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
+import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -130,6 +133,15 @@ const pickTokenValue = (...values) => {
   return 0;
 };
 
+/**
+ * Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
+ * server, so the session must not be attributed to Google.
+ */
+export const buildGeminiPricingInfo = mappedModel => {
+  if (isFormalAiModel(mappedModel)) return buildFormalAiPricingInfo(mappedModel);
+  return { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null };
+};
+
 export const buildGeminiResultModelUsage = (modelId, stats = null) => {
   const modelStats = stats?.models && typeof stats.models === 'object' ? stats.models : null;
   if (modelStats) {
@@ -221,41 +233,17 @@ export const parseGeminiJsonOutput = (output, state = {}, modelId = null) => {
     partialLine: state.partialLine || '',
   };
 
-  const trimmedOutput = output.trim();
-  if (trimmedOutput && !nextState.partialLine) {
-    try {
-      const parsed = JSON.parse(trimmedOutput);
-      for (const event of Array.isArray(parsed) ? parsed : [parsed]) {
-        applyGeminiJsonEvent(event, nextState, modelId);
-      }
-      return nextState;
-    } catch {
-      // stream-json emits one JSON object per line; fall through to JSONL parsing.
-    }
-  }
+  // Issue #2119: frame the stream by balanced JSON values instead of by lines.
+  // `formal-ai with gemini` emits pretty-printed, multi-line records, so every
+  // line failed to parse and every event - including the token usage - was
+  // dropped. Scanning for balanced values also covers records concatenated
+  // without a separator and records split across two process chunks.
+  const { records, rest } = takeJsonRecords(`${nextState.partialLine}${String(output ?? '')}`);
+  nextState.partialLine = rest;
 
-  const bufferedOutput = `${nextState.partialLine}${output}`;
-  nextState.partialLine = '';
-  const lines = bufferedOutput.split(/\r?\n/);
-  const hasTrailingLineBreak = /\r?\n$/.test(bufferedOutput);
-  const completeLines = hasTrailingLineBreak ? lines : lines.slice(0, -1);
-  const possiblePartialLine = hasTrailingLineBreak ? '' : lines.at(-1) || '';
-
-  for (const line of completeLines) {
-    if (!line.trim()) continue;
-
-    try {
-      applyGeminiJsonEvent(JSON.parse(line), nextState, modelId);
-    } catch {
-      continue;
-    }
-  }
-
-  if (possiblePartialLine.trim()) {
-    try {
-      applyGeminiJsonEvent(JSON.parse(possiblePartialLine), nextState, modelId);
-    } catch {
-      nextState.partialLine = possiblePartialLine;
+  for (const record of records) {
+    for (const event of Array.isArray(record) ? record : [record]) {
+      applyGeminiJsonEvent(event, nextState, modelId);
     }
   }
 
@@ -587,8 +575,8 @@ export const executeGeminiCommand = async params => {
           messageCount: geminiJsonState.messageCount || 0,
           toolUseCount: geminiJsonState.toolUseCount || 0,
           resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-          publicPricingEstimate: null,
+          pricingInfo: buildGeminiPricingInfo(mappedModel),
+          publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
           resultSummary: geminiJsonState.resultSummary || null,
           // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
           errorInfo: { message: buildToolErrorMessage({ lastMessage: errorText, exitCode, fallback: `Gemini command failed with exit code ${exitCode}`, toolLabel: 'Gemini' }), exitCode },
@@ -631,8 +619,8 @@ export const executeGeminiCommand = async params => {
           messageCount: geminiJsonState.messageCount || 0,
           toolUseCount: geminiJsonState.toolUseCount || 0,
           resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-          pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-          publicPricingEstimate: null,
+          pricingInfo: buildGeminiPricingInfo(mappedModel),
+          publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
           resultSummary: geminiJsonState.resultSummary || null,
           completionHealth,
           incompleteSession: completionHealth.incompleteSession,
@@ -655,8 +643,8 @@ export const executeGeminiCommand = async params => {
         messageCount: geminiJsonState.messageCount || 0,
         toolUseCount: geminiJsonState.toolUseCount || 0,
         resultModelUsage: geminiJsonState.resultModelUsage || buildGeminiResultModelUsage(mappedModel),
-        pricingInfo: { modelId: mappedModel, modelName: mappedModel, provider: 'Google', totalCostUSD: null },
-        publicPricingEstimate: null,
+        pricingInfo: buildGeminiPricingInfo(mappedModel),
+        publicPricingEstimate: buildGeminiPricingInfo(mappedModel).totalCostUSD,
         resultSummary: geminiJsonState.resultSummary || null,
       };
     } catch (error) {
@@ -690,11 +678,14 @@ export const executeGeminiCommand = async params => {
 
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
 
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
 
       if (statusOutput) {
         await log('📝 Found uncommitted changes');

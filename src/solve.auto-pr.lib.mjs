@@ -1126,8 +1126,14 @@ ${prBody}`,
               // Link the issue to the PR in GitHub's Development section using GraphQL API
               await log(formatAligned('🔗', 'Linking:', `Issue #${issueNumber} to PR #${localPrNumber}...`));
               try {
+                // Issue #2119: the double quotes below are GraphQL string syntax,
+                // not shell quoting. command-stream escapes interpolated values, so
+                // the queries are assembled in JS and passed as one argument.
+                const repositorySelector = `repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)})`;
+
                 // First, get the node IDs for both the issue and the PR
-                const issueNodeResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { issue(number: ${issueNumber}) { id } } }' --jq .data.repository.issue.id`;
+                const issueNodeQuery = `query { ${repositorySelector} { issue(number: ${issueNumber}) { id } } }`;
+                const issueNodeResult = await $`gh api graphql -f query=${issueNodeQuery} --jq .data.repository.issue.id`;
 
                 if (issueNodeResult.code !== 0) {
                   throw new Error(`Failed to get issue node ID: ${issueNodeResult.stderr}`);
@@ -1136,7 +1142,8 @@ ${prBody}`,
                 const issueNodeId = issueNodeResult.stdout.toString().trim();
                 await log(`   Issue node ID: ${issueNodeId}`, { verbose: true });
 
-                const prNodeResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { id } } }' --jq .data.repository.pullRequest.id`;
+                const prNodeQuery = `query { ${repositorySelector} { pullRequest(number: ${localPrNumber}) { id } } }`;
+                const prNodeResult = await $`gh api graphql -f query=${prNodeQuery} --jq .data.repository.pullRequest.id`;
 
                 if (prNodeResult.code !== 0) {
                   throw new Error(`Failed to get PR node ID: ${prNodeResult.stderr}`);
@@ -1152,7 +1159,8 @@ ${prBody}`,
                 // 2. For cross-repo (fork) PRs, we need "Fixes owner/repo#N"
 
                 // Let's verify the link was created
-                const linkCheckResult = await $`gh api graphql -f query='query { repository(owner: "${owner}", name: "${repo}") { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }' --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
+                const linkCheckQuery = `query { ${repositorySelector} { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }`;
+                const linkCheckResult = await $`gh api graphql -f query=${linkCheckQuery} --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
                   const linkedIssues = parseClosingIssueNumbers(linkCheckResult.stdout);

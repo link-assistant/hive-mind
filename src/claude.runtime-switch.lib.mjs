@@ -53,7 +53,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
         process.exit(1);
       }
       // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
+      const firstLine = await $`head -1 ${claudePath}`;
       const currentShebang = firstLine.stdout.toString().trim();
       await log(`   Current shebang: ${currentShebang}`);
       if (currentShebang.includes('bun')) {
@@ -63,7 +63,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
 
       // Create backup
       const backupPath = `${claudePath}.nodejs-backup`;
-      await $`cp "${claudePath}" "${backupPath}"`;
+      await $`cp ${claudePath} ${backupPath}`;
       await log(`   📦 Backup created: ${backupPath}`);
 
       // Read file content and replace shebang
@@ -126,7 +126,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
         process.exit(1);
       }
       // Read current shebang
-      const firstLine = await $`head -1 "${claudePath}"`;
+      const firstLine = await $`head -1 ${claudePath}`;
       const currentShebang = firstLine.stdout.toString().trim();
       await log(`   Current shebang: ${currentShebang}`);
       if (currentShebang.includes('node') && !currentShebang.includes('bun')) {
@@ -138,7 +138,7 @@ export const handleClaudeRuntimeSwitch = async argv => {
       try {
         await fs.access(backupPath);
         // Restore from backup
-        await $`cp "${backupPath}" "${claudePath}"`;
+        await $`cp ${backupPath} ${claudePath}`;
         await log(`   ✅ Restored Claude from backup: ${backupPath}`);
       } catch (backupError) {
         reportError(backupError, {

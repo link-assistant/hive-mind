@@ -32,6 +32,7 @@ const fs = (await use('fs')).promises;
 const lib = await import('./lib.mjs');
 const { log, formatAligned, extractToolErrorCore } = lib;
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
+const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
 const { ensurePullRequestIsDraft } = await import('./pr-draft-state.lib.mjs');
@@ -128,11 +129,14 @@ export const cleanupPlaywrightMcpFolder = async (tempDir, argv = {}) => {
 export const checkForUncommittedChanges = async (tempDir, argv = {}) => {
   // First, clean up .playwright-mcp/ folder to prevent false positives (Issue #1124)
   await cleanupPlaywrightMcpFolder(tempDir, argv);
+  // Issue #2119: the same false positive, generalized - `.formal-ai/` and any
+  // other AI tool scratch directory must not read as the AI's uncommitted work.
+  await ensureAiToolScratchIgnored(tempDir, log);
 
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
       return statusOutput.length > 0;
     }
   } catch (error) {
@@ -156,7 +160,7 @@ export const getUncommittedChangesDetails = async tempDir => {
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
       if (statusOutput) {
         changes.push(...statusOutput.split('\n'));
       }

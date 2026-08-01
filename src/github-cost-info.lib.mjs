@@ -51,6 +51,11 @@ export const buildCostInfoString = (totalCostUSD, anthropicTotalCostUSD, pricing
       }
       costInfo += `\n- Public pricing estimate: $${publicDec.toFixed(6)}${pricingRef}`;
     }
+  } else if (pricingInfo?.isFreeModel && !pricingInfo?.baseModelName) {
+    // Issue #2119: a free model has a known price - $0.00 - even when no
+    // usage-derived estimate was produced. Reporting "unknown" for it was a
+    // false negative (`--model formal-ai` is served free by Link.Assistant).
+    costInfo += '\n- Public pricing estimate: $0.00 (Free model)';
   } else if (hasPricing) {
     costInfo += '\n- Public pricing estimate: unknown';
   }

@@ -18,12 +18,15 @@ import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
-import { qwenModels, defaultModels } from './models/index.mjs';
+import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
 import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
+import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
+import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -249,7 +252,7 @@ const applyQwenUsageToState = (state, event) => {
   applyQwenUsageObject(state, rawUsage, findFirstValue(event, QWEN_USAGE_PATHS.model));
 };
 
-const buildQwenPricingInfo = (state, mappedModel) => {
+export const buildQwenPricingInfo = (state, mappedModel) => {
   const tokenUsage = cloneQwenTokenUsage(state?.tokenUsage);
   if (!tokenUsage || tokenUsage.stepCount === 0) {
     return {
@@ -263,6 +266,17 @@ const buildQwenPricingInfo = (state, mappedModel) => {
   tokenUsage.requestedModelId ||= mappedModel || 'qwen';
   tokenUsage.respondedModelId ||= tokenUsage.requestedModelId;
   const modelId = tokenUsage.respondedModelId || tokenUsage.requestedModelId;
+
+  // Issue #2119: `--model formal-ai` is served by the local Link.Assistant model
+  // server, so the session belongs to Link.Assistant at $0.00 - not to Qwen Code.
+  if (isFormalAiModel(mappedModel) || isFormalAiModel(modelId)) {
+    return {
+      pricingInfo: { ...buildFormalAiPricingInfo(modelId, tokenUsage), source: 'qwen-stream-json' },
+      publicPricingEstimate: 0,
+      tokenUsage,
+      resultModelUsage: buildQwenResultModelUsage(tokenUsage),
+    };
+  }
 
   return {
     pricingInfo: {
@@ -315,35 +329,19 @@ export const parseQwenStreamJsonOutput = (output, state = {}) => {
   const text = output?.toString?.() ?? String(output || '');
   nextState.plainText += text;
 
-  const parseCandidate = value => {
-    const trimmed = value.trim();
-    if (!trimmed) return true;
+  // Issue #2119: frame the stream by balanced JSON values instead of by lines.
+  // `formal-ai with qwen` emits pretty-printed, multi-line records, so every
+  // line failed to parse and every event - including the token usage - was
+  // dropped. Scanning for balanced values also covers records concatenated
+  // without a separator and records split across two process chunks.
+  const { records, rest } = takeJsonRecords(`${nextState.buffer}${text}`);
+  nextState.buffer = rest;
 
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) addQwenEventToState(nextState, item);
-      } else {
-        addQwenEventToState(nextState, parsed);
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const combined = `${nextState.buffer}${text}`;
-  nextState.buffer = '';
-
-  const lines = combined.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-    const isLastLine = index === lines.length - 1;
-    if (!line.trim()) continue;
-
-    const parsed = parseCandidate(line);
-    if (!parsed && isLastLine) {
-      nextState.buffer = line;
+  for (const record of records) {
+    if (Array.isArray(record)) {
+      for (const item of record) addQwenEventToState(nextState, item);
+    } else {
+      addQwenEventToState(nextState, record);
     }
   }
 
@@ -739,11 +737,14 @@ export const executeQwenCommand = async params => {
 
 export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
   await log('\n🔍 Checking for uncommitted changes...');
+  // Issue #2119: AI tools leave scratch state (.formal-ai/, .playwright-mcp/) in
+  // the workspace. Ignoring it here keeps it out of both this check and 'git add -A'.
+  await ensureAiToolScratchIgnored(tempDir, log);
   try {
     const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
 
     if (gitStatusResult.code === 0) {
-      const statusOutput = gitStatusResult.stdout.toString().trim();
+      const statusOutput = filterAiToolScratchFromStatus(gitStatusResult.stdout.toString().trim());
 
       if (statusOutput) {
         await log('📝 Found uncommitted changes');

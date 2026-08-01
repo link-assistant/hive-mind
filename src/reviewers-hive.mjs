@@ -322,10 +322,10 @@ async function reviewer(reviewerId) {
           await log(`   🚀 Executing review.mjs for ${prUrl}...`);
 
           const startTime = Date.now();
-          let reviewCommand = $`./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus}`;
+          let reviewCommand = $`./review.mjs ${prUrl} --model ${argv.model} --focus ${argv.focus}`;
 
           if (argv.autoApprove) {
-            reviewCommand = $`./review.mjs "${prUrl}" --model ${argv.model} --focus ${argv.focus} --approve`;
+            reviewCommand = $`./review.mjs ${prUrl} --model ${argv.model} --focus ${argv.focus} --approve`;
           }
 
           // Stream output and capture result

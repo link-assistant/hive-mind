@@ -29,6 +29,7 @@ const { log, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
+import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
@@ -59,7 +60,11 @@ export const checkExistingForkOfRoot = async rootRepo => {
     const userResult = await lib.ghCmdRetry(() => $`gh api user --jq .login`, { label: 'get user (fork check)' });
     if (userResult.code !== 0) return null;
     const currentUser = userResult.stdout.toString().trim();
-    const forksResult = await lib.ghCmdRetry(() => $`gh api repos/${rootRepo}/forks --paginate --jq '.[] | select(.owner.login == "${currentUser}") | .full_name'`, { label: `check forks of ${rootRepo}` });
+    // Issue #2119: build the jq expression in JS. Its double quotes belong to jq,
+    // not to the shell, and command-stream quotes interpolated values itself - so
+    // interpolating inside the quotes would leak shell quotes into the comparison.
+    const forkFilter = `.[] | select(.owner.login == ${JSON.stringify(currentUser)}) | .full_name`;
+    const forksResult = await lib.ghCmdRetry(() => $`gh api repos/${rootRepo}/forks --paginate --jq ${forkFilter}`, { label: `check forks of ${rootRepo}` });
     if (forksResult.code !== 0) return null;
 
     const forks = forksResult.stdout
@@ -324,9 +329,13 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
     const base64Content = Buffer.from(readmeContent).toString('base64');
 
     // Try to create README.md using GitHub API
+    // Issue #2119: `--field content="${base64Content}"` would leak literal quotes
+    // into the field value as soon as command-stream decides the value needs
+    // quoting, so the whole `key=value` token is built in JS instead.
+    const contentField = `content=${base64Content}`;
     const createResult = await $`gh api repos/${owner}/${repo}/contents/README.md --method PUT --silent \
-      --field message="Initialize repository with README" \
-      --field content="${base64Content}" 2>&1`;
+      --field message=${'Initialize repository with README'} \
+      --field ${contentField} 2>&1`;
 
     if (createResult.code === 0) {
       await log(`${formatAligned('✅', 'Success:', 'README.md created successfully')}`);
@@ -1062,6 +1071,11 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     if (cloneResult.code === 0 && repoIsValid) {
       await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
 
+      // Issue #2119: AI tools drop scratch state (`.formal-ai/`, `.playwright-mcp/`)
+      // into the workspace. Exclude it here, once, so every later `git status` and
+      // `git add -A` agrees instead of reading it as the AI's uncommitted work.
+      await ensureAiToolScratchIgnored(tempDir, log);
+
       // Verify and fix remote configuration
       const remoteCheckResult = await $({ cwd: tempDir })`git remote -v 2>&1`;
       if (!remoteCheckResult.stdout || !remoteCheckResult.stdout.toString().includes('origin')) {
@@ -1207,7 +1221,10 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   // Strategy 1: Query the upstream repo's forks to find this user's fork
   if (owner) {
     await log(`${formatAligned('🔍', 'Discovering fork name:', `Searching ${owner}/${repo}/forks for ${prForkOwner}'s fork...`)}`);
-    const forksResult = await $`gh api repos/${owner}/${repo}/forks --paginate --jq '.[] | select(.owner.login == "${prForkOwner}") | .name'`;
+    // Issue #2119: the double quotes here are jq syntax, so the expression is
+    // built in JS and interpolated as one already-escaped argument.
+    const forkNameFilter = `.[] | select(.owner.login == ${JSON.stringify(prForkOwner)}) | .name`;
+    const forksResult = await $`gh api repos/${owner}/${repo}/forks --paginate --jq ${forkNameFilter}`;
     if (forksResult.code === 0 && forksResult.stdout) {
       const forkName = forksResult.stdout.toString().trim().split('\n')[0]; // Take first match
       if (forkName) {

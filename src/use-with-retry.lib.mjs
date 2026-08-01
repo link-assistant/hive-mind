@@ -223,11 +223,17 @@ const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // Off by default so normal runs stay quiet; issue #2092 showed that when the
 // loader dies there is no trace of which specifier or attempt failed.
+// Issue #2113: both failing runs attached to the issue were started with
+// `--verbose` and still produced zero loader diagnostics, so the log showed the
+// final crash without a single line about which specifier, attempt or alias was
+// involved. `--verbose` now opts into the same trace as HIVE_MIND_USE_M_DEBUG.
 const defaultLog = message => {
-  if (process.env.HIVE_MIND_USE_M_DEBUG) console.error(`[use-m] ${message}`);
+  if (process.env.HIVE_MIND_USE_M_DEBUG || process.argv.includes('--verbose')) {
+    console.error(`[use-m] ${message}`);
+  }
 };
 
-const USE_RETRY_WRAPPED = Symbol.for('hive-mind.use-with-retry.wrapped');
+export const USE_RETRY_WRAPPED = Symbol.for('hive-mind.use-with-retry.wrapped');
 
 /**
  * Wrap a raw use-m `use` function so that *every* call site inherits the

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.11.3
+
+### Patch Changes
+
+- 82053e1: Stop concurrent use-m installs from corrupting the global npm alias (issue #2113). `use()` performs one `npm install -g <alias>@npm:<package>@<version>` per call with no in-flight deduplication, and Node evaluates sibling top-level-await subgraphs concurrently, so a cold container running `fix` or `task` launched six simultaneous global installs of the same directory; npm does not lock the global prefix, so those installs deleted and re-extracted each other's trees, surfacing as `ENOTEMPTY` or as `ERR_MODULE_NOT_FOUND` for an arbitrary internal file. `src/use-m-single-flight.lib.mjs` now wraps `use()` inside `ensureUseM()` with per-specifier single flight, an in-process per-alias mutex, and a cross-process advisory lock over the alias directory (Node built-ins only, `HIVE_MIND_USE_M_LOCK_DIR` to relocate it); measured on a cold prefix, 24 concurrent loads went from 24/24 failures in 54.8s to 0/24 in 3.3s. Dependency loading is also traced under `--verbose` as well as `HIVE_MIND_USE_M_DEBUG=1`, because both reported failures were captured with `--verbose` and contained no loader output at all. Reported upstream as link-foundation/use-m#70 and fixed there in `use-m@8.15.0` (cross-process alias install lock plus a post-install marker); the pinned CDN bootstrap fallback moves from 8.14.4 to 8.15.0, verified with the standalone reproduction — 22/24 concurrent loads fail on 8.14.4, 0/24 on 8.15.0.
+
 ## 2.11.2
 
 ### Patch Changes

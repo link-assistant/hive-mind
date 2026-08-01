@@ -262,16 +262,37 @@ version-check:
 
 ### 10. Concurrency Control
 
-**Prevent multiple workflow runs from conflicting:**
+**Separate cancellable read-only checks from non-cancellable write jobs.** Configure concurrency at the job level when a workflow contains both kinds of work:
 
 ```yaml
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Cancel older runs on main to always release the latest version
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+jobs:
+  lint:
+    # Include the job identity (and matrix values, when present) so unrelated
+    # checks remain parallel while a newer run replaces only the stale check.
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+      cancel-in-progress: true
+    # ...
+
+  deploy:
+    needs: [lint]
+    if: ${{ !cancelled() && needs.lint.result == 'success' }}
+    # Every job that writes to main or an external deployment target uses this
+    # repository-wide group, even when the jobs live in different workflows.
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+    # ...
 ```
 
-Use `!cancelled()` instead of `always()` in job conditions so cancellation propagates correctly through the job graph.
+- **Read-only jobs:** Cancel superseded checks on both pull requests and `main` to reduce runner load. Give each job a distinct suffix; include relevant matrix values so different matrix entries can still run in parallel.
+- **Dependent writers:** Use `needs` and require successful prerequisites. A cancelled prerequisite must make its write job not start.
+- **Active writers:** Give every release, deploy, tag, generated-content push, and other write job the same repository-scoped group with `cancel-in-progress: false`. An already started writer finishes while the next writer waits in the queue, including writers from another workflow file.
+- **Workflow scope:** Do not put cancellable concurrency at workflow level when the workflow has write jobs. Cancelling the workflow would also interrupt a writer that has already started.
+
+By default, a concurrency group keeps at most one running and one pending job; a newer pending writer replaces the older pending writer. If every queued write must run, add `queue: max` to the writer's concurrency block (up to 100 jobs can wait). `queue: max` cannot be combined with `cancel-in-progress: true`, and execution order follows when jobs start waiting rather than workflow dispatch order, so write jobs should remain idempotent. See [GitHub's concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) for the current queue limits and semantics.
+
+Use `!cancelled()` instead of `always()` in job conditions so cancellation propagates correctly through the job graph. A bare `always()` can keep downstream work running after cancellation.
 
 ### 11. Secrets Detection
 

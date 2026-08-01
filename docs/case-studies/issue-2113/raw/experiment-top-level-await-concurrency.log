@@ -1,0 +1,3 @@
+order: a start, b start, c start, a end, b end, c end
+peak concurrency: 3 of 3 sibling modules
+concurrent — the race in #2113 is possible

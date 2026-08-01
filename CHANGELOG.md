@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.11.5
+
+### Patch Changes
+
+- 5f45ab8: Correct CI/CD concurrency guidance so stale read-only checks are cancelled while active write and deploy jobs finish safely.
+
 ## 2.11.4
 
 ### Patch Changes

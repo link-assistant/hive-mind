@@ -32,8 +32,63 @@ entries:
 
         See values.yaml for all configurable options.
     apiVersion: v2
+    appVersion: 2.11.3
+    created: "2026-08-01T07:42:46.092288678Z"
+    description: A Helm chart for deploying Hive Mind - the master AI that controls
+      a hive of AI agents
+    digest: 25470fcaa887d54f6540eef19c49790dc0a87be74d69bde04fedc09237e90acf
+    home: https://github.com/link-assistant/hive-mind
+    icon: https://github.com/link-assistant/hive-mind/raw/main/docs/images/hive-mind-icon.png
+    keywords:
+    - ai
+    - automation
+    - github
+    - claude
+    - agent
+    - orchestration
+    maintainers:
+    - name: Link Assistant Team
+      url: https://github.com/link-assistant
+    name: hive-mind
+    sources:
+    - https://github.com/link-assistant/hive-mind
+    type: application
+    urls:
+    - https://link-assistant.github.io/hive-mind/hive-mind-2.11.3.tgz
+    version: 2.11.3
+  - annotations:
+      artifacthub.io/category: integration-delivery
+      artifacthub.io/displayName: Hive Mind
+      artifacthub.io/license: Unlicense
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://github.com/link-assistant/hive-mind/blob/main/README.md
+        - name: Docker Hub
+          url: https://hub.docker.com/r/konard/hive-mind
+      artifacthub.io/readme: |
+        # Hive Mind Helm Chart
+
+        Deploy Hive Mind on Kubernetes - the master AI that controls a hive of AI agents.
+
+        ## Prerequisites
+
+        - Kubernetes 1.19+
+        - Helm 3.0+
+
+        ## Installation
+
+        ```bash
+        helm repo add link-assistant https://link-assistant.github.io/hive-mind
+        helm repo update
+        helm install hive-mind link-assistant/hive-mind
+        ```
+
+        ## Configuration
+
+        See values.yaml for all configurable options.
+    apiVersion: v2
     appVersion: 2.11.2
-    created: "2026-07-31T19:19:24.896835925Z"
+    created: "2026-08-01T07:42:46.09176835Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 80dc60a6c008392373f839f76cea23dce6d21fb98c87034e7bcce65c2db5e0a0
@@ -88,7 +143,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.11.1
-    created: "2026-07-31T19:19:24.89643729Z"
+    created: "2026-08-01T07:42:46.091274512Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 5a4555d811693241b9491cb84314bfd64a2de942ab69d83341aac6d6a89e4f0e
@@ -143,7 +198,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.11.0
-    created: "2026-07-31T19:19:24.895511348Z"
+    created: "2026-08-01T07:42:46.090753092Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: a7c0b0d5dd1758062db5fb0d9557a2c76a46561bcdec2222be01be704b3b8a00
@@ -198,7 +253,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.10.5
-    created: "2026-07-31T19:19:24.895159984Z"
+    created: "2026-08-01T07:42:46.09025737Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: d3f0abe976116423d4ec437e140c1d36d86f316c3728558c51644edaffb89280
@@ -253,7 +308,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.10.4
-    created: "2026-07-31T19:19:24.894789541Z"
+    created: "2026-08-01T07:42:46.089711345Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 978fc9d26f6ba1988645dd59bbf2a82d37a96fa484ea17ea3af03df065b8940d
@@ -308,7 +363,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.10.3
-    created: "2026-07-31T19:19:24.894448682Z"
+    created: "2026-08-01T07:42:46.088484773Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 023749128673b0e6b496a57768b90194a1c6fb69361973787c86f93956e63568
@@ -363,7 +418,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.10.2
-    created: "2026-07-31T19:19:24.894081875Z"
+    created: "2026-08-01T07:42:46.087968734Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 1edcd78e3f47fcf400ae52a7c778d8c39a379ec573592d2e386a112ecf74dc56
@@ -418,7 +473,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.10.0
-    created: "2026-07-31T19:19:24.893717962Z"
+    created: "2026-08-01T07:42:46.087478141Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 70f676c037c03c867d3406e8ac78f471b8548fbb19f62088dadec14f6934e4ac
@@ -473,7 +528,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.9.2
-    created: "2026-07-31T19:19:24.900458902Z"
+    created: "2026-08-01T07:42:46.098351306Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 755cd48fa228a59a7aa8f29a648c4179bcf97256459dee5e5fd4b5105e464af3
@@ -528,7 +583,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.9.1
-    created: "2026-07-31T19:19:24.900110732Z"
+    created: "2026-08-01T07:42:46.097822482Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 37da5a1ffe1a64ec395543e0d8fd1e640cf37b4dd0354d049593ce0d9dc60c9e
@@ -583,7 +638,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.9.0
-    created: "2026-07-31T19:19:24.899738917Z"
+    created: "2026-08-01T07:42:46.097313666Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: b33bc16ca5b444c91723c9fb987d917a24f6ac380fbb42c5cfd5e748e6ee0ee0
@@ -638,7 +693,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.11
-    created: "2026-07-31T19:19:24.897619074Z"
+    created: "2026-08-01T07:42:46.093287405Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: c597cb86c4d857973c3d99a07996804f9a7867899dba78d5b75f492ad77f31e8
@@ -693,7 +748,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.10
-    created: "2026-07-31T19:19:24.897246998Z"
+    created: "2026-08-01T07:42:46.09277379Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: e07bb58c9a98943229465ad6d85c20cd3eef0a54e978b0845acbbdf8bc5c0cda
@@ -748,7 +803,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.9
-    created: "2026-07-31T19:19:24.899387432Z"
+    created: "2026-08-01T07:42:46.096512504Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 2a08deb38115ce98367025980759b139a6cf8875c76be34c971054d839dca034
@@ -803,7 +858,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.8
-    created: "2026-07-31T19:19:24.899040264Z"
+    created: "2026-08-01T07:42:46.095227142Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 36d6def149f69cec10faa5215669af1dfe13ba81acdf76f174fe6d9d62bd7594
@@ -858,7 +913,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.7
-    created: "2026-07-31T19:19:24.898690292Z"
+    created: "2026-08-01T07:42:46.094737462Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 04bf7b079e3dccf76a5a92f20f72da6ced74db0fe550a1c897957b370b1cc3e5
@@ -913,7 +968,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.6
-    created: "2026-07-31T19:19:24.898338998Z"
+    created: "2026-08-01T07:42:46.094262278Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 6177af3a0a2a2341af328f95b8ca18a3774f18d568528a2b70bfadaaf26c8875
@@ -968,7 +1023,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 2.8.5
-    created: "2026-07-31T19:19:24.897987503Z"
+    created: "2026-08-01T07:42:46.093764813Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: ef0d1d63626125957e445f869f35fda583b852bb6c628fe60217bfef6543ec32
@@ -1023,7 +1078,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.8
-    created: "2026-07-31T19:19:24.893371154Z"
+    created: "2026-08-01T07:42:46.086932036Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 4c862339264d5e7ee538b3a53a17fe1ea22228884477ed0db41b7bc51e7602ac
@@ -1078,7 +1133,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.7
-    created: "2026-07-31T19:19:24.893010947Z"
+    created: "2026-08-01T07:42:46.086445481Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: e482809fb1c97cce60690038c5000691b00adbe0dec0420d48a1016d5f4af867
@@ -1133,7 +1188,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.6
-    created: "2026-07-31T19:19:24.892643088Z"
+    created: "2026-08-01T07:42:46.085897712Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 13eee5882fc2f38e88f82002f83bee5456810b7c041155b082ad84ba57c5a748
@@ -1188,7 +1243,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.5
-    created: "2026-07-31T19:19:24.892270171Z"
+    created: "2026-08-01T07:42:46.085345004Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: e86d95775d22ac3a1e39b2f07c8b8bf6cfad2a0d84571b9c0f3c355111e4ba6c
@@ -1243,7 +1298,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.4
-    created: "2026-07-31T19:19:24.891884816Z"
+    created: "2026-08-01T07:42:46.084824527Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 7227b3a1a564883057f8032c576d26286149c5e91b074dfdf215f7f2f1a02ad9
@@ -1298,7 +1353,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.3
-    created: "2026-07-31T19:19:24.891461524Z"
+    created: "2026-08-01T07:42:46.08432117Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 9188116cf16566d86a4b8feb7493bf4e165d8516adaf00ec707c56b60b0e844c
@@ -1353,7 +1408,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.1
-    created: "2026-07-31T19:19:24.891088087Z"
+    created: "2026-08-01T07:42:46.083787448Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 3cf2e9b676d77c33d604cb382d044f258461d0b53e795717d72c77c2b73cc864
@@ -1408,7 +1463,7 @@ entries:
         See values.yaml for all configurable options.
     apiVersion: v2
     appVersion: 0.38.0
-    created: "2026-07-31T19:19:24.890680589Z"
+    created: "2026-08-01T07:42:46.083262842Z"
     description: A Helm chart for deploying Hive Mind - the master AI that controls
       a hive of AI agents
     digest: 2a366a302a2e89b63c73105d34a2856d69b30aaf835784db32519940bf3c335d
@@ -1431,4 +1486,4 @@ entries:
     urls:
     - https://link-assistant.github.io/hive-mind/hive-mind-0.38.0.tgz
     version: 0.38.0
-generated: "2026-07-31T19:19:24.89011165Z"
+generated: "2026-08-01T07:42:46.082540569Z"

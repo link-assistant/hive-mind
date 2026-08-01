@@ -33,6 +33,7 @@ const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /** The model alias that routes a tool through the local Link.Assistant server. */
 const FORMAL_AI_MODEL = 'formal-ai';
+const FORMAL_AI_RELEASE_WITH_ISSUE_2119_FIXES = '0.317.0';
 
 // --- gemini ------------------------------------------------------------------
 
@@ -164,5 +165,14 @@ for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
 const opencodePricing = await calculateAgentPricing(FORMAL_AI_MODEL, { inputTokens: 21677, outputTokens: 22834, stepCount: 1 });
 assert.equal(opencodePricing.provider, 'Link.Assistant', 'opencode/agent: formal-ai runs are not attributed to OpenCode Zen');
 assert.equal(opencodePricing.totalCostUSD, 0, 'opencode/agent: formal-ai runs are free');
+
+// Formal AI v0.316.1 shipped the upstream half of issue #2119: workspace-effect
+// validation and recovery, scratch exclusion, endpoint validation, and strict
+// completion telemetry for all six clients. Keep every distributed Hive Mind
+// image on the same current release so users actually receive those fixes.
+for (const file of ['Dockerfile', 'Dockerfile.dind', 'Dockerfile.formal-ai', 'coolify/Dockerfile']) {
+  const source = await readFile(path.join(repoRoot, file), 'utf8');
+  assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${FORMAL_AI_RELEASE_WITH_ISSUE_2119_FIXES}$`, 'm'), `${file} installs the Formal AI release containing the upstream issue #2119 fixes`);
+}
 
 console.log(`✅ issue #2119: formal-ai stream parsing and pricing are uniform across ${FORMAL_AI_SUPPORTED_TOOLS.length} tools`);

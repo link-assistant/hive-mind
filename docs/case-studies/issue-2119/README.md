@@ -324,17 +324,17 @@ would be risk without benefit. If claude ever emits pretty-printed records, the 
 
 Nine test files, all in the `default` suite (`npm test`):
 
-| Test                                         | Guards                                                                                                                                |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `test-agent-stream-json-2119.mjs`            | pretty-printed / concatenated / chunk-split framing for agent and codex                                                               |
-| `test-formal-ai-uniform-tools-2119.mjs`      | R9 — identical token accounting and Link.Assistant $0.00 pricing on all six tools; every stream-parsing lib imports the shared framer |
-| `test-formal-ai-pricing-2119.mjs`            | D1–D3, and that non-formal-ai models keep their own provider                                                                          |
-| `test-auto-restart-budget-2119.mjs`          | D5, D6 — one budget, `N/M` labels, exhaustion fails and auto-commits                                                                  |
-| `test-shell-quoting-2119.mjs`                | D7 — the `command-stream` behaviour plus a repository-wide scan                                                                       |
-| `test-empty-pull-request-2119.mjs`           | D8, D9, D13 — empty vs placeholder-only vs unmeasured diffs                                                                           |
-| `test-working-session-summary-2119.mjs`      | D10 — the no-changes notice and workspace-path redaction                                                                              |
-| `test-ai-tool-scratch-2119.mjs`              | D11 — scratch paths excluded via `.git/info/exclude`                                                                                  |
-| `test-token-telemetry-sanitization-2119.mjs` | D12 — counters survive sanitization, real secrets still do not                                                                        |
+| Test                                         | Guards                                                                                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `test-agent-stream-json-2119.mjs`            | pretty-printed / concatenated / chunk-split framing for agent and codex                                                                      |
+| `test-formal-ai-uniform-tools-2119.mjs`      | R9 — identical token accounting and Link.Assistant $0.00 pricing on all six tools; shared stream framing; every image pins Formal AI 0.317.0 |
+| `test-formal-ai-pricing-2119.mjs`            | D1–D3, and that non-formal-ai models keep their own provider                                                                                 |
+| `test-auto-restart-budget-2119.mjs`          | D5, D6 — one budget, `N/M` labels, exhaustion fails and auto-commits                                                                         |
+| `test-shell-quoting-2119.mjs`                | D7 — the `command-stream` behaviour plus a repository-wide scan                                                                              |
+| `test-empty-pull-request-2119.mjs`           | D8, D9, D13 — empty vs placeholder-only vs unmeasured diffs                                                                                  |
+| `test-working-session-summary-2119.mjs`      | D10 — the no-changes notice and workspace-path redaction                                                                                     |
+| `test-ai-tool-scratch-2119.mjs`              | D11 — scratch paths excluded via `.git/info/exclude`                                                                                         |
+| `test-token-telemetry-sanitization-2119.mjs` | D12 — counters survive sanitization, real secrets still do not                                                                               |
 
 The uniformity test deserves a note, because it is the answer to "how do we stop
 rediscovering the same bug per tool": it asserts that every one of the five
@@ -395,6 +395,17 @@ Each is reported with a code-level fix framed as generalization: resolve the pro
 declared model capabilities with a logged default instead of substring matching, keep the
 product identity in one interpolated place instead of eight text files, and derive the
 version from the manifest so the three reported values cannot diverge.
+
+### 8.3 Upstream resolution and distribution verification
+
+Both upstream reports are resolved. Formal AI
+[PR #881](https://github.com/link-assistant/formal-ai/pull/881) shipped the generalized
+workspace-effect completion contract in v0.316.1; v0.317.0 is the current release at
+final verification. All four Hive Mind image definitions now pin v0.317.0, and the
+uniformity regression test prevents an image variant from silently retaining an older
+wrapper. Agent [PR #286](https://github.com/link-assistant/agent/pull/286) shipped the
+prompt, branding, and version fixes in npm package 0.25.4; the current `latest` package
+installed by Hive Mind images is 0.25.5.
 
 ## 9. Where the data was insufficient (R12)
 

@@ -4,7 +4,7 @@
 # isolated solve jobs have the same agentic CLIs. The pinned builder keeps this
 # file buildable before a new Hive Mind tag reaches every registry mirror.
 
-ARG FORMAL_AI_VERSION=0.305.0
+ARG FORMAL_AI_VERSION=0.317.0
 ARG HIVE_MIND_VERSION=latest
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.96-slim-bookworm AS formal-ai-builder

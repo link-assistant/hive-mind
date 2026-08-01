@@ -585,6 +585,11 @@ does not consume itself (e.g. `--tool`, `--model`, `--think`) is forwarded to
 [Automatic CI/CD Remediation](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)
 for details.
 
+If the full `/fix` workflow is unavailable, `/task --ci-cd <repository>` runs
+only the same CI/CD issue-generation step. It returns the created issue URL;
+reply with `/solve --development-log --deep-analysis --auto-merge` to continue
+the remediation through the normal solve workflow.
+
 #### `/limits` - Show Usage Limits
 
 ```

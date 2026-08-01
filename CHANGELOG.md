@@ -1,5 +1,35 @@
 # @link-assistant/hive-mind
 
+## 2.11.2
+
+### Patch Changes
+
+- 2777cf5: Stop `/task --ci-cd` and `/fix --ci-cd` from listing the same workflow many times in the generated issue (issue #2125). When the latest default-branch commit has no workflow runs — typical for release commits — the collector falls back to the recent runs of the default branch, which span many commits; every one of them became a table row, so `link-assistant/agent#287` listed two workflows twenty times and reported "20 (9 not passing)". `dedupeRunsByWorkflow()` now keeps only the most recent run of each workflow (by `workflow_id`, then `path`/`name`, resolved with `created_at`/`run_attempt`/`id`), the failure summary counts the same deduplicated set, and the branch-fallback table gained a Commit column because its rows can come from different commits. The fallback fetches 100 runs instead of 20 so a rarely-run workflow still appears after collapsing, and `prepareCiCdIssue()` logs how many runs it collapsed.
+
+## 2.11.1
+
+### Patch Changes
+
+- aea5fe1: Put the pull request back into draft whenever a working session starts, restarts or resumes (issue #2123). Draft/ready transitions now live in one shared module (`src/pr-draft-state.lib.mjs`) that is called from `startWorkSession()` for every continue-mode session — the previous `--watch`/`--auto-continue` gate is gone — and from `executeToolIteration()`, which covers watch mode, temporary auto-restart on uncommitted changes, auto-restart-until-mergeable, escalate, keep-working and auto-ensure-requirements. Limit-reset auto-resume/auto-restart now also forwards `--auto-continue` so the resumed process re-attaches to the existing PR instead of running detached from it. The helper is a no-op for PRs that are already in the target state, merged or closed, and logs the observed `isDraft`/`state` under `--verbose`.
+
+## 2.11.0
+
+### Minor Changes
+
+- 3613953: Add `/task --ci-cd <repository>` as a CI/CD remediation issue-only fallback for `/fix`.
+
+## 2.10.5
+
+### Patch Changes
+
+- 9772498: Stop reporting successful docker work sessions as failed. start-command can fabricate a detached-docker exit code from any `Exit Code: N` text the command itself printed (link-foundation/start#150), so the session monitor now trusts its own anchored log footer over `$ --status` and defers an uncorroborated docker failure for up to 60 seconds until the real footer is written.
+
+## 2.10.4
+
+### Patch Changes
+
+- f1d5026: Recover use-m dependency imports when an installed package is missing an internal module or alias cleanup hits a transient filesystem race by removing the incomplete alias with bounded retries and reloading it. The CDN bootstrap fallback is also repinned from use-m 8.13.8 to 8.14.4 so a CDN outage no longer downgrades dependency loading to a use-m without corrupt-alias recovery.
+
 ## 2.10.3
 
 ### Patch Changes

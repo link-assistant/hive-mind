@@ -556,9 +556,9 @@ zh
       locked
         options "🔒 锁定选项：`{{options}}`"
       task
-        enabled "*/task* - 根据仓库链接和 issue 文本创建 GitHub issue"
-        usage "用法：`/task <github-repository-url>` 后接 issue 文本，或回复 `/task`"
-        example "示例：`/task https://github.com/owner/repo`，然后在后续行写 issue 文本"
+        enabled "*/task* - 根据文本或 CI/CD 上下文创建 GitHub issue"
+        usage "用法：`/task <github-repository-url>` 后接 issue 文本，或 `/task --ci-cd <github-repository-url>`"
+        example "示例：`/task --ci-cd https://github.com/owner/repo` 只创建 CI/CD 修复 issue"
         disabled "*/task* / */split* - ❌ 已禁用"
       split
         enabled "*/split* - 将 GitHub issue 拆分为更小的 issue"
@@ -649,6 +649,9 @@ zh
         executing "⏳ 正在执行..."
         finished "工作会话已成功完成"
         failed "工作会话失败（退出代码：{{exitCode}}）"
+        merged_but_failed "拉取请求已合并，但工作会话退出，代码为：{{exitCode}}"
+        merged_success "请求的拉取请求已成功合并。"
+        runner_also_failed "运行器也失败了；其退出代码已保留以供调查。"
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
     duration

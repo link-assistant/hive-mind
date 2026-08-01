@@ -2,14 +2,16 @@
 /**
  * Unit tests for src/use-with-retry.lib.mjs (Issue #1710, #1712, #2092).
  *
- * Verifies that the retry helper for `use-m` recovers from the three
- * known hosted-CI flake modes:
+ * Verifies that the retry helper for `use-m` recovers from the known
+ * hosted-CI failure modes:
  *   1. SyntaxError mid-import after a truncated `npm install -g`.
  *   2. "Failed to resolve the path" after an incomplete install.
  *   3. ERR_INVALID_PACKAGE_CONFIG when the installed package.json itself
  *      is corrupt (issue #1712).
  *   4. "Failed to install <pkg> globally into <dir>" when the global
  *      `npm install -g` itself fails (issue #2092).
+ *   5. ERR_MODULE_NOT_FOUND for an internal file in an incomplete alias.
+ *   6. A retryable ENOTEMPTY race in use-m's corrupt-alias cleanup.
  *
  * Also covers wrapUseWithRetry/ensureUseM, which make every `use(...)` call
  * site in the codebase inherit this recovery (issue #2092).
@@ -18,7 +20,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { useWithRetry, wrapUseWithRetry, resolveAliasDir, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath } from '../src/use-with-retry.lib.mjs';
+import { useWithRetry, wrapUseWithRetry, resolveAliasDir, removeAliasWithRetry, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath } from '../src/use-with-retry.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -50,6 +52,18 @@ const makeInvalidPackageConfigError = pkgJsonPath => {
   return err;
 };
 
+const makeMissingTransitiveModuleError = (entryPath, missingPath) => {
+  const cause = new Error(`Cannot find module '${missingPath}' imported from ${entryPath}`);
+  cause.code = 'ERR_MODULE_NOT_FOUND';
+  return new Error(`Failed to import module from '${entryPath}'.`, { cause });
+};
+
+const makeAliasCleanupError = (aliasPath, code = 'ENOTEMPTY') => {
+  const cause = new Error(`${code}: directory not empty, rmdir '${aliasPath}/examples'`);
+  cause.code = code;
+  return new Error(`Failed to remove corrupt npm alias '${aliasPath}'.`, { cause });
+};
+
 console.log('\n📋 isCorruptInstallError\n');
 
 await test('detects SyntaxError cause as corrupt install', () => {
@@ -75,6 +89,17 @@ await test('detects ERR_INVALID_PACKAGE_CONFIG on cause', () => {
   assert.equal(isCorruptInstallError(err), true);
 });
 
+await test('detects a missing transitive module inside an installed package (issue #2113)', () => {
+  const entry = '/opt/node_modules/command-stream-v-latest/src/$.mjs';
+  const missing = '/opt/node_modules/command-stream-v-latest/src/terminal-capture.mjs';
+  assert.equal(isCorruptInstallError(makeMissingTransitiveModuleError(entry, missing)), true);
+});
+
+await test('detects use-m alias cleanup races after self-healing (issue #2113)', () => {
+  const alias = '/opt/node_modules/command-stream-v-latest';
+  assert.equal(isCorruptInstallError(makeAliasCleanupError(alias)), true);
+});
+
 await test('detects "Invalid package config" by message (no code)', () => {
   // Defensive: if the error bubbles through use-m without preserving `code`,
   // the message-prefix match still flags it as corrupt.
@@ -84,6 +109,10 @@ await test('detects "Invalid package config" by message (no code)', () => {
 
 await test('does not flag unrelated errors', () => {
   assert.equal(isCorruptInstallError(new Error('Network down')), false);
+  const unrelatedMissingModule = new Error("Cannot find package 'missing' imported from /app/index.mjs");
+  unrelatedMissingModule.code = 'ERR_MODULE_NOT_FOUND';
+  assert.equal(isCorruptInstallError(unrelatedMissingModule), false);
+  assert.equal(isCorruptInstallError(makeAliasCleanupError('/tmp/pkg-v-latest', 'EACCES')), false);
   assert.equal(isCorruptInstallError(null), false);
   assert.equal(isCorruptInstallError(undefined), false);
 });
@@ -100,6 +129,11 @@ await test('extracts directory path from resolve-failed message', () => {
 
 await test('extracts package.json path from invalid-package-config message (issue #1712)', () => {
   assert.equal(extractCorruptedFilePath(makeInvalidPackageConfigError('/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/getenv-v-latest/package.json')), '/opt/hostedtoolcache/node/24.14.1/x64/lib/node_modules/getenv-v-latest/package.json');
+});
+
+await test('extracts alias path from use-m cleanup failure (issue #2113)', () => {
+  const alias = '/opt/node_modules/command-stream-v-latest';
+  assert.equal(extractCorruptedFilePath(makeAliasCleanupError(alias)), alias);
 });
 
 await test('returns null when no path is present', () => {
@@ -161,6 +195,16 @@ await test('keeps versioned alias dirs intact', () => {
 
 await test('falls back to the parent directory without an alias segment', () => {
   assert.equal(resolveAliasDir('/tmp/pkg/index.js'), '/tmp/pkg');
+});
+
+console.log('\n📋 removeAliasWithRetry (issue #2113)\n');
+
+await test('gives recursive rm an explicit retry budget for transient filesystem races', async () => {
+  const calls = [];
+  await removeAliasWithRetry('/tmp/command-stream-v-latest', {
+    rm: async (...args) => calls.push(args),
+  });
+  assert.deepEqual(calls, [['/tmp/command-stream-v-latest', { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }]]);
 });
 
 console.log('\n📋 useWithRetry — happy path\n');
@@ -234,6 +278,41 @@ await test('retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (is
   // package.json path → cleanup() walks up to the alias dir before rm -rf.
   assert.deepEqual(cleanedPaths, ['/tmp/getenv-v-latest']);
   assert.deepEqual(result, { default: 'recovered' });
+});
+
+await test('retries after a transitive module is missing and cleans up the whole alias dir (issue #2113)', async () => {
+  const entry = '/tmp/command-stream-v-latest/src/$.mjs';
+  const missing = '/tmp/command-stream-v-latest/src/terminal-capture.mjs';
+  const cleanedPaths = [];
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) throw makeMissingTransitiveModuleError(entry, missing);
+    return { $: 'recovered' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async path => cleanedPaths.push(path),
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(cleanedPaths, ['/tmp/command-stream-v-latest']);
+  assert.deepEqual(result, { $: 'recovered' });
+});
+
+await test('recovers when use-m self-healing loses an ENOTEMPTY cleanup race (issue #2113)', async () => {
+  const alias = '/tmp/command-stream-v-latest';
+  const cleanedPaths = [];
+  let calls = 0;
+  const fakeUse = async () => {
+    calls++;
+    if (calls === 1) throw makeAliasCleanupError(alias);
+    return { $: 'recovered' };
+  };
+  const result = await useWithRetry(fakeUse, 'command-stream', {
+    cleanup: async path => cleanedPaths.push(path),
+  });
+  assert.equal(calls, 2);
+  assert.deepEqual(cleanedPaths, [alias]);
+  assert.deepEqual(result, { $: 'recovered' });
 });
 
 await test('does not retry on unrelated errors', async () => {

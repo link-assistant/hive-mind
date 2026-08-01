@@ -128,7 +128,7 @@ export function appendPullRequestLine(infoBlock, pullRequestUrl, { locale = null
   return [...before, prLine, ...after].join('\n');
 }
 
-export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, extraSections = [], locale = null } = {}) {
+export function formatSessionCompletionMessage({ sessionName, sessionInfo, statusResult = null, observedEndTime = new Date(), exitCode = null, infoBlock = '', pullRequestUrl = null, pullRequestState = null, extraSections = [], locale = null } = {}) {
   const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
   const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: statusResult?.status || null });
   const { failed, killed, signal } = outcome;
@@ -142,6 +142,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   // is an orderly, intentional termination, so surface it as such regardless of
   // which signal actually delivered the kill.
   const stopRequestedByUser = Boolean(sessionInfo?.stopRequestedByUser);
+  const pullRequestMerged = pullRequestState?.merged === true || Boolean(pullRequestState?.mergedAt);
   let statusEmojiOverride = null;
   let statusText;
   if (killed && stopRequestedByUser) {
@@ -158,6 +159,14 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
     const exitSuffix = showCode ? ` (exit code: ${finalExitCode})` : '';
     const reason = signal ? signal.reason : 'killed';
     statusText = text(messageLocale, 'telegram.work_session_killed', `Work session ${reason}${exitSuffix}`, { reason, exitCode: finalExitCode ?? '', signal: signal?.signal ?? '', exitSuffix });
+  } else if (failed && pullRequestMerged) {
+    // Issue #2117: the runner's exit code is still authoritative and must not
+    // be hidden, but calling the entire session "failed" contradicts the
+    // externally verified result when its pull request has already merged.
+    // Describe both outcomes so operators know the requested goal completed
+    // and that a later orchestration failure still needs investigation.
+    statusEmojiOverride = '⚠️';
+    statusText = text(messageLocale, 'telegram.work_session_merged_but_failed', `Pull request merged, but the work session exited with code: ${finalExitCode}`, { exitCode: finalExitCode });
   } else if (failed) {
     statusText = text(messageLocale, 'telegram.work_session_failed', `Work session failed (exit code: ${finalExitCode})`, { exitCode: finalExitCode });
   } else {
@@ -183,7 +192,8 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.
-  const extras = (Array.isArray(extraSections) ? extraSections : []).filter(Boolean);
+  const mergedWithRunnerFailureSection = failed && !killed && pullRequestMerged ? [`✅ ${text(messageLocale, 'telegram.work_session_merged_success', 'The requested pull request was merged successfully.')}`, `⚠️ ${text(messageLocale, 'telegram.work_session_runner_also_failed', 'The runner also failed; its exit code is preserved for investigation.')}`].join('\n') : null;
+  const extras = [mergedWithRunnerFailureSection, ...(Array.isArray(extraSections) ? extraSections : [])].filter(Boolean);
   if (extras.length > 0) {
     message += `\n\n${extras.join('\n\n')}`;
   }

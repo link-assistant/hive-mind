@@ -556,9 +556,9 @@ en
       locked
         options "🔒 Locked options: `{{options}}`"
       task
-        enabled "*/task* - Create a GitHub issue from a repository link and issue text"
-        usage "Usage: `/task <github-repository-url>` followed by issue text, or reply with `/task`"
-        example "Example: `/task https://github.com/owner/repo` then the issue text on following lines"
+        enabled "*/task* - Create a GitHub issue from text or CI/CD context"
+        usage "Usage: `/task <github-repository-url>` followed by issue text, or `/task --ci-cd <github-repository-url>`"
+        example "Example: `/task --ci-cd https://github.com/owner/repo` creates only the CI/CD remediation issue"
         disabled "*/task* / */split* - ❌ Disabled"
       split
         enabled "*/split* - Split a GitHub issue into smaller issues"
@@ -649,6 +649,9 @@ en
         executing "⏳ Executing..."
         finished "Work session finished successfully"
         failed "Work session failed (exit code: {{exitCode}})"
+        merged_but_failed "Pull request merged, but the work session exited with code: {{exitCode}}"
+        merged_success "The requested pull request was merged successfully."
+        runner_also_failed "The runner also failed; its exit code is preserved for investigation."
         killed "Work session {{reason}}{{exitSuffix}}"
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
     duration

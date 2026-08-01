@@ -244,11 +244,22 @@ export const logActiveHandles = async (log = null) => {
  *   guidance for the pre-exit notifier.
  */
 export const safeExit = async (code = 0, reason = 'Process completed', { skipPreExit = false, failureActionSection = null } = {}) => {
-  await showExitMessage(reason, code);
+  // Issue #2117: every best-effort step below is diagnostic housekeeping. It may
+  // fail, but it must never change the exit code the caller asked for — neither
+  // by masking a failure nor by turning a success into an uncaught exception.
+  try {
+    await showExitMessage(reason, code);
+  } catch (error) {
+    console.warn(`⚠️  Could not show exit message: ${error?.message || error}`);
+  }
 
   // Issue #2090: collect the working session that is still uncollected (and the
   // log tail produced after it) before the process goes away.
-  await finalizeActiveDevelopmentLog({ force: true });
+  try {
+    await finalizeActiveDevelopmentLog({ force: true });
+  } catch {
+    // Best-effort finalization must never change the selected process exit.
+  }
 
   if (!skipPreExit && code !== 0 && preExitFunction && !preExitHandlerRan) {
     preExitHandlerRan = true;
@@ -267,7 +278,11 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
   // Issue #1431: Drain/unref active handles so the event loop exits naturally.
   // This resolves the root causes of dangling ReadStream (stdin), Socket (undici),
   // ChildProcess (command-stream), and WriteStream (stdout/stderr) handles.
-  await drainHandles();
+  try {
+    await drainHandles();
+  } catch {
+    // Best-effort handle draining must never change the selected process exit.
+  }
 
   // Close Sentry to flush any pending events and allow the process to exit cleanly.
   // Use Promise.race with a hard timeout to guarantee sentry.close() never hangs
@@ -291,7 +306,7 @@ export const safeExit = async (code = 0, reason = 'Process completed', { skipPre
 /**
  * Install global exit handlers to ensure log path is always shown
  */
-export const installGlobalExitHandlers = () => {
+export const installGlobalExitHandlers = ({ handleProcessErrors = true } = {}) => {
   // Handle normal exit
   process.on('exit', code => {
     // Synchronous fallback - can't use async here
@@ -427,53 +442,55 @@ export const installGlobalExitHandlers = () => {
     process.exit(143);
   });
 
-  // Handle uncaught exceptions
-  process.on('uncaughtException', async error => {
-    if (cleanupFunction) {
+  if (handleProcessErrors) {
+    // Handle uncaught exceptions
+    process.on('uncaughtException', async error => {
+      if (cleanupFunction) {
+        try {
+          await cleanupFunction();
+        } catch {
+          // Ignore cleanup errors on exception
+        }
+      }
+      if (logFunction) {
+        await logFunction(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
+      }
+      await showExitMessage('Uncaught exception occurred', 1);
       try {
-        await cleanupFunction();
+        const sentry = await getSentry();
+        if (sentry && sentry.close) {
+          await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
+        }
       } catch {
-        // Ignore cleanup errors on exception
+        // Ignore Sentry.close() errors
       }
-    }
-    if (logFunction) {
-      await logFunction(`\n❌ Uncaught Exception: ${error.message}`, { level: 'error' });
-    }
-    await showExitMessage('Uncaught exception occurred', 1);
-    try {
-      const sentry = await getSentry();
-      if (sentry && sentry.close) {
-        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
-      }
-    } catch {
-      // Ignore Sentry.close() errors
-    }
-    process.exit(1);
-  });
+      process.exit(1);
+    });
 
-  // Handle unhandled rejections
-  process.on('unhandledRejection', async reason => {
-    if (cleanupFunction) {
+    // Handle unhandled rejections
+    process.on('unhandledRejection', async reason => {
+      if (cleanupFunction) {
+        try {
+          await cleanupFunction();
+        } catch {
+          // Ignore cleanup errors on rejection
+        }
+      }
+      if (logFunction) {
+        await logFunction(`\n❌ Unhandled Rejection: ${reason}`, { level: 'error' });
+      }
+      await showExitMessage('Unhandled rejection occurred', 1);
       try {
-        await cleanupFunction();
+        const sentry = await getSentry();
+        if (sentry && sentry.close) {
+          await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
+        }
       } catch {
-        // Ignore cleanup errors on rejection
+        // Ignore Sentry.close() errors
       }
-    }
-    if (logFunction) {
-      await logFunction(`\n❌ Unhandled Rejection: ${reason}`, { level: 'error' });
-    }
-    await showExitMessage('Unhandled rejection occurred', 1);
-    try {
-      const sentry = await getSentry();
-      if (sentry && sentry.close) {
-        await Promise.race([sentry.close(2000), new Promise(resolve => setTimeout(resolve, 3000))]);
-      }
-    } catch {
-      // Ignore Sentry.close() errors
-    }
-    process.exit(1);
-  });
+      process.exit(1);
+    });
+  }
 };
 
 /**

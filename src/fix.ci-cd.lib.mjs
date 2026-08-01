@@ -249,27 +249,95 @@ export function buildTemplatesSection(languages) {
   return lines.join('\n');
 }
 
-/** Render the CI/CD runs section from the GitHub Actions API payload. */
-export function buildRunsSection(runs, { emptyMessage } = {}) {
+/**
+ * Stable identity of the workflow a run belongs to (issue #2125).
+ *
+ * `workflow_id` is the authoritative key: two workflow files may share the same
+ * display `name`, and one workflow file may be renamed between runs. The name
+ * (and `path`) are only fallbacks for payloads that omit the id.
+ */
+export function runWorkflowKey(run) {
+  const workflowId = run?.workflow_id ?? run?.workflowId;
+  if (workflowId !== undefined && workflowId !== null && workflowId !== '') return `id:${workflowId}`;
+  if (run?.path) return `path:${run.path}`;
+  const name = run?.name || run?.workflowName;
+  // A run with no identity at all cannot be proven to be a duplicate.
+  return name ? `name:${String(name).toLowerCase()}` : null;
+}
+
+/** Recency of a run: newest first, using created_at, then attempt, then id. */
+function compareRunRecency(a, b) {
+  const timeA = Date.parse(a?.created_at || a?.run_started_at || '') || 0;
+  const timeB = Date.parse(b?.created_at || b?.run_started_at || '') || 0;
+  if (timeA !== timeB) return timeB - timeA;
+  const attemptA = Number(a?.run_attempt) || 0;
+  const attemptB = Number(b?.run_attempt) || 0;
+  if (attemptA !== attemptB) return attemptB - attemptA;
+  return (Number(b?.id) || 0) - (Number(a?.id) || 0);
+}
+
+/**
+ * Keep only the most recent run per workflow (issue #2125).
+ *
+ * When `/fix --ci-cd` falls back to "recent runs on the default branch" the
+ * GitHub API returns every run of every workflow across many commits, so the
+ * generated issue listed the same two workflows twenty times. One row per
+ * workflow — its latest run — is what makes the table actionable.
+ *
+ * Order of the surviving rows follows the input (the API returns newest first).
+ */
+export function dedupeRunsByWorkflow(runs) {
   const list = Array.isArray(runs) ? runs : [];
+  const bestByWorkflow = new Map(); // key -> { run, index }
+  list.forEach((run, index) => {
+    const key = runWorkflowKey(run) ?? `index:${index}`;
+    const existing = bestByWorkflow.get(key);
+    if (!existing || compareRunRecency(run, existing.run) < 0) {
+      bestByWorkflow.set(key, { run, index: existing ? existing.index : index });
+    }
+  });
+  return [...bestByWorkflow.values()].sort((a, b) => a.index - b.index).map(entry => entry.run);
+}
+
+/** How many rows `dedupeRunsByWorkflow` would drop (for verbose logging). */
+export function countDuplicateRuns(runs) {
+  const list = Array.isArray(runs) ? runs : [];
+  return list.length - dedupeRunsByWorkflow(list).length;
+}
+
+/**
+ * Render the CI/CD runs section from the GitHub Actions API payload.
+ *
+ * Runs are deduplicated per workflow (issue #2125). Pass `includeCommit: true`
+ * when the rows may come from different commits (the default-branch fallback)
+ * so it stays visible which commit each run belongs to.
+ */
+export function buildRunsSection(runs, { emptyMessage, includeCommit = false } = {}) {
+  const list = dedupeRunsByWorkflow(runs);
   if (list.length === 0) {
     return emptyMessage || 'No CI/CD runs were found for the latest default-branch commit.';
   }
-  const header = '| Workflow | Status | Conclusion | Run |\n| --- | --- | --- | --- |';
+  const header = includeCommit ? '| Workflow | Status | Conclusion | Commit | Run |\n| --- | --- | --- | --- | --- |' : '| Workflow | Status | Conclusion | Run |\n| --- | --- | --- | --- |';
   const rows = list.map(run => {
     const name = run.name || run.workflowName || 'unknown';
     const status = run.status || 'unknown';
     const conclusion = run.conclusion || (status === 'completed' ? 'unknown' : 'in_progress');
     const url = run.html_url || run.url || '';
     const runLabel = url ? `[run](${url})` : '—';
-    return `| ${name} | ${status} | ${conclusion} | ${runLabel} |`;
+    if (!includeCommit) return `| ${name} | ${status} | ${conclusion} | ${runLabel} |`;
+    const sha = shortSha(run.head_sha);
+    return `| ${name} | ${status} | ${conclusion} | ${sha ? `\`${sha}\`` : '—'} | ${runLabel} |`;
   });
   return [header, ...rows].join('\n');
 }
 
-/** Count the runs that did not pass (failure/cancelled/timed_out/etc.). */
+/**
+ * Count the runs that did not pass (failure/cancelled/timed_out/etc.).
+ * Counts one run per workflow so the summary matches the rendered table
+ * (issue #2125).
+ */
 export function summarizeRunFailures(runs) {
-  const list = Array.isArray(runs) ? runs : [];
+  const list = dedupeRunsByWorkflow(runs);
   const passing = new Set(['success', 'neutral', 'skipped']);
   const failing = list.filter(run => {
     const conclusion = (run.conclusion || '').toLowerCase();
@@ -375,7 +443,10 @@ export const CI_CD_ISSUE_LABELS = Object.freeze(['bug']);
  */
 export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, languages, runsSource = 'commit', omittedOptions = FIX_FORWARDED_SOLVE_OPTIONS }) {
   const { sortedTemplates } = mapLanguagesToTemplates(languages);
-  const { total, failing } = summarizeRunFailures(runs);
+  // One row per workflow: the branch fallback returns every run of every
+  // workflow across many commits (issue #2125).
+  const uniqueRuns = dedupeRunsByWorkflow(runs);
+  const { total, failing } = summarizeRunFailures(uniqueRuns);
 
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
@@ -385,7 +456,7 @@ export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, la
   const runsHeading = runsSource === 'branch' ? `Recent CI/CD runs on \`${defaultBranch || 'default branch'}\`` : 'Latest default-branch CI/CD runs';
   const runsEmptyMessage = runsSource === 'branch' ? `No recent CI/CD runs were found on \`${defaultBranch || 'the default branch'}\`.` : 'No CI/CD runs were found for the latest default-branch commit.';
 
-  const sections = [`### ${runsHeading}`, '', buildRunsSection(runs, { emptyMessage: runsEmptyMessage }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --ci-cd</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', '**Detected languages**', '', buildLanguagesSection(languages), '', '**Recommended CI/CD templates**', '', buildTemplatesSection(languages), '', '</details>'];
+  const sections = [`### ${runsHeading}`, '', buildRunsSection(uniqueRuns, { emptyMessage: runsEmptyMessage, includeCommit: runsSource === 'branch' }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --ci-cd</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', '**Detected languages**', '', buildLanguagesSection(languages), '', '**Recommended CI/CD templates**', '', buildTemplatesSection(languages), '', '</details>'];
 
   return sections.join('\n');
 }

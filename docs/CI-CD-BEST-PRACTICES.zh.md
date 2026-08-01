@@ -262,16 +262,37 @@ version-check:
 
 ### 10. 并发控制
 
-**防止多个工作流运行相互冲突：**
+**将可取消的只读检查与不可取消的写入任务分开。** 当工作流同时包含这两类任务时，应在任务级别配置并发控制：
 
 ```yaml
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Cancel older runs on main to always release the latest version
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+jobs:
+  lint:
+    # 加入任务标识（以及适用的 matrix 值），使无关检查保持并行，
+    # 同时让新运行仅替换对应的过时检查。
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+      cancel-in-progress: true
+    # ...
+
+  deploy:
+    needs: [lint]
+    if: ${{ !cancelled() && needs.lint.result == 'success' }}
+    # 所有写入 main 或外部部署目标的任务都使用同一个仓库级分组，
+    # 即使这些任务位于不同的工作流中。
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+    # ...
 ```
 
-在任务条件中使用 `!cancelled()` 而非 `always()`，以便取消操作正确地在任务图中传播。
+- **只读任务：** 在拉取请求和 `main` 上都取消已被取代的检查，以减少 runner 负载。为每个任务使用不同后缀；加入相关 matrix 值，使不同的 matrix 项仍可并行运行。
+- **依赖写入任务：** 使用 `needs` 并要求前置检查成功。前置任务被取消后，其写入任务不得启动。
+- **活动写入任务：** 为所有发布、部署、打标签、生成内容推送及其他写入任务使用同一个仓库级分组，并设置 `cancel-in-progress: false`。已启动的写入任务会完成，下一个写入任务在队列中等待，即使它来自另一个工作流文件。
+- **工作流范围：** 当工作流包含写入任务时，不要在工作流级别设置可取消的并发控制；否则也会中断已启动的写入任务。
+
+默认情况下，一个并发分组最多保留一个运行中任务和一个待处理任务；新的待处理写入任务会替换旧的待处理任务。如果队列中的每次写入都必须执行，请在写入任务的并发配置中加入 `queue: max`（最多可等待 100 个任务）。`queue: max` 不能与 `cancel-in-progress: true` 同时使用；执行顺序依据任务开始等待的时间，而非工作流触发顺序，因此写入任务应保持幂等。
+
+在任务条件中使用 `!cancelled()` 而非 `always()`，以便取消操作正确地在任务图中传播。单独使用 `always()` 可能导致下游工作在取消后仍继续运行。
 
 ### 11. 密钥检测
 

@@ -262,16 +262,37 @@ version-check:
 
 ### 10. Concurrency Control
 
-**एक साथ चल रहे कई workflow runs को conflict करने से रोकें:**
+**रद्द किए जा सकने वाले read-only checks को रद्द न किए जाने वाले write jobs से अलग रखें।** जब किसी workflow में दोनों तरह के काम हों, तब concurrency को job level पर configure करें:
 
 ```yaml
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Cancel older runs on main to always release the latest version
-  cancel-in-progress: ${{ github.ref == 'refs/heads/main' }}
+jobs:
+  lint:
+    # Job की पहचान (और मौजूद होने पर matrix values) शामिल करें, ताकि असंबंधित
+    # checks parallel चलें और नया run केवल उसी पुराने check को बदले।
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+      cancel-in-progress: true
+    # ...
+
+  deploy:
+    needs: [lint]
+    if: ${{ !cancelled() && needs.lint.result == 'success' }}
+    # main या किसी external deployment target पर लिखने वाले सभी jobs इस
+    # repository-wide group का उपयोग करें, भले वे अलग workflows में हों।
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+    # ...
 ```
 
-Job conditions में `always()` के बजाय `!cancelled()` उपयोग करें ताकि cancellation job graph के माध्यम से सही तरीके से propagate हो।
+- **Read-only jobs:** Runner load घटाने के लिए pull requests और `main`, दोनों पर पुराने checks रद्द करें। हर job को अलग suffix दें; matrix entries को parallel रखने के लिए संबंधित matrix values भी जोड़ें।
+- **Dependent writers:** `needs` उपयोग करें और prerequisites की सफलता आवश्यक रखें। रद्द हुए prerequisite के बाद उसका write job शुरू नहीं होना चाहिए।
+- **Active writers:** हर release, deploy, tag, generated-content push और दूसरे write job को `cancel-in-progress: false` वाला एक ही repository-scoped group दें। पहले से शुरू writer पूरा होता है और अगला writer queue में प्रतीक्षा करता है, चाहे वह किसी दूसरे workflow file से आया हो।
+- **Workflow scope:** Write jobs वाले workflow पर cancellable concurrency को workflow level पर न लगाएँ। ऐसा करने से पहले से शुरू writer भी रद्द हो जाएगा।
+
+Default रूप से concurrency group में अधिकतम एक running और एक pending job रहता है; नया pending writer पुराने pending writer को बदल देता है। यदि हर queued write चलना आवश्यक है, तो writer के concurrency block में `queue: max` जोड़ें (अधिकतम 100 jobs प्रतीक्षा कर सकते हैं)। `queue: max` को `cancel-in-progress: true` के साथ उपयोग नहीं किया जा सकता, और execution order workflow dispatch order के बजाय jobs के प्रतीक्षा शुरू करने के समय पर आधारित होता है; इसलिए write jobs idempotent होने चाहिए।
+
+Job conditions में `always()` के बजाय `!cancelled()` उपयोग करें ताकि cancellation job graph में सही ढंग से propagate हो। केवल `always()` लगाने से cancellation के बाद भी downstream work चल सकता है।
 
 ### 11. Secrets Detection
 

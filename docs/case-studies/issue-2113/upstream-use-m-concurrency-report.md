@@ -188,3 +188,33 @@ Related: [use-m #66](https://github.com/link-foundation/use-m/issues/66) /
 repair, 8.14.3) and [use-m #68](https://github.com/link-foundation/use-m/issues/68)
 (zero-retry cleanup, 8.14.4). Both fixed recovery; this report is about the
 cause the recovery keeps re-entering.
+
+## Resolution
+
+Fixed upstream and released as `use-m@8.15.0` on 2026-07-31T20:23:48Z, two
+minutes after the issue was closed. The release implements the first, second and
+fourth suggestions above:
+
+- `.use-m/<alias>.lock` in the npm global root, taken with atomic `mkdir`,
+  refreshed by an `utimes` heartbeat (`installLockHeartbeatMs`, default 1000 ms),
+  stolen when unrefreshed for `installLockStaleMs` (default 30000 ms), polled
+  every `installLockPollMs` and abandoned after `installLockTimeoutMs`, with
+  `installLock: false` as the escape hatch.
+- `.use-m/<alias>.installed.json`, written only after `npm install` returns, so
+  presence of the marker means extraction finished. `isPackageInstalled()` now
+  requires that marker; an unmarked tree may only be adopted (`adopt: true`)
+  while the alias lock is held, which closes the check-then-act window that let a
+  caller import a half-written tree.
+
+Verified with the reproduction in this report, 24 concurrent `use('command-stream')`
+calls on a cold prefix, same machine and Node 20.20.2:
+
+| use-m  | Result                                                                         |
+| ------ | ------------------------------------------------------------------------------ |
+| 8.14.4 | 22/24 fail in 58.3 s ([log](raw/experiment-upstream-use-m-8.14.4-control.log)) |
+| 8.15.0 | 0/24 in 3.5 s ([log](raw/experiment-upstream-use-m-8.15.0-fixed.log))          |
+
+The Hive Mind guard is kept rather than removed: it is the layer that still holds
+when the CDN serves an older bundle, and its per-specifier single flight
+collapses the cold wave into one `npm install` instead of serialising several,
+which the upstream lock alone does not do.

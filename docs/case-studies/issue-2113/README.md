@@ -35,6 +35,15 @@ upstream repairs in use-m 8.14.3/8.14.4, and a CDN fallback pin that no longer
 downgrades to a loader without recovery. Those layers are kept underneath: this
 round adds the prevention they could not provide.
 
+**Upstream.** The defect was reported as
+[use-m #70](https://github.com/link-foundation/use-m/issues/70) and fixed in
+`use-m@8.15.0`, which added a cross-process `.use-m/<alias>.lock` and a
+post-install marker that `isPackageInstalled()` now requires. Re-verified with
+the standalone reproduction: 8.14.4 fails 22/24 concurrent loads, 8.15.0 fails
+0/24. The CDN bootstrap fallback is pinned to 8.15.0 accordingly; the Hive Mind
+guard stays as the layer that also holds when an older bundle is served, and it
+collapses the cold wave into a single install rather than serialising several.
+
 ## Contents
 
 - [`timeline.md`](timeline.md) reconstructs the observed sequence and prior fixes.

@@ -28,6 +28,9 @@
 | 2026-07-31          | The end-to-end experiment confirms it through use-m (raw 24/24 failures) and that the single-flight guard removes it (guarded 0/24, 16× faster).                                                  |
 | 2026-07-31          | Entry-point fan-out measurement explains the workaround: `fix` starts six simultaneous installs of one alias, `solve` starts one, and `/task --ci-cd` runs in the already-warm bot process.       |
 | 2026-07-31          | The single-flight/per-alias-lock loader ships in Hive Mind and the concurrency defect is reported upstream as use-m #70.                                                                          |
+| 2026-07-31 20:21:47 | use-m #70 is closed after upstream adopts the suggested cross-process install lock and post-install marker.                                                                                       |
+| 2026-07-31 20:23:48 | `use-m@8.15.0` is published with `.use-m/<alias>.lock` (atomic `mkdir` + heartbeat + stale steal) and `.use-m/<alias>.installed.json`, which `isPackageInstalled()` now requires.                 |
+| 2026-08-01          | The upstream fix is re-verified with the same reproduction — 8.14.4 fails 22/24 concurrent loads, 8.15.0 fails 0/24 — and the CDN bootstrap fallback pin moves from 8.14.4 to 8.15.0.             |
 
 The changing absent file across four runs, and the three identical `ENOTEMPTY`
 failures inside nine seconds in the last one, rule out both a bad

@@ -37,10 +37,12 @@ assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m\/use\.js/, 'ensureUse
 assert.match(bootstrapSource, /https:\/\/unpkg\.com\/use-m@\d+\.\d+\.\d+\/use\.js/, 'ensureUseM should keep a known working pinned bootstrap fallback');
 
 // Issue #2113: the fallback must not silently downgrade dependency loading to a
-// use-m without corrupt-alias recovery. 8.14.3 added alias self-healing and
-// 8.14.4 gave its recursive removal a retry budget, so the pin may move forward
+// use-m without corrupt-alias recovery. 8.14.3 added alias self-healing,
+// 8.14.4 gave its recursive removal a retry budget, and 8.15.0 (use-m #70,
+// filed from this issue) added the cross-process install lock that prevents the
+// concurrent-install corruption in the first place, so the pin may move forward
 // but never back below that floor.
-const SELF_HEALING_USE_M_FLOOR = [8, 14, 4];
+const SELF_HEALING_USE_M_FLOOR = [8, 15, 0];
 const fallbackVersion = USE_M_BOOTSTRAP_FALLBACK_URL.match(/use-m@(\d+)\.(\d+)\.(\d+)\//);
 assert.ok(fallbackVersion, 'the bootstrap fallback should pin an exact use-m version');
 const fallbackParts = fallbackVersion.slice(1, 4).map(Number);

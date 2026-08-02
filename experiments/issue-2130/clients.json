@@ -1,0 +1,664 @@
+[
+  {
+    "aliases": [],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "codex",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "toml",
+        "path": ".codex/config.toml",
+        "protocol": "openai"
+      }
+    ],
+    "id": "codex",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "Codex CLI",
+    "no_summarize_args": [],
+    "non_interactive_args": ["exec", "--skip-git-repo-check"],
+    "orchestration_arg_replacements": [
+      {
+        "from": "read-only",
+        "to": "workspace-write"
+      }
+    ],
+    "orchestration_args": ["--json"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".codex/sessions",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "-m",
+    "vendor_orchestration_args": ["--sandbox", "workspace-write", "--json"],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": ["Allow command?", "approve this action"],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": ["web_search"],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": true,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": ["t3"],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "t3",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "anthropic": "/api/anthropic",
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "toml",
+        "path": ".codex/config.toml",
+        "protocol": "openai"
+      },
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "shell_env",
+        "path": ".profile",
+        "protocol": "anthropic"
+      }
+    ],
+    "id": "t3code",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "T3 Code",
+    "no_summarize_args": [],
+    "non_interactive_args": ["--no-browser"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": "sessions",
+    "supported_protocols": ["openai", "anthropic"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": ["serve", "--no-browser", "--host", "127.0.0.1", "--port", "{port}", "--base-dir", "{workdir}/t3-base"],
+      "launch_http_path": "/",
+      "launch_ready": "Listening on http://127.0.0.1:{port}",
+      "launch_required_output": ["Pairing URL: http://127.0.0.1:{port}/pair"],
+      "launch_subcommands": ["auth", "connect", "project", "serve", "start"],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "server",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "opencode",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".config/opencode/opencode.json",
+        "protocol": "openai"
+      }
+    ],
+    "id": "opencode",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "OpenCode",
+    "no_summarize_args": [],
+    "non_interactive_args": ["run"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": ["--auto", "--format", "json"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".local/share/opencode/opencode.db",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": ["opencode-code"],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "code",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".config/opencode/opencode.json",
+        "protocol": "openai"
+      }
+    ],
+    "id": "opencode-vscode",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "OpenCode VS Code extension",
+    "no_summarize_args": [],
+    "non_interactive_args": [],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": "",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": false,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": true,
+      "extension_glob": "{vscode_dir}/extensions/sst-dev.opencode-*",
+      "file_delivery": "",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": ["--extensions-dir", "{vscode_dir}/extensions", "--user-data-dir", "{workdir}/vscode-user-data", "{workdir}"],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "gui",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "opencode-desktop",
+    "command_env": "FORMAL_AI_OPENCODE_DESKTOP_BIN",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".config/opencode/opencode.json",
+        "protocol": "openai"
+      }
+    ],
+    "id": "opencode-desktop",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "OpenCode Desktop",
+    "no_summarize_args": [],
+    "non_interactive_args": [],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [
+      {
+        "command": "/opt/OpenCode/ai.opencode.desktop",
+        "platform": "linux"
+      },
+      {
+        "command": "/Applications/OpenCode.app/Contents/MacOS/OpenCode",
+        "platform": "macos"
+      },
+      {
+        "command": "{local_app_data}/Programs/OpenCode/OpenCode.exe",
+        "platform": "windows"
+      }
+    ],
+    "provider_id": "formalai",
+    "session_root": ".local/share/opencode/opencode.db",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": false,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "gui",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "agent",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".config/link-assistant-agent/opencode.json",
+        "protocol": "openai"
+      }
+    ],
+    "id": "agent",
+    "interactive_args": ["--interactive"],
+    "interactive_args_require_prompt": false,
+    "label": "Link Assistant Agent CLI",
+    "no_summarize_args": ["--no-summarize-session", "--compaction-model", "same"],
+    "non_interactive_args": ["-p"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": ["--permission-mode", "auto", "--no-retry-on-rate-limits", "--output-format", "stream-json"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".local/share/link-assistant-agent/storage/session",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": true,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "FORMAL_AI_API_KEY",
+    "command": "cursor-agent",
+    "command_env": "",
+    "default_protocol": "mcp",
+    "endpoints": {
+      "mcp": "/mcp"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".cursor/mcp.json",
+        "protocol": "mcp"
+      }
+    ],
+    "id": "cursor",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "Cursor CLI",
+    "no_summarize_args": [],
+    "non_interactive_args": ["-p"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": "",
+    "supported_protocols": ["mcp"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "mcp",
+      "vendor_auth_error": "authentication required"
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "GEMINI_API_KEY",
+    "command": "gemini",
+    "command_env": "",
+    "default_protocol": "gemini",
+    "endpoints": {
+      "gemini": "/api/gemini",
+      "vertex": "/api/vertex"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "shell_env",
+        "path": ".profile",
+        "protocol": "gemini"
+      }
+    ],
+    "id": "gemini",
+    "interactive_args": ["--prompt-interactive"],
+    "interactive_args_require_prompt": true,
+    "label": "Gemini CLI",
+    "no_summarize_args": [],
+    "non_interactive_args": ["-p"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": ["--skip-trust", "--approval-mode", "auto_edit", "--output-format", "stream-json"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".gemini/tmp",
+    "supported_protocols": ["gemini", "vertex"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": ["Allow command?", "approve this action"],
+      "headless_args": [],
+      "interactive_env": ["GEMINI_CLI_INTEGRATION_TEST=true"],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": ["read_file"],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "ANTHROPIC_AUTH_TOKEN",
+    "command": "claude",
+    "command_env": "",
+    "default_protocol": "anthropic",
+    "endpoints": {
+      "anthropic": "/api/anthropic"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "shell_env",
+        "path": ".profile",
+        "protocol": "anthropic"
+      }
+    ],
+    "id": "claude",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "Claude Code",
+    "no_summarize_args": [],
+    "non_interactive_args": ["--print"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": ["--permission-mode", "acceptEdits", "--output-format", "stream-json", "--verbose"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": "projects",
+    "supported_protocols": ["anthropic"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "OPENAI_API_KEY",
+    "command": "qwen",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "shell_env",
+        "path": ".profile",
+        "protocol": "openai"
+      }
+    ],
+    "id": "qwen",
+    "interactive_args": ["--prompt-interactive"],
+    "interactive_args_require_prompt": true,
+    "label": "Qwen Code",
+    "no_summarize_args": [],
+    "non_interactive_args": ["-p"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": ["--output-format", "stream-json"],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".qwen/projects",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": ["Allow command?", "approve this action"],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "GROK_API_KEY",
+    "command": "grok",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "json",
+        "path": ".grok/user-settings.json",
+        "protocol": "openai"
+      }
+    ],
+    "id": "grok",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "Grok Build",
+    "no_summarize_args": [],
+    "non_interactive_args": ["--prompt"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": ".grok",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "tool_call",
+      "forbidden_output": [],
+      "headless_args": [],
+      "interactive_env": [],
+      "interactive_preamble": [],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  },
+  {
+    "aliases": [],
+    "api_key_env": "OPENAI_API_KEY",
+    "command": "aider",
+    "command_env": "",
+    "default_protocol": "openai",
+    "endpoints": {
+      "openai": "/api/openai/v1"
+    },
+    "global_configs": [
+      {
+        "backup_suffix": ".formal-ai.bak",
+        "format": "shell_env",
+        "path": ".profile",
+        "protocol": "openai"
+      }
+    ],
+    "id": "aider",
+    "interactive_args": [],
+    "interactive_args_require_prompt": false,
+    "label": "Aider",
+    "no_summarize_args": [],
+    "non_interactive_args": ["--message"],
+    "orchestration_arg_replacements": [],
+    "orchestration_args": [],
+    "platform_commands": [],
+    "provider_id": "formalai",
+    "session_root": "",
+    "supported_protocols": ["openai"],
+    "supports_no_summarize": false,
+    "supports_non_interactive": true,
+    "vendor_model_arg": "",
+    "vendor_orchestration_args": [],
+    "verification": {
+      "chromium_sandbox_fallback": false,
+      "extension_glob": "",
+      "file_delivery": "in_band",
+      "forbidden_output": [],
+      "headless_args": ["--file", "alpha.txt"],
+      "interactive_env": [],
+      "interactive_preamble": ["3:/add alpha.txt", "2:\r"],
+      "launch_args": [],
+      "launch_http_path": "",
+      "launch_ready": "",
+      "launch_required_output": [],
+      "launch_subcommands": [],
+      "required_request_tools": [],
+      "required_response_tools": [],
+      "sandbox_user_namespaces": false,
+      "surface": "cli",
+      "vendor_auth_error": ""
+    }
+  }
+]

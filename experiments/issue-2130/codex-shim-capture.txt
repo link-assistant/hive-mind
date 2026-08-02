@@ -1,0 +1,29 @@
+ARGV:
+  --sandbox
+  read-only
+  -c
+  model_providers.formalai.name=\"formal-ai\ server\"
+  -c
+  model_providers.formalai.base_url=\"http://127.0.0.1:8080/api/openai/v1\"
+  -c
+  model_providers.formalai.env_key=\"FORMAL_AI_API_KEY\"
+  -c
+  model_providers.formalai.wire_api=\"responses\"
+  -c
+  model_catalog_json=\"/tmp/formal-ai-codex-home-config-48160-1785689355341395861/.codex/formal-ai-model-catalog.json\"
+  -c
+  model_provider=\"formalai\"
+  -c
+  model=\"formal-ai\"
+  exec
+  --model
+  formal-ai
+  --json
+  --skip-git-repo-check
+CODEX_HOME=<unset>
+OPENAI_API_KEY=
+OPENAI_BASE_URL=<unset>
+FORMAL_AI_API_KEY=<set>
+ENV(matching openai|codex|formal):
+  HOME=/tmp/formal-ai-codex-home-config-48160-1785689355341395861
+  FORMAL_AI_API_KEY=formal-ai

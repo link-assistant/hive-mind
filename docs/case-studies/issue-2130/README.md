@@ -40,10 +40,10 @@ can refer back:
 | #   | Requirement (paraphrased; the issue's own words in quotes)                                                                                                                                                    | Status                    |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
 | R1  | "First of all we must fix all false positives, false negatives, warnings and errors on Hive Mind side."                                                                                                       | ✅ done, §4               |
-| R2  | Report the remaining defects to `link-assistant/formal-ai` and `link-assistant/agent` "where applicable", each with "reproducible examples, workarounds and suggestions for fix the issue in code".           | §6                        |
+| R2  | Report the remaining defects to `link-assistant/formal-ai` and `link-assistant/agent` "where applicable", each with "reproducible examples, workarounds and suggestions for fix the issue in code".           | ✅ done, §6               |
 | R3  | "make sure that Formal AI is fully supported in Hive Mind" for **all** tools — claude, codex, agent, gemini, qwen.                                                                                            | ✅ done, §5               |
-| R4  | Agent CLI "should be fully ready to operate Formal AI".                                                                                                                                                       | §5.4 / §6                 |
-| R5  | Formal AI "should be able to code by using reasoning" per its own vision.                                                                                                                                     | upstream, §6.1            |
+| R4  | Agent CLI "should be fully ready to operate Formal AI".                                                                                                                                                       | ✅ §5.4; upstream §6.8    |
+| R5  | Formal AI "should be able to code by using reasoning" per its own vision.                                                                                                                                     | upstream, §6.1, §6.5      |
 | R6  | "download all logs and data related about the issue to this repository … compile that data to `./docs/case-studies/issue-{id}`".                                                                              | ✅ done, [`data/`](data/) |
 | R7  | Deep case study: "reconstruct timeline/sequence of events, list of each and all requirements … find root causes of the each problem, and propose possible solutions and solution plans for each requirement". | ✅ this file              |
 | R8  | "check known existing components/libraries, that solve similar problem or can help in solutions".                                                                                                             | ✅ §7                     |
@@ -268,10 +268,29 @@ three other ways ([`wrapper-argv.log`](data/runs/wrapper-argv.log), section B of
    tool receives it — which directly undercuts diagnosing any of this from the run's own logs.
 
 3. **`--interactive` is injected for `agent`**, and `exec` is dropped for `codex` (section B's argv
-   starts at `--sandbox read-only`, so codex runs its interactive TUI). Injecting interactive mode
-   into a piped, headless invocation explains the production `"mode": "stdin-stream"` /
-   `alwaysAcceptStdin: true` record and the run that never terminated on its own until Hive Mind's
-   5/5 restart limit stopped it.
+   starts at `--sandbox read-only`, so codex runs its interactive TUI). Switching a headless,
+   piped invocation into interactive mode is wrong on its face, and it matches the production
+   `"mode": "stdin-stream"` / `alwaysAcceptStdin: true` record.
+
+   It does **not**, however, explain the restarts, and an earlier draft of this section wrongly
+   said it did. [`repro-agent-interactive-stdin.mjs`](../../../experiments/issue-2130/repro-agent-interactive-stdin.mjs)
+   drives agent 0.25.5 — the production version — against a live Formal AI server with stdin closed
+   right after the prompt, with and without `--interactive`:
+
+   ```
+   agent 0.25.5
+   piped stdin, closed immediately after the prompt:
+     args as Hive Mind sends them              exit=0  4s  exited on its own
+     + --interactive (what Formal AI injects)  exit=0  4s  exited on its own
+   ```
+
+   Both shapes terminate. The production restarts came from Hive Mind's own
+   auto-restart-until-mergeable feature reacting to a run that produced no work —
+   `Mode: Auto-restart-until-mergeable`, `Max restart iterations: 5`,
+   `shouldRestart (auto-detected): false`
+   ([`agent-18-V7E0Ee.log.gz`](data/tool-logs/agent-18-V7E0Ee.log.gz):4470–4479) — not from a hung
+   process. The flag injection is still a defect worth fixing upstream; it is simply not the cause
+   of the restart loop.
 
 In the argument shape (`-p <prompt>`) the prompt is forwarded correctly to `agent`, `gemini` and
 `qwen` — but `codex` is handed `exec … --json -p <prompt> --verbose`, and **`codex exec` has no `-p`
@@ -586,6 +605,19 @@ These are defects in Formal AI 0.317.0 and, for one item, in codex-cli. Each has
 reproduction. The wrapper defects of §3 are the highest-severity group; the reasoning defects below
 are what remains once the wrapper is bypassed.
 
+All of them have been filed:
+
+| Issue                                                                   | Defect                                                                                                                            | Reproduction                                                      | Here |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ---- |
+| [formal-ai#902](https://github.com/link-assistant/formal-ai/issues/902) | codex provider config is discarded by `-c` precedence; traffic goes to `api.openai.com`                                           | `data/runs/codex-order-{before,after,fixed}.*.log`                | §3.3 |
+| [formal-ai#903](https://github.com/link-assistant/formal-ai/issues/903) | five argv-construction defects (double prefix, dropped `--verbose`, injected `--interactive`, codex `-p`/`exec`, retry flag loss) | `data/runs/wrapper-argv.log`                                      | §3.2 |
+| [formal-ai#904](https://github.com/link-assistant/formal-ai/issues/904) | agent mode reduces a repository task to plan-and-`cat`; `goal` carries the caller's system prompt                                 | `data/runs/direct-agent.log`                                      | §3.2 |
+| [formal-ai#905](https://github.com/link-assistant/formal-ai/issues/905) | success reported for a turn in which every tool call failed                                                                       | `data/runs/direct-qwen.log`                                       | §6.4 |
+| [formal-ai#906](https://github.com/link-assistant/formal-ai/issues/906) | language router extracts a token by position; refuses on `language "the"` / `"missing"`                                           | `data/probes/formal-ai-0.317.0-language-extraction.md`            | §6.1 |
+| [formal-ai#907](https://github.com/link-assistant/formal-ai/issues/907) | intent router answers the caller's framing, making gemini unusable                                                                | `data/probes/formal-ai-0.317.0-intent-hijack.log`                 | §6.5 |
+| [formal-ai#908](https://github.com/link-assistant/formal-ai/issues/908) | verification verdict tracks output presence, not exit code                                                                        | `data/runs/e2e-qwen.log`, `direct-qwen.log`, `direct-gemini3.log` | §6.6 |
+| [formal-ai#909](https://github.com/link-assistant/formal-ai/issues/909) | `--global` writes a headless config both gemini and qwen reject                                                                   | `data/probes/formal-ai-0.317.0-headless-config-gaps.log`          | §6.7 |
+
 ### 6.1 Formal AI answers "no synthesis route" unless the prompt names a language
 
 `data/probes/formal-ai-0.317.0-language-extraction.md` records the model's own words for seven
@@ -651,7 +683,97 @@ This is the most serious of the reasoning defects, because it is a false claim o
 the opposite of the "nothing was guessed" guarantee the model states in §6.1's refusals. A model
 that refuses to emit an underived program should equally refuse to report an unobserved success.
 
-### 6.5 Other reproductions held for the upstream reports
+### 6.5 Formal AI answers the caller's framing instead of the request — gemini is unusable
+
+This one is decisive for R3: on 0.317.0 the `gemini` CLI cannot drive Formal AI at all, and the
+reason is a single sentence the CLI injects.
+
+Every gemini turn is prefixed with a `<session_context>` block containing
+`Today's date is <date> (formatted according to the user's locale).` In agent mode with tools
+declared, Formal AI's intent router matches text anywhere in the request — including the caller's
+framing — and treats that _declarative_ sentence as a question to answer. It calls
+`run_shell_command("date")` and never acts on the request that follows.
+
+[`repro-intent-hijack.sh`](../../../experiments/issue-2130/repro-intent-hijack.sh) holds the server,
+protocol, tool declarations and request (`Write a hello world program in Python.`) constant and
+varies only one line of caller context
+([`formal-ai-0.317.0-intent-hijack.log`](data/probes/formal-ai-0.317.0-intent-hijack.log)):
+
+| Caller context                                 | Formal AI's tool call         |
+| ---------------------------------------------- | ----------------------------- |
+| the real gemini `<session_context>`            | `run_shell_command("date")`   |
+| the same block, only the date sentence removed | `write_file("main.py", …)` ✅ |
+| `Today's date is Sunday, August 2, 2026.`      | `run_shell_command("date")`   |
+| `The current time is 20:00.`                   | `run_shell_command("date")`   |
+| `The date is Sunday.`                          | `write_file("main.py", …)` ✅ |
+| `Today is Sunday, August 2, 2026.`             | `write_file("main.py", …)` ✅ |
+| `date`                                         | `write_file("main.py", …)` ✅ |
+| `My operating system is: linux`                | `write_file("main.py", …)` ✅ |
+| (no context at all)                            | `write_file("main.py", …)` ✅ |
+
+The trigger is phrase-level, not keyword-level: the bare word `date` does not fire it, and
+`Today is …` does not either, but `Today's date is …` and `The current time is …` both do.
+
+Five other hypotheses were tested first and **disproved** — the gemini protocol adapter, the session
+preamble as such, system-prompt size (swept 0 → 73,438 prompt tokens), the mere presence of tool
+declarations, and multi-part turns. Each has a script in `experiments/issue-2130/`
+(`repro-gemini-protocol.sh`, `repro-preamble-routing.sh`, `repro-system-prompt-size.sh`,
+`repro-toolcall-routing.sh`, `repro-multipart-parts.sh`). They are recorded in
+[formal-ai#907](https://github.com/link-assistant/formal-ai/issues/907) to shrink the maintainer's
+search space rather than discarded.
+
+### 6.6 The verification verdict tracks output presence, not the exit code
+
+§6.4 showed a failing command reported as success. The same predicate fires in the opposite
+direction, and there it destroys correct work:
+
+| Log                                                  | Verification command            | `Output:`               | `Exit Code:` | Verdict       |
+| ---------------------------------------------------- | ------------------------------- | ----------------------- | ------------ | ------------- |
+| [`direct-gemini3.log`](data/runs/direct-gemini3.log) | `cat hello.txt`                 | `exactly: Hello World`  | `0`          | success ✓     |
+| [`direct-qwen.log`](data/runs/direct-qwen.log)       | `cat hello.txt`                 | `cat: … No such file …` | **`1`**      | **success** ✗ |
+| [`e2e-qwen.log`](data/runs/e2e-qwen.log)             | `python3 -m py_compile main.py` | `(empty)`               | **`0`**      | **failure** ✗ |
+
+Row 3 is a correct hello-world program thrown away because Formal AI chose `py_compile` as its own
+verification step and then read that command's documented silence-on-success as a failure. The exit
+code was available — Formal AI quoted the whole `Exit Code: 0` block back verbatim in its failure
+message. Filed as [formal-ai#908](https://github.com/link-assistant/formal-ai/issues/908).
+
+### 6.7 `formal-ai with <tool> --global` writes a config both gemini and qwen reject
+
+[`repro-headless-config-gaps.sh`](../../../experiments/issue-2130/repro-headless-config-gaps.sh)
+runs each CLI twice — with exactly what `--global` writes, and with that plus the one missing piece
+([`formal-ai-0.317.0-headless-config-gaps.log`](data/probes/formal-ai-0.317.0-headless-config-gaps.log)):
+
+| Tool     | What `--global` writes                                                    | Missing                                  | Without it                                                                           |
+| -------- | ------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `gemini` | `GEMINI_API_KEY`, `GEMINI_DEFAULT_AUTH_TYPE`, `GOOGLE_GEMINI_BASE_URL`, … | `security.auth.selectedType` in settings | `Invalid auth method selected.` — refuses to start                                   |
+| `qwen`   | `OPENAI_API_KEY`, `OPENAI_BASE_URL`                                       | `OPENAI_MODEL`                           | `No auth type is selected. Please configure an auth type … in non-interactive mode.` |
+
+Both CLIs read auth selection from a settings file, not from environment variables alone, so the
+env-only setup can never be sufficient for them. Filed as
+[formal-ai#909](https://github.com/link-assistant/formal-ai/issues/909). Hive Mind is not affected:
+§5.2 takes the programmatic route and materialises both pieces in
+[`src/formal-ai-runtime.lib.mjs`](../../../src/formal-ai-runtime.lib.mjs).
+
+### 6.8 Negative result — no `link-assistant/agent` filing is warranted
+
+R2 asks for reports to `link-assistant/agent` as well as `link-assistant/formal-ai`. After testing,
+there is nothing to file there, and this section records why rather than leaving the requirement
+looking unexamined.
+
+The one candidate was the agent run that produced no work across six attempts (§2). §3.2.1 item 3
+originally attributed that to the injected `--interactive` flag hanging on piped stdin.
+[`repro-agent-interactive-stdin.mjs`](../../../experiments/issue-2130/repro-agent-interactive-stdin.mjs)
+disproves it: agent 0.25.5 — the production version — exits 0 in 4 s with stdin closed, in both the
+plain and the `--interactive` shape. The 5/5 restarts were Hive Mind's own
+auto-restart-until-mergeable feature reacting to an empty result, and every remaining agent-side
+symptom traces to Formal AI's argv construction, already filed as
+[formal-ai#903](https://github.com/link-assistant/formal-ai/issues/903).
+
+`agent` behaved correctly throughout. The correction was also posted to #903 so the severity there
+is not overstated.
+
+### 6.9 Other reproductions held for the upstream reports
 
 Each of these has a stored reproduction against formal-ai 0.317.0.
 
@@ -695,9 +817,9 @@ Each of these has a stored reproduction against formal-ai 0.317.0.
 | Requirement | Plan                                                                                                        | Where                                                                                    |
 | ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | R1          | Fix each false positive/negative/warning/error evidenced in the stored logs; add regression tests           | §4; `tests/test-issue-2130-log-noise.mjs`, `tests/test-issue-2130-formal-ai-runtime.mjs` |
-| R2          | File upstream issues with the reproductions in §6                                                           | §6                                                                                       |
+| R2          | File upstream issues with the reproductions in §6 — formal-ai#902–#909; none warranted for `agent` (§6.8)   | §6                                                                                       |
 | R3, R4      | Direct-endpoint runtime for all six CLIs                                                                    | §5; `src/formal-ai-runtime.lib.mjs`                                                      |
-| R5          | Upstream — the router and the verification claim                                                            | §6.1, §6.4                                                                               |
+| R5          | Upstream — the language router (#906), the intent router (#907), the verification verdict (#905, #908)      | §6.1, §6.4, §6.5, §6.6                                                                   |
 | R6, R7      | This folder and this file                                                                                   | [`data/`](data/)                                                                         |
 | R8          | Component survey                                                                                            | §7                                                                                       |
 | R9          | Codex run diagnostics extracted and unit-tested; Formal AI runtime logs endpoint/protocol/config/env        | §4.7                                                                                     |

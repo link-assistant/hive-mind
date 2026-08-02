@@ -19,7 +19,7 @@ import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { executeGeminiCommand } from '../src/gemini.lib.mjs';
 import { buildDockerIsolationStartArgs, resolveFormalAiIsolationEnv } from '../src/isolation-runner.lib.mjs';
 import { getValidModelsForTool, isModelCompatibleWithTool, mapModelForTool, primaryModelNames, validateModelName } from '../src/models/index.mjs';
-import { resolveFormalAiToolExecution, validateFormalAiToolConnection } from '../src/formal-ai.lib.mjs';
+import { parseFormalAiVersion, readFormalAiVersion, resolveFormalAiToolExecution, validateFormalAiToolConnection } from '../src/formal-ai.lib.mjs';
 import { executeOpenCodeCommand } from '../src/opencode.lib.mjs';
 import { executeQwenCommand } from '../src/qwen.lib.mjs';
 
@@ -258,6 +258,7 @@ test('Formal AI connection validation checks the client registry and selected CL
     env: { HIVE_MIND_FORMAL_AI_PATH: '/opt/formal-ai' },
     run: async (command, args) => {
       calls.push({ command, args });
+      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
       if (command === '/opt/formal-ai') return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai', global_configs: [] }]) };
       return { stdout: 'qwen 1.2.3\n' };
     },
@@ -265,9 +266,11 @@ test('Formal AI connection validation checks the client registry and selected CL
 
   assert.equal(result.valid, true);
   assert.equal(result.version, 'qwen 1.2.3');
+  assert.equal(result.formalAiVersion, '0.317.0');
   assert.equal(result.client, 'qwen');
   assert.equal(result.protocol, 'openai');
   assert.deepEqual(calls, [
+    { command: '/opt/formal-ai', args: ['--version'] },
     { command: '/opt/formal-ai', args: ['clients', '--format', 'json'] },
     { command: 'qwen', args: ['--version'] },
   ]);
@@ -276,12 +279,53 @@ test('Formal AI connection validation checks the client registry and selected CL
 test('Formal AI connection validation reports a tool Formal AI cannot configure', async () => {
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
-    run: async () => ({ stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) }),
+    run: async (command, args) => {
+      if (args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      return { stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) };
+    },
   });
 
   assert.equal(result.valid, false);
   assert.match(result.error, /does not list a client configuration for "qwen"/);
   assert.match(result.error, /claude, codex/);
+  // Issue #2130: the wrapper version has to survive onto the failure path too,
+  // because that is the path whose logs get attached to the pull request.
+  assert.equal(result.formalAiVersion, '0.317.0');
+});
+
+test('Formal AI wrapper version is parsed from the --version line and reported on every result path', async () => {
+  assert.equal(parseFormalAiVersion('formal-ai 0.317.0\n'), '0.317.0');
+  assert.equal(parseFormalAiVersion('  formal-ai 0.317.0  '), '0.317.0');
+  assert.equal(parseFormalAiVersion('0.317.0'), '0.317.0');
+  assert.equal(parseFormalAiVersion(''), null);
+  assert.equal(parseFormalAiVersion(null), null);
+
+  assert.equal(await readFormalAiVersion({ env: {}, run: async () => ({ stdout: 'formal-ai 1.0.0' }) }), '1.0.0');
+});
+
+test('An unreadable Formal AI wrapper version never fails the run', async () => {
+  // `--version` is diagnostics, not a gate: a wrapper that cannot answer it must
+  // still be allowed to dispatch.
+  const result = await validateFormalAiToolConnection('qwen', {
+    env: {},
+    run: async (command, args) => {
+      if (args[0] === '--version' && command !== 'qwen') throw new Error('unknown flag: --version');
+      if (command === 'qwen') return { stdout: 'qwen 1.2.3' };
+      return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai' }]) };
+    },
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.formalAiVersion, null);
+  assert.equal(
+    await readFormalAiVersion({
+      env: {},
+      run: async () => {
+        throw new Error('ENOENT');
+      },
+    }),
+    null
+  );
 });
 
 test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', () => {

@@ -103,11 +103,36 @@ Error: Input must be provided either through stdin or as a prompt argument when 
 
 — [`claude-02-FTn7sm.log:466`](data/tool-logs/claude-02-FTn7sm.log)
 
-The wrapper did not forward the `-p <value>` pair. Formal AI's own completion record agrees and is
-honest about it — `"completion_state": "failed"`, `"reason": "client_failed"`,
-`"actual_endpoint": null`, `input_tokens: 0`, `output_tokens: 0`
-([`claude-02-FTn7sm.log:483-500`](data/tool-logs/claude-02-FTn7sm.log)) — so no model ever saw the
-task. Total elapsed: 2 s.
+claude only emits that message when neither the positional prompt nor stdin carried anything, so the
+`-p "Issue to solve: …"` the caller supplied did not survive the wrapper. Formal AI's own completion
+record agrees and is honest about it — `"completion_state": "failed"`, `"reason": "client_failed"`,
+`"actual_endpoint": null`, `input_tokens: 0`, `output_tokens: 0`, `"attempts": 1`,
+`"strategies_spent": []`
+([`claude-02-FTn7sm.log:483-534`](data/tool-logs/claude-02-FTn7sm.log)) — so no model ever saw the
+task, and the recovery ladder never engaged because the client died before the first turn. Total
+elapsed: 2 s.
+
+**The mechanism is not yet pinned down, and an attempt to reproduce it failed.**
+[`experiments/issue-2130/repro-claude-lost-prompt.sh`](../../../experiments/issue-2130/repro-claude-lost-prompt.sh)
+rebuilds the production command line — same flag order, same `--disallowedTools` list, same
+multi-line prompt, `--append-system-prompt` after `-p` as in production — against a fake `claude`
+that records its argv, and then replays that argv against the real `claude`. On formal-ai 0.317.0 the
+prompt **is** forwarded:
+
+```text
+--permission-mode acceptEdits --output-format stream-json --verbose --print \
+  --output-format stream-json --verbose --dangerously-skip-permissions --model formal-ai \
+  --strict-mcp-config --mcp-config … --disallowedTools AskUserQuestion … ScheduleWakeup \
+  -p 'Issue to solve: https://github.com/…'
+```
+
+and the replay reaches the API rather than the parse error. Several narrower hypotheses were tested
+and each is disproved: claude accepts a duplicated `--print` before `-p <value>`; it accepts
+`-p <value>` followed by `--append-system-prompt <value>`; and it accepts `-p <value>` after a
+variadic `--disallowedTools` list. So the production failure is version- or condition-specific
+rather than an inherent property of that command shape. Two things follow: the log stays the primary
+evidence, and the upstream report asks for a regression test over the forwarded argv rather than
+proposing a specific line to change.
 
 ### 3.2 `agent` — the argv is mangled, and the task is then reduced to a no-op
 

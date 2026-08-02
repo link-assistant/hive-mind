@@ -109,12 +109,41 @@ export const buildFormalAiEnvExports = env =>
     .join('');
 
 /**
+ * `formal-ai --version` prints a line such as "formal-ai 0.317.0"; keep only the
+ * version so the log records a value that can be compared against a release.
+ */
+export const parseFormalAiVersion = stdout => {
+  const line = String(stdout || '')
+    .split('\n')
+    .map(entry => entry.trim())
+    .find(Boolean);
+  if (!line) return null;
+  return line.replace(/^formal-ai\s+/i, '').trim() || null;
+};
+
+/**
+ * The wrapper's behaviour changes between releases — issue #2130's round-2
+ * failures could not be pinned to a mechanism because no log recorded which
+ * wrapper produced them. Ask the wrapper for its version, but never let that
+ * question decide whether the run may proceed.
+ */
+export const readFormalAiVersion = async ({ env = process.env, run = execFileAsync, timeoutMs = 30_000 } = {}) => {
+  try {
+    const result = await run(resolveFormalAiPath(env), ['--version'], { encoding: 'utf8', env: { ...process.env, ...env }, timeout: timeoutMs });
+    return parseFormalAiVersion(result?.stdout);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Check that the Formal AI wrapper and the selected native CLI are both usable
  * without starting a model server or spending a model request.
  */
 export const validateFormalAiToolConnection = async (tool, { env = process.env, run = execFileAsync, timeoutMs = 30_000 } = {}) => {
   const command = resolveFormalAiPath(env);
   const args = ['clients', '--format', 'json'];
+  const formalAiVersion = await readFormalAiVersion({ env, run, timeoutMs });
 
   let clients;
   try {
@@ -124,6 +153,7 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
       valid: false,
       command,
       args,
+      formalAiVersion,
       error: error?.stderr?.trim() || error?.message || String(error),
       code: error?.code,
     };
@@ -135,6 +165,7 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
       valid: false,
       command,
       args,
+      formalAiVersion,
       error: `Formal AI does not list a client configuration for "${tool}" (available: ${(clients || []).map(entry => entry.id).join(', ')})`,
     };
   }
@@ -147,6 +178,7 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
       args,
       client: client.id,
       protocol: client.default_protocol,
+      formalAiVersion,
       version: result?.stdout?.trim() || null,
     };
   } catch (error) {
@@ -154,6 +186,7 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
       valid: false,
       command,
       args,
+      formalAiVersion,
       error: error?.stderr?.trim() || error?.message || String(error),
       code: error?.code,
     };

@@ -61,11 +61,14 @@ for (const tool of tools) {
     console.log(`[${tool}] notes=${runtime.notes.join(' | ')}`);
 
     const { args, stdin } = ARGS_BY_TOOL[tool]();
-    const result = await run(tool, args, { cwd: workdir, env: { ...process.env, ...runtime.env }, stdin });
+    // `PWD` is inherited from this process; OpenCode-derived CLIs resolve the project
+    // root from it rather than from the spawn cwd, so it has to track `workdir`.
+    const result = await run(tool, args, { cwd: workdir, env: { ...process.env, PWD: workdir, ...runtime.env }, stdin });
     const helloPath = join(workdir, 'hello.txt');
     const created = existsSync(helloPath);
     const content = created ? await readFile(helloPath, 'utf8') : null;
-    const logPath = join('experiments/issue-2130', `e2e-${tool}.log`);
+    // `experiments/**/*.log` is gitignored, `docs/case-studies/**/*.log` is not.
+    const logPath = join('docs/case-studies/issue-2130/data/runs', `e2e-${tool}.log`);
     await writeFile(logPath, `# exit=${result.code} signal=${result.signal}\n## stdout\n${result.stdout}\n## stderr\n${result.stderr}\n`);
     results.push({ tool, exit: result.code, signal: result.signal, created, content, seconds: Math.round((Date.now() - started) / 1000), log: logPath });
     console.log(`[${tool}] exit=${result.code} hello.txt=${created ? JSON.stringify(content) : 'MISSING'} (${logPath})`);

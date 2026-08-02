@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { buildFormalAiClientEnv, buildGeminiAuthSettings, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
+import { buildFormalAiClientEnv, buildGeminiAuthSettings, buildQwenAuthEnv, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -185,6 +185,27 @@ test('buildGeminiAuthSettings selects the API-key auth headless runs require', (
   assert.deepEqual(buildGeminiAuthSettings(), { security: { auth: { selectedType: 'gemini-api-key' } } });
 });
 
+// --- qwen headless auth -----------------------------------------------------
+
+test('buildQwenAuthEnv completes the triple Qwen Code needs to detect OpenAI auth', () => {
+  // Formal AI's `.profile` block writes only the key and the base URL, so
+  // `getAuthTypeFromEnv` returns undefined and the run aborts with
+  // "No auth type is selected".
+  assert.deepEqual(buildQwenAuthEnv({ OPENAI_API_KEY: 'formal-ai', OPENAI_BASE_URL: 'http://127.0.0.1:1/api/openai/v1' }), { OPENAI_MODEL: 'formal-ai' });
+});
+
+test('buildQwenAuthEnv never overrides a model the operator already set', () => {
+  const base = { OPENAI_API_KEY: 'formal-ai', OPENAI_BASE_URL: 'http://127.0.0.1:1/api/openai/v1' };
+  assert.deepEqual(buildQwenAuthEnv({ ...base, OPENAI_MODEL: 'qwen3-coder-plus' }), {});
+  assert.deepEqual(buildQwenAuthEnv({ ...base, QWEN_MODEL: 'qwen3-coder-plus' }), {});
+});
+
+test('buildQwenAuthEnv stays out of the way when the OpenAI protocol is not in play', () => {
+  assert.deepEqual(buildQwenAuthEnv({}), {});
+  assert.deepEqual(buildQwenAuthEnv({ OPENAI_API_KEY: 'formal-ai' }), {});
+  assert.deepEqual(buildQwenAuthEnv({ OPENAI_BASE_URL: 'http://127.0.0.1:1/api/openai/v1' }), {});
+});
+
 // --- client registry --------------------------------------------------------
 
 test('loadFormalAiClientRegistry accepts both the array and the wrapped registry shape', async () => {
@@ -252,6 +273,7 @@ const registryFor = tool =>
     claude: { id: 'claude', api_key_env: 'ANTHROPIC_API_KEY', default_protocol: 'anthropic', endpoints: { anthropic: '/api/anthropic' }, global_configs: [{ format: 'shell_env', path: '.profile' }] },
     gemini: { id: 'gemini', api_key_env: 'GEMINI_API_KEY', default_protocol: 'gemini', endpoints: { gemini: '/api/gemini' }, global_configs: [{ format: 'shell_env', path: '.profile' }] },
     codex: { id: 'codex', default_protocol: 'openai', endpoints: { openai: '/api/openai/v1' }, global_configs: [{ format: 'toml', path: '.codex/config.toml' }] },
+    qwen: { id: 'qwen', api_key_env: 'OPENAI_API_KEY', default_protocol: 'openai', endpoints: { openai: '/api/openai/v1' }, global_configs: [{ format: 'shell_env', path: '.profile' }] },
   })[tool];
 
 const prepareWithStubs = async ({ tool, env = {}, profile = null }) => {
@@ -320,6 +342,22 @@ test('prepareFormalAiRuntime injects the gemini auth settings through the system
     assert.ok(!('HOME' in runtime.env), 'overriding HOME would hide the operator git/gh/ssh configuration from gemini shell calls');
     const written = JSON.parse(await readFile(join(home, '.gemini', 'settings.json'), 'utf8'));
     assert.deepEqual(written, buildGeminiAuthSettings());
+  } finally {
+    await runtime.stop();
+    resetFormalAiRuntimeCache();
+  }
+});
+
+test('prepareFormalAiRuntime completes the qwen auth triple from the .profile block', async () => {
+  const { runtime } = await prepareWithStubs({ tool: 'qwen', profile: 'export OPENAI_API_KEY="formal-ai"\nexport OPENAI_BASE_URL="http://127.0.0.1:41235/api/openai/v1"\n' });
+
+  try {
+    assert.equal(runtime.env.OPENAI_MODEL, 'formal-ai');
+    assert.equal(runtime.env.OPENAI_BASE_URL, 'http://127.0.0.1:41235/api/openai/v1');
+    assert.ok(
+      runtime.notes.some(note => note === 'OPENAI_MODEL=formal-ai'),
+      'the injected variable is reported in verbose mode'
+    );
   } finally {
     await runtime.stop();
     resetFormalAiRuntimeCache();

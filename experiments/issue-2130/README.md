@@ -15,6 +15,7 @@ is covered by `.gitignore`, `docs/case-studies/**/*.log` is not).
 | `e2e-direct-endpoint.mjs` | Live end-to-end harness for the fix. Starts `formal-ai serve --agent-mode`, materialises the per-client config in an isolated HOME, then runs the **native** CLI with the resulting environment. Usage: `node e2e-direct-endpoint.mjs claude agent codex qwen gemini opencode`; override the prompt with `HIVE_E2E_PROMPT`. |
 | `probe-stdin.mjs`         | Minimal reproduction of the `formal-ai with` wrapper consuming stdin without forwarding it once a workspace-effect keyword (`create`/`write`/`implement`) appears anywhere in argv.                                                                                                                                         |
 | `repro-claude-*.mjs`      | Variants that isolate which layer drops the prompt: raw `spawn` (`-spawn`), command-stream (`-command-stream`), the full Hive Mind claude path (`-full`), the keyword that flips the wrapper into recovery mode (`-trigger`), and the fixed path (`-fix`).                                                                  |
+| `probe-pwd.mjs`           | Checks whether `command-stream`'s `cwd` option keeps `PWD` in sync. OpenCode-derived CLIs resolve the project root from `process.env.PWD`, not from the spawn `cwd`, so a raw `spawn({ cwd })` writes files into the parent's directory.                                                                                    |
 | `shim/`                   | Fake `claude`/`codex`/`agent`/`opencode`/`qwen`/`gemini` executables that record the argv and stdin the wrapper actually hands them (`shim/_capture.sh`).                                                                                                                                                                   |
 
 ## Captured output
@@ -33,6 +34,7 @@ Everything else lives in `docs/case-studies/issue-2130/data/runs`:
 | `codex-order-*.log`, `codex-workaround*.log`, `repro-codex.*` | `-c` overrides passed after `exec` replacing the global `-c` set → 401 against `api.openai.com`, and the `CODEX_HOME` workaround.        |
 | `direct-*.log`                                                | First direct-endpoint runs per tool (before the harness was generalised).                                                                |
 | `e2e-*.log`                                                   | Runs of `e2e-direct-endpoint.mjs`; `e2e-run-claude-js.log` is the run where claude emitted 11 `tool_use` events and created `hello.txt`. |
+| `e2e-final-*.log`                                             | One six-tool run of `e2e-direct-endpoint.mjs` with the same prompt: every CLI reaches Formal AI and exits 0 (`e2e-final-summary.log`).   |
 
 Logs are kept as captured (sanitized) so the observed behaviour stays reviewable
 without re-running against a live Formal AI server.

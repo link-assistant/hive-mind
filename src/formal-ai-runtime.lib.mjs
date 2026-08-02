@@ -56,6 +56,10 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 export const FORMAL_AI_DEFAULT_API_KEY = 'formal-ai';
+// Mirrors `FORMAL_AI_MODEL_ALIAS` from `src/models/index.mjs`. Kept as a literal
+// so this module stays on node builtins only — `models/index.mjs` fetches `use-m`
+// from the network at import time.
+export const FORMAL_AI_MODEL_NAME = 'formal-ai';
 export const FORMAL_AI_DEFAULT_HOST = '127.0.0.1';
 export const FORMAL_AI_SERVER_READY_TIMEOUT_MS = 90_000;
 
@@ -100,6 +104,22 @@ export const parseShellEnvExports = (text, { apiKey = FORMAL_AI_DEFAULT_API_KEY 
  * operator's `git`/`gh`/ssh configuration from the tool's own shell commands.
  */
 export const buildGeminiAuthSettings = () => ({ security: { auth: { selectedType: 'gemini-api-key' } } });
+
+/**
+ * Qwen Code has the same headless-auth gap as Gemini CLI, but resolves it from
+ * the environment rather than from settings. `getAuthTypeFromEnv`
+ * (qwen-code 0.21.2, `packages/core/src/config/models.ts`) only returns the
+ * OpenAI auth type when **all three** of `OPENAI_API_KEY`, `OPENAI_BASE_URL` and
+ * one of `OPENAI_MODEL` / `QWEN_MODEL` are set. Formal AI's `.profile` block
+ * writes the first two, so `validateNonInteractiveAuth` aborted every run with
+ * "No auth type is selected. Please configure an auth type (e.g. via settings or
+ * `--auth-type`) before running in non-interactive mode."
+ *
+ * The model name is only read for auth detection here — `--model` on the command
+ * line still wins in `resolveCliGenerationConfig` — so echoing back the model
+ * Formal AI itself serves is enough to complete the triple.
+ */
+export const buildQwenAuthEnv = (env = {}) => (env.OPENAI_API_KEY && env.OPENAI_BASE_URL && !env.OPENAI_MODEL && !env.QWEN_MODEL ? { OPENAI_MODEL: FORMAL_AI_MODEL_NAME } : {});
 
 const findFreePort = async (host = FORMAL_AI_DEFAULT_HOST) =>
   new Promise((resolve, reject) => {
@@ -361,6 +381,14 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       await writeFile(settingsPath, `${JSON.stringify(buildGeminiAuthSettings(), null, 2)}\n`);
       clientEnv.GEMINI_CLI_SYSTEM_SETTINGS_PATH = settingsPath;
       notes.push(`GEMINI_CLI_SYSTEM_SETTINGS_PATH=${settingsPath}`);
+    }
+
+    if (tool === 'qwen') {
+      // Upstream gap: Qwen Code detects the auth type from a three-variable
+      // combination and Formal AI's `.profile` block only writes two of them.
+      const qwenAuthEnv = buildQwenAuthEnv(clientEnv);
+      Object.assign(clientEnv, qwenAuthEnv);
+      for (const name of Object.keys(qwenAuthEnv)) notes.push(`${name}=${qwenAuthEnv[name]}`);
     }
 
     if (verbose) {

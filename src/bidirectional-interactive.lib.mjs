@@ -23,6 +23,7 @@
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { getLiveInputCapability, getLiveInputCapabilityRows, getLiveInputMode, isLiveInputSupported, LIVE_INPUT_MODE_FALLBACK, LIVE_INPUT_MODE_STREAM } from './live-input-capabilities.lib.mjs';
 // Configuration constants
 const CONFIG = {
@@ -186,7 +187,7 @@ export const createBidirectionalHandler = options => {
   const resolveOwnUserLogin = async () => {
     if (ownUserResolved) return ownUserLogin;
     try {
-      const result = await $`gh api user --jq .login`;
+      const result = await quietProbe($)`gh api user --jq .login`;
       ownUserLogin = (result.stdout?.toString() || '').trim() || null;
     } catch (error) {
       if (verbose) {

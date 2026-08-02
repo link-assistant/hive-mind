@@ -449,6 +449,13 @@ export const execGhWithRetry = async (command, options = {}) => {
  *   const { $: rawDollar } = await use('command-stream');
  *   const $ = wrapDollarWithGhRetry(rawDollar);
  *
+ * The wrapper also forwards command-stream's options-call form, so the
+ * "do not mirror this probe" idiom (see src/quiet-probe.lib.mjs) keeps working
+ * on a wrapped `$` - issue #2130, where read-only probes dumped raw API
+ * payloads into the log that gets attached to the pull request:
+ *
+ *   await $(QUIET_PROBE)`gh api repos/${owner}/${repo}`;
+ *
  * @template T
  * @param {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>} dollar
  * @param {object} [options] - forwarded to ghWithRateLimitRetry per call.
@@ -456,6 +463,12 @@ export const execGhWithRetry = async (command, options = {}) => {
  */
 export const wrapDollarWithGhRetry = (dollar, options = {}) => {
   const wrapped = (strings, ...values) => {
+    // Options-call form: `$({ mirror: false })` returns a new tag bound to
+    // those options. Template literals always arrive as an array of quasis, so
+    // a plain object here is unambiguous.
+    if (strings && !Array.isArray(strings) && typeof strings === 'object') {
+      return wrapDollarWithGhRetry(dollar(strings), options);
+    }
     // Reconstruct the literal command for inspection (sufficient — leading
     // `gh ` is what we care about).
     let preview = '';

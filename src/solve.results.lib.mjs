@@ -15,6 +15,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const path = (await use('path')).default;
 
@@ -719,7 +720,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
   try {
     // Get the current user's GitHub username
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
 
     if (userResult.code !== 0) {
       throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
@@ -1139,7 +1140,7 @@ export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackTool
 export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => {
   try {
     // Get the current user's GitHub username
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
     if (userResult.code !== 0) {
       return false; // Cannot determine, default to not attaching
     }

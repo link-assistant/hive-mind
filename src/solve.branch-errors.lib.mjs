@@ -10,6 +10,7 @@
 import { reportError } from './sentry.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 export async function handleBranchCheckoutError({ branchName, prNumber, errorOutput, issueUrl, owner, repo, tempDir, argv, formatAligned, log, $ }) {
   // Check if this is a PR from a fork
   let isForkPR = false;
@@ -67,7 +68,7 @@ export async function handleBranchCheckoutError({ branchName, prNumber, errorOut
 
     // Check if the current user has a fork of this repository
     try {
-      const userResult = await $`gh api user --jq .login`;
+      const userResult = await quietProbe($)`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
         // Determine fork name based on --prefix-fork-name-with-owner-name option

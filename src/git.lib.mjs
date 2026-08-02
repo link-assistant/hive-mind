@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { exec } from 'child_process';
+
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -86,7 +88,14 @@ export const getGitVersion = async (execFunc = execAsync, currentVersion) => {
 };
 
 // Helper function for async git operations with zx
-export const getGitVersionAsync = async ($, currentVersion) => {
+//
+// Issue #2130: every probe below is quiet. They answer questions the caller
+// asks about its own checkout ("is this a git repo?", "what is HEAD?"), and
+// their bare answers - a `.git` path, a tag, a short SHA - were mirrored into
+// the log attached to the pull request with nothing to explain them. The
+// version this function computes is logged in words by the caller.
+export const getGitVersionAsync = async (dollar, currentVersion) => {
+  const $ = quietProbe(dollar);
   // First check if we're in a git repository to avoid "fatal: not a git repository" errors
   // Redirect stderr to /dev/null at shell level to prevent error messages from appearing
   try {

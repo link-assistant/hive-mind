@@ -19,6 +19,7 @@ import { buildCostInfoString } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
 import { execGhWithRetry } from './github-rate-limit.lib.mjs';
+import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 // Issue #1625: Named marker constants (single source of truth) + in-memory
 // tracking for tool-posted comments. See tool-comments.lib.mjs for design.
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -47,7 +48,7 @@ export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
     // caller is usually looking for. Mirroring the command would print the whole
     // contents payload on a hit and `gh: Not Found (HTTP 404)` on a miss, which
     // reads as a failure in the log even though nothing went wrong.
-    const result = await $({ mirror: false, capture: true })`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
+    const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
     return result.code === 0;
   } catch (error) {
     // File doesn't exist or access error - this is expected behavior
@@ -69,8 +70,10 @@ export const checkGitHubPermissions = async () => {
   const { $ } = await use('command-stream');
   try {
     await log('\n🔐 Checking GitHub authentication and permissions...');
-    // Get auth status including token scopes
-    const authStatusResult = await $`gh auth status 2>&1`;
+    // Get auth status including token scopes.
+    // Issue #2130: capture without mirroring - the parsed summary below is what
+    // belongs in the log, not gh's raw account/token/scope block.
+    const authStatusResult = await $(QUIET_PROBE)`gh auth status 2>&1`;
     const authOutput = authStatusResult.stdout.toString() + authStatusResult.stderr.toString();
     if (authStatusResult.code !== 0 || authOutput.includes('not logged into any GitHub hosts')) {
       await log('❌ GitHub authentication error: Not logged in', { level: 'error' });
@@ -186,7 +189,7 @@ export const checkRepositoryWritePermission = async (owner, repo, options = {}) 
     await log('');
     // Get current user to suggest their fork
     try {
-      const userResult = await $`gh api user --jq .login`;
+      const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
         await log('      Run this command:', { level: 'error' });
@@ -617,7 +620,7 @@ ${logContent}
         // Issue #1173: Use public upload for public repos, private for private repos
         let isPublicRepo = true;
         try {
-          const repoVisibilityResult = await $`gh api repos/${owner}/${repo} --jq .visibility`;
+          const repoVisibilityResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`;
           if (repoVisibilityResult.code === 0) {
             const visibility = repoVisibilityResult.stdout.toString().trim();
             isPublicRepo = visibility === 'public';
@@ -975,7 +978,9 @@ export async function fetchProjectIssues(projectNumber, owner, statusFilter) {
     await log(`🔍 Fetching issues from GitHub Project #${projectNumber} (owner: ${owner}, status: ${statusFilter})`);
     // Check for project scope in GitHub CLI authentication
     try {
-      const authStatus = await $`gh auth status --show-token`;
+      // Issue #2130: --show-token prints the token in clear text; mirroring it
+      // would put a live credential on stdout and in the log file.
+      const authStatus = await $(QUIET_PROBE)`gh auth status --show-token`;
       if (!authStatus.stdout.includes('project')) {
         throw new Error('Missing project scope. Run: gh auth refresh -s project');
       }
@@ -1434,7 +1439,7 @@ export async function handlePRNotFoundError({ prNumber, owner, repo, argv, shoul
 export async function detectRepositoryVisibility(owner, repo) {
   try {
     // Issue #1536: retry on transient network errors
-    const visibilityResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
+    const visibilityResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo} --jq .visibility`, { label: `visibility ${owner}/${repo}` });
     if (visibilityResult.code === 0) {
       const visibility = visibilityResult.stdout.toString().trim();
       const isPublic = visibility === 'public';

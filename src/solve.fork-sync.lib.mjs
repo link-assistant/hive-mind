@@ -14,6 +14,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 
 // Import shared library functions
@@ -179,7 +180,7 @@ export const setupUpstreamAndSync = async (tempDir, forkedRepo, upstreamRemote, 
               // branch. Attempting the push there is guaranteed to be rejected
               // with "permission denied" and is unnecessary, so we skip it and
               // keep working on the PR branch.
-              const currentUserResult = await $`gh api user --jq .login`;
+              const currentUserResult = await $(QUIET_PROBE)`gh api user --jq .login`;
               const currentUser = currentUserResult.code === 0 ? currentUserResult.stdout.toString().trim() : null;
               const pushDecision = shouldPushDefaultBranchToFork({ currentUser, forkedRepo });
 

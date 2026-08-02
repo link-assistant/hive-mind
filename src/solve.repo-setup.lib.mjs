@@ -6,6 +6,7 @@
 // Issue #1625: centralized markers + tracked posting for the "empty repo"
 // issue comment so it's excluded from --auto-attach-solution-summary's check.
 import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
+import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
   // Set up repository and handle forking
@@ -48,7 +49,7 @@ export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, fo
  * clears any inherited helper, exactly as `gh auth setup-git` does.
  */
 export async function setupGitCredentialHelper({ tempDir, log, $, hosts = ['github.com'] }) {
-  const authSetupResult = await $({ cwd: tempDir, mirror: false, capture: true })`gh auth setup-git 2>&1`;
+  const authSetupResult = await $({ cwd: tempDir, ...QUIET_PROBE })`gh auth setup-git 2>&1`;
   if (authSetupResult.code === 0) return { scope: 'global', hosts };
 
   const reason = (authSetupResult.stdout?.toString() || authSetupResult.stderr?.toString() || '').trim();
@@ -57,8 +58,8 @@ export async function setupGitCredentialHelper({ tempDir, log, $, hosts = ['gith
   const failures = [];
   for (const host of hosts) {
     const key = `credential.https://${host}.helper`;
-    const cleared = await $({ cwd: tempDir, mirror: false, capture: true })`git config --local --replace-all ${key} ""`;
-    const configured = await $({ cwd: tempDir, mirror: false, capture: true })`git config --local --add ${key} ${'!gh auth git-credential'}`;
+    const cleared = await $({ cwd: tempDir, ...QUIET_PROBE })`git config --local --replace-all ${key} ""`;
+    const configured = await $({ cwd: tempDir, ...QUIET_PROBE })`git config --local --add ${key} ${'!gh auth git-credential'}`;
     if (cleared.code !== 0 || configured.code !== 0) failures.push(host);
   }
 

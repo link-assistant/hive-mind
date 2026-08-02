@@ -12,13 +12,14 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { buildAuthRemedyLines } from '../src/formal-ai.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from '../src/codex.run-diagnostics.lib.mjs';
+import { QUIET_PROBE, quietProbe } from '../src/quiet-probe.lib.mjs';
 import { setupGitCredentialHelper } from '../src/solve.repo-setup.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -217,5 +218,99 @@ test('checkFileInBranch runs its existence probe silently', async () => {
   // claude-02-FTn7sm.log:84,86 — two bare "gh: Not Found (HTTP 404)" lines that
   // are the *expected* answer of a probe, plus the full contents JSON on a hit.
   const source = await readFile(join(repoRoot, 'src', 'github.lib.mjs'), 'utf8');
-  assert.match(source, /\$\(\{ mirror: false, capture: true \}\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/contents/, 'the contents probe does not mirror gh output');
+  assert.match(source, /\$\(QUIET_PROBE\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/contents/, 'the contents probe does not mirror gh output');
+});
+
+test('QUIET_PROBE captures the output it refuses to mirror', () => {
+  // Dropping `capture` would silence the probe *and* its caller's answer.
+  assert.deepEqual({ ...QUIET_PROBE }, { mirror: false, capture: true });
+});
+
+test('quietProbe binds the quiet options to an option-callable $', () => {
+  const seen = [];
+  const bound = (strings, ...values) => Promise.resolve({ code: 0, stdout: String.raw({ raw: strings }, ...values) });
+  const dollar = options => {
+    seen.push(options);
+    return bound;
+  };
+
+  assert.equal(quietProbe(dollar), bound, 'the bound tag is what callers run');
+  assert.deepEqual(seen, [QUIET_PROBE]);
+});
+
+test('quietProbe memoizes per $ so a probe in a loop binds once', () => {
+  let calls = 0;
+  const dollar = () => {
+    calls++;
+    return () => Promise.resolve({ code: 0 });
+  };
+
+  const first = quietProbe(dollar);
+  assert.equal(quietProbe(dollar), first);
+  assert.equal(calls, 1);
+});
+
+test('quietProbe returns a plain tagged template unchanged instead of crashing', async () => {
+  // Many helpers take `$` as a parameter, and callers (tests in particular)
+  // inject plain tags that throw on `$({ ... })`. Suppressing mirrored output
+  // is a readability improvement, so an unconfigurable `$` is used as-is.
+  const plain = (strings, ...values) => Promise.resolve({ code: 0, stdout: String.raw({ raw: strings }, ...values) });
+
+  const probe = quietProbe(plain);
+  assert.equal(probe, plain);
+  assert.deepEqual(await probe`gh api user --jq .login`, { code: 0, stdout: 'gh api user --jq .login' });
+});
+
+test('quietProbe swallows the promise a non-configurable $ returns for the options call', async () => {
+  // A tag that treats the options object as a command must not leave an
+  // unhandled rejection behind when it fails.
+  const rejections = [];
+  const onRejection = reason => rejections.push(reason);
+  process.on('unhandledRejection', onRejection);
+  try {
+    const eager = () => Promise.reject(new Error('command not found'));
+    assert.equal(quietProbe(eager), eager);
+    await new Promise(resolve => setImmediate(resolve));
+    await new Promise(resolve => setImmediate(resolve));
+  } finally {
+    process.off('unhandledRejection', onRejection);
+  }
+  assert.deepEqual(rejections, []);
+});
+
+test('quietProbe passes a non-function through untouched', () => {
+  assert.equal(quietProbe(null), null);
+  assert.equal(quietProbe(undefined), undefined);
+});
+
+test('the probes evidenced in the attached logs are all quiet now', async () => {
+  // Each entry is a raw payload counted in agent-11-0JuEzF.log, where 597 KB of
+  // mirrored `gh` output landed in the log that is attached to the pull request.
+  const probes = [
+    { file: 'src/github-terminal-state.lib.mjs', pattern: /rawDollar\(QUIET_PROBE\)/, why: 'a ~33 KB pull request object, once per watch iteration' },
+    { file: 'src/post-finish-sanitization-sweep.lib.mjs', pattern: /quietProbe\(\$\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/issues\/\$\{prNumber\}\/comments/, why: '46 KB of comment JSON per restart' },
+    { file: 'src/token-sanitization.lib.mjs', pattern: /\$\(QUIET_PROBE\)`gh auth status/, why: 'the call that discovers which secrets must be masked' },
+    { file: 'src/github.lib.mjs', pattern: /\$\(QUIET_PROBE\)`gh auth status --show-token`/, why: 'a live credential in clear text' },
+    { file: 'src/solve.feedback.lib.mjs', pattern: /quietProbe\(\$\)`gh api repos\/\$\{owner\}\/\$\{repo\}\/pulls\/\$\{prNumber\}\/comments --paginate`/, why: 'whole comment lists per watch iteration' },
+    { file: 'src/solve.auto-pr.lib.mjs', pattern: /quietProbe\(\$\)`gh api graphql -f query=\$\{issueNodeQuery\}/, why: 'a bare "I_kwDO..." node ID' },
+    { file: 'src/git.lib.mjs', pattern: /const \$ = quietProbe\(dollar\);/, why: 'a bare commit SHA, seven times' },
+  ];
+
+  for (const { file, pattern, why } of probes) {
+    const source = await readFile(join(repoRoot, file), 'utf8');
+    assert.match(source, pattern, `${file} no longer mirrors ${why}`);
+  }
+});
+
+test('no source file mirrors a bare `gh api user --jq .login`', async () => {
+  // `konard` appeared 23 times in agent-11-0JuEzF.log with nothing around it.
+  const files = (await readdir(join(repoRoot, 'src'), { recursive: true })).filter(name => name.endsWith('.mjs'));
+  const offenders = [];
+  for (const name of files) {
+    const source = await readFile(join(repoRoot, 'src', name), 'utf8');
+    source.split('\n').forEach((line, index) => {
+      if (/(?<![)\w])\$`gh api user --jq \.login`/.test(line)) offenders.push(`src/${name}:${index + 1}`);
+    });
+  }
+  assert.deepEqual(offenders, []);
 });

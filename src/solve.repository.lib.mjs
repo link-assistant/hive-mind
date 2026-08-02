@@ -14,6 +14,7 @@ const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior; wrap with rate-limit retry (#1726)
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
@@ -57,7 +58,7 @@ export const getRootRepository = async (owner, repo) => {
 // Check if current user has a fork of the given root repository
 export const checkExistingForkOfRoot = async rootRepo => {
   try {
-    const userResult = await lib.ghCmdRetry(() => $`gh api user --jq .login`, { label: 'get user (fork check)' });
+    const userResult = await lib.ghCmdRetry(() => $(QUIET_PROBE)`gh api user --jq .login`, { label: 'get user (fork check)' });
     if (userResult.code !== 0) return null;
     const currentUser = userResult.stdout.toString().trim();
     // Issue #2119: build the jq expression in JS. Its double quotes belong to jq,
@@ -378,7 +379,7 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     await log(`${formatAligned('', 'Checking fork status...', '')}\n`);
 
     // Get current user (issue #1536: retry on transient network errors)
-    const userResult = await lib.ghCmdRetry(() => $`gh api user --jq .login`, { label: 'get current user' });
+    const userResult = await lib.ghCmdRetry(() => $(QUIET_PROBE)`gh api user --jq .login`, { label: 'get current user' });
     if (userResult.code !== 0) {
       await log(`${formatAligned('❌', 'Error:', 'Failed to get current user')}`);
       await safeExit(1, 'Repository setup failed');
@@ -1191,7 +1192,7 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
 
   // Get current user to check if it's someone else's fork
   await log(`\n${formatAligned('🔍', 'Checking PR fork:', 'Determining if branch is in another fork...')}`);
-  const userResult = await $`gh api user --jq .login`;
+  const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
   if (userResult.code !== 0) {
     await log(`${formatAligned('⚠️', 'Warning:', 'Failed to get current user, cannot set up pr-fork remote')}`);
     return null;

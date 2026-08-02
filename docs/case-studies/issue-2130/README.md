@@ -75,21 +75,51 @@ this pull request re-fixes them; §4 and §5 deal only with what is still broken
 
 ---
 
-## 3. The single upstream cause behind all three failures
+## 3. Why each tool failed
 
-All three tools failed for the same structural reason, visible in one line of every log:
+All three runs go through `formal-ai with <tool> <args…>`, an argv wrapper that starts a temporary
+Formal AI server and then re-invokes the native CLI on the caller's behalf. The three failures are
+**not** the same defect, and it is worth being precise about that, because two of the three are
+argv-handling bugs and the third is a reasoning bug that only becomes visible once the argv gets
+through.
+
+### 3.1 `claude` — the caller's `-p <prompt>` never reaches the CLI
+
+Hive Mind passes the prompt as an argument, not on stdin:
 
 ```text
-📝 Raw command:
+(cd "/tmp/gh-issue-solver-1785684430045" && formal-ai with claude --output-format stream-json --verbose \
+  --dangerously-skip-permissions --model formal-ai --strict-mcp-config --mcp-config "…" \
+  --disallowedTools AskUserQuestion CronCreate … -p "Issue to solve: https://github.com/…/issues/1
+```
+
+— [`claude-02-FTn7sm.log:182`](data/tool-logs/claude-02-FTn7sm.log)
+
+1.9 s later, claude answers:
+
+```text
+Error: Input must be provided either through stdin or as a prompt argument when using --print
+```
+
+— [`claude-02-FTn7sm.log:466`](data/tool-logs/claude-02-FTn7sm.log)
+
+The wrapper did not forward the `-p <value>` pair. Formal AI's own completion record agrees and is
+honest about it — `"completion_state": "failed"`, `"reason": "client_failed"`,
+`"actual_endpoint": null`, `input_tokens: 0`, `output_tokens: 0`
+([`claude-02-FTn7sm.log:483-500`](data/tool-logs/claude-02-FTn7sm.log)) — so no model ever saw the
+task. Total elapsed: 2 s.
+
+### 3.2 `agent` — the argv is mangled, and the task is then reduced to a no-op
+
+Here the prompt is piped:
+
+```text
 (cd "/tmp/gh-issue-solver-1785679629225" && cat "/tmp/agent_prompt_….txt" | formal-ai with agent --model formalai/formal-ai --verbose)
 ```
 
 — [`agent-18-V7E0Ee.log.gz:340`](data/tool-logs/agent-18-V7E0Ee.log.gz)
 
-Hive Mind piped its prompt into `formal-ai with <tool> <args…>`, an argv wrapper that starts a
-temporary Formal AI server and then re-invokes the native CLI on the caller's behalf. The wrapper
-is structurally incompatible with how Hive Mind drives those CLIs. The agent log proves it
-directly, because agent 0.25.5 echoes its own `process.argv`:
+agent 0.25.5 echoes its own `process.argv`, which shows exactly what the wrapper built:
 
 ```json
 "processArgv": [
@@ -101,37 +131,79 @@ directly, because agent 0.25.5 echoes its own `process.argv`:
 ]
 ```
 
-— [`agent-18-V7E0Ee.log.gz:466-487`](data/tool-logs/agent-18-V7E0Ee.log.gz)
+— [`agent-18-V7E0Ee.log.gz:466-476`](data/tool-logs/agent-18-V7E0Ee.log.gz)
 
-Three separate defects are visible in that one array:
+Two argv defects are visible: the wrapper injects flags of its own
+(`--no-summarize-session --compaction-model same`), and it **collapses the caller's trailing
+arguments into a single argv element and hands it to `-p` as the prompt** — so agent's nominal
+prompt is the literal string `--model formalai/formal-ai --verbose`.
 
-1. **stdin is dropped.** The prompt arrived on stdin from `cat`; the wrapper never forwarded it.
-2. **Flags are stolen and re-injected.** `--no-summarize-session --compaction-model same --model …`
-   are the wrapper's, not Hive Mind's.
-3. **The caller's trailing arguments are collapsed into one string and handed to `-p` as the prompt.**
-   The agent's prompt became the literal text `--model formalai/formal-ai --verbose`.
+That did **not** stop the run, and this is the part worth getting right. agent ignored the bogus
+`-p` and started in `"mode": "stdin-stream"` with `alwaysAcceptStdin: true`
+([`agent-18-V7E0Ee.log.gz:384-400`](data/tool-logs/agent-18-V7E0Ee.log.gz)), so the piped prompt
+**was** received. The Hive Mind prompt is reproduced verbatim in the session's own plan record.
 
-Because no prompt was ever delivered, the agent fell back to
-`"mode": "stdin-stream", "message": "Agent CLI in continuous listening mode"` and idled until
-Hive Mind's restart logic gave up after 5 iterations
-([`agent-18-V7E0Ee.log.gz:25825`](data/tool-logs/agent-18-V7E0Ee.log.gz)).
+The run then failed for a different reason: Formal AI reduced the entire issue to writing a plan
+file and reading it back. Its two steps, quoted from the plan it emitted:
 
-The same wrapper produced the other two failures:
+```text
+step 1
+  capability "Write"
+  action "append the bounded repository work-item plan to .formal-ai/general-change-plan.lino"
+step 2
+  capability "Run"
+  action "read back the persisted work-item plan"
+  command "cat .formal-ai/general-change-plan.lino"
+verification_command "cat .formal-ai/general-change-plan.lino"
+```
 
-- **claude** — `Error: Input must be provided either through stdin or as a prompt argument when using --print`
-  ([`claude-02-FTn7sm.log:500`](data/tool-logs/claude-02-FTn7sm.log)), i.e. exactly defect (1), 2 s after start.
-- **codex** — every request went to `wss://api.openai.com/v1/responses` and came back
-  `401 Unauthorized`
-  ([`codex-02-rv2k7W.log.gz:343`](data/tool-logs/codex-02-rv2k7W.log.gz)). The wrapper passes the
-  provider configuration as `-c model_providers.…` overrides placed **after** `exec`; codex-cli
-  treats `-c` after the subcommand as a _replacement_ of the global `-c` set, so the
-  `model_providers` block was wiped and codex fell back to its built-in OpenAI provider.
+and its closing message:
 
-A fourth, quieter symptom belongs to the same wrapper: in agent mode it decides whether to enter an
-"orchestration/recovery" mode by scanning the command line case-insensitively for workspace-effect
-keywords (`create`, `write`, `implement`). Hive Mind always passes
-`--disallowedTools … CronCreate …`, which always matches, so every run took the orchestration path —
-which is the path that consumes stdin and substitutes its own recovery prompt.
+> Recorded and verified the bounded repository work-item plan for `…/issues/1`.
+> The deterministic sandbox preserved the requested goal without claiming unobserved source edits.
+
+— [`agent-18-V7E0Ee.log.gz`](data/tool-logs/agent-18-V7E0Ee.log.gz), first iteration
+
+No source file was ever written. The wording is careful not to _claim_ work it did not do — which
+is the right instinct, and traceable to the honesty fix in formal-ai #843 — but the run still
+terminates as if the request had been served. Hive Mind restarted it and got the identical no-op
+five more times, then stopped: `❌ AUTO-RESTART LIMIT REACHED … after 5/5 iterations`.
+
+The same record shows a third defect: the `goal` field contains the **entire** Hive Mind system
+prompt — every guideline, every `gh` command pattern, the Playwright section — rather than the
+issue's actual objective. The goal is polluted with its own preamble.
+
+### 3.3 `codex` — the provider configuration never reaches the session
+
+```text
+(cd "…" && cat "/tmp/codex_prompt_….txt" | formal-ai with codex exec --model "formal-ai" --json \
+  --skip-git-repo-check -o "…" -c "model_reasoning_effort=none" … )
+```
+
+— [`codex-02-rv2k7W.log.gz:191`](data/tool-logs/codex-02-rv2k7W.log.gz)
+
+codex then initialises with the stock vendor provider:
+
+```text
+codex_core::session::session: Configuring session: model=formal-ai;
+  provider=ModelProviderInfo { name: "OpenAI", base_url: None, env_key: None, … wire_api: Responses, … }
+```
+
+— [`codex-02-rv2k7W.log.gz:249`](data/tool-logs/codex-02-rv2k7W.log.gz)
+
+`base_url: None` is the whole story: no `model_providers` entry for Formal AI was in effect, so
+every request went to the public API and came back `401 Unauthorized` against
+`wss://api.openai.com/v1/responses`. The model name `formal-ai` was accepted; the endpoint was not
+redirected. One plausible mechanism — worth checking upstream rather than asserting here — is that
+the wrapper supplies the provider block as global `-c` overrides while Hive Mind's own `-c` flags
+sit after `exec`, and codex-cli resolves the two sets in a way that drops the former.
+
+### 3.4 What the three have in common
+
+Not a single mechanism, but a single consequence: **in none of the three runs did a model receive
+the task and attempt it.** Two failed before inference started; the third started and substituted a
+bookkeeping task for the real one. That is why the reporter sees the same empty result from all
+three tools despite three different error messages.
 
 ---
 
@@ -307,11 +379,12 @@ All six exit 0 against a live Formal AI server. Note the issue names five tools 
 agent, gemini, qwen); opencode is included because it shares the runtime and would otherwise be the
 one tool left on the old path.
 
-### 5.3 Three sub-problems that only appear headless
+### 5.3 Sub-problems that only appear headless
 
-- **codex `-c` after `exec`.** Configuration moved out of `-c` overrides into `CODEX_HOME`, seeded
+- **codex provider configuration.** Rather than depend on `-c` override ordering — the thing that
+  demonstrably did not survive in §3.3 — the provider block is written into `CODEX_HOME`, seeded
   from the repository-scoped `CODEX_HOME` built by the capability preflight (issue #2074), so both
-  features coexist.
+  features coexist and the configuration cannot be lost to argv resolution.
 - **`sh -lc` and stale `.profile` exports.** codex and qwen run through a login shell, which sources
   the operator's `~/.profile` — which may still hold exports from an earlier
   `formal-ai with --global` run. The run's environment is re-exported inside the script so it wins.
@@ -411,15 +484,15 @@ that refuses to emit an underived program should equally refuse to report an uno
 
 ### 6.5 Other reproductions held for the upstream reports
 
-- `formal-ai with <tool>` swallowing stdin, stealing `--model`/`--verbose`/`--silent`/`--base-url`/
-  `--interactive`/`--non-interactive`/`--summarize`, appending caller args after its own
-  `--print`/`-p`/`exec`, and entering orchestration mode on a case-insensitive keyword scan that
-  `--disallowedTools … CronCreate …` always trips (§3).
+- `formal-ai with <tool>` dropping the caller's `-p <prompt>` pair (§3.1), collapsing the caller's
+  trailing arguments into one argv element behind its own `-p` (§3.2), and injecting flags the
+  caller did not ask for.
+- The agent-mode reduction of a repository task to "write a plan file and `cat` it back" (§3.2),
+  and the `goal` field carrying the caller's entire system prompt instead of the objective.
 - `write_stdin failed: Unknown process id 0` observed in the round-2 agent logs.
-- A false-failure report on a shell command that had in fact succeeded.
-- codex-cli: `-c` flags after `exec` replace, rather than extend, the global `-c` set (§5.3). Worth
-  reporting to `openai/codex` as a documentation or behaviour issue, since it silently redirects
-  traffic to the default provider.
+- codex provider configuration not reaching the session (§3.3). If the cause turns out to be
+  codex-cli's resolution of `-c` before vs. after `exec`, that is worth a separate filing against
+  `openai/codex`, since it silently redirects traffic to the default provider.
 
 ---
 

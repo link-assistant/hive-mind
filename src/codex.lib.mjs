@@ -32,7 +32,7 @@ import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels, isFormalAiModel } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
@@ -823,17 +823,15 @@ export const executeCodexCommand = async params => {
 
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'codex',
-      model: argv.model,
-      toolPath: codexPath,
-    });
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
+    Object.assign(codexEnv, toolInvocation.env);
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
@@ -901,7 +899,9 @@ export const executeCodexCommand = async params => {
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
     }
 
-    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
+    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // stale `formal-ai with --global` block in the operator profile cannot override it.
+    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;

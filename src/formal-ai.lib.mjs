@@ -3,7 +3,8 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
-import { FORMAL_AI_MODEL_ALIAS, isFormalAiModel } from './models/index.mjs';
+import { findFormalAiClient, loadFormalAiClientRegistry, prepareFormalAiRuntime } from './formal-ai-runtime.lib.mjs';
+import { isFormalAiModel } from './models/index.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -18,7 +19,7 @@ const shellQuote = value => {
   return `'${stringValue.replaceAll("'", "'\\''")}'`;
 };
 
-const normalizeExternalBaseUrl = value => {
+export const normalizeFormalAiBaseUrl = value => {
   if (!value) return null;
 
   let parsed;
@@ -35,73 +36,123 @@ const normalizeExternalBaseUrl = value => {
   return parsed.origin;
 };
 
+export const resolveFormalAiPath = (env = process.env) => env.HIVE_MIND_FORMAL_AI_PATH?.trim() || DEFAULT_FORMAL_AI_PATH;
+
+const nativeInvocation = toolPath => ({
+  command: toolPath,
+  args: [],
+  displayCommand: shellQuote(toolPath),
+  formalAi: false,
+  baseUrl: null,
+  env: {},
+  stop: null,
+});
+
 /**
- * Resolve the executable and leading arguments for one Hive tool invocation.
- * Formal AI owns the temporary client configuration and forwards all remaining
- * arguments to the selected agentic CLI unchanged.
+ * Resolve how one Hive tool invocation reaches Formal AI (issue #2130).
+ *
+ * Hive Mind runs the *native* CLI and only injects the environment that points
+ * it at a Formal AI server. The `formal-ai with <tool> <args…>` argv wrapper is
+ * deliberately not used any more: it claims `--model`/`--verbose` for itself,
+ * appends Hive Mind's flags after its own `--print`/`-p`/`exec`, and drops the
+ * piped prompt whenever an argument contains workspace-effect vocabulary (Hive
+ * Mind's `--disallowedTools … CronCreate …` always matched). See
+ * ./formal-ai-runtime.lib.mjs for the full analysis and the replacement.
  */
-export const resolveFormalAiToolInvocation = ({ tool, model, toolPath, env = process.env }) => {
-  if (!isFormalAiModel(model)) {
-    return {
-      command: toolPath,
-      args: [],
-      displayCommand: shellQuote(toolPath),
-      formalAi: false,
-      baseUrl: null,
-    };
-  }
+export const resolveFormalAiToolExecution = async ({ tool, model, toolPath, workdir, log = async () => {}, verbose = false, prepareOnly = false, env = process.env, deps = {} } = {}) => {
+  if (!isFormalAiModel(model)) return nativeInvocation(toolPath);
 
   if (!FORMAL_AI_SUPPORTED_TOOLS.includes(tool)) {
     throw new Error(`Formal AI dispatch does not support Hive tool "${tool}"`);
   }
 
-  const command = env.HIVE_MIND_FORMAL_AI_PATH?.trim() || DEFAULT_FORMAL_AI_PATH;
-  const baseUrl = normalizeExternalBaseUrl(env.HIVE_MIND_FORMAL_AI_BASE_URL);
-  const args = ['with'];
+  // Validated here so a malformed override fails fast with a clear message.
+  const configuredBaseUrl = normalizeFormalAiBaseUrl(env.HIVE_MIND_FORMAL_AI_BASE_URL);
 
-  if (baseUrl) {
-    args.push('--no-start-server', '--base-url', baseUrl);
+  // `--dry-run` / `--only-prepare-command` must not start a server or write config.
+  if (prepareOnly) {
+    return { ...nativeInvocation(toolPath), formalAi: true, baseUrl: configuredBaseUrl, prepared: true };
   }
-  args.push(tool);
+
+  const runtime = await (deps.prepareRuntimeImpl || prepareFormalAiRuntime)({
+    tool,
+    workdir,
+    log,
+    verbose,
+    env,
+  });
 
   return {
-    command,
-    args,
-    displayCommand: [command, ...args].map(shellQuote).join(' '),
+    command: toolPath,
+    args: [],
+    displayCommand: shellQuote(toolPath),
     formalAi: true,
-    baseUrl,
+    baseUrl: runtime.baseUrl,
+    env: runtime.env,
+    home: runtime.home,
+    client: runtime.client,
+    stop: runtime.stop,
   };
 };
 
 /**
- * Check both the wrapper and the selected native CLI without starting a model
- * server or spending a model request.
+ * Render `toolInvocation.env` as `export NAME=value; ` shell prefixes (issue #2130).
+ *
+ * Tools launched through `sh -lc` (codex, qwen) get a login shell that sources the
+ * operator's `~/.profile`, which may still hold stale exports written by an earlier
+ * `formal-ai with --global` run. Re-exporting inside the script makes this run's
+ * values win regardless of what the profile sets.
+ */
+export const buildFormalAiEnvExports = env =>
+  Object.entries(env || {})
+    .map(([name, value]) => `export ${name}=${shellQuote(value)}; `)
+    .join('');
+
+/**
+ * Check that the Formal AI wrapper and the selected native CLI are both usable
+ * without starting a model server or spending a model request.
  */
 export const validateFormalAiToolConnection = async (tool, { env = process.env, run = execFileAsync, timeoutMs = 30_000 } = {}) => {
-  const invocation = resolveFormalAiToolInvocation({
-    tool,
-    model: FORMAL_AI_MODEL_ALIAS,
-    toolPath: tool,
-    env,
-  });
-  const args = ['with', '--no-start-server', tool, '--version'];
+  const command = resolveFormalAiPath(env);
+  const args = ['clients', '--format', 'json'];
+
+  let clients;
+  try {
+    clients = await loadFormalAiClientRegistry({ formalAiPath: command, run, env, timeoutMs });
+  } catch (error) {
+    return {
+      valid: false,
+      command,
+      args,
+      error: error?.stderr?.trim() || error?.message || String(error),
+      code: error?.code,
+    };
+  }
+
+  const client = findFormalAiClient(clients, tool);
+  if (!client) {
+    return {
+      valid: false,
+      command,
+      args,
+      error: `Formal AI does not list a client configuration for "${tool}" (available: ${(clients || []).map(entry => entry.id).join(', ')})`,
+    };
+  }
 
   try {
-    const result = await run(invocation.command, args, {
-      encoding: 'utf8',
-      env: { ...process.env, ...env },
-      timeout: timeoutMs,
-    });
+    const result = await run(tool, ['--version'], { encoding: 'utf8', env: { ...process.env, ...env }, timeout: timeoutMs });
     return {
       valid: true,
-      command: invocation.command,
+      command,
       args,
+      client: client.id,
+      protocol: client.default_protocol,
       version: result?.stdout?.trim() || null,
     };
   } catch (error) {
     return {
       valid: false,
-      command: invocation.command,
+      command,
       args,
       error: error?.stderr?.trim() || error?.message || String(error),
       code: error?.code,

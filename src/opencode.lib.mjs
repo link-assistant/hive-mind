@@ -20,7 +20,7 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { opencodeModels, defaultModels } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { checkPlaywrightMcpPackageAvailability, getOpenCodePlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage as parseOpenCodeTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner } from './json-stream.lib.mjs';
@@ -234,11 +234,9 @@ export const executeOpenCodeCommand = async params => {
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'opencode',
-      model: argv.model,
-      toolPath: opencodePath,
-    });
+    // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'opencode', model: argv.model, toolPath: opencodePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: opencodeEnv });
+    Object.assign(opencodeEnv, toolInvocation.env);
     const streamingTokenUsage = createAgentTokenUsage();
 
     // Build opencode command arguments
@@ -310,14 +308,14 @@ export const executeOpenCodeCommand = async params => {
           mirror: false,
           env: opencodeEnv,
         });
-        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} run --format json --session ${argv.resume} --model ${mappedModel}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --session ${argv.resume} --model ${mappedModel}`;
+        execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --session ${argv.resume} --model ${mappedModel}`;
       } else {
         const commandRunner = $({
           cwd: tempDir,
           mirror: false,
           env: opencodeEnv,
         });
-        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} run --format json --model ${mappedModel}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --model ${mappedModel}`;
+        execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} run --format json --model ${mappedModel}`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -355,8 +353,11 @@ export const executeOpenCodeCommand = async params => {
           accumulateAgentStepFinishUsage(streamingTokenUsage, data);
           // Track text content for result summary
           // OpenCode outputs text via 'text', 'assistant', 'message', or 'result' type events
-          if (data.type === 'text' && data.text) {
-            lastTextContent = data.text;
+          // Issue #2130: OpenCode-derived CLIs nest assistant text under `part`
+          // (`{"type":"text","part":{"type":"text","text":"…"}}`) with no
+          // top-level `data.text`, which left `resultSummary` null.
+          if (data.type === 'text' && (data.text || data.part?.text)) {
+            lastTextContent = data.text || data.part.text;
           } else if (data.type === 'assistant' && data.message?.content) {
             const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
             for (const item of content) {

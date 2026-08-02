@@ -19,7 +19,7 @@ import { timeouts, retryLimits } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs';
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -503,15 +503,15 @@ export const executeQwenCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.qwen);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'qwen',
-      model: argv.model || defaultModels.qwen,
-      toolPath: qwenPath,
-    });
+    // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'qwen', model: argv.model || defaultModels.qwen, toolPath: qwenPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
+    const qwenEnv = { ...process.env, ...toolInvocation.env };
     const resumeSession = argv.resume || null;
     const resumeArgs = resumeSession ? ` --resume ${shellQuote(resumeSession)}` : '';
     const appendSystemPromptArg = systemPrompt ? ` --append-system-prompt "$(cat ${shellQuote(systemPromptFile)})"` : '';
-    const commandScript = `cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
+    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // stale `formal-ai with --global` block in the operator profile cannot override it.
+    const commandScript = `${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} --model ${shellQuote(mappedModel)} --output-format stream-json --yolo${resumeArgs}${appendSystemPromptArg} --prompt "$(cat ${shellQuote(promptFile)})"`;
     const fullCommand = `(cd "${tempDir}" && ${toolInvocation.displayCommand} --model "${mappedModel}" --output-format stream-json --yolo${resumeSession ? ` --resume "${resumeSession}"` : ''}${systemPrompt ? ` --append-system-prompt "$(cat "${systemPromptFile}")"` : ''} --prompt "$(cat "${promptFile}")")`;
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
@@ -521,6 +521,7 @@ export const executeQwenCommand = async params => {
       const execCommand = dollar({
         cwd: tempDir,
         mirror: false,
+        env: qwenEnv,
       })`sh -lc ${commandScript}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);

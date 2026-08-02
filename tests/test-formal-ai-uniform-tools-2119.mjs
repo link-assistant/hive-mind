@@ -156,7 +156,7 @@ const PRICING_ENTRY_POINT_BY_TOOL = {
 
 for (const tool of FORMAL_AI_SUPPORTED_TOOLS) {
   const source = await readFile(path.join(repoRoot, 'src', `${tool}.lib.mjs`), 'utf8');
-  assert.ok(source.includes('resolveFormalAiToolInvocation'), `${tool}.lib.mjs dispatches through formal-ai.lib.mjs`);
+  assert.ok(source.includes('resolveFormalAiToolExecution'), `${tool}.lib.mjs dispatches through formal-ai.lib.mjs`);
   assert.ok(source.includes(PRICING_ENTRY_POINT_BY_TOOL[tool]), `${tool}.lib.mjs prices formal-ai sessions through ${PRICING_ENTRY_POINT_BY_TOOL[tool]}`);
 }
 

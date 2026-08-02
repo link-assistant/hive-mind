@@ -129,10 +129,56 @@ prompt **is** forwarded:
 and the replay reaches the API rather than the parse error. Several narrower hypotheses were tested
 and each is disproved: claude accepts a duplicated `--print` before `-p <value>`; it accepts
 `-p <value>` followed by `--append-system-prompt <value>`; and it accepts `-p <value>` after a
-variadic `--disallowedTools` list. So the production failure is version- or condition-specific
-rather than an inherent property of that command shape. Two things follow: the log stays the primary
-evidence, and the upstream report asks for a regression test over the forwarded argv rather than
-proposing a specific line to change.
+variadic `--disallowedTools` list. Replaying the reproduced attempt-1 argv verbatim against the real
+`claude` 2.1.220 — duplicated `--output-format stream-json --verbose`, `--print`, the full
+`--disallowedTools` list, `-p <prompt>` — reaches `https://api.anthropic.com/v1/messages` and exits 0. So the production failure is version- or condition-specific rather than an inherent property of
+that command shape.
+
+**Which version, though, is unrecoverable from the evidence.** No attached log records a Formal AI
+version: `grep -niE 'formal-ai (v|version)'` over all four round-2 tool logs returns nothing.
+Validation captured the _native_ CLI's version but never the wrapper's, even though the wrapper is
+what builds the argv. That gap is the reason this root cause stayed out of reach, and it is fixed on
+our side rather than left as a note — see §4.7.
+
+#### 3.1.1 What the wrapper does reproducibly do to claude's argv
+
+The same reproduction does surface three defects that are live on 0.317.0.
+[`repro-with-argv.sh`](../../../experiments/issue-2130/repro-with-argv.sh) records them for all five
+tools; [`wrapper-argv.log`](data/runs/wrapper-argv.log) is the stored output.
+
+1. **Flags the caller already passed are re-emitted.** Attempt 1 begins
+   `--permission-mode acceptEdits --output-format stream-json --verbose --print --output-format
+stream-json --verbose --dangerously-skip-permissions …` — `--output-format stream-json` and
+   `--verbose` each appear twice. claude tolerates the duplication (last wins), so this is latent
+   rather than fatal, but it also means the wrapper's `--permission-mode acceptEdits` is injected
+   alongside the caller's `--dangerously-skip-permissions`.
+
+2. **Every caller passthrough flag is dropped from attempt 2 onwards.** When the workspace-effect
+   check fails, the wrapper rebuilds argv from scratch:
+
+   ```text
+   --model formal-ai --permission-mode acceptEdits --output-format stream-json --verbose --print <recovery prompt>
+   ```
+
+   `--dangerously-skip-permissions`, `--strict-mcp-config`, `--mcp-config`, and the entire
+   `--disallowedTools` list are gone. A retry therefore runs with a different permission posture and
+   a different toolset than the attempt the caller configured — for Hive Mind, losing
+   `--dangerously-skip-permissions` is the difference between a headless run and one that waits for
+   a prompt that will never be answered.
+
+3. **The recovery prompt describes the request as the caller's raw flag string.** Each retry ends
+   with a `Request:` line built by joining argv rather than by taking the parsed prompt value:
+
+   ```text
+   Request: --output-format stream-json --verbose --dangerously-skip-permissions --model formal-ai
+   --strict-mcp-config --mcp-config /tmp/…/mcp.json --disallowedTools AskUserQuestion CronCreate …
+   ScheduleWakeup mcp__claude_ai_Gmail__* -p Issue to solve: https://github.com/…
+   ```
+
+   This is the same goal pollution seen in the production `agent` run (§3.2), and it is why the
+   model is asked to satisfy a "request" that is mostly CLI plumbing. Note also that the recovery
+   ladder only engages for prompts the wrapper classifies as coding tasks: a trivial prompt runs
+   once and stops, which is why the smaller reproductions in this study show a single attempt.
 
 ### 3.2 `agent` — the argv is mangled, and the task is then reduced to a no-op
 
@@ -197,6 +243,39 @@ five more times, then stopped: `❌ AUTO-RESTART LIMIT REACHED … after 5/5 ite
 The same record shows a third defect: the `goal` field contains the **entire** Hive Mind system
 prompt — every guideline, every `gh` command pattern, the Playwright section — rather than the
 issue's actual objective. The goal is polluted with its own preamble.
+
+#### 3.2.1 The piped-stdin shape on 0.317.0
+
+Replaying the production shape — `echo <prompt> | formal-ai with <tool> --model formalai/formal-ai
+--verbose` — on 0.317.0 no longer collapses the trailing flags into `-p`, but it mishandles them in
+three other ways ([`wrapper-argv.log`](data/runs/wrapper-argv.log), section B of each tool):
+
+| Tool     | argv the tool actually receives                                                                    |
+| -------- | -------------------------------------------------------------------------------------------------- |
+| `agent`  | `--no-summarize-session --compaction-model same --model formalai/formalai/formal-ai --interactive` |
+| `gemini` | `-m formalai/formal-ai`                                                                            |
+| `qwen`   | `--model formalai/formal-ai`                                                                       |
+| `claude` | `--model formalai/formal-ai`                                                                       |
+| `codex`  | `--sandbox read-only -c model_providers.formalai.… -c model="formalai/formal-ai"`                  |
+
+1. **The provider prefix is applied twice for `agent`**: the caller asked for
+   `formalai/formal-ai` and agent is given `formalai/formalai/formal-ai`. The wrapper prepends
+   `formalai/` unconditionally instead of only when the selector is unqualified. Hive Mind maps
+   `--model formal-ai` to `formalai/formal-ai` for agent (`src/models/index.mjs`), so this is
+   precisely the selector we send.
+
+2. **`--verbose` is silently dropped for every tool.** The caller asked for verbose output and no
+   tool receives it — which directly undercuts diagnosing any of this from the run's own logs.
+
+3. **`--interactive` is injected for `agent`**, and `exec` is dropped for `codex` (section B's argv
+   starts at `--sandbox read-only`, so codex runs its interactive TUI). Injecting interactive mode
+   into a piped, headless invocation explains the production `"mode": "stdin-stream"` /
+   `alwaysAcceptStdin: true` record and the run that never terminated on its own until Hive Mind's
+   5/5 restart limit stopped it.
+
+In the argument shape (`-p <prompt>`) the prompt is forwarded correctly to `agent`, `gemini` and
+`qwen` — but `codex` is handed `exec … --json -p <prompt> --verbose`, and **`codex exec` has no `-p`
+flag**, so that invocation cannot parse.
 
 ### 3.3 `codex` — the provider configuration never reaches the session
 
@@ -423,6 +502,14 @@ rather than guessed:
   set of environment variables it injects — the `🧠 Formal AI:` lines visible throughout
   [`data/runs/e2e-final-summary.log`](data/runs/e2e-final-summary.log). That is what makes §5's
   per-tool table checkable at a glance.
+- **The Formal AI wrapper version is now recorded** (`src/formal-ai.lib.mjs`,
+  `src/solve.validation.lib.mjs`). Dispatch validation already read the native CLI's `--version`
+  but never the wrapper's, so none of the four round-2 logs names the build that produced them —
+  which is the single reason §3.1's mechanism could not be pinned down and had to be recorded as a
+  negative result. The version is now logged on the success path and on the failure path, since the
+  failure path is the one whose log gets attached to the pull request. The lookup is diagnostics and
+  never a gate: a wrapper that cannot answer `--version` still dispatches, and the field is simply
+  reported as `unknown`.
 
 ---
 
@@ -566,15 +653,26 @@ that refuses to emit an underived program should equally refuse to report an uno
 
 ### 6.5 Other reproductions held for the upstream reports
 
-- `formal-ai with <tool>` dropping the caller's `-p <prompt>` pair (§3.1), collapsing the caller's
-  trailing arguments into one argv element behind its own `-p` (§3.2), and injecting flags the
-  caller did not ask for.
-- The agent-mode reduction of a repository task to "write a plan file and `cat` it back" (§3.2),
-  and the `goal` field carrying the caller's entire system prompt instead of the objective.
+Each of these has a stored reproduction against formal-ai 0.317.0.
+
+- **codex provider configuration never reaches the session** (§3.3): `formal-ai with codex` supplies
+  the provider block in a position codex-cli discards as soon as the caller adds any `-c` of its
+  own, and the traffic then goes to `api.openai.com`. The bisection in §3.3.1 is the reproduction.
+- **`codex exec` is given a `-p <prompt>` flag it does not have** (§3.2.1), and in the piped shape
+  the `exec` subcommand is dropped entirely, so codex launches its interactive TUI.
+- **The provider prefix is applied twice for `agent`** — `--model formalai/formal-ai` becomes
+  `--model formalai/formalai/formal-ai` (§3.2.1).
+- **`--verbose` is silently dropped for every tool**, and `--interactive` is injected for `agent`
+  in a piped, headless invocation (§3.2.1).
+- **Caller passthrough flags do not survive a retry** — `--dangerously-skip-permissions`,
+  `--mcp-config`, `--strict-mcp-config` and `--disallowedTools` are all absent from attempt 2
+  onwards (§3.1.1).
+- **The recovery ladder describes the request as the caller's raw flag string** (§3.1.1), the same
+  goal pollution as the `goal` field carrying the caller's entire system prompt (§3.2).
+- The agent-mode reduction of a repository task to "write a plan file and `cat` it back" (§3.2).
 - `write_stdin failed: Unknown process id 0` observed in the round-2 agent logs.
-- codex provider configuration not reaching the session (§3.3): `formal-ai with codex` supplies the
-  provider block in a position codex-cli discards as soon as the caller adds any `-c` of its own,
-  and the traffic then goes to `api.openai.com`. The bisection in §3.3.1 is the reproduction.
+- The claude prompt loss seen in production (§3.1) is **not** reproducible on 0.317.0; the upstream
+  ask there is a regression test over the forwarded argv, not a specific line to change.
 
 ---
 

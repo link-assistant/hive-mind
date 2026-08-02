@@ -194,9 +194,66 @@ codex_core::session::session: Configuring session: model=formal-ai;
 `base_url: None` is the whole story: no `model_providers` entry for Formal AI was in effect, so
 every request went to the public API and came back `401 Unauthorized` against
 `wss://api.openai.com/v1/responses`. The model name `formal-ai` was accepted; the endpoint was not
-redirected. One plausible mechanism — worth checking upstream rather than asserting here — is that
-the wrapper supplies the provider block as global `-c` overrides while Hive Mind's own `-c` flags
-sit after `exec`, and codex-cli resolves the two sets in a way that drops the former.
+redirected.
+
+#### 3.3.1 Why the provider block is lost — a controlled bisection
+
+The two `-c` sets sit on opposite sides of the subcommand. `formal-ai with codex` passes its
+provider block as **global** overrides, before `exec`
+([`experiments/issue-2130/codex-shim-capture.txt`](../../../experiments/issue-2130/codex-shim-capture.txt),
+a fake `codex` that records its argv):
+
+```text
+--sandbox read-only
+-c model_providers.formalai.base_url=…  -c model_provider=\"formalai\"  -c model=\"formal-ai\"
+exec --model formal-ai --json --skip-git-repo-check
+```
+
+Hive Mind appends its own overrides **after** `exec` ([`src/codex.lib.mjs:870`](../../../src/codex.lib.mjs)):
+
+```js
+codexArgs += ` --json --skip-git-repo-check -o ${shellQuote(lastMessageFile)} -c ${shellQuote(`model_reasoning_effort=${reasoningEffort}`)} -c ${shellQuote('model_reasoning_summary=auto')}`;
+```
+
+[`experiments/issue-2130/repro-codex-c-order.sh`](../../../experiments/issue-2130/repro-codex-c-order.sh)
+runs the same prompt three ways against one live Formal AI server, changing only where the `-c`
+overrides sit. Each variant gets a fresh `CODEX_HOME` whose `config.toml` is written identically (a
+bare `trust_level = "trusted"` entry), so no on-disk state can account for the difference. The
+provider each session actually resolved is read back out of its own session rollout
+(`payload.model_provider`), not inferred from the outcome:
+
+| Variant                                           | `-c` placement                                       | Session `model_provider` | 401s | Outcome                                                             |
+| ------------------------------------------------- | ---------------------------------------------------- | ------------------------ | ---- | ------------------------------------------------------------------- |
+| [before](data/runs/codex-order-before.stdout.log) | provider block only, all before `exec`               | `formalai`               | 0    | reaches Formal AI — `turn.completed`, `input_tokens: 24484`, exit 0 |
+| [after](data/runs/codex-order-after.stdout.log)   | provider block before `exec` **+ Hive Mind's after** | `openai`                 | 7    | `401 Unauthorized` against `api.openai.com`, `turn.failed`, exit 1  |
+| [fixed](data/runs/codex-order-fixed.stdout.log)   | both sets before `exec`                              | `formalai`               | 0    | identical to _before_                                               |
+
+The only change between _before_ and _after_ is appending `-c model_reasoning_effort=none -c
+model_reasoning_summary=auto` after `exec` — and that replaces the whole global set: a session that
+had been configured with `model_provider=formalai` comes up as `openai`. Moving the same two
+overrides ahead of `exec` (_fixed_) restores it. This is exactly the shape of the production log,
+where Hive Mind's `-c model_reasoning_effort=…` also sits after `exec`.
+
+Two consequences worth separating:
+
+- **The workaround is on our side** and needs no upstream change: pass Hive Mind's `-c` overrides
+  before the subcommand, or hand codex a prepared `CODEX_HOME` instead of overrides.
+- **The upstream defect is real regardless**: codex-cli 0.146.0 silently discards a previously
+  supplied provider configuration rather than merging it or rejecting the combination, which turns
+  a configuration mistake into an authentication error against a completely different vendor. Since
+  `formal-ai with codex` is what chooses the global position, this is reported against Formal AI —
+  it can defend itself by materialising a `CODEX_HOME` instead of relying on argv precedence.
+
+Two further observations from the same three runs:
+
+- All variants print `Model metadata for 'formal-ai' not found. Defaulting to fallback metadata;
+this can degrade performance and cause issues.` — separate and non-fatal, but it means codex is
+  guessing the context window.
+- Even the two _successful_ variants produce no useful work. Asked to `Reply with the single word:
+ok`, Formal AI routes to its unknown handler and answers "I could not determine `Reply with the
+single word: ok` from local Links Notation memory, cached public knowledge, or the source cache,
+  and cannot infer a verified answer." So repairing the transport is necessary but not sufficient —
+  §6 covers the reasoning-side defects that remain once the request does arrive.
 
 ### 3.4 What the three have in common
 
@@ -490,9 +547,9 @@ that refuses to emit an underived program should equally refuse to report an uno
 - The agent-mode reduction of a repository task to "write a plan file and `cat` it back" (§3.2),
   and the `goal` field carrying the caller's entire system prompt instead of the objective.
 - `write_stdin failed: Unknown process id 0` observed in the round-2 agent logs.
-- codex provider configuration not reaching the session (§3.3). If the cause turns out to be
-  codex-cli's resolution of `-c` before vs. after `exec`, that is worth a separate filing against
-  `openai/codex`, since it silently redirects traffic to the default provider.
+- codex provider configuration not reaching the session (§3.3): `formal-ai with codex` supplies the
+  provider block in a position codex-cli discards as soon as the caller adds any `-c` of its own,
+  and the traffic then goes to `api.openai.com`. The bisection in §3.3.1 is the reproduction.
 
 ---
 

@@ -49,7 +49,7 @@ import { execFile, spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { rmSync } from 'node:fs';
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -120,6 +120,18 @@ export const buildGeminiAuthSettings = () => ({ security: { auth: { selectedType
  * Formal AI itself serves is enough to complete the triple.
  */
 export const buildQwenAuthEnv = (env = {}) => (env.OPENAI_API_KEY && env.OPENAI_BASE_URL && !env.OPENAI_MODEL && !env.QWEN_MODEL ? { OPENAI_MODEL: FORMAL_AI_MODEL_NAME } : {});
+
+/**
+ * Root for the throwaway HOME each Formal AI run gets.
+ *
+ * Not `os.tmpdir()`: Codex refuses to install its PATH helper binaries when
+ * `CODEX_HOME` resolves under the system temporary directory and prints
+ * `WARNING: proceeding, even though we could not create PATH aliases: Refusing
+ * to create helper binaries under temporary dir "/tmp"` on every run
+ * (codex-cli 0.146.0). A cache directory under the operator's HOME is outside
+ * that check and is still disposable — `stop()` and the exit hook remove it.
+ */
+export const resolveFormalAiHomeRoot = (env = process.env, realHome = homedir()) => env.HIVE_MIND_FORMAL_AI_HOME_ROOT?.trim() || join(realHome, '.cache', 'hive-mind', 'formal-ai');
 
 const findFreePort = async (host = FORMAL_AI_DEFAULT_HOST) =>
   new Promise((resolve, reject) => {
@@ -349,7 +361,9 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
 
   const apiKey = resolveFormalAiApiKey(env);
   const externalBaseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL?.trim() || null;
-  const home = await (deps.mkdtempImpl || mkdtemp)(join(tmpdir(), `hive-formal-ai-${tool}-`));
+  const homeRoot = resolveFormalAiHomeRoot(env);
+  await mkdir(homeRoot, { recursive: true }).catch(() => {});
+  const home = await (deps.mkdtempImpl || mkdtemp)(join(homeRoot, `${tool}-`));
 
   let server = null;
   let baseUrl = externalBaseUrl;

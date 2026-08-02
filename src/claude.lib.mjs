@@ -23,7 +23,7 @@ import { SESSION_FORCE_KILLED_MARKER, postTrackedComment } from './tool-comments
 import { handleClaudeRuntimeSwitch } from './claude.runtime-switch.lib.mjs'; // see issue #1141
 import { CLAUDE_MODELS as availableModels, mapClaudeSubAgentModelToEnvValue } from './models/index.mjs'; // Issue #1221, #1978
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
-import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
+import { buildAuthRemedyLines, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from './playwright-mcp.lib.mjs';
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
@@ -41,6 +41,8 @@ export { availableModels, fetchModelInfo }; // Re-export for backward compatibil
 export { formatNumber, mapModelToId, checkModelVisionCapability };
 export const validateClaudeConnection = async (model = 'haiku') => {
   const mappedModel = mapModelToId(model);
+  // Issue #2130: "run claude login" is wrong advice for a Formal-AI-served model.
+  const authRemedyLines = buildAuthRemedyLines({ model, vendorRemedy: 'Please run: claude login' });
   const maxRetries = 3;
   const baseDelay = timeouts.retryBaseDelay;
   let retryCount = 0;
@@ -137,7 +139,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
           if (stderr) await log(`   Error: ${stderr.trim()}`, { level: 'error' });
         }
         if (stderr.includes('Please run /login') || (jsonError && jsonError.type === 'forbidden')) {
-          await log('   💡 Please run: claude login', { level: 'error' });
+          for (const line of authRemedyLines) await log(line, { level: 'error' });
         }
         return false;
       }
@@ -158,7 +160,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
         }
         await log(`❌ Claude CLI returned error: ${jsonError.type} - ${jsonError.message}`, { level: 'error' });
         if (jsonError.type === 'forbidden') {
-          await log('   💡 Please run: claude login', { level: 'error' });
+          for (const line of authRemedyLines) await log(line, { level: 'error' });
         }
         return false;
       }

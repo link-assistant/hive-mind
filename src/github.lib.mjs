@@ -43,8 +43,11 @@ export const checkFileInBranch = async (owner, repo, fileName, branchName) => {
   const { $ } = await use('command-stream');
 
   try {
-    // Use GitHub CLI to check if file exists in the branch
-    const result = await $`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
+    // Issue #2130: this is an existence probe, and "absent" is the answer the
+    // caller is usually looking for. Mirroring the command would print the whole
+    // contents payload on a hit and `gh: Not Found (HTTP 404)` on a miss, which
+    // reads as a failure in the log even though nothing went wrong.
+    const result = await $({ mirror: false, capture: true })`gh api repos/${owner}/${repo}/contents/${fileName}?ref=${branchName}`;
     return result.code === 0;
   } catch (error) {
     // File doesn't exist or access error - this is expected behavior

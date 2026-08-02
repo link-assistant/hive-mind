@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { buildFormalAiClientEnv, buildGeminiAuthSettings, buildQwenAuthEnv, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
+import { buildFormalAiClientEnv, buildGeminiAuthSettings, buildQwenAuthEnv, findFormalAiClient, loadFormalAiClientRegistry, parseShellEnvExports, prepareFormalAiRuntime, resetFormalAiRuntimeCache, resolveFormalAiApiKey, resolveFormalAiHomeRoot, seedFormalAiClientHome, waitForFormalAiServerReady } from '../src/formal-ai-runtime.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -429,4 +429,50 @@ test('the isolated HOME is only ever used to hold Formal AI configuration', asyn
   // the environment handed to the CLI must not carry it.
   assert.match(source, /env: \{ \.\.\.process\.env, \.\.\.env, HOME: home \}/, 'configuration is written with an isolated HOME');
   assert.ok(!/clientEnv\.HOME\s*=/.test(source), 'the CLI environment never overrides HOME');
+});
+
+// --- the isolated HOME must live outside /tmp -------------------------------
+
+test('resolveFormalAiHomeRoot keeps the throwaway HOME out of the system temp dir', () => {
+  // codex-cli 0.146.0 refuses to create its PATH helper binaries when CODEX_HOME
+  // is under the temp dir and prints a WARNING on every single run.
+  const root = resolveFormalAiHomeRoot({}, '/home/operator');
+  assert.equal(root, join('/home/operator', '.cache', 'hive-mind', 'formal-ai'));
+  assert.ok(!root.startsWith(tmpdir() + '/'), 'the root is not under the system temp dir');
+});
+
+test('resolveFormalAiHomeRoot honours HIVE_MIND_FORMAL_AI_HOME_ROOT', () => {
+  assert.equal(resolveFormalAiHomeRoot({ HIVE_MIND_FORMAL_AI_HOME_ROOT: '  /srv/formal-ai-homes  ' }, '/home/operator'), '/srv/formal-ai-homes');
+});
+
+test('prepareFormalAiRuntime creates the isolated HOME under the configured root', async () => {
+  resetFormalAiRuntimeCache();
+  await withTempDir(async dir => {
+    const home = join(dir, 'home');
+    const prefixes = [];
+    const runtime = await prepareFormalAiRuntime({
+      tool: 'codex',
+      workdir: '/tmp/workspace',
+      env: { HIVE_MIND_FORMAL_AI_HOME_ROOT: dir },
+      formalAiPath: '/opt/formal-ai',
+      deps: {
+        mkdtempImpl: async prefix => {
+          prefixes.push(prefix);
+          return home;
+        },
+        startServerImpl: async () => ({ baseUrl: 'http://127.0.0.1:41235', port: 41235, pid: 4242, stop: async () => {} }),
+        loadRegistryImpl: async () => [registryFor('codex')],
+        seedImpl: async () => [],
+        configureImpl: async () => {},
+      },
+    });
+
+    try {
+      assert.deepEqual(prefixes, [join(dir, 'codex-')]);
+      assert.equal(runtime.home, home);
+    } finally {
+      await runtime.stop();
+      resetFormalAiRuntimeCache();
+    }
+  });
 });

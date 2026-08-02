@@ -28,12 +28,47 @@ export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, fo
   const prForkRemote = await setupPrForkRemote(tempDir, argv, prForkOwner, repo, isContinueMode, owner);
 
   // Set up git authentication using gh
-  const authSetupResult = await $({ cwd: tempDir })`gh auth setup-git 2>&1`;
-  if (authSetupResult.code !== 0) {
-    await log('Note: gh auth setup-git had issues, continuing anyway\n');
-  }
+  await setupGitCredentialHelper({ tempDir, log, $ });
 
   return { repoToClone, forkedRepo, upstreamRemote, prForkRemote, prForkOwner };
+}
+
+/**
+ * Point git at `gh` for GitHub credentials.
+ *
+ * Issue #2130: `gh auth setup-git` only ever writes the *global* gitconfig. In
+ * a container where `~/.gitconfig` is bind-mounted, git cannot replace it and
+ * gh reports `failed to set up git credential helper: failed to run git: error:
+ * could not write config file /home/box/.gitconfig: Device or resource busy`.
+ * Hive Mind used to mirror that line raw and continue with no credential helper
+ * at all, so the real failure only surfaced later as a push error.
+ *
+ * The clone-local config is equivalent for our purposes and is never
+ * bind-mounted, so it is used as the fallback. The empty `helper` entry first
+ * clears any inherited helper, exactly as `gh auth setup-git` does.
+ */
+export async function setupGitCredentialHelper({ tempDir, log, $, hosts = ['github.com'] }) {
+  const authSetupResult = await $({ cwd: tempDir, mirror: false, capture: true })`gh auth setup-git 2>&1`;
+  if (authSetupResult.code === 0) return { scope: 'global', hosts };
+
+  const reason = (authSetupResult.stdout?.toString() || authSetupResult.stderr?.toString() || '').trim();
+  await log(`ℹ️  gh auth setup-git could not write the global gitconfig${reason ? `: ${reason.split('\n')[0]}` : ''}`, { verbose: true });
+
+  const failures = [];
+  for (const host of hosts) {
+    const key = `credential.https://${host}.helper`;
+    const cleared = await $({ cwd: tempDir, mirror: false, capture: true })`git config --local --replace-all ${key} ""`;
+    const configured = await $({ cwd: tempDir, mirror: false, capture: true })`git config --local --add ${key} ${'!gh auth git-credential'}`;
+    if (cleared.code !== 0 || configured.code !== 0) failures.push(host);
+  }
+
+  if (failures.length) {
+    await log(`⚠️  Could not configure a git credential helper for ${failures.join(', ')} - pushes may require credentials in the remote URL`, { level: 'warning' });
+    return { scope: 'none', hosts: failures };
+  }
+
+  await log('🔑 Configured the gh credential helper for this clone (the global gitconfig is not writable)', { verbose: true });
+  return { scope: 'local', hosts };
 }
 
 async function setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName) {

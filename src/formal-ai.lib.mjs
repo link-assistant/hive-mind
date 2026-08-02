@@ -160,6 +160,24 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
   }
 };
 
+/**
+ * Vendor login remedies (`codex login`, `claude /login`, …) are wrong advice
+ * when the model is served by Formal AI: the CLI never talks to the vendor, so
+ * logging in changes nothing. Issue #2130's codex run printed
+ * "❌ Codex authentication failed - 401 Unauthorized … 💡 Please run: codex
+ * login" while the real cause was that the request went to `api.openai.com`
+ * instead of the Formal AI endpoint.
+ *
+ * @param {object} params
+ * @param {string} params.model - the model the run was launched with.
+ * @param {string} params.vendorRemedy - the advice to keep for vendor models.
+ * @returns {string[]} remedy lines, already indented for the error log.
+ */
+export const buildAuthRemedyLines = ({ model, vendorRemedy }) => {
+  if (!isFormalAiModel(model)) return [`   💡 ${vendorRemedy}`];
+  return ['   💡 This model is served by Formal AI, so a vendor login will not help.', '   💡 Check that `formal-ai serve --agent-mode` is reachable and that the generated client config is in effect (rerun with --verbose to see the endpoint and environment).'];
+};
+
 export const isPrepareOnly = argv => !!(argv?.dryRun || argv?.onlyPrepareCommand);
 
 export const createPreparedToolResult = preparedCommand => ({

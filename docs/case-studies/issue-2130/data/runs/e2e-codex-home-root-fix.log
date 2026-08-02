@@ -1,0 +1,27 @@
+# Verification for the isolated-HOME root fix (issue #2130)
+#
+# Before: HOME was created under os.tmpdir(), and codex-cli 0.146.0 printed
+#   WARNING: proceeding, even though we could not create PATH aliases: Refusing
+#   to create helper binaries under temporary dir "/tmp"
+# on every run.
+#
+# After (resolveFormalAiHomeRoot -> ~/.cache/hive-mind/formal-ai): the warning is
+# gone. Runner output:
+#
+#   [codex] 🧠 Formal AI: config CODEX_HOME=/home/box/.cache/hive-mind/formal-ai/codex-MZyaZ0/.codex, seeded /home/box/.codex → .codex
+#   [codex] exit=0
+#
+# The remaining failure below is upstream: Formal AI emits a `write_stdin` call
+# for a process it never started.
+
+# exit=0 signal=null
+## stdout
+{"type":"thread.started","thread_id":"019fc3c4-b042-7ab1-9966-2a5c1b3cd19e"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Let me update main.py for you."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"The agentic CLI harness could not complete `main.py`. The tool reported:\n\n```text\nwrite_stdin failed: Unknown process id 0\n```"}}
+{"type":"turn.completed","usage":{"input_tokens":7822,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":183,"reasoning_output_tokens":0}}
+
+## stderr
+2026-08-02T18:37:59.765040Z ERROR codex_core::tools::router: error=write_stdin failed: Unknown process id 0
+

@@ -15,6 +15,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
@@ -86,7 +87,7 @@ export const setupRepository = async (argv, owner, repo) => {
     await log(`${formatAligned('', 'Checking fork status...', '')}\n`);
 
     // Get current user
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
     if (userResult.code !== 0) {
       await log(`${formatAligned('❌', 'Error:', 'Failed to get current user')}`);
       process.exit(1);

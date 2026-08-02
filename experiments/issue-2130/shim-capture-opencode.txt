@@ -1,0 +1,10 @@
+ARGV:
+  run
+  -m
+  formalai/formal-ai
+  --auto
+  --format
+  json
+  --note
+  CronCreate
+STDIN-BYTES: 0

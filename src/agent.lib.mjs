@@ -22,7 +22,7 @@ import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import Decimal from 'decimal.js-light';
 import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap, isFormalAiModel } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
@@ -510,11 +510,9 @@ export const executeAgentCommand = async params => {
 
     // Map model alias to full ID
     const mappedModel = mapModelToId(argv.model);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'agent',
-      model: argv.model,
-      toolPath: agentPath,
-    });
+    // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
+    Object.assign(agentEnv, toolInvocation.env);
 
     // Build agent command arguments
     let agentArgs = `--model ${mappedModel}`;
@@ -571,7 +569,7 @@ export const executeAgentCommand = async params => {
           mirror: false,
           env: agentEnv,
         });
-        execCommand = toolInvocation.formalAi ? commandRunner`${toolInvocation.command} ${toolInvocation.args} ${agentArgs}` : commandRunner`${toolInvocation.command} ${agentArgs}`;
+        execCommand = commandRunner`${toolInvocation.command} ${agentArgs}`;
         const attached = await attachStreamingInput(bidirectionalHandler, execCommand, combinedPrompt, log, !!argv.verbose, { toolLabel: 'Agent' });
         if (!attached) {
           throw new Error('Agent live stream-json input requested, but stdin attachment failed');
@@ -583,7 +581,7 @@ export const executeAgentCommand = async params => {
           mirror: false,
           env: agentEnv,
         });
-        execCommand = toolInvocation.formalAi ? commandRunner`cat ${promptFile} | ${toolInvocation.command} ${toolInvocation.args} ${agentArgs}` : commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
+        execCommand = commandRunner`cat ${promptFile} | ${toolInvocation.command} ${agentArgs}`;
       }
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
@@ -675,8 +673,13 @@ export const executeAgentCommand = async params => {
         }
         // Issue #1263: Track text content for result summary
         // Agent outputs text via 'text', 'assistant', or 'message' type events
-        if (data.type === 'text' && data.text) {
-          lastTextContent = data.text;
+        // Issue #2130: Agent CLI 0.25.x nests the assistant text under `part`
+        // (`{"type":"text","part":{"type":"text","text":"…"}}`) and never sets a
+        // top-level `data.text`. Reading only `data.text` left `resultSummary`
+        // null for every successful run, which surfaced as the false negative
+        // "ℹ️  No working session summary available from AI tool output".
+        if (data.type === 'text' && (data.text || data.part?.text)) {
+          lastTextContent = data.text || data.part.text;
         } else if (data.type === 'assistant' && data.message?.content) {
           // Extract text from assistant message content
           const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];

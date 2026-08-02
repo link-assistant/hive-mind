@@ -10,6 +10,7 @@ import { emitForkAwareDiagnostic } from './solve.auto-pr-fork-diagnostic.lib.mjs
 import { handleCompareApiNotReady } from './solve.auto-pr-compare-readiness.lib.mjs'; // Issue #1829: decides whether a failed compare-API readiness poll is fatal (fork mismatch / 0 commits) or a transient diff-render failure to degrade past.
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTransientCompareApiError } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. Issue #1756: execGhWithRetry retries on transient 5xx (504) too. Issue #1829: isTransientCompareApiError lets the compare-API readiness gate degrade gracefully on transient diff-render failures.
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
@@ -432,7 +433,7 @@ Proceed.
           // Determine fork name based on --prefix-fork-name-with-owner-name option
           const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
           try {
-            const userResult = await $`gh api user --jq .login`;
+            const userResult = await quietProbe($)`gh api user --jq .login`;
             if (userResult.code === 0) {
               currentUser = userResult.stdout.toString().trim();
               const userForkName = `${currentUser}/${forkRepoName}`;
@@ -1131,9 +1132,14 @@ ${prBody}`,
                 // the queries are assembled in JS and passed as one argument.
                 const repositorySelector = `repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(repo)})`;
 
-                // First, get the node IDs for both the issue and the PR
+                // First, get the node IDs for both the issue and the PR.
+                // Issue #2130: these three reads are quiet. Their bare answers
+                // ("I_kwDO...", "PR_kwDO...", "1") were mirrored into the
+                // attached log with nothing around them; the node IDs are
+                // re-logged below under --verbose and the link result is
+                // reported in words either way.
                 const issueNodeQuery = `query { ${repositorySelector} { issue(number: ${issueNumber}) { id } } }`;
-                const issueNodeResult = await $`gh api graphql -f query=${issueNodeQuery} --jq .data.repository.issue.id`;
+                const issueNodeResult = await quietProbe($)`gh api graphql -f query=${issueNodeQuery} --jq .data.repository.issue.id`;
 
                 if (issueNodeResult.code !== 0) {
                   throw new Error(`Failed to get issue node ID: ${issueNodeResult.stderr}`);
@@ -1143,7 +1149,7 @@ ${prBody}`,
                 await log(`   Issue node ID: ${issueNodeId}`, { verbose: true });
 
                 const prNodeQuery = `query { ${repositorySelector} { pullRequest(number: ${localPrNumber}) { id } } }`;
-                const prNodeResult = await $`gh api graphql -f query=${prNodeQuery} --jq .data.repository.pullRequest.id`;
+                const prNodeResult = await quietProbe($)`gh api graphql -f query=${prNodeQuery} --jq .data.repository.pullRequest.id`;
 
                 if (prNodeResult.code !== 0) {
                   throw new Error(`Failed to get PR node ID: ${prNodeResult.stderr}`);
@@ -1160,7 +1166,7 @@ ${prBody}`,
 
                 // Let's verify the link was created
                 const linkCheckQuery = `query { ${repositorySelector} { pullRequest(number: ${localPrNumber}) { closingIssuesReferences(first: 10) { nodes { number } } } } }`;
-                const linkCheckResult = await $`gh api graphql -f query=${linkCheckQuery} --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
+                const linkCheckResult = await quietProbe($)`gh api graphql -f query=${linkCheckQuery} --jq '.data.repository.pullRequest.closingIssuesReferences.nodes[].number'`;
 
                 if (linkCheckResult.code === 0) {
                   const linkedIssues = parseClosingIssueNumbers(linkCheckResult.stdout);

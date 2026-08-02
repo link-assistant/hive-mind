@@ -24,6 +24,7 @@ import { reportError } from './sentry.lib.mjs';
 export { createCredentialStreamSanitizer };
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: never mirror the call that discovers which secrets must be masked
 // Dynamic imports for runtime dependencies
 const getOsModule = async () => (await import('os')).default;
 const getPathModule = async () => (await import('path')).default;
@@ -255,8 +256,12 @@ export const getGitHubTokensFromCommand = async () => {
   const tokens = [];
 
   try {
-    // Run gh auth status to get token info
-    const authResult = await $`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
+    // Run gh auth status to get token info.
+    // Issue #2130: never mirror this. The whole point of the call is to learn
+    // which secrets have to be masked, so its output is the one thing that is
+    // guaranteed to be unmasked at this moment - and it was being echoed into
+    // the log that later gets attached to the pull request.
+    const authResult = await $(QUIET_PROBE)`gh auth status 2>&1`.catch(() => ({ stdout: '', stderr: '' }));
     const authOutput = authResult.stdout?.toString() + authResult.stderr?.toString() || '';
 
     // Look for token patterns in the output

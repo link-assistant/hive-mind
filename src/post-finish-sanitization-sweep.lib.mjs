@@ -23,6 +23,7 @@
 
 import { sanitizeForPublication, getSanitizationStats } from './token-sanitization.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): caller passes $ already wrapped through wrapDollarWithGhRetry
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 
 /**
  * Determine the bot's gh login name. The function returns null on any error
@@ -33,7 +34,7 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-l
  */
 const detectBotLogin = async $ => {
   try {
-    const result = await $`gh api user --jq .login`;
+    const result = await quietProbe($)`gh api user --jq .login`;
     if (result && result.code === 0 && result.stdout) {
       const login = result.stdout.toString().trim();
       return login || null;
@@ -61,7 +62,7 @@ export const sweepPrConversationComments = async ({ $, owner, repo, prNumber, bo
   const stats = { scanned: 0, edited: 0, errors: 0 };
   let response;
   try {
-    response = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+    response = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
   } catch (err) {
     await log(`⚠️ post-finish sweep: failed to list comments: ${err.message || err}`);
     stats.errors++;
@@ -120,7 +121,7 @@ export const sweepPrDescription = async ({ $, owner, repo, prNumber, log = async
   const stats = { scanned: 0, edited: 0, errors: 0 };
   let response;
   try {
-    response = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
+    response = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
   } catch (err) {
     await log(`⚠️ post-finish sweep: failed to fetch PR ${prNumber}: ${err.message || err}`);
     stats.errors++;

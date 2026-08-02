@@ -19,7 +19,7 @@ import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { executeGeminiCommand } from '../src/gemini.lib.mjs';
 import { buildDockerIsolationStartArgs, resolveFormalAiIsolationEnv } from '../src/isolation-runner.lib.mjs';
 import { getValidModelsForTool, isModelCompatibleWithTool, mapModelForTool, primaryModelNames, validateModelName } from '../src/models/index.mjs';
-import { resolveFormalAiToolInvocation, validateFormalAiToolConnection } from '../src/formal-ai.lib.mjs';
+import { parseFormalAiVersion, readFormalAiVersion, resolveFormalAiToolExecution, validateFormalAiToolConnection } from '../src/formal-ai.lib.mjs';
 import { executeOpenCodeCommand } from '../src/opencode.lib.mjs';
 import { executeQwenCommand } from '../src/qwen.lib.mjs';
 
@@ -55,27 +55,46 @@ for (const [tool, expectedModel] of Object.entries(FORMAL_AI_MODEL_BY_TOOL)) {
     assert.equal(isModelCompatibleWithTool(tool, 'formalai/formal-ai'), true);
   });
 
-  test(`--tool ${tool} dispatches --model formal-ai through formal-ai with`, () => {
-    const invocation = resolveFormalAiToolInvocation({
+  // Issue #2130: dispatch runs the native CLI against a Formal AI endpoint instead
+  // of wrapping the argument list in `formal-ai with`, which swallowed the prompt.
+  test(`--tool ${tool} runs the native CLI against the Formal AI endpoint`, async () => {
+    const invocation = await resolveFormalAiToolExecution({
       tool,
       model: 'formal-ai',
       toolPath: `/opt/hive/${tool}`,
+      workdir: '/tmp/issue-2059',
       env: {},
+      deps: {
+        prepareRuntimeImpl: async ({ tool: preparedTool, workdir }) => ({
+          baseUrl: 'http://127.0.0.1:45678',
+          home: `/tmp/home-${preparedTool}`,
+          env: { FORMAL_AI_API_KEY: 'formal-ai', WORKDIR: workdir },
+          client: { id: preparedTool },
+          stop: async () => {},
+        }),
+      },
     });
 
-    assert.equal(invocation.command, 'formal-ai');
-    assert.deepEqual(invocation.args, ['with', tool]);
-    assert.equal(invocation.displayCommand, `formal-ai with ${tool}`);
+    assert.equal(invocation.command, `/opt/hive/${tool}`);
+    assert.deepEqual(invocation.args, []);
+    assert.equal(invocation.displayCommand, `/opt/hive/${tool}`);
     assert.equal(invocation.formalAi, true);
+    assert.equal(invocation.baseUrl, 'http://127.0.0.1:45678');
+    assert.equal(invocation.env.FORMAL_AI_API_KEY, 'formal-ai');
   });
 }
 
-test('a non-Formal-AI model keeps its configured tool command', () => {
-  const invocation = resolveFormalAiToolInvocation({
+test('a non-Formal-AI model keeps its configured tool command', async () => {
+  const invocation = await resolveFormalAiToolExecution({
     tool: 'agent',
     model: 'nemotron-3-super-free',
     toolPath: '/opt/hive/agent',
     env: {},
+    deps: {
+      prepareRuntimeImpl: async () => {
+        throw new Error('a non-Formal-AI model must not prepare a Formal AI runtime');
+      },
+    },
   });
 
   assert.equal(invocation.command, '/opt/hive/agent');
@@ -84,20 +103,62 @@ test('a non-Formal-AI model keeps its configured tool command', () => {
   assert.equal(invocation.formalAi, false);
 });
 
-test('a configured persistent server disables the wrapper-owned temporary server', () => {
-  const invocation = resolveFormalAiToolInvocation({
+test('a configured persistent server is used instead of a run-owned temporary server', async () => {
+  const prepared = [];
+  const invocation = await resolveFormalAiToolExecution({
     tool: 'codex',
     model: 'formal-ai',
     toolPath: 'codex',
+    workdir: '/tmp/issue-2059',
     env: {
       HIVE_MIND_FORMAL_AI_PATH: '/opt/formal ai/formal-ai',
       HIVE_MIND_FORMAL_AI_BASE_URL: 'http://link-assistant-formal-ai:8080',
     },
+    deps: {
+      prepareRuntimeImpl: async options => {
+        prepared.push(options);
+        return { baseUrl: options.env.HIVE_MIND_FORMAL_AI_BASE_URL, env: {}, home: '/tmp/home', client: { id: 'codex' }, stop: async () => {} };
+      },
+    },
   });
 
-  assert.equal(invocation.command, '/opt/formal ai/formal-ai');
-  assert.deepEqual(invocation.args, ['with', '--no-start-server', '--base-url', 'http://link-assistant-formal-ai:8080', 'codex']);
-  assert.equal(invocation.displayCommand, "'/opt/formal ai/formal-ai' with --no-start-server --base-url http://link-assistant-formal-ai:8080 codex");
+  assert.equal(invocation.command, 'codex');
+  assert.equal(invocation.baseUrl, 'http://link-assistant-formal-ai:8080');
+  assert.equal(prepared.length, 1);
+  assert.equal(prepared[0].env.HIVE_MIND_FORMAL_AI_PATH, '/opt/formal ai/formal-ai');
+});
+
+test('an invalid persistent endpoint fails fast with an actionable message', async () => {
+  await assert.rejects(
+    resolveFormalAiToolExecution({
+      tool: 'codex',
+      model: 'formal-ai',
+      toolPath: 'codex',
+      workdir: '/tmp/issue-2059',
+      env: { HIVE_MIND_FORMAL_AI_BASE_URL: 'not-a-url' },
+    }),
+    /HIVE_MIND_FORMAL_AI_BASE_URL must be a valid HTTP\(S\) URL/
+  );
+});
+
+test('prepare-only dispatch never starts a server or writes tool configuration', async () => {
+  const invocation = await resolveFormalAiToolExecution({
+    tool: 'claude',
+    model: 'formal-ai',
+    toolPath: 'claude',
+    workdir: '/tmp/issue-2059',
+    prepareOnly: true,
+    env: {},
+    deps: {
+      prepareRuntimeImpl: async () => {
+        throw new Error('--only-prepare-command / --dry-run must not start a Formal AI server');
+      },
+    },
+  });
+
+  assert.equal(invocation.command, 'claude');
+  assert.equal(invocation.formalAi, true);
+  assert.equal(invocation.prepared, true);
 });
 
 test('--tool agent --model formal-ai --only-prepare-command reaches command preparation without execution', async () => {
@@ -125,7 +186,8 @@ test('--tool agent --model formal-ai --only-prepare-command reaches command prep
 
   assert.equal(result.success, true);
   assert.equal(result.preparedOnly, true);
-  assert.match(result.preparedCommand, /formal-ai with agent --model formalai\/formal-ai/);
+  assert.match(result.preparedCommand, /agent --model formalai\/formal-ai/);
+  assert.ok(!result.preparedCommand.includes('formal-ai with'), 'the argv wrapper must not be used any more (issue #2130)');
   assert.ok(logLines.some(line => line.includes('AI execution skipped')));
 });
 
@@ -167,7 +229,7 @@ for (const [tool, execute, pathKey] of [
   ['qwen', executeQwenCommand, 'qwenPath'],
   ['gemini', executeGeminiCommand, 'geminiPath'],
 ]) {
-  test(`--tool ${tool} prepares the wrapped executor command without execution`, async () => {
+  test(`--tool ${tool} prepares the native executor command without execution`, async () => {
     const tempDir = await mkdtemp(join(tmpdir(), `issue-2059-${tool}-`));
     const previousHome = process.env.HOME;
     if (tool === 'claude') process.env.HOME = tempDir;
@@ -177,7 +239,8 @@ for (const [tool, execute, pathKey] of [
 
       assert.equal(result.success, true);
       assert.equal(result.preparedOnly, true);
-      assert.match(result.preparedCommand, new RegExp(`formal-ai with ${tool}`));
+      assert.match(result.preparedCommand, new RegExp(`(^|[|&(\\s])${tool}\\s`), 'the native CLI is invoked directly (issue #2130)');
+      assert.ok(!result.preparedCommand.includes('formal-ai with'), 'the argv wrapper must not be used any more (issue #2130)');
       assert.match(result.preparedCommand, new RegExp(`["']?--model["']? ["']?${FORMAL_AI_MODEL_BY_TOOL[tool]}["']?`));
     } finally {
       if (tool === 'claude') {
@@ -189,24 +252,80 @@ for (const [tool, execute, pathKey] of [
   });
 }
 
-test('Formal AI connection validation checks the wrapper and selected CLI without starting a server', async () => {
+test('Formal AI connection validation checks the client registry and selected CLI without starting a server', async () => {
   const calls = [];
   const result = await validateFormalAiToolConnection('qwen', {
     env: { HIVE_MIND_FORMAL_AI_PATH: '/opt/formal-ai' },
     run: async (command, args) => {
       calls.push({ command, args });
+      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      if (command === '/opt/formal-ai') return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai', global_configs: [] }]) };
       return { stdout: 'qwen 1.2.3\n' };
     },
   });
 
   assert.equal(result.valid, true);
   assert.equal(result.version, 'qwen 1.2.3');
+  assert.equal(result.formalAiVersion, '0.317.0');
+  assert.equal(result.client, 'qwen');
+  assert.equal(result.protocol, 'openai');
   assert.deepEqual(calls, [
-    {
-      command: '/opt/formal-ai',
-      args: ['with', '--no-start-server', 'qwen', '--version'],
-    },
+    { command: '/opt/formal-ai', args: ['--version'] },
+    { command: '/opt/formal-ai', args: ['clients', '--format', 'json'] },
+    { command: 'qwen', args: ['--version'] },
   ]);
+});
+
+test('Formal AI connection validation reports a tool Formal AI cannot configure', async () => {
+  const result = await validateFormalAiToolConnection('qwen', {
+    env: {},
+    run: async (command, args) => {
+      if (args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      return { stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) };
+    },
+  });
+
+  assert.equal(result.valid, false);
+  assert.match(result.error, /does not list a client configuration for "qwen"/);
+  assert.match(result.error, /claude, codex/);
+  // Issue #2130: the wrapper version has to survive onto the failure path too,
+  // because that is the path whose logs get attached to the pull request.
+  assert.equal(result.formalAiVersion, '0.317.0');
+});
+
+test('Formal AI wrapper version is parsed from the --version line and reported on every result path', async () => {
+  assert.equal(parseFormalAiVersion('formal-ai 0.317.0\n'), '0.317.0');
+  assert.equal(parseFormalAiVersion('  formal-ai 0.317.0  '), '0.317.0');
+  assert.equal(parseFormalAiVersion('0.317.0'), '0.317.0');
+  assert.equal(parseFormalAiVersion(''), null);
+  assert.equal(parseFormalAiVersion(null), null);
+
+  assert.equal(await readFormalAiVersion({ env: {}, run: async () => ({ stdout: 'formal-ai 1.0.0' }) }), '1.0.0');
+});
+
+test('An unreadable Formal AI wrapper version never fails the run', async () => {
+  // `--version` is diagnostics, not a gate: a wrapper that cannot answer it must
+  // still be allowed to dispatch.
+  const result = await validateFormalAiToolConnection('qwen', {
+    env: {},
+    run: async (command, args) => {
+      if (args[0] === '--version' && command !== 'qwen') throw new Error('unknown flag: --version');
+      if (command === 'qwen') return { stdout: 'qwen 1.2.3' };
+      return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai' }]) };
+    },
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.formalAiVersion, null);
+  assert.equal(
+    await readFormalAiVersion({
+      env: {},
+      run: async () => {
+        throw new Error('ENOENT');
+      },
+    }),
+    null
+  );
 });
 
 test('Docker-isolated solve jobs receive the configured persistent Formal AI endpoint', () => {

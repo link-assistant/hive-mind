@@ -1,0 +1,56 @@
+[claude] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-claude-MseBSW
+[claude] 🧠 Formal AI: server ready on http://127.0.0.1:36861 (pid 349709)
+[claude] 🧠 Formal AI: protocol anthropic, endpoint http://127.0.0.1:36861/api/anthropic
+[claude] 🧠 Formal AI: config shell_env:.profile
+[claude] 🧠 Formal AI: environment ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, FORMAL_AI_API_KEY
+[claude] baseUrl=http://127.0.0.1:36861 env=ANTHROPIC_AUTH_TOKEN,ANTHROPIC_BASE_URL,FORMAL_AI_API_KEY
+[claude] notes=shell_env:.profile
+[claude] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-claude.log)
+[agent] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-agent-6uPKB6
+[agent] 🧠 Formal AI: server ready on http://127.0.0.1:39187 (pid 352781)
+[agent] 🧠 Formal AI: protocol openai, endpoint http://127.0.0.1:39187/api/openai/v1
+[agent] 🧠 Formal AI: config XDG_CONFIG_HOME=/tmp/hive-formal-ai-agent-ape1VR/.config, seeded /home/box/.config/link-assistant-agent → .config/link-assistant-agent
+[agent] 🧠 Formal AI: environment FORMAL_AI_API_KEY, XDG_CONFIG_HOME
+[agent] baseUrl=http://127.0.0.1:39187 env=FORMAL_AI_API_KEY,XDG_CONFIG_HOME
+[agent] notes=XDG_CONFIG_HOME=/tmp/hive-formal-ai-agent-ape1VR/.config | seeded /home/box/.config/link-assistant-agent → .config/link-assistant-agent
+[agent] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-agent.log)
+[codex] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-codex-zZvg4Q
+[codex] 🧠 Formal AI: server ready on http://127.0.0.1:33417 (pid 352887)
+[codex] 🧠 Formal AI: protocol openai, endpoint http://127.0.0.1:33417/api/openai/v1
+[codex] 🧠 Formal AI: config CODEX_HOME=/tmp/hive-formal-ai-codex-6Y9p2f/.codex, seeded /home/box/.codex → .codex
+[codex] 🧠 Formal AI: environment CODEX_HOME, FORMAL_AI_API_KEY
+[codex] baseUrl=http://127.0.0.1:33417 env=CODEX_HOME,FORMAL_AI_API_KEY
+[codex] notes=CODEX_HOME=/tmp/hive-formal-ai-codex-6Y9p2f/.codex | seeded /home/box/.codex → .codex
+[codex] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-codex.log)
+[qwen] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-qwen-nSbOus
+[qwen] 🧠 Formal AI: server ready on http://127.0.0.1:41471 (pid 354241)
+[qwen] 🧠 Formal AI: protocol openai, endpoint http://127.0.0.1:41471/api/openai/v1
+[qwen] 🧠 Formal AI: config shell_env:.profile, OPENAI_MODEL=formal-ai
+[qwen] 🧠 Formal AI: environment FORMAL_AI_API_KEY, OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL
+[qwen] baseUrl=http://127.0.0.1:41471 env=FORMAL_AI_API_KEY,OPENAI_API_KEY,OPENAI_BASE_URL,OPENAI_MODEL
+[qwen] notes=shell_env:.profile | OPENAI_MODEL=formal-ai
+[qwen] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-qwen.log)
+[gemini] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-gemini-Cxsxtg
+[gemini] 🧠 Formal AI: server ready on http://127.0.0.1:34075 (pid 354351)
+[gemini] 🧠 Formal AI: protocol gemini, endpoint http://127.0.0.1:34075/api/gemini
+[gemini] 🧠 Formal AI: config shell_env:.profile, GEMINI_CLI_SYSTEM_SETTINGS_PATH=/tmp/hive-formal-ai-gemini-vfq9H6/.gemini/settings.json
+[gemini] 🧠 Formal AI: environment FORMAL_AI_API_KEY, GEMINI_API_KEY, GEMINI_CLI_SYSTEM_SETTINGS_PATH, GEMINI_CLI_TRUST_WORKSPACE, GEMINI_DEFAULT_AUTH_TYPE, GOOGLE_GEMINI_BASE_URL
+[gemini] baseUrl=http://127.0.0.1:34075 env=FORMAL_AI_API_KEY,GEMINI_API_KEY,GEMINI_CLI_SYSTEM_SETTINGS_PATH,GEMINI_CLI_TRUST_WORKSPACE,GEMINI_DEFAULT_AUTH_TYPE,GOOGLE_GEMINI_BASE_URL
+[gemini] notes=shell_env:.profile | GEMINI_CLI_SYSTEM_SETTINGS_PATH=/tmp/hive-formal-ai-gemini-vfq9H6/.gemini/settings.json
+[gemini] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-gemini.log)
+[opencode] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-opencode-MUmtFg
+[opencode] 🧠 Formal AI: server ready on http://127.0.0.1:33903 (pid 354391)
+[opencode] 🧠 Formal AI: protocol openai, endpoint http://127.0.0.1:33903/api/openai/v1
+[opencode] 🧠 Formal AI: config XDG_CONFIG_HOME=/tmp/hive-formal-ai-opencode-Y8NuPW/.config, seeded /home/box/.config/opencode → .config/opencode
+[opencode] 🧠 Formal AI: environment FORMAL_AI_API_KEY, XDG_CONFIG_HOME
+[opencode] baseUrl=http://127.0.0.1:33903 env=FORMAL_AI_API_KEY,XDG_CONFIG_HOME
+[opencode] notes=XDG_CONFIG_HOME=/tmp/hive-formal-ai-opencode-Y8NuPW/.config | seeded /home/box/.config/opencode → .config/opencode
+[opencode] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-opencode.log)
+
+=== summary ===
+{"tool":"claude","exit":0,"signal":null,"created":false,"content":null,"seconds":16,"log":"experiments/issue-2130/e2e-claude.log"}
+{"tool":"agent","exit":0,"signal":null,"created":false,"content":null,"seconds":5,"log":"experiments/issue-2130/e2e-agent.log"}
+{"tool":"codex","exit":0,"signal":null,"created":false,"content":null,"seconds":47,"log":"experiments/issue-2130/e2e-codex.log"}
+{"tool":"qwen","exit":0,"signal":null,"created":false,"content":null,"seconds":12,"log":"experiments/issue-2130/e2e-qwen.log"}
+{"tool":"gemini","exit":0,"signal":null,"created":false,"content":null,"seconds":6,"log":"experiments/issue-2130/e2e-gemini.log"}
+{"tool":"opencode","exit":0,"signal":null,"created":false,"content":null,"seconds":10,"log":"experiments/issue-2130/e2e-opencode.log"}

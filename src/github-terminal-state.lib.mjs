@@ -21,7 +21,13 @@ const getDefaultCommandRunner = async () => {
   const use = globalThis.use;
   const { $: rawDollar } = await use('command-stream');
   const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
-  defaultCommandRunner = wrapDollarWithGhRetry(rawDollar);
+  const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs');
+  // Issue #2130: these are existence probes. Their raw payloads (a ~33 KB pull
+  // request object, once per watch iteration) and their expected "gh: Not Found
+  // (HTTP 404)" answers were mirrored into the attached log, where a handled
+  // probe reads as an unexplained error. Every outcome is reported by the
+  // caller in words, so the raw output is captured but never mirrored.
+  defaultCommandRunner = wrapDollarWithGhRetry(rawDollar(QUIET_PROBE));
   return defaultCommandRunner;
 };
 

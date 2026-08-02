@@ -7,6 +7,7 @@
 import { reportError } from './sentry.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { QUIET_PROBE, quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 // Issue #1827: tool-generated comments (markers + in-memory tracked IDs) must
 // not count as feedback in watch/continue mode, mirroring checkForNonBotComments.
 import { isToolGeneratedComment, isToolTrackedCommentId } from './tool-comments.lib.mjs';
@@ -22,7 +23,7 @@ export const detectAndCountFeedback = async params => {
 
   // Get current GitHub user to filter out own comments
   try {
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await quietProbe($)`gh api user --jq .login`;
     if (userResult.code === 0) {
       currentUser = userResult.stdout.toString().trim();
       await log(formatAligned('👤', 'Current user:', currentUser, 2));
@@ -63,7 +64,11 @@ export const detectAndCountFeedback = async params => {
 
       // Get the last commit timestamp from the PR branch
       let lastCommitTime = null;
-      const git$ = repositoryPath ? $({ cwd: repositoryPath }) : $;
+      // Issue #2130: quiet. These probes answer "when was the last commit?", and
+      // the answer is logged in words below; mirroring them put bare ISO dates
+      // and `git log`'s "unknown revision" complaint - the expected outcome for
+      // a branch that has never been pushed - into the attached log.
+      const git$ = repositoryPath ? $({ cwd: repositoryPath, ...QUIET_PROBE }) : quietProbe($);
       let lastCommitResult = await git$`git log -1 --format="%aI" origin/${branchName}`;
       if (lastCommitResult.code !== 0) {
         // Fallback to local branch if remote doesn't exist
@@ -76,7 +81,7 @@ export const detectAndCountFeedback = async params => {
       } else {
         // Fallback: Get last commit time from GitHub API
         try {
-          const prCommitsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --jq 'last.commit.author.date'`;
+          const prCommitsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/commits --paginate --jq 'last.commit.author.date'`;
           if (prCommitsResult.code === 0 && prCommitsResult.stdout) {
             lastCommitTime = new Date(prCommitsResult.stdout.toString().trim());
             await log(formatAligned('📅', 'Last commit time (from API):', lastCommitTime.toISOString(), 2));
@@ -109,14 +114,14 @@ export const detectAndCountFeedback = async params => {
         let prConversationComments = [];
 
         // Get PR code review comments (use --paginate to get all comments, not just first page)
-        const prReviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+        const prReviewCommentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
         if (prReviewCommentsResult.code === 0) {
           prReviewComments = JSON.parse(prReviewCommentsResult.stdout.toString());
         }
 
         // Get PR conversation comments (PR is also an issue)
         // Use --paginate to get all comments - GitHub API returns max 30 per page by default
-        const prConversationCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+        const prConversationCommentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
         if (prConversationCommentsResult.code === 0) {
           prConversationComments = JSON.parse(prConversationCommentsResult.stdout.toString());
         }
@@ -156,7 +161,7 @@ export const detectAndCountFeedback = async params => {
 
         // Count new issue comments after last commit
         // Use --paginate to get all comments - GitHub API returns max 30 per page by default
-        const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+        const issueCommentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
         if (issueCommentsResult.code === 0) {
           const issueComments = JSON.parse(issueCommentsResult.stdout.toString());
           const filteredIssueComments = issueComments.filter(comment => {
@@ -242,7 +247,7 @@ export const detectAndCountFeedback = async params => {
           // started) should be considered feedback.
           try {
             // Check PR description edit time
-            const prDetailsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
+            const prDetailsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
             if (prDetailsResult.code === 0) {
               const prDetails = JSON.parse(prDetailsResult.stdout.toString());
               const prUpdatedAt = new Date(prDetails.updated_at);
@@ -265,7 +270,7 @@ export const detectAndCountFeedback = async params => {
 
             // Check issue description edit time if we have an issue
             if (issueNumber) {
-              const issueDetailsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}`;
+              const issueDetailsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}`;
               if (issueDetailsResult.code === 0) {
                 const issueDetails = JSON.parse(issueDetailsResult.stdout.toString());
                 const issueUpdatedAt = new Date(issueDetails.updated_at);
@@ -300,12 +305,12 @@ export const detectAndCountFeedback = async params => {
 
           // 3. Check for new commits on default branch
           try {
-            const defaultBranchResult = await $`gh api repos/${owner}/${repo}`;
+            const defaultBranchResult = await quietProbe($)`gh api repos/${owner}/${repo}`;
             if (defaultBranchResult.code === 0) {
               const repoData = JSON.parse(defaultBranchResult.stdout.toString());
               const defaultBranch = repoData.default_branch;
 
-              const commitsResult = await $`gh api repos/${owner}/${repo}/commits --paginate --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
+              const commitsResult = await quietProbe($)`gh api repos/${owner}/${repo}/commits --paginate --field sha=${defaultBranch} --field since=${lastCommitTime.toISOString()}`;
               if (commitsResult.code === 0) {
                 const commits = JSON.parse(commitsResult.stdout.toString());
                 if (commits.length > 0) {
@@ -353,10 +358,10 @@ export const detectAndCountFeedback = async params => {
 
           // 6. Check for failed PR checks
           try {
-            const prHeadResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha'`;
+            const prHeadResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.head.sha'`;
             if (prHeadResult.code === 0) {
               const prHeadSha = prHeadResult.stdout.toString().trim();
-              const checksResult = await $`gh api repos/${owner}/${repo}/commits/${prHeadSha}/check-runs --paginate --slurp`;
+              const checksResult = await quietProbe($)`gh api repos/${owner}/${repo}/commits/${prHeadSha}/check-runs --paginate --slurp`;
               const checkRuns = checksResult.code === 0 ? JSON.parse(checksResult.stdout.toString() || '[]').flatMap(page => page.check_runs || []) : [];
               const failedChecks = checkRuns.filter(check => check.conclusion === 'failure' && new Date(check.completed_at) > lastCommitTime);
 
@@ -379,7 +384,7 @@ export const detectAndCountFeedback = async params => {
 
           // 7. Check for review requests with changes requested
           try {
-            const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
+            const reviewsResult = await quietProbe($)`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate`;
             if (reviewsResult.code === 0) {
               const reviews = JSON.parse(reviewsResult.stdout.toString());
               const changesRequestedReviews = reviews.filter(review => review.state === 'CHANGES_REQUESTED' && new Date(review.submitted_at) > lastCommitTime);

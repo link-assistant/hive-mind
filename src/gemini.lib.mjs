@@ -18,7 +18,7 @@ import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Iss
 const __geminiBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'gemini', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { defaultModels, geminiModels, isFormalAiModel } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
@@ -412,11 +412,9 @@ export const executeGeminiCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.gemini);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'gemini',
-      model: argv.model || defaultModels.gemini,
-      toolPath: geminiPath,
-    });
+    // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
+    const geminiEnv = { ...process.env, ...toolInvocation.env };
     const combinedPrompt = systemPrompt ? `${systemPrompt}\n\n${prompt}` : prompt;
 
     if (argv.resume) {
@@ -426,7 +424,6 @@ export const executeGeminiCommand = async params => {
     // Issue #1809: build args via shared helper so verbose/sandbox/include-dirs
     // toggles stay consistent between the logged command and the real invocation.
     const geminiArgList = buildGeminiArgs(argv, mappedModel, { tempDir, workspaceTmpDir });
-    const fullGeminiArgList = [...toolInvocation.args, ...geminiArgList];
     const fullCommand = `(cd ${shellQuote(tempDir)} && ${toolInvocation.displayCommand} ${geminiArgList.map(shellQuote).join(' ')} <<< <prompt>)`;
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
@@ -449,7 +446,8 @@ export const executeGeminiCommand = async params => {
         cwd: tempDir,
         stdin: combinedPrompt,
         mirror: false,
-      })`${toolInvocation.command} ${fullGeminiArgList}`;
+        env: geminiEnv,
+      })`${toolInvocation.command} ${geminiArgList}`;
 
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));

@@ -17,6 +17,7 @@ if (typeof globalThis.use === 'undefined') {
 const fs = (await use('fs')).promises;
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const GITHUB_ISSUE_BODY_MAX_SIZE = 60000;
 const GITHUB_FILE_MAX_SIZE = 10 * 1024 * 1024;
@@ -53,7 +54,7 @@ export const promptUserForIssueCreation = async errorMessage => {
  */
 const getCurrentGitHubUser = async () => {
   try {
-    const result = await $`gh api user --jq .login`;
+    const result = await $(QUIET_PROBE)`gh api user --jq .login`;
     if (result.exitCode === 0) {
       const user = result.stdout.toString().trim();
       if (user) return user;

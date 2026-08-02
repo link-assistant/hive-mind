@@ -16,6 +16,7 @@ const use = globalThis.use;
 // Use command-stream for consistent $ behavior across runtimes
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 // Import shared library functions
 const lib = await import('./lib.mjs');
@@ -522,7 +523,7 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
     // When in fork mode, check for existing branches in the fork
     try {
       // Get current user to determine fork name
-      const userResult = await $`gh api user --jq .login`;
+      const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
       if (userResult.code === 0) {
         const currentUser = userResult.stdout.toString().trim();
         // Determine fork name based on --prefix-fork-name-with-owner-name option

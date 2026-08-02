@@ -1,0 +1,23 @@
+########## gemini
+  --- what `formal-ai with gemini --global` writes to ~/.profile
+      # >>> formal-ai gemini
+      export GEMINI_API_KEY="${FORMAL_AI_API_KEY:-formal-ai}"
+      export GEMINI_DEFAULT_AUTH_TYPE="gemini-api-key"
+      export GEMINI_CLI_TRUST_WORKSPACE="true"
+      export GOOGLE_GEMINI_BASE_URL="http://127.0.0.1:8080/api/gemini"
+      # <<< formal-ai gemini
+  A: environment only (what --global writes)
+      REFUSED TO START: Invalid auth method selected.
+  B: same environment + settings.json security.auth.selectedType
+      started: reached the model
+
+########## qwen
+  --- what `formal-ai with qwen --global` writes to ~/.profile
+      # >>> formal-ai qwen
+      export OPENAI_API_KEY="${FORMAL_AI_API_KEY:-formal-ai}"
+      export OPENAI_BASE_URL="http://127.0.0.1:8080/api/openai/v1"
+      # <<< formal-ai qwen
+  A: environment only (what --global writes)
+      REFUSED TO START: No auth type is selected. Please configure an auth type (e.g. via settings or `--auth-type`) before running in non-interactive mode.
+  B: same environment + OPENAI_MODEL
+      started: reached the model

@@ -27,12 +27,13 @@ const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && a
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
 import { ensureCodexPlaywrightMcpServer, getCodexPlaywrightMcpDisableConfigArgs } from './playwright-mcp.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
 import { defaultModels, isFormalAiModel } from './models/index.mjs';
-import { logPreparedToolCommand, resolveFormalAiToolInvocation } from './formal-ai.lib.mjs';
+import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
@@ -641,7 +642,7 @@ export const validateCodexConnection = async (model = defaultModels.codex, verbo
           const authError = new Error('Codex authentication failed - 401 Unauthorized');
           authError.isAuthError = true;
           await log('❌ Codex authentication failed', { level: 'error' });
-          await log('   💡 Please run: codex login', { level: 'error' });
+          for (const line of buildAuthRemedyLines({ model, vendorRemedy: 'Please run: codex login' })) await log(line, { level: 'error' });
           throw authError;
         }
 
@@ -823,17 +824,17 @@ export const executeCodexCommand = async params => {
 
     let execCommand;
     const mappedModel = mapModelToId(argv.model);
-    const toolInvocation = resolveFormalAiToolInvocation({
-      tool: 'codex',
-      model: argv.model,
-      toolPath: codexPath,
-    });
     const { reasoningEffort, source: reasoningEffortSource, rolloutTokenBudget } = resolveCodexReasoningEffort(argv);
     const isResumeMode = !!argv.resume;
     const codexEnv = applyCodexCapabilityEnv(capabilityPreflight?.codexBaseEnv || getCodexExecEnv(argv.verbose), {
       codexHome: capabilityPreflight?.codexHome,
       baseCodexHome: capabilityPreflight?.baseCodexHome,
     });
+    // Issue #2130: run the native CLI against a local Formal AI server (no argv wrapper); `codexEnv` seeds the isolated CODEX_HOME.
+    const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
+    // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
+    const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
+    Object.assign(codexEnv, toolInvocation.env);
 
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
@@ -901,7 +902,9 @@ export const executeCodexCommand = async params => {
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
     }
 
-    const fullCommand = `(cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
+    // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
+    // stale `formal-ai with --global` block in the operator profile cannot override it.
+    const fullCommand = `(${buildFormalAiEnvExports(toolInvocation.env)}cd ${shellQuote(tempDir)} && cat ${shellQuote(promptFile)} | ${toolInvocation.displayCommand} ${codexArgs})`;
 
     const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
     if (preparedResult) return preparedResult;
@@ -1031,7 +1034,7 @@ export const executeCodexCommand = async params => {
             authError = true;
             await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
             await log('   This error cannot be resolved by retrying.', { level: 'error' });
-            await log('   💡 Please run: codex login', { level: 'error' });
+            for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
           }
         }
 
@@ -1066,76 +1069,32 @@ export const executeCodexCommand = async params => {
         authError = true;
         await log('\n❌ Authentication error detected in Codex JSON stream', { level: 'error' });
         await log('   This error cannot be resolved by retrying.', { level: 'error' });
-        await log('   💡 Please run: codex login', { level: 'error' });
+        for (const line of codexAuthRemedyLines) await log(line, { level: 'error' });
       }
 
       if (interactiveHandler) {
         await interactiveHandler.flush();
       }
 
+      // Issue #2130: a failed run legitimately has no final message and no
+      // turn.completed usage, so those outcomes must not be logged as warnings.
+      const runFailed = codexRunAlreadyFailed({ state: codexJsonState, exitCode });
+      let lastMessageFromFile = null;
+      let lastMessageReadError = null;
       try {
-        const lastMessageFromFile = (await fs.readFile(lastMessageFile, 'utf8')).trim();
-        if (lastMessageFromFile) {
-          await log(`📝 Final Codex message captured in ${lastMessageFile}`, { verbose: true });
-          await log(lastMessageFromFile, { verbose: true });
-          lastTextContent = lastTextContent || lastMessageFromFile;
-        } else {
-          await log(`⚠️ Final Codex message file was empty: ${lastMessageFile}`, { level: 'warning', verbose: true });
-        }
+        lastMessageFromFile = (await fs.readFile(lastMessageFile, 'utf8')).trim();
       } catch (readError) {
-        await log(`⚠️ Could not read Codex final message file: ${readError.message}`, { level: 'warning', verbose: true });
+        lastMessageReadError = readError;
+      }
+      const lastMessageOutcome = describeCodexLastMessageOutcome({ lastMessageFile, lastMessage: lastMessageFromFile, readError: lastMessageReadError, runFailed });
+      await log(lastMessageOutcome.message, lastMessageOutcome.options);
+      if (lastMessageFromFile) {
+        await log(lastMessageFromFile, { verbose: true });
+        lastTextContent = lastTextContent || lastMessageFromFile;
       }
 
-      if (Object.keys(codexJsonState.eventCounts).length > 0) {
-        const eventSummary = Object.entries(codexJsonState.eventCounts)
-          .map(([eventType, count]) => `${eventType}=${count}`)
-          .join(', ');
-        await log(`📊 Codex JSON events: ${eventSummary}`, { verbose: true });
-      }
-      if (Object.keys(codexJsonState.itemTypeCounts).length > 0) {
-        const itemSummary = Object.entries(codexJsonState.itemTypeCounts)
-          .map(([itemType, count]) => `${itemType}=${count}`)
-          .join(', ');
-        await log(`📦 Codex item types: ${itemSummary}`, { verbose: true });
-      }
-      if (codexJsonState.tokenUsage.stepCount > 0) {
-        await log(`📈 Codex usage from turn.completed: ${codexJsonState.tokenUsage.inputTokens.toLocaleString()} input, ${codexJsonState.tokenUsage.cacheReadTokens.toLocaleString()} cache read, ${codexJsonState.tokenUsage.outputTokens.toLocaleString()} output across ${codexJsonState.tokenUsage.stepCount} turn(s)`, { verbose: true });
-      } else {
-        await log('📈 No Codex usage found in turn.completed events', { level: 'warning', verbose: true });
-      }
-      if (codexJsonState.subAgentCalls.length > 0) {
-        await log(`🤝 Codex collab/sub-agent calls observed: ${codexJsonState.subAgentCalls.length}`, { verbose: true });
-      }
-      if (codexJsonState.reasoningSummaries.length > 0) {
-        await log(`🧠 Codex reasoning summaries observed: ${codexJsonState.reasoningSummaries.length}`, { verbose: true });
-      }
-      if (codexJsonState.commandExecutions.length > 0) {
-        await log(`💻 Codex command executions observed: ${codexJsonState.commandExecutions.length}`, { verbose: true });
-      }
-      if (codexJsonState.fileChanges.length > 0) {
-        await log(`📝 Codex file change items observed: ${codexJsonState.fileChanges.length}`, { verbose: true });
-      }
-      if (codexJsonState.mcpToolCalls.length > 0) {
-        await log(`🔌 Codex MCP tool calls observed: ${codexJsonState.mcpToolCalls.length}`, { verbose: true });
-      }
-      if (codexJsonState.webSearches.length > 0) {
-        await log(`🌐 Codex web searches observed: ${codexJsonState.webSearches.length}`, { verbose: true });
-      }
-      if (codexJsonState.todoLists.length > 0) {
-        const latestTodoCount = codexJsonState.todoLists.at(-1)?.items?.length || 0;
-        await log(`📋 Codex todo list updates observed: ${codexJsonState.todoLists.length} (latest: ${latestTodoCount} items)`, { verbose: true });
-      }
-      if (codexJsonState.itemErrors.length > 0 || codexJsonState.turnFailures.length > 0 || codexJsonState.streamErrors.length > 0) {
-        await log(`⚠️ Codex error events observed: item=${codexJsonState.itemErrors.length}, turn=${codexJsonState.turnFailures.length}, stream=${codexJsonState.streamErrors.length}`, { verbose: true });
-      }
-      if (codexJsonState.observedUsageFieldSets.length > 0) {
-        const lastUsageFieldSet = codexJsonState.observedUsageFieldSets.at(-1);
-        await log(`📐 Codex usage fields observed: ${lastUsageFieldSet.join(', ')}`, { verbose: true });
-      }
-      if (codexJsonState.observedModelDiagnosticPaths.length > 0) {
-        await log(`🔎 Undocumented model-related JSON fields observed but ignored for accounting: ${codexJsonState.observedModelDiagnosticPaths.join(', ')}`, { verbose: true });
-      } else {
-        await log(`🤖 Codex exec JSON did not expose model IDs; using requested model for reporting: ${mappedModel}`, { verbose: true });
+      for (const line of buildCodexRunDiagnostics({ state: codexJsonState, exitCode, mappedModel })) {
+        await log(line.message, line.options);
       }
 
       const baseBranchIntervention = baseBranchCommandIntervention.getIntervention();
@@ -1195,7 +1154,7 @@ export const executeCodexCommand = async params => {
         await logCodexResourceSnapshot({ getResourceSnapshot, log });
 
         // Throw an error to stop retries and propagate the auth failure
-        const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
+        const error = new Error(`Codex authentication failed - 401 Unauthorized.${codexAuthRemedyLines.map(line => ` ${line.replace(/^\s*💡\s*/, '')}`).join('')}`);
         error.isAuthError = true;
         throw error;
       }

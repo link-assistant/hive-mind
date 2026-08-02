@@ -1,0 +1,11 @@
+[claude] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-claude-F9gl6d
+[claude] 🧠 Formal AI: server ready on http://127.0.0.1:34305 (pid 221360)
+[claude] 🧠 Formal AI: protocol anthropic, endpoint http://127.0.0.1:34305/api/anthropic
+[claude] 🧠 Formal AI: config shell_env:.profile
+[claude] 🧠 Formal AI: environment ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, FORMAL_AI_API_KEY
+[claude] baseUrl=http://127.0.0.1:34305 env=ANTHROPIC_AUTH_TOKEN,ANTHROPIC_BASE_URL,FORMAL_AI_API_KEY
+[claude] notes=shell_env:.profile
+[claude] exit=0 hello.txt="Hello World, in JavaScript." (experiments/issue-2130/e2e-claude.log)
+
+=== summary ===
+{"tool":"claude","exit":0,"signal":null,"created":true,"content":"Hello World, in JavaScript.","seconds":15,"log":"experiments/issue-2130/e2e-claude.log"}

@@ -1,0 +1,6 @@
+{"type":"thread.started","thread_id":"019fc361-755b-7472-a02e-faaac090d5af"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"Model metadata for `formal-ai` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."}}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_1","type":"reasoning","text":"Decline the request under the agent mode required for tools policy."}}
+{"type":"item.completed","item":{"id":"item_2","type":"agent_message","text":"Tool calls and function execution are not allowed without explicit agent mode. Enable agent mode only for an isolated execution environment."}}
+{"type":"turn.completed","usage":{"input_tokens":24509,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":140,"reasoning_output_tokens":0}}

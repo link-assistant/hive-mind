@@ -72,6 +72,8 @@ const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.l
 assert.ok(resultsSource.includes("await import('./working-session-summary.lib.mjs')"), 'solve.results.lib.mjs imports the helpers');
 assert.ok(resultsSource.includes('const summaryBody = redactWorkspacePaths(resultSummary);'), 'the posted body is redacted');
 assert.ok(resultsSource.includes('const noChangesNotice = buildNoChangesNotice(changeStats);'), 'the posted body carries the empty-diff notice');
-assert.ok(resultsSource.includes('const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;'), 'the diff is measured before the summary is posted');
+// The call gained a `log` argument in issue #2135, so the probe can report an
+// oversized diff; match the shape rather than the exact argument list.
+assert.ok(/const changeStats = prNumber \? await getPullRequestChangeStats\(\{ owner, repo, prNumber, \$(, log)? \}\) : null;/.test(resultsSource), 'the diff is measured before the summary is posted');
 
 console.log('PASS: issue #2119 working session summaries are redacted and state when nothing was implemented');

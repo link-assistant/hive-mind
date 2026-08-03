@@ -338,6 +338,28 @@ export function formatKillRecoverySection({ cause = KILL_CAUSE_OUT_OF_MEMORY, ob
 }
 
 /**
+ * The counterpart for a session that did NOT survive: `--on-session-kill=resume`
+ * started a fresh working session, and the Telegram report must say so with the
+ * same words the pull-request notice uses — that is the "consistent in ALL
+ * places" requirement of issue #2134.
+ *
+ * @param {Object} [options]
+ * @param {string|null} [options.sessionId] - Id of the recovery working session
+ * @param {number|null} [options.attempt]
+ * @param {number|null} [options.maxAttempts]
+ * @param {string|null} [options.locale]
+ * @returns {string} Markdown block, or '' when no recovery session was started
+ */
+export function formatKillResumeSection({ sessionId = null, attempt = null, maxAttempts = null, locale = null } = {}) {
+  if (!sessionId) return '';
+  const withAttempt = Number.isFinite(attempt) && Number.isFinite(maxAttempts);
+  const attemptText = withAttempt ? `${attempt}/${maxAttempts}` : '';
+  const key = withAttempt ? 'telegram.session_kill_resumed_attempt' : 'telegram.session_kill_resumed';
+  const fallback = withAttempt ? `🔄 A new working session was started to recover from this kill (attempt ${attemptText}): ${sessionId}` : `🔄 A new working session was started to recover from this kill: ${sessionId}`;
+  return text(locale, key, fallback, { attempt: attemptText, sessionId });
+}
+
+/**
  * Read a session log, diagnose the kill and render the Telegram section in one
  * call. Never throws — returns '' when nothing can be said.
  *

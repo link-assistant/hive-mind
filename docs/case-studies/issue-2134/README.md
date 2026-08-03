@@ -276,6 +276,7 @@ Every place that turns a status record into "this session ended" was reviewed:
 | kill-cause diagnosis + evidence rendering                  | `src/session-kill-diagnostics.lib.mjs`                                     |
 | `--on-session-kill` / `--session-kill-resume-attempts`     | `src/session-kill-policy.lib.mjs`, `src/solve.config.lib.mjs`              |
 | pull-request notice + `--attach-logs`-gated log upload     | `src/session-kill-recovery.lib.mjs`                                        |
+| the recovery working session itself (`resume` policy)      | `src/session-kill-resume.lib.mjs`, `src/telegram-bot.mjs`                  |
 | wiring into the completion path                            | `src/session-monitor.kill-sections.lib.mjs`, `src/session-monitor.lib.mjs` |
 | `recovered from out of memory` / `… forced kill` copy (×4) | `src/locales/{en,ru,zh,hi}.lino`                                           |
 | regression tests                                           | `tests/test-issue-2134-killed-session-recovery.mjs`                        |

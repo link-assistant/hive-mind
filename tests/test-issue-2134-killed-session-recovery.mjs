@@ -23,10 +23,14 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2134
  */
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { initI18n, preloadAllLocales } from '../src/i18n.lib.mjs';
 import { monitorSessions, resetSessionMonitorForTests, trackSession, getActiveSessionCount, STALE_EXECUTING_MIN_AGE_MS } from '../src/session-monitor.lib.mjs';
 import { resolveOomKilledState, getOomEventObservedAt } from '../src/session-monitor.oom.lib.mjs';
-import { describeKillCause, parseOomVictims, KILL_CAUSE_OUT_OF_MEMORY, KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL } from '../src/session-kill-diagnostics.lib.mjs';
+import { describeKillCause, parseOomVictims, formatKillResumeSection, KILL_CAUSE_OUT_OF_MEMORY, KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL } from '../src/session-kill-diagnostics.lib.mjs';
+import { planKillRecovery, recoverKilledSession, KILL_RESUME_ATTEMPTS_FIELD } from '../src/session-kill-resume.lib.mjs';
 import { resolveOnSessionKillPolicy, resolveSessionKillResumeAttempts, shouldResumeKilledSession, ON_SESSION_KILL_RESUME, ON_SESSION_KILL_REPORT } from '../src/session-kill-policy.lib.mjs';
 import { buildKillRecoveryNotice, postKillRecoveryNotice, attachIntermediateSessionLog, parsePullRequestUrl } from '../src/session-kill-recovery.lib.mjs';
 import { argsIncludeAttachLogs, argvFromSessionArgs, buildKillCompletionSections } from '../src/session-monitor.kill-sections.lib.mjs';
@@ -285,6 +289,134 @@ assert(isPlausibleSessionId('30920087-c181-47f0-bc75-66a78402d400') === true, 'a
 assert(isPlausibleSessionId('${sessionId}') === false, 'an unexpanded ${sessionId} placeholder is rejected');
 assert(isPlausibleSessionId('unknown') === false, 'the literal "unknown" is rejected');
 assert(isPlausibleSessionId('abc') === false, 'a too-short id is rejected');
+
+// ---------------------------------------------------------------------------
+// 7. --on-session-kill=resume actually starts a recovery working session.
+// ---------------------------------------------------------------------------
+console.log('\n-- automatic recovery session --');
+
+const TOOL_SESSION = 'aa11bb22-cc33-dd44-ee55-ff6677889900';
+const resumableInfo = () => ({
+  chatId: 4242,
+  messageId: 77,
+  command: 'solve',
+  tool: 'claude',
+  url: 'https://github.com/link-assistant/hive-mind/issues/2130',
+  urlContext: { type: 'issue', owner: 'link-assistant', repo: 'hive-mind', number: 2130 },
+  isolationBackend: 'docker',
+  sessionId: SESSION,
+  logPath: LOG_PATH,
+  locale: 'en',
+  args: ['https://github.com/link-assistant/hive-mind/issues/2130', '--on-session-kill', 'resume'],
+});
+
+const readTool = () => TOOL_SESSION;
+
+const reportPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: {}, readLastSessionId: readTool });
+assert(reportPlan.shouldResume === false && reportPlan.reason === 'policy-report', 'the default report policy never starts a recovery session');
+
+const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: readTool });
+assert(resumePlan.shouldResume === true && resumePlan.attempt === 1, '--on-session-kill=resume plans exactly one recovery session');
+assert(resumePlan.command.args.includes('--resume') && resumePlan.command.args.includes(TOOL_SESSION), 'the recovery session resumes the tool session found in the log');
+
+const exhaustedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), [KILL_RESUME_ATTEMPTS_FIELD]: 1 }, killed: true, env: {}, readLastSessionId: readTool });
+assert(exhaustedPlan.shouldResume === false && exhaustedPlan.reason === 'max-attempts-reached', 'the attempt cap stops a session that keeps getting killed');
+
+const stoppedPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), stopRequestedByUser: true }, killed: true, env: {}, readLastSessionId: readTool });
+assert(stoppedPlan.shouldResume === false && stoppedPlan.reason === 'stopped-by-user', 'a session stopped by the user is never auto-resumed');
+
+const noIdPlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: () => null });
+assert(noIdPlan.shouldResume === false && noIdPlan.reason === 'no-session-id', 'nothing is resumed without a real tool session id');
+
+const launches = [];
+const tracked = [];
+const killedInfo = resumableInfo();
+const recovery = await recoverKilledSession({
+  sessionName: SESSION,
+  sessionInfo: killedInfo,
+  killed: true,
+  env: {},
+  readLastSessionId: readTool,
+  runner: {
+    generateSessionId: () => 'new-session-1234-5678-9012-345678901234',
+    executeWithIsolation: async (command, args, opts) => {
+      launches.push({ command, args, opts });
+      return { success: true };
+    },
+  },
+  trackSession: (name, info) => tracked.push({ name, info }),
+});
+assert(recovery.resumed === true && recovery.sessionId === 'new-session-1234-5678-9012-345678901234', 'a killed session is actually restarted under --on-session-kill=resume');
+assert(launches.length === 1 && launches[0].command === 'solve' && launches[0].opts.backend === 'docker', 'the recovery session runs through the same isolation backend');
+assert(tracked.length === 1 && tracked[0].info.killRecoveryResumed === true, 'the recovery session is tracked so it reports its own completion');
+assert(tracked[0].info[KILL_RESUME_ATTEMPTS_FIELD] === 1 && tracked[0].info.killRecoveryOfSession === SESSION, 'the recovery session carries the attempt counter forward');
+assert(killedInfo[KILL_RESUME_ATTEMPTS_FIELD] === 1, 'the killed session records the attempt it consumed');
+assert(tracked[0].info.oomEventObservedAt === undefined, 'the recovery session does not inherit the previous OOM observation');
+
+const noRunner = await recoverKilledSession({ sessionName: SESSION, sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: readTool, trackSession: () => {} });
+assert(noRunner.resumed === false && noRunner.reason === 'no-isolation-runner', 'a missing isolation runner is reported, not thrown');
+
+const failedStart = await recoverKilledSession({
+  sessionName: SESSION,
+  sessionInfo: resumableInfo(),
+  killed: true,
+  env: {},
+  readLastSessionId: readTool,
+  runner: { generateSessionId: () => 'x', executeWithIsolation: async () => ({ success: false }) },
+  trackSession: () => {},
+});
+assert(failedStart.resumed === false && failedStart.reason === 'start-failed', 'a recovery session that cannot start is reported, not thrown');
+
+assert(/attempt 1\/1/.test(formatKillResumeSection({ sessionId: 'abc', attempt: 1, maxAttempts: 1 })), 'the Telegram section names the recovery attempt');
+assert(formatKillResumeSection({ sessionId: null }) === '', 'no recovery section is rendered when nothing was restarted');
+for (const locale of ['ru', 'zh', 'hi']) {
+  assert(formatKillResumeSection({ sessionId: 'abc', attempt: 1, maxAttempts: 1, locale }).includes('abc'), `the recovery section is localised for ${locale}`);
+}
+
+// End-to-end: a genuinely killed session under `resume` restarts and both
+// surfaces say so.
+// The recovery id is read from the real log file on disk (never from a
+// neighbouring log — see issue #2109), so the end-to-end case needs a real one.
+const e2eLogPath = path.join(os.tmpdir(), `hive-mind-test-2134-${process.pid}.log`);
+fs.writeFileSync(e2eLogPath, `${oomLog}📌 Session ID: ${TOOL_SESSION}\n`, 'utf8');
+
+resetSessionMonitorForTests();
+const killedSession = { ...resumableInfo(), logPath: e2eLogPath, startTime: new Date(Date.now() - STALE_EXECUTING_MIN_AGE_MS - 60_000) };
+trackSession(SESSION, killedSession, false);
+
+const killedBot = makeBot();
+const killedComments = [];
+const recoveryLaunches = [];
+await monitorSessions(killedBot, false, {
+  statusProvider: async () => ({ exists: true, status: 'executed', exitCode: 137, oomKilled: false, isolation: 'docker', logPath: e2eLogPath }),
+  exitFromLog: () => ({ finished: true, exitCode: 137, endTime: '2026-08-02T17:42:06.000Z' }),
+  backendAlive: async () => false,
+  dockerContainerSizeProvider: async () => null,
+  readFile: async () => `${oomLog}📌 Session ID: ${TOOL_SESSION}\n`,
+  lookupLinkedPullRequest: async () => 'https://github.com/link-assistant/hive-mind/pull/2131',
+  env: {},
+  isolationRunner: {
+    generateSessionId: () => 'recovery-1111-2222-3333-444455556666',
+    executeWithIsolation: async (command, args, opts) => {
+      recoveryLaunches.push({ command, args, opts });
+      return { success: true };
+    },
+  },
+  runCommand: async (command, args) => {
+    killedComments.push({ command, args });
+    return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/2131#issuecomment-3\n', stderr: '' };
+  },
+});
+
+const killedText = killedBot.edits[0]?.text || '';
+assert(recoveryLaunches.length === 1, 'a killed session under --on-session-kill=resume starts exactly one recovery session');
+assert(/recovery-1111-2222-3333-444455556666/.test(killedText), 'Telegram names the recovery working session');
+assert(/new working session was started/i.test(killedText), 'Telegram says a new working session was started');
+const killedNoticeBody = killedComments.find(entry => entry.args?.includes('--body-file')) ? true : false;
+assert(killedNoticeBody, 'the pull request receives the killed-session notice as well');
+
+fs.rmSync(e2eLogPath, { force: true });
+resetSessionMonitorForTests();
 
 printSummary(78);
 

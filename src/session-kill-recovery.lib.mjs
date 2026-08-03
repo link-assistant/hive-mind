@@ -62,6 +62,7 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.observedAt] - ISO timestamp of the kill/OOM event
  * @param {string} [options.policy] - Resolved --on-session-kill policy
  * @param {boolean} [options.resumed] - A new working session was started
+ * @param {string|null} [options.recoverySessionId] - Id of that working session
  * @param {string|null} [options.resumeCommand] - Command to resume manually
  * @param {number|null} [options.attempt] - Resume attempt number
  * @param {number|null} [options.maxAttempts]
@@ -69,7 +70,7 @@ export function killRecoveryHeadline(cause) {
  * @param {string|null} [options.logUrl] - URL of the uploaded intermediate log
  * @returns {string} Markdown body
  */
-export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
+export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, sessionName = null, observedAt = null, policy = null, resumed = false, recoverySessionId = null, resumeCommand = null, attempt = null, maxAttempts = null, attachLogs = false, logAttached = false, logUrl = null } = {}) {
   const cause = diagnosis?.cause || null;
   const title = resumed ? `⚠️ Working session ${killRecoveryHeadline(cause)}` : `❌ ${CAUSE_TITLES[cause] || 'Working session was killed'}`;
 
@@ -93,7 +94,8 @@ export function buildKillRecoveryNotice({ diagnosis = null, exitCode = null, ses
 
   if (resumed) {
     const attemptSuffix = attempt && maxAttempts ? ` (attempt ${attempt}/${maxAttempts})` : '';
-    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. Progress below continues in that session.`, '');
+    const sessionSuffix = recoverySessionId ? ` Its working session is \`${recoverySessionId}\`.` : '';
+    lines.push(`🔄 A **new working session was started** to recover from this event${attemptSuffix}. Progress below continues in that session.${sessionSuffix}`, '');
   } else {
     lines.push('This working session did not continue. Nothing below this comment was produced by it.', '');
   }

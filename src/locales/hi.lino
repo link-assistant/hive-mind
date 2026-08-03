@@ -666,6 +666,8 @@ hi
       kill
         cause "कारण"
         diagnostics "समाप्ति निदान"
+        resumed "🔄 इस समाप्ति से पुनर्प्राप्ति हेतु नया कार्य सत्र शुरू किया गया: {{sessionId}}"
+        resumed_attempt "🔄 इस समाप्ति से पुनर्प्राप्ति हेतु नया कार्य सत्र शुरू किया गया (प्रयास {{attempt}}): {{sessionId}}"
     isolation
       label "Isolation"
     error

@@ -666,6 +666,8 @@ en
       kill
         cause "Cause"
         diagnostics "Kill diagnostics"
+        resumed "🔄 A new working session was started to recover from this kill: {{sessionId}}"
+        resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"
     isolation
       label "Isolation"
     error

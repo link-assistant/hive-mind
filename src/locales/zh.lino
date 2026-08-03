@@ -666,6 +666,8 @@ zh
       kill
         cause "原因"
         diagnostics "终止诊断"
+        resumed "🔄 已启动新的工作会话以从此次终止中恢复：{{sessionId}}"
+        resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
     isolation
       label "隔离"
     error

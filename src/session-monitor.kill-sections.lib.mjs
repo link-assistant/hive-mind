@@ -152,7 +152,7 @@ export async function defaultAttachLog(options) {
  * @param {Object} options
  * @returns {Promise<{posted: boolean, url: string|null, skipped: string|null, logUploaded: boolean}>}
  */
-export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
+export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, sessionInfo, diagnosis, exitCode = null, observedAt = null, policy = null, recovered = false, resumed = false, recoverySessionId = null, attempt = null, maxAttempts = null, resumeCommand = null, runCommand = spawnCapture, attachLog = defaultAttachLog, attachOptions = {}, verbose = false } = {}) {
   const skip = reason => ({ posted: false, url: null, skipped: reason, logUploaded: false });
   if (!pullRequestUrl) return skip('no-pull-request');
   if (typeof runCommand !== 'function') return skip('no-command-runner');
@@ -175,7 +175,10 @@ export async function announceKillOnPullRequest({ pullRequestUrl, sessionName, s
     sessionName,
     observedAt,
     policy,
-    resumed: recovered || sessionInfo?.killRecoveryResumed === true,
+    resumed: recovered || resumed || sessionInfo?.killRecoveryResumed === true,
+    recoverySessionId,
+    attempt,
+    maxAttempts,
     resumeCommand,
     attachLogs,
     logAttached: upload.uploaded,

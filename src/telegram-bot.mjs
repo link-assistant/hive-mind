@@ -1248,7 +1248,9 @@ let launchAnnouncementShown = false;
 
 function startSessionMonitoringOnce() {
   if (sessionMonitoringTimer) return;
-  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE);
+  // Issue #2134: the monitor needs the isolation runner to start a recovery
+  // working session when `--on-session-kill=resume` is in effect.
+  sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner });
 }
 
 // Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last

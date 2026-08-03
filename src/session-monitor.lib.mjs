@@ -33,6 +33,7 @@ import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMar
 import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -913,6 +914,28 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           env: options.env || process.env,
         });
 
+        // Issue #2134: `--on-session-kill=resume` must actually start a new
+        // working session, and both surfaces must say so. Done before the
+        // message is built so the Telegram report and the pull-request notice
+        // below name the very same recovery session.
+        let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
+        if (killReport.killed) {
+          const recovered = await runKillRecoveryForCompletion({
+            sessionName,
+            sessionInfo,
+            logPath: statusResult?.logPath || sessionInfo?.logPath || null,
+            killed: true,
+            env: options.env || process.env,
+            runner: options.isolationRunner || null,
+            trackSession: options.trackSession || trackSession,
+            persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+            locale: sessionInfo?.locale || null,
+            verbose,
+          });
+          killRecovery = recovered.recovery;
+          if (recovered.section) killReport.sections.push(recovered.section);
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -935,6 +958,10 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             observedAt: killReport.observedAt,
             policy: killReport.policy,
             recovered: killReport.recovered,
+            resumed: killRecovery.resumed,
+            recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
+            attempt: killRecovery.resumed ? killRecovery.attempt : null,
+            maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
             resumeCommand: killResumeCommand,
             runCommand: options.runCommand || undefined,
             attachLog: options.attachLog || undefined,

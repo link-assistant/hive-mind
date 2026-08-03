@@ -153,7 +153,10 @@ not of data.
 
 ## Follow-up note
 
-`tests/test-solution-summary.mjs` fails on `main` before this change
-(`checkForAiCreatedComments should be imported` — the symbol is no longer imported
-by name in `src/solve.mjs`). It is unrelated to this issue and was left as-is
-rather than silently folded into this pull request.
+`tests/test-solution-summary.mjs` is marked `@hive-mind-test-suite needs-triage`
+and already fails on `main` before this change (`checkForAiCreatedComments should
+be imported` — the symbol is no longer imported by name in `src/solve.mjs`). It is
+outside the default suite, unrelated to this issue, and was left as-is rather than
+silently folded into this pull request.
+
+The full default suite (373 files) passes locally with these changes.

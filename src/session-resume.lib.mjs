@@ -43,6 +43,30 @@ const SESSION_LOG_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 const DEFAULT_LOG_SCAN_CHUNK_BYTES = 262144;
 const LOG_SCAN_OVERLAP_BYTES = 1024;
 
+// Issue #2134: the marker scan runs over a log that can contain *anything* the
+// run printed — including Hive Mind's own source code. `solve` prints its id
+// with `` console.log(`📌 Session ID: ${sessionId}`) ``, so a run that `cat`-ed
+// that source made the literal string `${sessionId}` the "last session id" and
+// the bot offered `--resume "${sessionId}"` to the user. Tool session ids are
+// opaque tokens (UUIDs for claude/codex, slugs elsewhere): a shape check plus a
+// small vocabulary of placeholder words rejects that whole class of false hit
+// without narrowing the ids that are legitimately accepted today.
+const SESSION_ID_SHAPE_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{6,199}$/;
+const SESSION_ID_PLACEHOLDERS = new Set(['unknown', 'n/a', 'na', 'none', 'null', 'undefined', 'sessionid', 'session_id', 'session-id', 'id']);
+
+/**
+ * Whether a token captured after a `Session ID:` label can be a real tool
+ * session id (issue #2134).
+ *
+ * @param {*} id - Captured token.
+ * @returns {boolean} True when the token has a plausible session-id shape.
+ */
+export function isPlausibleSessionId(id) {
+  if (!id || typeof id !== 'string') return false;
+  if (SESSION_ID_PLACEHOLDERS.has(id.toLowerCase())) return false;
+  return SESSION_ID_SHAPE_RE.test(id);
+}
+
 /**
  * Extract every tool session id printed to a log, in the order they appear.
  *
@@ -60,8 +84,10 @@ export function extractSessionIds(text) {
   SESSION_ID_MARKER_RE.lastIndex = 0;
   while ((match = SESSION_ID_MARKER_RE.exec(text)) !== null) {
     const id = match[1];
-    // Skip obvious non-ids that can follow the label in prose/log output.
-    if (!id || id.toLowerCase() === 'unknown' || id.toLowerCase() === 'n/a') continue;
+    // Skip obvious non-ids that can follow the label in prose/log output, and
+    // template placeholders such as `${sessionId}` printed by quoted source
+    // code (issue #2134).
+    if (!isPlausibleSessionId(id)) continue;
     if (ids[ids.length - 1] !== id) ids.push(id);
   }
   return ids;

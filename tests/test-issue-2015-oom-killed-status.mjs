@@ -87,14 +87,16 @@ const bot = makeBot();
 let backendProbeCount = 0;
 await monitorSessions(bot, false, {
   statusProvider: async () => parsedText,
+  // Issue #2134: the OOM flag is now verified against container liveness before a
+  // kill is announced. A dead container keeps issue #2015's terminal behaviour.
   backendAlive: async () => {
     backendProbeCount++;
-    return true;
+    return false;
   },
   dockerContainerSizeProvider: async () => null,
 });
 
-assert(backendProbeCount === 0, 'oomKilled true is terminal without a backend liveness probe');
+assert(backendProbeCount === 1, 'oomKilled true is verified against a backend liveness probe (issue #2134)');
 assert(bot.edits.length === 1, 'Telegram message is completed when oomKilled true is present');
 assert(/Рабочий сеанс/.test(bot.edits[0]?.text || ''), 'killed completion uses the requested locale');
 assert(!String(bot.edits[0]?.text || '').includes('telegram.work_session_killed'), 'killed completion does not leak the raw i18n key');

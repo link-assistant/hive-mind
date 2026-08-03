@@ -230,7 +230,7 @@ interceptor append and emits one warning per threshold crossed
 (64 MB / 256 MB / 1 GB), naming the mirrored-command-output cause and pointing
 here. `setLogFile()` resets the counter, so each session counts its own log.
 
-### RC6 (contributing, not fixed here) — the failed development-log publication triggered the restarts that multiplied the growth
+### RC6 (contributing) — the failed development-log publication triggered the restarts that multiplied the growth
 
 `⚠️  Development log collection failed: … residual credential material` left
 `?? dev/log/issues/191/pulls/192/sessions/` untracked in the workspace. Watch
@@ -239,22 +239,37 @@ changes by either committing…", and the AI committed hive-mind's own session
 logs into the pull-request branch — which is exactly the input RC1 feeds on.
 Three restarts of an ever-larger log followed.
 
-With RC1 fixed the loop cannot amplify (the log no longer absorbs the diff), but
-"hive-mind restarts a session because its own artefact write failed, and the
-remedy it prescribes is to commit its logs into the user's branch" is a separate
-defect in the development-log publication path. It is recorded here and filed
-separately rather than widened into this pull request.
+With RC1 fixed the loop can no longer amplify (the log no longer absorbs the
+diff), but the trigger itself is a defect of its own: hive-mind restarts a
+session because its own artefact write failed, and the remedy it prescribes is
+to commit its logs into the user's branch.
+
+`collectAndCommitDevelopmentLogArtifacts` writes the copies into the workspace
+_before_ it can verify, stage and commit them, and every failure path between
+those steps used to return while leaving them on disk. `git status --porcelain`
+then reported files the AI never wrote. The fix is
+`discardUnpublishedDevelopmentLog` (`src/development-log.lib.mjs`): on every
+failure path — rescan threw, `git add` failed, `git diff --cached` was
+unreadable, `git commit` failed — the run unstages the development-log directory
+and removes the session directory it just wrote. Nothing is lost: those files
+are copies, and the originals remain in the session log and the tool's own state
+directory. A publication that _succeeds_ keeps its artifacts, which the tests
+pin alongside the three failure paths.
+
+This is the same class of fix as `.playwright-mcp/` cleanup (#1124) and the
+AI-scratch-directory generalisation (#2119): hive-mind's own artefacts must
+never be presented to the AI as the AI's uncommitted work.
 
 ## Solution plan, per requirement
 
-| Requirement                         | Plan                                                                                                                                                      | State                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Stop the log explosion              | Probe `gh pr diff` quietly; measure in a single pass; warn past 8 MB                                                                                      | Done — `src/pull-request-changes.lib.mjs`                 |
-| Stop it everywhere                  | Quiet-probe sweep across 13 modules, pinned by a source-scanning test                                                                                     | Done — `tests/test-issue-2135-log-explosion.mjs`          |
-| Make the failure explain itself     | `describeChildExit` / `attachChildExitHandlers` in all six spawners; never map a signal to exit 0                                                         | Done — `src/child-exit.lib.mjs` + the six spawner modules |
-| Give the next iteration evidence    | Threshold warnings on log growth; `diffBytes` in the change stats                                                                                         | Done — `src/log-growth.lib.mjs`, `src/lib.mjs`            |
-| Preserve the evidence               | Stream-measure the 286 MB log; commit bounded excerpts, metrics, checksums and the measuring script                                                       | Done — this directory                                     |
-| Restart loop on own artefacts (RC6) | Treat hive-mind's own `dev/log/**` artefacts as not-the-AI's-uncommitted-work, the way `.playwright-mcp/` (#1124) and AI scratch dirs (#2119) already are | Filed separately; out of scope for this pull request      |
+| Requirement                         | Plan                                                                                                                                                                                                            | State                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Stop the log explosion              | Probe `gh pr diff` quietly; measure in a single pass; warn past 8 MB                                                                                                                                            | Done — `src/pull-request-changes.lib.mjs`                 |
+| Stop it everywhere                  | Quiet-probe sweep across 13 modules, pinned by a source-scanning test                                                                                                                                           | Done — `tests/test-issue-2135-log-explosion.mjs`          |
+| Make the failure explain itself     | `describeChildExit` / `attachChildExitHandlers` in all six spawners; never map a signal to exit 0                                                                                                               | Done — `src/child-exit.lib.mjs` + the six spawner modules |
+| Give the next iteration evidence    | Threshold warnings on log growth; `diffBytes` in the change stats                                                                                                                                               | Done — `src/log-growth.lib.mjs`, `src/lib.mjs`            |
+| Preserve the evidence               | Stream-measure the 286 MB log; commit bounded excerpts, metrics, checksums and the measuring script                                                                                                             | Done — this directory                                     |
+| Restart loop on own artefacts (RC6) | Discard the development-log copies on every publication failure path, so hive-mind's own artefacts are never read as the AI's uncommitted work — as with `.playwright-mcp/` (#1124) and AI scratch dirs (#2119) | Done — `src/development-log.lib.mjs`                      |
 
 ## Prior art / existing components reviewed
 
@@ -291,8 +306,11 @@ separately rather than widened into this pull request.
   more expensively.
 - **Existing hive-mind precedents for "our own artefacts are not the AI's
   work":** `.playwright-mcp/` cleanup (#1124) and the AI-scratch-directory
-  generalisation (#2119). RC6 is the same class of bug applied to
-  `dev/log/**` and is the natural home for the follow-up fix.
+  generalisation (#2119). Both write the offending paths to `.git/info/exclude`
+  so git itself stops reporting them; `dev/log/**` cannot use that route,
+  because a successful run is _meant_ to commit it. RC6 is therefore fixed at
+  the other end — the copies are removed when publication fails — but it is the
+  same rule: hive-mind's own artefacts are never the AI's uncommitted work.
 
 ## Is this someone else's bug?
 
@@ -305,7 +323,7 @@ requirement 9 is satisfied by this finding rather than by a filed issue.
 
 ## Regression tests
 
-`tests/test-issue-2135-log-explosion.mjs` (28 assertions, suite `default`):
+`tests/test-issue-2135-log-explosion.mjs` (32 tests, suite `default`):
 
 - the diff probe is invoked with `mirror: false, capture: true` and prints
   nothing, verified with a `$` double that records its options;
@@ -320,4 +338,7 @@ requirement 9 is satisfied by this finding rather than by a filed issue.
   reports spawn errors;
 - a source sweep asserts the six spawner modules use the shared handlers rather
   than `code || 0`;
-- the growth tracker warns once per threshold and resets with the log file.
+- the growth tracker warns once per threshold and resets with the log file;
+- a development-log publication that cannot stage, inspect or commit its
+  artifacts removes the session directory it wrote and unstages the
+  development-log path, while a publication that succeeds keeps its artifacts.

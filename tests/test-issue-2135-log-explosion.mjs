@@ -16,25 +16,32 @@
  * `--development-log` committed the log to the branch, and the next run's
  * `gh pr diff` therefore contained the previous run's copy of itself.
  *
- * Three things had to change, and each is covered below:
+ * Five things had to change, and each is covered below:
  *   1. the diff is read quietly and measured in one pass, with a warning when
  *      it is large enough to be a symptom;
  *   2. every other unbounded-output probe is quiet too, so no single site can
  *      restart the loop;
  *   3. a child killed by a signal is reported as killed by that signal, not as
- *      "code null" (and, in hive, not as a success).
+ *      "code null" (and, in hive, not as a success);
+ *   4. the log says when it is running away, instead of growing silently from
+ *      19 MB to 199 MB;
+ *   5. a failed development-log publication discards the copies it wrote, so
+ *      hive-mind's own artifacts are never read as the AI's uncommitted work -
+ *      the restart trigger that multiplied the growth.
  *
  * @hive-mind-test-suite default
  */
 
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { attachChildExitHandlers, describeChildExit, isLikelyOutOfMemoryExit } from '../src/child-exit.lib.mjs';
+import { collectAndCommitDevelopmentLogArtifacts, discardUnpublishedDevelopmentLog } from '../src/development-log.lib.mjs';
 import { createLogGrowthTracker } from '../src/log-growth.lib.mjs';
 import { getPullRequestChangeStats } from '../src/pull-request-changes.lib.mjs';
 import { QUIET_PROBE } from '../src/quiet-probe.lib.mjs';
@@ -252,4 +259,90 @@ test('setLogFile starts the accounting over for the new log', async () => {
   const source = await readFile(join(repoRoot, 'src/lib.mjs'), 'utf8');
   assert.ok(source.includes('resetLogGrowth()'), 'a new session log does not inherit the previous one size');
   assert.ok(source.includes('noteLogBytesWritten'), 'the append paths count what they write');
+});
+
+// --- 5. a failed development-log publication leaves no restart trigger --------
+//
+// RC6 of the case study: the publication rescan threw, the copies it had already
+// written stayed untracked, watch mode read them as "the AI left uncommitted
+// changes" and restarted the session with instructions to commit them - which is
+// how hive-mind's own session log ended up inside the pull request diff.
+
+// `$` in command-stream's options-call shape, recording the command of every
+// call and answering from a per-command table.
+const recordingGit$ = codes => {
+  const commands = [];
+  const tag =
+    () =>
+    (strings, ...values) => {
+      const command = strings.reduce((acc, part, index) => acc + part + (index < values.length ? String(values[index]) : ''), '');
+      commands.push(command.trim());
+      const entry = Object.entries(codes).find(([prefix]) => command.trim().startsWith(prefix));
+      return Promise.resolve({ code: entry ? entry[1] : 0, stdout: '', stderr: '' });
+    };
+  tag.commands = commands;
+  return tag;
+};
+
+const publishInto = async (repositoryPath, $) => {
+  const logPath = join(repositoryPath, 'session.log');
+  await writeFile(logPath, 'a line of session log\n');
+  return collectAndCommitDevelopmentLogArtifacts({
+    enabled: true,
+    repositoryPath,
+    logFile: logPath,
+    issueNumber: 191,
+    prNumber: 192,
+    tool: 'claude',
+    sessionId: '2757eeb3-68e6-43bb-8a6a-20c55dfd2958',
+    branchName: 'issue-191-abc',
+    $,
+    log: async () => {},
+  });
+};
+
+test('a publication that cannot be staged discards its own copies', async t => {
+  const repositoryPath = await mkdtemp(join(tmpdir(), 'hive-2135-'));
+  t.after(() => rm(repositoryPath, { recursive: true, force: true }));
+
+  const $ = recordingGit$({ 'git add': 1 });
+  const result = await publishInto(repositoryPath, $);
+
+  assert.equal(result.committed, false);
+  assert.equal(result.discarded, true);
+  assert.ok(
+    $.commands.some(command => command.startsWith('git reset -q --')),
+    'anything already staged is unstaged too'
+  );
+  await assert.rejects(stat(join(repositoryPath, result.sessionRelativeDirectory)), { code: 'ENOENT' }, 'no untracked residue is left to trigger an auto-restart');
+});
+
+test('a publication that cannot be committed discards its own copies', async t => {
+  const repositoryPath = await mkdtemp(join(tmpdir(), 'hive-2135-'));
+  t.after(() => rm(repositoryPath, { recursive: true, force: true }));
+
+  // `git diff --cached --quiet` answers 1 when there is something staged.
+  const result = await publishInto(repositoryPath, recordingGit$({ 'git diff --cached': 1, 'git commit': 128 }));
+
+  assert.equal(result.committed, false);
+  assert.equal(result.discarded, true);
+  await assert.rejects(stat(join(repositoryPath, result.sessionRelativeDirectory)), { code: 'ENOENT' });
+});
+
+test('a publication that succeeds keeps its artifacts', async t => {
+  const repositoryPath = await mkdtemp(join(tmpdir(), 'hive-2135-'));
+  t.after(() => rm(repositoryPath, { recursive: true, force: true }));
+
+  const result = await publishInto(repositoryPath, recordingGit$({ 'git diff --cached': 1 }));
+
+  assert.equal(result.committed, true);
+  assert.equal(result.pushed, true);
+  assert.ok(await stat(join(repositoryPath, result.sessionRelativeDirectory, 'solve.log')), 'the committed copy stays where it was committed from');
+});
+
+test('discarding is a no-op when there is nothing to discard', async () => {
+  const $ = recordingGit$({});
+  const outcome = await discardUnpublishedDevelopmentLog({ repositoryPath: '/tmp', sessionRelativeDirectory: '', $ });
+  assert.deepEqual(outcome, { discarded: false, reason: 'nothing-to-discard' });
+  assert.deepEqual($.commands, [], 'no git command is run for an empty cleanup');
 });

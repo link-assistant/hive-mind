@@ -1238,8 +1238,6 @@ try {
     prNumber,
     issueNumber,
     success,
-    publicPricingEstimate,
-    anthropicTotalCostUSD,
     pricingInfo,
     sessionUsage: { sessionId, tempDir, resultModelUsage, streamTokenUsage, subAgentCalls },
   });

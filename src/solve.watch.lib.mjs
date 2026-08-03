@@ -567,19 +567,21 @@ export const watchForFeedback = async params => {
             latestResultModelUsage = toolResult.resultModelUsage;
           }
 
-          // Issue #1508: Compute budget stats for auto-restart log comment
-          let autoRestartBudgetStatsData = null;
-          if (argv.tokensBudgetStats && latestSessionId && tempDir) {
-            try {
-              const { calculateSessionTokens } = await import('./claude.lib.mjs');
-              const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
-              if (tokenUsage) {
-                autoRestartBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null, subAgentCalls: toolResult.subAgentCalls || null };
-              }
-            } catch (budgetError) {
-              if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
-            }
-          }
+          // Issue #1508: Compute budget stats for auto-restart log comment.
+          // Issue #2132: shared with the top-level run and the
+          // auto-restart-until-mergeable loop via buildSessionBudgetStatsData,
+          // so every working session derives its own stats the same way (and
+          // skips them entirely when `--attach-logs` is disabled).
+          const { buildSessionBudgetStatsData } = await import('./solve.results.lib.mjs');
+          const autoRestartBudgetStatsData = await buildSessionBudgetStatsData({
+            argv,
+            sessionId: latestSessionId,
+            tempDir,
+            resultModelUsage: toolResult.resultModelUsage,
+            streamTokenUsage: toolResult.streamTokenUsage || null,
+            subAgentCalls: toolResult.subAgentCalls || null,
+            pricingInfo: toolResult.pricingInfo || null,
+          });
 
           // Issue #1761: Post the working session **summary** BEFORE uploading
           // the working session **log** so the summary always appears above
@@ -604,8 +606,6 @@ export const watchForFeedback = async params => {
               prNumber,
               issueNumber,
               success: true,
-              publicPricingEstimate: toolResult.publicPricingEstimate,
-              anthropicTotalCostUSD: latestAnthropicCost,
               pricingInfo: toolResult.pricingInfo,
               budgetStatsData: autoRestartBudgetStatsData,
             });

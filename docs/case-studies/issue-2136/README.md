@@ -256,7 +256,8 @@ Verified to fail before the fix (5 passed / 11 failed) and pass after.
 
 ## 7. Upstream report
 
-Filed against `openai/codex` (RC4): under `RUST_LOG=debug`, `codex exec --json`
+Filed as **[openai/codex#36804](https://github.com/openai/codex/issues/36804)**
+(RC4): under `RUST_LOG=debug`, `codex exec --json`
 writes `codex_otel.log_only: event.name="codex.tool_result" … output=` records
 whose `output=` value is the tool's **raw, unescaped, multi-line stdout**, and
 which may be silently cut by `Warning: truncated output`. Any consumer that reads

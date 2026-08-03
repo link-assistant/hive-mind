@@ -1,0 +1,229 @@
+{
+  "file": "/tmp/issue2135-logs/full.log",
+  "bytes": 286452210,
+  "lines": 1354860,
+  "nestingDepthLines": {
+    "1": 772135,
+    "2": 535963,
+    "3": 150,
+    "4": 143
+  },
+  "diffFileHeaders": 135,
+  "fatalLines": [
+    {
+      "line": 1354838,
+      "text": "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory"
+    },
+    {
+      "line": 1354851,
+      "text": "❌ Error: solve exited with code null"
+    }
+  ],
+  "longestLineBytes": 57481,
+  "diffDumpSummary": [
+    {
+      "startLine": 479793,
+      "endLine": 497167,
+      "files": 6,
+      "bytes": 4496932
+    },
+    {
+      "startLine": 497168,
+      "endLine": 512777,
+      "files": 1,
+      "bytes": 3870852
+    },
+    {
+      "startLine": 512778,
+      "endLine": 530265,
+      "files": 2,
+      "bytes": 4469492
+    },
+    {
+      "startLine": 530266,
+      "endLine": 548714,
+      "files": 3,
+      "bytes": 4243102
+    },
+    {
+      "startLine": 548715,
+      "endLine": 575522,
+      "files": 12,
+      "bytes": 6249348
+    },
+    {
+      "startLine": 575523,
+      "endLine": 584829,
+      "files": 1,
+      "bytes": 2420552
+    },
+    {
+      "startLine": 584830,
+      "endLine": 602742,
+      "files": 2,
+      "bytes": 4602196
+    },
+    {
+      "startLine": 602743,
+      "endLine": 622064,
+      "files": 3,
+      "bytes": 4243124
+    },
+    {
+      "startLine": 622065,
+      "endLine": 757860,
+      "files": 6,
+      "bytes": 24785925
+    },
+    {
+      "startLine": 757861,
+      "endLine": 775235,
+      "files": 6,
+      "bytes": 4496932
+    },
+    {
+      "startLine": 775236,
+      "endLine": 790845,
+      "files": 1,
+      "bytes": 3870852
+    },
+    {
+      "startLine": 790846,
+      "endLine": 808333,
+      "files": 2,
+      "bytes": 4469492
+    },
+    {
+      "startLine": 808334,
+      "endLine": 826782,
+      "files": 3,
+      "bytes": 4243102
+    },
+    {
+      "startLine": 826783,
+      "endLine": 853590,
+      "files": 12,
+      "bytes": 6249348
+    },
+    {
+      "startLine": 853591,
+      "endLine": 862897,
+      "files": 1,
+      "bytes": 2420552
+    },
+    {
+      "startLine": 862898,
+      "endLine": 880810,
+      "files": 2,
+      "bytes": 4602196
+    },
+    {
+      "startLine": 880811,
+      "endLine": 900132,
+      "files": 3,
+      "bytes": 4243124
+    },
+    {
+      "startLine": 900133,
+      "endLine": 1040349,
+      "files": 6,
+      "bytes": 24965038
+    },
+    {
+      "startLine": 1040350,
+      "endLine": 1057724,
+      "files": 6,
+      "bytes": 4496932
+    },
+    {
+      "startLine": 1057725,
+      "endLine": 1073334,
+      "files": 1,
+      "bytes": 3870852
+    },
+    {
+      "startLine": 1073335,
+      "endLine": 1090822,
+      "files": 2,
+      "bytes": 4469492
+    },
+    {
+      "startLine": 1090823,
+      "endLine": 1109271,
+      "files": 3,
+      "bytes": 4243102
+    },
+    {
+      "startLine": 1109272,
+      "endLine": 1136079,
+      "files": 12,
+      "bytes": 6249348
+    },
+    {
+      "startLine": 1136080,
+      "endLine": 1145386,
+      "files": 1,
+      "bytes": 2420552
+    },
+    {
+      "startLine": 1145387,
+      "endLine": 1163299,
+      "files": 2,
+      "bytes": 4602196
+    },
+    {
+      "startLine": 1163300,
+      "endLine": 1182621,
+      "files": 3,
+      "bytes": 4243124
+    },
+    {
+      "startLine": 1182622,
+      "endLine": 1246377,
+      "files": 6,
+      "bytes": 7317909
+    },
+    {
+      "startLine": 1246378,
+      "endLine": 1263752,
+      "files": 6,
+      "bytes": 4496932
+    },
+    {
+      "startLine": 1263753,
+      "endLine": 1279362,
+      "files": 1,
+      "bytes": 3870852
+    },
+    {
+      "startLine": 1279363,
+      "endLine": 1296850,
+      "files": 2,
+      "bytes": 4469492
+    },
+    {
+      "startLine": 1296851,
+      "endLine": 1315299,
+      "files": 3,
+      "bytes": 4243102
+    },
+    {
+      "startLine": 1315300,
+      "endLine": 1342107,
+      "files": 12,
+      "bytes": 6249348
+    },
+    {
+      "startLine": 1342108,
+      "endLine": 1351414,
+      "files": 1,
+      "bytes": 2420552
+    },
+    {
+      "startLine": 1351415,
+      "endLine": 1354860,
+      "files": 2,
+      "bytes": 607913
+    }
+  ]
+}

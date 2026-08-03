@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 2.11.8
+
+### Patch Changes
+
+- 881e604: Stop announcing kills that did not happen, and say exactly what happened when one did. Docker sets `State.OOMKilled` when any process in the container cgroup is OOM-killed, so a container whose helper process died keeps running and can still exit 0 — Hive Mind treated the flag as terminal and reported a task as "killed — out of memory or forced kill (SIGKILL)" while it went on working for another 3.5 hours and merged its pull request with nothing said there. The flag is now an observation: the log footer wins, then container liveness, and only a dead container with no footer is reported as killed.
+
+  Every kill now carries a diagnosis built from evidence already collected — the resource markers in the working-session log, cgroup v2 `memory.events`, `/proc/meminfo`, disk usage and the kernel OOM report — so the message names out of memory, disk exhaustion or a forced kill instead of guessing, and names the process the kernel killed. A session that survived the event completes with a `recovered from out of memory` / `recovered from forced kill` warning (en/ru/zh/hi) instead of reading as a plain success, and the same report is posted to the pull request; the intermediate working-session log is uploaded alongside it only when `--attach-logs` is enabled. Behaviour is one option honoured identically by the bot and by `solve`: `--on-session-kill=report|resume` (env `HIVE_MIND_ON_SESSION_KILL`), defaulting to today's `report`. Under `resume`, a killed session is restarted through the same isolation backend from the last tool session id found in its own log, the new session is tracked like any other, and both the Telegram completion and the pull-request notice name it; `--session-kill-resume-attempts` (default 1) caps how many recovery sessions one killed session may produce, and a session stopped on purpose is never restarted.
+
 ## 2.11.7
 
 ### Patch Changes

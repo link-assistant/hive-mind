@@ -14,7 +14,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2015
  */
 
-import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
+import { classifyExitStatus } from './session-status.lib.mjs';
 
 /**
  * Issue #1927: minimum age before a session that `$ --status` still reports as
@@ -122,30 +122,9 @@ export async function resolveStaleExecutingState(sessionName, sessionInfo, statu
 
 /**
  * Issue #2015: `oomKilled` is terminal — the container was killed by the kernel,
- * so no further polling can change the outcome.
+ * so no further polling can change the outcome. Issue #2134 refined that into a
+ * *verified* classification (footer/liveness ladder); the implementation now
+ * lives in session-monitor.oom.lib.mjs and is re-exported here so existing
+ * importers keep working.
  */
-export function resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog }) {
-  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
-  let footer = null;
-  if (logPath) {
-    const readFooter = exitFromLog || runner.readSessionExitFromLog;
-    footer = readFooter ? readFooter(logPath, { verbose }) : null;
-  }
-
-  const statusExitCode = normalizeExitCode(statusResult?.exitCode);
-  const footerExitCode = footer?.finished ? normalizeExitCode(footer.exitCode) : null;
-  let exitCode = 137;
-  if (statusExitCode !== null && statusExitCode > 0) {
-    exitCode = statusExitCode;
-  } else if (footerExitCode !== null && footerExitCode > 0) {
-    exitCode = footerExitCode;
-  }
-  const endTime = statusResult?.endTime || footer?.endTime || statusResult?.currentTime || null;
-  const corrected = { ...statusResult, status: 'oom-killed', exitCode, endTime };
-
-  if (verbose) {
-    console.log(`[VERBOSE] Session ${sessionName} status includes oomKilled=true; treating it as terminal oom-killed (exit ${exitCode})`);
-  }
-
-  return { running: false, exitCode, status: 'oom-killed', statusResult: corrected, stale: true };
-}
+export { resolveOomKilledState, markOomEventObserved, getOomEventObservedAt, OOM_EVENT_OBSERVED_FIELD } from './session-monitor.oom.lib.mjs';

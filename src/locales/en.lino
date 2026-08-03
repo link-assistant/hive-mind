@@ -658,6 +658,14 @@ en
       label "Duration"
     session
       label "Session"
+      recovered
+        oom "recovered from out of memory"
+        kill "recovered from forced kill"
+        at "The event was observed at {{observedAt}}; the work session kept running and completed."
+        resumed "A new working session was started to recover from the kill."
+      kill
+        cause "Cause"
+        diagnostics "Kill diagnostics"
     isolation
       label "Isolation"
     error

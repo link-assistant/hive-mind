@@ -658,6 +658,14 @@ zh
       label "耗时"
     session
       label "会话"
+      recovered
+        oom "已从内存不足中恢复"
+        kill "已从强制终止中恢复"
+        at "事件发生于 {{observedAt}}；工作会话继续运行并已完成。"
+        resumed "已启动新的工作会话以从终止中恢复。"
+      kill
+        cause "原因"
+        diagnostics "终止诊断"
     isolation
       label "隔离"
     error

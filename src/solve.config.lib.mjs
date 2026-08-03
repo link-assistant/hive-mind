@@ -154,6 +154,20 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'DANGEROUS: skip masking known active local tokens in output. This is separate from other sanitization skip flags and should only be used for controlled debugging.',
     default: false,
   },
+  // Issue #2134: one option decides what happens when a working session is
+  // killed (out of memory, disk exhaustion, forced kill). The Telegram bot and
+  // solve honour the exact same value, so the report never differs by surface.
+  'on-session-kill': {
+    type: 'string',
+    description: 'What to do when a working session is killed (out of memory, disk full, forced kill): "report" describes exactly what happened in the pull request and in Telegram, "resume" additionally starts a new working session to recover and says so in both places. Can also be set with HIVE_MIND_ON_SESSION_KILL.',
+    choices: ['report', 'resume'],
+    default: 'report',
+  },
+  'session-kill-resume-attempts': {
+    type: 'number',
+    description: 'Maximum number of automatic recovery working sessions started for one killed session when --on-session-kill=resume. Can also be set with HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS.',
+    default: 1,
+  },
   'auto-close-pull-request-on-fail': {
     type: 'boolean',
     description: 'Automatically close the pull request if execution fails',

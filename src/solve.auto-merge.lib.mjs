@@ -293,7 +293,7 @@ export const watchUntilMergeable = async params => {
       // reproduction run posted "✅ Ready to merge - No pending changes" for a
       // pull request whose net diff was empty, so merging it would have closed
       // the issue without implementing anything.
-      const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber, $ });
+      const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber, $, log });
       const isEmptyPullRequest = changeStats.measured && !changeStats.hasChanges;
       const emptyPullRequestBlocker = buildEmptyPullRequestBlocker(changeStats);
       if (isEmptyPullRequest) {

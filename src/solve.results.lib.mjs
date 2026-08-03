@@ -819,7 +819,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // "1 file(s) modified, 1 line(s) added" for a pull request that
             // changed nothing, because the stats were never checked for being
             // empty.
-            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $ });
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $, log });
             if (!changeStats.hasChanges) {
               await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
             }
@@ -1413,7 +1413,7 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
       : null);
   // Issue #2119: a summary posted on a pull request that changed nothing must
   // say so, instead of reading as a report of completed work.
-  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;
+  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $, log }) : null;
 
   // Issue #2132: the summary carries no cost/budget block. `resolvedBudgetStatsData`
   // is computed only so the caller can reuse it for this session's log comment.

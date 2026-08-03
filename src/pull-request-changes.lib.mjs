@@ -36,6 +36,16 @@
  */
 
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { quietProbe } from './quiet-probe.lib.mjs';
+
+/**
+ * Size at which a pull-request diff is worth complaining about (issue #2135).
+ *
+ * A diff this large is never the AI's source change: in the captured run it was
+ * CI logs and the solver's own development log committed into the branch. The
+ * warning is the early signal that was missing while the log grew to 286 MB.
+ */
+const LARGE_DIFF_WARNING_BYTES = 8 * 1024 * 1024;
 
 /**
  * The solver's own scaffolding files, recognised by the content it writes into
@@ -52,24 +62,76 @@ const PLACEHOLDER_CONTENT_PATTERNS = new Map([
   ['CLAUDE.md', [/^\+Issue to solve: \S+/m, /^\+Your prepared branch: \S+/m]],
 ]);
 
-/** Split a unified diff into one section per file. */
-const splitDiffByFile = diff => {
-  const sections = [];
-  for (const line of diff.split('\n')) {
+/**
+ * Measure a unified diff in a single pass.
+ *
+ * Issue #2135: the previous implementation split the whole diff into an array
+ * of lines, concatenated every line back into a per-file `body` string, and
+ * then counted additions with `body.match(/^\+[^+]/gm)` - a regex whose result
+ * is an array holding one string per added line. For the 60 MB pull-request
+ * diff captured in that run (the AI had committed CI logs and the solver's own
+ * development log into the branch) those three copies of the diff, plus a
+ * multi-million-entry match array, were a large part of the heap that ended the
+ * session with `FATAL ERROR: Reached heap limit`.
+ *
+ * This pass keeps no copy of the diff: it walks the string by line offsets,
+ * counts as it goes, and retains section text only for the two paths that can
+ * possibly be the solver's placeholder.
+ *
+ * The counting rules are unchanged: a line is an addition when it starts with
+ * `+` followed by a character other than `+` (so the `+++ b/path` header is not
+ * counted), and a deletion when it starts with `-` followed by a character
+ * other than `-`. Lines before the first `diff --git` header belong to no file
+ * and are ignored, exactly as they were when sections were built by splitting.
+ *
+ * @param {string} diff - unified diff text, possibly empty.
+ * @returns {{filesChanged: number, additions: number, deletions: number, placeholderSections: number}}
+ */
+const measureDiff = diff => {
+  let filesChanged = 0;
+  let additions = 0;
+  let deletions = 0;
+  let placeholderSections = 0;
+  let section = null;
+
+  const closeSection = () => {
+    if (!section) return;
+    const isPlaceholder = Boolean(section.patterns) && section.patterns.every(pattern => pattern.test(section.body));
+    if (isPlaceholder) placeholderSections += 1;
+    else {
+      filesChanged += 1;
+      additions += section.additions;
+      deletions += section.deletions;
+    }
+    section = null;
+  };
+
+  for (let start = 0; start < diff.length; ) {
+    let end = diff.indexOf('\n', start);
+    if (end === -1) end = diff.length;
+    const line = diff.slice(start, end);
+    start = end + 1;
+
     if (line.startsWith('diff --git ')) {
+      closeSection();
       const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
-      sections.push({ path: match ? match[2] : '', body: '' });
+      const path = match ? match[2] : '';
+      const patterns = PLACEHOLDER_CONTENT_PATTERNS.get(path) || null;
+      section = { patterns, body: '', additions: 0, deletions: 0 };
       continue;
     }
-    if (sections.length > 0) sections[sections.length - 1].body += `${line}\n`;
+    if (!section) continue;
+    // Only a placeholder candidate needs its text kept; every other file is
+    // reduced to two counters as it streams past.
+    if (section.patterns) section.body += `${line}\n`;
+    if (line.length > 1) {
+      if (line[0] === '+' && line[1] !== '+') section.additions += 1;
+      else if (line[0] === '-' && line[1] !== '-') section.deletions += 1;
+    }
   }
-  return sections;
-};
+  closeSection();
 
-/** True when this file section is nothing but the solver's own placeholder. */
-const isPlaceholderSection = section => {
-  const patterns = PLACEHOLDER_CONTENT_PATTERNS.get(section.path);
-  return Boolean(patterns) && patterns.every(pattern => pattern.test(section.body));
+  return { filesChanged, additions, deletions, placeholderSections };
 };
 
 /**
@@ -84,17 +146,25 @@ const isPlaceholderSection = section => {
  * @param {string} params.repo
  * @param {number} params.prNumber
  * @param {Function} params.$ command-stream tagged-template executor
- * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, placeholderOnly: boolean, measured: boolean}>}
+ * @param {Function} [params.log] - optional logger for the size diagnostic
+ * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, placeholderOnly: boolean, measured: boolean, diffBytes: number}>}
  *   The counts cover the AI's own work: the solver's placeholder file is
  *   excluded and reported through `placeholderOnly` instead. `measured` is
  *   false when the diff could not be fetched, in which case callers must not
- *   treat the pull request as empty.
+ *   treat the pull request as empty. `diffBytes` is the size of the diff that
+ *   was measured, so a caller can see a runaway pull request growing.
  */
-export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $ }) => {
+export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log = null }) => {
   let diffOutput = '';
   let measured = false;
   try {
-    const result = await ghWithRateLimitRetry(() => $`gh pr diff ${prNumber} --repo ${owner}/${repo}`, { label: `pr diff ${owner}/${repo}#${prNumber}` });
+    // Issue #2135: `mirror: false`. This diff is read to answer one yes/no
+    // question, and every caller reports the answer in words - but it was being
+    // echoed into the log that the solver then attaches to the pull request and
+    // (with --development-log) commits into the branch, which put the previous
+    // copy of the diff inside the next one. Seven such copies grew one session
+    // log to 286 MB and ended it with a V8 out-of-memory abort.
+    const result = await ghWithRateLimitRetry(() => quietProbe($)`gh pr diff ${prNumber} --repo ${owner}/${repo}`, { label: `pr diff ${owner}/${repo}#${prNumber}` });
     if (result.code === 0) {
       diffOutput = result.stdout.toString();
       measured = true;
@@ -103,22 +173,22 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $ }) =>
     // Leave measured false: an unreachable API must not read as "no changes".
   }
 
-  const sections = splitDiffByFile(diffOutput);
-  const placeholderSections = sections.filter(isPlaceholderSection);
-  const realSections = sections.filter(section => !isPlaceholderSection(section));
+  const { filesChanged, additions, deletions, placeholderSections } = measureDiff(diffOutput);
+  const diffBytes = diffOutput.length;
 
-  const countMatches = (pattern, text) => (text.match(pattern) || []).length;
-  const filesChanged = realSections.length;
-  const additions = realSections.reduce((total, section) => total + countMatches(/^\+[^+]/gm, section.body), 0);
-  const deletions = realSections.reduce((total, section) => total + countMatches(/^-[^-]/gm, section.body), 0);
+  if (measured && diffBytes >= LARGE_DIFF_WARNING_BYTES && typeof log === 'function') {
+    // Always megabytes: the threshold itself is 8 MB, so no unit choice is needed.
+    await log(`⚠️  Pull request #${prNumber} diff is ${(diffBytes / (1024 * 1024)).toFixed(1)} MB - measuring it is slow and memory-hungry; check whether logs or build output were committed to the branch`, { level: 'warning' });
+  }
 
   return {
     hasChanges: filesChanged > 0,
     filesChanged,
     additions,
     deletions,
-    placeholderOnly: filesChanged === 0 && placeholderSections.length > 0,
+    placeholderOnly: filesChanged === 0 && placeholderSections > 0,
     measured,
+    diffBytes,
   };
 };
 

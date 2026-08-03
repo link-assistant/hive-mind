@@ -15,6 +15,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 import crypto from 'crypto';
 import { spawn } from 'node:child_process';
+import { describeChildExit } from './child-exit.lib.mjs';
 import { lookup as lookupHost } from 'node:dns/promises';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -351,7 +352,9 @@ async function runStartCommand(binPath, startCommandArgs) {
         error: error.message,
       });
     });
-    child.on('close', code => {
+    // Issue #2135: keep `signal` - the captured session's child was killed by
+    // one, and `code` alone was null.
+    child.on('close', (code, signal) => {
       const output = (stdout + (stderr ? `\n${stderr}` : '')).trim();
       if (code === 0) {
         resolve({ success: true, output, error: null });
@@ -359,7 +362,7 @@ async function runStartCommand(binPath, startCommandArgs) {
         resolve({
           success: false,
           output,
-          error: stderr.trim() || `start-command exited with code ${code}`,
+          error: stderr.trim() || describeChildExit({ command: 'start-command', code, signal }),
         });
       }
     });

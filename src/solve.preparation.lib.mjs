@@ -4,6 +4,7 @@
  */
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { quietProbe } from './quiet-probe.lib.mjs';
 // Import feedback detection functionality
 const feedback = await import('./solve.feedback.lib.mjs');
 const { detectAndCountFeedback } = feedback;
@@ -45,7 +46,10 @@ export async function prepareFeedbackAndTimestamps({ tempDir = null, prNumber, b
 
     // Get the last comment's timestamp (if any)
     // Use --paginate to get all comments - GitHub API returns max 30 per page by default
-    const commentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+    // Issue #2135: `mirror: false`. Only the last comment's timestamp is read
+    // from this answer, but the answer itself is every comment body on the
+    // issue - tens of kilobytes echoed into the log on every run.
+    const commentsResult = await quietProbe($)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (commentsResult.code !== 0) {
       await log(`Warning: Failed to get comments: ${commentsResult.stderr ? commentsResult.stderr.toString() : 'Unknown error'}`, { level: 'warning' });

@@ -17,6 +17,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { buildSolveArgs, partitionFixArgs, summarizeRunFailures } from './fix.ci-cd.lib.mjs';
+import { describeChildExit } from './child-exit.lib.mjs';
 import { createCiCdIssue, prepareCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 
@@ -122,9 +123,11 @@ async function main() {
       env: process.env,
     });
     child.on('error', reject);
-    child.on('close', code => {
+    // Issue #2135: `signal` used to be dropped here, so a solve child that
+    // aborted on a V8 heap limit was reported as "solve exited with code null".
+    child.on('close', (code, signal) => {
       if (code === 0) resolve();
-      else reject(new Error(`solve exited with code ${code}`));
+      else reject(new Error(describeChildExit({ command: 'solve', code, signal })));
     });
   });
 }

@@ -537,7 +537,10 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
 
           // List all branches in the fork that match the pattern issue-{issueNumber}-* (supports both 8-char and 12-char formats)
           const branchPattern = getIssueBranchPrefix(issueNumber);
-          const branchListResult = await $`gh api --paginate repos/${forkRepo}/branches --jq '.[].name'`;
+          // Issue #2135: `mirror: false`. The list grows with the repository -
+          // a repository worked on by the solver accumulates one branch per
+          // issue - and only the matching ones are reported below.
+          const branchListResult = await $(QUIET_PROBE)`gh api --paginate repos/${forkRepo}/branches --jq '.[].name'`;
 
           if (branchListResult.code === 0) {
             const allBranches = branchListResult.stdout
@@ -575,7 +578,8 @@ export const processAutoContinueForIssue = async (argv, isIssueUrl, urlNumber, o
 
       // List all branches in the main repo that match the pattern issue-{issueNumber}-* (supports both 8-char and 12-char formats)
       const branchPattern = getIssueBranchPrefix(issueNumber);
-      const branchListResult = await $`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
+      // Issue #2135: `mirror: false` - see the fork branch listing above.
+      const branchListResult = await $(QUIET_PROBE)`gh api --paginate repos/${owner}/${repo}/branches --jq '.[].name'`;
 
       if (branchListResult.code === 0) {
         const allBranches = branchListResult.stdout

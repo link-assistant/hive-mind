@@ -8,6 +8,7 @@ if (typeof globalThis.use === 'undefined') await ensureUseM();
 const { $ } = await use('command-stream');
 import { ghCmdRetry } from './lib.mjs';
 import { ghPrView, ghIssueView } from './github.lib.mjs';
+import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 
 /**
  * Compute the Levenshtein edit distance between two strings.
@@ -116,7 +117,9 @@ export async function checkBaseBranchExists({ owner, repo, baseBranch, verbose =
 export async function buildMissingBaseBranchErrorMessage({ owner, repo, baseBranch, verbose = false }) {
   let suggestion = '';
   try {
-    const listResult = await ghCmdRetry(() => $`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { label: `list branches ${owner}/${repo}` });
+    // Issue #2135: `mirror: false`. Only the closest name is reported (below),
+    // yet the raw answer is every branch in the repository.
+    const listResult = await ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${owner}/${repo}/branches --paginate --jq .[].name`, { label: `list branches ${owner}/${repo}` });
     if (listResult.code === 0) {
       const branches = listResult.stdout
         .toString()

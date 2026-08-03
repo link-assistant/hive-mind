@@ -48,6 +48,7 @@ const fs = (await use('fs')).promises;
 
 // Import shared functions from lib.mjs to follow DRY principle
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
+import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import * as memoryCheck from './memory-check.mjs';
 
@@ -222,7 +223,11 @@ let limitReached = false;
 try {
   // Get PR details first
   await log('📊 Getting pull request details...');
-  const prDetailsResult = await $`gh pr view ${prUrl} --json title,body,headRefName,baseRefName,author,number,state,files`;
+  // Issue #2135: `mirror: false`. The answer is a JSON object holding the whole
+  // description and every changed file - it is written to a file for the AI
+  // tool and summarised in words below, so echoing it into the log only grew
+  // the log that is later attached to the pull request.
+  const prDetailsResult = await $(QUIET_PROBE)`gh pr view ${prUrl} --json title,body,headRefName,baseRefName,author,number,state,files`;
 
   if (prDetailsResult.code !== 0) {
     await log('Error: Failed to get PR details', { level: 'error' });
@@ -271,7 +276,11 @@ try {
 
   // Get the diff for the PR
   await log('📝 Getting PR diff...');
-  const diffResult = await $`gh pr diff ${prUrl}`;
+  // Issue #2135: `mirror: false`. The diff is saved to a file (below) and its
+  // size is reported in words; mirroring it copied a whole pull-request diff
+  // into the session log, which is exactly the growth that ended one run with
+  // an out-of-memory abort.
+  const diffResult = await $(QUIET_PROBE)`gh pr diff ${prUrl}`;
 
   if (diffResult.code !== 0) {
     await log('Error: Failed to get PR diff', { level: 'error' });
@@ -426,7 +435,7 @@ Review this pull request thoroughly.`;
 
       try {
         // Get reviews for the PR
-        const reviewsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
+        const reviewsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}/reviews --paginate --jq '.[] | select(.user.login == "'$(gh api user --jq .login)'") | {state, submitted_at}'`;
 
         if (reviewsResult.code === 0 && reviewsResult.stdout.toString().trim()) {
           await log(`✅ Review has been submitted to PR #${prNumber}`);

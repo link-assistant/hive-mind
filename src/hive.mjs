@@ -35,6 +35,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
   }
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
+import { attachChildExitHandlers } from './child-exit.lib.mjs';
 import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
 import { createShutdownManager } from './hive.shutdown.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
@@ -862,27 +863,20 @@ if (isRunningDirectly) {
                 }
               });
 
-              // Handle process completion
-              child.on('close', code => {
-                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
-                exitCode = code || 0;
-                resolve();
-              });
-
-              // Handle process errors
-              child.on('error', error => {
-                activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
-                exitCode = 1;
-                log(`   [${solveCommand} worker-${workerId} ERROR] Process error: ${error.message}`, {
-                  level: 'error',
-                }).catch(logError => {
-                  reportError(logError, {
-                    context: 'worker_process_error_log',
-                    workerId,
-                    operation: 'log_process_error',
-                  });
-                });
-                resolve();
+              // Handle process completion and spawn failure. Issue #2135: a signalled
+              // child reports `code === null`, which `code || 0` read as success.
+              attachChildExitHandlers({
+                child,
+                command: solveCommand,
+                label: `   [${solveCommand} worker-${workerId}]`,
+                errorLabel: `   [${solveCommand} worker-${workerId} ERROR]`,
+                log,
+                onLogError: (logError, operation) => reportError(logError, { context: 'worker_child_exit_log', workerId, operation }),
+                onExit: result => {
+                  activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
+                  exitCode = result.exitCode;
+                  resolve();
+                },
               });
             });
 

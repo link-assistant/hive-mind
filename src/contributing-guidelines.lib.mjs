@@ -13,6 +13,7 @@ if (typeof globalThis.use === 'undefined') {
 const { $: __rawDollar$ } = await use('command-stream');
 const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2135: keep large read-only probe payloads out of the attached log
 /**
  * Common paths where contributing guidelines might be found
  */
@@ -41,15 +42,25 @@ export async function detectContributingGuidelines(owner, repo) {
   // Try to find CONTRIBUTING file in the repo
   for (const path of CONTRIBUTING_PATHS) {
     try {
-      const checkResult = await $`gh api repos/${owner}/${repo}/contents/${path} 2>/dev/null`.raw().trim();
-      if (checkResult.exitCode === 0 && checkResult.text) {
+      // Issue #2135: `mirror: false` - the answer is the file's whole content,
+      // base64-encoded, and it is decoded into `result.content` below rather
+      // than read from the log.
+      //
+      // `.raw()` used to be called on this result: `$` is wrapped by
+      // `wrapDollarWithGhRetry`, which returns a plain promise for `gh`
+      // commands, so `.raw()` threw a TypeError that the `catch` below
+      // swallowed - every repository looked as if it had no contributing
+      // guidelines. The command-stream result fields are read directly instead.
+      const checkResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${path} 2>/dev/null`;
+      const checkText = checkResult.stdout ? checkResult.stdout.toString().trim() : '';
+      if (checkResult.code === 0 && checkText) {
         result.found = true;
         result.path = path;
         result.url = `https://github.com/${owner}/${repo}/blob/main/${path}`;
 
         // Try to get the content from the response
         try {
-          const data = JSON.parse(checkResult.text);
+          const data = JSON.parse(checkText);
           if (data.content) {
             // Decode base64 content
             result.content = Buffer.from(data.content, 'base64').toString('utf-8');
@@ -68,9 +79,11 @@ export async function detectContributingGuidelines(owner, repo) {
   // Try to find docs URL in README
   if (!result.found) {
     try {
-      const readme = await $`gh api repos/${owner}/${repo}/readme 2>/dev/null`.raw().trim();
-      if (readme.exitCode === 0 && readme.text) {
-        const readmeData = JSON.parse(readme.text);
+      // Issue #2135: `mirror: false`, and the same `.raw()` fix as above.
+      const readme = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/readme 2>/dev/null`;
+      const readmeText = readme.stdout ? readme.stdout.toString().trim() : '';
+      if (readme.code === 0 && readmeText) {
+        const readmeData = JSON.parse(readmeText);
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');
 
         // Look for contributing documentation URL

@@ -30,6 +30,7 @@ import { LIVE_PROGRESS_SECTION_START_MARKER, LIVE_PROGRESS_SECTION_END_MARKER, p
 import { writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller
+import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2135: keep large read-only probe payloads out of the attached log
 /**
  * Configuration constants for progress monitoring
  */
@@ -280,7 +281,10 @@ export const createProgressMonitor = ({ owner, repo, prNumber, $, log, verbose =
       state.currentTodos = todos;
 
       // Fetch current PR description
-      const prData = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json body`;
+      // Issue #2135: `mirror: false`. This runs on every progress update and
+      // the answer is the whole pull-request description, which by then holds
+      // the progress section itself.
+      const prData = await quietProbe($)`gh pr view ${prNumber} --repo ${owner}/${repo} --json body`;
       const prInfo = JSON.parse(prData.stdout);
       let currentBody = prInfo.body || '';
 

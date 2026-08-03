@@ -86,6 +86,17 @@ export const buildCodexRunDiagnostics = ({ state = {}, exitCode = null, mappedMo
   if (Object.keys(state.eventCounts || {}).length > 0) push(`📊 Codex JSON events: ${counts(state.eventCounts)}`);
   if (Object.keys(state.itemTypeCounts || {}).length > 0) push(`📦 Codex item types: ${counts(state.itemTypeCounts)}`);
 
+  // Issue #2136: protocol-shaped JSON that arrived on codex's stderr (OTEL
+  // `codex.tool_result` records replay the raw stdout of every command codex
+  // runs, so a task driving another agent CLI replays that agent's NDJSON). These
+  // lines are deliberately NOT counted as codex events; surfacing them keeps the
+  // discrepancy between "events codex emitted" and "protocol lines seen in the
+  // log" explainable when a run is investigated after the fact.
+  if (Object.keys(state.telemetryEventCounts || {}).length > 0) {
+    push(`🪞 Echoed protocol-shaped lines on codex stderr (ignored, not codex events): ${counts(state.telemetryEventCounts)}`);
+  }
+  if (state.turnLifecycle?.length > 0) push(`🔁 Codex turn lifecycle: ${state.turnLifecycle.join(' → ')}`);
+
   const usage = state.tokenUsage || {};
   if (usage.stepCount > 0) {
     push(`📈 Codex usage from turn.completed: ${usage.inputTokens.toLocaleString()} input, ${usage.cacheReadTokens.toLocaleString()} cache read, ${usage.outputTokens.toLocaleString()} output across ${usage.stepCount} turn(s)`);

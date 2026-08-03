@@ -218,6 +218,26 @@ export const getCodexPluginProvisioningHealth = (codexJsonState, { capabilityPre
 // both observed in the captured runs at exit_code 0) would be wrongly failed.
 // Disk pressure is surfaced only as supporting *diagnostics* explaining why a
 // session was likely cut off, never as the sole reason to fail a completed turn.
+// Issue #2136: the count comparison above is only sound when every counted
+// `turn.started` is codex's own. It is not: under `--verbose` codex's stderr
+// carries OTEL records that dump the raw stdout of each command it ran, so a task
+// that drives another agent CLI replays that agent's `turn.started` into our
+// stream. One echoed line was enough to make turn.started=2 vs turn.completed=1
+// and fail a run that had finished successfully (formal-ai PR #913 was open with
+// green CI). codex.lib.mjs now keeps stderr out of the protocol counters, and the
+// gate itself asks the order-aware question — "was the LAST lifecycle event a
+// start?" — so a stray extra `turn.started` from any future echo path can no
+// longer flip a completed session to failed, while a genuine cut-off mid-turn
+// (the #1990 shape: the stream ends on `turn.started`) still fails.
+const isIncompleteTurnLifecycle = (turnLifecycle, { turnStarted, turnCompleted, turnFailed }) => {
+  if (!Array.isArray(turnLifecycle) || turnLifecycle.length === 0) {
+    // Callers that hand-build a state without an ordered lifecycle keep the
+    // original count rule.
+    return turnCompleted + turnFailed < Math.max(turnStarted, 1);
+  }
+  return turnLifecycle.at(-1) === 'turn.started';
+};
+
 export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = {}) => {
   const eventCounts = codexJsonState?.eventCounts || {};
   const turnStarted = eventCounts['turn.started'] || 0;
@@ -232,7 +252,7 @@ export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = 
 
   // A started turn that never completed or failed = the process was cut off
   // mid-turn (OOM / disk-full / container teardown) even though it exited 0.
-  const incompleteSession = hadActivity && turnCompleted + turnFailed < Math.max(turnStarted, 1);
+  const incompleteSession = hadActivity && isIncompleteTurnLifecycle(codexJsonState?.turnLifecycle, { turnStarted, turnCompleted, turnFailed });
 
   // Diagnostic-only disk-pressure hints (never an independent failure gate).
   const diskEvidence = [];

@@ -239,6 +239,15 @@ true. That is an upstream defect in
 detached-docker status enrichment must not synthesise a terminal result from
 `OOMKilled` while `State.Running` is true.
 
+Reported as
+[link-foundation/start#151](https://github.com/link-foundation/start/issues/151)
+with a reproducible example, the timeline above, the workaround adopted here and
+a suggested code fix (prefer `.State.Status`, then the log footer, then
+`.State.ExitCode`; use `137` only when nothing else is recoverable). It is the
+regression counterpart of the earlier
+[#148](https://github.com/link-foundation/start/issues/148), which made
+`oomKilled` terminal in the first place.
+
 ### Prior art / existing components consulted
 
 - **moby/moby** `State.OOMKilled` semantics ([#47618](https://github.com/moby/moby/issues/47618)) — the reason a container-level OOM flag cannot be treated as a process outcome.
@@ -258,6 +267,27 @@ Every place that turns a status record into "this session ended" was reviewed:
 | `src/session-resume.lib.mjs` `extractSessionIds()`                      | fixed — placeholder/shape validation                                              |
 | `src/isolation-runner.lib.mjs` `parseSessionStatusOutput()`             | unchanged — parsing `oomKilled` is correct; only its _interpretation_ was wrong   |
 | `src/cleanup.lib.mjs` (`Exited (137)` parsing)                          | unchanged — reports container state, never a session outcome                      |
+
+## What shipped
+
+| Piece                                                      | File                                                                       |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| verified OOM ladder (footer → liveness → kill)             | `src/session-monitor.oom.lib.mjs`                                          |
+| kill-cause diagnosis + evidence rendering                  | `src/session-kill-diagnostics.lib.mjs`                                     |
+| `--on-session-kill` / `--session-kill-resume-attempts`     | `src/session-kill-policy.lib.mjs`, `src/solve.config.lib.mjs`              |
+| pull-request notice + `--attach-logs`-gated log upload     | `src/session-kill-recovery.lib.mjs`                                        |
+| wiring into the completion path                            | `src/session-monitor.kill-sections.lib.mjs`, `src/session-monitor.lib.mjs` |
+| `recovered from out of memory` / `… forced kill` copy (×4) | `src/locales/{en,ru,zh,hi}.lino`                                           |
+| regression tests                                           | `tests/test-issue-2134-killed-session-recovery.mjs`                        |
+
+Defaults are unchanged: `--on-session-kill=report` reproduces today's behaviour,
+and nothing is uploaded to a pull request beyond the notice unless
+`--attach-logs` is enabled.
+
+Still open, tracked separately because they are not part of this incident's
+report path: RC4 (a terminal report is never revisited once tracking stops) and
+RC5 (`monitorSessions()` is not re-entrancy-guarded, so `session_completed`
+fired three times here).
 
 ## Related issues
 

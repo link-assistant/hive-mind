@@ -219,7 +219,7 @@ test('a spawn failure keeps the message it always had', () => {
 });
 
 test('every spawner reports the signal rather than interpolating a null code', async () => {
-  for (const file of ['src/hive.mjs', 'src/fix.mjs', 'src/task.mjs', 'src/fix.ci-cd-issue.lib.mjs', 'src/isolation-runner.lib.mjs', 'src/telegram-command-execution.lib.mjs']) {
+  for (const file of ['src/hive.mjs', 'src/fix.mjs', 'src/task.mjs', 'src/fix.ci-cd-issue.lib.mjs', 'src/isolation-runner.lib.mjs', 'src/telegram-command-execution.lib.mjs', 'src/session-kill-recovery.lib.mjs']) {
     const source = await readFile(join(repoRoot, file), 'utf8');
     assert.ok(/describeChildExit|attachChildExitHandlers/.test(source), `${file} describes how its child ended`);
     assert.ok(!/exited with code \$\{code\}/.test(source), `${file} no longer hard-codes "exited with code ${'${code}'}"`);

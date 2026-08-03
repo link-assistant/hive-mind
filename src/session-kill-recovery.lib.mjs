@@ -23,6 +23,7 @@
  */
 
 import { spawn } from 'child_process';
+import { describeChildExit } from './child-exit.lib.mjs';
 import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 
@@ -137,7 +138,10 @@ export function spawnCapture(command, args, options = {}) {
       stderr += data.toString();
     });
     child.on('error', error => resolve({ code: 1, stdout, stderr: stderr || error.message }));
-    child.on('close', code => resolve({ code, stdout, stderr }));
+    // Issue #2135: keep the signal. `close` reports `code === null` for a
+    // signalled child, and interpolating that null is how "exited with code
+    // null" reached a user notification with no cause attached.
+    child.on('close', (code, signal) => resolve({ code, signal, stdout, stderr }));
   });
 }
 
@@ -181,7 +185,7 @@ export async function postKillRecoveryNotice({ pullRequestUrl, body, runCommand 
       if (verbose) console.log(`[VERBOSE] Posted killed-session notice to ${pullRequestUrl}${url ? ` (${url})` : ''}`);
       return { posted: true, url, error: null };
     }
-    const error = String(result?.stderr || result?.stdout || `gh pr comment exited with code ${result?.code}`).trim();
+    const error = String(result?.stderr || result?.stdout || describeChildExit({ command: 'gh pr comment', code: result?.code, signal: result?.signal })).trim();
     if (verbose) console.log(`[VERBOSE] Failed to post killed-session notice: ${error}`);
     return { posted: false, url: null, error };
   } catch (error) {

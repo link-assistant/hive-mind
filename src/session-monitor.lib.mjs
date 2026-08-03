@@ -31,6 +31,9 @@ import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs'
 // may be an exit code start-command fabricated from the command's own output.
 import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
 import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
+// Issue #2134: kill-cause diagnostics + the matching pull-request notice.
+import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -550,7 +553,16 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
 
     if (statusResult?.exists && statusResult.status) {
       if (statusResult.oomKilled === true) {
-        return resolveOomKilledState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog });
+        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when
+        // any process in the cgroup is OOM-killed — so it is verified against the
+        // log footer and container liveness before a kill is announced.
+        return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
+          verbose,
+          runner,
+          exitFromLog,
+          backendAlive,
+          persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+        });
       }
       if (runner.isExecutingSessionStatus(statusResult.status)) {
         // Issue #1927: an `executing` status is not trusted blindly — verify the
@@ -610,6 +622,27 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
         const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
         if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
           return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
+        }
+        // Issue #2134: even after the grace window, a container that is verifiably
+        // still alive cannot have produced a terminal failure — the same liveness
+        // ladder used for `oomKilled` applies here, so no kill is announced while
+        // the working session keeps running (that is exactly what #2134 reported).
+        if (unverifiedDockerFailure) {
+          const probe = backendAlive || runner.checkBackendSessionAlive;
+          let alive = null;
+          if (probe && sessionInfo?.isolationBackend) {
+            try {
+              alive = await probe(sessionId, sessionInfo.isolationBackend, verbose);
+            } catch {
+              alive = null;
+            }
+          }
+          if (alive === true) {
+            if (verbose) {
+              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}, but its docker backend is still alive; keeping the session tracked (issue #2134)`);
+            }
+            return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
+          }
         }
         if (!ambiguousDockerTerminal) {
           clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
@@ -817,6 +850,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         // Issue #1927: for a killed /solve, offer a command using the last tool
         // session ID in the log. Do not auto-relaunch work that may reliably OOM.
         const resumeExtraSections = [];
+        let killResumeCommand = null;
         try {
           const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
           const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
@@ -831,6 +865,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             const lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
             const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
             const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
+            killResumeCommand = resumeCommand || null;
             if (resumeSection) {
               resumeExtraSections.push(resumeSection);
               if (verbose) {
@@ -865,6 +900,42 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         }
         const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
 
+        // Issue #2134: say exactly WHY a session was killed, and warn when a
+        // session merely survived a kill event instead of reporting a plain
+        // success. The pull request gets the very same report below.
+        const killReport = await buildKillCompletionSections({
+          sessionName,
+          sessionInfo,
+          statusResult,
+          exitCode: finalExitCode,
+          status: resolvedStatus,
+          verbose,
+          readFile: options.readFile,
+          env: options.env || process.env,
+        });
+
+        // Issue #2134: `--on-session-kill=resume` must actually start a new
+        // working session, and both surfaces must say so. Done before the
+        // message is built so the Telegram report and the pull-request notice
+        // below name the very same recovery session.
+        let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
+        if (killReport.killed) {
+          const recovered = await runKillRecoveryForCompletion({
+            sessionName,
+            sessionInfo,
+            logPath: statusResult?.logPath || sessionInfo?.logPath || null,
+            killed: true,
+            env: options.env || process.env,
+            runner: options.isolationRunner || null,
+            trackSession: options.trackSession || trackSession,
+            persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+            locale: sessionInfo?.locale || null,
+            verbose,
+          });
+          killRecovery = recovered.recovery;
+          if (recovered.section) killReport.sections.push(recovered.section);
+        }
+
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -874,8 +945,32 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
           pullRequestState,
-          extraSections: [...limitsExtraSections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          extraSections: [...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
+
+        if (killReport.killed || killReport.recovered) {
+          const notice = await announceKillOnPullRequest({
+            pullRequestUrl,
+            sessionName,
+            sessionInfo,
+            diagnosis: killReport.diagnosis,
+            exitCode: finalExitCode,
+            observedAt: killReport.observedAt,
+            policy: killReport.policy,
+            recovered: killReport.recovered,
+            resumed: killRecovery.resumed,
+            recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
+            attempt: killRecovery.resumed ? killRecovery.attempt : null,
+            maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
+            resumeCommand: killResumeCommand,
+            runCommand: options.runCommand || undefined,
+            attachLog: options.attachLog || undefined,
+            verbose,
+          });
+          if (verbose && !notice.posted) {
+            console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
+          }
+        }
 
         // Update the original reply message if messageId is available, otherwise send new message
         let notifyFromChatId = null;

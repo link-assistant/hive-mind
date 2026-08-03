@@ -136,7 +136,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'attach-logs': {
     type: 'boolean',
-    description: 'Upload the solution draft log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
+    description: "Upload the solution draft log file to the Pull Request on completion, together with that working session's cost estimation and context/token budget statistics (⚠️ WARNING: May expose sensitive data). Disabled means no log comment and no published budget statistics.",
     default: false,
   },
   'dangerously-skip-output-sanitization': {
@@ -505,7 +505,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'tokens-budget-stats': {
     type: 'boolean',
-    description: 'Show detailed token budget statistics including context window usage and ratios (enabled by default, use --no-tokens-budget-stats to disable). Supported for --tool claude, --tool codex, and any tool that returns detailed token usage.',
+    description: 'Show detailed token budget statistics including context window usage and ratios (enabled by default, use --no-tokens-budget-stats to disable). Shown in the terminal; publishing them to the pull request additionally requires --attach-logs, and they appear only in the working session log comment (never in the working session summary). Supported for --tool claude, --tool codex, and any tool that returns detailed token usage.',
     default: true,
   },
   'prompt-issue-reporting': {

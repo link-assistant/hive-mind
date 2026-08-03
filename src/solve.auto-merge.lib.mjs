@@ -1052,19 +1052,20 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             latestAnthropicCost = toolResult.anthropicTotalCostUSD;
           }
 
-          // Issue #1508: Compute budget stats for auto-restart-until-mergeable log comment
-          let autoMergeBudgetStatsData = null;
-          if (argv.tokensBudgetStats && latestSessionId && tempDir) {
-            try {
-              const { calculateSessionTokens } = await import('./claude.lib.mjs');
-              const tokenUsage = await calculateSessionTokens(latestSessionId, tempDir, toolResult.resultModelUsage);
-              if (tokenUsage) {
-                autoMergeBudgetStatsData = { tokenUsage, streamTokenUsage: toolResult.streamTokenUsage || null };
-              }
-            } catch (budgetError) {
-              if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
-            }
-          }
+          // Issue #1508: Compute budget stats for auto-restart-until-mergeable log comment.
+          // Issue #2132: shared with the top-level run and the watch loop via
+          // buildSessionBudgetStatsData, so every working session derives its own
+          // stats the same way (and skips them when `--attach-logs` is disabled).
+          const { buildSessionBudgetStatsData } = await import('./solve.results.lib.mjs');
+          const autoMergeBudgetStatsData = await buildSessionBudgetStatsData({
+            argv,
+            sessionId: latestSessionId,
+            tempDir,
+            resultModelUsage: toolResult.resultModelUsage,
+            streamTokenUsage: toolResult.streamTokenUsage || null,
+            subAgentCalls: toolResult.subAgentCalls || null,
+            pricingInfo: toolResult.pricingInfo || null,
+          });
 
           // Issue #1761: Post the working session **summary** BEFORE uploading
           // the working session **log** so the summary always appears above
@@ -1090,8 +1091,6 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               prNumber,
               issueNumber,
               success: true,
-              publicPricingEstimate: toolResult.publicPricingEstimate,
-              anthropicTotalCostUSD: latestAnthropicCost,
               pricingInfo: toolResult.pricingInfo,
               budgetStatsData: autoMergeBudgetStatsData,
             });

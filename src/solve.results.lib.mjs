@@ -29,8 +29,6 @@ import { safeExit } from './exit-handler.lib.mjs';
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
-const { buildCostInfoString } = await import('./github-cost-info.lib.mjs');
-const { buildBudgetStatsString } = await import('./claude.budget-stats.lib.mjs');
 
 // Issue #1745: process-wide sanitization counters used to print a one-line
 // "we masked N secrets" summary at the end of each run.
@@ -674,7 +672,18 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 // same observed facts (working-session summary and attached log alike).
 export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, tempDir = null, resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, pricingInfo = null }) => {
   let budgetStatsData = null;
-  if (argv.tokensBudgetStats && sessionId && tempDir) {
+  // Issue #2132: budget stats are a property of the working session **log**.
+  // With `--attach-logs` disabled there is no log comment, so they must not be
+  // computed or published anywhere.
+  const { shouldPublishBudgetStats, isAttachLogsEnabled, isTokensBudgetStatsEnabled } = await import('./budget-stats-policy.lib.mjs');
+  if (!shouldPublishBudgetStats(argv)) {
+    if (argv?.verbose) {
+      const reason = !isTokensBudgetStatsEnabled(argv) ? '--no-tokens-budget-stats' : !isAttachLogsEnabled(argv) ? '--attach-logs is disabled' : 'unknown';
+      await log(`  ℹ️  Skipping context/cost budget stats publication (${reason})`, { verbose: true });
+    }
+    return null;
+  }
+  if (sessionId && tempDir) {
     try {
       const { calculateSessionTokens } = await import('./claude.lib.mjs');
       const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
@@ -686,7 +695,7 @@ export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, temp
     }
   }
   // Issue #1526: Build budget stats from Agent CLI token/context data when no JSONL session available
-  if (!budgetStatsData && argv.tokensBudgetStats && pricingInfo?.tokenUsage) {
+  if (!budgetStatsData && pricingInfo?.tokenUsage) {
     try {
       const { buildAgentBudgetStats } = await import('./claude.budget-stats.lib.mjs');
       const agentBudgetData = buildAgentBudgetStats(pricingInfo.tokenUsage, pricingInfo);
@@ -1264,15 +1273,19 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
  * @param {string} options.repo - Repository name
  * @returns {Promise<boolean>} - True if comment was posted successfully
  */
-export const buildWorkingSessionSummaryDetails = ({ publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null } = {}) => {
-  const costInfo = buildCostInfoString(publicPricingEstimate, anthropicTotalCostUSD, pricingInfo, {
-    includeTokenUsage: false,
-  });
-  const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
-  return `${costInfo}${budgetStats}`.trim();
-};
+/**
+ * Issue #2132: the working session summary must describe *what the AI did* and
+ * nothing else. Cost estimation and context/token budget statistics belong to
+ * the working session log comment (`--attach-logs`), where they are already
+ * published once per working session. Rendering them in the summary as well
+ * duplicated the very same block in two consecutive comments.
+ *
+ * Kept as an exported function returning an empty string so the invariant is
+ * directly testable and any future caller cannot silently re-add the block.
+ */
+export const buildWorkingSessionSummaryDetails = () => '';
 
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null, changeStats = null }) => {
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1287,12 +1300,6 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
   }
 
   try {
-    const usageDetails = buildWorkingSessionSummaryDetails({
-      publicPricingEstimate,
-      anthropicTotalCostUSD,
-      pricingInfo,
-      budgetStatsData,
-    });
     // Issue #2119: publish what the session actually produced. The reported
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
@@ -1302,7 +1309,7 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
 
-${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}${usageDetails ? `\n\n${usageDetails}` : ''}
+${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}
 
 ---
 *${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
@@ -1359,7 +1366,7 @@ ${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}${usageDetails ?
  * @param {boolean} [options.success=true] - skip attachment for failed iterations
  * @returns {Promise<{attached: boolean, reason: string}>}
  */
-export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true, publicPricingEstimate = null, anthropicTotalCostUSD = null, pricingInfo = null, budgetStatsData = null, sessionUsage = null }) => {
+export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true, pricingInfo = null, budgetStatsData = null, sessionUsage = null }) => {
   if (!success) {
     return { attached: false, reason: 'iteration_failed' };
   }
@@ -1408,16 +1415,14 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
   // say so, instead of reading as a report of completed work.
   const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;
 
+  // Issue #2132: the summary carries no cost/budget block. `resolvedBudgetStatsData`
+  // is computed only so the caller can reuse it for this session's log comment.
   const ok = await attachSolutionSummary({
     resultSummary,
     prNumber,
     issueNumber,
     owner,
     repo,
-    publicPricingEstimate,
-    anthropicTotalCostUSD,
-    pricingInfo,
-    budgetStatsData: resolvedBudgetStatsData,
     changeStats,
   });
   return { attached: !!ok, reason: ok ? 'attached' : 'post_failed', budgetStatsData: resolvedBudgetStatsData };

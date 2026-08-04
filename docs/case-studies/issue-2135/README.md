@@ -66,7 +66,7 @@ Every requirement stated in the issue body, with its resolution.
 | --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Find the root cause of `Work session failed (exit code: 1)` and the huge log                                | Root-cause chain below, reconstructed from the 286 MB wrapper log                                                                                 |
 | 2   | Fix it                                                                                                      | `src/pull-request-changes.lib.mjs` (quiet + single-pass), `src/child-exit.lib.mjs` + `src/hive.mjs` + `src/fix.mjs` (signal-aware exit reporting) |
-| 3   | Apply the fix across the **entire** codebase, not just where it was first seen                              | Quiet-probe sweep over 13 modules and a spawner sweep over 6, both pinned by source-scanning tests                                                |
+| 3   | Apply the fix across the **entire** codebase, not just where it was first seen                              | Quiet-probe sweep over 13 modules and a spawner sweep over 7, both pinned by source-scanning tests                                                |
 | 4   | Download all logs/data related to the issue into `./docs/case-studies/issue-2135`                           | `raw/` (excerpts + metrics + checksums) and `scripts/measure-session-log.mjs`; provenance below                                                   |
 | 5   | Deep case-study analysis: timeline, requirement list, root cause per problem, solution plan per requirement | This document                                                                                                                                     |
 | 6   | Review known existing components/libraries that solve a similar problem                                     | "Prior art" section below                                                                                                                         |
@@ -262,14 +262,14 @@ never be presented to the AI as the AI's uncommitted work.
 
 ## Solution plan, per requirement
 
-| Requirement                         | Plan                                                                                                                                                                                                            | State                                                     |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Stop the log explosion              | Probe `gh pr diff` quietly; measure in a single pass; warn past 8 MB                                                                                                                                            | Done — `src/pull-request-changes.lib.mjs`                 |
-| Stop it everywhere                  | Quiet-probe sweep across 13 modules, pinned by a source-scanning test                                                                                                                                           | Done — `tests/test-issue-2135-log-explosion.mjs`          |
-| Make the failure explain itself     | `describeChildExit` / `attachChildExitHandlers` in all six spawners; never map a signal to exit 0                                                                                                               | Done — `src/child-exit.lib.mjs` + the six spawner modules |
-| Give the next iteration evidence    | Threshold warnings on log growth; `diffBytes` in the change stats                                                                                                                                               | Done — `src/log-growth.lib.mjs`, `src/lib.mjs`            |
-| Preserve the evidence               | Stream-measure the 286 MB log; commit bounded excerpts, metrics, checksums and the measuring script                                                                                                             | Done — this directory                                     |
-| Restart loop on own artefacts (RC6) | Discard the development-log copies on every publication failure path, so hive-mind's own artefacts are never read as the AI's uncommitted work — as with `.playwright-mcp/` (#1124) and AI scratch dirs (#2119) | Done — `src/development-log.lib.mjs`                      |
+| Requirement                         | Plan                                                                                                                                                                                                            | State                                                       |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Stop the log explosion              | Probe `gh pr diff` quietly; measure in a single pass; warn past 8 MB                                                                                                                                            | Done — `src/pull-request-changes.lib.mjs`                   |
+| Stop it everywhere                  | Quiet-probe sweep across 13 modules, pinned by a source-scanning test                                                                                                                                           | Done — `tests/test-issue-2135-log-explosion.mjs`            |
+| Make the failure explain itself     | `describeChildExit` / `attachChildExitHandlers` in all seven spawners; never map a signal to exit 0                                                                                                             | Done — `src/child-exit.lib.mjs` + the seven spawner modules |
+| Give the next iteration evidence    | Threshold warnings on log growth; `diffBytes` in the change stats                                                                                                                                               | Done — `src/log-growth.lib.mjs`, `src/lib.mjs`              |
+| Preserve the evidence               | Stream-measure the 286 MB log; commit bounded excerpts, metrics, checksums and the measuring script                                                                                                             | Done — this directory                                       |
+| Restart loop on own artefacts (RC6) | Discard the development-log copies on every publication failure path, so hive-mind's own artefacts are never read as the AI's uncommitted work — as with `.playwright-mcp/` (#1124) and AI scratch dirs (#2119) | Done — `src/development-log.lib.mjs`                        |
 
 ## Prior art / existing components reviewed
 
@@ -336,7 +336,7 @@ requirement 9 is satisfied by this finding rather than by a filed issue.
 - `attachChildExitHandlers` maps `close(null, 'SIGABRT')` to exit code 1 with
   exactly one error log, passes `close(0)` and `close(7)` through unchanged, and
   reports spawn errors;
-- a source sweep asserts the six spawner modules use the shared handlers rather
+- a source sweep asserts the seven spawner modules use the shared handlers rather
   than `code || 0`;
 - the growth tracker warns once per threshold and resets with the log file;
 - a development-log publication that cannot stage, inspect or commit its

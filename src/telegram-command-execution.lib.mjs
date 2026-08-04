@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import { describeChildExit } from './child-exit.lib.mjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { t } from './i18n.lib.mjs';
@@ -57,7 +58,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
       });
     });
 
-    child.on('close', code => {
+    child.on('close', (code, signal) => {
       if (code === 0) {
         resolve({
           success: true,
@@ -67,7 +68,9 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
         resolve({
           success: false,
           output: stdout,
-          error: stderr || `Command exited with code ${code}`,
+          // Issue #2135: name the signal, so an out-of-memory abort is not
+          // reported as "code null".
+          error: stderr || describeChildExit({ command: 'Command', code, signal }),
         });
       }
     });

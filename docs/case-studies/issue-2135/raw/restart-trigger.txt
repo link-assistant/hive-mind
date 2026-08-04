@@ -1,0 +1,6 @@
+?? dev/log/issues/191/pulls/192/sessions/
+
+  ↪️ Skipping branch sync:   Local uncommitted/merge state must be resolved by the AI session
+🔄 RESTART TRIGGERED:        Uncommitted changes detected
+   Restart iteration:      1/5
+

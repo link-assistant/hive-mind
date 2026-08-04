@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
@@ -68,7 +69,8 @@ export const collectDeferredWorkSources = async ({ owner, repo, prNumber, result
 
   // 1. Pull request description
   try {
-    const prResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.body // ""'`;
+    // Issue #2135: `mirror: false` - the description is scanned here, not shown.
+    const prResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber} --jq '.body // ""'`;
     if (prResult.code === 0) {
       const body = prResult.stdout.toString();
       if (body && body.trim()) {
@@ -86,7 +88,10 @@ export const collectDeferredWorkSources = async ({ owner, repo, prNumber, result
 
   // 3. Changed markdown documents (scan only added lines from the diff)
   try {
-    const filesResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/files --paginate`;
+    // Issue #2135: `mirror: false`. Every entry carries the file's patch, so
+    // this answer is as large as the pull request's diff - and it was being
+    // echoed into the log that gets attached to that same pull request.
+    const filesResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}/files --paginate`;
     if (filesResult.code === 0) {
       const files = JSON.parse(filesResult.stdout.toString() || '[]');
       for (const file of files) {

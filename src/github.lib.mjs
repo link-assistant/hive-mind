@@ -19,7 +19,7 @@ import { buildCostInfoString } from './github-cost-info.lib.mjs';
 export { buildCostInfoString };
 // #1756: route gh exec calls through transient + rate-limit retry wrapper
 import { execGhWithRetry } from './github-rate-limit.lib.mjs';
-import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issues #2130, #2135: keep read-only probe payloads out of the attached log
 // Issue #1625: Named marker constants (single source of truth) + in-memory
 // tracking for tool-posted comments. See tool-comments.lib.mjs for design.
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
@@ -1324,7 +1324,7 @@ export function isGitHubUrlType(url, types) {
  */
 export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefName,body,number,mergeStateStatus,state,headRepositoryOwner' }) {
   try {
-    const prResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
+    const prResult = await $(QUIET_PROBE)`gh pr view ${prNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = prResult.stdout.toString();
     const stderr = prResult.stderr ? prResult.stderr.toString() : '';
     const code = prResult.code || 0;
@@ -1364,7 +1364,7 @@ export async function ghPrView({ prNumber, owner, repo, jsonFields = 'headRefNam
  */
 export async function ghIssueView({ issueNumber, owner, repo, jsonFields = 'number,title' }) {
   try {
-    const issueResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
+    const issueResult = await $(QUIET_PROBE)`gh issue view ${issueNumber} --repo ${owner}/${repo} --json ${jsonFields}`;
     const stdout = issueResult.stdout.toString();
     const stderr = issueResult.stderr ? issueResult.stderr.toString() : '';
     const code = issueResult.code || 0;

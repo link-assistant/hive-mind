@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
 
 export { maskToken };
 
@@ -51,6 +52,23 @@ export let logFile = null;
  */
 export const setLogFile = path => {
   logFile = path;
+  resetLogGrowth(); // issue #2135: a new log starts its growth accounting over
+};
+
+/**
+ * Issue #2135: count what is written to the session log and say so once the
+ * total stops being reasonable. Called from every append path below.
+ *
+ * The warning is emitted with console.warn rather than log(): these call sites
+ * are inside the append paths themselves, and console output is captured into
+ * the same log by the stdio interceptor, so the evidence lands in the log that
+ * is misbehaving.
+ *
+ * @param {string} appendedText - exactly what was appended, including newline.
+ */
+const noteLogBytesWritten = appendedText => {
+  const warning = recordLogBytes(Buffer.byteLength(appendedText));
+  if (warning) console.warn(warning);
 };
 
 /**
@@ -100,6 +118,7 @@ export const log = async (message, options = {}) => {
     try {
       await fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 });
       await fs.chmod(logFile, 0o600);
+      noteLogBytesWritten(logMessage + '\n');
     } catch (error) {
       // Silent fail for file append errors to avoid infinite loop
       // but report to Sentry in verbose mode
@@ -349,6 +368,7 @@ export const setupStdioLogInterceptor = () => {
         const logMessage = `[${new Date().toISOString()}] [STDOUT] ${text.replace(/\n$/, '')}`;
         fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
           .then(() => fs.chmod(logFile, 0o600))
+          .then(() => noteLogBytesWritten(logMessage + '\n')) // issue #2135
           .catch(() => {
             // Silent fail to avoid infinite loops
           });
@@ -382,6 +402,7 @@ export const setupStdioLogInterceptor = () => {
         const logMessage = `[${new Date().toISOString()}] [STDERR] ${text.replace(/\n$/, '')}`;
         fs.appendFile(logFile, logMessage + '\n', { mode: 0o600 })
           .then(() => fs.chmod(logFile, 0o600))
+          .then(() => noteLogBytesWritten(logMessage + '\n')) // issue #2135
           .catch(() => {
             // Silent fail to avoid infinite loops
           });

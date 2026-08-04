@@ -65,7 +65,8 @@ export const checkExistingForkOfRoot = async rootRepo => {
     // not to the shell, and command-stream quotes interpolated values itself - so
     // interpolating inside the quotes would leak shell quotes into the comparison.
     const forkFilter = `.[] | select(.owner.login == ${JSON.stringify(currentUser)}) | .full_name`;
-    const forksResult = await lib.ghCmdRetry(() => $`gh api repos/${rootRepo}/forks --paginate --jq ${forkFilter}`, { label: `check forks of ${rootRepo}` });
+    // Issue #2135: `mirror: false` - see the fork-name lookup below.
+    const forksResult = await lib.ghCmdRetry(() => $(QUIET_PROBE)`gh api repos/${rootRepo}/forks --paginate --jq ${forkFilter}`, { label: `check forks of ${rootRepo}` });
     if (forksResult.code !== 0) return null;
 
     const forks = forksResult.stdout
@@ -1225,7 +1226,9 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     // Issue #2119: the double quotes here are jq syntax, so the expression is
     // built in JS and interpolated as one already-escaped argument.
     const forkNameFilter = `.[] | select(.owner.login == ${JSON.stringify(prForkOwner)}) | .name`;
-    const forksResult = await $`gh api repos/${owner}/${repo}/forks --paginate --jq ${forkNameFilter}`;
+    // Issue #2135: `mirror: false` - a popular repository has thousands of
+    // forks, and only the matching name is used.
+    const forksResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/forks --paginate --jq ${forkNameFilter}`;
     if (forksResult.code === 0 && forksResult.stdout) {
       const forkName = forksResult.stdout.toString().trim().split('\n')[0]; // Take first match
       if (forkName) {

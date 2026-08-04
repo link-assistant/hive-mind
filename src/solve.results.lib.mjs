@@ -407,7 +407,9 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     // APPROACH 3: Check for modifications before reverting (proactive detection)
     // This is the main strategy - detect if the file was modified after initial commit
     await log(`   Checking if ${fileName} was modified since initial commit...`, { verbose: true });
-    const diffResult = await $({ cwd: tempDir })`git diff ${commitToRevert} HEAD -- ${fileName} 2>&1`;
+    // Issue #2135: `mirror: false`. Only "is it non-empty" is asked here, and
+    // the answer is a file's whole diff.
+    const diffResult = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff ${commitToRevert} HEAD -- ${fileName} 2>&1`;
 
     if (diffResult.stdout && diffResult.stdout.trim()) {
       // File was modified after initial commit - use manual approach to avoid conflicts
@@ -746,7 +748,8 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     // First, get all PRs from our branch
     // IMPORTANT: Use --state all to find PRs that may have been merged during the session (Issue #1008)
     // Without --state all, gh pr list only returns OPEN PRs, missing merged ones
-    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
+    // Issue #2135: `mirror: false` - the pull requests found are named below.
+    const allBranchPrsResult = await $(QUIET_PROBE)`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
 
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
@@ -819,7 +822,7 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             // "1 file(s) modified, 1 line(s) added" for a pull request that
             // changed nothing, because the stats were never checked for being
             // empty.
-            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $ });
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $, log });
             if (!changeStats.hasChanges) {
               await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
             }
@@ -948,7 +951,9 @@ Fixes ${issueRef}
 
     // Get all comments and filter them
     // Use --paginate to get all comments - GitHub API returns max 30 per page by default
-    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+    // Issue #2135: `mirror: false` - the counts below are the report; the raw
+    // answer is every comment body on the issue.
+    const allCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
 
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');
@@ -1209,7 +1214,7 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
     // Check comments on the PR first (if we have a PR)
     if (prNumber) {
       // Check PR conversation comments
-      const prCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
+      const prCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
       if (prCommentsResult.code === 0) {
         const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
         const newPrComments = filterNewAiComments(prComments, 'pr');
@@ -1220,7 +1225,7 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
       }
 
       // Check PR review comments (inline code comments)
-      const reviewCommentsResult = await $`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
+      const reviewCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
       if (reviewCommentsResult.code === 0) {
         const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
         const newReviewComments = filterNewAiComments(reviewComments, 'review');
@@ -1233,7 +1238,7 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
 
     // Check issue comments (if different from PR number or no PR)
     if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
+      const issueCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
       if (issueCommentsResult.code === 0) {
         const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
         const newIssueComments = filterNewAiComments(issueComments, 'issue');
@@ -1413,7 +1418,7 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
       : null);
   // Issue #2119: a summary posted on a pull request that changed nothing must
   // say so, instead of reading as a report of completed work.
-  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $ }) : null;
+  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $, log }) : null;
 
   // Issue #2132: the summary carries no cost/budget block. `resolvedBudgetStatsData`
   // is computed only so the caller can reuse it for this session's log comment.

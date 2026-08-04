@@ -9,6 +9,8 @@
  * @see case-studies/issue-661-session-resume-cost-optimization/
  */
 
+import { QUIET_PROBE } from './quiet-probe.lib.mjs';
+
 // Note: This module does not import $ directly
 // Functions receive $ as a parameter from the calling module
 // This ensures consistent command executor usage across the codebase
@@ -28,9 +30,11 @@ export const generateMinimalRestartPrompt = async (tempDir, $) => {
   const uncommittedFiles = gitStatus.stdout.toString().trim();
 
   // Get brief diff summaries (not full diffs to keep the prompt minimal)
-  const gitDiffStat = await $({ cwd: tempDir })`git diff --stat`;
+  // Issue #2135: `mirror: false` - the summaries go into the prompt below, so
+  // echoing them into the log only duplicates them into the attached log file.
+  const gitDiffStat = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff --stat`;
   const unstagedDiffSummary = gitDiffStat.stdout.toString().trim();
-  const gitCachedDiffStat = await $({ cwd: tempDir })`git diff --cached --stat`;
+  const gitCachedDiffStat = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff --cached --stat`;
   const stagedDiffSummary = gitCachedDiffStat.stdout.toString().trim();
   const summarySections = [];
   if (unstagedDiffSummary) summarySections.push(`Unstaged changes:\n${unstagedDiffSummary}`);
@@ -69,7 +73,11 @@ export const generateFullRestartPrompt = async (issueUrl, issueBody, prNumber, f
   const gitStatus = await $({ cwd: tempDir })`git status --porcelain`;
   const uncommittedFiles = gitStatus.stdout.toString().trim();
 
-  const gitDiff = await $({ cwd: tempDir })`git diff`;
+  // Issue #2135: `mirror: false`. This is the working tree's whole diff and it
+  // is embedded in the prompt below; mirroring it wrote a second copy into the
+  // session log, which is attached to the pull request and (with
+  // --development-log) committed into the branch the diff is taken from.
+  const gitDiff = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff`;
   const fullDiff = gitDiff.stdout.toString();
 
   let prompt = `

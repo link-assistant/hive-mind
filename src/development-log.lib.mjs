@@ -290,6 +290,62 @@ const verifyDevelopmentLogDirectory = async directoryPath => {
 
 const getCommandOutput = result => (result?.stderr?.toString?.() || result?.stdout?.toString?.() || '').trim();
 
+/**
+ * Issue #2135: leave no untracked residue behind when publication fails.
+ *
+ * The artifacts are written into the user's workspace *before* they can be
+ * verified, staged and committed. When any of those steps fails the copies stay
+ * on disk, and every later `git status --porcelain` reports them:
+ *
+ *     ⚠️  Development log collection failed: Development-log publication rescan
+ *         found residual credential material.
+ *     ?? dev/log/issues/191/pulls/192/sessions/
+ *     📝 Found uncommitted changes
+ *     🔄 AUTO-RESTART: Restarting Claude to handle uncommitted changes...
+ *
+ * The restarted session is then told it MUST commit those changes - so hive-mind
+ * asks the AI to commit hive-mind's own session log into the user's branch, and
+ * the next `gh pr diff` carries it (docs/case-studies/issue-2135, RC6).
+ *
+ * The copies are exactly that - copies; the originals stay in the session log
+ * and the tool's own state directory, so discarding them loses nothing. Only
+ * this run's session directory is removed, and only while it is still
+ * uncommitted.
+ *
+ * @param {object} params
+ * @param {string} params.repositoryPath
+ * @param {string} params.sessionRelativeDirectory - this run's session directory
+ * @param {string} params.relativeDirectory - the development-log directory that may hold staged paths
+ * @param {Function} [params.$]
+ * @param {Function} [params.log]
+ * @returns {Promise<{discarded: boolean, reason?: string}>}
+ */
+export const discardUnpublishedDevelopmentLog = async ({ repositoryPath, sessionRelativeDirectory, relativeDirectory, $, log }) => {
+  if (!repositoryPath || !sessionRelativeDirectory) {
+    return { discarded: false, reason: 'nothing-to-discard' };
+  }
+
+  if ($ && relativeDirectory) {
+    // Unstage first: `git add -f` may already have run, and a staged-but-uncommitted
+    // path is just as good at triggering the restart loop as an untracked one.
+    try {
+      await $({ cwd: repositoryPath })`git reset -q -- ${relativeDirectory}`;
+    } catch (error) {
+      await log?.(`⚠️  Could not unstage development log artifacts: ${error.message}`, { level: 'warning' });
+    }
+  }
+
+  try {
+    await fs.rm(path.join(repositoryPath, sessionRelativeDirectory), { recursive: true, force: true });
+  } catch (error) {
+    await log?.(`⚠️  Could not remove unpublished development log artifacts in ${sessionRelativeDirectory}: ${error.message}`, { level: 'warning' });
+    return { discarded: false, reason: 'unremovable' };
+  }
+
+  await log?.(`🧹 Discarded unpublished development log artifacts in ${sessionRelativeDirectory} so they cannot be mistaken for the AI's uncommitted work (issue #2135)`);
+  return { discarded: true };
+};
+
 export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, repositoryPath, logFile, issueNumber, prNumber, tool, sessionId, branchName, rawCommand, logStartByte = 0, $, log }) => {
   if (!enabled) {
     return { skipped: 'disabled' };
@@ -303,8 +359,24 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
   // Issue #2048: verbose trace so the commit timing (relative to PR readiness signals) is diagnosable from logs.
   await log?.(`🔍 Development log finalize: issue #${issueNumber ?? '?'}, PR #${prNumber ?? 'pending'}, branch ${branchName ?? 'none'}, session ${sessionId ?? 'none'}, log slice from byte ${logStartByte}`, { verbose: true });
 
+  // Kept outside the try so the failure paths below (and the catch) can clean up
+  // the copies this run wrote into the workspace - see issue #2135, RC6.
+  let artifacts = null;
+  // Unstaging is only meaningful once staging has been attempted, and issue
+  // #2111 requires that no git command run before the residual-credential
+  // rescan - so the cleanup gets `$` only after `git add` was reached.
+  let stagingAttempted = false;
+  const discardArtifacts = async () =>
+    discardUnpublishedDevelopmentLog({
+      repositoryPath,
+      sessionRelativeDirectory: artifacts?.sessionRelativeDirectory,
+      relativeDirectory: artifacts?.relativeDirectory,
+      $: stagingAttempted ? $ : null,
+      log,
+    });
+
   try {
-    const artifacts = await writeDevelopmentLogArtifacts({
+    artifacts = await writeDevelopmentLogArtifacts({
       repositoryPath,
       logFile,
       issueNumber,
@@ -328,10 +400,12 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     // call the publication helper.
     await verifyDevelopmentLogDirectory(path.join(repositoryPath, artifacts.relativeDirectory));
 
+    stagingAttempted = true;
     const addResult = await $({ cwd: repositoryPath })`git add -f -- ${artifacts.relativeDirectory}`;
     if (addResult.code !== 0) {
       await log?.(`⚠️  Could not stage development log: ${getCommandOutput(addResult)}`, { level: 'warning' });
-      return { ...artifacts, committed: false, pushed: false };
+      await discardArtifacts();
+      return { ...artifacts, committed: false, pushed: false, discarded: true };
     }
 
     const diffResult = await $({ cwd: repositoryPath })`git diff --cached --quiet -- ${artifacts.relativeDirectory}`;
@@ -341,14 +415,16 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     }
     if (diffResult.code !== 1) {
       await log?.(`⚠️  Could not inspect staged development log changes: ${getCommandOutput(diffResult)}`, { level: 'warning' });
-      return { ...artifacts, committed: false, pushed: false };
+      await discardArtifacts();
+      return { ...artifacts, committed: false, pushed: false, discarded: true };
     }
 
     const commitMessage = prNumber ? `Add development log for issue #${issueNumber} PR #${prNumber}` : `Add development log for issue #${issueNumber}`;
     const commitResult = await $({ cwd: repositoryPath })`git commit -m ${commitMessage} -- ${artifacts.relativeDirectory}`;
     if (commitResult.code !== 0) {
       await log?.(`⚠️  Could not commit development log: ${getCommandOutput(commitResult)}`, { level: 'warning' });
-      return { ...artifacts, committed: false, pushed: false };
+      await discardArtifacts();
+      return { ...artifacts, committed: false, pushed: false, discarded: true };
     }
 
     await log?.('✅ Development log committed');
@@ -368,6 +444,7 @@ export const collectAndCommitDevelopmentLogArtifacts = async ({ enabled, reposit
     return { ...artifacts, committed: true, pushed: true };
   } catch (error) {
     await log?.(`⚠️  Development log collection failed: ${error.message}`, { level: 'warning' });
-    return { skipped: 'error', error };
+    const cleanup = await discardArtifacts();
+    return { skipped: 'error', error, discarded: cleanup.discarded };
   }
 };

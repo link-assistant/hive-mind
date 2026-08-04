@@ -243,7 +243,10 @@ export const createBidirectionalHandler = options => {
    */
   const fetchCommentsFromEndpoint = async (apiPath, source) => {
     try {
-      const result = await $`gh api ${apiPath} --paginate --slurp`;
+      // Issue #2135: `mirror: false`. This is every comment body on the issue
+      // or pull request, re-read on a poll interval; mirroring it copied the
+      // whole conversation into the log once per poll.
+      const result = await quietProbe($)`gh api ${apiPath} --paginate --slurp`;
       const parsed = JSON.parse(result.stdout?.toString() || '[]');
       const comments = Array.isArray(parsed) && parsed.every(Array.isArray) ? parsed.flat() : parsed;
       return comments.map(comment => ({
@@ -476,7 +479,8 @@ export const createBidirectionalHandler = options => {
     if (!number || !owner || !repo) return null;
     try {
       const endpoint = kind === 'pr' ? `repos/${owner}/${repo}/pulls/${number}` : `repos/${owner}/${repo}/issues/${number}`;
-      const result = await $`gh api ${endpoint} --jq '{title, body}'`;
+      // Issue #2135: `mirror: false` - the snapshot is compared, not shown.
+      const result = await quietProbe($)`gh api ${endpoint} --jq '{title, body}'`;
       if (!result || result.code !== 0) return null;
       const parsed = JSON.parse(result.stdout.toString() || '{}');
       return { title: parsed.title || '', body: parsed.body || '' };

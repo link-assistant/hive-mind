@@ -5,6 +5,7 @@
 
 import { spawn } from 'child_process';
 import { CI_CD_ISSUE_LABELS, CI_CD_ISSUE_TYPE, buildCiCdIssueBody, buildCiCdIssueTitle, dedupeRunsByWorkflow } from './fix.ci-cd.lib.mjs';
+import { describeChildExit } from './child-exit.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 
 function runCommand(command, args, options = {}) {
@@ -25,8 +26,8 @@ function runCommand(command, args, options = {}) {
     child.on('error', error => {
       resolve({ code: 1, stdout, stderr: stderr || error.message });
     });
-    child.on('close', code => {
-      resolve({ code, stdout, stderr });
+    child.on('close', (code, signal) => {
+      resolve({ code, stdout, stderr, signal });
     });
   });
 }
@@ -35,7 +36,8 @@ async function commandOutput(run, command, args) {
   const result = await run(command, args);
   if (result.code !== 0) {
     const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
-    throw new Error(output || `${command} exited with code ${result.code}`);
+    // Issue #2135: `describeChildExit` names a signal instead of "code null".
+    throw new Error(output || describeChildExit({ command, code: result.code, signal: result.signal }));
   }
   return result.stdout.trim();
 }

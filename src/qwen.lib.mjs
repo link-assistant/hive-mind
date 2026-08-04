@@ -143,6 +143,10 @@ const extractTextFragments = value => {
 
 const createQwenParserState = state => ({
   buffer: state?.buffer || '',
+  // Issue #2136: stderr is framed independently of stdout — mixing the two into
+  // one buffer would splice half of a stdout record onto a stderr line.
+  telemetryBuffer: state?.telemetryBuffer || '',
+  telemetryEventCounts: { ...(state?.telemetryEventCounts || {}) },
   plainText: state?.plainText || '',
   parsedEvents: Array.isArray(state?.parsedEvents) ? [...state.parsedEvents] : [],
   eventCounts: { ...(state?.eventCounts || {}) },
@@ -324,24 +328,45 @@ const addQwenEventToState = (state, rawEvent) => {
   applyQwenUsageToState(state, event);
 };
 
-export const parseQwenStreamJsonOutput = (output, state = {}) => {
+// Issue #2136: qwen-code writes its stream-json protocol to stdout; stderr is
+// human/diagnostic text. Feeding stderr through the protocol parser made every
+// JSON object a CLI happened to print there — including output a task's own
+// commands echoed back — a genuine qwen event, which could invent an `errors`
+// entry (an instant run failure), hijack the session id, add phantom token usage
+// or satisfy the #1990 terminal-event gate. Codex was bitten by exactly this
+// (see docs/case-studies/issue-2136), so qwen now marks non-stdout records as
+// telemetry: they are counted for diagnostics and otherwise ignored. Plain-text
+// stderr signals are unaffected — auth/usage-limit/retry classification still
+// reads the raw combined output.
+export const parseQwenStreamJsonOutput = (output, state = {}, { source = 'stdout' } = {}) => {
   const nextState = createQwenParserState(state);
   const text = output?.toString?.() ?? String(output || '');
   nextState.plainText += text;
+
+  const isProtocolStream = source === 'stdout';
 
   // Issue #2119: frame the stream by balanced JSON values instead of by lines.
   // `formal-ai with qwen` emits pretty-printed, multi-line records, so every
   // line failed to parse and every event - including the token usage - was
   // dropped. Scanning for balanced values also covers records concatenated
   // without a separator and records split across two process chunks.
-  const { records, rest } = takeJsonRecords(`${nextState.buffer}${text}`);
-  nextState.buffer = rest;
+  const pendingBuffer = isProtocolStream ? nextState.buffer : nextState.telemetryBuffer;
+  const { records, rest } = takeJsonRecords(`${pendingBuffer}${text}`);
+  if (isProtocolStream) {
+    nextState.buffer = rest;
+  } else {
+    nextState.telemetryBuffer = rest;
+  }
 
   for (const record of records) {
-    if (Array.isArray(record)) {
-      for (const item of record) addQwenEventToState(nextState, item);
-    } else {
-      addQwenEventToState(nextState, record);
+    const items = Array.isArray(record) ? record : [record];
+    for (const item of items) {
+      if (isProtocolStream) {
+        addQwenEventToState(nextState, item);
+        continue;
+      }
+      const eventType = item?.type || item?.event || 'unknown';
+      nextState.telemetryEventCounts[eventType] = (nextState.telemetryEventCounts[eventType] || 0) + 1;
     }
   }
 
@@ -551,7 +576,8 @@ export const executeQwenCommand = async params => {
           if (errorOutput) {
             await log(errorOutput, { stream: 'stderr' });
             allOutput += errorOutput;
-            qwenState = parseQwenStreamJsonOutput(errorOutput, qwenState);
+            // Issue #2136: stderr is diagnostics, not the qwen protocol stream.
+            qwenState = parseQwenStreamJsonOutput(errorOutput, qwenState, { source: 'stderr' });
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -560,6 +586,14 @@ export const executeQwenCommand = async params => {
 
       if (qwenState.buffer.trim()) {
         qwenState = parseQwenStreamJsonOutput(`${qwenState.buffer}\n`, { ...qwenState, buffer: '' });
+      }
+
+      // Issue #2136: make the ignored non-protocol JSON visible, so a future
+      // investigation can tell "qwen emitted no result event" apart from "the
+      // records in the log came from stderr and were correctly ignored".
+      const qwenTelemetryTypes = Object.entries(qwenState.telemetryEventCounts || {});
+      if (qwenTelemetryTypes.length > 0) {
+        await log(`🪞 JSON records on qwen stderr (ignored, not protocol events): ${qwenTelemetryTypes.map(([type, count]) => `${type}=${count}`).join(', ')}`, { verbose: true });
       }
 
       const sessionId = qwenState.sessionId || null;

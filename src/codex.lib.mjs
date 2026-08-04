@@ -338,7 +338,21 @@ const upsertCodexItemError = (itemErrors, item) => {
   });
 };
 
-export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null) => {
+// Issue #2136: `codex exec --json` writes its NDJSON protocol to **stdout** only.
+// Its stderr carries OTEL tracing text (RUST_LOG=debug under --verbose), and each
+// `codex.tool_result` record dumps the raw stdout of the command codex just ran —
+// so a task driving another agent CLI replays that agent's NDJSON verbatim inside
+// the trace. Feeding stderr through this parser counted the nested agent's
+// `turn.started` as codex's own, and the #1990 completion gate then failed a run
+// that had actually completed (see docs/case-studies/issue-2136).
+//
+// Fix: only stdout is trusted as protocol. Stderr is still scanned for the
+// text-only diagnostics that legitimately live there (token/model diagnostics,
+// the #2102 plugin-install rejection), but protocol-shaped JSON found there is
+// counted into `telemetryEventCounts` and otherwise ignored — it never touches
+// eventCounts, sessionId, usage or the error buckets.
+export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = null, { source = 'stdout' } = {}) => {
+  const isProtocolStream = source === 'stdout';
   const nextState = {
     sessionId: state.sessionId || null,
     authError: state.authError || false,
@@ -359,6 +373,13 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     pluginInstallRejections: state.pluginInstallRejections || [],
     observedUsageFieldSets: state.observedUsageFieldSets || [],
     observedModelDiagnosticPaths: state.observedModelDiagnosticPaths || [],
+    // Issue #2136: protocol-shaped JSON seen on a non-protocol stream (telemetry
+    // echo), kept for diagnostics only.
+    telemetryEventCounts: state.telemetryEventCounts || {},
+    // Issue #2136: ordered turn lifecycle from the protocol stream, so the
+    // completion gate can ask "did the last turn finish?" instead of comparing
+    // counts that an echoed `turn.started` can skew.
+    turnLifecycle: state.turnLifecycle || [],
   };
 
   nextState.tokenUsage.tokenFieldAvailability ||= createCodexTokenFieldAvailability();
@@ -396,7 +417,18 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     if (data === null || typeof data !== 'object') continue;
 
     const eventType = typeof data.type === 'string' ? data.type : 'unknown';
+
+    // Issue #2136: a protocol-shaped object on a non-protocol stream is echoed
+    // telemetry, never a codex event. Count it for diagnostics and move on.
+    if (!isProtocolStream) {
+      nextState.telemetryEventCounts[eventType] = (nextState.telemetryEventCounts[eventType] || 0) + 1;
+      continue;
+    }
+
     nextState.eventCounts[eventType] = (nextState.eventCounts[eventType] || 0) + 1;
+    if (eventType === 'turn.started' || eventType === 'turn.completed' || eventType === 'turn.failed') {
+      nextState.turnLifecycle.push(eventType);
+    }
 
     if (eventType === 'thread.started' && typeof data.thread_id === 'string' && !nextState.sessionId) {
       nextState.sessionId = data.thread_id;
@@ -983,6 +1015,8 @@ export const executeCodexCommand = async params => {
         pluginInstallRejections: [],
         observedUsageFieldSets: [],
         observedModelDiagnosticPaths: [],
+        telemetryEventCounts: {},
+        turnLifecycle: [],
       };
 
       // Issue #2119: a process chunk boundary can fall in the middle of an
@@ -1001,7 +1035,7 @@ export const executeCodexCommand = async params => {
           lastMessage = raw;
           const output = codexStdoutLines.write(raw);
 
-          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel);
+          codexJsonState = parseCodexExecJsonOutput(output, codexJsonState, mappedModel, { source: 'stdout' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
 
           if (interactiveHandler || progressMonitor) {
@@ -1044,7 +1078,8 @@ export const executeCodexCommand = async params => {
             await log(rawError, { stream: 'stderr' });
           }
           const errorOutput = codexStderrLines.write(rawError);
-          codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel);
+          // Issue #2136: stderr is telemetry/tracing text, not the codex protocol.
+          codexJsonState = parseCodexExecJsonOutput(errorOutput, codexJsonState, mappedModel, { source: 'stderr' });
           await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -1052,9 +1087,12 @@ export const executeCodexCommand = async params => {
       }
 
       // Release any line that was still being assembled when the stream ended.
-      for (const remaining of [codexStdoutLines.flush(), codexStderrLines.flush()]) {
+      for (const [source, remaining] of [
+        ['stdout', codexStdoutLines.flush()],
+        ['stderr', codexStderrLines.flush()],
+      ]) {
         if (!remaining.trim()) continue;
-        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel);
+        codexJsonState = parseCodexExecJsonOutput(remaining, codexJsonState, mappedModel, { source });
         await baseBranchCommandIntervention.handleCommandExecutions(codexJsonState.commandExecutions);
       }
 

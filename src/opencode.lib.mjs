@@ -343,9 +343,19 @@ export const executeOpenCodeCommand = async params => {
       const stdoutScanner = createJsonStreamScanner();
       const stderrScanner = createJsonStreamScanner();
 
-      const handleOpenCodeRecords = events => {
+      // Issue #2136: count the JSON records that arrive on stderr. OpenCode has
+      // no terminal-event completion gate (success is decided by the exit code),
+      // so unlike codex and qwen these records cannot fail a healthy run — but
+      // they do feed `lastTextContent` and token usage, and a CLI that echoes a
+      // nested agent's stream would silently skew both. Issue #1263 added stderr
+      // parsing deliberately (some OpenCode-derived CLIs emit their records
+      // there), so the behaviour is kept and only made visible.
+      let stderrJsonRecordCount = 0;
+
+      const handleOpenCodeRecords = (events, { source = 'stdout' } = {}) => {
         for (const event of events) {
           if (event.type !== 'json') continue;
+          if (source === 'stderr') stderrJsonRecordCount++;
           const data = sanitizeObjectStrings(event.value);
           // Issue #1968: a bare `null`/primitive record must not abort the
           // rest of the chunk (data.type access would throw on null).
@@ -399,7 +409,7 @@ export const executeOpenCodeCommand = async params => {
             allOutput += errorOutput;
 
             // Issue #1263: Also parse stderr for text content
-            handleOpenCodeRecords(stderrScanner.write(errorOutput));
+            handleOpenCodeRecords(stderrScanner.write(errorOutput), { source: 'stderr' });
           }
         } else if (chunk.type === 'exit') {
           exitCode = chunk.code;
@@ -408,7 +418,11 @@ export const executeOpenCodeCommand = async params => {
 
       // Release any record that was still being assembled when the stream ended.
       handleOpenCodeRecords(stdoutScanner.flush());
-      handleOpenCodeRecords(stderrScanner.flush());
+      handleOpenCodeRecords(stderrScanner.flush(), { source: 'stderr' });
+
+      if (stderrJsonRecordCount > 0) {
+        await log(`🪞 JSON records parsed from OpenCode stderr: ${stderrJsonRecordCount} (issue #2136: stderr is not a protocol stream — check these before trusting usage/summary)`, { verbose: true });
+      }
 
       // Clean up the opencode.json config file to avoid polluting the repository
       try {

@@ -240,13 +240,13 @@ produces `[object Object]`.
 
 ## 6. Reports filed on other repositories (R10, R11)
 
-| Repository                 | Report                                                                                                                                                                                                                                                                              |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `link-assistant/agent`     | **JSON `error` events carry an object with no human-readable field** (RC6). Includes the verbatim record shape, the three-line `run.ts` patch that would include the already-computed `err` string, and the consumer-side workaround now shipped in `src/error-text.lib.mjs`.       |
-| `link-assistant/agent`     | **Exit code 0 on a fatal startup error** (RC5) — a reproduction of the closed [agent#22](https://github.com/link-assistant/agent/issues/22) on 0.25.5, with the 583-record NDJSON showing zero error events, plus the unbounded `ConnectionRefused` retry (`retryTimeout: 604800`). |
-| `link-assistant/formal-ai` | **Run `solve` with `--attach-logs --verbose`** for automated sessions on that repository, so a failed run leaves evidence behind rather than a single line in a comment (RC4, R10, R12).                                                                                            |
+| Repository                                                                               | Report                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`link-assistant/agent#289`](https://github.com/link-assistant/agent/issues/289)         | **JSON `error` events carry an object with no human-readable field** (RC6). Includes the verbatim record shape, the three-line `run.ts` patch that would include the already-computed `err` string, and the consumer-side workaround now shipped in `src/error-text.lib.mjs`.       |
+| [`link-assistant/agent#290`](https://github.com/link-assistant/agent/issues/290)         | **Exit code 0 on a fatal startup error** (RC5) — a reproduction of the closed [agent#22](https://github.com/link-assistant/agent/issues/22) on 0.25.5, with the 583-record NDJSON showing zero error events, plus the unbounded `ConnectionRefused` retry (`retryTimeout: 604800`). |
+| [`link-assistant/formal-ai#973`](https://github.com/link-assistant/formal-ai/issues/973) | **Run `solve` with `--attach-logs --verbose`** for automated sessions on that repository, so a failed run leaves evidence behind rather than a single line in a comment (RC4, R10, R12).                                                                                            |
 
-Links to the filed issues are posted in [PR #2143](https://github.com/link-assistant/hive-mind/pull/2143).
+All three were filed on 2026-08-05 from the evidence in [`raw/`](./raw).
 
 ## 7. Lessons
 

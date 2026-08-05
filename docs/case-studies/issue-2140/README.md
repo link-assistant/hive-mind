@@ -316,9 +316,10 @@ The upstream defect is RC4 from #2136, already filed as
 `codex_otel.trace_safe` `event.name="codex.tool_result"` records whose `output=`
 attribute is the tool's **raw, unescaped, multi-line stdout**.
 
-This incident is not a separate upstream bug, so it is added as a **comment on
-that issue** rather than filed as a duplicate — but it materially strengthens it,
-and the report is worth updating because of what it proves:
+This incident is not a separate upstream bug, so it was added as a
+**[comment on that issue](https://github.com/openai/codex/issues/36804#issuecomment-5188101032)**
+rather than filed as a duplicate — but it materially strengthens it, and the
+report was worth updating because of what it proves:
 
 1. **No nested agent is required.** #2136 could be read as "don't run agent CLIs
    inside agent CLIs". Here the trigger is `sed -n '1,1500p' <file>` on a

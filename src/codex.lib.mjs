@@ -43,52 +43,11 @@ import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-ca
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
 
-const CODEX_USAGE_FIELD_NAMES = ['input_tokens', 'cached_input_tokens', 'output_tokens', 'cache_write_tokens', 'cache_creation_input_tokens', 'reasoning_tokens', 'reasoning_output_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens', 'output_tokens_details.reasoning_tokens'];
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
 const CODEX_COMPACT_API_ENDPOINT = '/responses/compact';
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
-const CODEX_MODEL_DIAGNOSTIC_PATHS = [
-  ['model', data => data?.model],
-  ['model_name', data => data?.model_name],
-  ['from_model', data => data?.from_model],
-  ['to_model', data => data?.to_model],
-  ['message.model', data => data?.message?.model],
-];
-
-const createCodexTokenFieldAvailability = () => ({
-  inputTokens: false,
-  outputTokens: false,
-  reasoningTokens: false,
-  cacheReadTokens: false,
-  cacheWriteTokens: false,
-});
-
-const hasOwnPath = (object, pathName) => {
-  let cursor = object;
-  for (const part of pathName.split('.')) {
-    if (!cursor || typeof cursor !== 'object' || !Object.hasOwn(cursor, part)) return false;
-    cursor = cursor[part];
-  }
-  return true;
-};
-
-const getPathValue = (object, pathName) => pathName.split('.').reduce((cursor, part) => cursor?.[part], object);
-
-const getFirstObservedNumber = (object, pathNames) => {
-  for (const pathName of pathNames) {
-    if (!hasOwnPath(object, pathName)) continue;
-    const value = getPathValue(object, pathName);
-    return Number.isFinite(value) ? value : 0;
-  }
-  return 0;
-};
-
-const hasAnyObservedPath = (object, pathNames) => pathNames.some(pathName => hasOwnPath(object, pathName));
-
-const CODEX_CACHE_READ_USAGE_PATHS = ['cached_input_tokens', 'input_tokens_details.cached_tokens', 'input_tokens_details.cache_read_tokens'];
-const CODEX_CACHE_WRITE_USAGE_PATHS = ['cache_write_tokens', 'cache_creation_input_tokens', 'input_tokens_details.cache_write_tokens', 'input_tokens_details.cache_creation_tokens', 'input_tokens_details.cache_creation_input_tokens'];
-const CODEX_REASONING_USAGE_PATHS = ['reasoning_tokens', 'reasoning_output_tokens', 'output_tokens_details.reasoning_tokens'];
 
 const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -380,6 +339,12 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
     // completion gate can ask "did the last turn finish?" instead of comparing
     // counts that an echoed `turn.started` can skew.
     turnLifecycle: state.turnLifecycle || [],
+    // Issue #2140: `thread.started` records seen on the protocol stream that
+    // announce a thread id other than this session's. Codex only starts one
+    // thread per `codex exec`, so a second id is proof that something echoed
+    // another agent's protocol into ours — the one turn event that carries an
+    // identity we can check. Diagnostics only; the gate stays order-based.
+    foreignThreadIds: state.foreignThreadIds || [],
   };
 
   nextState.tokenUsage.tokenFieldAvailability ||= createCodexTokenFieldAvailability();
@@ -432,6 +397,11 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
 
     if (eventType === 'thread.started' && typeof data.thread_id === 'string' && !nextState.sessionId) {
       nextState.sessionId = data.thread_id;
+    } else if (eventType === 'thread.started' && typeof data.thread_id === 'string' && data.thread_id !== nextState.sessionId) {
+      // Issue #2140: a foreign thread id on the protocol stream is echoed
+      // output, not a second codex session. Record it once so a run that ends
+      // up disputed can be settled from the log alone.
+      if (!nextState.foreignThreadIds.includes(data.thread_id)) nextState.foreignThreadIds.push(data.thread_id);
     } else if (!nextState.sessionId && typeof data.session_id === 'string') {
       nextState.sessionId = data.session_id;
     }
@@ -1030,7 +1000,7 @@ export const executeCodexCommand = async params => {
         if (chunk.type === 'stdout') {
           const raw = chunk.data.toString();
           if (argv.verbose) {
-            await log(raw);
+            await log(raw, { stream: 'stdout' });
           }
           lastMessage = raw;
           const output = codexStdoutLines.write(raw);

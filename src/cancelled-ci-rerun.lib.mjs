@@ -12,6 +12,7 @@
  */
 
 import { CANCELLED_CI_REVIEW_MARKER } from './tool-comments.lib.mjs';
+import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 
 const CANCELLED_OR_STALE_CONCLUSIONS = new Set(['cancelled', 'stale']);
 
@@ -122,7 +123,8 @@ const formatRunReference = run => {
 
 const formatRerunFailure = failure => {
   const runPart = formatRunReference(failure?.run);
-  const error = failure?.error || 'Unknown error';
+  // Issue #2141: the error may arrive as an object; never publish [object Object].
+  const error = stringifyErrorValue(failure?.error, { fallback: 'Unknown error' });
   return `${runPart}: ${error}`;
 };
 

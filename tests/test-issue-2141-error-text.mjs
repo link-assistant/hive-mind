@@ -21,6 +21,9 @@ import { extractAgentErrorText, detectAgentErrorsInOutput, detectFatalAgentLogRe
 import { buildPrePullRequestFailureComment } from '../src/solve.pre-pr-failure-notifier.lib.mjs';
 import { extractToolErrorCore, formatToolExecutionFailure, isMeaningfulErrorText } from '../src/lib.mjs';
 import { parseQwenStreamJsonOutput } from '../src/qwen.lib.mjs';
+import { parseCodexExecJsonOutput } from '../src/codex.lib.mjs';
+import { parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
+import { buildCancelledCIReviewComment } from '../src/cancelled-ci-rerun.lib.mjs';
 
 let failures = 0;
 const test = (name, fn) => {
@@ -168,6 +171,47 @@ test('qwen error events render structured payloads readably', () => {
   assert.ok(state.errors.length > 0, 'expected an error entry');
   assertReadable(state.errors[0].message, 'qwen error message');
   assert.ok(state.errors[0].message.includes('invalid api key'), state.errors[0].message);
+});
+
+console.log('\ncodex adapter (src/codex.lib.mjs)');
+
+test('an object-shaped turn.failed is reported instead of silently dropped', () => {
+  const state = parseCodexExecJsonOutput(JSON.stringify({ type: 'turn.failed', error: { name: 'StreamError', data: { message: 'upstream closed the connection' } } }));
+  assert.equal(state.turnFailures.length, 1, 'expected the turn failure to be recorded');
+  assertReadable(state.turnFailures[0].message, 'turn failure message');
+  assert.ok(state.turnFailures[0].message.includes('upstream closed the connection'), state.turnFailures[0].message);
+});
+
+test('an object-shaped error event still flags authentication failures', () => {
+  const state = parseCodexExecJsonOutput(JSON.stringify({ type: 'error', error: { message: '401 Unauthorized' } }));
+  assert.equal(state.authError, true, 'expected the auth error to be detected');
+  assertReadable(state.streamErrors[0].message, 'stream error message');
+});
+
+test('string payloads keep their existing behaviour', () => {
+  const state = parseCodexExecJsonOutput(JSON.stringify({ type: 'error', message: 'plain stream failure' }));
+  assert.deepEqual(state.streamErrors, [{ message: 'plain stream failure' }]);
+});
+
+console.log('\ngemini adapter (src/gemini.lib.mjs)');
+
+test('gemini error payloads render readably', () => {
+  const state = parseGeminiJsonOutput(JSON.stringify({ type: 'error', error: { name: 'QuotaExceeded', data: { message: 'daily limit reached' } } }));
+  assert.ok(state.errorMessages.length > 0, 'expected an error message');
+  assertReadable(state.errorMessages[0], 'gemini error message');
+  assert.ok(state.errorMessages[0].includes('daily limit reached'), state.errorMessages[0]);
+});
+
+console.log('\ncancelled-CI review comment (src/cancelled-ci-rerun.lib.mjs)');
+
+test('a re-run failure carrying an Error object renders readably', () => {
+  const body = buildCancelledCIReviewComment({
+    blocker: { sha: 'abc123', details: [] },
+    rerunFailures: [{ run: { name: 'CI', id: 7 }, error: new Error('HTTP 403: Resource not accessible') }],
+    rerunAttempted: true,
+  });
+  assert.ok(!body.includes('[object Object]'), body);
+  assert.ok(body.includes('HTTP 403: Resource not accessible'), body);
 });
 
 console.log('\ndownstream failure formatting (src/lib.mjs)');

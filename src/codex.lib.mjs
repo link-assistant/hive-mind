@@ -25,6 +25,7 @@ import { detectUsageLimit, formatUsageLimitMessage } from './usage-limit.lib.mjs
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs'; // Issue #942
 const __codexBuildSolveResumeCmd = (argv, sessionId, tempDir) => (sessionId && argv?.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: 'codex', model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null);
 import { sanitizeObjectStrings } from './unicode-sanitization.lib.mjs';
+import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 import { createLineBuffer } from './json-stream.lib.mjs'; // Issue #2119
 import { mapModelToId, resolveCodexReasoningEffort } from './codex.options.lib.mjs';
 import { buildCodexRunDiagnostics, codexRunAlreadyFailed, describeCodexLastMessageOutcome } from './codex.run-diagnostics.lib.mjs'; // Issue #2130
@@ -410,20 +411,20 @@ export const parseCodexExecJsonOutput = (output, state = {}, requestedModelId = 
       if (typeof getter(data) === 'string') observedModelPaths.add(pathName);
     }
 
-    if (eventType === 'error' && typeof data.message === 'string' && (data.message.includes('401 Unauthorized') || data.message.includes('401') || data.message.includes('Unauthorized'))) {
-      nextState.authError = true;
+    // Issue #2141: these payloads are not always strings. Requiring `typeof …
+    // === 'string'` dropped every object-shaped failure — a dropped
+    // `turn.failed` reads as a success — and interpolating one would have
+    // published "[object Object]". Render it as text instead.
+    const streamErrorText = eventType === 'error' ? firstErrorText([data.message, data.error]) : '';
+    if (streamErrorText) {
+      if (streamErrorText.includes('401') || streamErrorText.includes('Unauthorized')) nextState.authError = true;
+      nextState.streamErrors.push({ message: streamErrorText });
     }
 
-    if (eventType === 'error' && typeof data.message === 'string') {
-      nextState.streamErrors.push({ message: data.message });
-    }
-
-    if (eventType === 'turn.failed' && typeof data.error?.message === 'string' && (data.error.message.includes('401 Unauthorized') || data.error.message.includes('401') || data.error.message.includes('Unauthorized'))) {
-      nextState.authError = true;
-    }
-
-    if (eventType === 'turn.failed' && typeof data.error?.message === 'string') {
-      nextState.turnFailures.push({ message: data.error.message });
+    const turnFailureText = eventType === 'turn.failed' ? firstErrorText([data.error, data.message]) : '';
+    if (turnFailureText) {
+      if (turnFailureText.includes('401') || turnFailureText.includes('Unauthorized')) nextState.authError = true;
+      nextState.turnFailures.push({ message: turnFailureText });
     }
 
     if (eventType === 'turn.completed' && data.usage && typeof data.usage === 'object') {

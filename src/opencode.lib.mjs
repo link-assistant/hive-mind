@@ -394,7 +394,7 @@ export const executeOpenCodeCommand = async params => {
       for await (const chunk of execCommand.stream()) {
         if (chunk.type === 'stdout') {
           const output = chunk.data.toString();
-          await log(output);
+          await log(output, { stream: 'stdout' });
           lastMessage = output;
           allOutput += output;
 

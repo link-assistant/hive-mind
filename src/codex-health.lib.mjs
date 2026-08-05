@@ -269,9 +269,28 @@ export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = 
   addDiskEvidence('result-summary', codexJsonState?.resultSummary);
   const diskPressureDetected = diskEvidence.length > 0;
 
+  // Issue #2140: the counts alone made the #2136 false positive unfalsifiable —
+  // "turn.started=3, turn.completed=1" was posted to the PR with nothing to say
+  // whether those starts were codex's own. Carry the evidence that decides it:
+  // the ordered lifecycle, what was discarded as echoed telemetry, and any
+  // foreign thread id that reached the protocol stream.
+  const turnLifecycle = Array.isArray(codexJsonState?.turnLifecycle) ? codexJsonState.turnLifecycle : [];
+  const telemetryEventCounts = codexJsonState?.telemetryEventCounts || {};
+  const foreignThreadIds = codexJsonState?.foreignThreadIds || [];
+  const echoedTurnStarts = telemetryEventCounts['turn.started'] || 0;
+
   const reasons = [];
   if (incompleteSession) {
     reasons.push(`Codex session ended without completing its turn (turn.started=${turnStarted}, turn.completed=${turnCompleted}, turn.failed=${turnFailed}); the process exited 0 but was cut off mid-turn.`);
+    if (turnLifecycle.length > 0) {
+      reasons.push(`Turn lifecycle in order: ${turnLifecycle.join(' → ')} — the stream ends on a start, so the last turn never finished.`);
+    }
+    if (echoedTurnStarts > 0 || foreignThreadIds.length > 0) {
+      const echoParts = [];
+      if (echoedTurnStarts > 0) echoParts.push(`${echoedTurnStarts} echoed turn.started on codex stderr (excluded from the counts above)`);
+      if (foreignThreadIds.length > 0) echoParts.push(`foreign thread id(s) on the protocol stream: ${foreignThreadIds.join(', ')}`);
+      reasons.push(`Echo diagnostics (issues #2136/#2140): ${echoParts.join('; ')}.`);
+    }
     if (diskPressureDetected) {
       reasons.push(`Disk-exhaustion signals were present in ${diskEvidence.length} location(s) (e.g. "No space left on device") — the likely cause of the interrupted session.`);
     }
@@ -285,6 +304,9 @@ export const getCodexCompletionHealth = (codexJsonState, { lastMessage = '' } = 
     turnStarted,
     turnCompleted,
     turnFailed,
+    turnLifecycle,
+    echoedTurnStarts,
+    foreignThreadIds,
     reasons,
   };
 };
@@ -305,6 +327,9 @@ export const reportCodexCompletionFailure = async ({ completionHealth, log, getR
     await log(`   • ${reason}`, { level: 'error' });
   }
   await log(`   📊 turn.started=${completionHealth.turnStarted}, turn.completed=${completionHealth.turnCompleted}, turn.failed=${completionHealth.turnFailed}`, { verbose: true });
+  if (completionHealth.turnLifecycle?.length) {
+    await log(`   🔁 turn lifecycle: ${completionHealth.turnLifecycle.join(' → ')}`, { verbose: true });
+  }
   if (completionHealth.diskPressureDetected) {
     await log('   💽 Disk-exhaustion evidence (diagnostic):', { level: 'error' });
     for (const evidence of completionHealth.diskEvidence.slice(0, 5)) {

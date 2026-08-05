@@ -95,10 +95,14 @@ export const getAbsoluteLogPath = async () => {
  * @param {Object} options - Logging options
  * @param {string} [options.level='info'] - Log level (info, warn, error)
  * @param {boolean} [options.verbose=false] - Whether this is a verbose log
+ * @param {string} [options.stream] - Provenance of the message when it is raw
+ *   output mirrored from a child process: 'stdout' or 'stderr'. Tags the log
+ *   file lines [STDOUT]/[STDERR] (matching the process.stdout/stderr
+ *   interceptor below) and routes the console write to the same stream.
  * @returns {Promise<void>}
  */
 export const log = async (message, options = {}) => {
-  const { level = 'info', verbose = false } = options;
+  const { level = 'info', verbose = false, stream = null } = options;
 
   // Skip verbose logs unless --verbose is enabled
   if (verbose && !global.verboseMode) {
@@ -107,12 +111,20 @@ export const log = async (message, options = {}) => {
 
   const sanitizedMessage = sanitizeCredentialText(message);
 
+  // Issue #2140: mirrored child output must stay attributable to the stream it
+  // came from. Both Codex streams used to be written as plain [INFO], so a run
+  // log could not answer "did Codex emit this protocol line, or did its stderr
+  // merely echo one?" — the exact question a false completion failure hinges on.
+  // An explicit level still wins, so warnings/errors keep their own tag.
+  const mirroredStream = stream === 'stdout' || stream === 'stderr' ? stream : null;
+  const tag = mirroredStream && level === 'info' ? mirroredStream.toUpperCase() : level.toUpperCase();
+
   // Write to file if log file is set
   // Issue #1572: Handle multi-line messages by timestamping each line,
   // so continuation lines don't appear without timestamps in the log file
   if (logFile) {
     const timestamp = new Date().toISOString();
-    const prefix = `[${timestamp}] [${level.toUpperCase()}]`;
+    const prefix = `[${timestamp}] [${tag}]`;
     const lines = sanitizedMessage.split('\n');
     const logMessage = lines.map(line => `${prefix} ${line}`).join('\n');
     try {
@@ -146,7 +158,10 @@ export const log = async (message, options = {}) => {
         break;
       case 'info':
       default:
-        console.log(sanitizedMessage);
+        // Mirrored child stderr goes to our stderr, so piping stdout to a
+        // consumer keeps yielding only what the child wrote to stdout.
+        if (mirroredStream === 'stderr') console.error(sanitizedMessage);
+        else console.log(sanitizedMessage);
         break;
     }
   } finally {

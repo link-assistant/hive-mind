@@ -1009,7 +1009,7 @@ export const executeClaudeCommand = async params => {
               }
               // Not JSON or parsing failed, output as-is if it's not empty
               if (line.trim() && !line.includes('node:internal')) {
-                await log(line, { stream: 'raw' });
+                await log(line, { stream: 'stdout' });
                 lastMessage = line;
                 // Issue #1015: Detect terms acceptance prompt (non-JSON "[ACTION REQUIRED]..." message)
                 const termsAcceptancePattern = /\[ACTION REQUIRED\].*terms|must run.*claude.*review.*terms/i;
@@ -1080,7 +1080,7 @@ export const executeClaudeCommand = async params => {
           }
           if (progressMonitor) await progressMonitor.processStreamEvent(data, true).catch(e => log(`⚠️ Progress: ${e.message}`, { verbose: true }));
         } catch {
-          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'raw' });
+          if (!stdoutLineBuffer.includes('node:internal')) await log(stdoutLineBuffer, { stream: 'stdout' });
         }
       }
       if (startupTimeoutId) {

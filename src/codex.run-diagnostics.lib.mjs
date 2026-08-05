@@ -97,6 +97,13 @@ export const buildCodexRunDiagnostics = ({ state = {}, exitCode = null, mappedMo
   }
   if (state.turnLifecycle?.length > 0) push(`🔁 Codex turn lifecycle: ${state.turnLifecycle.join(' → ')}`);
 
+  // Issue #2140: codex starts exactly one thread per `codex exec`, so any other
+  // thread id on the protocol stream is echoed output that leaked past the
+  // stream separation above. Always worth saying out loud.
+  if (state.foreignThreadIds?.length > 0) {
+    push(`🧬 Foreign thread IDs seen on the codex protocol stream (echoed, not codex sessions): ${state.foreignThreadIds.join(', ')}`, { level: 'warning', verbose: true });
+  }
+
   const usage = state.tokenUsage || {};
   if (usage.stepCount > 0) {
     push(`📈 Codex usage from turn.completed: ${usage.inputTokens.toLocaleString()} input, ${usage.cacheReadTokens.toLocaleString()} cache read, ${usage.outputTokens.toLocaleString()} output across ${usage.stepCount} turn(s)`);

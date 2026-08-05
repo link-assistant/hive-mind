@@ -2,6 +2,7 @@
 
 import { createCollapsible, createRawJsonSection, createRedactedRawJsonSection, escapeMarkdown, redactImageData, safeJsonStringify, truncateMiddle } from './interactive-mode.shared.lib.mjs';
 import { INTERACTIVE_SESSION_STARTED_MARKER } from './tool-comments.lib.mjs';
+import { firstErrorText } from './error-text.lib.mjs'; // Issue #2141
 
 export const createCodexEventHandlers = ({ state, postComment, handleAssistantText, imageRenderer }) => {
   const handleCodexThreadStarted = async data => {
@@ -142,7 +143,9 @@ ${createRawJsonSection(data)}`);
   };
 
   const handleCodexError = async data => {
-    const message = data.message || data.error?.message || 'Unknown Codex error';
+    // Issue #2141: `data.error` is often an object, so render it as text instead
+    // of letting `[object Object]` reach the GitHub comment.
+    const message = firstErrorText([data?.message, data?.error, data], { fallback: 'Unknown Codex error' });
     await postComment(`## ❌ Codex error
 
 ${createCollapsible('View error', escapeMarkdown(message), true)}

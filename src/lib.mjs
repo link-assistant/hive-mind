@@ -2,6 +2,7 @@
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
+import { isPlaceholderErrorText } from './error-text.lib.mjs'; // issue #2141: never publish "[object Object]" as a reason
 
 export { maskToken };
 
@@ -762,6 +763,9 @@ export const isMeaningfulErrorText = value => {
   if (!value || typeof value !== 'string') return false;
   const collapsed = value.replace(/\s+/g, ' ').trim();
   if (!collapsed) return false;
+  // Issue #2141: "[object Object]" has letters, but it is the *absence* of an
+  // error message — a structured payload that was stringified by mistake.
+  if (isPlaceholderErrorText(collapsed)) return false;
   // Require at least one Unicode letter or number; pure punctuation/brackets
   // (e.g. "}", "{", "[]", ",") are stream fragments, not real errors.
   return /[\p{L}\p{N}]/u.test(collapsed);
@@ -819,6 +823,13 @@ export const extractToolErrorCore = ({ toolResult } = {}) => {
 
   // Issue #1941: reject stray fragments with no letters/digits (e.g. "}").
   if (!isMeaningfulErrorText(rawCore)) return null;
+
+  // Issue #2141: a core that embeds "[object Object]" (e.g. "Agent reported
+  // error: [object Object]") carries no diagnosis at all. Publishing the generic
+  // phrase is more honest than publishing a stringified object, and it keeps the
+  // symptom out of GitHub comments even if a new adapter forgets to render its
+  // payload as text.
+  if (rawCore.includes('[object Object]')) return null;
 
   // Collapse to a single clean line and strip noise.
   const core = rawCore.replace(/\s+/g, ' ').trim();

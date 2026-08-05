@@ -1,0 +1,9 @@
+BEFORE
+  errorInfo.message : Agent reported error: [object Object]
+  published reason  : AGENT execution failed with Agent reported error: [object Object]   ← issue #2141
+  with guard only   : AGENT execution failed   ← honest, but still no diagnosis
+AFTER
+  errorInfo.message : Agent reported error: RetryTimeoutExceededError: Retry timeout exceeded after 604800s
+  published reason  : AGENT execution failed with Agent reported error: RetryTimeoutExceededError: Retry timeout exceeded after 604800s
+
+✅ Reproduced the defect and confirmed the fix.

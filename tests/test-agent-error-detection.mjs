@@ -15,30 +15,10 @@
 
 import { strict as assert } from 'assert';
 
-// Simplified error detection function - matches agent.lib.mjs
-// Only detects explicit JSON error messages from agent
-// Issue #1201: Also checks msg.error field (not just msg.message)
-const detectAgentErrors = stdoutOutput => {
-  const lines = stdoutOutput.split('\n');
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-
-    try {
-      const msg = JSON.parse(line);
-
-      // Check for explicit error message types from agent
-      if (msg.type === 'error' || msg.type === 'step_error') {
-        return { detected: true, type: 'AgentError', match: msg.message || msg.error || line.substring(0, 100) };
-      }
-    } catch {
-      // Not JSON - ignore for error detection
-      continue;
-    }
-  }
-
-  return { detected: false };
-};
+// Issue #2141: exercise the *real* detection exported by agent.lib.mjs. This
+// file used to re-implement it, so the `[object Object]` defect that shipped in
+// production was invisible to the suite.
+import { detectAgentErrorsInOutput as detectAgentErrors, extractAgentErrorText } from '../src/agent.lib.mjs';
 
 console.log('Testing simplified agent error detection...\n');
 console.log('Issue #886: Trust exit code, only detect explicit JSON errors\n');
@@ -176,7 +156,8 @@ const simulateStreamChunk = chunk => {
       const data = JSON.parse(line);
       if (data.type === 'error' || data.type === 'step_error') {
         streamingErrorDetected = true;
-        streamingErrorMessage = data.message || data.error || line.substring(0, 100);
+        // Issue #2141: same rendering as agent.lib.mjs streaming detection.
+        streamingErrorMessage = extractAgentErrorText(data, line);
       }
     } catch {
       // Not JSON - ignore
@@ -208,7 +189,11 @@ if (!outputError.detected && streamingErrorDetected) {
 }
 
 assert.strictEqual(outputError.detected, true, 'Combined detection should catch the error');
-assert.strictEqual(outputError.match, 'The operation timed out.', 'Should have the correct error message');
+// Issue #2119 framed the concatenated records by balanced JSON, so post-hoc
+// detection now wins here and reports that record's own message ("timeout");
+// the streaming fallback stays in place for output that never reaches stdout.
+assert.ok(['timeout', 'The operation timed out.'].includes(outputError.match), `Should have a readable error message, got ${outputError.match}`);
+assert.ok(!String(outputError.match).includes('[object Object]'), 'Issue #2141: the match must never be a stringified object');
 console.log('  ✅ PASSED: Combined detection works correctly\n');
 
 // ====================================================================

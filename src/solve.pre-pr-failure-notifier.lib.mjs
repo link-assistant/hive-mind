@@ -12,6 +12,14 @@ const truncate = (value, maxLength = 2000) => {
 
 const fence = value => truncate(value || 'Unknown error').replaceAll('```', '` ` `');
 
+/**
+ * Issue #2141: the failure comment was the *only* record of the run — the reason
+ * said "Agent reported error: [object Object]", `--attach-logs` was off, and the
+ * session log was never published, so the root cause could not be recovered
+ * afterwards. Say what is missing and how to make the next run diagnosable.
+ */
+const buildLogLine = logAttachmentAttempted => (logAttachmentAttempted ? 'Log attachment was attempted but failed. Check the solver terminal log for the complete failure output.' : 'Logs were not attached because `--attach-logs` was not enabled, so this comment is the only surviving record of the failure. Rerun with `--attach-logs --verbose` to publish the full session log with the raw tool error records.');
+
 const isForkDivergenceFailure = reason => {
   const normalizedReason = String(reason || '').toLowerCase();
   return normalizedReason.includes('fork divergence') || (normalizedReason.includes('fork') && normalizedReason.includes('non-fast-forward')) || normalizedReason.includes('force-with-lease');
@@ -124,7 +132,7 @@ export function resolvePreExitFailureNotificationTarget({ code, globalState }) {
 export function buildPrePullRequestFailureComment({ reason, owner, repo, issueNumber, argv = {}, logAttachmentAttempted = false, failureActionSection = null }) {
   const tool = argv.tool || 'claude';
   const modelLine = argv.model ? `\n- **Requested model**: \`${argv.model}\`` : '';
-  const logLine = logAttachmentAttempted ? 'Log attachment was attempted but failed. Check the solver terminal log for the complete failure output.' : 'Logs were not attached because `--attach-logs` was not enabled.';
+  const logLine = buildLogLine(logAttachmentAttempted);
   const actionSection = failureActionSection || buildPrePullRequestFailureActionSection(reason);
 
   return `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
@@ -151,7 +159,7 @@ export function buildExistingPullRequestFailureComment({ reason, owner, repo, pr
   const tool = argv.tool || 'claude';
   const modelLine = argv.model ? `\n- **Requested model**: \`${argv.model}\`` : '';
   const issueLine = issueNumber ? `\n- **Linked issue**: #${issueNumber}` : '';
-  const logLine = logAttachmentAttempted ? 'Log attachment was attempted but failed. Check the solver terminal log for the complete failure output.' : 'Logs were not attached because `--attach-logs` was not enabled.';
+  const logLine = buildLogLine(logAttachmentAttempted);
   const actionSection = failureActionSection || buildPrePullRequestFailureActionSection(reason);
 
   return `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}

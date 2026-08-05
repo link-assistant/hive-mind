@@ -27,6 +27,7 @@ import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toToken
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
+import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -39,18 +40,6 @@ const getCommandResultOutput = result => `${result?.stdout?.toString() || ''}${r
 const isQwenAuthError = output => {
   const text = (output || '').toString().toLowerCase();
   return text.includes('401') || text.includes('unauthorized') || text.includes('authentication') || text.includes('auth') || text.includes('login') || text.includes('api key') || text.includes('oauth free tier');
-};
-
-const stringifyErrorValue = value => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value?.message === 'string') return value.message;
-  if (typeof value?.error?.message === 'string') return value.error.message;
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
 };
 
 const getNestedValue = (object, pathParts) => {

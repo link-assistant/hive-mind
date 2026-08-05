@@ -36,6 +36,7 @@ import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.li
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
+import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 export { availableModels, fetchModelInfo }; // Re-export for backward compatibility
 export { formatNumber, mapModelToId, checkModelVisionCapability };
@@ -96,7 +97,7 @@ export const validateClaudeConnection = async (model = 'haiku') => {
             const jsonMatch = text.match(/\{.*"error".*\}/);
             if (jsonMatch) {
               const errorObj = JSON.parse(jsonMatch[0]);
-              return errorObj.error;
+              return stringifyErrorValue(errorObj.error, { fallback: jsonMatch[0] }); // Issue #2141: the `error` field is usually an object
             }
           }
         } catch (e) {
@@ -936,7 +937,7 @@ export const executeClaudeCommand = async params => {
               }
               if (data.type === 'text' && data.text) lastMessage = data.text;
               else if (data.type === 'error') {
-                lastMessage = data.error || JSON.stringify(data);
+                lastMessage = stringifyErrorValue(data.error, { fallback: JSON.stringify(data) }); // Issue #2141: `data.error` is often an object; render it as text so the reason is never "[object Object]" and the substring checks below get a real string
                 if (lastMessage.includes('Internal server error')) isInternalServerError = true;
               }
               // Issue #1491: Track token usage from stream events for independent calculation

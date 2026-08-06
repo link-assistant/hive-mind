@@ -132,7 +132,11 @@ export const describeStopReason = reason => {
   };
 };
 
-const bulletList = lines => (lines || []).filter(Boolean).map(line => `- ${line}`).join('\n');
+const bulletList = lines =>
+  (lines || [])
+    .filter(Boolean)
+    .map(line => `- ${line}`)
+    .join('\n');
 
 /**
  * Build the "automation stopped" comment body.

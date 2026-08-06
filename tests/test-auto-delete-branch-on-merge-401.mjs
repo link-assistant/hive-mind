@@ -84,7 +84,9 @@ await run('deletion gracefully handles "Reference does not exist" / 404 / 422 (a
 });
 
 await run('auto-merge mode passes --auto-delete-branch-on-merge to mergePullRequest', async () => {
-  const src = readFileSync(join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
+  // Issue #2144 extracted attemptAutoMerge into src/solve.auto-merge-attempt.lib.mjs,
+  // so the two auto-merge call paths now live in two files. Check them together.
+  const src = ['solve.auto-merge.lib.mjs', 'solve.auto-merge-attempt.lib.mjs'].map(file => readFileSync(join(repoRoot, 'src', file), 'utf8')).join('\n');
   assert(src.includes('argv.autoDeleteBranchOnMerge'), 'auto-merge code should read argv.autoDeleteBranchOnMerge');
   assert(src.includes('shouldDeleteBranchAfterMerge(argv)'), 'auto-merge code should normalize the branch cleanup flag');
   assert((src.match(/deleteAfter: deleteAfterMerge/g) || []).length >= 2, 'both auto-merge call paths should pass deleteAfter from the normalized flag');

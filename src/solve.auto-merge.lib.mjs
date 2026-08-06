@@ -35,7 +35,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { checkMergePermissions, mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -460,7 +460,13 @@ export const watchUntilMergeable = async params => {
                 // Issue #2144: a closed/unavailable linked issue does not stop this
                 // mode, but it is worth stating in the comment so the reader knows
                 // why no automatic merge will follow.
-                const issueLine = issueMergeBlockers.length > 0 ? `\n\nNote: ${issueMergeBlockers.map(b => b.message).join(' ')} ${issueMergeBlockers.map(b => b.resolution).filter(Boolean).join(' ')}` : '';
+                const issueLine =
+                  issueMergeBlockers.length > 0
+                    ? `\n\nNote: ${issueMergeBlockers.map(b => b.message).join(' ')} ${issueMergeBlockers
+                        .map(b => b.resolution)
+                        .filter(Boolean)
+                        .join(' ')}`
+                    : '';
                 const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
                 // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
                 await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });

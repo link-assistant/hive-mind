@@ -34,6 +34,12 @@ const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI } =
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
 const { checkGitHubTerminalState } = terminalStateLib;
 
+// Issue #2144: these probes answer with a ~33 KB pull request object and a full
+// issue object on every iteration. Issue #2130 made the helper's own default
+// runner quiet, but passing `$` here bypassed it and the payloads were still
+// mirrored into the attached log. Bind the quiet options to the injected `$`.
+const { quietProbe } = await import('./quiet-probe.lib.mjs');
+
 const toolComments = await import('./tool-comments.lib.mjs');
 const { AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 
@@ -93,7 +99,7 @@ export const attemptAutoMerge = async params => {
     repo,
     issueNumber,
     prNumber,
-    commandRunner: $,
+    commandRunner: quietProbe($),
   });
   if (terminalState.terminal) {
     if (terminalState.success) {

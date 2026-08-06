@@ -50,6 +50,12 @@ const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIte
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
 const { checkGitHubTerminalState } = terminalStateLib;
 
+// Issue #2144: these probes answer with a ~33 KB pull request object and a full
+// issue object on every iteration. Issue #2130 made the helper's own default
+// runner quiet, but passing `$` here bypassed it and the payloads were still
+// mirrored into the attached log. Bind the quiet options to the injected `$`.
+const { quietProbe } = await import('./quiet-probe.lib.mjs');
+
 // Issue #2144: a closed linked issue is NOT terminal — it only blocks the final
 // automatic merge. Every stop of this loop is also published as a GitHub comment
 // stating exactly why it stopped.
@@ -190,7 +196,7 @@ export const watchUntilMergeable = async params => {
       issueNumber,
       prNumber,
       sourceBranchName: prBranch || branchName,
-      commandRunner: $,
+      commandRunner: quietProbe($),
     });
     if (terminalState.terminal && terminalState.success) {
       await log('');

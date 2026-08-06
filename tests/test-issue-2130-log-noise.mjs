@@ -302,6 +302,20 @@ test('the probes evidenced in the attached logs are all quiet now', async () => 
   }
 });
 
+test('callers do not defeat the quiet terminal-state probes (issue #2144)', async () => {
+  // The helper's *default* runner is quiet, but every caller injects its own
+  // `$`, which silently overrode that. The log attached to
+  // link-assistant/formal-ai#927 still carried the repository, pull request,
+  // both branch and the full issue payloads, once per watch iteration.
+  const callers = ['src/solve.auto-merge.lib.mjs', 'src/solve.watch.lib.mjs', 'src/solve.auto-merge-attempt.lib.mjs'];
+
+  for (const file of callers) {
+    const source = await readFile(join(repoRoot, file), 'utf8');
+    assert.match(source, /commandRunner: quietProbe\(\$\)/, `${file} must bind the quiet options before probing GitHub entity state`);
+    assert.doesNotMatch(source, /commandRunner: \$,/, `${file} must not pass a mirroring $ to checkGitHubTerminalState`);
+  }
+});
+
 test('no source file mirrors a bare `gh api user --jq .login`', async () => {
   // `konard` appeared 23 times in agent-11-0JuEzF.log with nothing around it.
   const files = (await readdir(join(repoRoot, 'src'), { recursive: true })).filter(name => name.endsWith('.mjs'));

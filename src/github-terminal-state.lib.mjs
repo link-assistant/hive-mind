@@ -4,11 +4,18 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Detect terminal GitHub entity states for long-running watch/merge loops.
  *
- * These checks intentionally treat 404-style repository, PR, issue, and branch
+ * These checks intentionally treat 404-style repository, PR, and branch
  * responses as terminal. In a solver loop, deleted entities and lost access are
  * not transient CI states; retrying them indefinitely wastes time and tokens.
  *
+ * Issue #2144: the linked *issue* is deliberately NOT terminal. A closed or
+ * deleted issue does not stop the pull request from becoming mergeable, so the
+ * watch/auto-restart loop must keep working. Those states are reported as
+ * `mergeBlockers` instead: they only block the final automatic merge, and the
+ * caller asks the user to reopen the issue or merge manually.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/1931
+ * @see https://github.com/link-assistant/hive-mind/issues/2144
  */
 
 let defaultCommandRunner = null;
@@ -65,15 +72,31 @@ const terminal = ({ reason, message, details = [], success = false, data = null 
   message,
   details,
   data,
+  mergeBlockers: [],
 });
 
-const ok = (data = {}) => ({
+const ok = (data = {}, mergeBlockers = []) => ({
   terminal: false,
   success: null,
   reason: null,
   message: null,
   details: [],
   data,
+  mergeBlockers,
+});
+
+/**
+ * Issue #2144: a non-terminal state that still prevents an *automatic* merge.
+ *
+ * The watch/auto-restart loop must keep making the pull request mergeable; only
+ * the final `--auto-merge` step is gated, and the user is asked to reopen the
+ * issue or merge manually.
+ */
+const mergeBlocker = ({ reason, message, details = [], resolution }) => ({
+  reason,
+  message,
+  details,
+  resolution,
 });
 
 const safeJsonParse = value => {
@@ -241,27 +264,41 @@ export const checkGitHubTerminalState = async ({ owner, repo, issueNumber = null
     if (targetBranchState.terminal) return targetBranchState;
   }
 
+  // Issue #2144: issue-scoped problems never stop the loop. They are collected
+  // as merge blockers so the pull request still gets made mergeable.
+  const mergeBlockers = [];
+
   if (issueNumber && String(issueNumber) !== String(prNumber)) {
     const issueResult = await runCommand(runner, ['gh api repos/', '/', '/issues/', ''], owner, repo, issueNumber);
     if (commandFailedTerminally(issueResult)) {
-      return terminal({
-        reason: 'issue_unavailable',
-        message: `Issue #${issueNumber} in ${owner}/${repo} is no longer accessible.`,
-        details: [getTerminalGitHubEntityErrorMessage(issueResult)],
-      });
+      mergeBlockers.push(
+        mergeBlocker({
+          reason: 'issue_unavailable',
+          message: `Issue #${issueNumber} in ${owner}/${repo} is no longer accessible.`,
+          details: [getTerminalGitHubEntityErrorMessage(issueResult)],
+          resolution: `Restore or re-create issue #${issueNumber}, or merge this pull request manually.`,
+        })
+      );
+      return ok({ repo: repoData }, mergeBlockers);
     }
 
     const issueData = safeJsonParse(issueResult.stdout);
     if (String(issueData?.state || '').toLowerCase() === 'closed') {
-      return terminal({
-        reason: 'issue_closed',
-        message: `Issue #${issueNumber} has been closed.`,
-        data: { issue: issueData, repo: repoData },
-      });
+      mergeBlockers.push(
+        mergeBlocker({
+          reason: 'issue_closed',
+          message: `Issue #${issueNumber} has been closed.`,
+          details: [],
+          resolution: `Reopen issue #${issueNumber} so auto-merge can complete, or merge this pull request manually.`,
+        })
+      );
+      return ok({ issue: issueData, repo: repoData }, mergeBlockers);
     }
+
+    return ok({ issue: issueData, repo: repoData }, mergeBlockers);
   }
 
-  return ok({ repo: repoData });
+  return ok({ repo: repoData }, mergeBlockers);
 };
 
 export default {

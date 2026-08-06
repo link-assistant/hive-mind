@@ -35,7 +35,7 @@ const { reportError } = sentryLib;
 
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { checkPRMergeable, checkMergePermissions, mergePullRequest, waitForCI, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { checkMergePermissions, mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
 
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
@@ -49,6 +49,18 @@ const { checkForUncommittedChanges, getUncommittedChangesDetails, executeToolIte
 // are terminal states for long-running watch loops, not retryable CI states.
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
 const { checkGitHubTerminalState } = terminalStateLib;
+
+// Issue #2144: these probes answer with a ~33 KB pull request object and a full
+// issue object on every iteration. Issue #2130 made the helper's own default
+// runner quiet, but passing `$` here bypassed it and the payloads were still
+// mirrored into the attached log. Bind the quiet options to the injected `$`.
+const { quietProbe } = await import('./quiet-probe.lib.mjs');
+
+// Issue #2144: a closed linked issue is NOT terminal — it only blocks the final
+// automatic merge. Every stop of this loop is also published as a GitHub comment
+// stating exactly why it stopped.
+const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
+const { reportAutomationStop } = stopReportingLib;
 
 // Import validation functions for time parsing (used for usage limit wait)
 const validation = await import('./solve.validation.lib.mjs');
@@ -184,7 +196,7 @@ export const watchUntilMergeable = async params => {
       issueNumber,
       prNumber,
       sourceBranchName: prBranch || branchName,
-      commandRunner: $,
+      commandRunner: quietProbe($),
     });
     if (terminalState.terminal && terminalState.success) {
       await log('');
@@ -201,7 +213,18 @@ export const watchUntilMergeable = async params => {
       }
       await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
       await log('');
+      // Issue #2144: report the stop on GitHub instead of exiting silently.
+      await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: terminalState.reason, mode: 'auto-restart-until-mergeable', message: terminalState.message, details: terminalState.details, verbose: argv.verbose, log });
       return { success: false, reason: terminalState.reason, latestSessionId, latestAnthropicCost };
+    }
+
+    // Issue #2144: issue-scoped problems (closed / deleted linked issue) never
+    // stop this loop. They are carried to the merge decision below.
+    const issueMergeBlockers = terminalState.mergeBlockers || [];
+    if (issueMergeBlockers.length > 0 && iteration === 1) {
+      for (const blocker of issueMergeBlockers) {
+        await log(formatAligned('⚠️', 'Linked issue:', `${blocker.message} Continuing to make the pull request mergeable.`, 2), { level: 'warning' });
+      }
     }
 
     await log(formatAligned('🔍', `Check #${iteration}:`, currentTime.toLocaleTimeString()));
@@ -243,6 +266,7 @@ export const watchUntilMergeable = async params => {
         }
         await log(formatAligned('', 'Action:', 'Stopping auto-restart-until-mergeable mode', 2), { level: 'error' });
         await log('');
+        await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'terminal_github_entity_error', mode: 'auto-restart-until-mergeable', message: terminalGitHubBlocker.message, details: terminalGitHubBlocker.details, verbose: argv.verbose, log });
         return { success: false, reason: 'terminal_github_entity_error', latestSessionId, latestAnthropicCost };
       }
 
@@ -356,6 +380,15 @@ export const watchUntilMergeable = async params => {
 
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
 
+        // Issue #2144: the pull request is ready. A closed/unavailable linked
+        // issue blocks only the *automatic* merge — the loop already did its
+        // job of making the pull request mergeable. Ask the user to reopen the
+        // issue or merge manually instead of merging behind their back.
+        if (isAutoMerge && issueMergeBlockers.length > 0) {
+          await reportAutoMergeBlockedByIssue({ owner, repo, prNumber, issueNumber, mergeBlockers: issueMergeBlockers, verbose: argv.verbose });
+          return { success: false, reason: issueMergeBlockers[0].reason, mergeBlockers: issueMergeBlockers, latestSessionId, latestAnthropicCost };
+        }
+
         if (isAutoMerge) {
           // Attempt to merge the PR
           await log(formatAligned('🔀', 'Auto-merging PR...', ''));
@@ -424,7 +457,17 @@ export const watchUntilMergeable = async params => {
               } else {
                 // Issue #1345: Differentiate message when no CI is configured
                 const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
+                // Issue #2144: a closed/unavailable linked issue does not stop this
+                // mode, but it is worth stating in the comment so the reader knows
+                // why no automatic merge will follow.
+                const issueLine =
+                  issueMergeBlockers.length > 0
+                    ? `\n\nNote: ${issueMergeBlockers.map(b => b.message).join(' ')} ${issueMergeBlockers
+                        .map(b => b.resolution)
+                        .filter(Boolean)
+                        .join(' ')}`
+                    : '';
+                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
                 // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
                 await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
                 readyToMergeCommentPosted = true;
@@ -838,6 +881,8 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               await log(formatAligned('⚠️', 'AUTO-RESUME LIMIT REACHED', `Stopping after ${limitResumeCount} limit-reset continuation${limitResumeCount !== 1 ? 's' : ''}`));
               await log(formatAligned('', 'Configured limit:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
               await log('');
+              // Issue #2144: publish why the automation stopped.
+              await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'auto_resume_limit_reached', mode: 'auto-restart-until-mergeable', message: `Stopped after ${limitResumeCount} usage-limit continuation${limitResumeCount !== 1 ? 's' : ''} (limit: ${formatAutoIterationLimit(maxAutoResumeIterations)}).`, verbose: argv.verbose, log });
               return { success: false, reason: 'auto_resume_limit_reached', latestSessionId, latestAnthropicCost };
             }
 
@@ -991,6 +1036,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                     await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
                   }
                 }
+                await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure_after_resume', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult: resumeResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult: resumeResult }), verbose: argv.verbose, log });
                 return { success: false, reason: 'tool_failure_after_resume', latestSessionId, latestAnthropicCost };
               }
             } else {
@@ -1043,6 +1089,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
           }
+          await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
           return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
         } else {
           // Success - capture latest session data
@@ -1279,114 +1326,10 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
   }
 };
 
-/**
- * Attempt to auto-merge PR after session ends
- * This implements the --auto-merge functionality for one-shot merge attempts
- */
-export const attemptAutoMerge = async params => {
-  const { owner, repo, prNumber, issueNumber = null, argv } = params;
-
-  await log('');
-  await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
-
-  const terminalState = await checkGitHubTerminalState({
-    owner,
-    repo,
-    issueNumber,
-    prNumber,
-    commandRunner: $,
-  });
-  if (terminalState.terminal) {
-    if (terminalState.success) {
-      await log(formatAligned('🎉', 'PR already merged:', `#${prNumber}`, 2));
-      return { success: true, reason: 'merged' };
-    }
-    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', terminalState.message, 2), { level: 'error' });
-    for (const detail of terminalState.details || []) {
-      await log(formatAligned('', 'Detail:', detail, 4), { level: 'error' });
-    }
-    return { success: false, reason: terminalState.reason, error: terminalState.message };
-  }
-
-  // Issue #1226: Check merge permissions before attempting
-  const { canMerge, permission } = await checkMergePermissions(owner, repo, argv.verbose);
-  if (!canMerge) {
-    await log(formatAligned('⚠️', 'Cannot merge:', `Insufficient permissions (${permission || 'unknown'})`, 2));
-    return { success: false, reason: 'insufficient_permissions', error: `User has ${permission || 'unknown'} access, needs push/maintain/admin` };
-  }
-
-  // Wait for CI to complete (with timeout)
-  const ciWaitResult = await waitForCI(
-    owner,
-    repo,
-    prNumber,
-    {
-      timeout: argv.autoMergeCiTimeout || 30 * 60 * 1000, // 30 minutes default
-      pollInterval: argv.autoMergeCiPollInterval || 30 * 1000, // 30 seconds default
-      onStatusUpdate: async status => {
-        if (argv.verbose) {
-          await log(`   CI status: ${status.status}`, { verbose: true });
-        }
-      },
-    },
-    argv.verbose
-  );
-
-  if (!ciWaitResult.success) {
-    await log(formatAligned('⚠️', 'CI check failed or timed out:', ciWaitResult.error || ciWaitResult.status, 2));
-    return { success: false, reason: ciWaitResult.status, error: ciWaitResult.error };
-  }
-
-  await log(formatAligned('✅', 'CI checks passed:', 'Checking mergeability...', 2));
-
-  // Check if PR is mergeable
-  const mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
-  if (mergeStatus.terminal) {
-    await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible', 2), { level: 'error' });
-    return { success: false, reason: 'terminal_github_entity_error', error: mergeStatus.reason };
-  }
-
-  if (!mergeStatus.mergeable) {
-    await log(formatAligned('⚠️', 'PR not mergeable:', mergeStatus.reason || 'Unknown reason', 2));
-    return { success: false, reason: 'not_mergeable', error: mergeStatus.reason };
-  }
-
-  await log(formatAligned('✅', 'PR is mergeable:', 'Attempting to merge...', 2));
-
-  // Attempt to merge
-  const deleteAfterMerge = shouldDeleteBranchAfterMerge(argv);
-  if (deleteAfterMerge) {
-    await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
-  }
-  const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
-
-  if (mergeResult.success) {
-    await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
-
-    // Post success comment
-    try {
-      const commentBody = `## 🎉 ${AUTO_MERGED_MARKER}\n\nThis pull request has been automatically merged by hive-mind after all CI checks passed and the PR became mergeable.\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*`;
-      await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-    } catch {
-      // Don't fail if comment posting fails
-    }
-
-    // Issue #1895: close linked issue explicitly when GitHub will not (non-default base branch).
-    try {
-      const closeResult = await ensureLinkedIssueClosedAfterMerge({ $, log, owner, repo, prNumber, issueNumber, verbose: argv.verbose });
-      if (!closeResult.closed && !closeResult.skipped) {
-        await log(formatAligned('⚠️', 'Issue auto-close:', `could not close linked issue (${closeResult.reason})`, 2), { level: 'warning' });
-      }
-    } catch (closeError) {
-      await log(formatAligned('⚠️', 'Issue auto-close:', `error: ${closeError.message}`, 2), { level: 'warning' });
-    }
-
-    return { success: true, reason: 'merged' };
-  } else {
-    await log(formatAligned('⚠️', 'Merge failed:', mergeResult.error || 'Unknown error', 2));
-    return { success: false, reason: 'merge_failed', error: mergeResult.error };
-  }
-};
+// Issue #2144: the one-shot `--auto-merge` attempt moved to its own module so
+// both files stay under the 1500-line limit. Re-exported for API compatibility.
+const autoMergeAttempt = await import('./solve.auto-merge-attempt.lib.mjs');
+export const { attemptAutoMerge, reportAutoMergeBlockedByIssue } = autoMergeAttempt;
 
 /**
  * Start auto-restart-until-mergeable mode

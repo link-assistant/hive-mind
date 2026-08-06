@@ -44,6 +44,12 @@ const { checkPRMerged, checkForUncommittedChanges, getUncommittedChangesDetails,
 const terminalStateLib = await import('./github-terminal-state.lib.mjs');
 const { checkGitHubTerminalState } = terminalStateLib;
 
+// Issue #2144: watch mode must never exit silently — every stop is published as
+// a GitHub comment naming the exact reason. A closed linked issue is not a stop
+// condition here at all.
+const stopReportingLib = await import('./automation-stop-reporting.lib.mjs');
+const { reportAutomationStop } = stopReportingLib;
+
 // Issue #1574: Interruptible sleep so CTRL+C is never blocked by a lingering timer
 const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 // Issue #2119: one auto-restart budget shared with solve.auto-merge.lib.mjs, so
@@ -152,7 +158,17 @@ export const watchForFeedback = async params => {
       }
       await log(formatAligned('', 'Action:', 'Stopping watch mode', 2), { level: 'error' });
       await log('');
+      // Issue #2144: report the stop on GitHub instead of exiting silently.
+      await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: terminalState.reason, mode: 'watch', message: terminalState.message, details: terminalState.details, verbose: argv.verbose, log });
       break;
+    }
+
+    // Issue #2144: issue-scoped problems (closed / deleted linked issue) are not
+    // watch-mode stop conditions; the loop keeps working on the pull request.
+    if ((terminalState.mergeBlockers || []).length > 0 && iteration === 1) {
+      for (const blocker of terminalState.mergeBlockers) {
+        await log(formatAligned('⚠️', 'Linked issue:', `${blocker.message} Watch mode continues.`, 2), { level: 'warning' });
+      }
     }
 
     // Check if PR is merged
@@ -472,6 +488,18 @@ export const watchForFeedback = async params => {
               await log('  2. You have proper authentication configured');
               await log('  3. The API endpoint is accessible');
               await log('');
+              // Issue #2144: say on GitHub why the loop stopped.
+              await reportAutomationStop({
+                $,
+                owner,
+                repo,
+                targetNumber: prNumber,
+                reason: 'tool_failure',
+                mode: 'watch',
+                message: `${argv.tool.toUpperCase()} failed ${consecutiveApiErrors} times in a row: ${extractToolErrorCore({ toolResult }) || 'unknown API error'}`,
+                verbose: argv.verbose,
+                log,
+              });
               break; // Exit the watch loop
             }
 

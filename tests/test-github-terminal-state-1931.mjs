@@ -125,7 +125,10 @@ await test('Repository 404 fails immediately with repository_unavailable', async
   assert(runner.calls.length === 1, 'should fail before checking PR/issue/branches');
 });
 
-await test('Closed issue fails an open PR watch loop', async () => {
+// Issue #2144 revised this behaviour: a closed linked issue must NOT stop the
+// loop. It is reported as a non-terminal merge blocker instead, so the pull
+// request still gets made mergeable. See tests/test-closed-issue-merge-blocking-2144.mjs.
+await test('Closed issue does not stop an open PR watch loop (issue #2144)', async () => {
   const runner = createRunner([
     { includes: 'repos/acme/widgets --jq', stdout: repoOk },
     { includes: 'repos/acme/widgets/pulls/7', stdout: openPr },
@@ -142,9 +145,12 @@ await test('Closed issue fails an open PR watch loop', async () => {
     commandRunner: runner,
   });
 
-  assert(result.terminal === true, 'closed linked issue should stop the loop');
-  assert(result.reason === 'issue_closed', `unexpected reason: ${result.reason}`);
-  assert(result.message.includes('Issue #3'), 'message should identify the issue');
+  assert(result.terminal === false, 'closed linked issue must NOT stop the loop (issue #2144)');
+  assert(Array.isArray(result.mergeBlockers) && result.mergeBlockers.length === 1, 'closed linked issue should be reported as a merge blocker');
+  assert(result.mergeBlockers[0].reason === 'issue_closed', `unexpected blocker reason: ${result.mergeBlockers[0].reason}`);
+  assert(result.mergeBlockers[0].message.includes('Issue #3'), 'blocker message should identify the issue');
+  assert(/reopen/i.test(result.mergeBlockers[0].resolution), 'blocker should ask the user to reopen the issue');
+  assert(/manually/i.test(result.mergeBlockers[0].resolution), 'blocker should offer merging manually');
 });
 
 await test('Deleted source branch fails immediately', async () => {

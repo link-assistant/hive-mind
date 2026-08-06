@@ -62,6 +62,17 @@ export const BILLING_LIMIT_MARKER = 'GitHub Actions Billing Limit';
 // solve.auto-merge.lib.mjs — cancelled/stale CI needs manual review
 export const CANCELLED_CI_REVIEW_MARKER = 'Cancelled CI/CD Requires Review';
 
+// automation-stop-reporting.lib.mjs — Issue #2144: every automation stop is
+// announced on GitHub with the exact reason. Before this, watch mode and
+// auto-restart-until-mergeable exited silently on terminal states and tool
+// failures, leaving the pull request with no explanation at all.
+export const AUTOMATION_STOPPED_MARKER = 'Automation stopped';
+
+// automation-stop-reporting.lib.mjs — Issue #2144: the pull request is
+// mergeable but `--auto-merge` cannot complete because the linked issue is
+// closed or unavailable. The user is asked to reopen it or merge manually.
+export const AUTO_MERGE_BLOCKED_MARKER = 'Auto-merge blocked';
+
 // solve.results.lib.mjs — working session summary comments posted by
 // --attach-solution-summary / --auto-attach-solution-summary at the end of
 // every working session (top-level solve, auto-restart-until-mergeable
@@ -111,7 +122,7 @@ export const USAGE_LIMIT_REACHED_MARKER = 'Usage Limit Reached';
  * named constants above so that adding a new marker only requires adding
  * the constant and appending it here.
  */
-export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER];
+export const TOOL_GENERATED_COMMENT_MARKERS = [AI_WORK_SESSION_STARTED_MARKER, AI_WORK_SESSION_COMPLETED_MARKER, AI_WORK_SESSION_RESUMED_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_ON_LIMIT_RESET_MARKER, SOLUTION_DRAFT_LOG_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_MERGED_MARKER, BILLING_LIMIT_MARKER, CANCELLED_CI_REVIEW_MARKER, AUTOMATION_STOPPED_MARKER, AUTO_MERGE_BLOCKED_MARKER, MAINTAINER_ACCESS_REQUEST_MARKER, LIVE_PROGRESS_SECTION_START_MARKER, SESSION_FORCE_KILLED_MARKER, REPOSITORY_INITIALIZATION_REQUIRED_MARKER, INTERACTIVE_SESSION_STARTED_MARKER, INTERACTIVE_SESSION_ENDED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, WORKING_SESSION_SUMMARY_AUTOMATION_MARKER];
 
 /**
  * Markers that indicate the end of a working session. Used by

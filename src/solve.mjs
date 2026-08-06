@@ -324,12 +324,7 @@ if (argv.autoCleanup === undefined) {
 // become inaccessible (renamed, deleted, parent re-private'd) and there's no
 // reason to use them when we can push branches and PRs to the upstream repo.
 const skipForkForPrivateUpstream = !isRepoPublic && !argv.fork && hasWriteAccess;
-// Determine mode and get issue details
-let issueNumber;
-let prNumber;
-let prBranch;
-let mergeStateStatus;
-let prState;
+let issueNumber, prNumber, prBranch, mergeStateStatus, prState, prHeadRepositoryOwner;
 let forkOwner = null;
 let forkRepoName = null;
 let isContinueMode = false;
@@ -352,6 +347,7 @@ if (autoContinueResult.isContinueMode) {
       const prCheckResult = await $`gh pr view ${prNumber} --repo ${owner}/${repo} --json headRepositoryOwner,headRepository,mergeStateStatus,state`;
       if (prCheckResult.code === 0) {
         const prCheckData = JSON.parse(prCheckResult.stdout.toString());
+        prHeadRepositoryOwner = prCheckData.headRepositoryOwner?.login || owner;
         // Extract merge status and PR state
         mergeStateStatus = prCheckData.mergeStateStatus;
         prState = prCheckData.state;
@@ -431,6 +427,7 @@ if (isPrUrl) {
     }
     const prData = prResult.data;
     prBranch = prData.headRefName;
+    prHeadRepositoryOwner = prData.headRepositoryOwner?.login || owner;
     mergeStateStatus = prData.mergeStateStatus;
     prState = prData.state;
     // Check if this is a fork PR
@@ -519,6 +516,7 @@ try {
     $,
     needsClone,
   });
+  const prBranchPreferredRemote = isContinueMode && prNumber && forkedRepo && prHeadRepositoryOwner === owner ? 'upstream' : null;
 
   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
   await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
@@ -550,6 +548,7 @@ try {
     owner,
     repo,
     prNumber,
+    prBranchPreferredRemote,
   });
   cleanupContext.branchName = branchName;
 

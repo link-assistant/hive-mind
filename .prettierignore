@@ -27,7 +27,9 @@ docs/case-studies/**/source-data/**/*.json
 docs/case-studies/**/working-session-logs/**/*.json
 docs/case-studies/**/ci-logs/*.json
 docs/case-studies/**/raw/**/*.md
+docs/case-studies/**/raw-data/*.md
 docs/case-studies/**/logs/**/*.md
+docs/case-studies/**/analysis/*.md
 docs/case-studies/issue-1705/data/
 docs/case-studies/issue-1639/data/
 docs/case-studies/issue-1829/data/

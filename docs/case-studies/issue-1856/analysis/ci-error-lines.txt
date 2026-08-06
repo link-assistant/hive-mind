@@ -1,0 +1,180 @@
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:305:Types	UNKNOWN STEP	2026-06-06T11:38:06.3972452Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:306:Types	UNKNOWN STEP	2026-06-06T11:38:06.3972809Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:309:Types	UNKNOWN STEP	2026-06-06T11:38:06.4073608Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:312:Types	UNKNOWN STEP	2026-06-06T11:38:06.9159777Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:314:Types	UNKNOWN STEP	2026-06-06T11:38:06.9161506Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:316:Types	UNKNOWN STEP	2026-06-06T11:38:06.9163469Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:317:Types	UNKNOWN STEP	2026-06-06T11:38:06.9185859Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:318:Types	UNKNOWN STEP	2026-06-06T11:38:06.9186677Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:319:Types	UNKNOWN STEP	2026-06-06T11:38:06.9187543Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:320:Types	UNKNOWN STEP	2026-06-06T11:38:06.9473918Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:659:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.2599200Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:660:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.2599576Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:663:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.2699442Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:666:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7374745Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:668:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7375872Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:670:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7376904Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:671:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7399604Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:672:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7400656Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:673:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7401434Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:674:E2E (Local package CLI)	UNKNOWN STEP	2026-06-06T11:38:08.7655175Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1063:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:37.9717557Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1064:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:37.9717900Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1070:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:37.9822878Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1073:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4603849Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1075:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4604660Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1077:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4605413Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1078:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4628864Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1079:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4629788Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1080:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4630936Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1081:E2E (OpenCode)	UNKNOWN STEP	2026-06-06T11:38:38.4919793Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1432:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:04.3840514Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1433:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:04.3840978Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1436:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:04.3946250Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1439:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2002964Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1441:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2003805Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1443:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2004612Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1444:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2022960Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1445:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2023348Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1446:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2023658Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1447:Lint Effect-TS	UNKNOWN STEP	2026-06-06T11:38:05.2176035Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1786:Lint	UNKNOWN STEP	2026-06-06T11:38:10.1966544Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1787:Lint	UNKNOWN STEP	2026-06-06T11:38:10.1966908Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1790:Lint	UNKNOWN STEP	2026-06-06T11:38:10.2076775Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1793:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7287045Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1795:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7288344Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1797:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7289567Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1798:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7316573Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1799:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7317102Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1800:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7336084Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:1801:Lint	UNKNOWN STEP	2026-06-06T11:38:10.7533295Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2144:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.3299542Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2145:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.3299908Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2148:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.3377075Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2151:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8192374Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2153:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8193371Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2155:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8194095Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2156:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8222860Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2157:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8223864Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2158:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8225063Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2159:Dist deps prune	UNKNOWN STEP	2026-06-06T11:38:07.8357831Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2546:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:13.7153517Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2547:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:13.7153934Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2553:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:13.7259903Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2556:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2093140Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2558:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2094453Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2560:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2095820Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2561:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2111721Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2562:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2112239Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2563:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2112716Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2564:E2E (Browser command)	UNKNOWN STEP	2026-06-06T11:38:14.2316548Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2965:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:10.5927111Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2966:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:10.5927469Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2972:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:10.6035495Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2975:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2765191Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2977:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2765998Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2979:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2766719Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2980:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2789613Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2981:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2790304Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2982:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.2790941Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:2983:E2E (Runtime volumes + SSH)	UNKNOWN STEP	2026-06-06T11:38:11.3023287Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3384:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.4970813Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3385:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.4971020Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3391:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.5069448Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3394:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9055285Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3396:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9056004Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3398:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9056653Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3399:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9070784Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3400:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9071114Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3401:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9071661Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3402:E2E (Clone auto-open SSH)	UNKNOWN STEP	2026-06-06T11:38:38.9313993Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3754:Build	UNKNOWN STEP	2026-06-06T11:38:29.3167161Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3755:Build	UNKNOWN STEP	2026-06-06T11:38:29.3167533Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3758:Build	UNKNOWN STEP	2026-06-06T11:38:29.3276730Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3761:Build	UNKNOWN STEP	2026-06-06T11:38:29.9585339Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3763:Build	UNKNOWN STEP	2026-06-06T11:38:29.9587390Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3765:Build	UNKNOWN STEP	2026-06-06T11:38:29.9589635Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3766:Build	UNKNOWN STEP	2026-06-06T11:38:29.9615321Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3767:Build	UNKNOWN STEP	2026-06-06T11:38:29.9615996Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3768:Build	UNKNOWN STEP	2026-06-06T11:38:29.9616782Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:3769:Build	UNKNOWN STEP	2026-06-06T11:38:29.9855697Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4109:Test	UNKNOWN STEP	2026-06-06T11:38:31.7777173Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4110:Test	UNKNOWN STEP	2026-06-06T11:38:31.7777781Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4113:Test	UNKNOWN STEP	2026-06-06T11:38:31.7904070Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4116:Test	UNKNOWN STEP	2026-06-06T11:38:32.3213471Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4118:Test	UNKNOWN STEP	2026-06-06T11:38:32.3215631Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4120:Test	UNKNOWN STEP	2026-06-06T11:38:32.3217077Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4121:Test	UNKNOWN STEP	2026-06-06T11:38:32.3237564Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4122:Test	UNKNOWN STEP	2026-06-06T11:38:32.3238489Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4123:Test	UNKNOWN STEP	2026-06-06T11:38:32.3239569Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4124:Test	UNKNOWN STEP	2026-06-06T11:38:32.3495052Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4513:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.1475428Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4514:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.1476003Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4520:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.1602709Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4523:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8390992Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4525:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8392364Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4527:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8393264Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4528:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8415432Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4529:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8416106Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4530:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8459228Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4531:E2E (Login context)	UNKNOWN STEP	2026-06-06T11:38:32.8684655Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4932:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.0283106Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4933:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.0283484Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4939:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.0394701Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4942:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5043453Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4944:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5045029Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4946:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5046227Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4947:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5069783Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4948:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5070678Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4949:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5071327Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/check-27061250926.log:4950:E2E (Clone cache)	UNKNOWN STEP	2026-06-06T11:38:29.5352345Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:310:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8307732Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:311:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8308117Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:314:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8416088Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:317:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3042332Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:319:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3043546Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:321:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3045148Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:322:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3066747Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:323:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3067590Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:324:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3068381Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/checking-dependencies-27061250909.log:325:dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3376341Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:262:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8898732Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:263:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.8899072Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:266:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:30.9854893Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:269:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5796753Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:271:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5801737Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:273:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5803526Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:274:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5832242Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:275:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5832998Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:276:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.5834369Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:277:Final build (windows-latest)	UNKNOWN STEP	2026-06-06T11:38:37.6539164Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:571:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0092330Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:572:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.0092890Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:575:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:20.1072270Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:578:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5842560Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:580:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5846680Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:582:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5849130Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:583:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5887900Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:584:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5915570Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:585:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.5960990Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:586:Final build (macos-latest)	UNKNOWN STEP	2026-06-06T11:38:21.6023270Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:931:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5375818Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:932:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5376169Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:935:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:06.5474084Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:938:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0487506Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:940:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0488976Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:942:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0490388Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:943:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0511861Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:944:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0512749Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:945:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0513443Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/final-build-27061250918.log:946:Final build (ubuntu-latest)	UNKNOWN STEP	2026-06-06T11:38:07.0796022Z ##[error]Process completed with exit code 1.
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:306:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4051657Z ##[group]Run bun install --frozen-lockfile
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:307:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4052048Z ^[[36;1mbun install --frozen-lockfile^[[0m
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:310:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.4160814Z bun install v1.3.11 (af24e281)
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:313:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8711007Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:315:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8711815Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:317:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8712552Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:318:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8735837Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:319:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8736459Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:320:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.8736876Z error: @fedify/webfinger@2.2.5 failed to resolve
+docs/case-studies/issue-1856/raw-data/ci-logs/snapshot-27061250935.log:321:Snapshot	UNKNOWN STEP	2026-06-06T11:38:08.9039863Z ##[error]Process completed with exit code 1.

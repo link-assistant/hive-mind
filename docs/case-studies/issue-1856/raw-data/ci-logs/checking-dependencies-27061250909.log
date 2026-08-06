@@ -1,0 +1,359 @@
+dist-deps-prune	UNKNOWN STEP	﻿2026-06-06T11:37:45.9549523Z Current runner version: '2.334.0'
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9575152Z ##[group]Runner Image Provisioner
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9576386Z Hosted Compute Agent
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9577000Z Version: 20260520.533
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9577630Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9578510Z Build Date: 2026-05-20T17:44:04Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9579264Z Worker ID: {b4d7617f-c884-4590-94ce-d1f00709034e}
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9580082Z Azure Region: eastus
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9580698Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9582155Z ##[group]Operating System
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9582815Z Ubuntu
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9583396Z 24.04.4
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9583984Z LTS
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9584520Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9585072Z ##[group]Runner Image
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9585969Z Image: ubuntu-24.04
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9586604Z Version: 20260525.161.1
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9588012Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9589501Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9590534Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9591791Z ##[group]GITHUB_TOKEN Permissions
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9594003Z Contents: read
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9594626Z Metadata: read
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9595284Z Packages: read
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9596299Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9598486Z Secret source: Actions
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9599638Z Prepare workflow directory
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9930415Z Prepare all required actions
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:45.9968523Z Getting action download info
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.2528912Z Download action repository 'actions/checkout@v6' (SHA:df4cb1c069e1874edd31b4311f1884172cec0e10)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.5279889Z Complete job name: dist-deps-prune
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6025946Z ##[group]Run actions/checkout@v6
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6026903Z with:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6027371Z   repository: ProverCoderAI/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6031960Z   token: ***
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6032423Z   ssh-strict: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6032876Z   ssh-user: git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6033323Z   persist-credentials: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6033813Z   clean: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6034274Z   sparse-checkout-cone-mode: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6034806Z   fetch-depth: 1
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6035240Z   fetch-tags: false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6035685Z   show-progress: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6036337Z   lfs: false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6036753Z   submodules: false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6037202Z   set-safe-directory: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.6037905Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7055671Z Syncing repository: ProverCoderAI/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7057810Z ##[group]Getting Git version info
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7058637Z Working directory is '/home/runner/work/docker-git/docker-git'
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7059699Z [command]/usr/bin/git version
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7099729Z git version 2.54.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7120845Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7136249Z Temporarily overriding HOME='/home/runner/work/_temp/22ba4346-732c-4d6f-b4ab-602e10c8e827' before making global git config changes
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7138534Z Adding repository directory to the temporary git global config as a safe directory
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7142025Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7186738Z Deleting the contents of '/home/runner/work/docker-git/docker-git'
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7190230Z ##[group]Determining repository object format
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7192789Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7193971Z ##[group]Initializing the repository
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7198137Z [command]/usr/bin/git init /home/runner/work/docker-git/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7269652Z hint: Using 'master' as the name for the initial branch. This default branch name
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7270871Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7272092Z hint: to use in all of your new repositories, which will suppress this warning,
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7273318Z hint: call:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7273977Z hint:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7274769Z hint: 	git config --global init.defaultBranch <name>
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7276025Z hint:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7276996Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7278498Z hint: 'development'. The just-created branch can be renamed via this command:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7279713Z hint:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7280364Z hint: 	git branch -m <name>
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7281108Z hint:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7282088Z hint: Disable this message with "git config set advice.defaultBranchName false"
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7283764Z Initialized empty Git repository in /home/runner/work/docker-git/docker-git/.git/
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7286643Z [command]/usr/bin/git remote add origin https://github.com/ProverCoderAI/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7324745Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7325584Z ##[group]Disabling automatic garbage collection
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7328233Z [command]/usr/bin/git config --local gc.auto 0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7356373Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7357618Z ##[group]Setting up auth
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7358260Z Removing SSH command configuration
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7363047Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7396360Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7695163Z Removing HTTP extra header
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7700714Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7732742Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7952770Z Removing includeIf entries pointing to credentials config files
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7958205Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.7990044Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8221117Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8256788Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8287991Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8319529Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8351327Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8377740Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8378486Z ##[group]Fetching the repository
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:46.8385712Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e670066bbf0e2951229d3ecf3e5060cbbc8f711a:refs/remotes/pull/381/merge
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8312912Z From https://github.com/ProverCoderAI/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8313700Z  * [new ref]         e670066bbf0e2951229d3ecf3e5060cbbc8f711a -> pull/381/merge
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8347843Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8348647Z ##[group]Determining the checkout info
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8349441Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8354284Z [command]/usr/bin/git sparse-checkout disable
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8398707Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8427845Z ##[group]Checking out the ref
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:56.8432450Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/381/merge
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:58.9932435Z Updating files:   3% (35/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:37:58.9940807Z Updating files:   3% (42/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.0628267Z Updating files:   4% (46/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.2023882Z Updating files:   4% (52/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.4811479Z Updating files:   5% (58/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.4826796Z Updating files:   6% (69/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.4862163Z Updating files:   7% (81/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.4926597Z Updating files:   8% (92/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.4978417Z Updating files:   9% (104/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5023467Z Updating files:  10% (115/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5073657Z Updating files:  11% (127/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5089131Z Updating files:  12% (138/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5096154Z Updating files:  13% (150/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5107630Z Updating files:  14% (161/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5122616Z Updating files:  15% (173/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5132608Z Updating files:  16% (184/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5140763Z Updating files:  17% (196/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5147564Z Updating files:  18% (207/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5155069Z Updating files:  19% (219/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5162505Z Updating files:  20% (230/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5169758Z Updating files:  21% (242/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5176797Z Updating files:  22% (253/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5182894Z Updating files:  23% (265/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5189300Z Updating files:  24% (276/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5198905Z Updating files:  25% (287/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5205338Z Updating files:  26% (299/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5212111Z Updating files:  27% (310/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5217711Z Updating files:  28% (322/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5223804Z Updating files:  29% (333/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5229545Z Updating files:  30% (345/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5235452Z Updating files:  31% (356/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5241558Z Updating files:  32% (368/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5249495Z Updating files:  33% (379/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5255240Z Updating files:  34% (391/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5261196Z Updating files:  35% (402/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5269331Z Updating files:  36% (414/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5277449Z Updating files:  37% (425/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5283847Z Updating files:  38% (437/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5289794Z Updating files:  39% (448/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5296365Z Updating files:  40% (460/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5304340Z Updating files:  41% (471/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5310385Z Updating files:  42% (483/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5319084Z Updating files:  43% (494/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5325235Z Updating files:  44% (506/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5332732Z Updating files:  45% (517/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5339187Z Updating files:  46% (529/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5346325Z Updating files:  47% (540/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5351569Z Updating files:  48% (552/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5357628Z Updating files:  49% (563/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5363298Z Updating files:  50% (574/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5368100Z Updating files:  51% (586/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5372920Z Updating files:  52% (597/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5378816Z Updating files:  53% (609/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5384705Z Updating files:  54% (620/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5390734Z Updating files:  55% (632/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5397598Z Updating files:  56% (643/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5403943Z Updating files:  57% (655/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5420720Z Updating files:  58% (666/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5422832Z Updating files:  59% (678/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5428037Z Updating files:  60% (689/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5432290Z Updating files:  61% (701/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5438977Z Updating files:  62% (712/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5444666Z Updating files:  63% (724/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5451195Z Updating files:  64% (735/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5457994Z Updating files:  65% (747/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5467252Z Updating files:  66% (758/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5474002Z Updating files:  67% (770/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5480103Z Updating files:  68% (781/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5487220Z Updating files:  69% (793/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5495452Z Updating files:  70% (804/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5502049Z Updating files:  71% (816/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5508778Z Updating files:  72% (827/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5513517Z Updating files:  73% (839/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5520812Z Updating files:  74% (850/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5528687Z Updating files:  75% (861/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5535292Z Updating files:  76% (873/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5541395Z Updating files:  77% (884/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5547895Z Updating files:  78% (896/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5555379Z Updating files:  79% (907/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5560407Z Updating files:  80% (919/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5567686Z Updating files:  81% (930/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5572701Z Updating files:  82% (942/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5579393Z Updating files:  83% (953/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5585337Z Updating files:  84% (965/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5593631Z Updating files:  85% (976/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5600374Z Updating files:  86% (988/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5608392Z Updating files:  87% (999/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5614717Z Updating files:  88% (1011/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5622464Z Updating files:  89% (1022/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5628707Z Updating files:  90% (1034/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5634831Z Updating files:  91% (1045/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5641812Z Updating files:  92% (1057/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5649411Z Updating files:  93% (1068/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5654690Z Updating files:  94% (1080/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5663393Z Updating files:  95% (1091/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5669922Z Updating files:  96% (1103/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5678025Z Updating files:  97% (1114/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5685105Z Updating files:  98% (1126/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5691073Z Updating files:  99% (1137/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5691465Z Updating files: 100% (1148/1148)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5691850Z Updating files: 100% (1148/1148), done.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5709736Z Note: switching to 'refs/remotes/pull/381/merge'.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5710138Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5710699Z You are in 'detached HEAD' state. You can look around, make experimental
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5711453Z changes and commit them, and you can discard any commits you make in this
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5712151Z state without impacting any branches by switching back to a branch.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5712439Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5712661Z If you want to create a new branch to retain commits you create, you may
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5713139Z do so (now or later) by using -c with the switch command. Example:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5713420Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5713636Z   git switch -c <new-branch-name>
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5713815Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5713930Z Or undo this operation with:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5714092Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5714192Z   git switch -
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5714321Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5714561Z Turn off this advice by setting config variable advice.detachedHead to false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5714877Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5715224Z HEAD is now at e670066 Merge b9961886e00e8413cb355b2037c6a4d2cc93e942 into f52a87fdd3add2307c45f4cb609ec08299a720e9
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5806497Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5848459Z [command]/usr/bin/git log -1 --format=%H
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.5872794Z e670066bbf0e2951229d3ecf3e5060cbbc8f711a
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.6179124Z Prepare all required actions
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.6179567Z Getting action download info
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.7645694Z Download action repository 'oven-sh/setup-bun@v2' (SHA:0c5077e51419868618aeaa5fe8019c62421857d6)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:00.8754062Z Download action repository 'actions/setup-node@v6' (SHA:48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0183422Z ##[group]Run ./.github/actions/setup
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0183718Z with:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0183927Z   node-version: 24.14.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0184160Z   bun-version: 1.3.11
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0184384Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0366339Z ##[group]Run oven-sh/setup-bun@v2
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0366632Z with:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0366844Z   bun-version: 1.3.11
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0367073Z   no-cache: false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0370084Z   token: ***
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.0370295Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.2684481Z Cache hit for: bun-7/QmryP/e10nHn0ivgSAK3UdqOg=
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.5138843Z Received 35349280 of 35349280 (100.0%), 167.7 MBs/sec
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.5139436Z Cache Size: ~34 MB (35349280 B)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.5174969Z [command]/usr/bin/tar -xf /home/runner/work/_temp/4f4e7520-c404-4433-a4b1-ded670a8574c/cache.tzst -P -C /home/runner/work/docker-git/docker-git --use-compress-program unzstd
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.6796061Z Cache restored successfully
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.6822384Z [command]/home/runner/.bun/bin/bun --revision
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.6870052Z 1.3.11+af24e281e
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.6876476Z Using a cached version of Bun: 1.3.11+af24e281e
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7062523Z ##[group]Run actions/setup-node@v6
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7062819Z with:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7063037Z   node-version: 24.14.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7063286Z   check-latest: false
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7066426Z   token: ***
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7066669Z   package-manager-cache: true
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.7066954Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:01.8605000Z Attempting to download 24.14.0...
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:02.2467236Z Acquiring 24.14.0 - x64 from https://github.com/actions/node-versions/releases/download/24.14.0-22380502845/node-24.14.0-linux-x64.tar.gz
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:02.5764090Z Extracting ...
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:02.5876201Z [command]/usr/bin/tar xz --strip 1 --warning=no-unknown-keyword --overwrite -C /home/runner/work/_temp/c1b4ec2a-e0a3-48c9-b547-d167c44df2b4 -f /home/runner/work/_temp/dc3af457-bc3a-4cbe-b304-7c6ca4aef3af
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:03.8766124Z Adding to the cache ...
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.4906294Z ##[group]Environment details
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7047432Z node: v24.14.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7047821Z npm: 11.9.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7048114Z yarn: 1.22.22
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7048998Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7256940Z ##[group]Run if command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7257708Z ^[[36;1mif command -v ssh >/dev/null 2>&1 && command -v ssh-keygen >/dev/null 2>&1; then^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7258294Z ^[[36;1m  echo "OpenSSH client is already installed; skipping apt install"^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7258708Z ^[[36;1m  exit 0^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7258926Z ^[[36;1mfi^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7259129Z ^[[36;1m^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7259332Z ^[[36;1mfor attempt in 1 2 3; do^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7259618Z ^[[36;1m  sudo rm -rf /var/lib/apt/lists/*^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7259927Z ^[[36;1m  if sudo timeout 120s apt-get \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7260232Z ^[[36;1m    -o Acquire::Retries=3 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7260525Z ^[[36;1m    -o Acquire::By-Hash=force \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7260817Z ^[[36;1m    -o Acquire::http::Timeout=20 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7261121Z ^[[36;1m    -o Acquire::https::Timeout=20 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7261411Z ^[[36;1m    update; then^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7261648Z ^[[36;1m    break^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7261864Z ^[[36;1m  fi^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7262085Z ^[[36;1m  if [[ "$attempt" == "3" ]]; then^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7262421Z ^[[36;1m    echo "apt-get update failed after retries" >&2^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7262754Z ^[[36;1m    exit 1^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7263215Z ^[[36;1m  fi^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7263530Z ^[[36;1m  echo "apt-get update attempt ${attempt} failed; retrying..." >&2^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7263941Z ^[[36;1m  sleep $((attempt * 2))^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7264198Z ^[[36;1mdone^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7264412Z ^[[36;1msudo timeout 120s apt-get \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7264831Z ^[[36;1m  -o Acquire::Retries=3 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7265109Z ^[[36;1m  -o Acquire::http::Timeout=20 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7265407Z ^[[36;1m  -o Acquire::https::Timeout=20 \^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7265692Z ^[[36;1m  install -y openssh-client^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7298846Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7299211Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7379926Z OpenSSH client is already installed; skipping apt install
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7466572Z ##[group]Run npm install -g node-gyp
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7466938Z ^[[36;1mnpm install -g node-gyp^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7494583Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:05.7494950Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.7860417Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.7860998Z added 20 packages in 984ms
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.7861460Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.7861905Z 2 packages are looking for funding
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.7862547Z   run `npm fund` for details
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8307732Z ##[group]Run bun install --frozen-lockfile
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8308117Z ^[[36;1mbun install --frozen-lockfile^[[0m
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8337030Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8337394Z ##[endgroup]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8416088Z bun install v1.3.11 (af24e281)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:06.8512860Z Resolving dependencies
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3041201Z Resolved, downloaded and extracted [178]
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3042332Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3042930Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3043546Z error: No version matching "2.2.5" found for specifier "@fedify/webfinger" (but package exists)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3044563Z
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3045148Z error: No version matching "2.2.5" found for specifier "@fedify/vocab-tools" (but package exists)
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3066747Z error: @fedify/webfinger@2.2.5 failed to resolve
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3067590Z error: @fedify/vocab-tools@2.2.5 failed to resolve
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3068381Z error: @fedify/webfinger@2.2.5 failed to resolve
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3376341Z ##[error]Process completed with exit code 1.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3484138Z Post job cleanup.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.3553233Z Post job cleanup.
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4417794Z [command]/usr/bin/git version
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4453202Z git version 2.54.0
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4491592Z Temporarily overriding HOME='/home/runner/work/_temp/cc69eb97-4f9b-4133-8bbf-0152e79a34c9' before making global git config changes
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4493441Z Adding repository directory to the temporary git global config as a safe directory
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4497722Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/docker-git/docker-git
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4529059Z Removing SSH command configuration
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4535584Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4571620Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4804684Z Removing HTTP extra header
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4809363Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.4842887Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5069612Z Removing includeIf entries pointing to credentials config files
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5076015Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5099489Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5100628Z includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5101564Z includeif.gitdir:/github/workspace/.git.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5102786Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5110487Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5132477Z /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5143001Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git.path /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5178496Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5201176Z /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5211915Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/docker-git/docker-git/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5243721Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5266020Z /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5274022Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5305449Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5326796Z /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5335665Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5369516Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5611275Z Removing credentials config '/home/runner/work/_temp/git-credentials-df291b14-d6f8-4a88-8985-bc64784672fa.config'
+dist-deps-prune	UNKNOWN STEP	2026-06-06T11:38:07.5752073Z Cleaning up orphan processes

@@ -26,6 +26,7 @@ assert.deepEqual(buildAgentArgs({ model: 'formalai/formal-ai', verbose: true, re
 // Agent can silently select and contact another provider.
 assert.match(detectFormalAiAgentRoutingMismatch({ type: 'log', message: 'using explicit provider/model', providerID: 'opencode', modelID: 'minimax-m2.5-free' }, 'formalai/formal-ai'), /requested formalai\/formal-ai.*selected opencode\/minimax-m2\.5-free/i);
 assert.equal(detectFormalAiAgentRoutingMismatch({ type: 'log', message: 'using explicit provider/model', providerID: 'formalai', modelID: 'formal-ai' }, 'formalai/formal-ai'), null);
+assert.match(detectFormalAiAgentRoutingMismatch({ type: 'log', message: 'CRITICAL: --model flag detected but could not be parsed; default model will be used instead' }, 'formalai/formal-ai'), /could not parse.*default model/i);
 
 // `session.idle` also follows terminal API failures. Only an explicit terminal
 // success record is strong enough to clear a preceding streamed error.

@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-08T16:36:00Z",
+  "capturedAt": "2026-08-08T22:32:17Z",
   "agent": {
     "latestRelease": {
       "tag": "js-v0.25.7",
@@ -34,6 +34,23 @@
     "main": {
       "sha": "5625a53a29291cc55f1c587c13d9bdb3c2c0f4c8",
       "cargoVersion": "0.333.2"
+    },
+    "reportedLifecycleBlocker": {
+      "number": 982,
+      "state": "OPEN",
+      "createdAt": "2026-08-08T22:30:04Z",
+      "title": "Support unattended non-destructive persisted-memory upgrades",
+      "url": "https://github.com/link-assistant/formal-ai/issues/982"
+    }
+  },
+  "startCommand": {
+    "testedVersion": "0.30.3",
+    "reportedNetworkGap": {
+      "number": 154,
+      "state": "OPEN",
+      "createdAt": "2026-08-08T22:31:40Z",
+      "title": "Allow Docker-isolated sessions to join named networks",
+      "url": "https://github.com/link-foundation/start/issues/154"
     }
   }
 }

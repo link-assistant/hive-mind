@@ -12,6 +12,8 @@ The fix keeps Agent argv as an array, stops a Formal AI Agent process as soon as
 
 The five Claude and five Codex auto-restarts were correct. Each completed with no source diff (or only the solver placeholder), so the completion gate retried and eventually failed at its configured 5/5 limit. The restart machinery exposed the deterministic upstream no-op; it did not cause it.
 
+A 22:18 UTC follow-up expanded the scope to idle-only updates, an on-demand Formal AI sidecar, task-only internal networking, persistent memory across stopped containers, and equivalent refresh behavior for every bundled agentic CLI. The current Compose service is permanent, not task-scoped, and Formal AI has no machine-readable persisted-memory upgrade transaction. That prerequisite is reported in [Formal AI #982](https://github.com/link-assistant/formal-ai/issues/982); missing native Docker-network selection is reported separately in non-blocking [start-command #154](https://github.com/link-foundation/start/issues/154). Per issue #2146's pause requirement, PR #2147 remains draft rather than enabling an unsafe health-check-only image replacement.
+
 ## Scope and evidence
 
 This study combines:
@@ -21,6 +23,7 @@ This study combines:
 - the reproduction PR conversation, review-comment, and review feeds;
 - the implementation and evidence from [issue #2119](https://github.com/link-assistant/hive-mind/issues/2119), [issue #2130](https://github.com/link-assistant/hive-mind/issues/2130), and recent merged PRs;
 - current Agent source/release state and Formal AI issues #848 and #902–#909, releases, and merged fixes.
+- the complete 34,667-line solution-draft log attached after the first implementation session, the later lifecycle/update feedback, and the resulting upstream reports.
 
 The complete local inventory and checksums are in [MANIFEST.md](./MANIFEST.md). Raw GitHub snapshots are in [`data/github/`](./data/github/), compressed logs in [`data/tool-logs/`](./data/tool-logs/), and current upstream facts in [`data/upstream-snapshots.json`](./data/upstream-snapshots.json).
 
@@ -28,16 +31,22 @@ No screenshot or image appeared in the issue, comments, or linked PR discussion,
 
 ## Requirements reconstructed across the three issues
 
-| Requirement                                                                                                                               | Source            | Aug 8 result                                                                                               | Resolution in PR #2147                                                                       |
-| ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Drive native Claude, Agent, OpenCode, Codex, Qwen, and Gemini through Formal AI without restoring the lossy `formal-ai with` argv wrapper | #2130             | Direct server architecture remained active                                                                 | Preserved; no wrapper rollback                                                               |
-| Never silently substitute another LLM when Formal AI was requested                                                                        | #2146             | Agent contacted OpenCode Zen                                                                               | Separate argv atoms plus a pre-request provider guard                                        |
-| Preserve structured stream events, model provenance, tokens, result summary, and terminal failures                                        | #2119/#2130       | Agent model provenance was contradicted by its verbose HTTP trace; Claude/Codex telemetry parsed correctly | Provider drift becomes a terminal error; idle no longer erases errors                        |
-| Reject false-positive completion when no repository work happened                                                                         | #2119/#2130/#2146 | Claude/Codex correctly restarted and failed after 5/5                                                      | Completion gate retained; stale Formal AI now fails before a run                             |
-| Make the active Formal AI implementation diagnosable                                                                                      | #2130/#2146       | `--no-tool-check` meant no version appeared in any run                                                     | Unconditional runtime version probe/log and matching image pins                              |
-| Preserve spaces, tabs, and code-like Formal AI output on GitHub                                                                           | #2146             | Plan records rendered as collapsed prose                                                                   | Structured paragraph is wrapped in a `text` fence                                            |
-| Keep all incident data and produce a deep case study                                                                                      | #2146             | Evidence existed only across comments/Gists                                                                | All 15 logs, API snapshots, manifest, timeline, analysis, and upstream report committed here |
-| Report actionable upstream defects with reproduction, workaround, and code-level suggestion                                               | #2146             | Agent knew it was falling back but continued                                                               | Filed [Agent #293](https://github.com/link-assistant/agent/issues/293)                       |
+| Requirement                                                                                                                               | Source            | Aug 8 result                                                                                               | Resolution in PR #2147                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Drive native Claude, Agent, OpenCode, Codex, Qwen, and Gemini through Formal AI without restoring the lossy `formal-ai with` argv wrapper | #2130             | Direct server architecture remained active                                                                 | Preserved; no wrapper rollback                                                                                           |
+| Never silently substitute another LLM when Formal AI was requested                                                                        | #2146             | Agent contacted OpenCode Zen                                                                               | Separate argv atoms plus a pre-request provider guard                                                                    |
+| Preserve structured stream events, model provenance, tokens, result summary, and terminal failures                                        | #2119/#2130       | Agent model provenance was contradicted by its verbose HTTP trace; Claude/Codex telemetry parsed correctly | Provider drift becomes a terminal error; idle no longer erases errors                                                    |
+| Reject false-positive completion when no repository work happened                                                                         | #2119/#2130/#2146 | Claude/Codex correctly restarted and failed after 5/5                                                      | Completion gate retained; stale Formal AI now fails before a run                                                         |
+| Make the active Formal AI implementation diagnosable                                                                                      | #2130/#2146       | `--no-tool-check` meant no version appeared in any run                                                     | Unconditional runtime version probe/log and matching image pins                                                          |
+| Preserve spaces, tabs, and code-like Formal AI output on GitHub                                                                           | #2146             | Plan records rendered as collapsed prose                                                                   | Structured paragraph is wrapped in a `text` fence                                                                        |
+| Keep all incident data and produce a deep case study                                                                                      | #2146             | Evidence existed only across comments/Gists                                                                | All 15 incident logs, the solution log, API snapshots, manifest, timeline, analysis, and upstream reports committed here |
+| Report actionable upstream defects with reproduction, workaround, and code-level suggestion                                               | #2146             | Agent knew it was falling back but continued                                                               | Filed [Agent #293](https://github.com/link-assistant/agent/issues/293)                                                   |
+| Start Formal AI only while Formal AI tasks exist and stop it when the last task ends                                                      | PR follow-up      | Compose starts the sidecar permanently with `restart: unless-stopped`                                      | Hive-owned implementation pending upstream unblock                                                                       |
+| Connect only Formal AI task containers to a private internal Docker network                                                               | PR follow-up      | Tasks receive an outer-Compose URL; start-command has no Docker network option                             | Startup-gate workaround designed; reported [start-command #154](https://github.com/link-foundation/start/issues/154)     |
+| Preserve Formal AI memory across tasks, stopped containers, and restarts                                                                  | PR follow-up      | Named volume exists, but no safe candidate-image migration contract                                        | Volume remains; replacement blocked by [Formal AI #982](https://github.com/link-assistant/formal-ai/issues/982)          |
+| Pin only the bootstrap Formal AI version and update the sidecar to latest while idle                                                      | PR follow-up      | Images pin 0.333.2; no idle updater exists                                                                 | Blocked until Formal AI exposes compatibility preflight and transactional migration                                      |
+| Refresh Claude, Codex, Agent, and other agentic CLIs only while no task is active, or inside each isolated task                           | PR follow-up      | CLIs are fixed at Hive Mind image-build time                                                               | Hive-owned follow-up remains in scope; no upstream Agent defect is required to install `latest`                          |
+| Report every missing prerequisite to its upstream repository                                                                              | PR follow-up      | Formal memory-upgrade and start-command network contracts were absent                                      | Filed Formal AI #982 (blocking) and start-command #154 (non-blocking)                                                    |
 
 ## Timeline (UTC)
 
@@ -58,6 +67,11 @@ No screenshot or image appeared in the issue, comments, or linked PR discussion,
 | 15:46:07          | Claude stops at the configured 5/5 limit                                                                                                        | [Claude limit](https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2#issuecomment-5226838335)                                                                                                                                   |
 | 15:54:39          | Codex stops at the configured 5/5 limit                                                                                                         | [Codex limit](https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2#issuecomment-5226871788)                                                                                                                                    |
 | 16:35:53          | The remaining upstream fail-open behavior is reported with reproduction, workaround, expected behavior, and suggested patch/test                | [Agent #293](https://github.com/link-assistant/agent/issues/293)                                                                                                                                                                                                 |
+| 18:05:17          | The first solution session finishes, uploads its complete sanitized 34,667-line log, and records the then-green final-head CI                   | [Solution-draft log comment](https://github.com/link-assistant/hive-mind/pull/2147#issuecomment-5227417131)                                                                                                                                                      |
+| 22:18:11          | Maintainer requests on-demand Formal AI lifecycle, task-only networking, durable memory, idle updates, and equivalent agentic-CLI refresh       | [PR follow-up](https://github.com/link-assistant/hive-mind/pull/2147#issuecomment-5228459541)                                                                                                                                                                    |
+| 22:30:04          | Missing unattended persisted-memory compatibility/migration transaction is reported upstream as a blocker                                       | [Formal AI #982](https://github.com/link-assistant/formal-ai/issues/982)                                                                                                                                                                                         |
+| 22:31:40          | Missing native Docker network selection is reported to start-command with the startup-gate workaround                                           | [start-command #154](https://github.com/link-foundation/start/issues/154)                                                                                                                                                                                        |
+| 22:32:17          | The ownership split and pause are recorded on both the issue and draft PR                                                                       | [Issue status](https://github.com/link-assistant/hive-mind/issues/2146#issuecomment-5228508712), [PR status](https://github.com/link-assistant/hive-mind/pull/2147#issuecomment-5228508716)                                                                      |
 
 ## Root cause 1: Agent flags were one argv atom
 
@@ -212,6 +226,49 @@ The restart behavior satisfies the earlier correctness requirements:
 Increasing the retry count would only spend more time reproducing the same deterministic Formal AI plan. Version fail-fast is the useful correction; changing the restart limit is not.
 
 The Agent run did not auto-restart because its initial tool execution failed immediately. That is also correct: no mergeability loop should reinterpret a terminal model/provider failure as a no-diff iteration.
+
+## Post-review container lifecycle and update analysis
+
+### Current lifecycle does not meet the follow-up
+
+The root `docker-compose.yml` declares Formal AI as an always-on sibling service. Hive Mind depends on its health, both services join `formal-ai-network`, and the sidecar uses `restart: unless-stopped`. Docker-isolated work sessions are created in the Hive Mind container's Docker daemon, so they cannot join that outer Compose network. `resolveFormalAiIsolationEnv` currently resolves the Compose hostname to an address and passes the address into the task instead.
+
+The task launcher already has the synchronization primitive needed for a safe correction: a new Docker task waits behind a per-session filesystem gate. Hive Mind captures the writable-layer baseline and releases the gate only afterward. It can therefore attach the still-gated task container to an internal Formal AI network before any agent process starts. start-command 0.30.3 cannot express the network on its own (`--network` is rejected as an unknown wrapper option), but `docker network connect <network> <session-id>` is a safe downstream workaround while the gate remains closed.
+
+### Required Hive Mind invariants
+
+The future implementation must make these properties testable rather than relying on queue state alone:
+
+1. A Formal AI task is identified from the task's parsed model, not merely its selected CLI tool.
+2. The sidecar and its private `--internal` network are created before the first Formal AI task gate is released.
+3. Only task containers whose model is Formal AI join that network; the server is not published to the host or unrelated task networks.
+4. Concurrent Formal AI launches share one sidecar and hold an explicit lifecycle lease. The sidecar stops only after the last live Formal AI task releases its lease.
+5. Startup reconciliation derives truth from Docker container/network state as well as the durable session store, so a Hive Mind process restart cannot stop a sidecar still serving a detached task.
+6. The memory named volume is never removed by ordinary task cleanup, sidecar stop, candidate failure, or rollback.
+7. An image pull, CLI refresh, or migration begins only after a fresh liveness check proves no relevant task is executing; a task launch and an update are serialized by the same lock.
+8. A candidate digest is health-checked and memory-validated before task gates can use it. Failure restores the previous digest and an exact verified memory backup.
+9. Verbose logs record old/new digests, binary versions, schema compatibility, backup identity, migration receipt, rollback result, lease count, and network membership, with updater behavior off until the compatibility contract exists.
+
+### Why `/health` plus a file copy is insufficient
+
+Formal AI 0.333.2 describes normal memory writes as append-only and deliberately accepts older records without newer optional fields. It also provides full memory/bundle export and import. Those are strong recovery primitives, but they do not define future-version behavior:
+
+- `/health` reports the process version but does not inspect the configured memory file or expose its schema;
+- the current migration helper compares imported seed versions and returns human-readable review advice after import;
+- no side-effect-free command reports candidate compatibility with the on-disk file;
+- no explicit command locks writers, creates/verifies a backup, atomically commits a migration, emits a receipt, and defines downgrade behavior.
+
+Starting `latest` against the production volume and treating a healthy HTTP response as proof would therefore be a false-positive migration check. [Formal AI #982](https://github.com/link-assistant/formal-ai/issues/982) contains the named-volume reproduction, conservative pin/backup/copy workaround, proposed JSON preflight, transaction requirements, and compatibility/interruption/idempotence/rollback tests. It is the blocking prerequisite identified by issue #2146's mandatory pause rule.
+
+### Agentic CLI updates
+
+The Hive Mind, DinD, and Coolify images install Claude through its native installer and install Codex, Agent, Gemini, Qwen, Copilot, and OpenCode as global Bun packages. Those versions are snapshots from image-build time. Updating the parent container in place would not update already-built Docker isolation images, while updating each fresh task after its gate is released would spend task time and allow concurrent version drift.
+
+The updater therefore remains a Hive Mind orchestration concern: build or materialize a versioned candidate runtime only while globally idle, probe every CLI and its configuration contract, publish the candidate atomically for subsequent tasks, retain the last known-good runtime, and keep credentials/configuration in their existing persistent mounts rather than baking them into the candidate. Agent already has a normal published package update path, so there is no separate Agent upstream defect to report for installation. Provider-specific atomic update/rollback details must be designed and tested when work resumes after Formal AI #982.
+
+### Attached solution-draft log
+
+The later Gist is the complete first implementation session, not another model-routing reproduction. It has 34,667 lines covering 16:13:53–18:05:17 UTC. Its terminal section records 380 passing local test files, passing lint/format/duplication/compilation/line-limit checks, successful final-head CI run 31270565413, a clean tree, and the original ready-for-review transition. It is retained because the new feedback arrived after that session and explains why the formerly ready PR returned to draft; it introduces no additional pre-feedback root cause.
 
 ## Upstream research
 

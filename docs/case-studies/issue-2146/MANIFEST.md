@@ -1,6 +1,6 @@
 # Issue 2146 evidence manifest
 
-Captured on 2026-08-08 UTC. All 15 sanitized logs linked from the three Aug 8 test pull requests are retained under `data/tool-logs/`. They are gzip-compressed without modifying their content. The corresponding authenticated Gist API responses are retained as `data/github/gist-*.json.gz`.
+Captured on 2026-08-08 UTC. All 15 sanitized logs linked from the three Aug 8 test pull requests, plus the complete solution-draft log attached to PR #2147, are retained under `data/tool-logs/`. The 16 logs are gzip-compressed without modifying their content. The corresponding authenticated Gist API responses are retained as `data/github/gist-*.json.gz`.
 
 To inspect a log without creating a second copy:
 
@@ -10,23 +10,24 @@ zcat docs/case-studies/issue-2146/data/tool-logs/agent-initial-XOq3KX.log.gz | s
 
 ## Tool log to Gist map
 
-| Tool run                 | Local archive                  | Gist                                                                           |
-| ------------------------ | ------------------------------ | ------------------------------------------------------------------------------ |
-| Agent initial/final      | `agent-initial-XOq3KX.log.gz`  | [`d0553b8e…`](https://gist.github.com/konard/d0553b8e1b5ed88f1b8241f539ba4907) |
-| Claude initial           | `claude-initial-PhU3X2.log.gz` | [`3df8fd31…`](https://gist.github.com/konard/3df8fd313b592842d9dcf34bd265d7ca) |
-| Claude restart 1         | `claude-restart-1.log.gz`      | [`2f8e88bd…`](https://gist.github.com/konard/2f8e88bd91b64c4d24b57a9e5addd581) |
-| Claude restart 2         | `claude-restart-2.log.gz`      | [`1f4b390d…`](https://gist.github.com/konard/1f4b390d14ec5ee970de27ea80f03601) |
-| Claude restart 3         | `claude-restart-3.log.gz`      | [`9bd1207a…`](https://gist.github.com/konard/9bd1207a2aeb6b8d1b19b2db7b25f0e9) |
-| Claude restart 4         | `claude-restart-4.log.gz`      | [`094c0d30…`](https://gist.github.com/konard/094c0d308cc190137316c86f742d9e1a) |
-| Claude restart 5         | `claude-restart-5.log.gz`      | [`75a3b842…`](https://gist.github.com/konard/75a3b84286ea78707e7a98291fd04331) |
-| Claude final monitor log | `claude-final.log.gz`          | [`c36ed410…`](https://gist.github.com/konard/c36ed4109de1b12c32e40cb1a05e16fc) |
-| Codex initial            | `codex-initial-8GWnaH.log.gz`  | [`111bc2c2…`](https://gist.github.com/konard/111bc2c200954b7f524e5f314e49f43e) |
-| Codex restart 1          | `codex-restart-1.log.gz`       | [`800a9ae3…`](https://gist.github.com/konard/800a9ae360bd5dce18063ccf923098ee) |
-| Codex restart 2          | `codex-restart-2.log.gz`       | [`143e3eb1…`](https://gist.github.com/konard/143e3eb13fb70cc71773c332572e64bd) |
-| Codex restart 3          | `codex-restart-3.log.gz`       | [`89e32c90…`](https://gist.github.com/konard/89e32c9053c5963794bdeb5353492bdf) |
-| Codex restart 4          | `codex-restart-4.log.gz`       | [`ee00bca9…`](https://gist.github.com/konard/ee00bca93008aa6cbc548848b8edb09e) |
-| Codex restart 5          | `codex-restart-5.log.gz`       | [`85a67fa2…`](https://gist.github.com/konard/85a67fa222878c84e2965c6fae3576e8) |
-| Codex final monitor log  | `codex-final.log.gz`           | [`d437f08d…`](https://gist.github.com/konard/d437f08d56495084d25bffd6153ba948) |
+| Tool run                 | Local archive                    | Gist                                                                           |
+| ------------------------ | -------------------------------- | ------------------------------------------------------------------------------ |
+| Agent initial/final      | `agent-initial-XOq3KX.log.gz`    | [`d0553b8e…`](https://gist.github.com/konard/d0553b8e1b5ed88f1b8241f539ba4907) |
+| Claude initial           | `claude-initial-PhU3X2.log.gz`   | [`3df8fd31…`](https://gist.github.com/konard/3df8fd313b592842d9dcf34bd265d7ca) |
+| Claude restart 1         | `claude-restart-1.log.gz`        | [`2f8e88bd…`](https://gist.github.com/konard/2f8e88bd91b64c4d24b57a9e5addd581) |
+| Claude restart 2         | `claude-restart-2.log.gz`        | [`1f4b390d…`](https://gist.github.com/konard/1f4b390d14ec5ee970de27ea80f03601) |
+| Claude restart 3         | `claude-restart-3.log.gz`        | [`9bd1207a…`](https://gist.github.com/konard/9bd1207a2aeb6b8d1b19b2db7b25f0e9) |
+| Claude restart 4         | `claude-restart-4.log.gz`        | [`094c0d30…`](https://gist.github.com/konard/094c0d308cc190137316c86f742d9e1a) |
+| Claude restart 5         | `claude-restart-5.log.gz`        | [`75a3b842…`](https://gist.github.com/konard/75a3b84286ea78707e7a98291fd04331) |
+| Claude final monitor log | `claude-final.log.gz`            | [`c36ed410…`](https://gist.github.com/konard/c36ed4109de1b12c32e40cb1a05e16fc) |
+| Codex initial            | `codex-initial-8GWnaH.log.gz`    | [`111bc2c2…`](https://gist.github.com/konard/111bc2c200954b7f524e5f314e49f43e) |
+| Codex restart 1          | `codex-restart-1.log.gz`         | [`800a9ae3…`](https://gist.github.com/konard/800a9ae360bd5dce18063ccf923098ee) |
+| Codex restart 2          | `codex-restart-2.log.gz`         | [`143e3eb1…`](https://gist.github.com/konard/143e3eb13fb70cc71773c332572e64bd) |
+| Codex restart 3          | `codex-restart-3.log.gz`         | [`89e32c90…`](https://gist.github.com/konard/89e32c9053c5963794bdeb5353492bdf) |
+| Codex restart 4          | `codex-restart-4.log.gz`         | [`ee00bca9…`](https://gist.github.com/konard/ee00bca93008aa6cbc548848b8edb09e) |
+| Codex restart 5          | `codex-restart-5.log.gz`         | [`85a67fa2…`](https://gist.github.com/konard/85a67fa222878c84e2965c6fae3576e8) |
+| Codex final monitor log  | `codex-final.log.gz`             | [`d437f08d…`](https://gist.github.com/konard/d437f08d56495084d25bffd6153ba948) |
+| Solution draft           | `solution-draft-d575f2a3.log.gz` | [`d575f2a3…`](https://gist.github.com/konard/d575f2a37a45a9f9a88ae2f8eed283b5) |
 
 ## Archive SHA-256
 
@@ -48,6 +49,7 @@ f1e1c942121806fd8d85a6ed29801501f5b6c68696713db8d055ae9e4ec0a029  codex-initial-
 f665a0ce2b50c6d916d953b5c68d8049c3fc9c2049ed65584729934f892c13ce  codex-restart-3.log.gz
 5d40d1fa43e138bd1e387d8dad1f49240b965285e325e084be5390879fe580bd  codex-restart-4.log.gz
 a9b295acd949385bc5311f9b4361d60a7251e7d9ff315baa8d42c76ed58a3f23  codex-restart-5.log.gz
+cb0ac8d1570efc88ae14b524aa4b894723c3ae908d0f1f40821b4ac888ec15f3  solution-draft-d575f2a3.log.gz
 ```
 
 ## Other data
@@ -57,7 +59,9 @@ a9b295acd949385bc5311f9b4361d60a7251e7d9ff315baa8d42c76ed58a3f23  codex-restart-
 - Hive Mind issues #2119, #2130, and #2146, related PRs #2120, #2131, #2139, #2142, #2143, #2145, and prepared PR #2147;
 - all three GitHub comment/review channels for PR #2147 and each reproduction PR;
 - Agent issue #208 and the prior broad issue search;
-- Formal AI issue #848, issues #902–#909, and merged PR #927;
+- Formal AI issue #848, issues #902–#909, blocking persisted-memory upgrade issue #982, and merged PR #927;
+- start-command Docker-network issue #154;
+- the post-implementation PR feedback, issue/PR blocker-status comments, and the exact upstream report bodies under `data/upstream-issues/`;
 - authenticated Gist API snapshots for every log above.
 
 `data/upstream-snapshots.json` records release and source-head facts that were queried separately from issue/PR data.

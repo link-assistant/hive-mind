@@ -39,7 +39,12 @@ const asyncTest = async (name, fn) => {
   }
 };
 
-const renderTaggedTemplateCommand = (strings, values) => strings.reduce((result, stringPart, index) => result + stringPart + (index < values.length ? String(values[index]) : ''), '');
+const renderTaggedTemplateCommand = (strings, values) =>
+  strings.reduce((result, stringPart, index) => {
+    const value = values[index];
+    const renderedValue = Array.isArray(value) ? value.join(' ') : String(value ?? '');
+    return result + stringPart + (index < values.length ? renderedValue : '');
+  }, '');
 
 test('Codex preferred default model is gpt-5.6-sol', () => {
   // Issue #2027: GPT-5.6 Sol is the released Codex flagship default.

@@ -258,7 +258,7 @@ test('Formal AI connection validation checks the client registry and selected CL
     env: { HIVE_MIND_FORMAL_AI_PATH: '/opt/formal-ai' },
     run: async (command, args) => {
       calls.push({ command, args });
-      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.333.2\n' };
       if (command === '/opt/formal-ai') return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai', global_configs: [] }]) };
       return { stdout: 'qwen 1.2.3\n' };
     },
@@ -266,7 +266,7 @@ test('Formal AI connection validation checks the client registry and selected CL
 
   assert.equal(result.valid, true);
   assert.equal(result.version, 'qwen 1.2.3');
-  assert.equal(result.formalAiVersion, '0.317.0');
+  assert.equal(result.formalAiVersion, '0.333.2');
   assert.equal(result.client, 'qwen');
   assert.equal(result.protocol, 'openai');
   assert.deepEqual(calls, [
@@ -280,7 +280,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
     run: async (command, args) => {
-      if (args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      if (args[0] === '--version') return { stdout: 'formal-ai 0.333.2\n' };
       return { stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) };
     },
   });
@@ -290,7 +290,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   assert.match(result.error, /claude, codex/);
   // Issue #2130: the wrapper version has to survive onto the failure path too,
   // because that is the path whose logs get attached to the pull request.
-  assert.equal(result.formalAiVersion, '0.317.0');
+  assert.equal(result.formalAiVersion, '0.333.2');
 });
 
 test('Formal AI wrapper version is parsed from the --version line and reported on every result path', async () => {
@@ -303,9 +303,9 @@ test('Formal AI wrapper version is parsed from the --version line and reported o
   assert.equal(await readFormalAiVersion({ env: {}, run: async () => ({ stdout: 'formal-ai 1.0.0' }) }), '1.0.0');
 });
 
-test('An unreadable Formal AI wrapper version never fails the run', async () => {
-  // `--version` is diagnostics, not a gate: a wrapper that cannot answer it must
-  // still be allowed to dispatch.
+test('Formal AI connection validation rejects an unreadable runtime version', async () => {
+  // The optional preflight and mandatory runtime preparation use the same
+  // support policy; disabling preflight cannot bypass the runtime gate.
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
     run: async (command, args) => {
@@ -315,8 +315,9 @@ test('An unreadable Formal AI wrapper version never fails the run', async () => 
     },
   });
 
-  assert.equal(result.valid, true);
+  assert.equal(result.valid, false);
   assert.equal(result.formalAiVersion, null);
+  assert.match(result.error, /could not determine the Formal AI version/i);
   assert.equal(
     await readFormalAiVersion({
       env: {},

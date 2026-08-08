@@ -19,6 +19,7 @@ import { strict as assert } from 'assert';
 // file used to re-implement it, so the `[object Object]` defect that shipped in
 // production was invisible to the suite.
 import { detectAgentErrorsInOutput as detectAgentErrors, extractAgentErrorText } from '../src/agent.lib.mjs';
+import { isAgentStrongCompletionEvent } from '../src/agent-command.lib.mjs';
 
 console.log('Testing simplified agent error detection...\n');
 console.log('Issue #886: Trust exit code, only detect explicit JSON errors\n');
@@ -236,14 +237,15 @@ simulateStreamChunk('{"type":"step_start","timestamp":3}');
 // 5. Agent completes work successfully
 simulateStreamChunk('{"type":"text","timestamp":4,"text":"Task completed successfully!"}');
 
-// 6. Session becomes idle (successful completion indicator)
+// 6. Session becomes idle. Agent also emits this after terminal API errors, so
+// it is a live-input state signal rather than proof of success (issue #2146).
 const sessionIdleChunk = '{"type":"session.idle"}';
 const idleLines = sessionIdleChunk.split('\n');
 for (const idleLine of idleLines) {
   if (!idleLine.trim()) continue;
   try {
     const data = JSON.parse(idleLine);
-    if (data.type === 'session.idle') {
+    if (isAgentStrongCompletionEvent(data)) {
       agentCompletedSuccessfully = true;
     }
   } catch {
@@ -251,9 +253,13 @@ for (const idleLine of idleLines) {
   }
 }
 
-assert.strictEqual(agentCompletedSuccessfully, true, 'Should detect successful completion from session.idle');
+assert.strictEqual(agentCompletedSuccessfully, false, 'session.idle alone must not clear a terminal error');
 
-// 7. Apply Issue #1276 fix: clear streaming error if exit code is 0 and agent completed successfully
+// 7. An explicit stopped step proves that the earlier timeout was recovered.
+agentCompletedSuccessfully = isAgentStrongCompletionEvent({ type: 'step_finish', part: { reason: 'stop' } });
+assert.strictEqual(agentCompletedSuccessfully, true, 'step_finish reason=stop is a strong successful completion');
+
+// 8. Apply Issue #1276 fix: clear streaming error if exit code is 0 and agent completed successfully
 const exitCode = 0; // Successful exit
 if (exitCode === 0 && agentCompletedSuccessfully) {
   streamingErrorDetected = false;
@@ -343,7 +349,7 @@ console.log('--- Issue #1290 Tests ---\n');
 console.log('Test 21: Fallback pattern match skipped when agent completed successfully (Issue #1290)');
 {
   // Simulate the exact scenario from the bug: AI_JSONParseError in output but agent recovered
-  const fullOutputWithError = ['{"type":"log","level":"error","service":"session.prompt","error":{"error":{"name":"AI_JSONParseError"}}}', '{"type":"error","timestamp":123,"sessionID":"ses_test","error":{"name":"UnknownError","data":{"message":"AI_JSONParseError: JSON parsing failed"}}}', '{"type":"tool_use","part":{"state":{"status":"error","error":"Tool execution aborted"}}}', '{"type":"session.idle"}'].join('\n');
+  const fullOutputWithError = ['{"type":"log","level":"error","service":"session.prompt","error":{"error":{"name":"AI_JSONParseError"}}}', '{"type":"error","timestamp":123,"sessionID":"ses_test","error":{"name":"UnknownError","data":{"message":"AI_JSONParseError: JSON parsing failed"}}}', '{"type":"tool_use","part":{"state":{"status":"error","error":"Tool execution aborted"}}}', '{"type":"step_finish","part":{"reason":"stop"}}'].join('\n');
 
   // Step 1: Post-hoc detection
   const postHocResult = detectAgentErrors(fullOutputWithError);
@@ -352,7 +358,7 @@ console.log('Test 21: Fallback pattern match skipped when agent completed succes
 
   // Step 2: But streaming detection was cleared because agent completed successfully
   let test21StreamingError = true; // Was set during streaming
-  const test21AgentCompleted = true; // session.idle was seen
+  const test21AgentCompleted = true; // step_finish reason=stop was seen
   const test21ExitCode = 0;
 
   // Apply Issue #1276 fix: clear streaming errors

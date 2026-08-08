@@ -70,7 +70,7 @@ assert.equal(buildNoChangesNotice(null), '', 'a summary attached to an issue rat
 
 const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.lib.mjs'), 'utf8');
 assert.ok(resultsSource.includes("await import('./working-session-summary.lib.mjs')"), 'solve.results.lib.mjs imports the helpers');
-assert.ok(resultsSource.includes('const summaryBody = redactWorkspacePaths(resultSummary);'), 'the posted body is redacted');
+assert.ok(resultsSource.includes('const summaryBody = formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary));'), 'the posted body is redacted and structured text is fenced');
 assert.ok(resultsSource.includes('const noChangesNotice = buildNoChangesNotice(changeStats);'), 'the posted body carries the empty-diff notice');
 // The call gained a `log` argument in issue #2135, so the probe can report an
 // oversized diff; match the shape rather than the exact argument list.

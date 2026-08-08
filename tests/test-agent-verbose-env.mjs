@@ -46,7 +46,7 @@ console.log('  ✅ PASSED: Environment inheritance pattern is consistent\n');
 
 // Test 6: Verify --verbose flag is still passed as CLI argument (belt-and-suspenders)
 console.log('Test 6: --verbose CLI flag is still passed alongside env vars');
-assert.ok(agentLibSource.includes("agentArgs += ' --verbose'"), 'Should still pass --verbose as CLI argument for defense in depth');
+assert.ok(agentLibSource.includes('buildAgentArgs({ model: mappedModel, verbose: argv.verbose'), 'Should still pass --verbose through the argv builder for defense in depth');
 console.log('  ✅ PASSED: --verbose CLI flag is preserved\n');
 
 console.log('All tests passed! ✅');

@@ -68,7 +68,7 @@ const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
-const { buildNoChangesNotice, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+const { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
@@ -1309,7 +1309,7 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
-    const summaryBody = redactWorkspacePaths(resultSummary);
+    const summaryBody = formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary));
 
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}

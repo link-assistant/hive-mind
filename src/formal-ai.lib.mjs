@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { findFormalAiClient, loadFormalAiClientRegistry, prepareFormalAiRuntime } from './formal-ai-runtime.lib.mjs';
+import { assertSupportedFormalAiVersion, parseFormalAiVersion, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
 import { isFormalAiModel } from './models/index.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -112,28 +113,16 @@ export const buildFormalAiEnvExports = env =>
  * `formal-ai --version` prints a line such as "formal-ai 0.317.0"; keep only the
  * version so the log records a value that can be compared against a release.
  */
-export const parseFormalAiVersion = stdout => {
-  const line = String(stdout || '')
-    .split('\n')
-    .map(entry => entry.trim())
-    .find(Boolean);
-  if (!line) return null;
-  return line.replace(/^formal-ai\s+/i, '').trim() || null;
-};
+export { parseFormalAiVersion };
 
 /**
  * The wrapper's behaviour changes between releases — issue #2130's round-2
  * failures could not be pinned to a mechanism because no log recorded which
- * wrapper produced them. Ask the wrapper for its version, but never let that
- * question decide whether the run may proceed.
+ * wrapper produced them. This shared reader remains non-throwing so connection
+ * validation and runtime preparation can apply one actionable support policy.
  */
 export const readFormalAiVersion = async ({ env = process.env, run = execFileAsync, timeoutMs = 30_000 } = {}) => {
-  try {
-    const result = await run(resolveFormalAiPath(env), ['--version'], { encoding: 'utf8', env: { ...process.env, ...env }, timeout: timeoutMs });
-    return parseFormalAiVersion(result?.stdout);
-  } catch {
-    return null;
-  }
+  return readFormalAiBinaryVersion({ formalAiPath: resolveFormalAiPath(env), env, run, timeoutMs });
 };
 
 /**
@@ -144,6 +133,12 @@ export const validateFormalAiToolConnection = async (tool, { env = process.env, 
   const command = resolveFormalAiPath(env);
   const args = ['clients', '--format', 'json'];
   const formalAiVersion = await readFormalAiVersion({ env, run, timeoutMs });
+
+  try {
+    assertSupportedFormalAiVersion(formalAiVersion);
+  } catch (error) {
+    return { valid: false, command, args, formalAiVersion, error: error.message };
+  }
 
   let clients;
   try {

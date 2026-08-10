@@ -91,7 +91,7 @@ docker compose run --rm hive-mind-solver \
 HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
 ```
 
-Hive Mind 会将该端点传给每个 `--isolation docker` 任务。对于 Compose 主机名 `link-assistant-formal-ai`，根容器会在启动前解析外层网络地址，并把可路由 IP 交给嵌套任务。自定义外部主机名保持不变，以保留 DNS、虚拟主机路由和 HTTPS 证书验证。自定义嵌套 Docker 部署应将服务和根容器接入可相互路由的网络。`start-command` 的 Docker 后端可以传递环境变量，但不提供 `docker run --network` 选项，因此 Hive Mind 在嵌套任务容器创建之后用 `docker network connect` 把它们接入网络（见下一节）；特殊网络策略仍可能需要把此变量设为嵌套任务可访问的地址。
+Hive Mind 会将该端点传给每个 `--isolation docker` 任务。对于 Compose 主机名 `link-assistant-formal-ai`，根容器会在启动前解析外层网络地址，并把可路由 IP 交给嵌套任务。自定义外部主机名保持不变，以保留 DNS、虚拟主机路由和 HTTPS 证书验证。自定义嵌套 Docker 部署应将服务和根容器接入可相互路由的网络。`start-command` 0.31.0 已可在启动时选择网络（[start#154](https://github.com/link-foundation/start/issues/154)），但 `docker run --network` 会*替换*默认网桥，从而切断任务与 GitHub 的连接，因此 Hive Mind 在嵌套任务容器创建之后用 `docker network connect` 把它们接入网络（见下一节）；特殊网络策略仍可能需要把此变量设为嵌套任务可访问的地址。
 
 手动部署示例：
 

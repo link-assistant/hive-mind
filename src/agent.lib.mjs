@@ -356,6 +356,22 @@ export const agentCliSupportsLiveInput = versionOutput => {
   return !!version && semver.gte(version, MIN_AGENT_LIVE_INPUT_VERSION);
 };
 
+/**
+ * Agent only fails closed on a `--model` argv it cannot parse from js-0.25.8
+ * onwards (link-assistant/agent#293, fixed by PR #294): earlier releases logged
+ * a CRITICAL record and then answered with their *default* model. Issue #2146
+ * requires Formal AI to be the only model a task can reach, and a guard that
+ * reads the CRITICAL record can only stop the run after Agent has already
+ * decided, so a Formal AI task refuses to start below this release.
+ */
+export const MIN_AGENT_FORMAL_AI_VERSION = '0.25.8';
+
+/** True when this Agent CLI aborts instead of silently picking another model. */
+export const agentCliFailsClosedOnModelMismatch = versionOutput => {
+  const version = getAgentCliVersion(versionOutput);
+  return !!version && semver.gte(version, MIN_AGENT_FORMAL_AI_VERSION);
+};
+
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
   // Map model alias to full ID
@@ -393,6 +409,19 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (requireLiveInput && (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_LIVE_INPUT_VERSION))) {
         await log(`❌ Agent live stream-json input requires @link-assistant/agent >= ${MIN_AGENT_LIVE_INPUT_VERSION}`, { level: 'error' });
+        if (agentVersion) {
+          await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
+        } else {
+          await log('   Could not determine the installed Agent CLI version.', { level: 'error' });
+        }
+        await log('   Update with: bun install -g @link-assistant/agent@latest', { level: 'error' });
+        return false;
+      }
+
+      if (isFormalAiModel(model) && !(agentVersion && semver.gte(agentVersion, MIN_AGENT_FORMAL_AI_VERSION))) {
+        await log(`❌ Formal AI tasks require @link-assistant/agent >= ${MIN_AGENT_FORMAL_AI_VERSION}`, { level: 'error' });
+        await log('   Older releases answer with their default model when they cannot parse the requested one', { level: 'error' });
+        await log('   (link-assistant/agent#293), and issue #2146 forbids any model other than Formal AI.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {

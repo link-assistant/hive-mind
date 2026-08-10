@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const { defaultModels, primaryModelNames, resolveDefaultFallbackModel, resolveModelId, resolveRuntimeDefaultModel, validateModelName } = await import('../src/models/index.mjs');
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
-const { executeAgentCommand, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_LIVE_INPUT_VERSION } = await import('../src/agent.lib.mjs');
+const { executeAgentCommand, agentCliFailsClosedOnModelMismatch, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { retryLimits } = await import('../src/config.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
@@ -192,6 +195,44 @@ test('Agent live input version guard requires Agent 0.24.1 or newer', () => {
   assert.equal(getAgentCliVersion('@link-assistant/agent 0.24.1'), '0.24.1');
   assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.0'), false);
   assert.equal(agentCliSupportsLiveInput('@link-assistant/agent 0.24.1'), true);
+});
+
+test('Formal AI version guard requires the fail-closed Agent model parser', () => {
+  // link-assistant/agent#293: before js-0.25.8 an unparseable `--model` only
+  // produced a CRITICAL log record and the request went to the default model.
+  assert.equal(MIN_AGENT_FORMAL_AI_VERSION, '0.25.8');
+  assert.equal(agentCliFailsClosedOnModelMismatch('@link-assistant/agent 0.25.7'), false);
+  assert.equal(agentCliFailsClosedOnModelMismatch('@link-assistant/agent 0.25.8'), true);
+  assert.equal(agentCliFailsClosedOnModelMismatch(''), false);
+});
+
+/** A stand-in `agent` binary that records every non-`--version` invocation. */
+const withFakeAgentCli = async (version, assertions) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-mind-agent-cli-'));
+  const requestLog = path.join(directory, 'requests.log');
+  fs.writeFileSync(path.join(directory, 'agent'), ['#!/bin/sh', 'if [ "$1" = "--version" ]; then', `  echo "${version}"`, '  exit 0', 'fi', `echo "$@" >> "${requestLog}"`, 'exit 0', ''].join('\n'), { mode: 0o755 });
+  const previousPath = process.env.PATH;
+  process.env.PATH = `${directory}${path.delimiter}${previousPath}`;
+  try {
+    await assertions({ requested: () => fs.existsSync(requestLog) });
+  } finally {
+    process.env.PATH = previousPath;
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+};
+
+await asyncTest('A Formal AI task refuses to start on an Agent CLI that can fall back to another model', async () => {
+  await withFakeAgentCli('0.25.7', async ({ requested }) => {
+    assert.equal(await validateAgentConnection('formal-ai'), false);
+    assert.equal(requested(), false, 'the outdated CLI must not be asked to answer anything');
+  });
+});
+
+await asyncTest('The same Formal AI task starts once the Agent CLI fails closed', async () => {
+  await withFakeAgentCli(MIN_AGENT_FORMAL_AI_VERSION, async ({ requested }) => {
+    assert.equal(await validateAgentConnection('formal-ai'), true);
+    assert.equal(requested(), true);
+  });
 });
 
 test('Capacity errors are classified as retryable overloads', () => {

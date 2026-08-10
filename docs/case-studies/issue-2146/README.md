@@ -337,12 +337,13 @@ The latest Agent release at that moment was [0.25.7](https://github.com/link-ass
 
 All three are closed as completed, and every release they produced is consumed here.
 
-Re-reading the delivered releases against what this PR actually depends on surfaced two follow-ups, both filed rather than left as private knowledge:
+Re-reading the delivered releases against what this PR actually depends on, and then reading the first full CI run this branch ever got, surfaced three more follow-ups, all filed rather than left as private knowledge. The third one carries two additional root-cause reports of its own, [web-capture #151](https://github.com/link-assistant/web-capture/issues/151) and [browser-commander #77](https://github.com/link-foundation/browser-commander/issues/77), which brings the total published by this incident to nine documents.
 
-| Follow-up                                                                                                                                                  | Gap                                                                                                                                                                                                             | Why it is not a blocker                                                                                                                                                     |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Agent #295](https://github.com/link-assistant/agent/issues/295) — publish model routing as a typed event instead of an English log message                | The provider guard discriminates on `message === 'using explicit provider/model'` (`js/src/cli/model-config.js:118`). Rewording that string is non-breaking upstream and would silently disable a safety guard. | It is the third layer. Separate argv atoms and the 0.25.8 floor stop the incident on their own, and the guard works against every released 0.25.8+ build.                   |
-| [start #156](https://github.com/link-foundation/start/issues/156) — make `--network` repeatable so a task can keep the bridge _and_ join a private network | PR #155 shipped a single-valued `--network`, and `docker run --network` replaces the default bridge, so no single-network invocation can express "reach GitHub and the sidecar".                                | The launch gate already exists for an unrelated reason, so `docker network connect` inside it is race-free here; the gap is that every other caller must rebuild that gate. |
+| Follow-up                                                                                                                                                  | Gap                                                                                                                                                                                                                                                                                                                      | Why it is not a blocker                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Agent #295](https://github.com/link-assistant/agent/issues/295) — publish model routing as a typed event instead of an English log message                | The provider guard discriminates on `message === 'using explicit provider/model'` (`js/src/cli/model-config.js:118`). Rewording that string is non-breaking upstream and would silently disable a safety guard.                                                                                                          | It is the third layer. Separate argv atoms and the 0.25.8 floor stop the incident on their own, and the guard works against every released 0.25.8+ build.                                                      |
+| [start #156](https://github.com/link-foundation/start/issues/156) — make `--network` repeatable so a task can keep the bridge _and_ join a private network | PR #155 shipped a single-valued `--network`, and `docker run --network` replaces the default bridge, so no single-network invocation can express "reach GitHub and the sidecar".                                                                                                                                         | The launch gate already exists for an unrelated reason, so `docker network connect` inside it is race-free here; the gap is that every other caller must rebuild that gate.                                    |
+| [Formal AI #988](https://github.com/link-assistant/formal-ai/issues/988) — `cargo install formal-ai --locked` fails on a stock Rust image since 0.333.0    | The dependency tree reaches `native-tls` → `openssl-sys`, which needs `pkg-config` and the OpenSSL headers at build time. Root causes filed as [web-capture #151](https://github.com/link-assistant/web-capture/issues/151) and [browser-commander #77](https://github.com/link-foundation/browser-commander/issues/77). | The four builder stages install the two packages and set `OPENSSL_STATIC=1`, which is verified to produce a binary with no OpenSSL soname dependency. See "The build break the first full CI run found" below. |
 
 ### Field-by-field verification against Formal AI v0.337.0
 
@@ -438,6 +439,60 @@ The issue-specific test asserts:
 The Agent version floor is checked in `tests/test-codex-support.mjs` in the only way that proves the property. A stub `agent` binary is placed on `PATH` and records every invocation that is not `--version`. On `0.25.7`, `validateAgentConnection('formal-ai')` returns false _and_ the recording file is never created — the outdated CLI is not asked to answer anything, so it never gets the chance to answer with another model. On `0.25.8` the same call succeeds and the probe is recorded. Asserting only the boolean would pass against an implementation that refuses after sending the request.
 
 The lifecycle and update suites run against `tests/formal-ai-docker-simulator.mjs`, an in-memory Docker daemon that models containers, networks (including `internal`), volumes, image digests, `/health` payloads and the two `formal-ai memory` subcommands, including their stdout-then-nonzero refusals. Those tests are deterministic and need no Docker daemon, no registry and no Formal AI image, which is what lets them run in CI on every change.
+
+## The build break the first full CI run found
+
+This branch's heavy CI jobs had never run. `test-suites`, `test-compilation`, `test-execution`, `memory-check-linux` and `docker-pr-check` are all gated on `!contains(needs.*.result, 'failure')`, and `Check for Changesets` had been failing on every push because the branch carried two changesets while `scripts/validate-changeset.mjs` requires exactly one per pull request. One red 10-second job was therefore hiding every expensive job on a 44-file change. Combining the changesets fixed the gate; forcing a `reopened` event made `scripts/detect-code-changes.mjs` diff `base..head` instead of the last push, so the whole set finally ran.
+
+It immediately failed — correctly. `docker-pr-check` (run 31378794502) died in the Formal AI builder stage:
+
+```text
+warning: openssl-sys@0.9.117: Could not find directory of OpenSSL installation
+error: failed to run custom build command for `openssl-sys v0.9.117`
+  Could not find openssl via pkg-config:
+  The pkg-config command could not be found.
+  Make sure you also have the development packages of openssl installed.
+error: failed to compile `formal-ai v0.337.0`
+```
+
+The trigger is this PR's bump of `FORMAL_AI_VERSION` from 0.317.0 to 0.337.0. Reading the published `Cargo.lock` of each release shows `openssl-sys` is absent in 0.317.0 and present from 0.333.2 onwards, and the two paths that introduce it are both default-feature dependencies one hop away from Formal AI's own manifest:
+
+```text
+formal-ai
+├── web-search 0.3.1  ── reqwest 0.13   (rustls only — fine)
+└── web-capture 0.3.34
+    ├── reqwest 0.12.28   default features → default-tls → native-tls → openssl-sys
+    └── browser-commander ── fantoccini 0.21.5   default features → native-tls → openssl
+```
+
+Nothing in Formal AI's own `Cargo.toml` changed between those releases, which is why the requirement is invisible from the release notes and surfaces only as a build-script backtrace three levels down. Reported as [Formal AI #988](https://github.com/link-assistant/formal-ai/issues/988), with the one-line fix filed against each root cause: [web-capture #151](https://github.com/link-assistant/web-capture/issues/151) and [browser-commander #77](https://github.com/link-foundation/browser-commander/issues/77). Both have to land — fixing either alone leaves `openssl-sys` in the tree.
+
+The downstream answer installs the two build packages and links OpenSSL statically, in all four builder stages:
+
+```dockerfile
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+ENV OPENSSL_STATIC=1
+RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+```
+
+Static linking is not incidental. The builder is `rust:1.96-slim-bookworm` and the runtime is Box's Ubuntu 24.04; a dynamically linked `libssl.so.3` would tie the copied binary to the runtime image's OpenSSL packaging, which is the same class of cross-distribution coupling the pinned-glibc comment above already guards against. `experiments/issue-2146/formal-ai-openssl-probe.Dockerfile` reproduces the break and the fix side by side, and the fixed stage ends with the proof:
+
+```text
+#7 [fixed 4/4] RUN ldd /usr/local/cargo/bin/formal-ai && formal-ai --version
+#7 1.509 	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1
+#7 1.509 	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6
+#7 1.509 	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6
+#7 1.624 formal-ai 0.337.0
+```
+
+`tests/test-issue-2059-formal-ai-dispatch.mjs` now asserts that every builder stage carries `pkg-config`, `libssl-dev` and `OPENSSL_STATIC=1`, so a future edit that drops them fails in the unit suite in seconds instead of in a Docker job minutes later.
+
+Two process lessons are worth recording, because both are cheap to repeat:
+
+- a version bump in a Dockerfile is a dependency-tree change, and the tree is where the system requirements live — reading the released `Cargo.lock` is a five-second check that would have found this before CI did;
+- a green PR page is not evidence that anything ran. `skipped` and `success` are both "not failure" to `contains(needs.*.result, 'failure')`, so a cheap gating job that fails can hide every job behind it.
 
 ## Remaining limits
 

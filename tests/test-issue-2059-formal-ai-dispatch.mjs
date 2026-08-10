@@ -389,6 +389,23 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
     assert.match(contents, /formal-ai --version/, `${name} must verify that the Formal AI wrapper is installed`);
   }
 
+  // Formal AI 0.333.0+ pulls native-tls through web-search -> web-capture ->
+  // reqwest, so `cargo install formal-ai --locked` needs pkg-config and the
+  // OpenSSL headers, which rust:slim does not carry (link-assistant/formal-ai#988).
+  // Without these the builder stage dies in the openssl-sys build script, and the
+  // failure only surfaces in the Docker job, long after the unit suite is green.
+  for (const [name, contents] of [
+    ['Dockerfile', dockerfile],
+    ['Dockerfile.dind', dindDockerfile],
+    ['coolify/Dockerfile', coolifyDockerfile],
+    ['Dockerfile.formal-ai', serverDockerfile],
+  ]) {
+    const builderStage = contents.slice(contents.indexOf('AS formal-ai-builder'), contents.indexOf('RUN cargo install formal-ai'));
+    assert.match(builderStage, /apt-get install [^\n]*pkg-config/, `${name} must install pkg-config before building Formal AI`);
+    assert.match(builderStage, /apt-get install [^\n]*libssl-dev/, `${name} must install the OpenSSL headers before building Formal AI`);
+    assert.match(builderStage, /^ENV OPENSSL_STATIC=1$/m, `${name} must link OpenSSL statically so the copy into the runtime image carries no soname dependency`);
+  }
+
   assert.match(serverDockerfile, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, 'the service must build against a runtime-compatible glibc');
   assert.match(serverDockerfile, /FROM konard\/hive-mind-dind:/, 'the service image must extend the root Telegram/DinD image');
   assert.match(serverDockerfile, /formal-ai", "serve", "--agent-mode"/, 'the service image must start the agent-mode API');

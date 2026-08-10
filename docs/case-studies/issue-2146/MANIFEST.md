@@ -66,13 +66,16 @@ cb0ac8d1570efc88ae14b524aa4b894723c3ae908d0f1f40821b4ac888ec15f3  solution-draft
 
 `data/upstream-issues/` holds the verbatim text of everything this incident published, so a reader can compare what was requested with what shipped without an authenticated API call:
 
-| File                                      | Published as                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `formal-ai-unattended-memory-upgrades.md` | [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) — delivered in v0.336.0         |
-| `start-command-docker-network.md`         | [start#154](https://github.com/link-foundation/start/issues/154) — delivered in js-0.31.0 / rust-0.18.0 |
-| `agent-model-resolution-event.md`         | [agent#295](https://github.com/link-assistant/agent/issues/295) — open follow-up, not a blocker         |
-| `start-multiple-networks.md`              | [start#156](https://github.com/link-foundation/start/issues/156) — open follow-up, not a blocker        |
-| `hive-mind-blocker-status.md`             | the blocker-status comment posted to issue #2146 and PR #2147 while the prerequisites were open         |
-| `pr-2147-body.md`                         | the PR #2147 description as submitted for review                                                        |
+| File                                      | Published as                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `formal-ai-unattended-memory-upgrades.md` | [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) — delivered in v0.336.0             |
+| `start-command-docker-network.md`         | [start#154](https://github.com/link-foundation/start/issues/154) — delivered in js-0.31.0 / rust-0.18.0     |
+| `agent-model-resolution-event.md`         | [agent#295](https://github.com/link-assistant/agent/issues/295) — open follow-up, not a blocker             |
+| `start-multiple-networks.md`              | [start#156](https://github.com/link-foundation/start/issues/156) — open follow-up, not a blocker            |
+| `formal-ai-openssl-build-dependency.md`   | [formal-ai#988](https://github.com/link-assistant/formal-ai/issues/988) — open, worked around downstream    |
+| `web-capture-default-tls.md`              | [web-capture#151](https://github.com/link-assistant/web-capture/issues/151) — root cause of #988            |
+| `browser-commander-default-tls.md`        | [browser-commander#77](https://github.com/link-foundation/browser-commander/issues/77) — root cause of #988 |
+| `hive-mind-blocker-status.md`             | the blocker-status comment posted to issue #2146 and PR #2147 while the prerequisites were open             |
+| `pr-2147-body.md`                         | the PR #2147 description as submitted for review                                                            |
 
 `data/upstream-snapshots.json` records release and source-head facts that were queried separately from issue/PR data.

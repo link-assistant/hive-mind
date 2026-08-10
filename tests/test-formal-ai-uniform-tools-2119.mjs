@@ -28,7 +28,7 @@ import { calculateAgentPricing } from '../src/agent.lib.mjs';
 import { buildGeminiPricingInfo, parseGeminiJsonOutput } from '../src/gemini.lib.mjs';
 import { buildQwenPricingInfo, parseQwenStreamJsonOutput } from '../src/qwen.lib.mjs';
 import { FORMAL_AI_SUPPORTED_TOOLS } from '../src/formal-ai.lib.mjs';
-import { FORMAL_AI_MINIMUM_VERSION } from '../src/formal-ai-version.lib.mjs';
+import { FORMAL_AI_BOOTSTRAP_VERSION, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from '../src/formal-ai-version.lib.mjs';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -168,10 +168,14 @@ assert.equal(opencodePricing.totalCostUSD, 0, 'opencode/agent: formal-ai runs ar
 
 // Keep every distributed image on the runtime's supported baseline. Issue
 // #2146 proved that allowing Docker's older pin to bypass the runtime contract
-// can repeat a known plan-only failure across every restart.
+// can repeat a known plan-only failure across every restart. The PR #2147
+// review then made the image pin the *initial* version only, so the images
+// carry the bootstrap release and the idle updater moves it forward from there
+// — the pin must therefore stay at or above the enforced floor, not equal to it.
+assert.ok(isFormalAiVersionAtLeast(FORMAL_AI_BOOTSTRAP_VERSION, FORMAL_AI_MINIMUM_VERSION), `the bootstrap pin ${FORMAL_AI_BOOTSTRAP_VERSION} is not older than the enforced floor ${FORMAL_AI_MINIMUM_VERSION}`);
 for (const file of ['Dockerfile', 'Dockerfile.dind', 'Dockerfile.formal-ai', 'coolify/Dockerfile']) {
   const source = await readFile(path.join(repoRoot, file), 'utf8');
-  assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${FORMAL_AI_MINIMUM_VERSION}$`, 'm'), `${file} installs the minimum supported Formal AI release`);
+  assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${FORMAL_AI_BOOTSTRAP_VERSION}$`, 'm'), `${file} installs the bootstrap Formal AI release`);
 }
 
 console.log(`✅ issue #2119: formal-ai stream parsing and pricing are uniform across ${FORMAL_AI_SUPPORTED_TOOLS.length} tools`);

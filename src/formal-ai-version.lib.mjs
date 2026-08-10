@@ -27,7 +27,7 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
 /**
  * The version baked into Hive Mind's images. Per the maintainer's review on
  * PR #2147 this is the *initial* pin only: once the container is running,
- * `src/formal-ai-container.lib.mjs` replaces it with the newest published image
+ * `src/formal-ai-updater.lib.mjs` replaces it with the newest published image
  * while no Formal AI task holds a lease.
  */
 export const FORMAL_AI_BOOTSTRAP_VERSION = '0.337.0';

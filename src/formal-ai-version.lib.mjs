@@ -6,12 +6,31 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 
 /**
- * Formal AI 0.326.1 fixed plans that were recorded but never executed. The
- * later 0.333.2 release also contains the tool-result evidence fixes required
- * by issues #2119/#2130, so that is the supported baseline. Hive Mind retains
- * its explicit headless-client compatibility settings separately.
+ * Formal AI 0.326.1 fixed plans that were recorded but never executed and
+ * 0.333.2 added the tool-result evidence fixes required by issues #2119/#2130.
+ * 0.336.0 is the first release that answers formal-ai#982: `memory
+ * upgrade-status`, `memory migrate --backup --receipt`, and the `/health`
+ * memory compatibility block. Hive Mind now replaces the Formal AI container
+ * while it is idle, so an unattended non-destructive memory upgrade is part of
+ * the baseline rather than an optional extra.
  */
-export const FORMAL_AI_MINIMUM_VERSION = '0.333.2';
+export const FORMAL_AI_MINIMUM_VERSION = '0.336.0';
+
+/**
+ * The first release exposing the persisted-memory upgrade contract. Kept
+ * separate from {@link FORMAL_AI_MINIMUM_VERSION} so the container updater can
+ * state precisely why a candidate image is refused even if the run-time floor
+ * later moves for an unrelated reason.
+ */
+export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
+
+/**
+ * The version baked into Hive Mind's images. Per the maintainer's review on
+ * PR #2147 this is the *initial* pin only: once the container is running,
+ * `src/formal-ai-container.lib.mjs` replaces it with the newest published image
+ * while no Formal AI task holds a lease.
+ */
+export const FORMAL_AI_BOOTSTRAP_VERSION = '0.337.0';
 
 export const parseFormalAiVersion = stdout => {
   const line = String(stdout || '')
@@ -38,7 +57,7 @@ const parseComparableVersion = version => {
   return { core: match.slice(1, 4).map(Number), prerelease: match[4] || null };
 };
 
-const isVersionAtLeast = (version, minimumVersion) => {
+export const isFormalAiVersionAtLeast = (version, minimumVersion) => {
   const candidate = parseComparableVersion(version);
   const minimum = parseComparableVersion(minimumVersion);
   if (!candidate || !minimum) return false;
@@ -59,7 +78,7 @@ export const assertSupportedFormalAiVersion = (version, minimumVersion = FORMAL_
   if (!parseComparableVersion(version)) {
     throw new Error(`Hive Mind requires Formal AI >= ${minimumVersion}, but formal-ai --version returned an invalid version: ${version}`);
   }
-  if (!isVersionAtLeast(version, minimumVersion)) {
+  if (!isFormalAiVersionAtLeast(version, minimumVersion)) {
     throw new Error(`Hive Mind requires Formal AI >= ${minimumVersion}, found ${version}. Upgrade Formal AI before retrying.`);
   }
   return version;
@@ -67,7 +86,10 @@ export const assertSupportedFormalAiVersion = (version, minimumVersion = FORMAL_
 
 export default {
   assertSupportedFormalAiVersion,
+  FORMAL_AI_BOOTSTRAP_VERSION,
+  FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION,
   FORMAL_AI_MINIMUM_VERSION,
+  isFormalAiVersionAtLeast,
   parseFormalAiVersion,
   readFormalAiBinaryVersion,
 };

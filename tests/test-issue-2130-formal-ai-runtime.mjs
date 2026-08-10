@@ -286,7 +286,7 @@ const prepareWithStubs = async ({ tool, env = {}, profile = null }) => {
     env,
     formalAiPath: '/opt/formal-ai',
     deps: {
-      readVersionImpl: async () => '0.333.2',
+      readVersionImpl: async () => '0.336.0',
       mkdtempImpl: async () => home,
       startServerImpl: async options => {
         stopped.push({ started: options });
@@ -398,7 +398,7 @@ test('prepareFormalAiRuntime rejects a stale binary before starting a server', a
         },
       },
     }),
-    /requires Formal AI >= 0\.333\.2, found 0\.326\.0/
+    /requires Formal AI >= 0\.336\.0, found 0\.326\.0/
   );
   assert.equal(serverStarted, false, 'the stale binary is rejected before any model endpoint starts');
   resetFormalAiRuntimeCache();
@@ -412,7 +412,7 @@ test('prepareFormalAiRuntime fails with an actionable message for a tool Formal 
       workdir: '/tmp/workspace',
       env: { HIVE_MIND_FORMAL_AI_BASE_URL: 'http://formal-ai:41235' },
       formalAiPath: '/opt/formal-ai',
-      deps: { readVersionImpl: async () => '0.333.2', loadRegistryImpl: async () => [{ id: 'claude' }] },
+      deps: { readVersionImpl: async () => '0.336.0', loadRegistryImpl: async () => [{ id: 'claude' }] },
     }),
     /does not list a client configuration for "nonexistent"/
   );
@@ -480,7 +480,7 @@ test('prepareFormalAiRuntime creates the isolated HOME under the configured root
       env: { HIVE_MIND_FORMAL_AI_HOME_ROOT: dir },
       formalAiPath: '/opt/formal-ai',
       deps: {
-        readVersionImpl: async () => '0.333.2',
+        readVersionImpl: async () => '0.336.0',
         mkdtempImpl: async prefix => {
           prefixes.push(prefix);
           return home;

@@ -258,7 +258,7 @@ test('Formal AI connection validation checks the client registry and selected CL
     env: { HIVE_MIND_FORMAL_AI_PATH: '/opt/formal-ai' },
     run: async (command, args) => {
       calls.push({ command, args });
-      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.333.2\n' };
+      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.336.0\n' };
       if (command === '/opt/formal-ai') return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai', global_configs: [] }]) };
       return { stdout: 'qwen 1.2.3\n' };
     },
@@ -266,7 +266,7 @@ test('Formal AI connection validation checks the client registry and selected CL
 
   assert.equal(result.valid, true);
   assert.equal(result.version, 'qwen 1.2.3');
-  assert.equal(result.formalAiVersion, '0.333.2');
+  assert.equal(result.formalAiVersion, '0.336.0');
   assert.equal(result.client, 'qwen');
   assert.equal(result.protocol, 'openai');
   assert.deepEqual(calls, [
@@ -280,7 +280,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
     run: async (command, args) => {
-      if (args[0] === '--version') return { stdout: 'formal-ai 0.333.2\n' };
+      if (args[0] === '--version') return { stdout: 'formal-ai 0.336.0\n' };
       return { stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) };
     },
   });
@@ -290,7 +290,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   assert.match(result.error, /claude, codex/);
   // Issue #2130: the wrapper version has to survive onto the failure path too,
   // because that is the path whose logs get attached to the pull request.
-  assert.equal(result.formalAiVersion, '0.333.2');
+  assert.equal(result.formalAiVersion, '0.336.0');
 });
 
 test('Formal AI wrapper version is parsed from the --version line and reported on every result path', async () => {

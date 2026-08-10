@@ -34,10 +34,13 @@ assert.equal(isAgentStrongCompletionEvent({ type: 'session.idle' }), false);
 assert.equal(isAgentStrongCompletionEvent({ type: 'step_finish', part: { reason: 'stop' } }), true);
 assert.equal(isAgentStrongCompletionEvent({ type: 'result', status: 'success' }), true);
 
-assert.equal(parseFormalAiVersion('formal-ai 0.333.2\n'), '0.333.2');
-assert.equal(FORMAL_AI_MINIMUM_VERSION, '0.333.2');
-assert.doesNotThrow(() => assertSupportedFormalAiVersion('0.333.2'));
-assert.throws(() => assertSupportedFormalAiVersion('0.326.0'), /requires Formal AI >= 0\.333\.2.*found 0\.326\.0/i);
+assert.equal(parseFormalAiVersion('formal-ai 0.336.0\n'), '0.336.0');
+// The floor is the first release with the persisted-memory upgrade contract
+// (formal-ai#982): Hive Mind now replaces the container while it is idle, so an
+// unattended non-destructive memory migration is mandatory, not optional.
+assert.equal(FORMAL_AI_MINIMUM_VERSION, '0.336.0');
+assert.doesNotThrow(() => assertSupportedFormalAiVersion('0.336.0'));
+assert.throws(() => assertSupportedFormalAiVersion('0.333.2'), /requires Formal AI >= 0\.336\.0.*found 0\.333\.2/i);
 assert.throws(() => assertSupportedFormalAiVersion(null), /could not determine the Formal AI version/i);
 
 const formalAiPlan = ['Recorded and verified the bounded repository work-item plan.', '', 'Plan event (`.formal-ai/general-change-plan.lino`):', '', 'general_change_plan', '  id general-change-plan', '  goal First line\twith a tab', '  execution_mode full_execution'].join('\n');

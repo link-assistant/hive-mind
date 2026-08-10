@@ -44,9 +44,10 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { FORMAL_AI_BOOTSTRAP_VERSION } from './formal-ai-version.lib.mjs';
-import { isFormalAiModel } from './models/index.mjs';
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
+import { withStateLock } from './state-lock.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -80,10 +81,7 @@ export const FORMAL_AI_IMAGE_REPOSITORY = 'ghcr.io/link-assistant/formal-ai';
 export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
 
 const STATE_FILE_NAME = 'formal-ai-sidecar.json';
-const LOCK_DIR_NAME = 'formal-ai-sidecar.lock';
-const DEFAULT_LOCK_TIMEOUT_MS = 10 * 60 * 1000;
-const DEFAULT_LOCK_STALE_MS = 15 * 60 * 1000;
-const DEFAULT_LOCK_POLL_MS = 250;
+const SIDECAR_LOCK_NAME = 'formal-ai-sidecar';
 const DEFAULT_DOCKER_TIMEOUT_MS = 120_000;
 const DEFAULT_HEALTH_ATTEMPTS = 60;
 const DEFAULT_HEALTH_DELAY_MS = 1000;
@@ -109,8 +107,11 @@ export const isFormalAiTask = ({ args = [], model = null } = {}) => isFormalAiMo
 /** Resolve the image the sidecar boots with. Operators may pin their own build. */
 export const resolveFormalAiSidecarImage = (env = process.env) => String(env.HIVE_MIND_FORMAL_AI_IMAGE || '').trim() || `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
 
-/** The origin task containers use once attached to the internal network. */
-export const resolveFormalAiSidecarBaseUrl = () => `http://${FORMAL_AI_SIDECAR_NETWORK_ALIAS}:${FORMAL_AI_SIDECAR_PORT}`;
+/** Build the endpoint origin for a host name or address. */
+export const buildFormalAiSidecarBaseUrl = (host = FORMAL_AI_SIDECAR_NETWORK_ALIAS) => `http://${host}:${FORMAL_AI_SIDECAR_PORT}`;
+
+/** The DNS form of the endpoint, used when the sidecar's address is unknown. */
+export const resolveFormalAiSidecarBaseUrl = () => buildFormalAiSidecarBaseUrl(FORMAL_AI_SIDECAR_NETWORK_ALIAS);
 
 /**
  * The published image boots a Docker-in-Docker entrypoint. The sidecar only
@@ -125,8 +126,20 @@ export const shouldRunPrivilegedFormalAiSidecar = (env = process.env) => {
   return !['0', 'false', 'no', 'off'].includes(raw);
 };
 
+/**
+ * On-demand lifecycle is the default. `HIVE_MIND_FORMAL_AI_SIDECAR=0` opts a
+ * deployment out — for example one that still runs a permanently-up Formal AI
+ * service from Compose and reaches it through `HIVE_MIND_FORMAL_AI_BASE_URL`.
+ */
+export const isFormalAiSidecarEnabled = (env = process.env) => {
+  const raw = String(env.HIVE_MIND_FORMAL_AI_SIDECAR ?? '')
+    .trim()
+    .toLowerCase();
+  if (!raw) return true;
+  return !['0', 'false', 'no', 'off'].includes(raw);
+};
+
 export const resolveFormalAiSidecarStatePath = (env = process.env) => path.join(resolveBotStateDir(env), STATE_FILE_NAME);
-const resolveLockPath = (env = process.env) => path.join(resolveBotStateDir(env), LOCK_DIR_NAME);
 
 /** Read the durable sidecar record. A missing or corrupt file is an empty record, never a throw. */
 export const readFormalAiSidecarState = ({ env = process.env, fsImpl = fs } = {}) => {
@@ -153,52 +166,9 @@ export const writeFormalAiSidecarState = (state, { env = process.env, fsImpl = f
  * updates — behind one exclusive lock.
  *
  * Invariant 7 of the case study: a pull, CLI refresh or memory migration must
- * never begin while a task launch is in flight, and vice versa. `mkdir` is the
- * primitive because it is atomic on every filesystem the bot runs on.
+ * never begin while a task launch is in flight, and vice versa.
  */
-export const withFormalAiSidecarLock = async (fn, { env = process.env, fsImpl = fs, now = () => Date.now(), timeoutMs = DEFAULT_LOCK_TIMEOUT_MS, staleMs = DEFAULT_LOCK_STALE_MS, pollMs = DEFAULT_LOCK_POLL_MS, sleepImpl = sleep, log = null } = {}) => {
-  const lockPath = resolveLockPath(env);
-  fsImpl.mkdirSync(path.dirname(lockPath), { recursive: true });
-
-  const deadline = now() + timeoutMs;
-  for (;;) {
-    try {
-      fsImpl.mkdirSync(lockPath);
-      break;
-    } catch (error) {
-      if (error?.code !== 'EEXIST') throw error;
-      // Break a lock left behind by a killed process rather than deadlocking.
-      let age;
-      try {
-        age = now() - fsImpl.statSync(lockPath).mtimeMs;
-      } catch {
-        // The holder released it between mkdir and stat; retry immediately.
-        continue;
-      }
-      if (age > staleMs) {
-        if (log) await log(`⚠️ Formal AI sidecar lock held for ${Math.round(age / 1000)}s with no owner; breaking it`);
-        try {
-          fsImpl.rmSync(lockPath, { recursive: true, force: true });
-        } catch {
-          // Another waiter won the race; retry normally.
-        }
-        continue;
-      }
-      if (now() >= deadline) throw new Error(`Timed out after ${Math.round(timeoutMs / 1000)}s waiting for the Formal AI sidecar lock at ${lockPath}`, { cause: error });
-      await sleepImpl(pollMs);
-    }
-  }
-
-  try {
-    return await fn();
-  } finally {
-    try {
-      fsImpl.rmSync(lockPath, { recursive: true, force: true });
-    } catch {
-      // Losing the release is recoverable through the stale-lock path.
-    }
-  }
-};
+export const withFormalAiSidecarLock = (fn, options = {}) => withStateLock(SIDECAR_LOCK_NAME, fn, options);
 
 const dockerText = async (run, args, { timeoutMs = DEFAULT_DOCKER_TIMEOUT_MS } = {}) => {
   const result = await run('docker', args, { encoding: 'utf8', timeout: timeoutMs });
@@ -226,6 +196,23 @@ export const inspectDockerContainer = async (name, { run = execFileAsync, timeou
     return { exists: true, running: running === 'true', image: image || null, imageDigest: imageDigest || null };
   } catch {
     return { exists: false, running: false, image: null, imageDigest: null };
+  }
+};
+
+/**
+ * The sidecar's IPv4 address on the internal network.
+ *
+ * Task containers are given this address rather than the DNS alias. They are
+ * created on the default bridge and attached to the internal network only
+ * afterwards, so relying on Docker's embedded DNS being wired up
+ * post-attachment would be a needless gamble; the address cannot change during
+ * a lease, because an image replacement requires zero leases.
+ */
+export const readFormalAiSidecarAddress = async ({ containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME, network = FORMAL_AI_SIDECAR_NETWORK_NAME, run = execFileAsync, timeoutMs } = {}) => {
+  try {
+    return (await dockerText(run, ['inspect', containerName, '--format', `{{with index .NetworkSettings.Networks "${network}"}}{{.IPAddress}}{{end}}`], { timeoutMs })) || null;
+  } catch {
+    return null;
   }
 };
 
@@ -360,15 +347,36 @@ export const waitForFormalAiSidecarHealth = async ({ containerName = FORMAL_AI_S
   return last;
 };
 
-/** Drop leases whose task container no longer exists, so a crashed run cannot pin the sidecar. */
-const reconcileLeases = async (leases, { run, timeoutMs, log, verbose }) => {
+/**
+ * Drop leases whose task container no longer runs, so a crashed run cannot pin
+ * the sidecar.
+ *
+ * A lease is taken *before* start-command creates the task container, because
+ * the endpoint has to be known when the task's environment is built. During
+ * that window the container legitimately does not exist yet — and creating it
+ * can take a long time when the isolation image still has to be pulled. A lease
+ * that has never been seen running is therefore kept until
+ * `LEASE_START_GRACE_MS` elapses; afterwards, and always once the container has
+ * been observed, liveness is Docker's answer alone.
+ */
+const LEASE_START_GRACE_MS = 60 * 60 * 1000;
+
+const reconcileLeases = async (leases, { run, timeoutMs, log, verbose, now = () => Date.now() }) => {
   const live = [];
   for (const lease of leases) {
     if (!lease?.sessionId) continue;
     const container = await inspectDockerContainer(lease.sessionId, { run, timeoutMs });
     if (container.exists && container.running) {
-      live.push(lease);
+      live.push(lease.containerSeen ? lease : { ...lease, containerSeen: true });
       continue;
+    }
+    if (!lease.containerSeen) {
+      const age = now() - (Date.parse(lease.acquiredAt ?? '') || 0);
+      if (age < LEASE_START_GRACE_MS) {
+        if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: keeping lease '${lease.sessionId}' whose container has not appeared yet (${Math.round(age / 1000)}s into the ${Math.round(LEASE_START_GRACE_MS / 1000)}s launch grace)`);
+        live.push(lease);
+        continue;
+      }
     }
     if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: dropping stale lease '${lease.sessionId}' (container exists=${container.exists} running=${container.running})`);
   }
@@ -455,14 +463,17 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         throw new Error(`Formal AI sidecar '${FORMAL_AI_SIDECAR_CONTAINER_NAME}' did not become healthy: ${health.error}`);
       }
 
+      const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
       const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt }];
       writeFormalAiSidecarState({ ...state, image: container.image || image, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases }, { env, fsImpl });
 
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${container.image || image}, digest=${container.imageDigest ?? 'unknown'}, formal-ai=${health.health?.version ?? 'unknown'}, memory schema=${health.health?.memory?.schema_version ?? 'unknown'}`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${container.image || image}, digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${health.health?.version ?? 'unknown'}, memory schema=${health.health?.memory?.schema_version ?? 'unknown'}`);
 
       return {
-        baseUrl: resolveFormalAiSidecarBaseUrl(),
+        address,
+        baseUrl: address ? buildFormalAiSidecarBaseUrl(address) : resolveFormalAiSidecarBaseUrl(),
+        dnsBaseUrl: resolveFormalAiSidecarBaseUrl(),
         network: FORMAL_AI_SIDECAR_NETWORK_NAME,
         networkAlias: FORMAL_AI_SIDECAR_NETWORK_ALIAS,
         containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME,
@@ -528,13 +539,16 @@ export const releaseFormalAiSidecar = async ({ sessionId, env = process.env, fsI
 export default {
   acquireFormalAiSidecar,
   attachTaskToFormalAiNetwork,
+  buildFormalAiSidecarBaseUrl,
   buildFormalAiSidecarRunArgs,
   checkFormalAiSidecarHealth,
   ensureFormalAiMemoryVolume,
   ensureFormalAiNetwork,
   inspectDockerContainer,
+  isFormalAiSidecarEnabled,
   isFormalAiTask,
   readDockerImageDigest,
+  readFormalAiSidecarAddress,
   readFormalAiSidecarState,
   reconcileFormalAiSidecar,
   releaseFormalAiSidecar,

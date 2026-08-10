@@ -263,6 +263,7 @@ const { createSessionStore } = await import('./session-store.lib.mjs');
 const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await import('./bot-lifecycle.lib.mjs');
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
+const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
 
 // Initialize Sentry for error tracking
 await initializeSentry({
@@ -1244,6 +1245,7 @@ if (VERBOSE) {
 // Non-retryable errors (401 Unauthorized) cause immediate exit.
 const launchAbortController = new AbortController();
 let sessionMonitoringTimer = null;
+let formalAiMaintenance = null;
 let launchAnnouncementShown = false;
 
 function startSessionMonitoringOnce() {
@@ -1251,6 +1253,20 @@ function startSessionMonitoringOnce() {
   // Issue #2134: the monitor needs the isolation runner to start a recovery
   // working session when `--on-session-kill=resume` is in effect.
   sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner });
+}
+
+// Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
+// task holds a lease, then — while the host is idle — update its image (with a
+// non-destructive memory migration) and refresh the agentic CLIs. Every step is
+// best-effort and never blocks the bot.
+function startFormalAiMaintenanceOnce() {
+  if (formalAiMaintenance) return;
+  formalAiMaintenance = startFormalAiMaintenance({
+    verbose: VERBOSE,
+    log: async message => {
+      console.log(message);
+    },
+  });
 }
 
 // Issue #1927 (requirements #3/#4): a periodic timestamped heartbeat so the "last
@@ -1274,6 +1290,7 @@ async function onBotLaunched() {
   await resumeSessionsOnLaunch({ resumeTrackedSessions, botStartTime: BOT_START_TIME, verbose: VERBOSE, logger: botLogger });
 
   startSessionMonitoringOnce();
+  startFormalAiMaintenanceOnce();
   heartbeat.start();
 
   if (VERBOSE) {
@@ -1372,6 +1389,7 @@ const handleShutdownSignal = createShutdownHandler({
   cleanup: () => {
     launchAbortController.abort();
     if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
+    formalAiMaintenance?.stop();
     heartbeat.stop();
     stopSolveQueue();
   },

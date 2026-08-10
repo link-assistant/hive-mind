@@ -23,13 +23,16 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 import { log } from '../lib.mjs';
+import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
 // ─── MODEL DATA ──────────────────────────────────────────────────────────────
 
-export const FORMAL_AI_MODEL_ALIAS = 'formal-ai';
-export const FORMAL_AI_PROVIDER_MODEL_ID = 'formalai/formal-ai';
+// Defined in a leaf module so callers that only need the identity check (the
+// Formal AI sidecar lifecycle, issue #2146) do not have to import this catalogue
+// and its `use-m` bootstrap. Re-exported here so the public surface is unchanged.
+export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
 const formalAiNativeModelAliases = {
   [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_MODEL_ALIAS,
@@ -40,8 +43,6 @@ const formalAiProviderModelAliases = {
   [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_PROVIDER_MODEL_ID,
   [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_PROVIDER_MODEL_ID,
 };
-
-export const isFormalAiModel = model => model === FORMAL_AI_MODEL_ALIAS || model === FORMAL_AI_PROVIDER_MODEL_ID;
 
 // Claude models (Anthropic API)
 // Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5 / Mythos 5 support

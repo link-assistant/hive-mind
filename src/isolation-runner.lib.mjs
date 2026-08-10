@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
+import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
 
 let commandStreamDollarPromise = null;
 
@@ -670,11 +671,21 @@ export async function executeWithIsolation(command, args, options = {}) {
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
 
+  // Issue #2146 / PR #2147 review: a Formal AI task gets its own sidecar,
+  // started on demand and reachable only over an internal Docker network. The
+  // lease is taken before the container is launched so the endpoint is known
+  // when the task's environment is built, and released again if the launch
+  // fails. Fail closed — a Formal AI task must never start without Formal AI.
+  const hostEnv = options.env || process.env;
+  const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
+  if (sidecarError) return { success: false, sessionId, output: '', error: sidecarError };
+
+  const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
       ? {
           ...options,
-          env: await resolveFormalAiIsolationEnv(options.env || process.env),
+          env: await resolveFormalAiIsolationEnv(taskEnv),
         }
       : options;
   const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId });
@@ -704,11 +715,28 @@ export async function executeWithIsolation(command, args, options = {}) {
   }
 
   let containerFilesystemStartBytes = null;
+  let formalAiAttachError = null;
   if (result.success && backend === 'docker') {
     try {
       containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
+      // The task container exists but its command is still held by the start
+      // gate, which is the only safe moment to add a second network interface.
+      // `docker network connect` is additive; passing the internal network to
+      // `docker run --network` would have replaced the default bridge and cut
+      // the task off from GitHub (issue #2146).
+      formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
     } finally {
       await releaseDockerContainerStartGate(sessionId, verbose);
+    }
+  }
+
+  if (sidecar && (!result.success || formalAiAttachError)) {
+    // Fail closed: without the internal network the task cannot reach Formal
+    // AI, and issue #2146 forbids falling back to another model.
+    if (formalAiAttachError) await removeDockerContainer(sessionId, verbose);
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    if (formalAiAttachError) {
+      return { success: false, sessionId, output: result.output, error: `Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}` };
     }
   }
 

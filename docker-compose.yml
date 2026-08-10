@@ -1,4 +1,18 @@
-version: '3.8'
+# Compose deployment: a one-shot `solve.mjs` container plus the Formal AI
+# service it talks to.
+#
+# This is the *always-on* shape, and it is deliberately the exception. The
+# Telegram-bot deployment manages Formal AI on demand instead (issue #2146,
+# PR #2147 review): it starts the sidecar when a Formal AI task begins, attaches
+# the task's container to an internal network, stops the sidecar when the last
+# task ends, and updates the image while it is idle. Compose has no bot process
+# and no Docker socket to do that with, so here the service simply stays up for
+# as long as the deployment does — and `HIVE_MIND_FORMAL_AI_SIDECAR=0` tells any
+# Hive Mind process inside the deployment not to manage a second one.
+#
+# The two shapes share the memory volume name (`hive-mind-formal-ai-memory`) and
+# the network alias (`link-assistant-formal-ai`) on purpose, so Formal AI's
+# persisted memory survives a move between them.
 
 services:
   hive-mind-solver:
@@ -7,7 +21,10 @@ services:
       formal-ai:
         condition: service_healthy
     networks:
-      - formal-ai-network
+      # `default` keeps GitHub and the package registries reachable; the Formal
+      # AI network is internal and carries no egress (see below).
+      - default
+      - formal-ai
     volumes:
       # Mount GitHub credentials
       - ~/.config/gh:/home/box/.persisted-configs/gh:ro
@@ -21,6 +38,9 @@ services:
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
       - HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
+      # Formal AI is already running as a Compose service here, so Hive Mind
+      # must not start an on-demand sidecar next to it.
+      - HIVE_MIND_FORMAL_AI_SIDECAR=0
     command: |
       bash -c "
         # Restore credentials first
@@ -36,15 +56,22 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.formal-ai
+      # Only the INITIAL version is pinned (issue #2146, PR #2147 review):
+      # `docker compose build --build-arg FORMAL_AI_VERSION=<x.y.z>` moves it,
+      # and the bot deployment updates itself while idle.
     hostname: link-assistant-formal-ai
     networks:
-      formal-ai-network:
+      formal-ai:
         aliases:
           - link-assistant-formal-ai
-    privileged: true
+    environment:
+      # The service only serves HTTP, so the image's inner Docker daemon is not
+      # started — which is what lets this run unprivileged.
+      - DIND_SKIP_DAEMON=1
+      - FORMAL_AI_MEMORY_PATH=/home/box/.formal-ai/memory.lino
     volumes:
+      # Persisted memory. Same volume name the on-demand sidecar uses.
       - formal-ai-memory:/home/box/.formal-ai
-      - formal-ai-docker:/var/lib/docker
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health >/dev/null']
       interval: 10s
@@ -55,8 +82,11 @@ services:
 
 volumes:
   formal-ai-memory:
-  formal-ai-docker:
+    name: hive-mind-formal-ai-memory
 
 networks:
-  formal-ai-network:
-    name: link-assistant-formal-ai
+  formal-ai:
+    name: hive-mind-formal-ai
+    # No route out of this network: Formal AI is reachable from the task
+    # containers and from nowhere else.
+    internal: true

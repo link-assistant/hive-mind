@@ -61,7 +61,18 @@ cb0ac8d1570efc88ae14b524aa4b894723c3ae908d0f1f40821b4ac888ec15f3  solution-draft
 - Agent issue #208 and the prior broad issue search;
 - Formal AI issue #848, issues #902–#909, blocking persisted-memory upgrade issue #982, and merged PR #927;
 - start-command Docker-network issue #154;
-- the post-implementation PR feedback, issue/PR blocker-status comments, and the exact upstream report bodies under `data/upstream-issues/`;
+- the post-implementation PR feedback and the issue/PR blocker-status comments;
 - authenticated Gist API snapshots for every log above.
+
+`data/upstream-issues/` holds the verbatim text of everything this incident published, so a reader can compare what was requested with what shipped without an authenticated API call:
+
+| File                                      | Published as                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `formal-ai-unattended-memory-upgrades.md` | [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) — delivered in v0.336.0         |
+| `start-command-docker-network.md`         | [start#154](https://github.com/link-foundation/start/issues/154) — delivered in js-0.31.0 / rust-0.18.0 |
+| `agent-model-resolution-event.md`         | [agent#295](https://github.com/link-assistant/agent/issues/295) — open follow-up, not a blocker         |
+| `start-multiple-networks.md`              | [start#156](https://github.com/link-foundation/start/issues/156) — open follow-up, not a blocker        |
+| `hive-mind-blocker-status.md`             | the blocker-status comment posted to issue #2146 and PR #2147 while the prerequisites were open         |
+| `pr-2147-body.md`                         | the PR #2147 description as submitted for review                                                        |
 
 `data/upstream-snapshots.json` records release and source-head facts that were queried separately from issue/PR data.

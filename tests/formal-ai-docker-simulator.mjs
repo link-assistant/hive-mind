@@ -16,9 +16,10 @@
 
 const DEFAULT_HEALTH = { version: '0.337.0', memory: { compatible: true, schema_version: 2, migration_required: false, migration_state: 'current' } };
 
-const fail = message => {
+const fail = (message, stdout = '') => {
   const error = new Error(message);
   error.stderr = message;
+  error.stdout = stdout;
   throw error;
 };
 
@@ -135,9 +136,15 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     const subcommand = args[args.indexOf('memory') + 1];
     const payload = simulator.memory[subcommand];
     if (!payload) fail(`formal-ai memory ${subcommand}: refused`);
-    if (typeof payload === 'function') return JSON.stringify(payload(imageOf(args)));
+    const resolved = typeof payload === 'function' ? payload(imageOf(args)) : payload;
     // The published image's entrypoint prints a banner before the payload.
-    return `formal-ai container entrypoint\n${JSON.stringify(payload)}`;
+    const stdout = typeof payload === 'function' ? JSON.stringify(resolved) : `formal-ai container entrypoint\n${JSON.stringify(resolved)}`;
+    // Upstream prints the refusal on stdout and *then* exits nonzero
+    // (`src/cli_memory.rs`): an incompatible status for `upgrade-status`, an
+    // `{error: {code, message}}` object for `migrate`.
+    if (resolved.compatible === false) fail('persisted-memory preflight refused an incompatible file', stdout);
+    if (resolved.error) fail('persisted-memory migration refused to modify the file', stdout);
+    return stdout;
   };
 
   const handleRun = args => {

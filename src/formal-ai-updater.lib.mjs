@@ -76,6 +76,27 @@ export const parseJsonBlock = text => {
   return JSON.parse(raw.slice(start, end + 1));
 };
 
+/** `parseJsonBlock` for output that is allowed to contain no JSON at all. */
+export const tryParseJsonBlock = text => {
+  try {
+    return parseJsonBlock(text);
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Human-readable one-liner for the two refusal shapes the memory CLI prints:
+ * an upgrade status with `refusal_code`/`refusal_reason`, and a migration
+ * error object with `code`/`message`.
+ */
+export const describeMemoryRefusal = payload => {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.error?.code || payload.error?.message) return `${payload.error.code ?? 'error'}: ${payload.error.message ?? 'no message given'}`;
+  if (payload.refusal_code || payload.refusal_reason) return `${payload.refusal_code ?? 'incompatible'}: ${payload.refusal_reason ?? 'no reason given'}`;
+  return null;
+};
+
 const dockerText = async (run, args, { timeoutMs = DEFAULT_DOCKER_TIMEOUT_MS } = {}) => {
   const result = await run('docker', args, { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 });
   return String(result?.stdout ?? '').trim();
@@ -90,7 +111,19 @@ const dockerText = async (run, args, { timeoutMs = DEFAULT_DOCKER_TIMEOUT_MS } =
  */
 export const runFormalAiMemoryCommand = async (image, memoryArgs, { run = execFileAsync, timeoutMs } = {}) => {
   const args = ['run', '--rm', '--env', 'DIND_SKIP_DAEMON=1', '--env', `FORMAL_AI_MEMORY_PATH=${FORMAL_AI_MEMORY_PATH}`, '--volume', `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`, image, 'formal-ai', 'memory', ...memoryArgs];
-  return parseJsonBlock(await dockerText(run, args, { timeoutMs }));
+  try {
+    return parseJsonBlock(await dockerText(run, args, { timeoutMs }));
+  } catch (error) {
+    // A refusal is *also* a documented answer: `memory upgrade-status` and
+    // `memory migrate` print their JSON on stdout and only then exit nonzero.
+    // Re-throwing the bare process error would discard the refusal code the
+    // operator needs, so the payload travels with the failure.
+    const payload = tryParseJsonBlock(error?.stdout);
+    if (!payload) throw error;
+    const failure = new Error(describeMemoryRefusal(payload) || error?.message || 'Formal AI refused the persisted memory');
+    failure.payload = payload;
+    throw failure;
+  }
 };
 
 /** Byte-exact SHA-256 of a file inside the memory volume, or null when it is absent. */
@@ -194,9 +227,9 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
       try {
         preflight = await runFormalAiMemoryCommand(image, ['upgrade-status', '--path', FORMAL_AI_MEMORY_PATH, '--format', 'json'], { run, timeoutMs });
       } catch (error) {
-        const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
+        const message = error?.payload ? error.message : error?.stderr?.toString?.().trim() || error?.message || String(error);
         if (log) await log(`🚨 Formal AI ${image} refused the persisted memory during preflight; keeping ${runningDigest ?? 'the current image'}: ${message}`);
-        return { status: 'failed', stage: 'preflight', image, digest: pulledDigest, error: message };
+        return { status: 'failed', stage: 'preflight', image, digest: pulledDigest, preflight: error?.payload ?? null, error: message };
       }
 
       if (preflight.compatible === false) {
@@ -212,10 +245,10 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
         try {
           receipt = await runFormalAiMemoryCommand(image, ['migrate', '--path', FORMAL_AI_MEMORY_PATH, '--backup', backupPath, '--receipt', receiptPath, '--format', 'json'], { run, timeoutMs });
         } catch (error) {
-          const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
+          const message = error?.payload ? error.message : error?.stderr?.toString?.().trim() || error?.message || String(error);
           // The contract is refuse-or-succeed: a failed migrate leaves the file alone.
           if (log) await log(`🚨 Formal AI memory migration refused to modify the file; keeping the current image: ${message}`);
-          return { status: 'failed', stage: 'migrate', image, digest: pulledDigest, preflight, error: message };
+          return { status: 'failed', stage: 'migrate', image, digest: pulledDigest, preflight, refusal: error?.payload ?? null, error: message };
         }
 
         // A preflight that mutated the file would break the contract's core
@@ -249,8 +282,10 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
 
 export default {
   FORMAL_AI_UPDATE_TAG,
+  describeMemoryRefusal,
   isFormalAiAutoUpdateEnabled,
   parseJsonBlock,
+  tryParseJsonBlock,
   readMemoryFileSha256,
   resolveFormalAiUpdateImage,
   rollbackFormalAiMemory,

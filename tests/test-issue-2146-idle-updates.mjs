@@ -197,6 +197,41 @@ assert.deepEqual(await updateFormalAiSidecarWhenIdle({ env: makeEnv({ HIVE_MIND_
 }
 
 {
+  // `memory upgrade-status` prints its refusal on stdout and then exits
+  // nonzero (formal-ai `src/cli_memory.rs`), so the reason must survive the
+  // failure rather than being reduced to "exit code 1".
+  const env = makeEnv();
+  const refusal = { ...preflight, compatible: false, migration_required: false, refusal_code: 'future_schema', refusal_reason: 'memory schema 9 is newer than this build can read' };
+  const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' }, pull: { [UPDATE_IMAGE]: 'sha256:new' }, memory: { 'upgrade-status': refusal } });
+  seedRunningSidecar(env, 'sha256:old');
+
+  const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.stage, 'preflight');
+  assert.equal(result.preflight.refusal_code, 'future_schema');
+  assert.match(result.error, /future_schema: memory schema 9 is newer/);
+  assert.equal(docker.ran(/memory migrate/), false);
+}
+
+{
+  // The same for a refused migration, whose payload is `{error: {code, message}}`.
+  const env = makeEnv();
+  const docker = createDockerSimulator({
+    images: { [UPDATE_IMAGE]: 'sha256:old' },
+    pull: { [UPDATE_IMAGE]: 'sha256:new' },
+    memory: { 'upgrade-status': preflight, migrate: { error: { code: 'writer_locked', message: 'another process holds the memory writer lock' }, status: 'refused' } },
+  });
+  seedRunningSidecar(env, 'sha256:old');
+
+  const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, ...fastUpdate });
+  assert.equal(result.status, 'failed');
+  assert.equal(result.stage, 'migrate');
+  assert.equal(result.refusal.error.code, 'writer_locked');
+  assert.match(result.error, /writer_locked: another process holds/);
+  assert.equal(docker.ran(/run --detach/), false, 'a refused migration never boots the candidate');
+}
+
+{
   // An unreachable registry is not a reason to disturb a working install.
   const env = makeEnv();
   const docker = createDockerSimulator({ images: { [UPDATE_IMAGE]: 'sha256:old' }, pullError: 'Error response from daemon: unauthorized' });

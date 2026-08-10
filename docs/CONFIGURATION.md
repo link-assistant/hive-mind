@@ -111,6 +111,32 @@ Hive Mind runs these commands through `formal-ai with <tool>`. Without additiona
 
 The root `docker-compose.yml` starts the persistent service at `http://link-assistant-formal-ai:8080` and stores its memory in the `formal-ai-memory` volume. See [Docker Support](DOCKER.md#persistent-formal-ai-service).
 
+#### On-demand Formal AI container
+
+The Telegram-bot deployment does not keep Formal AI running. A task that requests `--model formal-ai` takes a lease on one shared `hive-mind-formal-ai` container, started with the first lease and stopped when the last one is released. The container joins the internal Docker network `hive-mind-formal-ai`: no port is published to the host and the network has no route out, so Formal AI is reachable from the task containers attached to it and from nowhere else. Persisted memory lives in the `hive-mind-formal-ai-memory` volume, which is never removed — not when the container stops, not when its image changes.
+
+If the container cannot be started, or a task container cannot be attached to the network, the task is stopped rather than continued on a different model ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)).
+
+| Environment Variable              | Default   | Description                                                                                                                                                   |
+| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_FORMAL_AI_SIDECAR`     | `1`       | Set to `0` where Formal AI is already provided by the deployment, as in `docker-compose.yml`, so a second container is not started next to it.                |
+| `HIVE_MIND_FORMAL_AI_IMAGE`       | _(unset)_ | Pins an exact image. Only the initial version ships pinned; setting this is an operator decision and therefore also disables the automatic update below.      |
+| `HIVE_MIND_FORMAL_AI_AUTO_UPDATE` | `1`       | Replaces the image while no Formal AI task holds a lease. Set to `0` to keep the current image until it is changed by hand.                                   |
+| `HIVE_MIND_FORMAL_AI_UPDATE_TAG`  | `latest`  | Tag an update follows.                                                                                                                                        |
+| `HIVE_MIND_FORMAL_AI_PRIVILEGED`  | `0`       | Runs the container with `--privileged`. Not needed by default: the container serves HTTP only and skips its inner Docker daemon through `DIND_SKIP_DAEMON=1`. |
+
+An update never replaces the image blindly. It pulls, compares digests, and — following the Formal AI persisted-memory upgrade contract ([formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)) — runs a side-effect-free `memory upgrade-status` preflight, then `memory migrate` with a byte-exact backup and a receipt, then boots the new image and requires `/health` to report compatible memory. Anything that fails after the migration restores the backup named in the receipt and keeps the previous image. See [the issue #2146 case study](case-studies/issue-2146/README.md).
+
+#### Idle agentic CLI updates
+
+While the host runs no task, the bot compares each installed agentic CLI against the version published on npm and reinstalls only the ones that moved. `@link-assistant/hive-mind` is excluded, because replacing the package that owns the running process mid-flight leaves a half-swapped bot, and so is `start-command`, whose exact version the image pins deliberately.
+
+| Environment Variable                   | Default   | Description                                                                                             |
+| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`       | Set to `0` to leave the CLIs to the image build.                                                        |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _(unset)_ | Comma-separated allow-list of ids: `claude`, `codex`, `agent`, `gemini`, `qwen`, `copilot`, `opencode`. |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _(unset)_ | Comma-separated deny-list using the same ids.                                                           |
+
 `formal-ai` remains opt-in. The default models do not change until the coding ladder described in [the issue #2059 case study](case-studies/issue-2059/capability-gate.md) demonstrates reliable code edits and complete issue-to-PR runs.
 
 ### 4.2. Codex Capability Preflight

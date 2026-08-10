@@ -111,6 +111,32 @@ Hive Mind 通过 `formal-ai with <tool>` 运行这些命令。若无其他配置
 
 根目录的 `docker-compose.yml` 会在 `http://link-assistant-formal-ai:8080` 启动持久服务，并将内存保存在 `formal-ai-memory` 卷中。详见 [Docker 支持](DOCKER.zh.md)。
 
+#### 按需启动的 Formal AI 容器
+
+Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model formal-ai` 的任务会对共享的 `hive-mind-formal-ai` 容器取得一份租约：第一份租约启动容器，最后一份释放时停止容器。该容器接入内部 Docker 网络 `hive-mind-formal-ai`：不向宿主机发布端口，网络也没有对外出口，因此只有接入该网络的任务容器才能访问 Formal AI。持久化内存保存在 `hive-mind-formal-ai-memory` 卷中，该卷永远不会被删除——容器停止时不会，镜像更换时也不会。
+
+如果容器无法启动，或任务容器无法接入该网络，任务会被停止，而不是改用其他模型继续（[issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)）。
+
+| 环境变量                          | 默认值   | 说明                                                                                                              |
+| --------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_FORMAL_AI_SIDECAR`     | `1`      | 当部署已提供 Formal AI（如 `docker-compose.yml`）时设为 `0`，以免在旁边再启动一个容器。                           |
+| `HIVE_MIND_FORMAL_AI_IMAGE`       | _未设置_ | 固定具体镜像。仅初始版本随镜像固定；设置该变量属于运维决策，因此同时会关闭下面的自动更新。                        |
+| `HIVE_MIND_FORMAL_AI_AUTO_UPDATE` | `1`      | 在没有 Formal AI 任务持有租约时替换镜像。设为 `0` 则保持当前镜像直至手动更换。                                    |
+| `HIVE_MIND_FORMAL_AI_UPDATE_TAG`  | `latest` | 更新所跟随的标签。                                                                                                |
+| `HIVE_MIND_FORMAL_AI_PRIVILEGED`  | `0`      | 以 `--privileged` 运行容器。默认无需开启：容器只提供 HTTP，并通过 `DIND_SKIP_DAEMON=1` 跳过内部 Docker 守护进程。 |
+
+更新绝不会盲目替换镜像。它会执行 pull、比较摘要，并遵循 Formal AI 持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）：先运行无副作用的 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像并要求 `/health` 报告内存兼容。迁移之后的任何失败都会按回执恢复备份并保留原镜像。详见 [issue #2146 案例研究](case-studies/issue-2146/README.md)。
+
+#### 空闲时的 agentic CLI 更新
+
+当宿主机没有运行中的任务时，机器人会把已安装的各个 agentic CLI 与 npm 上发布的版本比较，仅重新安装发生变化的那些。`@link-assistant/hive-mind` 被排除在外，因为中途替换持有当前进程的包会留下一个替换到一半的机器人；`start-command` 同样被排除，因为镜像有意固定了它的确切版本。
+
+| 环境变量                               | 默认值   | 说明                                                                                        |
+| -------------------------------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`      | 设为 `0` 则完全交由镜像构建决定 CLI 版本。                                                  |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _未设置_ | 以逗号分隔的允许列表：`claude`、`codex`、`agent`、`gemini`、`qwen`、`copilot`、`opencode`。 |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _未设置_ | 使用相同标识符的逗号分隔排除列表。                                                          |
+
 `formal-ai` 仍须显式启用。在 [issue #2059 案例研究](case-studies/issue-2059/capability-gate.md)中的编码阶梯证明其能够可靠编辑代码并完整完成 issue 到 PR 的流程之前，默认模型不会改变。
 
 ### 4.2. Codex 能力预检

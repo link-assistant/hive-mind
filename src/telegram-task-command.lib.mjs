@@ -1,6 +1,7 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
+import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
 import { parseFixRepository } from './fix.ci-cd.lib.mjs';
@@ -45,14 +46,6 @@ export function getTaskToolFromArgs(args) {
     if (args[i].startsWith('--tool=')) return args[i].substring('--tool='.length);
   }
   return 'claude';
-}
-
-function getModelFromArgs(args) {
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--model' || args[i] === '-m') && i + 1 < args.length) return args[i + 1];
-    if (args[i].startsWith('--model=')) return args[i].substring('--model='.length);
-  }
-  return null;
 }
 
 function validateTaskModel(args) {

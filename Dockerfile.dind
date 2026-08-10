@@ -150,9 +150,13 @@ RUN bun install -g @openai/codex && \
 # 0.30.3 (start#148/#149) reconciles detached Docker `OOMKilled=true` as terminal
 # in upstream `--status`/`--list`, which directly covers issue #2015.
 # 0.31.0 (start#154 / start PR #155) adds `--network` / `--network-alias` for the
-# docker isolation backend, which lets Hive Mind attach a Formal AI task
-# container to the private internal sidecar network at launch instead of racing
-# a post-create `docker network connect` (issue #2146).
+# docker isolation backend. Hive Mind adopts the release but still attaches the
+# Formal AI sidecar network with `docker network connect` inside the start gate:
+# upstream maps `--network` straight onto `docker run --network`, which REPLACES
+# the default bridge, so an `--internal` sidecar network passed that way would
+# also cut the task off from GitHub and the package registries. An additive
+# attach option is requested upstream; see docs/case-studies/issue-2146
+# (issue #2146).
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \

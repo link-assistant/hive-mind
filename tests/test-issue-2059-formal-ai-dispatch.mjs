@@ -395,7 +395,14 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
   assert.match(verifyImageScript, /check_tool "Formal AI" formal-ai --version/, 'image verification must exercise the installed wrapper');
   assert.match(compose, /hostname: link-assistant-formal-ai/, 'the service must have the requested stable network hostname');
   assert.match(compose, /aliases:\s+- link-assistant-formal-ai/, 'the stable hostname must be registered in Compose DNS');
-  assert.match(compose, /formal-ai-network:\s+name: link-assistant-formal-ai/, 'Compose must create the requested stable Docker network');
+  // The Compose network and volume deliberately carry the same Docker names the
+  // on-demand sidecar uses (issue #2146, PR #2147 review), so persisted memory
+  // survives a move between the two deployment shapes, and the network is
+  // `internal` so the always-on service is no more reachable than the sidecar.
+  assert.match(compose, /^ {2}formal-ai:\n {4}name: hive-mind-formal-ai$/m, 'Compose must create the shared Formal AI network under the same Docker name as the sidecar');
+  assert.match(compose, /^ {4}internal: true$/m, 'the Compose Formal AI network must carry no egress');
+  assert.match(compose, /^ {2}formal-ai-memory:\n {4}name: hive-mind-formal-ai-memory$/m, 'the Compose memory volume must be the volume the sidecar reuses');
   assert.match(compose, /formal-ai-memory:\/home\/box\/\.formal-ai/, 'the Formal AI memory must survive service restarts');
+  assert.match(compose, /HIVE_MIND_FORMAL_AI_SIDECAR=0/, 'a Compose deployment must not also start an on-demand sidecar');
   assert.match(compose, /HIVE_MIND_FORMAL_AI_BASE_URL=http:\/\/link-assistant-formal-ai:8080/, 'Hive Mind must use the persistent service endpoint');
 });

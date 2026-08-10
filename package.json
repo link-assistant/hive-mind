@@ -75,6 +75,7 @@
     "@sentry/node": "^10.62.0",
     "@sentry/profiling-node": "^10.62.0",
     "agent-commander": "^0.8.0",
+    "brace-expansion": "^1.1.16",
     "dayjs": "^1.11.21",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",

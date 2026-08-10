@@ -75,6 +75,7 @@ cb0ac8d1570efc88ae14b524aa4b894723c3ae908d0f1f40821b4ac888ec15f3  solution-draft
 | `formal-ai-openssl-build-dependency.md`   | [formal-ai#988](https://github.com/link-assistant/formal-ai/issues/988) — open, worked around downstream    |
 | `web-capture-default-tls.md`              | [web-capture#151](https://github.com/link-assistant/web-capture/issues/151) — root cause of #988            |
 | `browser-commander-default-tls.md`        | [browser-commander#77](https://github.com/link-foundation/browser-commander/issues/77) — root cause of #988 |
+| `start-network-test-rate-limit.md`        | [start#160](https://github.com/link-foundation/start/issues/160) — blocks the js-0.32.0 release of #156     |
 | `hive-mind-blocker-status.md`             | the blocker-status comment posted to issue #2146 and PR #2147 while the prerequisites were open             |
 | `pr-2147-body.md`                         | the PR #2147 description as submitted for review                                                            |
 

@@ -1,5 +1,13 @@
 # @link-assistant/hive-mind
 
+## 2.12.1
+
+### Patch Changes
+
+- d606c77: Restore Node 24 command execution, make runtime-loaded dependencies reproducible,
+  and strengthen CI status, security, warning, and smoke-test enforcement.
+- 098b01a: Report auto-resumed limit-reset sessions with their start marker, summary, and execution log.
+
 ## 2.12.0
 
 ### Minor Changes

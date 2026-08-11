@@ -17,14 +17,14 @@ echo "npm link completed successfully"
 
 echo ""
 echo "Testing 'hive' global command..."
-timeout 10s hive --version || true
-timeout 10s hive --help || echo "Help command completed"
+timeout 10s hive --version
+timeout 10s hive --help
 echo "'hive' global command works"
 
 echo ""
 echo "Testing 'solve' global command..."
-timeout 10s solve --version || true
-timeout 10s solve --help || echo "Help command completed"
+timeout 10s solve --version
+timeout 10s solve --help
 echo "'solve' global command works"
 
 echo ""
@@ -38,7 +38,7 @@ echo "'configure-claude' global command works"
 
 echo ""
 echo "Testing 'hive-telegram-bot' global command..."
-timeout 10s hive-telegram-bot --help || echo "Help command completed"
+timeout 10s hive-telegram-bot --help
 echo "'hive-telegram-bot' global command works"
 
 echo ""

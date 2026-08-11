@@ -40,22 +40,23 @@ const assert = (condition, message) => {
 const noopCommandRunner = async () => ({ code: 1, stdout: '', stderr: '' });
 
 globalThis.use = async moduleName => {
-  if (moduleName === 'command-stream') {
+  const packageName = moduleName.replace(/@\d[^/]*$/, '');
+  if (packageName === 'command-stream') {
     return { $: noopCommandRunner };
   }
-  if (moduleName === 'fs') {
+  if (packageName === 'fs') {
     return fs;
   }
-  if (moduleName === 'path') {
+  if (packageName === 'path') {
     return await import('path');
   }
-  if (moduleName === 'os') {
+  if (packageName === 'os') {
     return await import('os');
   }
-  if (moduleName === 'getenv') {
+  if (packageName === 'getenv') {
     return (name, fallback) => process.env[name] ?? fallback;
   }
-  if (moduleName === 'links-notation') {
+  if (packageName === 'links-notation') {
     return {
       Parser: class {
         parse() {

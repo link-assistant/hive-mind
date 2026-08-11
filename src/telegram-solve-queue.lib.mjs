@@ -9,7 +9,6 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/1041
  */
-
 import { getCachedClaudeLimits, getCachedCodexLimits, getCachedGitHubLimits, getCachedMemoryInfo, getCachedCpuInfo, getCachedDiskInfo, getLimitCache } from './limits.lib.mjs';
 export { formatDuration, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses } from './telegram-solve-queue.helpers.lib.mjs';
 import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWaitingReason, getRunningAgentProcesses, getRunningClaudeProcesses, getRunningCodexProcesses, getRunningGeminiProcesses, getRunningProcesses, getRunningQwenProcesses, getRunningSessionItems, groupQueueItemsByTool, reportDequeueDecision } from './telegram-solve-queue.helpers.lib.mjs';
@@ -19,7 +18,6 @@ import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
-
 export const QueueItemStatus = {
   QUEUED: 'queued',
   WAITING: 'waiting',
@@ -28,20 +26,16 @@ export const QueueItemStatus = {
   FAILED: 'failed',
   CANCELLED: 'cancelled',
 };
-
 function getLocale(options = {}) {
   if (typeof options === 'string') return options;
   return options?.locale || null;
 }
-
 function appendWaitingForCurrentCommand(reason, locale) {
   return `${reason} (${lt('queue_waiting_current_command', {}, { locale })})`;
 }
-
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
 }
-
 /**
  * Queue item representing a /solve command request
  */
@@ -57,8 +51,7 @@ class SolveQueueItem {
     this.tool = options.tool || 'claude';
     // Issue #1983: preserve per-command isolation through queued execution.
     this.perCommandIsolation = options.perCommandIsolation || null;
-    // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion
-    //   notifications can look up linked PRs for issue URLs.
+    // Issue #1688: keep parsed URL context (owner/repo/number/type) so completion   notifications can look up linked PRs for issue URLs.
     this.urlContext = options.urlContext || null;
     // Issue #1688: requester user ID for /subscribe duplicate-suppression.
     this.requesterUserId = options.ctx?.from?.id ?? null;
@@ -75,11 +68,9 @@ class SolveQueueItem {
     this.sessionName = null;
     // Message tracking - forget after STARTED
     this.messageInfo = null; // { chatId, messageId }
-    // Track when we last updated the Telegram message
-    // See: https://github.com/link-assistant/hive-mind/issues/1078
+    // Track when we last updated the Telegram message See: https://github.com/link-assistant/hive-mind/issues/1078
     this.lastMessageUpdateTime = null;
   }
-
   /**
    * Update status to waiting with reason
    * @param {string} reason - Waiting reason
@@ -88,7 +79,6 @@ class SolveQueueItem {
     this.status = QueueItemStatus.WAITING;
     this.waitingReason = reason;
   }
-
   /**
    * Update status to starting
    */
@@ -97,7 +87,6 @@ class SolveQueueItem {
     this.startedAt = new Date();
     this.waitingReason = null;
   }
-
   /**
    * Update status to started and clear message tracking
    * @param {string} sessionName - Session name for debugging
@@ -108,7 +97,6 @@ class SolveQueueItem {
     // Terminal status - forget message tracking
     this.messageInfo = null;
   }
-
   /**
    * Mark item as failed
    * @param {Error|string} error - Error that occurred
@@ -117,14 +105,12 @@ class SolveQueueItem {
     this.status = QueueItemStatus.FAILED;
     this.error = error instanceof Error ? error.message : error;
   }
-
   /**
    * Mark item as cancelled
    */
   setCancelled() {
     this.status = QueueItemStatus.CANCELLED;
   }
-
   /**
    * Get wait time in queue (ms)
    */
@@ -132,7 +118,6 @@ class SolveQueueItem {
     const endTime = this.startedAt || new Date();
     return endTime - this.createdAt;
   }
-
   /**
    * Format for display
    * @returns {string}
@@ -141,7 +126,6 @@ class SolveQueueItem {
     return `[${this.id}] ${this.url} (${this.status})`;
   }
 }
-
 /**
  * Solve Queue - Producer/Consumer queue for /solve commands
  *
@@ -159,13 +143,10 @@ export class SolveQueue {
     this.messageUpdateCallback = options.messageUpdateCallback || null;
     this.getRunningProcessesFn = options.getRunningProcesses || getRunningProcesses;
     this.getRunningIsolatedSessionsFn = options.getRunningIsolatedSessions || getRunningIsolatedSessions;
-    // Source of currently-executing detached sessions (with issue/PR URLs) used
-    // to list executing tasks in the detailed status (issue #1837).
+    // Source of currently-executing detached sessions (with issue/PR URLs) used to list executing tasks in the detailed status (issue #1837).
     this.getRunningSessionItemsFn = options.getRunningSessionItems || getRunningSessionItems;
     this.autoStart = options.autoStart !== false;
-
-    // Separate queues per tool type - claude tasks never block other tool tasks
-    // See: https://github.com/link-assistant/hive-mind/issues/1159
+    // Separate queues per tool type - claude tasks never block other tool tasks See: https://github.com/link-assistant/hive-mind/issues/1159
     this.queues = {
       claude: [],
       agent: [],
@@ -177,7 +158,6 @@ export class SolveQueue {
     this.completed = [];
     this.failed = [];
     this.isRunning = true;
-
     // Timing - separate per tool to ensure independent processing
     this.lastStartTimeByTool = {
       claude: null,
@@ -187,10 +167,8 @@ export class SolveQueue {
       gemini: null,
     };
     this.lastStartTime = null; // Legacy: global last-start timestamp
-
     // Consumer task reference
     this.consumerTask = null;
-
     // Statistics
     this.stats = {
       totalEnqueued: 0,
@@ -200,10 +178,8 @@ export class SolveQueue {
       totalCancelled: 0,
       throttleReasons: {},
     };
-
     this.log('SolveQueue initialized with separate tool queues');
   }
-
   /**
    * Get the queue array for a specific tool, creating it if needed
    * @param {string} tool - Tool type ('claude', 'agent', 'codex', 'gemini', etc.)
@@ -215,7 +191,6 @@ export class SolveQueue {
     }
     return this.queues[tool];
   }
-
   /**
    * Get combined queue length across all tools (for backwards compatibility)
    * @returns {number} Total queue length
@@ -227,7 +202,6 @@ export class SolveQueue {
     }
     return total;
   }
-
   /**
    * Get total pending count across all tool queues
    * @returns {number} Total pending items
@@ -239,7 +213,6 @@ export class SolveQueue {
     }
     return total;
   }
-
   /**
    * Log message if verbose mode is enabled
    * @param {string} message
@@ -249,7 +222,6 @@ export class SolveQueue {
       console.log(`[VERBOSE] /queue: ${message}`);
     }
   }
-
   /**
    * Add a solve command to the appropriate tool queue
    * Items are added to the queue for their specific tool type.
@@ -262,15 +234,11 @@ export class SolveQueue {
     const toolQueue = this.getToolQueue(item.tool);
     toolQueue.push(item);
     this.stats.totalEnqueued++;
-
     this.log(`Enqueued: ${item.toString()} to ${item.tool} queue, queue length: ${toolQueue.length}`);
-
     // Start consumer if not already running
     if (this.autoStart) this.ensureConsumerRunning();
-
     return item;
   }
-
   /**
    * Find an item by URL in any queue or processing items
    * Used to prevent duplicate URLs from being added to the queue
@@ -286,17 +254,14 @@ export class SolveQueue {
         return queuedItem;
       }
     }
-
     // Check processing items
     for (const item of this.processing.values()) {
       if (item.url === url) {
         return item;
       }
     }
-
     return null;
   }
-
   /**
    * Cancel a queued item by ID
    * Searches all tool queues to find the item.
@@ -316,15 +281,12 @@ export class SolveQueue {
         return true;
       }
     }
-
     if (this.processing.has(id)) {
       this.log(`Cannot cancel processing item: ${id}`);
       return false;
     }
-
     return false;
   }
-
   /**
    * Get queue statistics
    * @returns {Object}
@@ -337,7 +299,6 @@ export class SolveQueue {
       queuedByTool[tool] = toolQueue.length;
       totalQueued += toolQueue.length;
     }
-
     return {
       queued: totalQueued,
       queuedByTool,
@@ -351,7 +312,6 @@ export class SolveQueue {
       isRunning: this.isRunning,
     };
   }
-
   /**
    * Count processing items by tool type
    * Used for tool-specific limit checking - e.g., Claude limits only count Claude processing items
@@ -368,17 +328,14 @@ export class SolveQueue {
     }
     return count;
   }
-
   recordStart(tool = 'claude', startTime = Date.now()) {
     this.lastStartTimeByTool[tool] = startTime;
     this.lastStartTime = startTime;
     return startTime;
   }
-
   reserveStartSlot(options = {}) {
     return reserveStartSlotForQueue(this, options);
   }
-
   /**
    * Find the next startable item across all tool queues. Each tool is checked
    * independently so tool-specific limits do not block unrelated tools; issue
@@ -393,56 +350,41 @@ export class SolveQueue {
    */
   async findStartableItems() {
     const startableItems = [];
-    // Per-tool head diagnostics: why each queue head is/isn't startable, so
-    // global FIFO ordering can be audited in production (issue #2051).
+    // Per-tool head diagnostics: why each queue head is/isn't startable, so global FIFO ordering can be audited in production (issue #2051).
     const headDiagnostics = [];
-
     for (const [tool, toolQueue] of Object.entries(this.queues)) {
       if (toolQueue.length === 0) continue;
-
       // Check if first item in this tool's queue can start
       const check = await this.canStartCommand({ tool, locale: toolQueue[0]?.locale || null });
-
-      // When a 'reject' strategy threshold is exceeded, immediately reject
-      // all items in this tool's queue instead of leaving them waiting.
-      // See: https://github.com/link-assistant/hive-mind/issues/1555
+      // When a 'reject' strategy threshold is exceeded, immediately reject all items in this tool's queue instead of leaving them waiting. See: https://github.com/link-assistant/hive-mind/issues/1555
       if (check.rejected) {
         await this.rejectAllItemsInQueue(tool, toolQueue, check.rejectReason);
         continue;
       }
-
       const item = toolQueue[0];
       if (!item) continue;
-
-      // Determine startability and capture the blocking reason(s) for diagnostics.
-      // For tool-specific one-at-a-time, only count that tool's processing items.
+      // Determine startability and capture the blocking reason(s) for diagnostics. For tool-specific one-at-a-time, only count that tool's processing items.
       const toolProcessingCount = this.getProcessingCountByTool(tool);
       let startable = false;
       const blockReasons = Array.isArray(check.reasons) ? [...check.reasons] : [];
       if (check.canStart) {
         if (check.oneAtATime && toolProcessingCount > 0) {
-          // One-at-a-time for this tool with a task already processing: skip it
-          // but don't block other tools.
+          // One-at-a-time for this tool with a task already processing: skip it but don't block other tools.
           blockReasons.push(`one-at-a-time: ${toolProcessingCount} ${tool} task(s) already processing`);
         } else {
           startable = true;
           startableItems.push({ item, tool, index: 0, check });
         }
       }
-
       headDiagnostics.push({ tool, item, ageMs: Date.now() - item.createdAt, startable, blockReasons });
     }
-
     // Global FIFO: the oldest startable head wins the (globally paced) startup slot.
     startableItems.sort((a, b) => a.item.createdAt - b.item.createdAt);
     const selected = startableItems.slice(0, 1);
-
     // Observe the dequeue decision (issue #2051): see reportDequeueDecision().
     reportDequeueDecision(this, headDiagnostics, selected[0]);
-
     return selected;
   }
-
   /**
    * Reject all items in a tool queue and notify users.
    * Called when a 'reject' strategy threshold is exceeded for queued items.
@@ -459,14 +401,11 @@ export class SolveQueue {
       item.setFailed(reason);
       this.failed.push(item);
       this.stats.totalFailed++;
-
       this.log(`Rejected queued item: ${item.toString()} from ${tool} queue - ${reason}`);
-
       await this.updateItemMessage(item, t('telegram.solve_rejected', { infoBlock: item.infoBlock, reason }, { locale: item.locale }));
     }
     while (this.failed.length > 100) this.failed.shift();
   }
-
   /**
    * Find first queue item that can start based on its tool's limits (legacy compatibility)
    * With separate queues, returns the first startable item from any tool queue.
@@ -482,7 +421,6 @@ export class SolveQueue {
     }
     return { item: null, index: -1, check: null };
   }
-
   /**
    * Get queue items summary for display
    * Combines items from all tool queues into a single pending list.
@@ -506,10 +444,8 @@ export class SolveQueue {
         });
       }
     }
-
     // Sort by createdAt to show oldest first (global order)
     pending.sort((a, b) => a.createdAt - b.createdAt);
-
     return {
       pending,
       processing: Array.from(this.processing.values()).map(item => ({
@@ -522,7 +458,6 @@ export class SolveQueue {
       })),
     };
   }
-
   /**
    * Get external processing counts from both process scanning and tracked
    * isolated sessions. The displayed/accounted value is the maximum of the two
@@ -539,7 +474,6 @@ export class SolveQueue {
     const isolatedByTool = isolated.byTool || {};
     const processByTool = {};
     const byTool = {};
-
     await Promise.all(
       uniqueTools.map(async tool => {
         const result = await this.getRunningProcessesFn(tool, this.verbose);
@@ -549,10 +483,8 @@ export class SolveQueue {
         byTool[tool] = Math.max(processCount, isolatedCount);
       })
     );
-
     const processTotal = Object.values(processByTool).reduce((sum, count) => sum + count, 0);
     const isolatedTotal = isolated.count || Object.values(isolatedByTool).reduce((sum, count) => sum + count, 0);
-
     return {
       byTool,
       processByTool,
@@ -562,7 +494,6 @@ export class SolveQueue {
       processTotal,
     };
   }
-
   /**
    * Check if a new command can start.
    *
@@ -586,10 +517,7 @@ export class SolveQueue {
     let oneAtATime = false;
     let rejected = false;
     let rejectReason = null;
-
-    // Check minimum interval since the last task start globally.
-    // Issue #2015: do not let another tool queue bypass startup pacing; host
-    // CPU/RAM/disk metrics need time to settle before any next task starts.
+    // Check minimum interval since the last task start globally. Issue #2015: do not let another tool queue bypass startup pacing; host CPU/RAM/disk metrics need time to settle before any next task starts.
     const lastStartTime = this.lastStartTime || null;
     if (lastStartTime) {
       const timeSinceLastStart = Date.now() - lastStartTime;
@@ -599,7 +527,6 @@ export class SolveQueue {
         this.recordThrottle('min_interval');
       }
     }
-
     // Check running tool processes (this is a metric, not a blocking reason by itself).
     // For screen-isolated sessions, use the maximum of `$ --status` executing
     // counts and pgrep counts so detached sessions remain visible.
@@ -613,11 +540,9 @@ export class SolveQueue {
     const hasRunningCodex = codexProcessCount > 0;
     const hasRunningQwen = qwenProcessCount > 0;
     const hasRunningGemini = geminiProcessCount > 0;
-
     // Calculate total processing count for system resources (all tools)
     // System resources (RAM, CPU, disk) apply to all tools
     const totalProcessing = this.processing.size + externalProcessing.total;
-
     // Calculate Claude-specific processing count for Claude API limits
     // Only counts Claude items in queue + external claude processes
     // Non-Claude items don't count against Claude's one-at-a-time limit
@@ -626,7 +551,6 @@ export class SolveQueue {
     const codexProcessingCount = this.getProcessingCountByTool('codex');
     const qwenProcessingCount = this.getProcessingCountByTool('qwen');
     const geminiProcessingCount = this.getProcessingCountByTool('gemini');
-
     // Track claude_running as a metric (but don't add to reasons yet)
     if (hasRunningClaude) {
       this.recordThrottle('claude_running');
@@ -640,7 +564,6 @@ export class SolveQueue {
     if (hasRunningGemini) {
       this.recordThrottle('gemini_running');
     }
-
     // Check system resources with strategy support
     // System resources apply to ALL tools, not just Claude
     // See: https://github.com/link-assistant/hive-mind/issues/1155
@@ -656,7 +579,6 @@ export class SolveQueue {
     if (resourceCheck.oneAtATime) {
       oneAtATime = true;
     }
-
     // Check API limits with strategy support (pass hasRunningClaude, claudeProcessingCount, and tool)
     // Claude limits use claudeProcessingCount (only Claude items), not totalProcessing
     // This allows non-Claude tasks to proceed when Claude limits are reached
@@ -675,7 +597,6 @@ export class SolveQueue {
     if (limitCheck.oneAtATime) {
       oneAtATime = true;
     }
-
     // "Claude process running" only blocks if there are OTHER reasons too
     // This allows parallel execution when limits are not exceeded
     if (hasRunningClaude && reasons.length > 0) {
@@ -693,9 +614,7 @@ export class SolveQueue {
     if (tool === 'gemini' && hasRunningGemini && reasons.length > 0) {
       reasons.push(`${formatWaitingReason('gemini_running', geminiProcessCount, 0, { locale })} (${lt('queue_processes', { count: geminiProcessCount }, { locale })})`);
     }
-
     const canStart = reasons.length === 0 && !rejected;
-
     if (!canStart && this.verbose) {
       if (rejected) {
         this.log(`Rejected: ${rejectReason}`);
@@ -703,7 +622,6 @@ export class SolveQueue {
         this.log(`Cannot start: ${reasons.join(', ')}`);
       }
     }
-
     return {
       canStart,
       rejected,
@@ -724,7 +642,6 @@ export class SolveQueue {
       geminiProcessingCount,
     };
   }
-
   /**
    * Check system resources (RAM, CPU, disk) using cached values
    *
@@ -755,7 +672,6 @@ export class SolveQueue {
     let oneAtATime = false;
     let rejected = false;
     let rejectReason = null;
-
     // Check RAM (using cached value)
     const memResult = await getCachedMemoryInfo(this.verbose);
     if (memResult.success) {
@@ -764,7 +680,6 @@ export class SolveQueue {
         const reason = formatWaitingReason('ram', memResult.memory.usedPercentage, QUEUE_CONFIG.thresholds.ram.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.ram.strategy;
         this.recordThrottle(`ram_${strategy}`);
-
         if (strategy === 'reject') {
           rejected = true;
           rejectReason = reason;
@@ -779,7 +694,6 @@ export class SolveQueue {
         }
       }
     }
-
     // Check CPU using 5-minute load average (more stable than 1-minute)
     const cpuResult = await getCachedCpuInfo(this.verbose);
     if (cpuResult.success) {
@@ -791,16 +705,13 @@ export class SolveQueue {
       // Load average of 1.0 per CPU = 100% utilization
       const usageRatio = loadAvg5 / cpuCount;
       const usagePercent = Math.min(100, Math.round(usageRatio * 100));
-
       if (this.verbose) {
         this.log(`CPU 5m load avg: ${loadAvg5.toFixed(2)}, cpus: ${cpuCount}, usage: ${usagePercent}%`);
       }
-
       if (usageRatio >= QUEUE_CONFIG.thresholds.cpu.value) {
         const reason = formatWaitingReason('cpu', usagePercent, QUEUE_CONFIG.thresholds.cpu.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.cpu.strategy;
         this.recordThrottle(`cpu_${strategy}`);
-
         if (strategy === 'reject') {
           rejected = true;
           rejectReason = reason;
@@ -815,7 +726,6 @@ export class SolveQueue {
         }
       }
     }
-
     // Check disk space (using cached value)
     // Default strategy changed to 'reject' because queue is lost on restart anyway
     // See: https://github.com/link-assistant/hive-mind/issues/1253
@@ -828,7 +738,6 @@ export class SolveQueue {
         const reason = formatWaitingReason('disk', usedPercent, QUEUE_CONFIG.thresholds.disk.value, { locale });
         const strategy = QUEUE_CONFIG.thresholds.disk.strategy;
         this.recordThrottle(`disk_${strategy}`);
-
         if (strategy === 'reject') {
           rejected = true;
           rejectReason = reason;
@@ -843,10 +752,8 @@ export class SolveQueue {
         }
       }
     }
-
     return { ok: reasons.length === 0 && !rejected, reasons, oneAtATime, rejected, rejectReason };
   }
-
   /**
    * Check API limits (Claude, GitHub) using cached values
    *
@@ -876,16 +783,13 @@ export class SolveQueue {
     let oneAtATime = false;
     let rejected = false;
     let rejectReason = null;
-
     // Apply Claude-specific limits only when tool is 'claude'
     // Other tools (like 'agent', 'gemini', and 'qwen') use different rate limiting backends and are not
     // affected by Claude API limits (5-hour session, weekly limits)
     // See: https://github.com/link-assistant/hive-mind/issues/1159
     const applyClaudeLimits = tool === 'claude';
     const applyCodexLimits = tool === 'codex';
-
     const totalToolProcessing = toolProcessingCount + (hasRunningToolProcess ? 1 : 0);
-
     // Check Claude limits (using cached value)
     // Only applied when tool is 'claude'
     if (applyClaudeLimits) {
@@ -893,7 +797,6 @@ export class SolveQueue {
       if (claudeResult.success) {
         const sessionPercent = claudeResult.usage.currentSession.percentage;
         const weeklyPercent = claudeResult.usage.allModels.percentage;
-
         // Session limit (5-hour)
         // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_CLAUDE_5_HOUR_SESSION_STRATEGY
         // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159, #1253
@@ -903,7 +806,6 @@ export class SolveQueue {
             const reason = formatWaitingReason('claude_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.claude5Hour.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.claude5Hour.strategy;
             this.recordThrottle(sessionRatio >= 1.0 ? 'claude_5_hour_session_100' : `claude_5_hour_session_${strategy}`);
-
             if (strategy === 'reject') {
               rejected = true;
               rejectReason = reason;
@@ -918,7 +820,6 @@ export class SolveQueue {
             }
           }
         }
-
         // Weekly limit
         // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_CLAUDE_WEEKLY_STRATEGY
         // See: https://github.com/link-assistant/hive-mind/issues/1133, #1159, #1253
@@ -928,7 +829,6 @@ export class SolveQueue {
             const reason = formatWaitingReason('claude_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.claudeWeekly.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.claudeWeekly.strategy;
             this.recordThrottle(weeklyRatio >= 1.0 ? 'claude_weekly_100' : `claude_weekly_${strategy}`);
-
             if (strategy === 'reject') {
               rejected = true;
               rejectReason = reason;
@@ -949,14 +849,12 @@ export class SolveQueue {
       if (codexResult.success) {
         const sessionPercent = codexResult.usage.currentSession.percentage;
         const weeklyPercent = codexResult.usage.allModels.percentage;
-
         if (sessionPercent !== null) {
           const sessionRatio = sessionPercent / 100;
           if (sessionRatio >= QUEUE_CONFIG.thresholds.codex5Hour.value) {
             const reason = formatWaitingReason('codex_5_hour_session', sessionPercent, QUEUE_CONFIG.thresholds.codex5Hour.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.codex5Hour.strategy;
             this.recordThrottle(sessionRatio >= 1.0 ? 'codex_5_hour_session_100' : `codex_5_hour_session_${strategy}`);
-
             if (strategy === 'reject') {
               rejected = true;
               rejectReason = reason;
@@ -970,14 +868,12 @@ export class SolveQueue {
             }
           }
         }
-
         if (weeklyPercent !== null) {
           const weeklyRatio = weeklyPercent / 100;
           if (weeklyRatio >= QUEUE_CONFIG.thresholds.codexWeekly.value) {
             const reason = formatWaitingReason('codex_weekly', weeklyPercent, QUEUE_CONFIG.thresholds.codexWeekly.value, { locale });
             const strategy = QUEUE_CONFIG.thresholds.codexWeekly.strategy;
             this.recordThrottle(weeklyRatio >= 1.0 ? 'codex_weekly_100' : `codex_weekly_${strategy}`);
-
             if (strategy === 'reject') {
               rejected = true;
               rejectReason = reason;
@@ -995,7 +891,6 @@ export class SolveQueue {
     } else if (this.verbose) {
       this.log(`Claude limits not applied for --tool ${tool}`);
     }
-
     // Check GitHub limits when the active tool already has a running process.
     // This keeps the queue behavior aligned with the existing one-at-a-time throttling model.
     // Configurable strategy via HIVE_MIND_QUEUE_CONFIG or HIVE_MIND_GITHUB_API_STRATEGY
@@ -1008,7 +903,6 @@ export class SolveQueue {
           const reason = formatWaitingReason('github', usedPercent, QUEUE_CONFIG.thresholds.githubApi.value, { locale });
           const strategy = QUEUE_CONFIG.thresholds.githubApi.strategy;
           this.recordThrottle(usedRatio >= 1.0 ? 'github_100' : `github_${strategy}`);
-
           if (strategy === 'reject') {
             rejected = true;
             rejectReason = reason;
@@ -1024,10 +918,8 @@ export class SolveQueue {
         }
       }
     }
-
     return { ok: reasons.length === 0 && !rejected, reasons, oneAtATime, rejected, rejectReason };
   }
-
   /**
    * Record a throttle event for statistics
    * @param {string} reason
@@ -1035,20 +927,17 @@ export class SolveQueue {
   recordThrottle(reason) {
     this.stats.throttleReasons[reason] = (this.stats.throttleReasons[reason] || 0) + 1;
   }
-
   /**
    * Ensure consumer task is running
    */
   ensureConsumerRunning() {
     if (this.consumerTask) return;
-
     this.consumerTask = this.runConsumer();
     this.consumerTask.catch(error => {
       console.error('[solve_queue] Consumer error:', error);
       this.consumerTask = null;
     });
   }
-
   /**
    * Update item message in Telegram
    * @param {SolveQueueItem} item
@@ -1057,7 +946,6 @@ export class SolveQueue {
    */
   async updateItemMessage(item, text, trackUpdateTime = true) {
     if (!item.messageInfo || !item.ctx) return;
-
     try {
       const { chatId, messageId } = item.messageInfo;
       await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
@@ -1068,7 +956,6 @@ export class SolveQueue {
       this.log(`Failed to update message: ${error.message}`);
     }
   }
-
   /**
    * Check if an item's message should be updated periodically
    * @param {SolveQueueItem} item
@@ -1079,7 +966,6 @@ export class SolveQueue {
     if (!item.lastMessageUpdateTime) return true; // Never updated
     return Date.now() - item.lastMessageUpdateTime >= QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS;
   }
-
   /**
    * Consumer loop - processes items from all tool queues
    *
@@ -1093,16 +979,13 @@ export class SolveQueue {
    */
   async runConsumer() {
     this.log('Consumer started with separate tool queues');
-
     while (this.isRunning) {
       // Check if all queues are empty
       if (this.getTotalQueueLength() === 0) {
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
-
       const startableItems = await this.findStartableItems();
-
       if (startableItems.length === 0) {
         // No items can start - update all queued items with their tool-specific waiting reasons
         await this.updateAllWaitingItems();
@@ -1110,37 +993,28 @@ export class SolveQueue {
         await this.sleep(QUEUE_CONFIG.CONSUMER_POLL_INTERVAL_MS);
         continue;
       }
-
       for (const startable of startableItems) {
         const { tool } = startable;
         const toolQueue = this.getToolQueue(tool);
-
         // Remove the first item from this tool's queue
         const item = toolQueue.shift();
         if (!item) continue;
-
         // Update status to Starting
         item.setStarting();
         this.processing.set(item.id, item);
-
         this.recordStart(tool);
         this.stats.totalStarted++;
-
         await this.updateItemMessage(item, formatStartingWorkSessionMessage({ infoBlock: item.infoBlock, locale: item.locale }));
-
         this.log(`Starting: ${item.toString()} from ${tool} queue`);
-
         // Execute in background
         this.executeItem(item).catch(error => {
           console.error(`[solve_queue] Execution error for ${item.id}:`, error);
         });
       }
     }
-
     this.log('Consumer stopped');
     this.consumerTask = null;
   }
-
   /**
    * Update all waiting items with their tool-specific waiting reasons.
    * Items blocked by a 'reject' strategy threshold are immediately rejected
@@ -1160,7 +1034,6 @@ export class SolveQueue {
         await this.rejectAllItemsInQueue(tool, toolQueue, toolCheck.rejectReason);
         continue;
       }
-
       for (let i = 0; i < toolQueue.length; i++) {
         const item = toolQueue[i];
         if (item.status === QueueItemStatus.QUEUED || item.status === QueueItemStatus.WAITING) {
@@ -1169,10 +1042,8 @@ export class SolveQueue {
           const previousReason = item.waitingReason;
           const waitReason = itemCheck.reason || lt('queue_waiting_in_queue', {}, { locale: item.locale });
           item.setWaiting(waitReason);
-
           // Update message if status/reason changed or it's time for periodic update
           const shouldUpdate = previousStatus !== item.status || previousReason !== item.waitingReason || this.shouldUpdateMessage(item);
-
           if (shouldUpdate) {
             const position = i + 1; // Position within this tool's queue
             await this.updateItemMessage(item, `${t('telegram.solve_waiting', { tool, position }, { locale: item.locale })}\n\n${item.infoBlock}\n\n*${t('telegram.reason_label', {}, { locale: item.locale })}:*\n${item.waitingReason}`);
@@ -1181,7 +1052,6 @@ export class SolveQueue {
       }
     }
   }
-
   /**
    * Execute a queue item
    * @param {SolveQueueItem} item
@@ -1190,23 +1060,19 @@ export class SolveQueue {
     try {
       if (this.executeCallback) {
         const result = await this.executeCallback(item);
-
         // Extract session name from result
         let sessionName = result?.sessionId || 'unknown';
         if (result && result.output) {
           const sessionMatch = result.output.match(/session:\s*(\S+)/i) || result.output.match(/screen -R\s+(\S+)/);
           if (sessionMatch) sessionName = sessionMatch[1];
         }
-
         // IMPORTANT: Save messageInfo BEFORE calling setStarted, because setStarted clears it
         // This was a bug where the final message update never happened because messageInfo was null
         // See: https://github.com/link-assistant/hive-mind/issues/1062
         const savedMessageInfo = item.messageInfo;
-
         // Update to Started status (terminal - forgets message tracking)
         item.setStarted(sessionName);
         this.stats.totalCompleted++;
-
         // Final message update using saved messageInfo
         if (item.ctx && result && savedMessageInfo) {
           const { chatId, messageId } = savedMessageInfo;
@@ -1241,7 +1107,6 @@ export class SolveQueue {
       item.setFailed(error);
       this.stats.totalFailed++;
       console.error(`[solve_queue] Item failed: ${item.id}`, error);
-
       // Try to update message with error
       const { chatId, messageId } = item.messageInfo || {};
       if (chatId && messageId && item.ctx) {
@@ -1256,21 +1121,17 @@ export class SolveQueue {
       }
     } finally {
       this.processing.delete(item.id);
-
       if (item.status === QueueItemStatus.STARTED) {
         this.completed.push(item);
       } else if (item.status === QueueItemStatus.FAILED) {
         this.failed.push(item);
       }
-
       this.log(`Finished: ${item.toString()}`);
-
       // Limit history size
       while (this.completed.length > 100) this.completed.shift();
       while (this.failed.length > 100) this.failed.shift();
     }
   }
-
   /**
    * Sleep for specified milliseconds
    * @param {number} ms
@@ -1279,7 +1140,6 @@ export class SolveQueue {
   sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-
   /**
    * Stop the queue
    */
@@ -1287,7 +1147,6 @@ export class SolveQueue {
     this.log('Stopping queue...');
     this.isRunning = false;
   }
-
   /**
    * Clear the limit cache
    */
@@ -1295,7 +1154,6 @@ export class SolveQueue {
     getLimitCache().clear();
     this.log('Limit cache cleared');
   }
-
   /**
    * Format queue status for display in /limits command
    * Shows per-tool queue breakdown with processing counts.
@@ -1324,10 +1182,8 @@ export class SolveQueue {
       const processing = externalProcessing.byTool[tool] || 0;
       message += `${tool} (${lt('queue_pending', {}, { locale })}: ${pending}, ${lt('queue_processing', {}, { locale })}: ${processing})\n`;
     }
-
     return message;
   }
-
   /**
    * Format detailed queue status for Telegram message.
    *
@@ -1349,7 +1205,6 @@ export class SolveQueue {
     // real running tasks; the queue's own `processing` Map is emptied once a task
     // is dispatched, so without this the executing items are never listed (#1837).
     const runningSessionItems = await this.getRunningSessionItemsFn(this.verbose);
-
     // Section labels: each per-tool sub-list uses a capitalized heading.
     const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
     const labels = {
@@ -1358,19 +1213,15 @@ export class SolveQueue {
       completed: cap(lt('queue_completed', {}, { locale })),
       failed: cap(lt('queue_failed', {}, { locale })),
     };
-
     // Group the (globally-capped) completed/failed history by tool so each tool
     // queue shows its own Completed/Failed list (issue #1891 follow-up).
     const completedByTool = groupQueueItemsByTool(this.completed);
     const failedByTool = groupQueueItemsByTool(this.failed);
-
     let message = `📋 *${lt('solve_queue_status', {}, { locale })}*\n\n`;
     const max = QUEUE_CONFIG.MAX_DISPLAY_ITEMS_PER_QUEUE;
-
     // Every tool with *any* activity (queued, processing, or in history) so
     // per-tool history shows even after a tool's live queue has drained.
     const tools = [...new Set([...Object.keys(this.queues), ...Object.keys(completedByTool), ...Object.keys(failedByTool)])];
-
     for (const tool of tools) {
       const toolQueue = this.queues[tool] || [];
       const pending = toolQueue.length;
@@ -1380,26 +1231,20 @@ export class SolveQueue {
       const executing = collectExecutingItems({ processingItems: this.processing.values(), sessionItems: runningSessionItems, tool });
       const completed = completedByTool[tool] || [];
       const failed = failedByTool[tool] || [];
-
       // Skip tools with nothing to show in any list.
       if (pending === 0 && executing.length === 0 && completed.length === 0 && failed.length === 0) continue;
-
       const pendingItems = toolQueue.map(item => ({ url: item.url, waitMs: item.getWaitTime(), waitingReason: item.waitingReason }));
       message += formatQueueToolSection({ tool, executing, pendingItems, completed, failed, labels, max, locale });
     }
-
     // Summary stats
     message += `${lt('queue_completed', {}, { locale })}: ${stats.completed}, ${lt('queue_failed', {}, { locale })}: ${stats.failed}\n`;
-
     return message;
   }
 }
-
 /**
  * Global queue instance (singleton)
  */
 let globalQueue = null;
-
 /**
  * Get or create the global solve queue instance
  * @param {Object} options - Queue options
@@ -1413,7 +1258,6 @@ export function getSolveQueue(options = {}) {
   }
   return globalQueue;
 }
-
 /**
  * Reset the global queue (useful for testing)
  */
@@ -1423,7 +1267,6 @@ export function resetSolveQueue() {
     globalQueue = null;
   }
 }
-
 /**
  * Create an execute callback for the queue
  * @param {Function} executeStartScreen - Function to execute start-screen command
@@ -1460,7 +1303,6 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
     return result;
   };
 }
-
 /**
  * Get count of tracked isolated sessions that are still executing according
  * to `$ --status`. Queue display combines this with pgrep counts using max().
@@ -1479,7 +1321,6 @@ export async function getRunningIsolatedSessions(verbose = false) {
     return { count: 0, sessions: [], byTool: {} };
   }
 }
-
 export default {
   SolveQueue,
   SolveQueueItem,

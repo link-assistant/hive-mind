@@ -12,7 +12,6 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
  * @see https://github.com/link-foundation/start
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
-
 import crypto from 'crypto';
 import { spawn } from 'node:child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
@@ -22,9 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
-
 let commandStreamDollarPromise = null;
-
 async function getCommandStreamDollar() {
   if (!commandStreamDollarPromise) {
     commandStreamDollarPromise = (async () => {
@@ -35,7 +32,6 @@ async function getCommandStreamDollar() {
       return $;
     })();
   }
-
   try {
     return await commandStreamDollarPromise;
   } catch (error) {
@@ -43,13 +39,8 @@ async function getCommandStreamDollar() {
     throw error;
   }
 }
-
-// Re-export the shared status predicates so existing callers that reach them via
-// the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`)
-// keep working. The canonical definitions live in session-status.lib.mjs so the
-// killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
+// Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
-
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
@@ -57,41 +48,16 @@ const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
 const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
 const DOCKER_CONTAINER_HOME = '/home/box';
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
-// Default path where the host Docker socket is bind-mounted inside a DinD
-// container so box's host-image passthrough can copy host images into the
-// nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy
-// must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the
-// nested daemon starts empty and the first isolated task pulls the full,
-// multi-gigabyte image. See issue #1914.
+// Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
 const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
-// Force a POSIX shell for the inner command of Docker-isolated tasks. solve/
-// hive/task live on the image's baked-in PATH, so `sh -c` resolves them without
-// needing a login shell. Forcing the shell (instead of start's 'auto') also
-// skips start's shell-detection probe, which would otherwise `docker run` a
-// throwaway container — booting the dind image's dockerd entrypoint — purely to
-// check whether bash exists. See issue #1914.
+// Force a POSIX shell for the inner command of Docker-isolated tasks. solve/ hive/task live on the image's baked-in PATH, so `sh -c` resolves them without needing a login shell. Forcing the shell (instead of start's 'auto') also skips start's shell-detection probe, which would otherwise `docker run` a throwaway container — booting the dind image's dockerd entrypoint — purely to check whether bash exists. See issue #1914.
 const DOCKER_ISOLATION_SHELL = 'sh';
-// Free-space floor (GiB) below which the preflight warns that an impending
-// isolation-image pull may fail with `no space left on device`. The Hive Mind
-// isolation images are well over 30 GB extracted, so a host/nested daemon with
-// less headroom than this cannot safely pull one. Diagnostic only — never
-// blocks startup. See issue #1914.
+// Free-space floor (GiB) below which the preflight warns that an impending isolation-image pull may fail with `no space left on device`. The Hive Mind isolation images are well over 30 GB extracted, so a host/nested daemon with less headroom than this cannot safely pull one. Diagnostic only — never blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
-// Docker-only start gate used to capture the container writable-layer baseline
-// before the task command begins cloning or generating files. The parent
-// releases the gate immediately after `docker inspect --size`; the fallback
-// keeps the task from hanging forever if the parent exits at the wrong time.
+// Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. The parent releases the gate immediately after `docker inspect --size`; the fallback keeps the task from hanging forever if the parent exits at the wrong time.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
-// Sentinel start-command's detached docker logger records when it cannot capture
-// the container's real exit code. A terminal `$ --status` carrying this value is
-// ambiguous — the container may still be running — so we cross-check it against
-// a live `docker inspect` before concluding the session finished. See #1939.
-// The upstream emission of this premature sentinel was fixed in
-// start-command 0.29.1 (link-foundation/start#136), which the Hive Mind images
-// now pin; this cross-check is retained as defense-in-depth so an older `$` on
-// an operator's PATH cannot resurrect the bug.
+// Sentinel start-command's detached docker logger records when it cannot capture the container's real exit code. A terminal `$ --status` carrying this value is ambiguous — the container may still be running — so we cross-check it against a live `docker inspect` before concluding the session finished. See #1939. The upstream emission of this premature sentinel was fixed in start-command 0.29.1 (link-foundation/start#136), which the Hive Mind images now pin; this cross-check is retained as defense-in-depth so an older `$` on an operator's PATH cannot resurrect the bug.
 const DOCKER_UNKNOWN_EXIT_CODE = -1;
-
 function normalizeProcessIds(value) {
   if (!value || typeof value !== 'object') return {};
   const out = {};
@@ -101,43 +67,35 @@ function normalizeProcessIds(value) {
   }
   return out;
 }
-
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
     .toLowerCase();
 }
-
 function shellQuote(value) {
   const stringValue = String(value);
   if (stringValue === '') return "''";
   return `'${stringValue.replaceAll("'", "'\\''")}'`;
 }
-
 function buildShellCommand(command, args = []) {
   return [command, ...args].map(shellQuote).join(' ');
 }
-
 function buildDockerStartGatePath(sessionId) {
   return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
 }
-
 function buildDockerStartGatedCommand(taskCommand, sessionId) {
   const gatePath = buildDockerStartGatePath(sessionId);
   if (!gatePath) return taskCommand;
   return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
 }
-
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
 }
-
 function maybeAddMount(mounts, source, target, existsSync) {
   if (!source) return;
   if (!existsSync(source)) return;
   mounts.push({ source, target });
 }
-
 /**
  * Resolve the tag used for the Docker isolation image.
  *
@@ -153,7 +111,6 @@ export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
   const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();
   return explicit || DEFAULT_HIVE_MIND_IMAGE_TAG;
 }
-
 /**
  * Pick the Docker image used for `--isolation docker`.
  *
@@ -169,7 +126,6 @@ export function getDockerIsolationImage({ env = process.env } = {}) {
   const repo = String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? HIVE_MIND_DIND_IMAGE_REPO : HIVE_MIND_IMAGE_REPO;
   return `${repo}:${resolveDockerIsolationImageTag({ env })}`;
 }
-
 /**
  * Resolve the path where the host Docker socket is expected to be mounted inside
  * a DinD container. box's entrypoint reads this socket to copy host images into
@@ -181,7 +137,6 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
   const explicit = String(env.DIND_HOST_DOCKER_SOCK || '').trim();
   return explicit || DEFAULT_HOST_DOCKER_SOCK;
 }
-
 /**
  * Build host auth mounts for a Docker-isolated task.
  *
@@ -197,31 +152,20 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
 export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
-
   maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
-
-  // Git identity (tool-agnostic, required for commits). Honor the same env vars
-  // git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL)
-  // and the XDG base dir, falling back to the conventional `~/.gitconfig` and
-  // `~/.config/git`. Missing host paths are skipped, so a container image that
-  // already bakes a git identity is left untouched. See issue #1939.
+  // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
   maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
   maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
-
   if (normalizedTool === 'codex') {
     maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
-    // Issue #2074: Codex also discovers persistent user Agent Skills from
-    // ~/.agents/skills. Propagate that standard location alongside .codex so
-    // direct and Docker-isolated solver sessions expose the same capabilities.
+    // Issue #2074: Codex also discovers persistent user Agent Skills from ~/.agents/skills. Propagate that standard location alongside .codex so direct and Docker-isolated solver sessions expose the same capabilities.
     maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
   } else if (normalizedTool === 'claude') {
     maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
     maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
   }
-
   return mounts;
 }
-
 /**
  * Resolve the image-variant marker recorded inside the isolated container.
  * A `hive-mind-dind` image is always the dind variant; otherwise fall back to
@@ -230,7 +174,6 @@ export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.en
 function resolveImageVariant(image, env = process.env) {
   return image.includes('hive-mind-dind') ? 'dind' : env.HIVE_MIND_IMAGE_VARIANT || 'regular';
 }
-
 /**
  * Resolve an outer Compose HTTP service before handing its origin to a nested
  * Docker daemon. The nested daemon has its own DNS namespace, but it can route
@@ -241,23 +184,19 @@ function resolveImageVariant(image, env = process.env) {
 export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = lookupHost } = {}) {
   const baseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL;
   if (!baseUrl) return env;
-
   let parsed;
   try {
     parsed = new URL(baseUrl);
   } catch {
     return env;
   }
-
   if (parsed.protocol !== 'http:' || parsed.hostname !== FORMAL_AI_COMPOSE_HOSTNAME) {
     return env;
   }
-
   try {
     const addresses = await lookup(parsed.hostname, { all: true, verbatim: true });
     const selected = addresses.find(candidate => candidate.family === 4) || addresses[0];
     if (!selected?.address) return env;
-
     const host = selected.family === 6 ? `[${selected.address}]` : selected.address;
     return {
       ...env,
@@ -268,7 +207,6 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
     return env;
   }
 }
-
 /**
  * Build the `$` (start-command) arguments that launch a Docker-isolated task
  * using start-command's NATIVE Docker backend (`$ --isolated docker`).
@@ -289,39 +227,25 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
   const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
   const image = getDockerIsolationImage({ env });
-
   const startArgs = ['--isolated', 'docker', '--image', image];
-
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
     startArgs.push('--privileged');
   }
-
-  // Force the inner shell so start-command does not probe the image to detect
-  // one (see DOCKER_ISOLATION_SHELL).
+  // Force the inner shell so start-command does not probe the image to detect one (see DOCKER_ISOLATION_SHELL).
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
-
-  // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME
-  // explicitly anyway so the credential mounts under /home/box resolve even if
-  // a future image forgets to. start-command has no --workdir flag, so the
-  // working directory comes from the image's WORKDIR.
+  // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
-
-  // A persistent Formal AI server normally runs beside the Telegram/root
-  // container. Docker-isolated `/solve` jobs must receive the same endpoint;
-  // otherwise the wrapper starts a per-job server and loses shared memory.
+  // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
   }
-
   for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
   }
-
   const taskCommand = buildShellCommand(command, args);
   startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));
   return startArgs;
 }
-
 export function buildStartCommandArgs(command, args = [], options = {}) {
   const { backend, sessionId } = options;
   if (backend === 'docker') {
@@ -329,17 +253,14 @@ export function buildStartCommandArgs(command, args = [], options = {}) {
   }
   return ['--isolated', backend, '--detached', '--session', sessionId, '--', buildShellCommand(command, args)];
 }
-
 async function runStartCommand(binPath, startCommandArgs) {
   return await new Promise(resolve => {
     const child = spawn(binPath, startCommandArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
     });
-
     let stdout = '';
     let stderr = '';
-
     child.stdout.on('data', data => {
       stdout += data.toString();
     });
@@ -353,8 +274,7 @@ async function runStartCommand(binPath, startCommandArgs) {
         error: error.message,
       });
     });
-    // Issue #2135: keep `signal` - the captured session's child was killed by
-    // one, and `code` alone was null.
+    // Issue #2135: keep `signal` - the captured session's child was killed by one, and `code` alone was null.
     child.on('close', (code, signal) => {
       const output = (stdout + (stderr ? `\n${stderr}` : '')).trim();
       if (code === 0) {
@@ -369,7 +289,6 @@ async function runStartCommand(binPath, startCommandArgs) {
     });
   });
 }
-
 /**
  * Generate a UUID v4 for unique session identification
  * @returns {string} UUID v4 string
@@ -377,7 +296,6 @@ async function runStartCommand(binPath, startCommandArgs) {
 export function generateSessionId() {
   return crypto.randomUUID();
 }
-
 /**
  * Parse output from `$ --status <session>`.
  *
@@ -393,7 +311,6 @@ export function parseSessionStatusOutput(output) {
   if (!raw) {
     return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, raw: '' };
   }
-
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
     if (value === null || value === undefined) return null;
@@ -402,15 +319,10 @@ export function parseSessionStatusOutput(output) {
     if (['false', '0', 'no'].includes(normalized)) return false;
     return null;
   };
-
   try {
     const parsed = JSON.parse(raw);
     const data = Array.isArray(parsed) ? parsed[0] : parsed;
-    // start-command (link-foundation/start) reports the isolation backend at
-    // `options.isolated` in both JSON and links-notation output. Older
-    // hypothetical layouts used `options.isolation` or a top-level `isolation`
-    // field — keep accepting all three so we are tolerant of future renames.
-    // See https://github.com/link-assistant/hive-mind/issues/1700.
+    // start-command (link-foundation/start) reports the isolation backend at `options.isolated` in both JSON and links-notation output. Older hypothetical layouts used `options.isolation` or a top-level `isolation` field — keep accepting all three so we are tolerant of future renames. See https://github.com/link-assistant/hive-mind/issues/1700.
     const isolationCandidate = (typeof data?.isolation === 'string' && data.isolation) || (typeof data?.options?.isolated === 'string' && data.options.isolated) || (typeof data?.options?.isolation === 'string' && data.options.isolation) || null;
     const topPid = Number(data?.pid);
     const processIds = normalizeProcessIds(data?.processIds);
@@ -435,7 +347,6 @@ export function parseSessionStatusOutput(output) {
   } catch {
     // Fall through to text parsing.
   }
-
   const firstLine =
     raw
       .split('\n')
@@ -446,13 +357,9 @@ export function parseSessionStatusOutput(output) {
     return match ? match[1].trim() : null;
   };
   const readBooleanField = name => normalizeBooleanField(readField(name));
-
   const status = readField('status')?.toLowerCase() || null;
   const exitCodeText = readField('exitCode');
-  // `start-command` links-notation output nests the isolation backend under
-  // `options` as `isolated <backend>` (not `isolation`). The leading indent
-  // varies by depth, but `readField` is anchored with `^\s*` which already
-  // matches indented lines. Older code only looked for `isolation`, which
+  // `start-command` links-notation output nests the isolation backend under `options` as `isolated <backend>` (not `isolation`). The leading indent varies by depth, but `readField` is anchored with `^\s*` which already matches indented lines. Older code only looked for `isolation`, which
   // returned null for every real session and made /log + /terminal_watch
   // reject screen/tmux/docker sessions. See issue #1700.
   const isolationText = readField('isolated') || readField('isolation');
@@ -462,7 +369,6 @@ export function parseSessionStatusOutput(output) {
     const number = Number(value);
     if (Number.isInteger(number) && number > 0) processIds[name] = number;
   }
-
   return {
     exists: Boolean(status || firstLine),
     uuid: readField('uuid') || firstLine,
@@ -481,7 +387,6 @@ export function parseSessionStatusOutput(output) {
     raw,
   };
 }
-
 /**
  * Decide whether a detached-docker exit code is "unknown" (not a real result).
  *
@@ -499,11 +404,9 @@ export function parseSessionStatusOutput(output) {
 export function isUnknownDockerExitCode(exitCode) {
   return exitCode === null || exitCode === undefined || Number(exitCode) === DOCKER_UNKNOWN_EXIT_CODE;
 }
-
 export function shouldFallbackToScreenStatus(statusResult) {
   return !statusResult?.exists || !statusResult?.status;
 }
-
 /**
  * Parse the footer start-command appends to every execution log when the wrapped
  * command exits. The footer is authoritative about the terminal exit code even
@@ -537,7 +440,6 @@ export function parseSessionExitFooter(text) {
   if (!last) return { finished: false, exitCode: null, endTime: null };
   return { finished: true, exitCode: Number(last[2]), endTime: last[1].trim() };
 }
-
 /**
  * Read the terminal exit code from the tail of a start-command execution log.
  *
@@ -579,7 +481,6 @@ export function readSessionExitFromLog(logPath, options = {}) {
     return { finished: false, exitCode: null, endTime: null };
   }
 }
-
 /**
  * Find the `$` CLI binary path
  * @returns {Promise<string|null>} Path to `$` binary or null
@@ -594,7 +495,6 @@ async function findStartCommandBinary() {
     return null;
   }
 }
-
 /**
  * Verbose post-launch diagnostics for a native docker-isolated session.
  *
@@ -629,7 +529,6 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
     // Diagnostics are best-effort; never let a probe failure affect the task.
   }
 }
-
 /**
  * Execute a command with isolation via `$` from start-command
  *
@@ -645,7 +544,6 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
   const sessionId = options.sessionId || generateSessionId();
-
   if (!VALID_ISOLATION_BACKENDS.includes(backend)) {
     return {
       success: false,
@@ -654,7 +552,6 @@ export async function executeWithIsolation(command, args, options = {}) {
       error: `Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`,
     };
   }
-
   const binPath = await findStartCommandBinary();
   if (!binPath) {
     return {
@@ -665,12 +562,10 @@ export async function executeWithIsolation(command, args, options = {}) {
       error: 'start-command ($) not found',
     };
   }
-
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: Using $ binary at: ${binPath}`);
     console.log(`[VERBOSE] isolation-runner: Backend: ${backend}, Session ID: ${sessionId}`);
   }
-
   // Issue #2146 / PR #2147 review: a Formal AI task gets its own sidecar,
   // started on demand and reachable only over an internal Docker network. The
   // lease is taken before the container is launched so the endpoint is known
@@ -679,7 +574,6 @@ export async function executeWithIsolation(command, args, options = {}) {
   const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
   if (sidecarError) return { success: false, sessionId, output: '', error: sidecarError };
-
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
@@ -689,7 +583,6 @@ export async function executeWithIsolation(command, args, options = {}) {
         }
       : options;
   const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId });
-
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
@@ -705,15 +598,12 @@ export async function executeWithIsolation(command, args, options = {}) {
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
     }
   }
-
   const result = await runStartCommand(binPath, startCommandArgs);
-
   if (verbose) {
     const stream = result.success ? console.log : console.error;
     stream(`[VERBOSE] isolation-runner: Output: ${result.output.substring(0, 500)}`);
     if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
   }
-
   let containerFilesystemStartBytes = null;
   let formalAiAttachError = null;
   if (result.success && backend === 'docker') {
@@ -732,7 +622,6 @@ export async function executeWithIsolation(command, args, options = {}) {
       await releaseDockerContainerStartGate(sessionId, verbose);
     }
   }
-
   if (sidecar && (!result.success || formalAiAttachError)) {
     // Fail closed: without the internal network the task cannot reach Formal
     // AI, and issue #2146 forbids falling back to another model.
@@ -742,7 +631,6 @@ export async function executeWithIsolation(command, args, options = {}) {
       return { success: false, sessionId, output: result.output, error: `Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}` };
     }
   }
-
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to
   // diagnose a premature "executed/-1" status (problem #1) or a surprise image
@@ -750,7 +638,6 @@ export async function executeWithIsolation(command, args, options = {}) {
   if (verbose && backend === 'docker' && result.success) {
     await logDockerIsolationPostLaunchDiagnostics(sessionId, options.env || process.env);
   }
-
   if (result.success) {
     return {
       success: true,
@@ -759,7 +646,6 @@ export async function executeWithIsolation(command, args, options = {}) {
       containerFilesystemStartBytes,
     };
   }
-
   return {
     success: false,
     sessionId,
@@ -767,7 +653,6 @@ export async function executeWithIsolation(command, args, options = {}) {
     error: result.error,
   };
 }
-
 /**
  * Query the status of an isolated session via `$ --status <uuid>`
  *
@@ -783,17 +668,13 @@ export async function querySessionStatus(sessionId, verbose = false) {
     }
     return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
   }
-
   try {
     const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --status ${sessionId} --output-format json`;
-
     const stdout = result.stdout?.toString().trim() || '';
-
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: Status query result: ${stdout.substring(0, 300)}`);
     }
-
     return parseSessionStatusOutput(stdout);
   } catch (error) {
     if (verbose) {
@@ -802,7 +683,6 @@ export async function querySessionStatus(sessionId, verbose = false) {
     return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, raw: '' };
   }
 }
-
 /**
  * Parse output from `$ --list --output-format json`.
  *
@@ -824,7 +704,6 @@ export function parseSessionListOutput(output) {
     return [];
   }
   const records = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.executions) ? parsed.executions : Array.isArray(parsed?.sessions) ? parsed.sessions : parsed && typeof parsed === 'object' ? [parsed] : [];
-
   return records
     .map(data => {
       if (!data || typeof data !== 'object') return null;
@@ -843,7 +722,6 @@ export function parseSessionListOutput(output) {
     })
     .filter(Boolean);
 }
-
 /**
  * List all executions known to start-command via `$ --list --output-format json`.
  *
@@ -875,7 +753,6 @@ export async function listIsolationSessions(verbose = false) {
     return [];
   }
 }
-
 /**
  * Ask the `$` CLI to gracefully stop an isolated session by sending CTRL+C.
  *
@@ -899,7 +776,6 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
       error: '`$` (start-command) binary not found on PATH. Install link-foundation/start to use /stop <UUID>.',
     };
   }
-
   try {
     const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`${binPath} --stop ${sessionId}`;
@@ -925,7 +801,6 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
     };
   }
 }
-
 /**
  * Check if a screen session exists via `screen -ls`.
  * Used as a fallback when `$ --status` fails to find or correctly track
@@ -951,7 +826,6 @@ export async function checkScreenSessionRunning(sessionName, verbose = false) {
     return false;
   }
 }
-
 /**
  * Check whether the Docker container backing a native `$ --isolated docker`
  * session is still running.
@@ -981,14 +855,12 @@ export async function checkDockerContainerRunning(containerName, verbose = false
     return false;
   }
 }
-
 export function parseDockerContainerWritableLayerSizeOutput(output) {
   const text = String(output || '').trim();
   if (!text) return null;
   const bytes = Number.parseInt(text.split(/\s+/)[0], 10);
   return Number.isFinite(bytes) && bytes >= 0 ? bytes : null;
 }
-
 /**
  * Best-effort size of a Docker task container's writable layer.
  *
@@ -1019,7 +891,6 @@ export async function getDockerContainerWritableLayerSize(containerName, verbose
     return null;
   }
 }
-
 /**
  * Release the Docker-only start gate after the writable-layer baseline has been
  * captured. Best-effort: the gated task also has a timeout fallback.
@@ -1033,7 +904,6 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
   if (!containerName || !gatePath) return false;
   const releaseCommand = `touch ${shellQuote(gatePath)}`;
   let lastError = null;
-
   for (let attempt = 1; attempt <= 5; attempt++) {
     try {
       const $ = await getCommandStreamDollar();
@@ -1047,14 +917,12 @@ export async function releaseDockerContainerStartGate(containerName, verbose = f
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
-
   if (verbose) {
     const stderr = lastError?.stderr?.toString?.().trim();
     console.log(`[VERBOSE] isolation-runner: could not release docker start gate for '${containerName}': ${stderr || lastError?.message || lastError}`);
   }
   return false;
 }
-
 /**
  * Best-effort removal for a Docker container backing a native
  * `$ --isolated docker` session.
@@ -1073,7 +941,6 @@ export async function removeDockerContainer(containerName, verbose = false) {
   if (!containerName) {
     return { success: false, output: '', error: 'missing container name' };
   }
-
   try {
     const $ = await getCommandStreamDollar();
     const result = await $({ mirror: false })`docker rm -f ${containerName}`;
@@ -1096,7 +963,6 @@ export async function removeDockerContainer(containerName, verbose = false) {
     };
   }
 }
-
 /**
  * Check whether a tmux session with the given name still exists.
  * `tmux has-session -t <name>` exits 0 when it exists and non-zero otherwise,
@@ -1117,7 +983,6 @@ export async function checkTmuxSessionRunning(sessionName, verbose = false) {
     return false;
   }
 }
-
 /**
  * Directly probe whether the backend session/container is still alive, bypassing
  * `$ --status`. This is the cross-check used to detect a session that
@@ -1136,7 +1001,6 @@ export async function checkBackendSessionAlive(sessionId, backend, verbose = fal
   if (backend === 'docker') return checkDockerContainerRunning(sessionId, verbose);
   return null;
 }
-
 /**
  * Check whether an image is present in the local Docker daemon.
  *
@@ -1161,7 +1025,6 @@ export async function checkDockerImagePresent(image, verbose = false) {
     return false;
   }
 }
-
 /**
  * Report the storage driver the (nested) Docker daemon is using.
  *
@@ -1190,7 +1053,6 @@ export async function checkDockerStorageDriver(verbose = false) {
     return null;
   }
 }
-
 /**
  * Report the free space (in GiB) on the Docker daemon's data root.
  *
@@ -1218,7 +1080,6 @@ export async function checkDockerDiskSpace(verbose = false) {
       // Daemon unreachable: fall back to the conventional data root. If df then
       // fails on it (e.g. the path does not exist) we return null below.
     }
-
     const $ = await getCommandStreamDollar();
     const df = await $({ mirror: false })`df -Pk ${dataRoot}`;
     // `df -P` guarantees one logical line per filesystem (no wrapping). The last
@@ -1238,7 +1099,6 @@ export async function checkDockerDiskSpace(verbose = false) {
     return null;
   }
 }
-
 /**
  * Startup preflight for `--isolation docker`.
  *
@@ -1277,7 +1137,6 @@ export async function checkDockerDiskSpace(verbose = false) {
  */
 export async function preflightDockerIsolation(options = {}) {
   const { env = process.env, existsSync = fs.existsSync, verbose = false, logger = console, checkImagePresent = checkDockerImagePresent, checkStorageDriver = checkDockerStorageDriver, checkDiskSpace = checkDockerDiskSpace } = options;
-
   const image = getDockerIsolationImage({ env });
   const sock = resolveHostDockerSock({ env });
   const isDind = shouldRunPrivilegedDockerIsolation(image, env);
@@ -1289,13 +1148,10 @@ export async function preflightDockerIsolation(options = {}) {
   // Unknown driver (probe returned null) is treated as ok — we only flag the
   // one driver known to overflow the disk, never block on missing information.
   const storageDriverOk = storageDriver !== 'vfs';
-
   const result = { image, sock, socketMounted, imagePresent, isDind, storageDriver, storageDriverOk, diskAvailableGiB, ok: imagePresent, warnings: [] };
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
-
   const preload = `node scripts/preload-dind-isolation-image.mjs --image ${image}`;
-
   // Root Cause A of the issue #1914 reopen: a non-copy-on-write storage driver.
   // `vfs` stores a full copy of every image layer, so the multi-GB images
   // consume many times their size on disk and any layer write (pull, run,
@@ -1306,7 +1162,6 @@ export async function preflightDockerIsolation(options = {}) {
   if (storageDriver === 'vfs') {
     result.warnings.push(`The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: ` + `it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). ` + `Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.`);
   }
-
   if (!imagePresent) {
     // Image absent: the first isolated task will pull the full image. Explain
     // the most likely cause and the exact fix instead of letting the operator
@@ -1318,7 +1173,6 @@ export async function preflightDockerIsolation(options = {}) {
     } else {
       result.warnings.push(`Docker isolation image '${image}' is not present locally; the first isolated task will pull it. ` + `If this host already has it under a different tag, pin HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG, or seed it with: ${preload}`);
     }
-
     // Root Cause B of the issue #1914 reopen: too little disk for the pull. The
     // image is well over 30 GB extracted; predict the `no space left on device`
     // failure here rather than hitting it mid-pull.
@@ -1327,14 +1181,12 @@ export async function preflightDockerIsolation(options = {}) {
       result.warnings.push(`Only ~${diskAvailableGiB.toFixed(0)} GiB free on ${root} and the isolation image '${image}' is not present yet. ` + `The Hive Mind isolation image is well over 30 GB extracted, so the first isolated task's pull may fail with 'no space left on device' (issue #1914). ` + `Seed it via host passthrough (mount the host docker socket) or with '${preload}', and free space on the Docker data root.`);
     }
   }
-
   if (imagePresent) {
     info(`✅ Docker isolation image '${image}' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.`);
   }
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
 }
-
 /**
  * Host paths that, when present, propagate a git identity into a docker-isolated
  * container via getDockerIsolationAuthMounts. Honors the same env vars git reads
@@ -1344,7 +1196,6 @@ export async function preflightDockerIsolation(options = {}) {
 export function resolveHostGitIdentityPaths({ env = process.env, homeDir = os.homedir() } = {}) {
   return [env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git')];
 }
-
 /**
  * True when the host exposes a git identity that getDockerIsolationAuthMounts can
  * mount into an isolated container. See issue #1939.
@@ -1352,7 +1203,6 @@ export function resolveHostGitIdentityPaths({ env = process.env, homeDir = os.ho
 export function hostHasMountableGitIdentity({ env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
   return resolveHostGitIdentityPaths({ env, homeDir }).some(p => Boolean(existsSync(p)));
 }
-
 /**
  * Startup git-identity preflight for `--isolation docker`.
  *
@@ -1384,13 +1234,11 @@ export async function ensureHostGitIdentityForIsolation(options = {}) {
   const info = typeof logger.log === 'function' ? logger.log.bind(logger) : () => {};
   const warn = typeof logger.warn === 'function' ? logger.warn.bind(logger) : info;
   const result = { present: false, repaired: false, warnings: [] };
-
   if (hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
     result.present = true;
     info('✅ Host git identity present — docker-isolated tasks inherit it via the mounted ~/.gitconfig (issue #1939).');
     return result;
   }
-
   // No mountable identity. Try to derive one from the authenticated gh account
   // so the next isolated task does not fail with "Git identity not configured".
   const repairFn =
@@ -1405,19 +1253,16 @@ export async function ensureHostGitIdentityForIsolation(options = {}) {
   } catch (error) {
     repairOutcome = { success: false, error: error?.message || String(error) };
   }
-
   if (repairOutcome?.success && hostHasMountableGitIdentity({ env, homeDir, existsSync })) {
     result.present = true;
     result.repaired = true;
     info('✅ Host git identity was missing; derived it from the authenticated gh account via gh-setup-git-identity so docker-isolated tasks can mount it (issue #1939).');
     return result;
   }
-
   result.warnings.push(`No host git identity (~/.gitconfig) to mount into docker-isolated containers, so isolated 'solve' tasks will fail with "Git identity not configured" even though gh is authenticated (issue #1939). ` + `Configure one on the bot host: run 'gh-setup-git-identity' (derives it from the authenticated gh account), set 'git config --global user.name/.email', or pass '--auto-gh-configuration-repair' to solve.` + (repairOutcome?.error ? ` Auto-repair attempt failed: ${repairOutcome.error}` : ''));
   for (const w of result.warnings) warn(`⚠️ ${w}`);
   return result;
 }
-
 /**
  * Check if an isolated session is still running.
  * Uses `$ --status` first, with a backend-specific fallback (screen -ls for
@@ -1434,7 +1279,6 @@ export async function isSessionRunning(sessionId, options = {}) {
   // Support legacy call signature: isSessionRunning(sessionId, verbose)
   const opts = typeof options === 'boolean' ? { verbose: options } : options;
   const { backend, verbose = false } = opts;
-
   const result = await querySessionStatus(sessionId, verbose);
   if (result.exists && result.status) {
     if (isExecutingSessionStatus(result.status)) {
@@ -1459,7 +1303,6 @@ export async function isSessionRunning(sessionId, options = {}) {
       return false;
     }
   }
-
   // Fallback used only when `$ --status` has no usable record. This works
   // around older start-command bugs where `$ --status` can't resolve a session
   // by its --session name (only by an internal UUID). See issue #1545.
@@ -1484,10 +1327,8 @@ export async function isSessionRunning(sessionId, options = {}) {
       return containerRunning;
     }
   }
-
   return false;
 }
-
 /**
  * Validate that an isolation backend value is valid
  * @param {string} backend - Backend value to validate
@@ -1496,5 +1337,4 @@ export async function isSessionRunning(sessionId, options = {}) {
 export function isValidIsolationBackend(backend) {
   return VALID_ISOLATION_BACKENDS.includes(backend);
 }
-
 export { VALID_ISOLATION_BACKENDS };

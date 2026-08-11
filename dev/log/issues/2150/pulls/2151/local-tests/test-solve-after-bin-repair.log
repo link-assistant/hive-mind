@@ -1,0 +1,23 @@
+Testing solve.mjs exists... ✅ PASSED
+Testing solve.mjs usage without args... ✅ PASSED
+Testing solve.mjs --version... ✅ PASSED
+Testing solve.mjs --help... ✅ PASSED
+Testing solve.mjs -h... ✅ PASSED
+Testing solve.mjs requires GitHub URL... ✅ PASSED
+Testing solve.mjs validates URL format... ✅ PASSED
+Testing solve.mjs basic validation... ✅ PASSED
+Testing solve.mjs syntax check... ✅ PASSED
+Testing solve.mjs module imports... ✅ PASSED
+Testing solve.mjs no runtime switching... ✅ PASSED
+Testing solve.mjs loads successfully... ✅ PASSED
+Testing solve.mjs --skip-tool-connection-check flag... ✅ PASSED
+Testing solve.mjs --auto-close-pull-request-on-fail flag... ✅ PASSED
+Testing solve.mjs --attach-logs flag... ✅ PASSED
+Testing solve.mjs raw command logging... ✅ PASSED
+Testing solve.mjs version logging at startup... ✅ PASSED
+
+==================================================
+Test Results for solve.mjs:
+  ✅ Passed: 17
+  ❌ Failed: 0
+==================================================

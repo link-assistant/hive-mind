@@ -1,0 +1,235 @@
+﻿2026-08-11T16:47:50.2459265Z Current runner version: '2.336.0'
+2026-08-11T16:47:50.2479305Z ##[group]Runner Image Provisioner
+2026-08-11T16:47:50.2480268Z Hosted Compute Agent
+2026-08-11T16:47:50.2480776Z Version: 20260707.563
+2026-08-11T16:47:50.2481263Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-08-11T16:47:50.2481904Z Build Date: 2026-07-07T19:33:50Z
+2026-08-11T16:47:50.2482470Z Worker ID: {d678cd5c-9316-436f-9eff-405290a24932}
+2026-08-11T16:47:50.2483072Z Azure Region: westus3
+2026-08-11T16:47:50.2483549Z ##[endgroup]
+2026-08-11T16:47:50.2484681Z ##[group]Operating System
+2026-08-11T16:47:50.2485234Z Ubuntu
+2026-08-11T16:47:50.2485654Z 24.04.4
+2026-08-11T16:47:50.2486051Z LTS
+2026-08-11T16:47:50.2486515Z ##[endgroup]
+2026-08-11T16:47:50.2487042Z ##[group]Runner Image
+2026-08-11T16:47:50.2487553Z Image: ubuntu-24.04
+2026-08-11T16:47:50.2488023Z Version: 20260720.247.2
+2026-08-11T16:47:50.2489051Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-11T16:47:50.2490580Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-08-11T16:47:50.2491375Z ##[endgroup]
+2026-08-11T16:47:50.2492323Z ##[group]GITHUB_TOKEN Permissions
+2026-08-11T16:47:50.2494058Z Contents: read
+2026-08-11T16:47:50.2494652Z Metadata: read
+2026-08-11T16:47:50.2495100Z PullRequests: write
+2026-08-11T16:47:50.2495608Z ##[endgroup]
+2026-08-11T16:47:50.2497221Z Secret source: Actions
+2026-08-11T16:47:50.2498316Z Prepare workflow directory
+2026-08-11T16:47:50.2835970Z Prepare all required actions
+2026-08-11T16:47:50.2874758Z Getting action download info
+2026-08-11T16:47:50.5791595Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+2026-08-11T16:47:51.1955340Z Download action repository 'actions/dependency-review-action@v5' (SHA:a1d282b36b6f3519aa1f3fc636f609c47dddb294)
+2026-08-11T16:47:52.2583697Z Complete job name: Dependency Review
+2026-08-11T16:47:52.3217418Z ##[group]Run actions/checkout@v6
+2026-08-11T16:47:52.3218229Z with:
+2026-08-11T16:47:52.3218725Z   repository: link-assistant/hive-mind
+2026-08-11T16:47:52.3222497Z   token: ***
+2026-08-11T16:47:52.3222892Z   ssh-strict: true
+2026-08-11T16:47:52.3223273Z   ssh-user: git
+2026-08-11T16:47:52.3223653Z   persist-credentials: true
+2026-08-11T16:47:52.3224073Z   clean: true
+2026-08-11T16:47:52.3224456Z   sparse-checkout-cone-mode: true
+2026-08-11T16:47:52.3224895Z   fetch-depth: 1
+2026-08-11T16:47:52.3225293Z   fetch-tags: false
+2026-08-11T16:47:52.3225677Z   show-progress: true
+2026-08-11T16:47:52.3226073Z   lfs: false
+2026-08-11T16:47:52.3226439Z   submodules: false
+2026-08-11T16:47:52.3226831Z   set-safe-directory: true
+2026-08-11T16:47:52.3227265Z   allow-unsafe-pr-checkout: false
+2026-08-11T16:47:52.3227918Z env:
+2026-08-11T16:47:52.3228273Z   GIT_CONFIG_COUNT: 1
+2026-08-11T16:47:52.3228688Z   GIT_CONFIG_KEY_0: init.defaultBranch
+2026-08-11T16:47:52.3229210Z   GIT_CONFIG_VALUE_0: main
+2026-08-11T16:47:52.3229624Z ##[endgroup]
+2026-08-11T16:47:52.4066158Z Syncing repository: link-assistant/hive-mind
+2026-08-11T16:47:52.4068444Z ##[group]Getting Git version info
+2026-08-11T16:47:52.4069535Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+2026-08-11T16:47:52.4071055Z [command]/usr/bin/git version
+2026-08-11T16:47:52.4227372Z git version 2.54.0
+2026-08-11T16:47:52.4246912Z ##[endgroup]
+2026-08-11T16:47:52.4261111Z Temporarily overriding HOME='/home/runner/work/_temp/341d6880-ac68-47b1-ab04-d976e8224460' before making global git config changes
+2026-08-11T16:47:52.4263023Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-11T16:47:52.4266061Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2026-08-11T16:47:52.4647527Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+2026-08-11T16:47:52.4652772Z ##[group]Determining repository object format
+2026-08-11T16:47:52.4654917Z ##[endgroup]
+2026-08-11T16:47:52.4655879Z ##[group]Initializing the repository
+2026-08-11T16:47:52.4660143Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+2026-08-11T16:47:52.5244270Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+2026-08-11T16:47:52.5245979Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+2026-08-11T16:47:52.5855840Z ##[endgroup]
+2026-08-11T16:47:52.5857014Z ##[group]Disabling automatic garbage collection
+2026-08-11T16:47:52.5858976Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-11T16:47:52.6451504Z ##[endgroup]
+2026-08-11T16:47:52.6452624Z ##[group]Setting up auth
+2026-08-11T16:47:52.6453388Z Removing SSH command configuration
+2026-08-11T16:47:52.6458624Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-11T16:47:52.6493231Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-11T16:47:52.6744799Z Removing HTTP extra header
+2026-08-11T16:47:52.6750827Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-11T16:47:52.6782017Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-11T16:47:52.6972951Z Removing includeIf entries pointing to credentials config files
+2026-08-11T16:47:52.6978351Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-11T16:47:52.7013682Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-11T16:47:52.7245848Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-11T16:47:52.7347115Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:47:52.7447936Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:47:52.7547669Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:47:52.7577937Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:47:52.7647424Z ##[endgroup]
+2026-08-11T16:47:52.7649024Z ##[group]Fetching the repository
+2026-08-11T16:47:52.7656668Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +03ab547843252a42afb030d2ecfb46269d17f4d2:refs/remotes/pull/2151/merge
+2026-08-11T16:48:04.4563965Z From https://github.com/link-assistant/hive-mind
+2026-08-11T16:48:04.4564755Z  * [new ref]         03ab547843252a42afb030d2ecfb46269d17f4d2 -> pull/2151/merge
+2026-08-11T16:48:04.4585174Z ##[endgroup]
+2026-08-11T16:48:04.4585815Z ##[group]Determining the checkout info
+2026-08-11T16:48:04.4586470Z ##[endgroup]
+2026-08-11T16:48:04.4590945Z [command]/usr/bin/git sparse-checkout disable
+2026-08-11T16:48:04.4626068Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-11T16:48:04.4657027Z ##[group]Checking out the ref
+2026-08-11T16:48:04.4657457Z [command]/usr/bin/git checkout --progress --force refs/remotes/pull/2151/merge
+2026-08-11T16:48:05.5092830Z Updating files:  33% (1796/5308)
+2026-08-11T16:48:05.5896955Z Updating files:  34% (1805/5308)
+2026-08-11T16:48:05.6047444Z Updating files:  35% (1858/5308)
+2026-08-11T16:48:05.6475643Z Updating files:  36% (1911/5308)
+2026-08-11T16:48:05.6588465Z Updating files:  37% (1964/5308)
+2026-08-11T16:48:05.7531220Z Updating files:  38% (2018/5308)
+2026-08-11T16:48:05.8179237Z Updating files:  39% (2071/5308)
+2026-08-11T16:48:05.8350595Z Updating files:  40% (2124/5308)
+2026-08-11T16:48:05.8772270Z Updating files:  41% (2177/5308)
+2026-08-11T16:48:05.9150263Z Updating files:  42% (2230/5308)
+2026-08-11T16:48:05.9416042Z Updating files:  43% (2283/5308)
+2026-08-11T16:48:05.9521253Z Updating files:  44% (2336/5308)
+2026-08-11T16:48:05.9850902Z Updating files:  45% (2389/5308)
+2026-08-11T16:48:06.0150740Z Updating files:  46% (2442/5308)
+2026-08-11T16:48:06.0509745Z Updating files:  47% (2495/5308)
+2026-08-11T16:48:06.0606545Z Updating files:  48% (2548/5308)
+2026-08-11T16:48:06.1067406Z Updating files:  49% (2601/5308)
+2026-08-11T16:48:06.1198025Z Updating files:  50% (2654/5308)
+2026-08-11T16:48:06.1352987Z Updating files:  51% (2708/5308)
+2026-08-11T16:48:06.1514166Z Updating files:  52% (2761/5308)
+2026-08-11T16:48:06.1623324Z Updating files:  53% (2814/5308)
+2026-08-11T16:48:06.1924681Z Updating files:  54% (2867/5308)
+2026-08-11T16:48:06.2075614Z Updating files:  55% (2920/5308)
+2026-08-11T16:48:06.2102995Z Updating files:  56% (2973/5308)
+2026-08-11T16:48:06.2124775Z Updating files:  57% (3026/5308)
+2026-08-11T16:48:06.2980171Z Updating files:  58% (3079/5308)
+2026-08-11T16:48:06.3163015Z Updating files:  59% (3132/5308)
+2026-08-11T16:48:06.3246154Z Updating files:  60% (3185/5308)
+2026-08-11T16:48:06.3837068Z Updating files:  61% (3238/5308)
+2026-08-11T16:48:06.3928331Z Updating files:  62% (3291/5308)
+2026-08-11T16:48:06.3945952Z Updating files:  63% (3345/5308)
+2026-08-11T16:48:06.4688499Z Updating files:  64% (3398/5308)
+2026-08-11T16:48:06.4722792Z Updating files:  65% (3451/5308)
+2026-08-11T16:48:06.4744201Z Updating files:  65% (3491/5308)
+2026-08-11T16:48:06.4839331Z Updating files:  66% (3504/5308)
+2026-08-11T16:48:06.6381684Z Updating files:  67% (3557/5308)
+2026-08-11T16:48:06.6605134Z Updating files:  68% (3610/5308)
+2026-08-11T16:48:06.6887748Z Updating files:  69% (3663/5308)
+2026-08-11T16:48:06.7020839Z Updating files:  70% (3716/5308)
+2026-08-11T16:48:06.7188870Z Updating files:  71% (3769/5308)
+2026-08-11T16:48:06.7233659Z Updating files:  72% (3822/5308)
+2026-08-11T16:48:06.7253080Z Updating files:  73% (3875/5308)
+2026-08-11T16:48:06.7278523Z Updating files:  74% (3928/5308)
+2026-08-11T16:48:06.7297839Z Updating files:  75% (3981/5308)
+2026-08-11T16:48:06.7337926Z Updating files:  76% (4035/5308)
+2026-08-11T16:48:06.7359333Z Updating files:  77% (4088/5308)
+2026-08-11T16:48:06.7380784Z Updating files:  78% (4141/5308)
+2026-08-11T16:48:06.7402932Z Updating files:  79% (4194/5308)
+2026-08-11T16:48:06.7424837Z Updating files:  80% (4247/5308)
+2026-08-11T16:48:06.7447387Z Updating files:  81% (4300/5308)
+2026-08-11T16:48:06.7470226Z Updating files:  82% (4353/5308)
+2026-08-11T16:48:06.7492418Z Updating files:  83% (4406/5308)
+2026-08-11T16:48:06.7514613Z Updating files:  84% (4459/5308)
+2026-08-11T16:48:06.7535128Z Updating files:  85% (4512/5308)
+2026-08-11T16:48:06.7565582Z Updating files:  86% (4565/5308)
+2026-08-11T16:48:06.7600660Z Updating files:  87% (4618/5308)
+2026-08-11T16:48:06.7638711Z Updating files:  88% (4672/5308)
+2026-08-11T16:48:06.7682710Z Updating files:  89% (4725/5308)
+2026-08-11T16:48:06.7735844Z Updating files:  90% (4778/5308)
+2026-08-11T16:48:06.7776353Z Updating files:  91% (4831/5308)
+2026-08-11T16:48:06.7808722Z Updating files:  92% (4884/5308)
+2026-08-11T16:48:06.7840619Z Updating files:  93% (4937/5308)
+2026-08-11T16:48:06.7875293Z Updating files:  94% (4990/5308)
+2026-08-11T16:48:06.7904982Z Updating files:  95% (5043/5308)
+2026-08-11T16:48:06.7932782Z Updating files:  96% (5096/5308)
+2026-08-11T16:48:06.7964311Z Updating files:  97% (5149/5308)
+2026-08-11T16:48:06.7995464Z Updating files:  98% (5202/5308)
+2026-08-11T16:48:06.8027273Z Updating files:  99% (5255/5308)
+2026-08-11T16:48:06.8027557Z Updating files: 100% (5308/5308)
+2026-08-11T16:48:06.8027867Z Updating files: 100% (5308/5308), done.
+2026-08-11T16:48:06.8573292Z Note: switching to 'refs/remotes/pull/2151/merge'.
+2026-08-11T16:48:06.8575278Z 
+2026-08-11T16:48:06.8575656Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-08-11T16:48:06.8576334Z changes and commit them, and you can discard any commits you make in this
+2026-08-11T16:48:06.8576967Z state without impacting any branches by switching back to a branch.
+2026-08-11T16:48:06.8577334Z 
+2026-08-11T16:48:06.8577572Z If you want to create a new branch to retain commits you create, you may
+2026-08-11T16:48:06.8578144Z do so (now or later) by using -c with the switch command. Example:
+2026-08-11T16:48:06.8578471Z 
+2026-08-11T16:48:06.8578614Z   git switch -c <new-branch-name>
+2026-08-11T16:48:06.8578842Z 
+2026-08-11T16:48:06.8578964Z Or undo this operation with:
+2026-08-11T16:48:06.8579170Z 
+2026-08-11T16:48:06.8579283Z   git switch -
+2026-08-11T16:48:06.8579426Z 
+2026-08-11T16:48:06.8579728Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-08-11T16:48:06.8580316Z 
+2026-08-11T16:48:06.8580759Z HEAD is now at 03ab547 Merge 023586b227416e1ce59f11b8eb7525c0403ee4bf into 4873c0d10f216056f3d1d5e6440b1e60a3da665a
+2026-08-11T16:48:06.8648202Z ##[endgroup]
+2026-08-11T16:48:06.8687359Z [command]/usr/bin/git log -1 --format=%H
+2026-08-11T16:48:06.8712005Z 03ab547843252a42afb030d2ecfb46269d17f4d2
+2026-08-11T16:48:06.8978951Z ##[group]Run actions/dependency-review-action@v5
+2026-08-11T16:48:06.8979333Z with:
+2026-08-11T16:48:06.8979576Z   fail-on-severity: high
+2026-08-11T16:48:06.8980058Z   comment-summary-in-pr: on-failure
+2026-08-11T16:48:06.8983344Z   repo-token: ***
+2026-08-11T16:48:06.8983533Z env:
+2026-08-11T16:48:06.8983693Z   GIT_CONFIG_COUNT: 1
+2026-08-11T16:48:06.8983882Z   GIT_CONFIG_KEY_0: init.defaultBranch
+2026-08-11T16:48:06.8984098Z   GIT_CONFIG_VALUE_0: main
+2026-08-11T16:48:06.8984285Z ##[endgroup]
+2026-08-11T16:48:07.3937014Z ##[error]Dependency review is not supported on this repository. Please ensure that Dependency graph is enabled, see https://github.com/link-assistant/hive-mind/settings/security_analysis
+2026-08-11T16:48:07.4262005Z Post job cleanup.
+2026-08-11T16:48:07.4923226Z [command]/usr/bin/git version
+2026-08-11T16:48:07.4956556Z git version 2.54.0
+2026-08-11T16:48:07.4988037Z Temporarily overriding HOME='/home/runner/work/_temp/4e837c0b-a01b-4c3d-b37d-44b076b55994' before making global git config changes
+2026-08-11T16:48:07.4989131Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-11T16:48:07.4992354Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2026-08-11T16:48:07.5300891Z Removing SSH command configuration
+2026-08-11T16:48:07.5301598Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-11T16:48:07.5333978Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-11T16:48:07.5545569Z Removing HTTP extra header
+2026-08-11T16:48:07.5550664Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-11T16:48:07.5583226Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-11T16:48:07.5784111Z Removing includeIf entries pointing to credentials config files
+2026-08-11T16:48:07.5789662Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-11T16:48:07.5813764Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+2026-08-11T16:48:07.5814415Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+2026-08-11T16:48:07.5815005Z includeif.gitdir:/github/workspace/.git.path
+2026-08-11T16:48:07.5815477Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-08-11T16:48:07.5822047Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+2026-08-11T16:48:07.5844096Z /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.5853403Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.6511766Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+2026-08-11T16:48:07.6537359Z /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.6545633Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.7701256Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-08-11T16:48:07.7726711Z /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.7734369Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.8900346Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-08-11T16:48:07.8925137Z /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:07.8933473Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config
+2026-08-11T16:48:08.0124390Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-11T16:48:08.0336845Z Removing credentials config '/home/runner/work/_temp/git-credentials-e2e396b3-c676-4ee7-bea4-e1bfadd15a40.config'
+2026-08-11T16:48:08.0464575Z Cleaning up orphan processes

@@ -25,12 +25,13 @@ const testHome = mkdtempSync(join(tmpdir(), 'issue-2023-home-'));
 process.env.HOME = testHome;
 
 globalThis.use = async name => {
-  if (name === 'command-stream') return { $: () => ({ stream: async function* noopStream() {} }) };
-  if (name === 'fs') return { ...fsModule, default: fsModule };
-  if (name === 'os') return { ...osModule, default: osModule };
-  if (name === 'path') return { ...pathModule, default: pathModule };
-  if (name === 'getenv') return (key, fallback) => process.env[key] ?? fallback;
-  return await import(name);
+  const packageName = name.replace(/@\d[^/]*$/, '');
+  if (packageName === 'command-stream') return { $: () => ({ stream: async function* noopStream() {} }) };
+  if (packageName === 'fs') return { ...fsModule, default: fsModule };
+  if (packageName === 'os') return { ...osModule, default: osModule };
+  if (packageName === 'path') return { ...pathModule, default: pathModule };
+  if (packageName === 'getenv') return (key, fallback) => process.env[key] ?? fallback;
+  return await import(packageName);
 };
 
 const { executeClaudeCommand } = await import('../src/claude.lib.mjs');

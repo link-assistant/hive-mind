@@ -462,6 +462,9 @@ export const execGhWithRetry = async (command, options = {}) => {
  * @returns {(strings: TemplateStringsArray, ...values: unknown[]) => Promise<T>}
  */
 export const wrapDollarWithGhRetry = (dollar, options = {}) => {
+  if (typeof dollar !== 'function') {
+    throw new TypeError(`Expected command-stream's $ export to be a function, received ${typeof dollar}. Enable HIVE_MIND_USE_M_DEBUG=1 for loader diagnostics.`);
+  }
   const wrapped = (strings, ...values) => {
     // Options-call form: `$({ mirror: false })` returns a new tag bound to
     // those options. Template literals always arrive as an array of quasis, so

@@ -11,7 +11,6 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
-
 import { classifyCodexRateLimitWindows } from './codex-rate-limit-windows.lib.mjs';
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
 import { formatLimitResetsAt, formatLimitResetsIn, formatLocalizedCurrentTime, formatLocalizedRelativeTime, formatLocalizedResetTime, localizeCompactDuration, lt, resolveLimitLocale } from './limits-i18n.lib.mjs';
@@ -26,7 +25,6 @@ dayjs.extend(utc);
 
 // Import cache TTL configuration
 import { cacheTtl } from './config.lib.mjs';
-
 // Import centralized queue thresholds for progress bar visualization
 // This ensures thresholds are consistent between queue logic and display formatting
 // See: https://github.com/link-assistant/hive-mind/issues/1242
@@ -34,7 +32,6 @@ export { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
 import { DISPLAY_THRESHOLDS } from './queue-config.lib.mjs';
 
 const execAsync = promisify(exec);
-
 /**
  * Default path to Claude credentials file
  */
@@ -47,7 +44,6 @@ const DEFAULT_CODEX_CONFIG_PATH = join(homedir(), '.codex', 'config.toml');
  */
 const USAGE_API_ENDPOINT = 'https://api.anthropic.com/api/oauth/usage';
 const CODEX_USAGE_API_DEFAULT_BASE_URL = 'https://chatgpt.com/backend-api';
-
 export function decodeJwtPayload(token) {
   if (!token || typeof token !== 'string') return null;
 
@@ -61,14 +57,12 @@ export function decodeJwtPayload(token) {
     return null;
   }
 }
-
 function unixSecondsToIsoDate(seconds) {
   if (seconds === null || seconds === undefined) return null;
   const numeric = Number(seconds);
   if (!Number.isFinite(numeric) || numeric <= 0) return null;
   return new Date(numeric * 1000).toISOString();
 }
-
 function mapCodexWindow(window) {
   const resetsAt = unixSecondsToIsoDate(window?.reset_at);
   return {
@@ -82,7 +76,6 @@ function mapCodexWindow(window) {
 
 export function mapCodexRateLimitWindows(rateLimit) {
   const { sessionWindow, weeklyWindow } = classifyCodexRateLimitWindows(rateLimit);
-
   return {
     currentSession: mapCodexWindow(sessionWindow),
     allModels: mapCodexWindow(weeklyWindow),
@@ -93,7 +86,6 @@ export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose 
   try {
     const content = await readFile(authPath, 'utf-8');
     const auth = JSON.parse(content);
-
     if (verbose) {
       console.log('[VERBOSE] /limits Codex auth loaded from:', authPath);
     }
@@ -106,7 +98,6 @@ export async function readCodexAuth(authPath = DEFAULT_CODEX_AUTH_PATH, verbose 
     return null;
   }
 }
-
 async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verbose = false) {
   try {
     const content = await readFile(configPath, 'utf-8');
@@ -115,7 +106,6 @@ async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verb
 
     const baseUrl = match[1].trim().replace(/\/+$/, '');
     const normalized = baseUrl.endsWith('/backend-api') ? baseUrl : `${baseUrl}/backend-api`;
-
     if (verbose) {
       console.log('[VERBOSE] /limits Codex base URL loaded from config:', normalized);
     }
@@ -129,7 +119,6 @@ async function getCodexUsageBaseUrl(configPath = DEFAULT_CODEX_CONFIG_PATH, verb
     return CODEX_USAGE_API_DEFAULT_BASE_URL;
   }
 }
-
 /**
  * Read Claude credentials from the credentials file
  *
@@ -141,7 +130,6 @@ export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH
   try {
     const content = await readFile(credentialsPath, 'utf-8');
     const credentials = JSON.parse(content);
-
     if (verbose) {
       console.log('[VERBOSE] /limits credentials loaded from:', credentialsPath);
     }
@@ -154,7 +142,6 @@ export async function readCredentials(credentialsPath = DEFAULT_CREDENTIALS_PATH
     return null;
   }
 }
-
 /**
  * Format a retry-after value into a user-friendly message.
  * The retry-after header can be either a number of seconds or an HTTP-date.
@@ -175,7 +162,6 @@ export function formatRetryAfterMessage(retryAfter) {
     // Calculate reset time from now + seconds
     const resetAt = dayjs().add(seconds, 'second').utc();
     const resetTimeStr = resetAt.format('MMM D, h:mma');
-
     // Format relative time
     const totalMinutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.round(seconds % 60);
@@ -190,7 +176,6 @@ export function formatRetryAfterMessage(retryAfter) {
     } else {
       relativeStr = `${remainingSeconds}s`;
     }
-
     return ` Resets in ${relativeStr} (${resetTimeStr} UTC)`;
   }
 
@@ -207,7 +192,6 @@ export function formatRetryAfterMessage(retryAfter) {
       return ` Resets in ${relativeStr} (${resetTimeStr} UTC)`;
     }
   }
-
   // Fallback for 0, negative, or unparseable values - don't show misleading info
   return ' Try again later.';
 }
@@ -222,11 +206,9 @@ export function formatRetryAfterMessage(retryAfter) {
 function formatResetTime(isoDate, includeTimezone = true, options = {}) {
   return formatLocalizedResetTime(isoDate, includeTimezone, options);
 }
-
 function formatRelativeTime(isoDate, options = {}) {
   return formatLocalizedRelativeTime(isoDate, options);
 }
-
 /**
  * Format current time in UTC using dayjs
  *
@@ -251,7 +233,6 @@ function formatBytes(bytes) {
   const decimals = i >= 3 ? 1 : 0;
   return `${value.toFixed(decimals)} ${sizes[i]}`;
 }
-
 /**
  * @param {number} usedBytes - Used size in bytes
  * @param {number} totalBytes - Total size in bytes
@@ -275,7 +256,6 @@ function formatBytesRange(usedBytes, totalBytes, options = {}) {
 function formatRoundedNumber(value, decimals = 2) {
   return parseFloat(value.toFixed(decimals));
 }
-
 function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
   const boundedLoad = Math.min(Math.max(loadAvg5, 0), cpuCount);
   return formatRoundedNumber(boundedLoad);
@@ -284,7 +264,6 @@ function getDisplayCpuCoresUsed(loadAvg5, cpuCount) {
 function hasLimitPercentage(window) {
   return window?.percentage !== null && window?.percentage !== undefined;
 }
-
 function getLocalizedResetTime(window, options = {}) {
   if (!window) return null;
   return formatResetTime(window.resetsAt, true, options) || window.resetTime || null;
@@ -293,7 +272,6 @@ function getLocalizedResetTime(window, options = {}) {
 function getLocalizedRelativeReset(window, options = {}, fallbackRelative = null) {
   return formatRelativeTime(window?.resetsAt, options) || localizeCompactDuration(fallbackRelative, options);
 }
-
 function formatCodeBlock(content) {
   const text = Array.isArray(content) ? content.join('\n') : String(content ?? '');
   return '```\n' + (text.endsWith('\n') ? text : `${text}\n`) + '```';
@@ -303,14 +281,12 @@ function formatPlainTitledCodeSection(section) {
   const text = String(section ?? '').trimEnd();
   if (!text) return '';
   if (text.includes('```')) return text;
-
   const lines = text.split('\n');
   const title = lines.shift();
   const body = lines.join('\n');
   if (!body) return formatCodeBlock(title);
   return `${title}\n\n${formatCodeBlock(body)}`;
 }
-
 function formatLimitWindowSection(label, window, periodHours, threshold, options = {}) {
   const locale = resolveLimitLocale(options);
   let section = `${label}\n`;
@@ -324,7 +300,6 @@ function formatLimitWindowSection(label, window, periodHours, threshold, options
     const bar = getProgressBar(pct, threshold);
     const suffix = pct >= threshold ? ' ⚠️' : ` ${lt('used', {}, { locale })}`;
     section += `${bar} ${pct}%${suffix}\n`;
-
     const resetTime = getLocalizedResetTime(window, { locale });
     if (resetTime) {
       const relativeTime = getLocalizedRelativeReset(window, { locale });
@@ -341,7 +316,6 @@ function hasPositivePercentage(value) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0;
 }
-
 function hasPositiveCreditBalance(credits) {
   if (!credits) return false;
   if (credits.unlimited) return true;
@@ -361,7 +335,6 @@ export async function getGitHubRateLimits(verbose = false) {
     // #1756: route through execGhWithRetry for transient 5xx; skip rate-limit retry budget (this is the endpoint we'd consult to know about rate limits).
     const { stdout } = await execGhWithRetry('gh api rate_limit 2>/dev/null', { label: 'gh api rate_limit', maxAttempts: 1 });
     const data = JSON.parse(stdout);
-
     if (verbose) {
       console.log('[VERBOSE] /limits GitHub rate limit response:', JSON.stringify(data, null, 2));
     }
@@ -374,7 +347,6 @@ export async function getGitHubRateLimits(verbose = false) {
         error: 'Could not parse GitHub rate limit response',
       };
     }
-
     // Calculate remaining percentage
     const usedPercentage = core.limit > 0 ? Math.round((core.used / core.limit) * 100) : 0;
     const remainingPercentage = 100 - usedPercentage;
@@ -382,7 +354,6 @@ export async function getGitHubRateLimits(verbose = false) {
     // Format reset time from Unix timestamp
     const resetDate = new Date(core.reset * 1000);
     const resetTimeFormatted = formatResetTime(resetDate.toISOString());
-
     // Calculate relative time until reset
     const now = new Date();
     const diffMs = resetDate - now;
@@ -397,7 +368,6 @@ export async function getGitHubRateLimits(verbose = false) {
         relativeReset = `${minutes}m`;
       }
     }
-
     if (verbose) {
       console.log(`[VERBOSE] /limits GitHub API: ${core.remaining}/${core.limit} remaining (${remainingPercentage}% available)`);
     }
@@ -426,7 +396,6 @@ export async function getGitHubRateLimits(verbose = false) {
     };
   }
 }
-
 /**
  * Get CPU load average information
  * Returns 1-minute, 5-minute, and 15-minute load averages
@@ -443,7 +412,6 @@ export async function getCpuLoadInfo(verbose = false) {
       const { stdout: cpuStdout } = await execAsync('wmic cpu get NumberOfCores /format:value 2>nul');
       const coresMatch = cpuStdout.match(/NumberOfCores=(\d+)/);
       cpuCount = coresMatch ? parseInt(coresMatch[1]) : 1;
-
       // Windows doesn't have load average, use current CPU usage as approximation
       const { stdout: loadStdout } = await execAsync('wmic cpu get LoadPercentage /format:value 2>nul');
       const loadMatch = loadStdout.match(/LoadPercentage=(\d+)/);
@@ -459,7 +427,6 @@ export async function getCpuLoadInfo(verbose = false) {
         loadAvg5 = parseFloat(numbers[1]);
         loadAvg15 = parseFloat(numbers[2]);
       }
-
       // Get CPU count
       if (process.platform === 'darwin') {
         const { stdout: cpuStdout } = await execAsync('sysctl -n hw.ncpu 2>/dev/null');
@@ -476,7 +443,6 @@ export async function getCpuLoadInfo(verbose = false) {
         error: 'Failed to parse CPU load information',
       };
     }
-
     // Calculate usage percentage based on 5-minute load average vs CPU count
     // Load average of 1.0 per CPU = 100% utilization
     // Using 5m average for consistency with solve queue (see issue #1137)
@@ -486,7 +452,6 @@ export async function getCpuLoadInfo(verbose = false) {
     if (verbose) {
       console.log(`[VERBOSE] /limits CPU load: ${loadAvg1.toFixed(2)} (1m), ${loadAvg5.toFixed(2)} (5m), ${loadAvg15.toFixed(2)} (15m), ${cpuCount} CPUs, ${usagePercentage}% used`);
     }
-
     return {
       success: true,
       cpuLoad: {
@@ -508,7 +473,6 @@ export async function getCpuLoadInfo(verbose = false) {
     };
   }
 }
-
 /**
  * Get RAM/memory usage information
  * Returns total, used, and available memory with usage percentage
@@ -525,7 +489,6 @@ export async function getMemoryInfo(verbose = false) {
       const { stdout: memTotal } = await execAsync('sysctl -n hw.memsize 2>/dev/null');
       const totalBytes = parseInt(memTotal.trim());
       totalMB = Math.round(totalBytes / (1024 * 1024));
-
       const { stdout: vmStat } = await execAsync('vm_stat 2>/dev/null');
       const pageSize = 4096; // Default page size on macOS
       const freeMatch = vmStat.match(/Pages free:\s+(\d+)/);
@@ -535,7 +498,6 @@ export async function getMemoryInfo(verbose = false) {
       const freePages = freeMatch ? parseInt(freeMatch[1]) : 0;
       const inactivePages = inactiveMatch ? parseInt(inactiveMatch[1]) : 0;
       const speculativePages = speculativeMatch ? parseInt(speculativeMatch[1]) : 0;
-
       // Available = free + inactive + speculative (approximately)
       availableMB = Math.round(((freePages + inactivePages + speculativePages) * pageSize) / (1024 * 1024));
       usedMB = totalMB - availableMB;
@@ -557,7 +519,6 @@ export async function getMemoryInfo(verbose = false) {
       const { stdout } = await execAsync("grep -E '^(MemTotal|MemAvailable):' /proc/meminfo 2>/dev/null");
       const totalMatch = stdout.match(/MemTotal:\s+(\d+)/);
       const availableMatch = stdout.match(/MemAvailable:\s+(\d+)/);
-
       if (totalMatch && availableMatch) {
         const totalKB = parseInt(totalMatch[1]);
         const availableKB = parseInt(availableMatch[1]);
@@ -573,14 +534,12 @@ export async function getMemoryInfo(verbose = false) {
         error: 'Failed to parse memory information',
       };
     }
-
     // Calculate used percentage
     const usedPercentage = Math.round((usedMB / totalMB) * 100);
 
     if (verbose) {
       console.log(`[VERBOSE] /limits memory: ${usedMB}MB used of ${totalMB}MB total (${usedPercentage}% used)`);
     }
-
     return {
       success: true,
       memory: {
@@ -607,7 +566,6 @@ export async function getMemoryInfo(verbose = false) {
     };
   }
 }
-
 /**
  * Get disk space information for the current filesystem
  * Returns total, used, available space and usage percentage
@@ -643,7 +601,6 @@ export async function getDiskSpaceInfo(verbose = false) {
         .map(s => parseInt(s.replace('M', '')));
       [totalMB, usedMB, availableMB] = parts;
     }
-
     if (isNaN(totalMB) || isNaN(usedMB) || isNaN(availableMB)) {
       return {
         success: false,
@@ -655,7 +612,6 @@ export async function getDiskSpaceInfo(verbose = false) {
     usedPercentage = Math.round((usedMB / totalMB) * 100);
     // Free percentage is the inverse
     const freePercentage = 100 - usedPercentage;
-
     if (verbose) {
       console.log(`[VERBOSE] /limits disk space: ${availableMB}MB free of ${totalMB}MB total (${freePercentage}% free)`);
     }
@@ -686,7 +642,6 @@ export async function getDiskSpaceInfo(verbose = false) {
     };
   }
 }
-
 /**
  * Get Claude usage limits by calling the Anthropic OAuth usage API
  * This approach is more reliable than trying to parse CLI output
@@ -712,7 +667,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         error: 'Could not read Claude credentials. Make sure Claude is properly installed and authenticated.',
       };
     }
-
     const accessToken = credentials?.claudeAiOauth?.accessToken;
 
     if (!accessToken) {
@@ -721,7 +675,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         error: 'No access token found in Claude credentials. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.',
       };
     }
-
     const requestHeaders = {
       Accept: 'application/json',
       'Content-Type': 'application/json',
@@ -729,7 +682,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       Authorization: `Bearer ${accessToken}`,
       'anthropic-beta': 'oauth-2025-04-20',
     };
-
     if (verbose) {
       console.log('[VERBOSE] /limits fetching usage from API...');
       console.log(`[VERBOSE] /limits API request: GET ${USAGE_API_ENDPOINT}`);
@@ -747,7 +699,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       method: 'GET',
       headers: requestHeaders,
     });
-
     // Log HTTP response status and headers for debugging (always in verbose mode, not just on error)
     if (verbose) {
       console.log(`[VERBOSE] /limits API HTTP status: ${response.status} ${response.statusText}`);
@@ -764,7 +715,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
       if (verbose) {
         console.error('[VERBOSE] /limits API error body:', errorText);
       }
-
       // Check for specific error conditions
       if (response.status === 401) {
         return {
@@ -781,7 +731,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
           error: `Claude Usage API access has reached rate limit.${formatRetryAfterMessage(retryAfter)}`,
         };
       }
-
       return {
         success: false,
         error: `Failed to fetch usage from API: ${response.status} ${response.statusText}`,
@@ -789,7 +738,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     }
 
     const data = await response.json();
-
     if (verbose) {
       console.log('[VERBOSE] /limits API response body:', JSON.stringify(data, null, 2));
     }
@@ -799,7 +747,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
     // - five_hour: { utilization: number, resets_at: string }
     // - seven_day: { utilization: number, resets_at: string }
     // - seven_day_sonnet: { utilization: number, resets_at: string } (optional)
-
     const usage = {
       currentSession: {
         percentage: data.five_hour?.utilization ?? null,
@@ -817,7 +764,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
         resetsAt: data.seven_day_sonnet?.resets_at ?? null,
       },
     };
-
     return {
       success: true,
       usage,
@@ -850,7 +796,6 @@ export async function getClaudeUsageLimits(verbose = false, credentialsPath = DE
 export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CODEX_AUTH_PATH, baseUrl = null) {
   try {
     const auth = await readCodexAuth(authPath, verbose);
-
     if (!auth) {
       return {
         success: false,
@@ -864,7 +809,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
         error: 'Codex rate limits require ChatGPT authentication. API key auth does not expose account usage windows.',
       };
     }
-
     const accessToken = auth?.tokens?.access_token;
     if (!accessToken) {
       return {
@@ -881,7 +825,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       Authorization: `Bearer ${accessToken}`,
       'User-Agent': 'hive-mind-codex-limits/1.0',
     };
-
     if (verbose) {
       console.log('[VERBOSE] /limits fetching Codex usage from API...');
       console.log(`[VERBOSE] /limits Codex API request: GET ${usageEndpoint}`);
@@ -906,7 +849,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       method: 'GET',
       headers: requestHeaders,
     });
-
     if (verbose) {
       console.log(`[VERBOSE] /limits Codex API HTTP status: ${response.status} ${response.statusText}`);
       const responseHeaders = {};
@@ -921,14 +863,12 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
       if (verbose) {
         console.error('[VERBOSE] /limits Codex API error body:', errorText);
       }
-
       if (response.status === 401) {
         return {
           success: false,
           error: 'Codex authentication expired. Please re-authenticate Codex with your ChatGPT account.',
         };
       }
-
       if (response.status === 429) {
         const retryAfter = response.headers.get('retry-after');
         return {
@@ -942,13 +882,11 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
         error: `Failed to fetch Codex usage from API: ${response.status} ${response.statusText}`,
       };
     }
-
     const data = await response.json();
 
     if (verbose) {
       console.log('[VERBOSE] /limits Codex API response body:', JSON.stringify(data, null, 2));
     }
-
     const usage = {
       ...mapCodexRateLimitWindows(data?.rate_limit),
       sonnetOnly: {
@@ -967,7 +905,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
           limitReached: limit?.rate_limit?.limit_reached ?? null,
         }))
       : [];
-
     return {
       success: true,
       usage,
@@ -995,7 +932,6 @@ export async function getCodexUsageLimits(verbose = false, authPath = DEFAULT_CO
  */
 export function calculateTimePassedPercentage(resetsAt, periodHours) {
   if (!resetsAt) return null;
-
   try {
     const now = new Date();
     const resetTime = new Date(resetsAt);
@@ -1003,11 +939,9 @@ export function calculateTimePassedPercentage(resetsAt, periodHours) {
 
     // Calculate when the period started
     const startTime = new Date(resetTime.getTime() - periodMs);
-
     // Calculate time passed and total duration
     const timePassed = now.getTime() - startTime.getTime();
     const percentage = Math.max(0, Math.min(100, (timePassed / periodMs) * 100));
-
     return Math.round(percentage);
   } catch {
     return null;
@@ -1037,7 +971,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
   const locale = resolveLimitLocale(options);
   const subscription = options?.subscription || null;
   const sections = [];
-
   sections.push(`${lt('current_time', {}, { locale })}: ${formatCurrentTime({ locale })}\n`);
 
   if (cpuLoad) {
@@ -1057,7 +990,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     section += `${cpuCoresLine}\n`;
     sections.push(section);
   }
-
   if (memory) {
     let section = `${lt('ram', {}, { locale })}\n`;
     const usedBar = getProgressBar(memory.usedPercentage, DISPLAY_THRESHOLDS.RAM);
@@ -1075,7 +1007,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     section += `${formatBytesRange(diskSpace.usedBytes, diskSpace.totalBytes, { locale })}\n`;
     sections.push(section);
   }
-
   // GitHub API rate limits section (if provided)
   // Threshold: Blocks parallel claude commands when >= 75%
   if (githubRateLimit) {
@@ -1096,7 +1027,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
 
   const telegramSection = formatTelegramLimitsSection(options?.telegramRateLimit, { locale });
   if (telegramSection) sections.push(telegramSection);
-
   const claudeHeading = formatSubscriptionHeading('claude', subscription, { locale });
   const useShortClaudeLabels = Boolean(claudeHeading);
   const claudeSections = [];
@@ -1111,13 +1041,11 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     if (hasSonnetOnly || !useShortClaudeLabels) {
       claudeSections.push(formatLimitWindowSection(lt('current_week_sonnet_only', {}, { locale }), usage?.sonnetOnly, 168, DISPLAY_THRESHOLDS.CLAUDE_WEEKLY, { locale }));
     }
-
     if (!useShortClaudeLabels) {
       const subscriptionLines = formatSubscriptionLines(subscription, { locale });
       if (subscriptionLines) claudeSections.push(subscriptionLines);
     }
   }
-
   const hasFencedExtraSection = extraSections.some(extra => String(extra ?? '').includes('```'));
   const useSplitLayout = Boolean(claudeHeading) || hasFencedExtraSection;
 
@@ -1128,7 +1056,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     }
     return formatCodeBlock(sections.join('\n'));
   }
-
   const markdownSections = [];
   markdownSections.push(formatCodeBlock(claudeHeading ? sections.join('\n') : [...sections, ...claudeSections].join('\n')));
   if (claudeHeading) {
@@ -1140,7 +1067,6 @@ export function formatUsageMessage(usage, diskSpace = null, githubRateLimit = nu
     const formatted = formatPlainTitledCodeSection(extra);
     if (formatted) markdownSections.push(formatted);
   }
-
   return markdownSections.join('\n\n');
 }
 
@@ -1161,7 +1087,6 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
   const planType = subscription?.planType || codexLimits?.planType || null;
   const heading = formatSubscriptionHeading('codex', subscription, { locale, planType });
   const useTitledLayout = Boolean(heading);
-
   if (codexError) {
     const errorSection = useTitledLayout ? `${codexError}\n` : `${lt('codex_limits', {}, { locale })}\n${codexError}\n`;
     return useTitledLayout ? `${heading}\n\n${formatCodeBlock(errorSection)}` : errorSection;
@@ -1171,12 +1096,10 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
   if (planType && !useTitledLayout) {
     section += `${lt('plan', {}, { locale })}: ${planType}\n`;
   }
-
   const sessionSection = formatLimitWindowSection(useTitledLayout ? lt('five_hour_limit_session', {}, { locale }) : lt('codex_5_hour_session', {}, { locale }), usage?.currentSession, 5, DISPLAY_THRESHOLDS.CODEX_5_HOUR_SESSION, { locale });
   const weeklySection = formatLimitWindowSection(useTitledLayout ? lt('current_week', {}, { locale }) : lt('current_week_all_models', {}, { locale }), usage?.allModels, 168, DISPLAY_THRESHOLDS.CODEX_WEEKLY, { locale });
 
   section += [sessionSection, weeklySection].filter((_, index) => (index === 0 ? hasLimitPercentage(usage?.currentSession) : hasLimitPercentage(usage?.allModels))).join('\n');
-
   const visibleAdditionalRateLimits = additionalRateLimits.filter(limit => hasPositivePercentage(limit.allModels?.percentage));
   if (visibleAdditionalRateLimits.length > 0) {
     section += `\n${lt('additional_codex_limits', {}, { locale })}\n`;
@@ -1189,7 +1112,6 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
       section += `${limit.limitName}: ${windowTexts.join(', ')}\n`;
     }
   }
-
   if (hasPositiveCreditBalance(credits)) {
     const creditSummary = credits.unlimited ? lt('unlimited', {}, { locale }) : `${credits.balance ?? '0'} ${lt('balance', {}, { locale })}`;
     section += `\n${lt('codex_credits', {}, { locale })}\n${creditSummary}\n`;
@@ -1199,14 +1121,12 @@ export function formatCodexLimitsSection(codexLimits, codexError = null, options
     const subscriptionLines = formatSubscriptionLines(subscription, { locale });
     if (subscriptionLines) section += subscriptionLines;
   }
-
   return useTitledLayout ? `${heading}\n\n${formatCodeBlock(section)}` : section;
 }
 
 // ============================================================================
 // Caching Layer
 // ============================================================================
-
 /**
  * Cache TTL constants (in milliseconds)
  * Values are loaded from config.lib.mjs which supports environment variable overrides.
@@ -1237,7 +1157,6 @@ class LimitCache {
     this.defaultTtlMs = defaultTtlMs;
     this.cache = new Map();
   }
-
   get(key, ttlMs) {
     const entry = this.cache.get(key);
     if (!entry) return null;
@@ -1252,7 +1171,6 @@ class LimitCache {
   set(key, value, ttlMs) {
     this.cache.set(key, { value, timestamp: Date.now(), ttlMs: ttlMs ?? this.defaultTtlMs });
   }
-
   clear() {
     this.cache.clear();
   }
@@ -1272,9 +1190,7 @@ class LimitCache {
     return { validEntries, expiredEntries, totalEntries: this.cache.size };
   }
 }
-
 let globalCache = null;
-
 export function getLimitCache() {
   if (!globalCache) globalCache = new LimitCache();
   return globalCache;
@@ -1286,7 +1202,6 @@ export function resetLimitCache() {
     globalCache = null;
   }
 }
-
 export async function getCachedClaudeLimits(verbose = false) {
   const cache = getLimitCache();
   // Use USAGE_API TTL (13 min by default, see issue #1798) for Claude limits to avoid rate limiting.
@@ -1341,7 +1256,6 @@ export async function getCachedCodexLimits(verbose = false) {
   }
   return result;
 }
-
 export async function getCachedGitHubLimits(verbose = false) {
   const cache = getLimitCache();
   const cached = cache.get('github', CACHE_TTL.API);
@@ -1365,7 +1279,6 @@ export async function getCachedMemoryInfo(verbose = false) {
   if (result.success) cache.set('memory', result, CACHE_TTL.SYSTEM);
   return result;
 }
-
 export async function getCachedCpuInfo(verbose = false) {
   const cache = getLimitCache();
   const cached = cache.get('cpu', CACHE_TTL.SYSTEM);
@@ -1389,12 +1302,10 @@ export async function getCachedDiskInfo(verbose = false) {
   if (result.success) cache.set('disk', result, CACHE_TTL.SYSTEM);
   return result;
 }
-
 export async function getAllCachedLimits(verbose = false) {
   const [claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram] = await Promise.all([getCachedClaudeLimits(verbose), getCachedCodexLimits(verbose), getCachedGitHubLimits(verbose), getCachedMemoryInfo(verbose), getCachedCpuInfo(verbose), getCachedDiskInfo(verbose), getCachedClaudeSubscription(verbose), getCachedCodexSubscription(verbose), getTelegramRateLimits(verbose)]);
   return { claude, codex, github, memory, cpu, disk, claudeSubscription, codexSubscription, telegram };
 }
-
 export default {
   // Raw functions (no caching)
   getClaudeUsageLimits,

@@ -9,6 +9,8 @@
  * Using always() prevents workflow cancellation entirely", from the #1274 and
  * #1278 case studies) but applied it only to the Docker jobs. Nine other jobs
  * still used `always()`, five of them without a `!cancelled()` alongside it.
+ * The sole intentional exception is the terminal `pipeline-status` observer:
+ * it must run after cancellations so a main-branch timeout cannot look green.
  *
  * F14 — the concurrency policy was inverted:
  *
@@ -104,7 +106,7 @@ import { findJobs, findJobsUsingAlways, inspectConcurrency } from '../scripts/wo
     const yaml = readFileSync(path.join(workflowDir, file), 'utf8');
     jobCount += findJobs(yaml).length;
     for (const job of findJobsUsingAlways(yaml)) {
-      offenders.push(`${file}:${job.line} job "${job.name}"`);
+      if (job.name !== 'pipeline-status') offenders.push(`${file}:${job.line} job "${job.name}"`);
     }
 
     const concurrency = inspectConcurrency(yaml);
@@ -114,7 +116,7 @@ import { findJobs, findJobsUsingAlways, inspectConcurrency } from '../scripts/wo
   }
 
   assert.ok(jobCount > 1, 'jobs are actually parsed — a parser that finds nothing would pass vacuously');
-  assert.deepEqual(offenders, [], `use !cancelled() instead of always() so the job stops when the run is cancelled.\nOffending jobs:\n  ${offenders.join('\n  ')}`);
+  assert.deepEqual(offenders, [], `use !cancelled() instead of always() except for the tested terminal status observer.\nOffending jobs:\n  ${offenders.join('\n  ')}`);
 }
 
 console.log('ci-workflow-cancellation-2082.test.mjs: all assertions passed');

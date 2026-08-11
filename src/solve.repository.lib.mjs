@@ -3,7 +3,6 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Repository management module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
-
 // Use use-m to dynamically import modules for cross-runtime compatibility
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
@@ -19,7 +18,6 @@ const $ = wrapDollarWithGhRetry((await use('command-stream')).$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
-
 // Import shared library functions
 const lib = await import('./lib.mjs');
 // Import Sentry integration
@@ -27,7 +25,6 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
 const { log, formatAligned } = lib;
-
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
 import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
@@ -40,7 +37,6 @@ const githubLib = await import('./github.lib.mjs');
 const { checkRepositoryWritePermission } = githubLib;
 // Issue #1625: centralized markers + tracked posting.
 const { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } = await import('./tool-comments.lib.mjs');
-
 // Get root repository (fork source or self), or null if inaccessible
 export const getRootRepository = async (owner, repo) => {
   try {
@@ -54,7 +50,6 @@ export const getRootRepository = async (owner, repo) => {
     return null;
   }
 };
-
 // Check if current user has a fork of the given root repository
 export const checkExistingForkOfRoot = async rootRepo => {
   try {
@@ -80,7 +75,6 @@ export const checkExistingForkOfRoot = async rootRepo => {
     return null;
   }
 };
-
 /**
  * Validate that a fork's parent matches the expected upstream repository.
  * This prevents issues where a fork was created from an intermediate fork (fork of a fork)
@@ -101,7 +95,6 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const forkInfoResult = await $`gh api repos/${forkRepo} --jq '{fork: .fork, parent: .parent.full_name, source: .source.full_name}'`;
-
       // Check for network errors in non-zero exit code
       if (forkInfoResult.code !== 0) {
         const errorOutput = (forkInfoResult.stderr?.toString() || '') + (forkInfoResult.stdout?.toString() || '');
@@ -122,7 +115,6 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
       const isFork = forkInfo.fork === true;
       const parent = forkInfo.parent || null;
       const source = forkInfo.source || null;
-
       // If not a fork at all, it's invalid for our purposes
       if (!isFork) {
         return { isValid: false, isFork: false, parent: null, source: null, error: `Repository ${forkRepo} is not a GitHub fork` };
@@ -132,7 +124,6 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
       // The SOURCE (ultimate root) is also acceptable as it indicates the fork is part of the correct hierarchy
       const parentMatches = parent === expectedUpstream;
       const sourceMatches = source === expectedUpstream;
-
       if (parentMatches) {
         return { isValid: true, isFork: true, parent, source, error: null };
       }
@@ -142,7 +133,6 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
       if (sourceMatches && !parentMatches) {
         return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} was created from ${parent} (intermediate fork), not directly from ${expectedUpstream}. This can cause pull requests to include unexpected commits from the intermediate fork.` };
       }
-
       // Neither parent nor source matches - completely different repository tree
       return { isValid: false, isFork: true, parent, source, error: `Fork ${forkRepo} is from a different repository tree (parent: ${parent}, source: ${source}) and cannot be used with ${expectedUpstream}` };
     } catch (error) {
@@ -163,7 +153,6 @@ export const validateForkParent = async (forkRepo, expectedUpstream) => {
   }
   return networkErr(`Failed to validate fork after ${maxAttempts} attempts`);
 };
-
 /**
  * Build workspace directory name according to the specification:
  * /tmp/hive-mind-solve-gh-{owner}/{repo}-issue-{issueNumber}-workspace-{timestamp}
@@ -193,7 +182,6 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   // needsClone indicates if the repository needs to be cloned into the directory
   // This is true when: new directory is created, or existing directory is empty
   let needsClone = true;
-
   // Check if workspace mode should be enabled (works with all tools)
   const useWorkspaces = argv.enableWorkspaces;
 
@@ -202,7 +190,6 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
   // because Claude Code stores sessions by working directory path, not session ID alone
   if (argv.workingDirectory) {
     tempDir = path.resolve(argv.workingDirectory);
-
     // Check if directory exists
     try {
       const stat = await fs.stat(tempDir);
@@ -232,7 +219,6 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
 
     return { tempDir, workspaceTmpDir, isResuming, needsClone };
   }
-
   if (isResuming) {
     // When resuming without --working-directory, create a new temp directory
     // WARNING: This will NOT work correctly with Claude Code because the session
@@ -244,7 +230,6 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
       // Check if session log exists to verify session is valid
       await fs.access(sessionLogPattern);
       await log(`🔄 Resuming session ${argv.resume} (session log found)`);
-
       // For resumed sessions, create new temp directory since old one may be cleaned up
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
       await fs.mkdir(tempDir, { recursive: true });
@@ -273,12 +258,10 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
     // {workspace}/tmp - for temp files, logs, command outputs
     const repoDir = path.join(workspaceDir, 'repository');
     workspaceTmpDir = path.join(workspaceDir, 'tmp');
-
     await fs.mkdir(repoDir, { recursive: true });
     await fs.mkdir(workspaceTmpDir, { recursive: true });
 
     tempDir = repoDir;
-
     await log(`\n${formatAligned('📂', 'Workspace mode:', 'ENABLED')}`);
     await log(formatAligned('', 'Workspace root:', workspaceDir, 2));
     await log(formatAligned('', 'Repository dir:', repoDir, 2));
@@ -291,7 +274,6 @@ export const setupTempDirectory = async (argv, workspaceInfo = null) => {
 
   return { tempDir, workspaceTmpDir, isResuming, needsClone };
 };
-
 // Try to initialize an empty repository by creating a simple README.md
 // This makes the repository forkable and allows branch creation
 // Exported for use in solve.repo-setup.lib.mjs (direct access path for empty repos)
@@ -302,7 +284,6 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
     // Check write access before attempting to create files
     await log(`${formatAligned('', '', 'Checking repository write access...')}`);
     const hasWriteAccess = await checkRepositoryWritePermission(owner, repo, { useFork: false });
-
     if (!hasWriteAccess) {
       await log(`${formatAligned('❌', 'No access:', 'You do not have write access to this repository')}`);
       await log(`${formatAligned('', '', 'Cannot initialize empty repository without write access')}`);
@@ -310,7 +291,6 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
     }
 
     await log(`${formatAligned('', '', 'Creating a simple README.md to make repository forkable')}`);
-
     // Get repository description to include in README
     const repoInfoResult = await $`gh api repos/${owner}/${repo} --jq '{description: .description}'`;
     let description = '';
@@ -329,7 +309,6 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
       readmeContent += `\n${description}\n`;
     }
     const base64Content = Buffer.from(readmeContent).toString('base64');
-
     // Try to create README.md using GitHub API
     // Issue #2119: `--field content="${base64Content}"` would leak literal quotes
     // into the field value as soon as command-stream decides the value needs
@@ -338,7 +317,6 @@ export const tryInitializeEmptyRepository = async (owner, repo) => {
     const createResult = await $`gh api repos/${owner}/${repo}/contents/README.md --method PUT --silent \
       --field message=${'Initialize repository with README'} \
       --field ${contentField} 2>&1`;
-
     if (createResult.code === 0) {
       await log(`${formatAligned('✅', 'Success:', 'README.md created successfully')}`);
       await log(`${formatAligned('', '', 'Repository is now forkable, retrying fork creation...')}`);
@@ -372,7 +350,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
   let repoToClone = `${owner}/${repo}`;
   let forkedRepo = null;
   let upstreamRemote = null;
-
   // Priority 1: Check --fork flag first (user explicitly wants to use their own fork)
   // This takes precedence over forkOwner to avoid trying to access someone else's fork
   if (argv.fork) {
@@ -386,7 +363,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       await safeExit(1, 'Repository setup failed');
     }
     const currentUser = userResult.stdout.toString().trim();
-
     // Check if user owns the repository (Issue #1206)
     // GitHub doesn't allow forking your own repositories and returns HTTP 403
     // When --fork is explicitly used, fail with a clear error and suggest --auto-fork
@@ -416,13 +392,11 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     // as an existing fork we already have
     await log(`${formatAligned('🔍', 'Detecting fork conflicts...', '')}`);
     const rootRepo = await getRootRepository(owner, repo);
-
     if (rootRepo) {
       const existingFork = await checkExistingForkOfRoot(rootRepo);
 
       if (existingFork) {
         const existingForkOwner = existingFork.split('/')[0];
-
         if (existingForkOwner === currentUser) {
           const targetRepo = `${owner}/${repo}`;
           const targetIsRoot = targetRepo === rootRepo;
@@ -459,7 +433,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
           }
         }
       }
-
       await log(`${formatAligned('✅', 'No fork conflict:', 'Safe to proceed')}`);
     } else {
       await log(`${formatAligned('⚠️', 'Warning:', 'Could not determine root repository')}`);
@@ -472,7 +445,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
     let existingForkName = null;
     const standardForkName = `${currentUser}/${repo}`;
     const prefixedForkName = `${currentUser}/${owner}-${repo}`;
-
     // Determine expected fork name based on --prefix-fork-name-with-owner-name option
     const expectedForkName = argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
     const alternateForkName = argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
@@ -498,14 +470,12 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         await log(`   Creating prefixed fork ${expectedForkName} instead (--prefix-fork-name-with-owner-name enabled)`);
       }
     }
-
     if (existingForkName) {
       // Fork exists - validate that its parent matches the expected upstream
       await log(`${formatAligned('✅', 'Fork exists:', existingForkName)}`);
       await log(`${formatAligned('🔍', 'Validating fork parent...', '')}`);
 
       const forkValidation = await validateForkParent(existingForkName, `${owner}/${repo}`);
-
       if (forkValidation.isValid) {
         // Fork is valid — use it
         await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
@@ -581,7 +551,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
           });
           safetyCheckDescription = branchSafety.safetyCheckDescription;
           likelyDetachedFork = Boolean(branchSafety.likelyDetachedFork);
-
           if (likelyDetachedFork) {
             await log(`${formatAligned('🔗', 'Detached fork:', `${existingForkName} shares history with ${owner}/${repo} but is not a GitHub fork — this matches a fork detached by a private/public visibility change`)}`);
           }
@@ -634,11 +603,9 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         existingForkName = null; // Fall through to fork creation below
       }
     }
-
     if (!existingForkName) {
       // Need to create fork with retry logic for concurrent scenarios
       await log(`${formatAligned('🔄', 'Creating fork...', '')}`);
-
       const maxForkRetries = 5;
       const baseDelay = 2000; // Start with 2 seconds
       let forkCreated = false;
@@ -647,7 +614,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
       // Determine the expected fork name based on --prefix-fork-name-with-owner-name option
       const defaultForkName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
       let actualForkName = `${currentUser}/${defaultForkName}`;
-
       for (let attempt = 1; attempt <= maxForkRetries; attempt++) {
         let forkResult;
         // Issue #1518: Log the exact fork command for debugging non-fork creation scenarios
@@ -667,7 +633,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
         if (parsedForkName) {
           actualForkName = parsedForkName;
         }
-
         if (forkResult.code === 0) {
           // Fork successfully created or already exists
           if (forkOutput.includes('already exists')) {
@@ -724,7 +689,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
             await log('');
             await safeExit(1, 'Repository setup failed - repository not accessible (HTTP 404)');
           }
-
           // Check if it's an empty repository (HTTP 403) - try to auto-fix
           if (forkOutput.includes('HTTP 403') && (forkOutput.includes('Empty repositories cannot be forked') || forkOutput.includes('contains no Git content'))) {
             // Empty repository detected - try to initialize it
@@ -735,7 +699,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
 
             // Try to initialize the repository by creating a README.md
             const initialized = await tryInitializeEmptyRepository(owner, repo);
-
             if (initialized) {
               // Success! Repository is now initialized, retry fork creation
               await log('');
@@ -772,7 +735,6 @@ export const setupRepository = async (argv, owner, repo, forkOwner = null, issue
                   if (issueMatch) {
                     const issueNumber = issueMatch[1];
                     await log(`${formatAligned('💬', 'Creating comment:', 'Requesting maintainer to initialize repository...')}`);
-
                     const commentBody = `## ⚠️ ${REPOSITORY_INITIALIZATION_REQUIRED_MARKER}
 
 Hello! I attempted to work on this issue, but encountered a problem:
@@ -791,7 +753,6 @@ Please add initial content to the repository. Even a simple README.md (even if i
 Once the repository contains at least one commit with any file, I'll be able to fork it and proceed with solving this issue.
 
 Thank you!`;
-
                     const posted = await postTrackedComment({ $, owner, repo, targetNumber: issueNumber, body: commentBody });
                     if (posted.ok) {
                       await log(`${formatAligned('✅', 'Comment created:', `Posted to issue #${issueNumber}${posted.commentId ? ` (id=${posted.commentId})` : ''}`)}`);
@@ -804,7 +765,6 @@ Thank you!`;
                   await log(`${formatAligned('⚠️', 'Note:', 'Could not post comment to issue (this is not critical)')}`);
                 }
               }
-
               await safeExit(1, 'Repository setup failed - empty repository');
             }
           }
@@ -812,7 +772,6 @@ Thank you!`;
           // Check if fork was created by another worker even if error message doesn't explicitly say so
           await log(`${formatAligned('🔍', 'Checking:', 'If fork exists after failed creation attempt...')}`);
           const checkResult = await $`gh repo view ${actualForkName} --json name 2>/dev/null`;
-
           if (checkResult.code === 0) {
             // Fork exists now (created by another worker during our attempt)
             await log(`${formatAligned('✅', 'Fork found:', 'Created by another concurrent worker')}`);
@@ -834,7 +793,6 @@ Thank you!`;
           }
         }
       }
-
       // If fork exists (either created or already existed), verify it's accessible
       if (forkExists) {
         await log(`${formatAligned('🔍', 'Verifying fork:', 'Checking accessibility...')}`);
@@ -842,7 +800,6 @@ Thank you!`;
         // Verify fork with retries (GitHub may need time to propagate)
         const maxVerifyRetries = 5;
         let forkVerified = false;
-
         for (let attempt = 1; attempt <= maxVerifyRetries; attempt++) {
           const delay = baseDelay * Math.pow(2, attempt - 1);
           if (attempt > 1) {
@@ -857,7 +814,6 @@ Thank you!`;
             break;
           }
         }
-
         if (!forkVerified) {
           await log(`${formatAligned('❌', 'Error:', 'Fork exists but not accessible after multiple retries')}`);
           await log(`${formatAligned('', 'Suggestion:', 'GitHub may be experiencing delays - try running the command again in a few minutes')}`);
@@ -879,7 +835,6 @@ Thank you!`;
           reportError(new Error(`Fork created as non-fork: ${pcv.error}`), { context: 'fork_creation_validation', forkRepo: actualForkName, expectedUpstream: `${owner}/${repo}`, isFork: pcv.isFork, parent: pcv.parent, source: pcv.source });
         }
       }
-
       repoToClone = actualForkName;
       forkedRepo = actualForkName;
       upstreamRemote = `${owner}/${repo}`;
@@ -896,14 +851,12 @@ Thank you!`;
     const prefixedForkName = `${forkOwner}/${owner}-${headRepoName}`;
     const expectedForkName = forkRepoName ? `${forkOwner}/${forkRepoName}` : argv.prefixForkNameWithOwnerName ? prefixedForkName : standardForkName;
     const alternateForkName = forkRepoName ? null : argv.prefixForkNameWithOwnerName ? standardForkName : prefixedForkName;
-
     await log(`${formatAligned('✅', 'Using fork:', expectedForkName)}\n`);
 
     // Verify the fork exists and is accessible - try expected name first, then alternate
     await log(`${formatAligned('🔍', 'Verifying fork:', 'Checking accessibility...')}`);
     let forkCheckResult = await $`gh repo view ${expectedForkName} --json name 2>/dev/null`;
     let actualForkName = expectedForkName;
-
     if (forkCheckResult.code !== 0 && alternateForkName && !argv.prefixForkNameWithOwnerName) {
       // Only try alternate name if --prefix-fork-name-with-owner-name is off AND we're guessing
       // (forkRepoName authoritative → alternateForkName is null and no fallback is attempted).
@@ -915,7 +868,6 @@ Thank you!`;
 
     if (forkCheckResult.code === 0) {
       await log(`${formatAligned('✅', 'Fork verified:', `${actualForkName} is accessible`)}`);
-
       // Validate fork parent before using it (prevents issue #967)
       await log(`${formatAligned('🔍', 'Validating fork parent...', '')}`);
       const forkValidation = await validateForkParent(actualForkName, `${owner}/${repo}`);
@@ -962,7 +914,6 @@ Thank you!`;
       } else {
         await log(`${formatAligned('✅', 'Fork parent validated:', `${forkValidation.parent}`)}`);
       }
-
       repoToClone = actualForkName;
       forkedRepo = actualForkName;
       upstreamRemote = `${owner}/${repo}`;
@@ -977,11 +928,9 @@ Thank you!`;
 
   return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
 };
-
 // Classify git clone errors to determine if they are retryable
 export const classifyCloneError = errorOutput => {
   const output = errorOutput.toLowerCase();
-
   // Issue #1211: ENOSPC (disk full) errors - NOT retryable, requires user action
   if (lib.isENOSPC(errorOutput) || output.includes('no space left on device') || (output.includes('unable to write file') && output.includes('error')) || output.includes('errno -28')) {
     return { type: 'ENOSPC', retryable: false, description: 'No space left on device' };
@@ -991,7 +940,6 @@ export const classifyCloneError = errorOutput => {
   if (output.includes('error: 500') || output.includes('internal server error') || output.includes('error: 502') || output.includes('error: 503') || output.includes('error: 504')) {
     return { type: 'TRANSIENT', retryable: true, description: 'GitHub server error' };
   }
-
   // Network-related errors - typically retryable
   // Issue #1957: git fetch-pack/sideband disconnects (e.g.
   // "fetch-pack: unexpected disconnect while reading sideband packet",
@@ -1005,7 +953,6 @@ export const classifyCloneError = errorOutput => {
   if (output.includes('error: 401') || output.includes('error: 403') || output.includes('authentication failed') || output.includes('permission denied')) {
     return { type: 'PERMISSION', retryable: false, description: 'Authentication or permission error' };
   }
-
   // Repository not found - not retryable
   if (output.includes('error: 404') || output.includes('not found') || output.includes('repository not found')) {
     return { type: 'NOT_FOUND', retryable: false, description: 'Repository not found' };
@@ -1015,7 +962,6 @@ export const classifyCloneError = errorOutput => {
   if (output.includes('rate limit') || output.includes('too many requests') || output.includes('api rate limit exceeded')) {
     return { type: 'RATE_LIMIT', retryable: true, description: 'Rate limit exceeded' };
   }
-
   // Default to retryable for unknown errors
   return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
 };
@@ -1037,14 +983,12 @@ export const cleanPartialClone = async tempDir => {
     }
   }
 };
-
 // Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
   const maxRetries = 3;
   const baseDelay = 2000; // Start with 2 seconds
 
   await log(`\n${formatAligned('📥', 'Cloning repository:', repoToClone)}`);
-
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     if (attempt > 1) {
       await log(`${formatAligned('⏳', 'Clone attempt:', `${attempt}/${maxRetries} (with retry logic)`)}`);
@@ -1053,7 +997,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // Use 2>&1 to capture all output and filter "Cloning into" message
     const cloneResult = await $`gh repo clone ${repoToClone} ${tempDir} 2>&1`;
     const cloneOutput = (cloneResult.stdout || cloneResult.stderr || '').toString().trim();
-
     // Issue #1957: `gh repo clone` (and the `git clone` it wraps) can exit 0 even when
     // the underlying transfer was interrupted — e.g. "fetch-pack: unexpected disconnect
     // while reading sideband packet" — leaving an incomplete or completely missing
@@ -1072,7 +1015,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // Verify clone was successful (exit code 0 AND a valid working tree exists)
     if (cloneResult.code === 0 && repoIsValid) {
       await log(`${formatAligned('✅', 'Cloned to:', tempDir)}`);
-
       // Issue #2119: AI tools drop scratch state (`.formal-ai/`, `.playwright-mcp/`)
       // into the workspace. Exclude it here, once, so every later `git status` and
       // `git add -A` agrees instead of reading it as the AI's uncommitted work.
@@ -1087,7 +1029,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
       }
       return; // Success - exit function
     }
-
     // Clone failed - analyze error and determine if retry is appropriate
     // Issue #1957: when the wrapper exited 0 but left no valid repo, surface the
     // interrupted-transfer output (which carries the real "unexpected disconnect"
@@ -1098,7 +1039,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // `gh repo clone <dir>` fail with "directory exists and is not empty". Clean the
     // target directory before classifying/retrying so the next attempt starts fresh.
     await cleanPartialClone(tempDir);
-
     const errorClassification = classifyCloneError(errorOutput);
 
     if (!errorClassification.retryable || attempt === maxRetries) {
@@ -1108,7 +1048,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
       await log('');
       await log('  🔍 What happened:');
       await log(`     Failed to clone repository ${repoToClone}`);
-
       if (!errorClassification.retryable) {
         await log(`     Error type: ${errorClassification.description} (not retryable)`);
       } else {
@@ -1120,7 +1059,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         if (line.trim()) await log(`     ${line}`);
       }
       await log('');
-
       // Issue #1211: ENOSPC-specific guidance
       if (errorClassification.type === 'ENOSPC') {
         await log('  💡 Cause: Disk is full — not enough space to clone the repository');
@@ -1163,14 +1101,12 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
     await log(`${formatAligned('⚠️', 'Clone failed:', errorClassification.description)}`);
     await log(`${formatAligned('⏳', 'Retrying:', `Waiting ${delay / 1000}s before attempt ${attempt + 1}/${maxRetries}...`)}`);
-
     if (errorClassification.type === 'RATE_LIMIT') {
       await log('     💡 Tip: Rate limiting detected - using longer delay');
     }
 
     await new Promise(resolve => setTimeout(resolve, delay));
   }
-
   // This should never be reached due to the loop logic above
   await log(`${formatAligned('❌', 'UNEXPECTED ERROR:', 'Clone logic failed')}`);
   await safeExit(1, 'Repository setup failed');
@@ -1180,7 +1116,6 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
 // Extracted into solve.fork-sync.lib.mjs (#1893) to keep this file under the
 // 1500-line limit; re-exported here so existing importers keep working.
 export { setupUpstreamAndSync } from './solve.fork-sync.lib.mjs';
-
 // Set up pr-fork remote for continuing someone else's fork PR with --fork flag
 export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isContinueMode, owner = null) => {
   // Only set up pr-fork remote if:
@@ -1198,7 +1133,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     await log(`${formatAligned('⚠️', 'Warning:', 'Failed to get current user, cannot set up pr-fork remote')}`);
     return null;
   }
-
   const currentUser = userResult.stdout.toString().trim();
 
   // If PR is from current user's fork, no need for pr-fork remote
@@ -1206,7 +1140,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     await log(`${formatAligned('ℹ️', 'PR fork owner:', 'Same as current user, using origin remote')}`);
     return null;
   }
-
   // This is someone else's fork - add it as pr-fork remote
   // IMPORTANT: The fork owner's repository name is independent of our naming preferences
   // We need to discover the actual fork name, not assume it matches our convention
@@ -1215,7 +1148,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   await log(`${formatAligned('🔗', 'Setting up pr-fork:', "Branch exists in another user's fork")}`);
   await log(`${formatAligned('', 'PR fork owner:', prForkOwner)}`);
   await log(`${formatAligned('', 'Current user:', currentUser)}`);
-
   // Discover the actual fork repository name by querying GitHub API
   // The fork could have any name (standard, prefixed, or custom renamed)
   let prForkRepoName = null;
@@ -1237,7 +1169,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
       }
     }
   }
-
   // Strategy 2: If not found in forks list, try common naming patterns
   if (!prForkRepoName) {
     const possibleNames = [
@@ -1246,7 +1177,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     ].filter(Boolean);
 
     await log(`${formatAligned('🔍', 'Trying common names:', possibleNames.join(', '))}`);
-
     for (const candidateName of possibleNames) {
       const checkResult = await $`gh repo view ${prForkOwner}/${candidateName} --json name 2>/dev/null`;
       if (checkResult.code === 0) {
@@ -1265,7 +1195,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     await log(`${formatAligned('', 'Workaround:', 'Remove --fork flag to continue work in the original fork')}`);
     return null;
   }
-
   await log(`${formatAligned('', 'Action:', `Adding ${prForkOwner}/${prForkRepoName} as pr-fork remote`)}`);
 
   const addRemoteResult = await $({
@@ -1280,9 +1209,7 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
     await log(`${formatAligned('', 'Workaround:', 'Remove --fork flag to continue work in the original fork')}`);
     return null;
   }
-
   await log(`${formatAligned('✅', 'Remote added:', 'pr-fork')}`);
-
   // Fetch from pr-fork to get the branch
   await log(`${formatAligned('📥', 'Fetching branches:', 'From pr-fork remote...')}`);
   const fetchPrForkResult = await $({ cwd: tempDir })`git fetch pr-fork`;
@@ -1299,7 +1226,6 @@ export const setupPrForkRemote = async (tempDir, argv, prForkOwner, repo, isCont
   await log(`${formatAligned('ℹ️', 'Next step:', 'Will checkout branch from pr-fork remote')}`);
   return 'pr-fork';
 };
-
 // Checkout branch for continue mode (PR branch from remote)
 // prNumber is optional - when provided, enables PR refs fallback (refs/pull/{number}/head)
 export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prForkOwner, prNumber = null) => {
@@ -1307,7 +1233,6 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
 
   // Determine which remote to use for branch checkout
   const remoteName = prForkRemote || 'origin';
-
   // First fetch all branches from remote (if not already fetched from pr-fork)
   if (!prForkRemote) {
     await log(`${formatAligned('📥', 'Fetching branches:', 'From remote...')}`);
@@ -1319,7 +1244,6 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
   } else {
     await log(`${formatAligned('ℹ️', 'Using pr-fork remote:', `Branch exists in ${prForkOwner}'s fork`)}`);
   }
-
   // Checkout the PR branch (it might exist locally or remotely)
   const localBranchResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/heads/${branchName}`;
 
@@ -1330,7 +1254,6 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
   } else {
     // Branch doesn't exist locally, try to checkout from remote
     checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} ${remoteName}/${branchName}`;
-
     // If checkout from origin failed, try upstream remote as fallback
     // This handles the case where we're in fork mode but the PR branch exists in upstream
     // (e.g., a bot created PR in the upstream repo, not a fork PR)
@@ -1343,7 +1266,6 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
         // Fetch from upstream to ensure we have the latest branches
         await log(`${formatAligned('📥', 'Fetching from upstream:', 'Looking for PR branch...')}`);
         const fetchUpstreamResult = await $({ cwd: tempDir })`git fetch upstream`;
-
         if (fetchUpstreamResult.code === 0) {
           // Check if branch exists in upstream
           const upstreamBranchCheckResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/remotes/upstream/${branchName}`;
@@ -1352,7 +1274,6 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
             await log(`${formatAligned('✅', 'Found branch in upstream:', `upstream/${branchName}`)}`);
             // Try to checkout from upstream instead
             checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} upstream/${branchName}`;
-
             if (checkoutResult.code === 0) {
               await log(`${formatAligned('ℹ️', 'Note:', 'PR branch was in upstream repository, not your fork')}`);
               await log(`${formatAligned('', '', 'This can happen when a bot creates a PR directly in the main repository')}`);
@@ -1372,14 +1293,12 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
     // See: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/checking-out-pull-requests-locally
     if (checkoutResult.code !== 0 && prNumber) {
       await log(`${formatAligned('🔄', 'Trying PR refs fallback:', `Fetching refs/pull/${prNumber}/head...`)}`);
-
       // Fetch the PR head using GitHub's special refs
       const prRefFetchResult = await $({ cwd: tempDir })`git fetch origin pull/${prNumber}/head:${branchName}`;
 
       if (prRefFetchResult.code === 0) {
         await log(`${formatAligned('✅', 'Fetched PR ref:', `refs/pull/${prNumber}/head`)}`);
         checkoutResult = await $({ cwd: tempDir })`git checkout ${branchName}`;
-
         if (checkoutResult.code === 0) {
           await log(`${formatAligned('ℹ️', 'Note:', 'Checked out using GitHub PR refs (fork access not required)')}`);
           await log(`${formatAligned('', '', 'This is a read-only checkout - you may need to push to a different branch')}`);
@@ -1395,12 +1314,10 @@ export const checkoutPrBranch = async (tempDir, branchName, prForkRemote, prFork
 
   return checkoutResult;
 };
-
 // Cleanup temporary directory
 export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   // Determine if we should skip cleanup
   const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoResumeOnLimitReset && global.limitResetTime);
-
   if (!shouldKeepDirectory) {
     try {
       process.stdout.write('\n🧹 Cleaning up...');

@@ -28,11 +28,12 @@ const osModule = await import('node:os');
 const pathModule = await import('node:path');
 
 globalThis.use = async name => {
-  if (name === 'command-stream') return { $: () => ({ catch: async () => null }) };
-  if (name === 'fs') return { ...fsModule, default: fsModule };
-  if (name === 'os') return { ...osModule, default: osModule };
-  if (name === 'path') return { ...pathModule, default: pathModule };
-  return await import(name);
+  const packageName = name.replace(/@\d[^/]*$/, '');
+  if (packageName === 'command-stream') return { $: () => ({ catch: async () => null }) };
+  if (packageName === 'fs') return { ...fsModule, default: fsModule };
+  if (packageName === 'os') return { ...osModule, default: osModule };
+  if (packageName === 'path') return { ...pathModule, default: pathModule };
+  return await import(packageName);
 };
 
 const { ensureConnectedPlaywrightMcpServer, getPlaywrightMcpListTimeoutSeconds, PLAYWRIGHT_MCP_LIST_TIMEOUT_SECONDS_DEFAULT } = await import('../src/playwright-mcp.lib.mjs');

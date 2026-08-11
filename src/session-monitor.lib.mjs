@@ -18,7 +18,6 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
-
 import { exec as execCallback } from 'child_process';
 import fs from 'fs/promises';
 import { promisify } from 'util';
@@ -27,20 +26,16 @@ import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.li
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
-// Issue #2117: a docker terminal failure that no anchored log footer corroborates
-// may be an exit code start-command fabricated from the command's own output.
+// Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
 import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
 import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
-
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
-
 const exec = promisify(execCallback);
-
 // Lazy import for isolation runner (only when needed)
 let _isolationRunner = null;
 async function getIsolationRunner() {
@@ -51,14 +46,9 @@ async function getIsolationRunner() {
 }
 // In-memory session store
 const activeSessions = new Map();
-
-// Issue #1927: optional durable mirror of the in-memory registry. When set (by
-// the bot at startup via setSessionStore), every track/complete is persisted so
-// a restart can reload and keep monitoring detached sessions. Left null in unit
-// tests and one-off CLI paths, where in-memory tracking is sufficient.
+// Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
 let sessionStore = null;
 let sessionLogger = null;
-
 /**
  * Attach a durable session store (see session-store.lib.mjs) so tracked sessions
  * survive a bot restart. Passing null disconnects the store (used by tests).
@@ -67,7 +57,6 @@ let sessionLogger = null;
 export function setSessionStore(store) {
   sessionStore = store || null;
 }
-
 /**
  * Attach a structured logger (see bot-logger.lib.mjs) so session lifecycle
  * transitions are recorded with timestamps. Optional; console is used otherwise.
@@ -76,19 +65,16 @@ export function setSessionStore(store) {
 export function setSessionLogger(logger) {
   sessionLogger = logger || null;
 }
-
 function logEvent(type, data) {
   if (sessionLogger && typeof sessionLogger.event === 'function') {
     sessionLogger.event(type, data);
   }
 }
-
 export function resetSessionMonitorForTests() {
   activeSessions.clear();
   sessionStore = null;
   sessionLogger = null;
 }
-
 /**
  * Inject a stub isolation runner so tests can drive getIsolationSessionState
  * without spawning real `$ --status` / docker probes. Pass `null` to restore the
@@ -97,7 +83,6 @@ export function resetSessionMonitorForTests() {
 export function __setIsolationRunnerForTests(runner) {
   _isolationRunner = runner;
 }
-
 /**
  * Test-only accessor for getIsolationSessionState (otherwise module-private).
  * Used by tests/test-issue-1939-docker-isolation.mjs to verify that an ambiguous
@@ -106,7 +91,6 @@ export function __setIsolationRunnerForTests(runner) {
 export function getIsolationSessionStateForTests(sessionName, sessionInfo, options = {}) {
   return getIsolationSessionState(sessionName, sessionInfo, options);
 }
-
 /**
  * Issue #1586: Timeout for non-isolation sessions.
  * Non-isolation (plain start-screen) sessions cannot reliably detect completion
@@ -121,7 +105,6 @@ export function getIsolationSessionStateForTests(sessionName, sessionInfo, optio
 export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 export const DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY = 'on-failure';
 export const DOCKER_TASK_CONTAINER_KEEP_POLICIES = ['always', 'on-failure', 'never'];
-
 export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbose = false } = {}) {
   const raw = String(env?.HIVE_MIND_KEEP_TASK_CONTAINER || '')
     .trim()
@@ -133,7 +116,6 @@ export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbos
   }
   return DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY;
 }
-
 /**
  * Check if a screen session exists
  * @param {string} sessionName - Name of the screen session to check
@@ -148,7 +130,6 @@ export async function checkScreenSessionExists(sessionName) {
     return false;
   }
 }
-
 /**
  * Track a new session for completion monitoring
  *
@@ -169,12 +150,7 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
   if (verbose) {
     console.log(`[VERBOSE] Session ${sessionName} tracked in memory (mode: ${mode})`);
   }
-  // Issue #1927: mirror to the durable store so a restart can resume monitoring.
-  // Only isolation-backed sessions are persisted — they are the ones tracked in
-  // `$` (start-command) with a reliable status record (requirement #2). Plain
-  // screen sessions are timeout-based best-effort; resuming them after a restart
-  // could fabricate a "finished" message with no real exit code, so they stay
-  // in-memory only.
+  // Issue #1927: mirror to the durable store so a restart can resume monitoring. Only isolation-backed sessions are persisted — they are the ones tracked in `$` (start-command) with a reliable status record (requirement #2). Plain screen sessions are timeout-based best-effort; resuming them after a restart could fabricate a "finished" message with no real exit code, so they stay in-memory only.
   if (sessionStore && isPersistableSession(sessionInfo)) {
     try {
       sessionStore.persist(sessionName, sessionInfo);
@@ -191,7 +167,6 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
     startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
   });
 }
-
 /**
  * Whether a session should be mirrored to the durable store. Only isolation
  * sessions with a start-command UUID qualify (see trackSession rationale).
@@ -201,7 +176,6 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
 function isPersistableSession(sessionInfo) {
   return Boolean(sessionInfo?.isolationBackend && sessionInfo?.sessionId);
 }
-
 function persistSessionSnapshot(sessionName, sessionInfo) {
   if (!sessionStore || !isPersistableSession(sessionInfo)) return;
   try {
@@ -210,7 +184,6 @@ function persistSessionSnapshot(sessionName, sessionInfo) {
     /* best effort — persistence must never break monitoring */
   }
 }
-
 /**
  * Look up the in-memory record for a session id (UUID for isolation sessions
  * or the screen session name for non-isolation sessions). Returns null when no
@@ -225,7 +198,6 @@ export function getTrackedSessionInfo(sessionName) {
   if (!sessionName) return null;
   return activeSessions.get(sessionName) || null;
 }
-
 /**
  * Issue #2052: record that an operator explicitly requested a session stop
  * (e.g. Telegram `/stop <uuid>`). The subsequent SIGTERM/SIGKILL exit (143/137,
@@ -252,7 +224,6 @@ export function markSessionStopRequested(sessionId, { requestedBy = null, verbos
   logEvent('session_stop_requested', { sessionName: key, sessionId, requestedBy: requestedBy || null });
   return true;
 }
-
 /**
  * Stop tracking a session that was registered optimistically but never actually
  * started (e.g. the start-command launch failed). Removes it from the in-memory
@@ -278,7 +249,6 @@ export function untrackSession(sessionName, verbose = false) {
   }
   logEvent('session_untracked', { sessionName });
 }
-
 /**
  * Get the number of active sessions being tracked
  * @param {boolean} verbose - Whether to log verbose output
@@ -290,7 +260,6 @@ export function getActiveSessionCount(verbose = false) {
   }
   return activeSessions.size;
 }
-
 /**
  * Get all active sessions
  * @param {boolean} verbose - Whether to log verbose output
@@ -306,7 +275,6 @@ function getActiveSessions(verbose = false) {
   }
   return sessions;
 }
-
 /**
  * Remove a session from tracking
  * @param {string} sessionName - Name of the session to remove
@@ -318,8 +286,7 @@ function completeSession(sessionName, exitCode = 0, verbose = false, status = nu
   if (verbose) {
     console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode}${status ? `, status: ${status}` : ''})`);
   }
-  // Issue #1927: drop from the durable snapshot (and append a `complete` audit
-  // event recording how it ended) so a later restart does not try to resume it.
+  // Issue #1927: drop from the durable snapshot (and append a `complete` audit event recording how it ended) so a later restart does not try to resume it.
   if (sessionStore && isPersistableSession(sessionInfo)) {
     try {
       sessionStore.remove(sessionName, { status, exitCode });
@@ -329,30 +296,21 @@ function completeSession(sessionName, exitCode = 0, verbose = false, status = nu
   }
   logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
 }
-
 function isMessageAlreadyUpdatedError(error) {
   const message = String(error?.message || '').toLowerCase();
   return message.includes('message is not modified');
 }
-
 function normalizeSessionUrl(url) {
-  // Strip the fragment first, then any trailing slashes, so URLs that carry a
-  // fragment after a trailing slash (e.g. `.../issues/18/#comment`) normalize to
-  // the same value as the bare `.../issues/18`. Doing it in the other order
-  // would leave a dangling trailing slash. (Issue #1871.)
+  // Strip the fragment first, then any trailing slashes, so URLs that carry a fragment after a trailing slash (e.g. `.../issues/18/#comment`) normalize to the same value as the bare `.../issues/18`. Doing it in the other order would leave a dangling trailing slash. (Issue #1871.)
   return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
 }
-
 const GITHUB_PULL_REQUEST_URL_RE = /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
-
 export function extractPullRequestUrlFromText(text, { owner = null, repo = null } = {}) {
   if (!text) return null;
-
   const expectedOwner = owner ? String(owner).toLowerCase() : null;
   const expectedRepo = repo ? String(repo).toLowerCase() : null;
   const value = String(text);
   GITHUB_PULL_REQUEST_URL_RE.lastIndex = 0;
-
   let match;
   while ((match = GITHUB_PULL_REQUEST_URL_RE.exec(value)) !== null) {
     const [, matchOwner, matchRepo, pullNumber] = match;
@@ -360,13 +318,10 @@ export function extractPullRequestUrlFromText(text, { owner = null, repo = null 
     if (expectedRepo && matchRepo.toLowerCase() !== expectedRepo) continue;
     return `https://github.com/${matchOwner}/${matchRepo}/pull/${pullNumber}`;
   }
-
   return null;
 }
-
 async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
   if (!logPath) return null;
-
   try {
     const logText = await readFile(logPath, 'utf8');
     const pullRequestUrl = extractPullRequestUrlFromText(logText, { owner: ctx.owner, repo: ctx.repo });
@@ -381,7 +336,6 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
     return null;
   }
 }
-
 /**
  * Issue #1945/#1988: Parse `📊 [DISK]` repository-size checkpoint markers out
  * of the captured solve log, optionally add docker writable-layer sizes, and
@@ -416,7 +370,6 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
     return '';
   }
 }
-
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
   const containerName = sessionInfo.sessionId || sessionName;
@@ -436,7 +389,6 @@ async function getDockerContainerFilesystemSizeForSession(sessionName, sessionIn
     return null;
   }
 }
-
 async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });
   if (!Number.isFinite(bytes)) return null;
@@ -445,40 +397,32 @@ async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessi
   persistSessionSnapshot(sessionName, sessionInfo);
   return bytes;
 }
-
 function getLastKnownDockerContainerFilesystemSize(sessionInfo) {
   return Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
 }
-
 function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
   const outcome = classifySessionOutcome({ exitCode, status });
   if (outcome.failed) return false;
   if (exitCode === 0) return true;
-
   const normalizedStatus = String(status || '')
     .trim()
     .toLowerCase();
   return exitCode === null && (normalizedStatus === 'executed' || normalizedStatus === 'completed');
 }
-
 function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
   return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
 }
-
 export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-
   const containerName = sessionInfo.sessionId || sessionName || null;
   if (!containerName) {
     return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
   }
-
   const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
   const successful = isSuccessfulTaskCompletion({ exitCode, status });
   const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
-
   return {
     applies: true,
     containerName,
@@ -488,10 +432,8 @@ export function buildDockerTaskContainerCompletionAction({ sessionName, sessionI
     extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
   };
 }
-
 async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
   if (!action?.applies || !action.shouldRemove || !action.containerName) return;
-
   try {
     const removeFn =
       removeDockerContainer ||
@@ -513,7 +455,6 @@ async function applyDockerTaskContainerCompletionAction(action, { verbose = fals
     }
   }
 }
-
 function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
   const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
   const elapsed = Date.now() - startTime.getTime();
@@ -530,32 +471,24 @@ function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) 
   }
   return true;
 }
-
 function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
   clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
 }
-
 function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime, verbose }) {
   return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, endTime, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
-
 function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
   return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
 }
-
 async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
   const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
   const sessionId = sessionInfo.sessionId || sessionName;
-
   try {
     const runner = await getIsolationRunner();
     const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
-
     if (statusResult?.exists && statusResult.status) {
       if (statusResult.oomKilled === true) {
-        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when
-        // any process in the cgroup is OOM-killed — so it is verified against the
-        // log footer and container liveness before a kill is announced.
+        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
         return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
           verbose,
           runner,
@@ -565,34 +498,25 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
         });
       }
       if (runner.isExecutingSessionStatus(statusResult.status)) {
-        // Issue #1927: an `executing` status is not trusted blindly — verify the
-        // process is really alive. start-command can keep reporting `executing`
-        // after a kill, which is exactly how an OOM-killed /solve went unreported.
+        // Issue #1927: an `executing` status is not trusted blindly — verify the process is really alive. start-command can keep reporting `executing` after a kill, which is exactly how an OOM-killed /solve went unreported.
         const stale = await resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive });
         if (stale) {
           if (verbose) {
             console.log(`[VERBOSE] Session ${sessionName} reported '${statusResult.status}' but is actually terminated (${stale.reason}); treating as ${stale.status} (exit ${stale.exitCode})`);
           }
-          // Rewrite the status payload so downstream completion formatting sees
-          // the real terminal status/exit code instead of the stale `executing`.
+          // Rewrite the status payload so downstream completion formatting sees the real terminal status/exit code instead of the stale `executing`.
           const correctedStatus = stale.status || 'killed';
           const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
           return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
         }
-        // Back to a plain `executing` report: any earlier unverified terminal
-        // failure was provisional and is now moot (issue #2117).
+        // Back to a plain `executing` report: any earlier unverified terminal failure was provisional and is now moot (issue #2117).
         clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
         return { running: true, exitCode: null, status: statusResult.status, statusResult };
       }
       if (runner.isTerminalSessionStatus(statusResult.status)) {
         const exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
         const logPath = statusResult.logPath || sessionInfo?.logPath || null;
-        // The log FOOTER is the authoritative terminal result. It is anchored on
-        // the `=====` separator (see parseSessionExitFooter), so — unlike the
-        // exit code `$ --status` derives from an unanchored full-log scan — it
-        // cannot be forged by output the wrapped command printed (issue #2117).
-        // Prefer it whenever it exists: that both recovers a real code from a
-        // missing/sentinel status (issue #1927) and overrides a fabricated one.
+        // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
         const readFooter = exitFromLog || runner.readSessionExitFromLog;
         const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
         if (footer?.finished) {
@@ -604,29 +528,16 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
           clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
           return { running: false, exitCode: footerExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: footerExitCode } };
         }
-        // Issue #1939: a native docker session can report a terminal status
-        // ("executed") with the unknown exit-code sentinel (-1) while the
-        // container is still running. When the log footer above did not recover
-        // a real terminal exit, such a status is provisional — fall through to
-        // isSessionRunning() below, which cross-checks the live container via
-        // `docker inspect` before we notify the user the work finished.
+        // Issue #1939: a native docker session can report a terminal status ("executed") with the unknown exit-code sentinel (-1) while the container is still running. When the log footer above did not recover a real terminal exit, such a status is provisional — fall through to isSessionRunning() below, which cross-checks the live container via `docker inspect` before we notify the user the work finished.
         const dockerSession = isDockerIsolation(sessionInfo, statusResult);
         const ambiguousDockerTerminal = dockerSession && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
-        // Issue #2117: a docker terminal FAILURE with no corroborating footer is
-        // provisional too — start-command can fabricate that exit code from the
-        // command's own output. Give the real footer a moment to appear instead
-        // of announcing a failure the run never had. Only a *freshly* reported
-        // end time can still be in that race, so an older terminal record is
-        // still reported without delay.
+        // Issue #2117: a docker terminal FAILURE with no corroborating footer is provisional too — start-command can fabricate that exit code from the command's own output. Give the real footer a moment to appear instead of announcing a failure the run never had. Only a *freshly* reported end time can still be in that race, so an older terminal record is still reported without delay.
         const normalizedExitCode = normalizeExitCode(exitCode);
         const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
         if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
           return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
         }
-        // Issue #2134: even after the grace window, a container that is verifiably
-        // still alive cannot have produced a terminal failure — the same liveness
-        // ladder used for `oomKilled` applies here, so no kill is announced while
-        // the working session keeps running (that is exactly what #2134 reported).
+        // Issue #2134: even after the grace window, a container that is verifiably still alive cannot have produced a terminal failure — the same liveness ladder used for `oomKilled` applies here, so no kill is announced while the working session keeps running (that is exactly what #2134 reported).
         if (unverifiedDockerFailure) {
           const probe = backendAlive || runner.checkBackendSessionAlive;
           let alive = null;
@@ -650,9 +561,7 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
         }
       }
     }
-
-    // The status record is unavailable (no `exists`/`status`). Fall back to a
-    // direct backend liveness check. `sessionRunning` is injectable purely so
+    // The status record is unavailable (no `exists`/`status`). Fall back to a direct backend liveness check. `sessionRunning` is injectable purely so
     // this path is testable without the real `$`/`screen` binaries; production
     // always uses the runner's real check.
     const checkRunning = sessionRunning || runner.isSessionRunning;
@@ -692,7 +601,6 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
     return { running: false, exitCode: null, status: null, statusResult: null };
   }
 }
-
 /**
  * Monitor active sessions and send notifications when they complete
  * @param {Object} bot - Telegraf bot instance for sending messages
@@ -700,22 +608,18 @@ async function getIsolationSessionState(sessionName, sessionInfo, options = {}) 
  */
 export async function monitorSessions(bot, verbose = false, options = {}) {
   const sessions = getActiveSessions(verbose);
-
   if (sessions.length === 0) {
     return;
   }
-
   if (verbose) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
-
   for (const { sessionName, sessionInfo } of sessions) {
     let stillRunning;
     let exitCode = null;
     let statusResult = null;
     let resolvedStatus = null;
     let observedContainerFilesystemBytes = null;
-
     if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
       // Isolation mode: use $ --status, with screen -ls only as a fallback
       // when the status record is unavailable. Terminal $ statuses are
@@ -761,17 +665,14 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         }
       }
     }
-
     if (sessionInfo?.isolationBackend === 'docker') {
       observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
         verbose,
         sizeProvider: options.dockerContainerSizeProvider,
       });
     }
-
     if (!stillRunning) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
-
       let dockerTaskContainerAction = null;
       try {
         const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
@@ -783,7 +684,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           env: options.env || process.env,
           verbose,
         });
-
         // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
         // linked-issue API lags, from the completed solve log.
         let pullRequestUrl = null;
@@ -799,7 +699,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
           }
         }
-
         let pullRequestState = null;
         const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
         try {
@@ -816,7 +715,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         } catch (stateError) {
           if (verbose) console.log(`[VERBOSE] Pull request state resolution failed for ${sessionName}: ${stateError?.message || stateError}`);
         }
-
         // Issue #594: append an end-of-task limits snapshot/delta. Cached
         // helpers prevent parallel sessions from stampeding the upstream API.
         const limitsExtraSections = [];
@@ -846,7 +744,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             }
           }
         }
-
         // Issue #1927: for a killed /solve, offer a command using the last tool
         // session ID in the log. Do not auto-relaunch work that may reliably OOM.
         const resumeExtraSections = [];
@@ -878,7 +775,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
           }
         }
-
         // Issue #1945/#1988: append a "💾 Disk usage" block from repository
         // size markers and, for docker isolation, the container writable layer.
         const diskExtraSections = [];
@@ -899,7 +795,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
         const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
-
         // Issue #2134: say exactly WHY a session was killed, and warn when a
         // session merely survived a kill event instead of reporting a plain
         // success. The pull request gets the very same report below.
@@ -913,7 +808,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           readFile: options.readFile,
           env: options.env || process.env,
         });
-
         // Issue #2134: `--on-session-kill=resume` must actually start a new
         // working session, and both surfaces must say so. Done before the
         // message is built so the Telegram report and the pull-request notice
@@ -935,7 +829,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           killRecovery = recovered.recovery;
           if (recovered.section) killReport.sections.push(recovered.section);
         }
-
         const message = formatSessionCompletionMessage({
           sessionName,
           sessionInfo,
@@ -947,7 +840,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           pullRequestState,
           extraSections: [...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
-
         if (killReport.killed || killReport.recovered) {
           const notice = await announceKillOnPullRequest({
             pullRequestUrl,
@@ -971,7 +863,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
           }
         }
-
         // Update the original reply message if messageId is available, otherwise send new message
         let notifyFromChatId = null;
         let notifyMessageId = null;
@@ -984,7 +875,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
           notifyMessageId = sent?.message_id || null;
         }
-
         // Issue #1688: forward the same completion message to every /subscribe-d user
         //   in their private chat with the bot. Failures are logged but don't block
         //   completion of the parent session.
@@ -1008,7 +898,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             console.error(`[session-monitor] notifySubscribers failed for ${sessionName}:`, notifyError);
           }
         }
-
         await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
           verbose,
           removeDockerContainer: options.removeDockerContainer,
@@ -1034,7 +923,6 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     }
   }
 }
-
 /**
  * Look up the URL of a pull request linked to the issue this session worked on.
  * Returns null when the session was already operating on a PR, the URL context
@@ -1059,7 +947,6 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
   if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
     return null;
   }
-
   if (typeof lookupLinkedPullRequest === 'function') {
     const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
     if (linkedPullRequestUrl) return linkedPullRequestUrl;
@@ -1080,20 +967,16 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
       }
     }
   }
-
   const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
   const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
   if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
-
   if (verbose && logPath) {
     console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
   } else if (verbose) {
     console.log(`[VERBOSE] No session log path available for PR URL fallback for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
   }
-
   return null;
 }
-
 /**
  * Start the session monitoring interval
  * @param {Object} bot - Telegraf bot instance for sending messages
@@ -1113,7 +996,6 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000,
   console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: ${storage})`);
   return timer;
 }
-
 /**
  * Issue #1927 (requirements #2 and #4): after a bot restart, reload the sessions
  * that were still being tracked when the previous process died and re-register
@@ -1140,12 +1022,10 @@ export async function resumeTrackedSessions(options = {}) {
   const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000) } = options;
   const resumed = [];
   const skipped = [];
-
   if (!store) {
     if (verbose) console.log('[VERBOSE] resumeTrackedSessions: no durable session store configured, nothing to resume');
     return { resumed, skipped };
   }
-
   let persisted;
   try {
     persisted = store.load();
@@ -1153,7 +1033,6 @@ export async function resumeTrackedSessions(options = {}) {
     console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
     return { resumed, skipped };
   }
-
   for (const { sessionName, sessionInfo } of persisted) {
     if (activeSessions.has(sessionName)) {
       skipped.push({ sessionName, reason: 'already-tracked' });
@@ -1167,7 +1046,6 @@ export async function resumeTrackedSessions(options = {}) {
       if (verbose) console.log(`[VERBOSE] Skipping resume of ${sessionName}: started after bot start`);
       continue;
     }
-
     activeSessions.set(sessionName, sessionInfo);
     resumed.push({ sessionName, sessionInfo });
     logEvent('session_resumed', {
@@ -1181,16 +1059,13 @@ export async function resumeTrackedSessions(options = {}) {
       console.log(`[VERBOSE] Resumed tracking of session ${sessionName} (url: ${sessionInfo.url || 'n/a'}, command: ${sessionInfo.command || 'n/a'}, backend: ${sessionInfo.isolationBackend || 'screen'})`);
     }
   }
-
   if (resumed.length > 0) {
     console.log(`♻️  Resumed monitoring of ${resumed.length} session(s) from durable store after restart`);
   } else if (verbose) {
     console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
   }
-
   return { resumed, skipped };
 }
-
 /**
  * Issue #1567: Check if there's an active session for a given URL.
  * This prevents concurrent sessions on the same PR/issue, which causes
@@ -1212,10 +1087,8 @@ export async function resumeTrackedSessions(options = {}) {
  */
 export function hasActiveSessionForUrl(url, verbose = false) {
   if (!url) return { isActive: false, sessionName: null };
-
   // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
   const normalizedUrl = normalizeSessionUrl(url);
-
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     // Issue #1586: Auto-expire non-isolation sessions after timeout
     if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
@@ -1229,15 +1102,12 @@ export function hasActiveSessionForUrl(url, verbose = false) {
       return { isActive: true, sessionName };
     }
   }
-
   if (verbose) {
     console.log(`[VERBOSE] No active session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
 }
-
 const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * Issue #1871: Find a tracked, still-running session for a GitHub issue/PR URL
  * and report whether it can be stopped by forwarding CTRL+C to the
@@ -1264,9 +1134,7 @@ const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
  */
 export function findStoppableSessionByUrl(url, verbose = false) {
   if (!url) return null;
-
   const normalizedUrl = normalizeSessionUrl(url);
-
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
       continue;
@@ -1275,19 +1143,16 @@ export function findStoppableSessionByUrl(url, verbose = false) {
     if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
       continue;
     }
-
     // The UUID `$ --stop` expects is the start-command session id. For
     // isolation sessions it is tracked either as sessionInfo.sessionId or as
     // the (UUID-shaped) session key itself.
     const candidateId = sessionInfo.sessionId || sessionName;
     const sessionId = SESSION_UUID_RE.test(candidateId) ? candidateId : null;
     const stoppable = Boolean(sessionInfo.isolationBackend && sessionId);
-
     if (verbose) {
       const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation';
       console.log(`[VERBOSE] findStoppableSessionByUrl: matched ${sessionName} for ${url} (${mode}, stoppable=${stoppable})`);
     }
-
     return {
       sessionName,
       sessionId,
@@ -1296,13 +1161,11 @@ export function findStoppableSessionByUrl(url, verbose = false) {
       stoppable,
     };
   }
-
   if (verbose) {
     console.log(`[VERBOSE] findStoppableSessionByUrl: no tracked session for ${url}`);
   }
   return null;
 }
-
 /**
  * Async active-session check for command handlers.
  *
@@ -1318,21 +1181,17 @@ export function findStoppableSessionByUrl(url, verbose = false) {
  */
 export async function hasActiveSessionForUrlAsync(url, verbose = false, options = {}) {
   if (!url) return { isActive: false, sessionName: null };
-
   const normalizedUrl = normalizeSessionUrl(url);
-
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
       continue;
     }
-
     if (!sessionInfo.isolationBackend) {
       if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
         return { isActive: true, sessionName, status: null };
       }
       continue;
     }
-
     const state = await getIsolationSessionState(sessionName, sessionInfo, {
       verbose,
       statusProvider: options.statusProvider,
@@ -1343,20 +1202,17 @@ export async function hasActiveSessionForUrlAsync(url, verbose = false, options 
       }
       return { isActive: true, sessionName, status: state.status || null };
     }
-
     if (verbose) {
       console.log(`[VERBOSE] Isolated session ${sessionName} for URL ${url} is no longer running (status: ${state.status || 'unknown'}), allowing retry while monitor sends completion`);
     }
     sessionInfo.lastKnownStatus = state.status || null;
     sessionInfo.lastKnownExitCode = state.exitCode ?? null;
   }
-
   if (verbose) {
     console.log(`[VERBOSE] No active session found for URL ${url}`);
   }
   return { isActive: false, sessionName: null };
 }
-
 /**
  * Refresh tracked isolation sessions and count only those that are executing.
  *
@@ -1368,31 +1224,25 @@ export async function hasActiveSessionForUrlAsync(url, verbose = false, options 
 export async function getRunningTrackedIsolationSessions(verbose = false, options = {}) {
   const sessions = [];
   const byTool = {};
-
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     if (!sessionInfo.isolationBackend) {
       continue;
     }
-
     const state = await getIsolationSessionState(sessionName, sessionInfo, {
       verbose,
       statusProvider: options.statusProvider,
     });
-
     if (!state.running) {
       sessionInfo.lastKnownStatus = state.status || null;
       sessionInfo.lastKnownExitCode = state.exitCode ?? null;
       continue;
     }
-
     const tool = sessionInfo.tool || 'claude';
     sessions.push(sessionName);
     byTool[tool] = (byTool[tool] || 0) + 1;
   }
-
   return { count: sessions.length, sessions, byTool };
 }
-
 /**
  * Return the currently-executing tracked sessions with the details needed to
  * render them as a clickable list in `/queue`: the issue/PR
@@ -1416,11 +1266,9 @@ export async function getRunningTrackedIsolationSessions(verbose = false, option
 export async function getRunningSessionItems(verbose = false, options = {}) {
   const items = [];
   const screenChecker = options.screenChecker || checkScreenSessionExists;
-
   for (const [sessionName, sessionInfo] of activeSessions.entries()) {
     let running;
     let status = null;
-
     if (sessionInfo.isolationBackend) {
       // Forward every injectable seam so the listing applies the same #1927
       // stale-`executing` reconciliation the monitor does — a session that
@@ -1455,7 +1303,6 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
         continue;
       }
     }
-
     items.push({
       sessionName,
       url: sessionInfo.url || null,
@@ -1465,14 +1312,11 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
       isolationBackend: sessionInfo.isolationBackend || null,
     });
   }
-
   if (verbose) {
     console.log(`[VERBOSE] getRunningSessionItems found ${items.length} running session(s)`);
   }
-
   return items;
 }
-
 /**
  * Get statistics about session tracking
  * @param {boolean} verbose - Whether to log verbose output
@@ -1481,11 +1325,9 @@ export async function getRunningSessionItems(verbose = false, options = {}) {
 export function getSessionStats(verbose = false) {
   const sessions = Array.from(activeSessions.values());
   const isolated = sessions.filter(s => s.isolationBackend);
-
   if (verbose) {
     console.log(`[VERBOSE] Session stats: ${sessions.length} total, ${isolated.length} isolated`);
   }
-
   return {
     total: activeSessions.size,
     executing: activeSessions.size,

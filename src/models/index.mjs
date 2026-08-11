@@ -43,7 +43,6 @@ const formalAiProviderModelAliases = {
   [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_PROVIDER_MODEL_ID,
   [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_PROVIDER_MODEL_ID,
 };
-
 // Claude models (Anthropic API)
 // Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
 // (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096)
@@ -198,7 +197,6 @@ export const getLatestCodexGenerationAliases = (models = codexModels) => {
 
   return latestCompleteGeneration?.[1] || {};
 };
-
 const getCodexModelVariants = () => {
   const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
   const aliases = getLatestCodexGenerationAliases();
@@ -311,7 +309,6 @@ export const freeToBaseModelMap = {
 // These extend the base maps with full model ID identity entries for validation
 // (e.g., 'claude-sonnet-4-5-20250929' → 'claude-sonnet-4-5-20250929')
 // so that full model IDs are also accepted as valid inputs
-
 export const CLAUDE_MODELS = {
   ...claudeModels,
   'claude-fable-5': 'claude-fable-5', // Fable 5 full ID (Issue #1875)
@@ -432,7 +429,6 @@ export const getModelMapForTool = tool => {
 export const getDefaultModelForTool = tool => {
   return defaultModels[tool] || defaultModels.claude;
 };
-
 let cachedInstalledCodexModelsPromise = null;
 // Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
 // consulted when Sol is absent from the local catalog. Issue #2037 (review): order by
@@ -506,7 +502,6 @@ export const mapModelForTool = (tool, model) => {
       return model;
   }
 };
-
 /**
  * Validate if a model is compatible with a tool
  * @param {string} tool - The tool name (claude, agent, opencode, codex, qwen, gemini)
@@ -607,7 +602,6 @@ export const validateToolModelCompatibility = (tool, model) => {
 };
 
 // ─── MODEL VALIDATION FUNCTIONS ──────────────────────────────────────────────
-
 /**
  * Get the model map for a given tool (validation-extended version with full ID entries)
  * @param {string} tool - The tool name ('claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini')
@@ -713,7 +707,6 @@ export const findSimilarModels = (input, validModels, maxSuggestions = 3, maxDis
     .sort((a, b) => a.distance - b.distance)
     .slice(0, maxSuggestions)
     .map(({ model }) => model);
-
   return suggestions;
 };
 
@@ -767,7 +760,6 @@ export const supports1mContext = (model, tool = 'claude') => {
 
   return false;
 };
-
 /**
  * Validate a model name against the available models for a tool
  * Supports [1m] suffix for 1 million token context (Issue #1221)
@@ -827,7 +819,6 @@ export const validateModelName = (model, tool = 'claude') => {
   if (suggestions.length > 0) {
     message += `\n   Did you mean: ${suggestions.map(s => `"${s}"`).join(', ')}?`;
   }
-
   message += `\n   Available models for ${tool}: ${shortNames.join(', ')}`;
 
   if (tool === 'claude') {
@@ -886,7 +877,6 @@ export const validateClaudeSubAgentModelName = model => {
       mappedModel: normalized,
     };
   }
-
   return validation;
 };
 
@@ -950,7 +940,6 @@ export const validateAndExitOnInvalidClaudeSubAgentModel = async (model, tool = 
 
   if (!result.valid) {
     await log(`❌ Invalid --sub-agent-model: ${result.message}`, { level: 'error' });
-
     if (exitFn) {
       await exitFn(1, 'Invalid sub-agent model name');
     } else {
@@ -1049,7 +1038,6 @@ export const fetchModelInfoForComment = async modelId => {
     if (!apiData) return null;
 
     const lookupId = modelId.includes('/') ? modelId.split('/').pop() : modelId;
-
     if (apiData.anthropic?.models?.[lookupId]) {
       const modelInfo = { ...apiData.anthropic.models[lookupId] };
       modelInfo.provider = apiData.anthropic.name || 'Anthropic';
@@ -1153,7 +1141,6 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
   if (!hasRequested && !hasModelsUsed && !hasModelInfo && !hasPricingModel) return '';
 
   let info = '\n\n### \uD83E\uDD16 **Models used:**';
-
   if (tool) {
     info += `\n- Tool: ${getToolDisplayName(tool)}`;
   }
@@ -1240,7 +1227,6 @@ export const buildModelInfoString = ({ requestedModel = null, tool = null, prici
 
   return info;
 };
-
 /**
  * Resolve the full model ID from a user-provided alias using the model mapping.
  * @param {string|null} requestedModel - The model alias (e.g., "opus", "sonnet")
@@ -1341,7 +1327,6 @@ export const getModelInfoForComment = async ({ requestedModel = null, tool = nul
   }
 
   const firstModelInfo = modelsUsed.length > 0 ? modelsUsed[0].modelInfo : null;
-
   return buildModelInfoString({
     requestedModel,
     tool,

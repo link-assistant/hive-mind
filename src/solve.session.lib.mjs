@@ -95,6 +95,8 @@ export async function postWorkSessionStartComment({ owner, repo, prNumber, $, lo
     const { reportError } = sentryLib;
     reportError(error, {
       context: 'post_start_comment',
+      owner,
+      repo,
       prNumber,
       operation: 'create_pr_comment',
     });

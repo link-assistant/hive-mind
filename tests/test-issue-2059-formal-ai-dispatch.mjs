@@ -389,11 +389,15 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
     assert.match(contents, /formal-ai --version/, `${name} must verify that the Formal AI wrapper is installed`);
   }
 
-  // Formal AI 0.333.0+ pulls native-tls through web-search -> web-capture ->
-  // reqwest, so `cargo install formal-ai --locked` needs pkg-config and the
-  // OpenSSL headers, which rust:slim does not carry (link-assistant/formal-ai#988).
-  // Without these the builder stage dies in the openssl-sys build script, and the
-  // failure only surfaces in the Docker job, long after the unit suite is green.
+  // Formal AI 0.333.0-0.338.0 pulled native-tls through web-search ->
+  // web-capture -> reqwest, so `cargo install formal-ai --locked` needed
+  // pkg-config and the OpenSSL headers, which rust:slim does not carry
+  // (link-assistant/formal-ai#988, fixed upstream in 0.339.0). The packages
+  // stay as defense in depth while the root causes remain open upstream
+  // (web-capture#151, browser-commander#77): without them a release that drags
+  // openssl-sys back in dies in the Docker job, long after the unit suite is
+  // green; with them the build succeeds either way and both are inert when
+  // openssl-sys is absent.
   for (const [name, contents] of [
     ['Dockerfile', dockerfile],
     ['Dockerfile.dind', dindDockerfile],

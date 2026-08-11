@@ -14,7 +14,7 @@
  * @hive-mind-test-skip
  */
 
-const DEFAULT_HEALTH = { version: '0.337.0', memory: { compatible: true, schema_version: 2, migration_required: false, migration_state: 'current' } };
+const DEFAULT_HEALTH = { version: '0.339.1', memory: { compatible: true, schema_version: 2, migration_required: false, migration_state: 'current' } };
 
 const fail = (message, stdout = '') => {
   const error = new Error(message);

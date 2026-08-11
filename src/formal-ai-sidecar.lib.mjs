@@ -26,13 +26,16 @@
  * - **The memory volume is never removed.** Stopping the sidecar, replacing its
  *   image, or rolling an update back all leave `hive-mind-formal-ai-memory`
  *   in place; that named volume is the persisted memory the review requires.
- * - **`docker network connect`, not `docker run --network`.** start-command
- *   0.31.0 forwards `--network` straight to `docker run --network`, which
- *   *replaces* the container's default bridge. Attaching an `--internal`
- *   network that way would also cut the task off from GitHub and the package
- *   registries. Hive Mind therefore launches the task normally and adds the
- *   internal network as a second interface while the start gate still holds
- *   the task command back.
+ * - **`docker network connect`, not `docker run --network`.** A single
+ *   `docker run --network` *replaces* the container's default bridge, so an
+ *   `--internal` network passed that way would also cut the task off from
+ *   GitHub and the package registries. start-command 0.32.0+ (start#156 →
+ *   start PR #157) can express both networks at launch by repeating
+ *   `--network`, implemented upstream as the same create → connect → start
+ *   sequence; Hive Mind keeps issuing the additive `docker network connect`
+ *   itself while the start gate still holds the task command back, because
+ *   that stays fail-closed on any installed start-command version instead of
+ *   silently collapsing to one network on pre-0.32.0 parsers.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2146
  * @see https://github.com/link-assistant/hive-mind/pull/2147

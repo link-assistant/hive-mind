@@ -18,17 +18,21 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.337.0
+ARG FORMAL_AI_VERSION=0.339.1
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.96-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
-# Formal AI reaches OpenSSL since 0.333.0 (formal-ai -> web-search -> web-capture
-# -> reqwest with default features -> native-tls -> openssl-sys), so the builder
-# needs pkg-config and the OpenSSL headers; rust:slim ships neither and the
-# openssl-sys build script aborts the install. OPENSSL_STATIC links libssl into
-# the binary so the copy into the Ubuntu 24.04 runtime below stays independent of
-# the runtime's OpenSSL soname. Reported upstream as link-assistant/formal-ai#988
-# (see docs/case-studies/issue-2146).
+# Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
+# web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
+# the builder needs pkg-config and the OpenSSL headers; rust:slim ships neither
+# and the openssl-sys build script aborts the install. Reported upstream as
+# link-assistant/formal-ai#988 and fixed in 0.339.0 (its Cargo.lock no longer
+# contains openssl-sys), but the root causes are still open upstream
+# (link-assistant/web-capture#151, link-foundation/browser-commander#77), so the
+# packages stay as defense in depth: if a future release drags openssl-sys back
+# in, OPENSSL_STATIC links libssl into the binary and the copy into the Ubuntu
+# 24.04 runtime below stays independent of the runtime's OpenSSL soname; when
+# openssl-sys is absent both are inert (see docs/case-studies/issue-2146).
 RUN apt-get update && \
     apt-get install -y --no-install-recommends pkg-config libssl-dev && \
     rm -rf /var/lib/apt/lists/*

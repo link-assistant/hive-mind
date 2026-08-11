@@ -719,11 +719,14 @@ export async function executeWithIsolation(command, args, options = {}) {
   if (result.success && backend === 'docker') {
     try {
       containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
-      // The task container exists but its command is still held by the start
-      // gate, which is the only safe moment to add a second network interface.
-      // `docker network connect` is additive; passing the internal network to
-      // `docker run --network` would have replaced the default bridge and cut
-      // the task off from GitHub (issue #2146).
+      // The task command is still held by the start gate — the only safe
+      // moment to add a second network. `docker network connect` is additive;
+      // a single `docker run --network` would replace the default bridge and
+      // cut the task off from GitHub (issue #2146). start-command 0.32.0+
+      // could attach both networks at launch (repeatable `--network`,
+      // start#156), but it implements that with this very create → connect →
+      // start sequence, and doing it here keeps the attach fail-closed on any
+      // installed version instead of silently one-network on older parsers.
       formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
     } finally {
       await releaseDockerContainerStartGate(sessionId, verbose);

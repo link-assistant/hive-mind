@@ -21,7 +21,7 @@ const run = async (command, args) => {
   const joined = args.join(' ');
   if (joined.startsWith('inspect hive-mind-formal-ai ')) {
     if (!sidecarExists) throw new Error('No such object');
-    return { stdout: 'true|ghcr.io/link-assistant/formal-ai:0.337.0|sha256:abc\n' };
+    return { stdout: 'true|ghcr.io/link-assistant/formal-ai:0.339.1|sha256:abc\n' };
   }
   if (args[0] === 'inspect') return { stdout: 'true|task-image|sha256:task\n' };
   if (joined.startsWith('network inspect')) throw new Error('No such network');
@@ -30,14 +30,14 @@ const run = async (command, args) => {
     sidecarExists = true;
     return { stdout: 'container-id\n' };
   }
-  if (args[0] === 'exec') return { stdout: JSON.stringify({ version: '0.337.0', memory: { schema_version: 2, compatible: true, migration_required: false, migration_state: 'ready' } }) };
+  if (args[0] === 'exec') return { stdout: JSON.stringify({ version: '0.339.1', memory: { schema_version: 2, compatible: true, migration_required: false, migration_state: 'ready' } }) };
   return { stdout: '' };
 };
 
 console.log('image           :', resolveFormalAiSidecarImage(env));
 console.log('base url        :', resolveFormalAiSidecarBaseUrl());
 console.log('formal-ai task? :', isFormalAiTask({ args: ['--model', 'formal-ai'] }), isFormalAiTask({ args: ['--model', 'opus'] }));
-console.log('run argv        :', JSON.stringify(buildFormalAiSidecarRunArgs({ image: 'ghcr.io/link-assistant/formal-ai:0.337.0', env })));
+console.log('run argv        :', JSON.stringify(buildFormalAiSidecarRunArgs({ image: 'ghcr.io/link-assistant/formal-ai:0.339.1', env })));
 
 const lease = await acquireFormalAiSidecar({ sessionId: 'task-a', tool: 'claude', model: 'formal-ai', env, run, log: async m => console.log('  log:', m) });
 console.log('acquire         :', JSON.stringify({ baseUrl: lease.baseUrl, leaseCount: lease.leaseCount }));

@@ -24,7 +24,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 import { FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, FORMAL_AI_SIDECAR_NETWORK_ALIAS, FORMAL_AI_SIDECAR_NETWORK_NAME, acquireFormalAiSidecar, attachTaskToFormalAiNetwork, buildFormalAiSidecarRunArgs, isFormalAiSidecarEnabled, isFormalAiTask, readFormalAiSidecarState, reconcileFormalAiSidecar, releaseFormalAiSidecar, writeFormalAiSidecarState } from '../src/formal-ai-sidecar.lib.mjs';
 import { createDockerSimulator } from './formal-ai-docker-simulator.mjs';
 
-const SIDECAR_IMAGE = 'ghcr.io/link-assistant/formal-ai:0.337.0';
+const SIDECAR_IMAGE = 'ghcr.io/link-assistant/formal-ai:0.339.1';
 const stateDirs = [];
 
 const makeEnv = (extra = {}) => {
@@ -76,7 +76,7 @@ assert.equal(isFormalAiSidecarEnabled({ HIVE_MIND_FORMAL_AI_SIDECAR: '0' }), fal
   // than a DNS alias that may not be wired up yet.
   assert.equal(first.baseUrl, 'http://172.28.0.2:8080');
   assert.equal(first.dnsBaseUrl, `http://${FORMAL_AI_SIDECAR_NETWORK_ALIAS}:8080`);
-  assert.equal(first.health.version, '0.337.0');
+  assert.equal(first.health.version, '0.339.1');
 
   docker.createContainer('task-a');
   assert.deepEqual(await attachTaskToFormalAiNetwork({ sessionId: 'task-a', run: docker.run }), { attached: true, error: null });

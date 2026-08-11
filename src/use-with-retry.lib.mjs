@@ -97,6 +97,7 @@ export const useWithRetry = async (use, specifier, options = {}) => {
   const backoffMs = options.backoffMs ?? 1000;
   const log = options.log ?? defaultLog;
   const importModule = options.importModule ?? defaultImport;
+  const installWithoutBinLinks = options.installWithoutBinLinks ?? defaultInstallWithoutBinLinks;
   const extraArgs = options.args ?? [];
   if (requestedSpecifier !== specifier) log(`use('${requestedSpecifier}') pinned to '${specifier}'`);
   let lastError;
@@ -129,6 +130,21 @@ export const useWithRetry = async (use, specifier, options = {}) => {
         throw error;
       }
       log(`use('${specifier}') failed on attempt ${attempt}/${attempts}: ${error?.message} — retrying`);
+      // npm gives every global alias the package's original executable names.
+      // When a pinned alias replaces use-m's former `-v-latest` alias, packages
+      // such as zx collide on `/bin/zx` even though both module directories can
+      // coexist. use-m only imports the package and does not need its CLI link,
+      // so finish the pinned install without bin links and retry the import.
+      if (requestedSpecifier !== specifier && isBinLinkInstallConflict(error)) {
+        const details = extractFailedInstallDetails(error);
+        try {
+          await installWithoutBinLinks({ specifier, globalRoot: details?.globalRoot, error });
+          log(`use('${specifier}') repaired npm's alias bin-link collision`);
+          continue;
+        } catch (repairError) {
+          log(`use('${specifier}') could not repair npm's alias bin-link collision: ${repairError?.message}`);
+        }
+      }
       // Mode 4 (issue #2092): `npm install -g` itself failed (network blip,
       // registry 5xx, DinD DNS not up yet). There is nothing to delete; just
       // back off and let npm try again.
@@ -173,6 +189,69 @@ export const isTransientInstallError = error => {
   const message = typeof error?.message === 'string' ? error.message : '';
   return /^Failed to install .+ globally into /.test(message);
 };
+
+export const extractFailedInstallDetails = error => {
+  const message = typeof error?.message === 'string' ? error.message : '';
+  const match = message.match(/^Failed to install (.+?) globally into '([^']+)'(?:\.| after\b)/);
+  return match ? { specifier: match[1], globalRoot: match[2] } : null;
+};
+
+export const isBinLinkInstallConflict = error => {
+  if (!extractFailedInstallDetails(error)) return false;
+  // use-m may aggregate all npm attempts into the outer message instead of
+  // preserving stderr on the final cause, so inspect both levels.
+  const causeText = [error?.message, error?.cause?.message, error?.cause?.stderr, error?.cause?.stdout, error?.cause?.cause?.message, error?.cause?.cause?.stderr].filter(Boolean).join('\n');
+  return /\bEEXIST\b/.test(causeText) && /(?:File exists|file already exists|\/bin\/|\\bin\\)/i.test(causeText);
+};
+
+const installErrorText = error => [error?.message, error?.stderr, error?.stdout, error?.cause?.message, error?.cause?.stderr, error?.cause?.stdout, error?.cause?.cause?.message, error?.cause?.cause?.stderr].filter(Boolean).join('\n');
+
+export const extractConflictingBinPath = error => {
+  const match = installErrorText(error).match(/(?:^|\n)npm error path ([^\r\n]+)/);
+  return match?.[1]?.trim() ?? null;
+};
+
+export const aliasForUseMSpecifier = specifier => {
+  const match = specifier.match(/^(@[^/]+\/[^@/]+|[^@/]+)@(.+)$/);
+  if (!match) throw new Error(`Expected an exact npm package specifier, got '${specifier}'`);
+  const [, packageName, version] = match;
+  return `${packageName.replace('@', '').replace('/', '-')}-v-${version}`;
+};
+
+export const npmPrefixForGlobalRoot = globalRoot => {
+  if (!globalRoot) return null;
+  const normalized = globalRoot.replaceAll('\\', '/').replace(/\/$/, '');
+  if (normalized.endsWith('/lib/node_modules')) return normalized.slice(0, -'/lib/node_modules'.length);
+  if (normalized.endsWith('/node_modules')) return normalized.slice(0, -'/node_modules'.length);
+  return null;
+};
+
+export const installAliasWithoutBinLinks = async ({ specifier, globalRoot, error, runner, readlink } = {}) => {
+  const alias = aliasForUseMSpecifier(specifier);
+  const prefix = npmPrefixForGlobalRoot(globalRoot);
+  const binPath = extractConflictingBinPath(error);
+  if (!prefix || !binPath) throw new Error('Cannot safely identify the conflicting use-m package binary');
+  const { dirname, resolve, sep } = await import('node:path');
+  const readSymbolicLink = readlink ?? (await import('node:fs/promises')).readlink;
+  const target = resolve(dirname(binPath), await readSymbolicLink(binPath));
+  const [packageName] = specifier.match(/^(@[^/]+\/[^@/]+|[^@/]+)@(.+)$/)?.slice(1) ?? [];
+  const aliasPrefix = `${packageName?.replace('@', '').replace('/', '-')}-v-`;
+  const normalizedRoot = resolve(globalRoot);
+  if (!packageName || !target.startsWith(`${normalizedRoot}${sep}${aliasPrefix}`)) {
+    throw new Error(`Refusing to replace ${binPath}; it is not owned by a use-m alias for ${packageName ?? specifier}`);
+  }
+  // npm 11 still checks an existing global executable even with
+  // --no-bin-links. --force is safe here only because the symlink target was
+  // verified above as another version alias managed by use-m for this package.
+  const args = ['install', '-g', '--force', '--no-bin-links', `${alias}@npm:${specifier}`];
+  if (prefix) args.push('--prefix', prefix);
+  if (runner) return runner('npm', args);
+  const { execFile } = await import('node:child_process');
+  const { promisify } = await import('node:util');
+  return promisify(execFile)('npm', args);
+};
+
+const defaultInstallWithoutBinLinks = installAliasWithoutBinLinks;
 
 export const isCorruptInstallError = error => {
   const cause = error?.cause;

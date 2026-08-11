@@ -67,19 +67,22 @@ await test('computeBackoffMs grows exponentially', () => {
   assert.equal(computeBackoffMs(3, 100), 400);
 });
 
-await test('installWithRetry returns ok on first success', async () => {
+await test('installWithRetry disables package bin links so versioned aliases can coexist', async () => {
   let calls = 0;
+  let command = '';
   const result = await installWithRetry({
     packageName: 'command-stream',
     alias: 'command-stream-v-0.18.0',
     globalRoot: '/tmp/nonexistent-root',
-    runner: async () => {
+    runner: async value => {
       calls++;
+      command = value;
       return { stdout: '', stderr: '' };
     },
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 1, calls: 1 });
+  assert.match(command, /npm install -g --no-bin-links command-stream-v-0\.18\.0@npm:command-stream@0\.18\.0/);
 });
 
 await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
@@ -102,6 +105,22 @@ await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 3, calls: 3 });
+});
+
+await test('installWithRetry safely repairs a use-m alias bin-link collision', async () => {
+  const repairs = [];
+  const result = await installWithRetry({
+    packageName: 'zx',
+    alias: 'zx-v-8.8.5',
+    globalRoot: '/opt/npm/lib/node_modules',
+    runner: async () => {
+      const error = new Error('Command failed: npm install');
+      error.stderr = 'npm error code EEXIST\nnpm error path /opt/npm/bin/zx\nnpm error File exists: /opt/npm/bin/zx\n';
+      throw error;
+    },
+    repairBinLinkConflict: async details => repairs.push({ specifier: details.specifier, globalRoot: details.globalRoot }),
+  });
+  assert.deepEqual({ ok: result.ok, recovered: result.recovered, repairs }, { ok: true, recovered: true, repairs: [{ specifier: 'zx@8.8.5', globalRoot: '/opt/npm/lib/node_modules' }] });
 });
 
 await test('installWithRetry aborts immediately on non-retryable error', async () => {

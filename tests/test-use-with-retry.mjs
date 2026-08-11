@@ -13,6 +13,8 @@
  *   5. ERR_MODULE_NOT_FOUND for an internal file in an incomplete alias.
  *   6. A retryable ENOTEMPTY race in use-m's corrupt-alias cleanup.
  *   7. Node 24's synthetic `module.exports` CommonJS namespace export.
+ *   8. npm bin-link collisions while migrating from `-v-latest` aliases to
+ *      pinned aliases (issue #2150).
  *
  * Also covers wrapUseWithRetry/ensureUseM, which make every `use(...)` call
  * site in the codebase inherit this recovery (issue #2092).
@@ -44,6 +46,10 @@ const makeImportError = filePath => {
 };
 
 const makeInstallError = (pkg, dir) => new Error(`Failed to install ${pkg} globally into '${dir}'.`);
+
+const makeBinLinkConflictError = (pkg, dir) => {
+  return new Error(`Failed to install ${pkg} globally into '${dir}' after 3 attempts.\nAttempts:\n  - npm error code EEXIST\nnpm error File exists: /usr/local/bin/zx`);
+};
 
 const makeResolveError = (pkg, dir) => new Error(`Failed to resolve the path to '${pkg}' from '${dir}'.`);
 
@@ -174,6 +180,27 @@ await test('retries a failed global install with backoff and no cleanup', async 
   assert.deepEqual(waits, [10, 20]);
   assert.equal(cleanupCalls, 0);
   assert.deepEqual(result, { $: 'dollar' });
+});
+
+await test('repairs a pinned alias install when an older alias owns the package binary', async () => {
+  let repaired = false;
+  let calls = 0;
+  const repairs = [];
+  const fakeUse = async specifier => {
+    calls++;
+    if (!repaired) throw makeBinLinkConflictError(specifier, '/opt/npm/lib/node_modules');
+    return { default: 'recovered' };
+  };
+  const result = await useWithRetry(fakeUse, 'zx', {
+    installWithoutBinLinks: async details => {
+      repairs.push({ specifier: details.specifier, globalRoot: details.globalRoot });
+      repaired = true;
+    },
+    sleep: async () => {},
+  });
+  assert.deepEqual(result, { default: 'recovered' });
+  assert.equal(calls, 2);
+  assert.deepEqual(repairs, [{ specifier: 'zx@8.8.5', globalRoot: '/opt/npm/lib/node_modules' }]);
 });
 
 await test('rethrows the install failure after exhausting attempts', async () => {

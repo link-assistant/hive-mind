@@ -17,11 +17,12 @@ const pathModule = await import('node:path');
 const osModule = await import('node:os');
 
 globalThis.use = async name => {
-  if (name === 'command-stream') return { $: () => ({ stream: async function* noopStream() {} }) };
-  if (name === 'fs') return { ...fsModule, default: fsModule };
-  if (name === 'path') return { ...pathModule, default: pathModule };
-  if (name === 'os') return { ...osModule, default: osModule };
-  return await import(name);
+  const packageName = name.replace(/@\d[^/]*$/, '');
+  if (packageName === 'command-stream') return { $: () => ({ stream: async function* noopStream() {} }) };
+  if (packageName === 'fs') return { ...fsModule, default: fsModule };
+  if (packageName === 'path') return { ...pathModule, default: pathModule };
+  if (packageName === 'os') return { ...osModule, default: osModule };
+  return await import(packageName);
 };
 
 const { defaultModels, getToolDisplayName, isModelCompatibleWithTool, mapModelForTool, resolveModelId, resolveRuntimeDefaultModel } = await import('../src/models/index.mjs');

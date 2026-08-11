@@ -13,7 +13,7 @@ import { exec, execSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
+import { installAliasWithoutBinLinks, USE_M_PACKAGE_VERSIONS } from '../src/use-with-retry.lib.mjs';
 
 const execAsync = promisify(exec);
 
@@ -45,9 +45,12 @@ export const computeBackoffMs = (attempt, baseDelayMs = BASE_DELAY_MS) => baseDe
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-export const installWithRetry = async ({ packageName, version = USE_M_PACKAGE_VERSIONS[packageName] ?? 'latest', alias, globalRoot, runner = execAsync, attempts = MAX_ATTEMPTS, baseDelayMs = BASE_DELAY_MS, sleeper = sleep }) => {
+export const installWithRetry = async ({ packageName, version = USE_M_PACKAGE_VERSIONS[packageName] ?? 'latest', alias, globalRoot, runner = execAsync, repairBinLinkConflict = installAliasWithoutBinLinks, attempts = MAX_ATTEMPTS, baseDelayMs = BASE_DELAY_MS, sleeper = sleep }) => {
   const specifier = `${packageName}@${version}`;
-  const command = `npm install -g ${alias}@npm:${specifier}`;
+  // use-m imports modules and never needs their global CLI links. Disabling
+  // bin links lets pinned aliases coexist with an older `-v-latest` alias
+  // during upgrades (otherwise npm fails with EEXIST for packages such as zx).
+  const command = `npm install -g --no-bin-links ${alias}@npm:${specifier}`;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       debug(`attempt ${attempt}/${attempts}: ${command}`);
@@ -60,6 +63,15 @@ export const installWithRetry = async ({ packageName, version = USE_M_PACKAGE_VE
       log(`⚠️  attempt ${attempt}/${attempts} failed for ${packageName}: ${error.message?.split('\n')[0] || error}`);
       debug('stderr:', error.stderr || '(none)');
       debug('stdout:', error.stdout || '(none)');
+      if (/\bEEXIST\b/.test(`${error.stderr || ''}${error.message || ''}`)) {
+        try {
+          await repairBinLinkConflict({ specifier, globalRoot, error });
+          log(`✅ installed ${specifier} as ${alias} without replacing an unrelated package binary`);
+          return { ok: true, attempt, recovered: true };
+        } catch (repairError) {
+          debug(`safe bin-link repair was not applicable: ${repairError.message}`);
+        }
+      }
       if (installed) {
         log(`ℹ️  ${alias} already present in ${globalRoot}; treating as success despite npm error`);
         return { ok: true, attempt, recovered: true };

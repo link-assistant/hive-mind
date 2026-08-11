@@ -79,7 +79,12 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+
+// Issue #2148: in-process usage-limit continuations bypass startWorkSession,
+// so post their session boundary explicitly before invoking `--resume`.
+const sessionLib = await import('./solve.session.lib.mjs');
+const { postWorkSessionStartComment, SESSION_TYPES } = sessionLib;
 
 const externalReviewLimitLib = await import('./external-review-limit.lib.mjs');
 const { buildReadyForReviewComment } = externalReviewLimitLib;
@@ -856,7 +861,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         // to comments posted during *this* iteration only, not across the whole watch loop.
         const iterationStartTime = new Date();
 
-        const toolResult = await executeToolIteration({
+        let toolResult = await executeToolIteration({
           issueUrl,
           owner,
           repo,
@@ -868,6 +873,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
           feedbackLines,
           argv,
         });
+        let resumedAfterUsageLimit = false;
 
         if (!toolResult.success) {
           // Issue #1356: Check for usage limit errors FIRST (most specific)
@@ -940,7 +946,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                     limitResetTime: resetTime,
                     toolName: `Anthropic ${(argv.tool || 'claude').charAt(0).toUpperCase() + (argv.tool || 'claude').slice(1)} Code`,
                     isAutoResumeEnabled: true,
-                    autoResumeMode: 'restart',
+                    autoResumeMode: 'resume',
                     requestedModel: argv.originalModel || argv.model,
                     tool: argv.tool || 'claude',
                     publicPricingEstimate: toolResult.publicPricingEstimate,
@@ -970,6 +976,19 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             // Resume the session: execute with --resume <sessionId> and a "Continue" prompt
             // This preserves context and the system message from the original session
             if (resumeSessionId) {
+              // Issue #2148: this continuation stays in the same Claude session,
+              // but it does not pass through the top-level startWorkSession path.
+              // Publish the existing auto-resume marker at the real boundary.
+              await postWorkSessionStartComment({
+                owner,
+                repo,
+                prNumber,
+                $,
+                log,
+                formatAligned,
+                sessionType: SESSION_TYPES.AUTO_RESUME,
+              });
+
               const resumeArgv = { ...argv, resume: resumeSessionId };
               const resumeResult = await executeToolIteration({
                 issueUrl,
@@ -985,12 +1004,11 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               });
 
               if (resumeResult.success) {
-                // Resume succeeded - capture session data
-                currentBackoffSeconds = watchInterval;
-                if (resumeResult.sessionId) {
-                  latestSessionId = resumeResult.sessionId;
-                  latestAnthropicCost = resumeResult.anthropicTotalCostUSD;
-                }
+                // Issue #2148: feed the resumed result into the same success
+                // path as every other iteration. That path publishes the
+                // summary and log, verifies the issue link, and tracks comments.
+                toolResult = resumeResult;
+                resumedAfterUsageLimit = true;
                 await log(formatAligned('✅', `${argv.tool.toUpperCase()} resume completed:`, 'Checking if PR is now mergeable...'));
               } else if (isUsageLimitReached(resumeResult)) {
                 // Hit the limit again immediately after resume — store for next outer iteration
@@ -1044,54 +1062,60 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
               await log(formatAligned('⚠️', 'No session ID for resume', 'Will restart fresh in next check cycle', 2));
             }
 
-            lastCheckTime = new Date();
-            continue;
+            if (!toolResult.success) {
+              lastCheckTime = new Date();
+              continue;
+            }
           }
 
           // Any other failure (not usage limit): stop the auto-restart loop
           // Per reviewer feedback: non-limit failures should fail and stop attempts
-          await log('');
-          await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
-          // Issue #1845: surface the core error in the terminal, not just in the GitHub log.
-          await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown error', 2));
-          await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
-          // Issue #1439: Attach failure log before stopping, so user can see what happened
-          const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
-          if (prNumber && shouldAttachLogsOnFail) {
-            try {
-              const logFile = getLogFile();
-              if (logFile) {
-                await attachLogToGitHub({
-                  logFile,
-                  targetType: 'pr',
-                  targetNumber: prNumber,
+          if (!toolResult.success) {
+            await log('');
+            await log(formatAligned('❌', `${argv.tool.toUpperCase()} EXECUTION FAILED`, ''));
+            // Issue #1845: surface the core error in the terminal, not just in the GitHub log.
+            await log(formatAligned('', 'Error details:', extractToolErrorCore({ toolResult }) || 'Unknown error', 2));
+            await log(formatAligned('', 'Action:', 'Stopping auto-restart — tool execution failed', 2));
+            // Issue #1439: Attach failure log before stopping, so user can see what happened
+            const shouldAttachLogsOnFail = argv.attachLogs || argv['attach-logs'];
+            if (prNumber && shouldAttachLogsOnFail) {
+              try {
+                const logFile = getLogFile();
+                if (logFile) {
+                  await attachLogToGitHub({
+                    logFile,
+                    targetType: 'pr',
+                    targetNumber: prNumber,
+                    owner,
+                    repo,
+                    $,
+                    log,
+                    sanitizeLogContent,
+                    verbose: argv.verbose,
+                    errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
+                    sessionId: latestSessionId,
+                    tempDir,
+                    requestedModel: argv.originalModel || argv.model,
+                    tool: argv.tool || 'claude',
+                  });
+                }
+              } catch (logUploadError) {
+                reportError(logUploadError, {
+                  context: 'attach_auto_restart_failure_log',
+                  prNumber,
                   owner,
                   repo,
-                  $,
-                  log,
-                  sanitizeLogContent,
-                  verbose: argv.verbose,
-                  errorMessage: formatToolExecutionFailure({ tool: argv.tool, toolResult }),
-                  sessionId: latestSessionId,
-                  tempDir,
-                  requestedModel: argv.originalModel || argv.model,
-                  tool: argv.tool || 'claude',
+                  operation: 'upload_failure_log',
                 });
+                await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
               }
-            } catch (logUploadError) {
-              reportError(logUploadError, {
-                context: 'attach_auto_restart_failure_log',
-                prNumber,
-                owner,
-                repo,
-                operation: 'upload_failure_log',
-              });
-              await log(formatAligned('', `⚠️  Failure log upload error: ${cleanErrorMessage(logUploadError)}`, '', 2));
             }
+            await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
+            return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
           }
-          await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'tool_failure', mode: 'auto-restart-until-mergeable', message: extractToolErrorCore({ toolResult }) || formatToolExecutionFailure({ tool: argv.tool, toolResult }), verbose: argv.verbose, log });
-          return { success: false, reason: 'tool_failure', latestSessionId, latestAnthropicCost };
-        } else {
+        }
+
+        if (toolResult.success) {
           // Success - capture latest session data
           currentBackoffSeconds = watchInterval;
           if (toolResult.sessionId) {
@@ -1164,7 +1188,8 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                 // Issue #1323: Use the restart count (actual AI executions) instead of iteration (check cycles)
                 // Issue #2119: `N/M` like every other auto-restart label, so the
                 // limit is visible in the log title too.
-                const customTitle = `🔄 ${AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER} ${formatAutoRestartLabel()}`;
+                const autoResumeLabel = maxAutoResumeIterations === 0 ? `${limitResumeCount}` : `${limitResumeCount}/${maxAutoResumeIterations}`;
+                const customTitle = resumedAfterUsageLimit ? `⏰ ${AUTO_RESUME_ON_LIMIT_RESET_MARKER} ${autoResumeLabel} Log` : `🔄 ${AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER} ${formatAutoRestartLabel()}`;
                 await attachLogToGitHub({
                   logFile,
                   targetType: 'pr',

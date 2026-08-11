@@ -63,6 +63,48 @@ function getSessionCommentContent(sessionType, timestamp) {
 }
 
 /**
+ * Post the tracked comment that marks a work-session start.
+ *
+ * This is separate from startWorkSession because an in-process continuation
+ * after a usage-limit wait is already inside a work session: the PR is already
+ * draft, but reviewers still need an explicit boundary for the resumed tool
+ * execution.
+ *
+ * @param {Object} options
+ * @param {string} options.owner
+ * @param {string} options.repo
+ * @param {number} options.prNumber
+ * @param {Function} options.$
+ * @param {Function} options.log
+ * @param {Function} options.formatAligned
+ * @param {string} options.sessionType
+ * @param {Date} [options.timestamp]
+ */
+export async function postWorkSessionStartComment({ owner, repo, prNumber, $, log, formatAligned, sessionType, timestamp = new Date() }) {
+  try {
+    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp);
+    const startComment = `${emoji} **${header}**\n\n${description}`;
+    const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: startComment });
+    if (ok) {
+      await log(formatAligned('💬', 'Posted:', `${header} comment${commentId ? ` (id=${commentId})` : ''}`, 2));
+    } else {
+      await log(`Warning: Could not post work start comment: ${stderr || 'unknown error'}`, { level: 'warning' });
+    }
+  } catch (error) {
+    const sentryLib = await import('./sentry.lib.mjs');
+    const { reportError } = sentryLib;
+    reportError(error, {
+      context: 'post_start_comment',
+      owner,
+      repo,
+      prNumber,
+      operation: 'create_pr_comment',
+    });
+    await log('Warning: Could not post work start comment', { level: 'warning' });
+  }
+}
+
+/**
  * Start a work session and post appropriate comment
  * @param {Object} options - Session options
  * @param {boolean} options.isContinueMode - Whether this is a continue mode session
@@ -101,25 +143,16 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
     // Post a comment marking the start of work session with appropriate header based on session type.
     // Issue #1625: Use postTrackedComment so the comment ID is registered in-memory and can be
     // excluded from the "did the AI post anything?" check in checkForAiCreatedComments().
-    try {
-      const { emoji, header, description } = getSessionCommentContent(sessionType, workStartTime);
-      const startComment = `${emoji} **${header}**\n\n${description}`;
-      const { ok, commentId, stderr } = await postTrackedComment({ $, owner: global.owner, repo: global.repo, targetNumber: prNumber, body: startComment });
-      if (ok) {
-        await log(formatAligned('💬', 'Posted:', `${header} comment${commentId ? ` (id=${commentId})` : ''}`, 2));
-      } else {
-        await log(`Warning: Could not post work start comment: ${stderr || 'unknown error'}`, { level: 'warning' });
-      }
-    } catch (error) {
-      const sentryLib = await import('./sentry.lib.mjs');
-      const { reportError } = sentryLib;
-      reportError(error, {
-        context: 'post_start_comment',
-        prNumber,
-        operation: 'create_pr_comment',
-      });
-      await log('Warning: Could not post work start comment', { level: 'warning' });
-    }
+    await postWorkSessionStartComment({
+      owner: global.owner,
+      repo: global.repo,
+      prNumber,
+      $,
+      log,
+      formatAligned,
+      sessionType,
+      timestamp: workStartTime,
+    });
   }
 
   return workStartTime;

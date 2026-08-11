@@ -77,7 +77,9 @@ test('should post a GitHub comment when usage limit is reached in auto-restart m
         isUsageLimit: true,
         limitResetTime: toolResult.limitResetTime,
         isAutoResumeEnabled: true,
-        autoResumeMode: 'restart',
+        // The surrounding loop is auto-restart-until-mergeable, but this
+        // usage-limit continuation preserves context with --resume (#2148).
+        autoResumeMode: 'resume',
         sessionId: toolResult.sessionId,
         tool: argv.tool || 'claude',
         requestedModel: argv.model,
@@ -88,7 +90,7 @@ test('should post a GitHub comment when usage limit is reached in auto-restart m
   assert(commentPosted === true, 'Should post a GitHub comment');
   assert(commentParams.isUsageLimit === true, 'Should mark as usage limit');
   assert(commentParams.isAutoResumeEnabled === true, 'Should indicate auto-resume is enabled');
-  assert(commentParams.autoResumeMode === 'restart', 'Should use restart mode');
+  assert(commentParams.autoResumeMode === 'resume', 'Should use resume mode');
   assert(commentParams.limitResetTime === '5:00 AM', 'Should include reset time');
   assert(commentParams.sessionId === 'session-abc-123', 'Should include session ID');
 });
@@ -263,7 +265,7 @@ test('attachLogToGitHub params should include all required fields for usage limi
     limitResetTime: toolResult.limitResetTime,
     toolName: `Anthropic ${(argv.tool || 'claude').charAt(0).toUpperCase() + (argv.tool || 'claude').slice(1)} Code`,
     isAutoResumeEnabled: true,
-    autoResumeMode: 'restart',
+    autoResumeMode: 'resume',
     requestedModel: argv.model,
     tool: argv.tool || 'claude',
     publicPricingEstimate: toolResult.publicPricingEstimate,
@@ -273,7 +275,7 @@ test('attachLogToGitHub params should include all required fields for usage limi
 
   assert(params.isUsageLimit === true, 'isUsageLimit should be true');
   assert(params.isAutoResumeEnabled === true, 'isAutoResumeEnabled should be true');
-  assert(params.autoResumeMode === 'restart', 'autoResumeMode should be restart');
+  assert(params.autoResumeMode === 'resume', 'autoResumeMode should be resume');
   assert(params.limitResetTime === '12:00 AM', 'limitResetTime should match toolResult');
   assert(params.toolName === 'Anthropic Claude Code', 'toolName should be formatted correctly');
   assert(params.sessionId === 'session-test-789', 'sessionId should match toolResult');

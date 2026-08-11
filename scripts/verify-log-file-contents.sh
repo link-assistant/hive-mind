@@ -12,7 +12,26 @@
 set -euo pipefail
 
 echo "Testing that log files contain version and command at the start..."
-timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt || true
+set +e
+timeout 30s ./src/solve.mjs "https://example.com/not-a-github-repository" --dry-run --skip-tool-check --skip-claude-check 2>&1 | tee test-log-output.txt
+SOLVE_STATUS=${PIPESTATUS[0]}
+set -e
+
+# Use a deterministic validation failure so the smoke test never depends on a
+# live fixture repository. The precise status/reason distinguishes that expected
+# terminal result from startup, import, timeout, and argument-parsing failures.
+if [ "$SOLVE_STATUS" -ne 1 ]; then
+  echo "solve dry-run returned $SOLVE_STATUS; expected invalid-URL status 1"
+  exit 1
+fi
+if ! grep -q "Not a GitHub URL" test-log-output.txt; then
+  echo "solve dry-run did not reach the expected invalid-URL validation"
+  exit 1
+fi
+if grep -Eq "(TypeError|SyntaxError|ReferenceError):" test-log-output.txt; then
+  echo "solve dry-run encountered a startup/runtime error"
+  exit 1
+fi
 
 LOG_FILE=$(grep -o "solve-[0-9T-]*Z\.log" test-log-output.txt | head -1)
 

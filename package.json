@@ -88,5 +88,8 @@
     "*.{js,mjs,json,md}": [
       "prettier --write"
     ]
+  },
+  "allowScripts": {
+    "@sentry/node-cpu-profiler@2.4.2": true
   }
 }

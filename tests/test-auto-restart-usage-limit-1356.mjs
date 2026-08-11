@@ -210,7 +210,8 @@ test('loop should wait, resume via --resume sessionId (not exit) when usage limi
       if (resumeSessionId) {
         resumeTriggered = true; // would call executeToolIteration with argv.resume = resumeSessionId
       }
-      loopContinued = true; // continue statement resumes the outer loop
+      // The outer watcher continues after the resumed result is reported.
+      loopContinued = true;
     }
   }
 

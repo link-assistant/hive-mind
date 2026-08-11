@@ -17,7 +17,6 @@ import { resetLimitCache, getLimitCache, CACHE_TTL } from '../src/limits.lib.mjs
 // Test utilities
 let testsPassed = 0;
 let testsFailed = 0;
-
 function test(name, fn) {
   try {
     fn();
@@ -41,7 +40,6 @@ async function asyncTest(name, fn) {
     testsFailed++;
   }
 }
-
 function beforeEach() {
   resetSolveQueue();
   resetLimitCache();
@@ -50,7 +48,6 @@ function beforeEach() {
 // ============================================================================
 // Configuration Tests
 // ============================================================================
-
 console.log('\n📋 Configuration Tests\n');
 
 test('QUEUE_CONFIG has all required fields', () => {
@@ -73,7 +70,6 @@ test('QUEUE_CONFIG thresholds are valid ratios (0.0 - 1.0)', () => {
   assert.ok(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD >= 0 && QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD <= 1, 'CLAUDE_WEEKLY_THRESHOLD should be between 0 and 1');
   assert.ok(QUEUE_CONFIG.GITHUB_API_THRESHOLD >= 0 && QUEUE_CONFIG.GITHUB_API_THRESHOLD <= 1, 'GITHUB_API_THRESHOLD should be between 0 and 1');
 });
-
 test('MESSAGE_UPDATE_INTERVAL_MS is reasonable', () => {
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS >= 30000, 'MESSAGE_UPDATE_INTERVAL_MS should be at least 30 seconds');
   assert.ok(QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS <= 300000, 'MESSAGE_UPDATE_INTERVAL_MS should be at most 5 minutes');
@@ -84,7 +80,6 @@ test('MIN_START_INTERVAL_MS is 10 minutes', () => {
   // resource metrics can settle after each task starts.
   assert.equal(QUEUE_CONFIG.MIN_START_INTERVAL_MS, 600000, 'MIN_START_INTERVAL_MS should be 10 minutes (600000ms)');
 });
-
 test('CONSUMER_POLL_INTERVAL_MS is 1 minute', () => {
   // 1 minute poll interval reduces unnecessary system checks
   // See: https://github.com/link-assistant/hive-mind/issues/1078
@@ -94,7 +89,6 @@ test('CONSUMER_POLL_INTERVAL_MS is 1 minute', () => {
 // ============================================================================
 // Queue Status Tests
 // ============================================================================
-
 console.log('\n📋 Queue Status Tests\n');
 
 test('QueueItemStatus has all required statuses', () => {
@@ -105,7 +99,6 @@ test('QueueItemStatus has all required statuses', () => {
   assert.equal(QueueItemStatus.FAILED, 'failed');
   assert.equal(QueueItemStatus.CANCELLED, 'cancelled');
 });
-
 // ============================================================================
 // Queue Basic Operations Tests
 // ============================================================================
@@ -116,7 +109,6 @@ test('SolveQueue initializes with empty state', () => {
   beforeEach();
   const queue = new SolveQueue();
   const stats = queue.getStats();
-
   assert.equal(stats.queued, 0, 'Queue should start empty');
   assert.equal(stats.processing, 0, 'No items should be processing initially');
   assert.equal(stats.completed, 0, 'No items should be completed initially');
@@ -129,14 +121,12 @@ test('SolveQueue initializes with empty state', () => {
   assert.equal(stats.queuedByTool.codex, 0, 'Codex queue should be empty');
   assert.equal(stats.queuedByTool.qwen, 0, 'Qwen queue should be empty');
   assert.equal(stats.queuedByTool.gemini, 0, 'Gemini queue should be empty');
-
   queue.stop();
 });
 
 test('enqueue adds items to queue', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -149,7 +139,6 @@ test('enqueue adds items to queue', () => {
   assert.equal(item.status, QueueItemStatus.QUEUED, 'Item should be in QUEUED status');
   assert.equal(queue.getStats().queued, 1, 'Queue should have 1 item');
   assert.equal(queue.getStats().totalEnqueued, 1, 'Total enqueued should be 1');
-
   queue.stop();
 });
 
@@ -163,21 +152,18 @@ test('cancel removes items from queue', () => {
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   const cancelled = queue.cancel(item.id);
 
   assert.equal(cancelled, true, 'Cancel should return true');
   assert.equal(item.status, QueueItemStatus.CANCELLED, 'Item should be in CANCELLED status');
   assert.equal(queue.getStats().queued, 0, 'Queue should be empty after cancel');
   assert.equal(queue.getStats().totalCancelled, 1, 'Total cancelled should be 1');
-
   queue.stop();
 });
 
 test('getQueueSummary returns correct structure', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -191,7 +177,6 @@ test('getQueueSummary returns correct structure', () => {
     requester: 'testuser2',
     infoBlock: 'Test info 2',
   });
-
   const summary = queue.getQueueSummary();
 
   assert.equal(summary.pending.length, 2, 'Should have 2 pending items');
@@ -201,20 +186,17 @@ test('getQueueSummary returns correct structure', () => {
 
   queue.stop();
 });
-
 // ============================================================================
 // Duplicate URL Prevention Tests (Issue #1080)
 // ============================================================================
 
 console.log('\n📋 Duplicate URL Prevention Tests (Issue #1080)\n');
-
 test('findByUrl returns null for empty queue', () => {
   beforeEach();
   const queue = new SolveQueue();
 
   const result = queue.findByUrl('https://github.com/test/repo/issues/1');
   assert.equal(result, null, 'Should return null for empty queue');
-
   queue.stop();
 });
 
@@ -228,14 +210,12 @@ test('findByUrl finds item in queue', () => {
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   const found = queue.findByUrl('https://github.com/test/repo/issues/1');
   assert.ok(found !== null, 'Should find the item');
   assert.equal(found.id, item.id, 'Should return the correct item');
 
   queue.stop();
 });
-
 test('findByUrl returns null for different URL', () => {
   beforeEach();
   const queue = new SolveQueue();
@@ -246,13 +226,11 @@ test('findByUrl returns null for different URL', () => {
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   const found = queue.findByUrl('https://github.com/test/repo/issues/2');
   assert.equal(found, null, 'Should return null for different URL');
 
   queue.stop();
 });
-
 test('findByUrl finds item among multiple queued items', () => {
   beforeEach();
   const queue = new SolveQueue();
@@ -270,7 +248,6 @@ test('findByUrl finds item among multiple queued items', () => {
     requester: 'testuser2',
     infoBlock: 'Test info 2',
   });
-
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/3',
     args: '--model haiku',
@@ -281,14 +258,12 @@ test('findByUrl finds item among multiple queued items', () => {
   const found = queue.findByUrl('https://github.com/test/repo/issues/2');
   assert.ok(found !== null, 'Should find the item');
   assert.equal(found.id, targetItem.id, 'Should return the correct item');
-
   queue.stop();
 });
 
 test('findByUrl does not find cancelled items', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -298,7 +273,6 @@ test('findByUrl does not find cancelled items', () => {
 
   // Cancel the item - this removes it from the queue
   queue.cancel(item.id);
-
   const found = queue.findByUrl('https://github.com/test/repo/issues/1');
   assert.equal(found, null, 'Should not find cancelled item');
 
@@ -308,13 +282,11 @@ test('findByUrl does not find cancelled items', () => {
 // ============================================================================
 // Message Update Tests
 // ============================================================================
-
 console.log('\n📋 Message Update Tests\n');
 
 test('shouldUpdateMessage returns true for items without lastMessageUpdateTime', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -324,14 +296,12 @@ test('shouldUpdateMessage returns true for items without lastMessageUpdateTime',
 
   // Item without messageInfo should return false (no message to update)
   assert.equal(queue.shouldUpdateMessage(item), false, 'Should return false when no messageInfo');
-
   // Add mock messageInfo
   item.messageInfo = { chatId: 123, messageId: 456 };
   item.ctx = { telegram: {} };
 
   // Now should return true since no lastMessageUpdateTime
   assert.equal(queue.shouldUpdateMessage(item), true, 'Should return true when no lastMessageUpdateTime');
-
   queue.stop();
 });
 
@@ -345,20 +315,17 @@ test('shouldUpdateMessage returns false when update interval not reached', () =>
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   item.messageInfo = { chatId: 123, messageId: 456 };
   item.ctx = { telegram: {} };
   item.lastMessageUpdateTime = Date.now(); // Just updated
 
   assert.equal(queue.shouldUpdateMessage(item), false, 'Should return false when recently updated');
-
   queue.stop();
 });
 
 test('shouldUpdateMessage returns true when update interval reached', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -370,7 +337,6 @@ test('shouldUpdateMessage returns true when update interval reached', () => {
   item.ctx = { telegram: {} };
   // Set lastMessageUpdateTime to more than MESSAGE_UPDATE_INTERVAL_MS ago
   item.lastMessageUpdateTime = Date.now() - QUEUE_CONFIG.MESSAGE_UPDATE_INTERVAL_MS - 1000;
-
   assert.equal(queue.shouldUpdateMessage(item), true, 'Should return true when interval exceeded');
 
   queue.stop();
@@ -379,19 +345,16 @@ test('shouldUpdateMessage returns true when update interval reached', () => {
 // ============================================================================
 // Throttle Statistics Tests
 // ============================================================================
-
 console.log('\n📋 Throttle Statistics Tests\n');
 
 test('recordThrottle increments throttle reason count', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   queue.recordThrottle('cpu_high');
   queue.recordThrottle('cpu_high');
   queue.recordThrottle('ram_high');
 
   const stats = queue.getStats();
-
   assert.equal(stats.throttleReasons.cpu_high, 2, 'cpu_high should be recorded twice');
   assert.equal(stats.throttleReasons.ram_high, 1, 'ram_high should be recorded once');
 
@@ -401,13 +364,11 @@ test('recordThrottle increments throttle reason count', () => {
 // ============================================================================
 // Format Tests
 // ============================================================================
-
 console.log('\n📋 Format Tests\n');
 
 await asyncTest('formatStatus returns correct string for empty queue', async () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const status = await queue.formatStatus();
   // New format: per-queue breakdown with pending/processing counts
   // Processing counts are actual running system processes (via pgrep)
@@ -419,7 +380,6 @@ await asyncTest('formatStatus returns correct string for empty queue', async () 
 
   queue.stop();
 });
-
 await asyncTest('formatStatus returns correct string for non-empty queue', async () => {
   beforeEach();
   const queue = new SolveQueue();
@@ -430,7 +390,6 @@ await asyncTest('formatStatus returns correct string for non-empty queue', async
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   const status = await queue.formatStatus();
   // New format: per-queue breakdown
   // Processing counts are actual running system processes (via pgrep)
@@ -445,7 +404,6 @@ await asyncTest('formatStatus returns correct string for non-empty queue', async
 await asyncTest('formatDetailedStatus includes all sections', async () => {
   beforeEach();
   const queue = new SolveQueue();
-
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -454,7 +412,6 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
   });
 
   const status = await queue.formatDetailedStatus();
-
   // Updated format (issue #1891): per-queue grouping with items, empty queues
   // hidden, shared waiting reason shown once, and counts shown only on the
   // individual list labels.
@@ -470,7 +427,6 @@ await asyncTest('formatDetailedStatus includes all sections', async () => {
 
   queue.stop();
 });
-
 // Issue #1837: the detailed status must show the actual executed issues/PRs as a
 // clickable list (not just counts), so stuck/running tasks are easy to find.
 await asyncTest('formatDetailedStatus renders clickable links for queued/completed/failed items (issue #1837)', async () => {
@@ -488,7 +444,6 @@ await asyncTest('formatDetailedStatus renders clickable links for queued/complet
   queue.completed.push(done);
   bad.setFailed(new Error('boom'));
   queue.failed.push(bad);
-
   const status = await queue.formatDetailedStatus();
 
   // Items render as compact, clickable [owner/repo#number](url) links, not counts.
@@ -499,7 +454,6 @@ await asyncTest('formatDetailedStatus renders clickable links for queued/complet
 
   queue.stop();
 });
-
 // NOTE: The executing-task listing tests (formatDetailedStatus from tracked
 // running sessions + collectExecutingItems unit tests) for issue #1837 live in
 // tests/test-issue-1837-executing-list.mjs to keep this file under the 1500-line
@@ -508,12 +462,10 @@ await asyncTest('formatDetailedStatus renders clickable links for queued/complet
 // ============================================================================
 // Claude Process Detection Tests
 // ============================================================================
-
 console.log('\n📋 Claude Process Detection Tests\n');
 
 await asyncTest('getRunningClaudeProcesses returns object with count and processes', async () => {
   const result = await getRunningClaudeProcesses(false);
-
   assert.ok(result !== null, 'Result should not be null');
   assert.ok(typeof result.count === 'number', 'count should be a number');
   assert.ok(Array.isArray(result.processes), 'processes should be an array');
@@ -522,7 +474,6 @@ await asyncTest('getRunningClaudeProcesses returns object with count and process
 // ============================================================================
 // Cache Tests
 // ============================================================================
-
 console.log('\n📋 Cache Tests\n');
 
 test('getLimitCache returns a cache instance', () => {
@@ -534,21 +485,18 @@ test('getLimitCache returns a cache instance', () => {
   assert.ok(typeof cache.set === 'function', 'Cache should have set method');
   assert.ok(typeof cache.clear === 'function', 'Cache should have clear method');
 });
-
 test('Cache set and get work correctly', () => {
   resetLimitCache();
   const cache = getLimitCache();
 
   cache.set('test_key', { value: 42 }, 60000);
   const result = cache.get('test_key');
-
   assert.deepEqual(result, { value: 42 }, 'Cache should return stored value');
 });
 
 test('Cache returns null for expired entries', () => {
   resetLimitCache();
   const cache = getLimitCache();
-
   // Set with 1ms TTL
   cache.set('test_key', { value: 42 }, 1);
 
@@ -557,7 +505,6 @@ test('Cache returns null for expired entries', () => {
   while (Date.now() - waitStart < 10) {
     // Busy wait
   }
-
   const result = cache.get('test_key', 1);
   assert.equal(result, null, 'Cache should return null for expired entries');
 });
@@ -576,7 +523,6 @@ test('CACHE_TTL.USAGE_API default is at least 13 minutes (issue #1798)', () => {
   const thirteenMinutes = 13 * 60 * 1000;
   assert.ok(CACHE_TTL.USAGE_API >= thirteenMinutes, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) should be at least 13 minutes (${thirteenMinutes} ms) per issue #1798`);
 });
-
 test('CACHE_TTL.USAGE_API is longer than CACHE_TTL.API (rate-limit headroom)', () => {
   assert.ok(CACHE_TTL.USAGE_API > CACHE_TTL.API, `CACHE_TTL.USAGE_API (${CACHE_TTL.USAGE_API} ms) must exceed CACHE_TTL.API (${CACHE_TTL.API} ms) — Usage API is rate-limited more strictly`);
 });
@@ -584,13 +530,11 @@ test('CACHE_TTL.USAGE_API is longer than CACHE_TTL.API (rate-limit headroom)', (
 // ============================================================================
 // Queue Item State Transitions Tests
 // ============================================================================
-
 console.log('\n📋 Queue Item State Transitions Tests\n');
 
 test('Item transitions from QUEUED to WAITING', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -601,13 +545,11 @@ test('Item transitions from QUEUED to WAITING', () => {
   assert.equal(item.status, QueueItemStatus.QUEUED, 'Initial status should be QUEUED');
 
   item.setWaiting('CPU usage is 60% (threshold: 50%)');
-
   assert.equal(item.status, QueueItemStatus.WAITING, 'Status should be WAITING');
   assert.equal(item.waitingReason, 'CPU usage is 60% (threshold: 50%)', 'Waiting reason should be set');
 
   queue.stop();
 });
-
 test('Item transitions from WAITING to STARTING', () => {
   beforeEach();
   const queue = new SolveQueue();
@@ -618,14 +560,12 @@ test('Item transitions from WAITING to STARTING', () => {
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   item.setWaiting('Test reason');
   item.setStarting();
 
   assert.equal(item.status, QueueItemStatus.STARTING, 'Status should be STARTING');
   assert.equal(item.waitingReason, null, 'Waiting reason should be cleared');
   assert.ok(item.startedAt !== null, 'startedAt should be set');
-
   queue.stop();
 });
 
@@ -639,7 +579,6 @@ test('Item transitions from STARTING to STARTED', () => {
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   item.messageInfo = { chatId: 123, messageId: 456 };
   item.setStarting();
   item.setStarted('test-session');
@@ -647,14 +586,12 @@ test('Item transitions from STARTING to STARTED', () => {
   assert.equal(item.status, QueueItemStatus.STARTED, 'Status should be STARTED');
   assert.equal(item.sessionName, 'test-session', 'Session name should be set');
   assert.equal(item.messageInfo, null, 'messageInfo should be cleared (terminal status)');
-
   queue.stop();
 });
 
 test('Item can be marked as failed', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -663,7 +600,6 @@ test('Item can be marked as failed', () => {
   });
 
   item.setFailed('Test error message');
-
   assert.equal(item.status, QueueItemStatus.FAILED, 'Status should be FAILED');
   assert.equal(item.error, 'Test error message', 'Error message should be set');
 
@@ -673,7 +609,6 @@ test('Item can be marked as failed', () => {
 test('Item can be marked as failed with Error object', () => {
   beforeEach();
   const queue = new SolveQueue();
-
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -682,19 +617,16 @@ test('Item can be marked as failed with Error object', () => {
   });
 
   item.setFailed(new Error('Test error'));
-
   assert.equal(item.status, QueueItemStatus.FAILED, 'Status should be FAILED');
   assert.equal(item.error, 'Test error', 'Error message should be extracted from Error object');
 
   queue.stop();
 });
-
 // ============================================================================
 // Wait Time Calculation Tests
 // ============================================================================
 
 console.log('\n📋 Wait Time Calculation Tests\n');
-
 test('getWaitTime returns elapsed time for queued items', () => {
   beforeEach();
   const queue = new SolveQueue();
@@ -711,20 +643,17 @@ test('getWaitTime returns elapsed time for queued items', () => {
   while (Date.now() - waitStart < 50) {
     // Busy wait
   }
-
   const waitTime = item.getWaitTime();
   assert.ok(waitTime >= 50, 'Wait time should be at least 50ms');
   assert.ok(waitTime < 1000, 'Wait time should be less than 1 second');
 
   queue.stop();
 });
-
 // ============================================================================
 // Reason Message Ordering Tests (Issue #1078)
 // ============================================================================
 
 console.log('\n📋 Reason Message Ordering Tests (Issue #1078)\n');
-
 await asyncTest('Claude process info should be at end of reasons', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -732,7 +661,6 @@ await asyncTest('Claude process info should be at end of reasons', async () => {
   // Mock the check to simulate a scenario with multiple reasons
   // We can't easily mock the internal methods, but we can verify the logic by reading the code
   // The key assertion is that reasons.push is used instead of reasons.unshift
-
   // For now, just verify the queue starts correctly
   const stats = queue.getStats();
   assert.equal(stats.queued, 0, 'Queue should start empty');
@@ -743,13 +671,11 @@ await asyncTest('Claude process info should be at end of reasons', async () => {
 // ============================================================================
 // Total Processing Calculation Tests (Issue #1133)
 // ============================================================================
-
 console.log('\n📋 Total Processing Calculation Tests (Issue #1133)\n');
 
 test('totalProcessing is calculated as processing.size + Claude processes', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Initially, processing.size should be 0
   assert.equal(queue.processing.size, 0, 'Initial processing.size should be 0');
 
@@ -760,7 +686,6 @@ test('totalProcessing is calculated as processing.size + Claude processes', () =
     requester: 'testuser',
     infoBlock: 'Test info',
   });
-
   // Move to processing (simulate what runConsumer does) - use tool queue
   queue.getToolQueue(item.tool).shift();
   queue.processing.set(item.id, item);
@@ -770,26 +695,22 @@ test('totalProcessing is calculated as processing.size + Claude processes', () =
 
   queue.stop();
 });
-
 test('canStartCommand returns totalProcessing in result', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
   const result = await queue.canStartCommand();
-
   // totalProcessing should be defined
   assert.ok(result.totalProcessing !== undefined, 'totalProcessing should be in result');
   assert.ok(typeof result.totalProcessing === 'number', 'totalProcessing should be a number');
 
   queue.stop();
 });
-
 test('canStartCommand returns claudeProcesses count in result', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
   const result = await queue.canStartCommand();
-
   // claudeProcesses should be defined
   assert.ok(result.claudeProcesses !== undefined, 'claudeProcesses should be in result');
   assert.ok(typeof result.claudeProcesses === 'number', 'claudeProcesses should be a number');
@@ -801,13 +722,11 @@ test('canStartCommand returns claudeProcesses count in result', async () => {
 // ============================================================================
 // System Resource Threshold Tests (Issue #1133)
 // ============================================================================
-
 console.log('\n📋 System Resource Threshold Tests (Issue #1133)\n');
 
 test('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // checkSystemResources now accepts totalProcessing for disk one-at-a-time mode
   // RAM and CPU block unconditionally, but disk uses one-at-a-time mode
   // When totalProcessing=0, disk threshold should allow starting (nothing is running)
@@ -818,14 +737,12 @@ test('checkSystemResources accepts totalProcessing=0 for disk one-at-a-time mode
   assert.ok(result.ok !== undefined, 'Result should have ok property');
   assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
   assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
-
   queue.stop();
 });
 
 test('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode (Issue #1155)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // checkSystemResources with totalProcessing=1 tests behavior when something is already running
   // If disk usage is high (oneAtATime mode), this should block since totalProcessing > 0
   // See: https://github.com/link-assistant/hive-mind/issues/1155
@@ -838,7 +755,6 @@ test('checkSystemResources accepts totalProcessing=1 for disk one-at-a-time mode
 
   queue.stop();
 });
-
 test('QUEUE_CONFIG thresholds are valid positive ratios', () => {
   // System resource thresholds should be valid ratios (0-1)
   // We don't test for specific values to avoid coupling tests to configuration
@@ -851,13 +767,11 @@ test('QUEUE_CONFIG thresholds are valid positive ratios', () => {
   assert.ok(QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD > 0 && QUEUE_CONFIG.CLAUDE_WEEKLY_THRESHOLD <= 1, 'CLAUDE_WEEKLY_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
   assert.ok(QUEUE_CONFIG.GITHUB_API_THRESHOLD > 0 && QUEUE_CONFIG.GITHUB_API_THRESHOLD <= 1, 'GITHUB_API_THRESHOLD should be a valid positive ratio (0 < x <= 1)');
 });
-
 // ============================================================================
 // API Threshold Behavior Tests (Issue #1133)
 // ============================================================================
 
 console.log('\n📋 API Threshold Behavior Tests (Issue #1133)\n');
-
 test('checkApiLimits accepts totalProcessing parameter', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -865,7 +779,6 @@ test('checkApiLimits accepts totalProcessing parameter', async () => {
   // checkApiLimits should accept hasRunningClaude and totalProcessing
   // This test verifies the function accepts these parameters without error
   const result = await queue.checkApiLimits(false, 0);
-
   assert.ok(result.ok !== undefined, 'Result should have ok property');
   assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
   assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
@@ -876,7 +789,6 @@ test('checkApiLimits accepts totalProcessing parameter', async () => {
 test('checkApiLimits with different totalProcessing values', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Test with totalProcessing = 0
   const result0 = await queue.checkApiLimits(false, 0);
   assert.ok(result0 !== undefined, 'Should work with totalProcessing = 0');
@@ -884,20 +796,17 @@ test('checkApiLimits with different totalProcessing values', async () => {
   // Test with totalProcessing = 1
   const result1 = await queue.checkApiLimits(false, 1);
   assert.ok(result1 !== undefined, 'Should work with totalProcessing = 1');
-
   // Test with totalProcessing = 5
   const result5 = await queue.checkApiLimits(true, 5);
   assert.ok(result5 !== undefined, 'Should work with totalProcessing = 5');
 
   queue.stop();
 });
-
 // ============================================================================
 // One-At-A-Time Mode Tests (Issue #1133)
 // ============================================================================
 
 console.log('\n📋 One-At-A-Time Mode Tests (Issue #1133)\n');
-
 test('oneAtATime mode blocks when totalProcessing > 0', () => {
   // This is the key behavior: when oneAtATime is true and totalProcessing > 0,
   // new commands should wait
@@ -917,14 +826,12 @@ test('oneAtATime mode blocks when totalProcessing > 0', () => {
   // (oneAtATime && totalProcessing > 0 should block)
   const shouldBlock = check.oneAtATime && check.totalProcessing > 0;
   assert.equal(shouldBlock, true, 'Should block when oneAtATime is true and totalProcessing > 0');
-
   queue.stop();
 });
 
 test('oneAtATime mode allows when totalProcessing === 0', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Simulate check result with oneAtATime but totalProcessing === 0
   const check = {
     canStart: true,
@@ -936,7 +843,6 @@ test('oneAtATime mode allows when totalProcessing === 0', () => {
   // Should allow starting since totalProcessing is 0
   const shouldBlock = check.oneAtATime && check.totalProcessing > 0;
   assert.equal(shouldBlock, false, 'Should NOT block when oneAtATime is true but totalProcessing is 0');
-
   queue.stop();
 });
 
@@ -951,20 +857,17 @@ test('normal mode allows parallel commands', () => {
     totalProcessing: 5, // Many commands processing
     claudeProcesses: 3,
   };
-
   // Should allow starting since oneAtATime is false
   const shouldBlock = check.oneAtATime && check.totalProcessing > 0;
   assert.equal(shouldBlock, false, 'Should NOT block in normal mode even with many commands processing');
 
   queue.stop();
 });
-
 // ============================================================================
 // Throttle Recording Tests
 // ============================================================================
 
 console.log('\n📋 Throttle Recording Tests\n');
-
 test('recordThrottle increments correct stats for all threshold types', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -981,7 +884,6 @@ test('recordThrottle increments correct stats for all threshold types', () => {
   queue.recordThrottle('github_100');
   queue.recordThrottle('min_interval');
   queue.recordThrottle('claude_running');
-
   const stats = queue.getStats();
 
   assert.equal(stats.throttleReasons.ram_high, 1, 'ram_high should be 1');
@@ -998,13 +900,11 @@ test('recordThrottle increments correct stats for all threshold types', () => {
 
   queue.stop();
 });
-
 // ============================================================================
 // Threshold Naming Tests (Issue #1133)
 // ============================================================================
 
 console.log('\n📋 Threshold Naming Tests (Issue #1133)\n');
-
 test('CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named', () => {
   // Verify the renamed threshold exists and has correct value
   assert.ok(QUEUE_CONFIG.CLAUDE_5_HOUR_SESSION_THRESHOLD !== undefined, 'CLAUDE_5_HOUR_SESSION_THRESHOLD should exist');
@@ -1013,13 +913,11 @@ test('CLAUDE_5_HOUR_SESSION_THRESHOLD is correctly named', () => {
   // Verify old name doesn't exist (should be renamed)
   assert.equal(QUEUE_CONFIG.CLAUDE_SESSION_THRESHOLD, undefined, 'Old CLAUDE_SESSION_THRESHOLD should not exist');
 });
-
 // ============================================================================
 // Queue Statistics Tests
 // ============================================================================
 
 console.log('\n📋 Queue Statistics Tests\n');
-
 test('getStats returns all required fields', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1039,14 +937,12 @@ test('getStats returns all required fields', () => {
   assert.ok(stats.throttleReasons !== undefined, 'stats.throttleReasons should exist');
   assert.ok(stats.cacheStats !== undefined, 'stats.cacheStats should exist');
   assert.ok(stats.isRunning !== undefined, 'stats.isRunning should exist');
-
   queue.stop();
 });
 
 test('getStats tracks enqueue correctly', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
     args: '--model opus',
@@ -1060,13 +956,11 @@ test('getStats tracks enqueue correctly', () => {
     requester: 'testuser2',
     infoBlock: 'Test info 2',
   });
-
   const stats = queue.getStats();
 
   assert.equal(stats.queued, 2, 'queued should be 2');
   assert.equal(stats.totalEnqueued, 2, 'totalEnqueued should be 2');
   assert.equal(stats.processing, 0, 'processing should be 0');
-
   queue.stop();
 });
 
@@ -1075,14 +969,12 @@ test('getStats tracks enqueue correctly', () => {
 // ============================================================================
 
 console.log('\n📋 Min Start Interval Tests\n');
-
 test('lastStartTime is updated when item moves to processing', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
 
   // Initially lastStartTime should be null
   assert.equal(queue.lastStartTime, null, 'Initial lastStartTime should be null');
-
   // Enqueue an item
   const item = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -1098,7 +990,6 @@ test('lastStartTime is updated when item moves to processing', () => {
   queue.lastStartTimeByTool[item.tool] = Date.now();
   queue.lastStartTime = Date.now(); // Legacy compatibility
   queue.stats.totalStarted++;
-
   // Now lastStartTime should be set
   assert.ok(queue.lastStartTime !== null, 'lastStartTime should be set after starting');
   assert.ok(queue.lastStartTime > 0, 'lastStartTime should be positive');
@@ -1106,7 +997,6 @@ test('lastStartTime is updated when item moves to processing', () => {
 
   queue.stop();
 });
-
 test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1117,7 +1007,6 @@ test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
 
   // Check if we can start a new claude command
   const result = await queue.canStartCommand({ tool: 'claude' });
-
   // Should NOT be able to start due to min interval
   // (unless this is the first command or enough time has passed)
   if (result.reasons && result.reasons.length > 0) {
@@ -1127,13 +1016,11 @@ test('MIN_START_INTERVAL_MS prevents rapid consecutive starts', async () => {
 
   queue.stop();
 });
-
 // ============================================================================
 // Processing Map Tests
 // ============================================================================
 
 console.log('\n📋 Processing Map Tests\n');
-
 test('processing map correctly tracks items', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1148,25 +1035,21 @@ test('processing map correctly tracks items', () => {
   // Move item to processing (use tool queue)
   queue.getToolQueue(item1.tool).shift();
   queue.processing.set(item1.id, item1);
-
   assert.equal(queue.processing.size, 1, 'processing.size should be 1');
   assert.ok(queue.processing.has(item1.id), 'processing should contain the item');
 
   // Remove from processing
   queue.processing.delete(item1.id);
-
   assert.equal(queue.processing.size, 0, 'processing.size should be 0 after delete');
   assert.ok(!queue.processing.has(item1.id), 'processing should not contain the item');
 
   queue.stop();
 });
-
 // ============================================================================
 // formatWaitingReason Tests
 // ============================================================================
 
 console.log('\n📋 Format Waiting Reason Tests\n');
-
 await asyncTest('formatDetailedStatus shows the shared waiting reason once (issue #1891)', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1177,7 +1060,6 @@ await asyncTest('formatDetailedStatus shows the shared waiting reason once (issu
 
   const reason = 'Claude 5 hour session limit is 95% (threshold: 90%)\nClaude process is already running (2 processes)';
   for (const item of queue.getToolQueue('claude')) item.setWaiting(reason);
-
   const status = await queue.formatDetailedStatus();
 
   // New compact format (issue #1891): pending items use the ⏳ emoji, the
@@ -1188,20 +1070,17 @@ await asyncTest('formatDetailedStatus shows the shared waiting reason once (issu
   assert.ok(status.includes('Claude 5 hour session limit'), 'Should show the shared waiting reason');
   // The reason must appear exactly once even though two items are waiting.
   assert.equal(status.split('Claude 5 hour session limit').length - 1, 1, 'Shared waiting reason should appear only once');
-
   queue.stop();
 });
 
 // ============================================================================
 // Queue Consumer Logic Tests
 // ============================================================================
-
 console.log('\n📋 Queue Consumer Logic Tests\n');
 
 test('consumer does not start when queue is empty', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Queue is empty
   assert.equal(queue.queue.length, 0, 'Queue should be empty');
 
@@ -1212,7 +1091,6 @@ test('consumer does not start when queue is empty', async () => {
 
   queue.stop();
 });
-
 test('multiple items maintain FIFO order within tool queue', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1224,7 +1102,6 @@ test('multiple items maintain FIFO order within tool queue', () => {
     requester: 'user1',
     infoBlock: 'Info 1',
   });
-
   const item2 = queue.enqueue({
     url: 'https://github.com/test/repo/issues/2',
     args: '--model sonnet',
@@ -1238,7 +1115,6 @@ test('multiple items maintain FIFO order within tool queue', () => {
     requester: 'user3',
     infoBlock: 'Info 3',
   });
-
   // Verify FIFO order within the claude tool queue
   const claudeQueue = queue.getToolQueue('claude');
   assert.equal(claudeQueue[0].id, item1.id, 'First item should be item1');
@@ -1248,7 +1124,6 @@ test('multiple items maintain FIFO order within tool queue', () => {
   // Dequeue first item from claude queue
   const dequeued = claudeQueue.shift();
   assert.equal(dequeued.id, item1.id, 'Dequeued item should be item1 (FIFO)');
-
   // Verify remaining order
   assert.equal(claudeQueue[0].id, item2.id, 'First remaining should be item2');
   assert.equal(claudeQueue[1].id, item3.id, 'Second remaining should be item3');
@@ -1259,7 +1134,6 @@ test('multiple items maintain FIFO order within tool queue', () => {
 // ============================================================================
 // Edge Case Tests
 // ============================================================================
-
 console.log('\n📋 Edge Case Tests\n');
 
 test('cancel returns false for non-existent or processing items', () => {
@@ -1272,7 +1146,6 @@ test('cancel returns false for non-existent or processing items', () => {
   assert.equal(queue.cancel(item.id), false);
   queue.stop();
 });
-
 test('getQueueSummary handles empty queue correctly', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1293,13 +1166,11 @@ test('queue item has correct tool property', () => {
   assert.equal(item3.tool, 'gemini');
   queue.stop();
 });
-
 // ============================================================================
 // Tool Agent Claude Limits Skip Tests (Issue #1159)
 // ============================================================================
 
 console.log('\n📋 Tool Agent Claude Limits Skip Tests (Issue #1159)\n');
-
 test('checkApiLimits accepts tool parameter', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1310,14 +1181,12 @@ test('checkApiLimits accepts tool parameter', async () => {
   assert.ok(result.ok !== undefined, 'Result should have ok property');
   assert.ok(Array.isArray(result.reasons), 'Result should have reasons array');
   assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
-
   queue.stop();
 });
 
 test('checkApiLimits with tool agent should not block on Claude limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Test with tool = 'agent' - should skip Claude limits
   // Even if the mock data would trigger Claude limits, agent should pass
   const resultAgent = await queue.checkApiLimits(false, 0, 'agent');
@@ -1326,7 +1195,6 @@ test('checkApiLimits with tool agent should not block on Claude limits', async (
   // Test with tool = 'claude' (default)
   const resultClaude = await queue.checkApiLimits(false, 0, 'claude');
   assert.ok(resultClaude !== undefined, 'Should work with tool = claude');
-
   queue.stop();
 });
 
@@ -1337,14 +1205,12 @@ test('checkApiLimits with tool gemini should not block on Claude limits', async 
   const resultGemini = await queue.checkApiLimits(false, 0, 'gemini');
   assert.ok(resultGemini !== undefined, 'Should work with tool = gemini');
   assert.ok(resultGemini.ok, 'Gemini should skip Claude-specific limits');
-
   queue.stop();
 });
 
 test('checkApiLimits with tool codex applies Codex limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   getLimitCache().set(
     'codex',
     {
@@ -1361,7 +1227,6 @@ test('checkApiLimits with tool codex applies Codex limits', async () => {
   );
 
   const result = await queue.checkApiLimits(false, 1, 'codex');
-
   assert.ok(result.oneAtATime, 'Codex high session usage should trigger one-at-a-time mode');
   assert.ok(
     result.reasons.some(r => r.includes('Codex 5 hour session limit')),
@@ -1370,7 +1235,6 @@ test('checkApiLimits with tool codex applies Codex limits', async () => {
 
   queue.stop();
 });
-
 await asyncTest('checkApiLimits default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
@@ -1382,28 +1246,24 @@ await asyncTest('checkApiLimits default tool is claude', async () => {
   // Both calls should have the same behavior (Claude limits checked)
   assert.deepEqual(resultNoTool.ok, resultClaude.ok, 'Default tool should behave like claude');
   assert.deepEqual(resultNoTool.oneAtATime, resultClaude.oneAtATime, 'Default tool should behave like claude for oneAtATime');
-
   queue.stop();
 });
 
 test('canStartCommand accepts tool option', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // canStartCommand should accept options with tool
   const result = await queue.canStartCommand({ tool: 'agent' });
 
   assert.ok(result.canStart !== undefined, 'Result should have canStart property');
   assert.ok(result.reasons !== undefined, 'Result should have reasons property');
   assert.ok(result.oneAtATime !== undefined, 'Result should have oneAtATime property');
-
   queue.stop();
 });
 
 test('canStartCommand with tool agent skips Claude limits', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Test with tool = 'agent' - Claude limits should be skipped
   const resultAgent = await queue.canStartCommand({ tool: 'agent' });
 
@@ -1413,28 +1273,24 @@ test('canStartCommand with tool agent skips Claude limits', async () => {
   // Both should return valid results
   assert.ok(resultAgent.canStart !== undefined, 'Agent result should have canStart');
   assert.ok(resultClaude.canStart !== undefined, 'Claude result should have canStart');
-
   queue.stop();
 });
 
 test('canStartCommand default tool is claude', async () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // When options not provided, tool should default to 'claude'
   const resultNoOptions = await queue.canStartCommand();
   const resultClaude = await queue.canStartCommand({ tool: 'claude' });
 
   // Both should have the same behavior
   assert.equal(resultNoOptions.canStart, resultClaude.canStart, 'Default should behave like claude');
-
   queue.stop();
 });
 
 test('queue item tool property is used by consumer', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   // Enqueue with --tool agent
   const agentItem = queue.enqueue({
     url: 'https://github.com/test/repo/issues/1',
@@ -1450,14 +1306,12 @@ test('queue item tool property is used by consumer', () => {
   assert.equal(queue.getToolQueue('agent')[0].tool, 'agent', 'Agent queue should have agent item');
   assert.equal(queue.getToolQueue('agent').length, 1, 'Agent queue should have 1 item');
   assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
-
   queue.stop();
 });
 
 test('gemini queue item tool property is used by consumer', () => {
   beforeEach();
   const queue = new SolveQueue({ verbose: false });
-
   const geminiItem = queue.enqueue({
     url: 'https://github.com/test/repo/issues/2',
     args: '--tool gemini',
@@ -1470,7 +1324,6 @@ test('gemini queue item tool property is used by consumer', () => {
   assert.equal(queue.getToolQueue('gemini')[0].tool, 'gemini', 'Gemini queue should have gemini item');
   assert.equal(queue.getToolQueue('gemini').length, 1, 'Gemini queue should have 1 item');
   assert.equal(queue.getToolQueue('claude').length, 0, 'Claude queue should be empty');
-
   queue.stop();
 });
 
@@ -1478,7 +1331,6 @@ console.log('\n📊 Test Results\n');
 console.log(`Tests passed: ${testsPassed}`);
 console.log(`Tests failed: ${testsFailed}`);
 console.log(`Total tests: ${testsPassed + testsFailed}`);
-
 if (testsFailed > 0) {
   console.log('\n❌ Some tests failed!');
   process.exit(1);

@@ -33,7 +33,6 @@
  * @module interactive-mode.lib.mjs
  * @experimental
  */
-
 import { CONFIG, createCollapsible, createRawJsonSection, createRedactedRawJsonSection, escapeMarkdown, execFileAsync, formatCost, formatDuration, getToolIcon, safeJsonStringify, sanitizeUnicode, truncateMiddle } from './interactive-mode.shared.lib.mjs';
 import { createCodexEventHandlers } from './interactive-codex-events.lib.mjs';
 import { createSystemLifecycleHandlers } from './interactive-system-events.lib.mjs';
@@ -116,7 +115,6 @@ export const createInteractiveHandler = options => {
     editsSucceeded: 0,
     editsFailed: 0,
   };
-
   const imageRenderer = createImageRenderer({ owner, repo, prNumber, mediaRef, log, verbose, execFile: execFileFn, enabled: imageUploadEnabled, uploader: injectedImageUploader, state }); // Issue #1843
 
   /**
@@ -141,7 +139,6 @@ export const createInteractiveHandler = options => {
         await log(`⚠️ Interactive mode: getAllKnownLocalTokens failed: ${err.message}`, { verbose: true });
       }
     }
-
     let hits;
     try {
       hits = await containsKnownToken(body, knownTokens);
@@ -177,7 +174,6 @@ export const createInteractiveHandler = options => {
       throw error;
     }
   };
-
   /**
    * Post a comment to the PR (with rate limiting)
    * @param {string} body - Comment body
@@ -201,7 +197,6 @@ export const createInteractiveHandler = options => {
 
     const now = Date.now();
     const timeSinceLastComment = now - state.lastCommentTime;
-
     if (timeSinceLastComment < CONFIG.MIN_COMMENT_INTERVAL) {
       // Queue the comment for later with toolId/taskId for tracking
       state.commentQueue.push({ body: safeBody, toolId, taskId, onPosted });
@@ -240,7 +235,6 @@ export const createInteractiveHandler = options => {
       // set so --auto-attach-solution-summary correctly excludes it from the
       // AI-authored-comment check. Tracking is a no-op when commentId is null.
       trackToolCommentId(commentId);
-
       if (commentId && typeof onPosted === 'function') {
         try {
           await onPosted(commentId);
@@ -277,7 +271,6 @@ export const createInteractiveHandler = options => {
       }
       return false;
     }
-
     // Issue #1745: sanitize before sending. editComment is the path that
     // leaked TELEGRAM_BOT_TOKEN in xlab2016/space_db_private#20.
     const safeBody = await sanitizeAndWarn(body);
@@ -317,7 +310,6 @@ export const createInteractiveHandler = options => {
     }
 
     state.isProcessing = true;
-
     while (state.commentQueue.length > 0) {
       const now = Date.now();
       const timeSinceLastComment = now - state.lastCommentTime;
@@ -332,7 +324,6 @@ export const createInteractiveHandler = options => {
         const { body, toolId, taskId, onPosted } = queueItem;
         // Post the comment (don't pass toolId/taskId to avoid re-queueing)
         const commentId = await postComment(body, null, null, onPosted);
-
         // If this was a tool use comment, update the pending call with the comment ID
         if (toolId && commentId) {
           const pendingCall = state.pendingToolCalls.get(toolId);
@@ -388,7 +379,6 @@ export const createInteractiveHandler = options => {
       }
       return;
     }
-
     state.sessionId = data.session_id;
     state.startTime = Date.now();
 
@@ -400,7 +390,6 @@ export const createInteractiveHandler = options => {
     const mcpServersList = formatInteractiveMcpServersList(mcpServers);
     const mcpDiagnostics = getInteractiveMcpDiagnostics(mcpServers, tools);
     const mcpDiagnosticsBlock = mcpDiagnostics.length > 0 ? `\n${mcpDiagnostics.map(message => `> ${message}`).join('\n')}\n` : '';
-
     // Format slash commands
     const slashCommands = data.slash_commands || [];
     const slashCommandsList = slashCommands.length > 0 ? slashCommands.map(c => `\`/${c}\``).join(', ') : '_None_';
@@ -429,7 +418,6 @@ ${mcpDiagnosticsBlock}
 ${createRawJsonSection(data)}`;
 
     await postComment(comment);
-
     if (verbose) {
       await log(`🔌 Interactive mode: Session initialized (${state.sessionId})`, { verbose: true });
     }
@@ -458,7 +446,6 @@ ${createRawJsonSection(data)}`;
 ${createRawJsonSection(data)}`;
 
     await postComment(comment);
-
     if (verbose) {
       await log(`💬 Interactive mode: Assistant text (${text.length} chars)`, { verbose: true });
     }
@@ -478,7 +465,6 @@ ${createRawJsonSection(data)}`;
 
     // Register this tool use for potential standalone result rendering
     state.toolUseRegistry.set(toolId, { toolName, toolIcon });
-
     // Format tool input based on tool type
     let inputDisplay;
     const input = toolUse.input || {};
@@ -548,7 +534,6 @@ ${createRawJsonSection(data)}`;
         const KEEP_START = 15;
         const KEEP_END = 15;
         const skipped = todos.length - KEEP_START - KEEP_END;
-
         const startTodos = todos.slice(0, KEEP_START).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
         const endTodos = todos.slice(-KEEP_END).map(t => `- [${t.status === 'completed' ? 'x' : ' '}] ${t.content}`);
 
@@ -605,7 +590,6 @@ ${createRawJsonSection(data)}`;
       toolName,
       toolIcon,
     });
-
     // Post the comment, passing toolId for queue tracking
     const commentId = await postComment(comment, toolId);
 
@@ -633,7 +617,6 @@ ${createRawJsonSection(data)}`;
    */
   const handleToolResult = async (data, toolResult) => {
     state.toolResultCount++;
-
     const toolUseId = toolResult.tool_use_id || 'unknown';
     const isError = toolResult.is_error || false;
     const statusIcon = isError ? '❌' : '✅';
@@ -661,7 +644,6 @@ ${createRawJsonSection(data)}`;
       keepStart: 25,
       keepEnd: 25,
     });
-
     // Issue #1843: render images this result read/produced (used by both paths).
     const imagesSection = await imageRenderer.section([toolResult.content, data.tool_use_result], imageRenderer.toolLabel(toolUseId));
     const imagesBlock = imagesSection ? `${imagesSection}\n\n` : '';
@@ -693,7 +675,6 @@ ${createRawJsonSection(data)}`;
           await processQueue();
           state.isProcessing = wasProcessing;
         }
-
         // Check again after queue flush
         commentId = pendingCall.commentId;
 
@@ -716,7 +697,6 @@ ${createRawJsonSection(data)}`;
           }
         }
       }
-
       if (commentId) {
         // Create merged comment with both call and result
         const mergedComment = `## ${toolIcon} ${toolName} tool use
@@ -748,7 +728,6 @@ ${createRedactedRawJsonSection([toolData, data])}`;
           });
         }
       }
-
       // Clean up the pending call since we're posting separately
       state.pendingToolCalls.delete(toolUseId);
     }
@@ -769,7 +748,6 @@ ${imagesBlock}---
 ${createRedactedRawJsonSection(data)}`;
 
     await postComment(comment);
-
     if (verbose) {
       const contentLength = content.length;
       await log(`📋 Interactive mode: Tool result posted as separate comment (${contentLength} chars)`, {
@@ -799,7 +777,6 @@ ${createRedactedRawJsonSection(data)}`;
     let statsTable = '| Metric | Value |\n|--------|-------|\n';
     statsTable += `| **Status** | ${statusText} |\n`;
     statsTable += `| **Session ID** | \`${data.session_id || 'unknown'}\` |\n`;
-
     if (data.duration_ms) {
       statsTable += `| **Duration** | ${formatDuration(data.duration_ms)} |\n`;
     }
@@ -856,7 +833,6 @@ ${createRawJsonSection(data)}`;
       await log(`🏁 Interactive mode: Session ${statusText.toLowerCase()}`, { verbose: true });
     }
   };
-
   /**
    * Handle system.task_started event (Agent subtask started)
    * Creates a progress comment that will be updated by task_progress events
@@ -895,7 +871,6 @@ ${promptSection}
 ---
 
 ${createRawJsonSection(data)}`;
-
     // Track this task BEFORE posting
     state.pendingTasks.set(taskId, {
       commentId: null,
@@ -923,7 +898,6 @@ ${createRawJsonSection(data)}`;
       await log(`🤖 Interactive mode: Agent task started - ${description} (task: ${taskId})`, { verbose: true });
     }
   };
-
   /**
    * Handle system.task_progress event (Agent subtask progress update)
    * Updates the existing task comment instead of creating a new one
@@ -941,7 +915,6 @@ ${createRawJsonSection(data)}`;
       pendingTask.progressCount++;
       pendingTask.lastProgressDescription = description;
       pendingTask.allEvents.push(data);
-
       let commentId = pendingTask.commentId;
 
       // Wait for comment ID if not yet available — flush queue first to avoid timeout
@@ -969,7 +942,6 @@ ${createRawJsonSection(data)}`;
             return `- 🔀 ${agentTag} ${toolIcon} ${e.description || 'Working...'}`;
           })
           .join('\n');
-
         const durationText = usage.duration_ms ? formatDuration(usage.duration_ms) : '';
         const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
         const statsText = [durationText, toolUsesText].filter(Boolean).join(' | ');
@@ -1003,7 +975,6 @@ ${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
       await log(`🤖 Interactive mode: Task progress - ${description} (task: ${taskId}, tool: ${lastToolName})`, { verbose: true });
     }
   };
-
   /**
    * Handle system.task_notification event (Agent subtask completed/failed)
    * Updates the existing task comment with final status
@@ -1024,7 +995,6 @@ ${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
       pendingTask.allEvents.push(data);
 
       let commentId = pendingTask.commentId;
-
       // Wait for comment ID if not yet available — flush queue first to avoid timeout
       if (!commentId && pendingTask.commentIdPromise) {
         if (state.commentQueue.length > 0) {
@@ -1055,7 +1025,6 @@ ${createRawJsonSection(pendingTask.allEvents.slice(-3))}`;
         const toolUsesText = usage.tool_uses ? `${usage.tool_uses} tool calls` : '';
         const tokensText = usage.total_tokens ? `${usage.total_tokens.toLocaleString()} tokens` : '';
         const statsText = [durationText, toolUsesText, tokensText].filter(Boolean).join(' | ');
-
         const updatedComment = `## 🤖🔀 Agent task: ${escapeMarkdown(pendingTask.description)}
 
 | Property | Value |
@@ -1070,7 +1039,6 @@ ${progressSteps ? createCollapsible(`📋 Progress steps (${pendingTask.progress
 ---
 
 ${createRawJsonSection([pendingTask.allEvents[0], data])}`;
-
         await editComment(commentId, updatedComment);
       }
 
@@ -1098,7 +1066,6 @@ ${createRawJsonSection(data)}`;
       });
     }
   };
-
   const { handleThinkingTokens, finalizeThinkingGroup, handleSystemStatus, handleCompactBoundary, handleTaskUpdated } = createSystemLifecycleHandlers({
     state,
     owner,
@@ -1131,7 +1098,6 @@ ${createRawJsonSection(data)}`;
     handleAssistantText,
     imageRenderer,
   });
-
   /**
    * Handle unrecognized event types
    * @param {Object} data - Event data
@@ -1145,7 +1111,6 @@ ${createRawJsonSection(data)}`;
 This event type is not yet supported by interactive mode.
 
 ${createRawJsonSection(data)}`;
-
     await postComment(comment);
 
     if (verbose) {
@@ -1164,7 +1129,6 @@ ${createRawJsonSection(data)}`;
       return;
     }
     state.eventsProcessed++;
-
     const isThinkingTokenEvent = data.type === 'system' && data.subtype === 'thinking_tokens';
     if (!isThinkingTokenEvent) {
       await finalizeThinkingGroup();
@@ -1203,7 +1167,6 @@ ${createRawJsonSection(data)}`;
       case 'rate_limit_event':
         await handleRateLimitEvent(data);
         break;
-
       case 'assistant':
         if (data.message && data.message.content) {
           const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
@@ -1221,7 +1184,6 @@ ${createRawJsonSection(data)}`;
       case 'user':
         if (data.message && data.message.content) {
           const content = Array.isArray(data.message.content) ? data.message.content : [data.message.content];
-
           for (const item of content) {
             if (item.type === 'tool_result') {
               await handleToolResult(data, item);
@@ -1241,7 +1203,6 @@ ${createRawJsonSection(data)}`;
       case 'turn.completed':
         await handleCodexTurnCompleted(data);
         break;
-
       case 'error':
         await handleCodexError(data);
         break;
@@ -1273,7 +1234,6 @@ ${createRawJsonSection(data)}`;
       default:
         await handleUnrecognized(data);
     }
-
     // Process any queued comments
     await processQueue();
   };
@@ -1331,7 +1291,6 @@ ${createRawJsonSection(data)}`;
     },
   };
 };
-
 /**
  * Check if interactive mode is supported for the given tool
  *
@@ -1362,7 +1321,6 @@ export const validateInteractiveModeConfig = async (argv, log) => {
     await log('   Interactive mode will be disabled for this session.', { level: 'warning' });
     return false;
   }
-
   await log('🔌 Interactive mode: ENABLED (experimental)', { level: 'info' });
   await log(`   ${argv.tool || 'claude'} output will be posted as PR comments in real-time.`, { level: 'info' });
 
@@ -1383,7 +1341,6 @@ export const utils = {
   execFileAsync,
   CONFIG,
 };
-
 // Export all functions
 export default {
   createInteractiveHandler,

@@ -47,7 +47,7 @@ test('buildAuthRemedyLines replaces the vendor remedy for a Formal AI model', ()
 });
 
 test('every tool adapter routes its vendor login advice through buildAuthRemedyLines', async () => {
-  for (const file of ['src/codex.lib.mjs', 'src/claude.lib.mjs']) {
+  for (const file of ['src/codex.lib.mjs', 'src/claude.connection.lib.mjs']) {
     const source = await readFile(join(repoRoot, file), 'utf8');
     assert.ok(source.includes('buildAuthRemedyLines'), `${file} builds its remedy through the helper`);
     const code = source

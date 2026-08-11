@@ -13,14 +13,12 @@ if (process.argv.includes('--version')) {
 if (typeof use === 'undefined') {
   await ensureUseM();
 }
-
 const { lino } = await import('./lino.lib.mjs');
 const { loadLenvConfig } = await import('./lenv-reader.lib.mjs');
 const { getLinoYargsFactory, getenv, hideBin } = await import('./cli-arguments.lib.mjs');
 
 const dotenvxModule = await use('@dotenvx/dotenvx');
 const dotenvx = dotenvxModule.default || dotenvxModule;
-
 // Load .env/.lenv configuration (issue #1318)
 dotenvx.config({ quiet: true, ignore: ['MISSING_ENV_FILE'] });
 await loadLenvConfig({ override: true, quiet: true });
@@ -33,14 +31,12 @@ const { enhanceUnknownArgumentError } = await import('./option-suggestions.lib.m
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // issue #2085
-
 const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
 
 // Configuration priority: CLI option > --configuration LINO > .lenv > .env
 if (config.configuration) {
   await loadLenvConfig({ configuration: config.configuration, override: true, quiet: true });
 }
-
 const BOT_TOKEN = config.token || getenv('TELEGRAM_BOT_TOKEN', '');
 const VERBOSE = config.verbose || getenv('TELEGRAM_BOT_VERBOSE', 'false') === 'true';
 const AUTO_WATCH_MESSAGE = config.autoStartScreenWatchMessage === true;
@@ -53,7 +49,6 @@ if (!BOT_TOKEN) {
 // Resolve final config values (CLI option > environment variable)
 const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
 const allowedChats = resolvedAllowedChats ? lino.parseNumericIds(resolvedAllowedChats) : null;
-
 // Parse allowed topics (chatId:topicId pairs in Links Notation)
 const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
 const allowedTopics = resolvedAllowedTopics ? lino.parseLinks(resolvedAllowedTopics) : null;
@@ -125,7 +120,6 @@ if (solveEnabled && solveOverrides.length > 0) {
     }
     // Add a dummy URL as the first argument (required positional for solve)
     const testArgs = ['https://github.com/test/test/issues/1', ...solveOverridesForValidation];
-
     // Temporarily suppress stderr to avoid yargs error output during validation
     const originalStderrWrite = process.stderr.write;
     const stderrBuffer = [];
@@ -161,7 +155,6 @@ if (solveEnabled && solveOverrides.length > 0) {
     process.exit(1);
   }
 }
-
 // Validate hive overrides early using hive's yargs config
 // Only validate if hive command is enabled
 if (hiveEnabled && hiveOverrides.length > 0) {
@@ -181,7 +174,6 @@ if (hiveEnabled && hiveOverrides.length > 0) {
       stderrBuffer.push(chunk);
       return true;
     };
-
     try {
       // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
       const testYargs = createHiveYargsConfig(yargs());
@@ -234,7 +226,6 @@ if (config.dryRun) {
   console.log('\n🎉 Bot configuration is valid. Exiting without starting the bot.');
   process.exit(0);
 }
-
 // === HEAVY DEPENDENCIES LOADED BELOW (skipped in dry-run mode) ===
 // These imports are after dry-run check to speed up config validation. Telegraf can take 3-8s to load on cold start (issue #801).
 
@@ -264,7 +255,6 @@ const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
-
 // Initialize Sentry for error tracking
 await initializeSentry({
   debug: VERBOSE,
@@ -276,7 +266,6 @@ await initializeSentry({
 const { initI18n, t, preloadAllLocales, resolveLocaleFromTelegramCtx } = await import('./i18n.lib.mjs');
 await initI18n();
 await preloadAllLocales();
-
 const telegrafModule = await use('telegraf');
 const { Telegraf } = telegrafModule;
 const bot = new Telegraf(BOT_TOKEN, {
@@ -302,7 +291,6 @@ botLogger.event('bot_starting', { pid: process.pid, ppid: process.ppid, botStart
 function isChatAuthorized(chatId) {
   return _isChatAuthorized(chatId, allowedChats);
 }
-
 // Topic-level authorization (issue #1100): chat-level auth overrides topic-level
 function isTopicAuthorized(ctx) {
   if (isChatAuthorized(ctx.chat?.id)) return true;
@@ -322,7 +310,6 @@ function buildAuthErrorMessage(ctx) {
 function isOldMessage(ctx) {
   return _isOldMessage(ctx, BOT_START_TIME, { verbose: VERBOSE });
 }
-
 async function executeStartScreen(command, args) {
   return executeStartScreenCommand(command, args, { verbose: VERBOSE });
 }
@@ -330,7 +317,6 @@ async function executeStartScreen(command, args) {
 function isForwardedOrReply(ctx) {
   return _isForwardedOrReply(ctx, { verbose: VERBOSE });
 }
-
 // Forwarded-only check (issue #1922). Commands that support the reply feature
 // (e.g. /task, /solve) must still reject forwarded commands without rejecting
 // genuine user replies, so they use this instead of isForwardedOrReply.
@@ -371,7 +357,6 @@ function validateModelInArgs(args, tool = 'claude') {
   }
   return null;
 }
-
 // Inject --language LOCALE into spawn args if no language flag is already present.
 // Issue #378: telegram bot resolves the user's effective locale and propagates
 // it to spawned solve/hive sessions so the AI tool replies in the same language.
@@ -391,7 +376,6 @@ async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
   if (parsedUrl) return parsedUrl;
   return args.find(arg => cleanNonPrintableChars(arg).includes('github.com')) || (args[0] && !args[0].startsWith('-') ? args[0] : null);
 }
-
 async function validateGitHubUrl(args, options = {}) {
   const { allowedTypes = ['issue', 'pull'], commandName = 'solve', createYargsConfig = null, positionalNames = [], locale = null } = options;
   const rawUrl = await getCommandUrlArg(args, createYargsConfig, positionalNames);
@@ -417,7 +401,6 @@ async function validateGitHubUrl(args, options = {}) {
 }
 
 const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
-
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -426,7 +409,6 @@ bot.command('help', async ctx => {
     VERBOSE && console.log('[VERBOSE] /help ignored: old message');
     return;
   }
-
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
     VERBOSE && console.log('[VERBOSE] /help ignored: forwarded or reply');
@@ -464,13 +446,11 @@ bot.command('help', async ctx => {
     authorized,
     allowTopicHint: topicId ? `TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"` : '',
   });
-
   await safeReply(ctx, message, { fallbackLocale: helpLocale });
 });
 
 bot.command('limits', async ctx => {
   VERBOSE && console.log('[VERBOSE] /limits command received');
-
   // Add breadcrumb for error tracking
   await addBreadcrumb({ category: 'telegram.command', message: '/limits command received', level: 'info', data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username } });
 
@@ -479,7 +459,6 @@ bot.command('limits', async ctx => {
     VERBOSE && console.log('[VERBOSE] /limits ignored: old message');
     return;
   }
-
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
     VERBOSE && console.log('[VERBOSE] /limits ignored: forwarded or reply');
@@ -494,7 +473,6 @@ bot.command('limits', async ctx => {
     await ctx.reply(t('telegram.limits_only_in_groups', {}, { locale: userLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /limits ignored: not authorized');
@@ -510,7 +488,6 @@ bot.command('limits', async ctx => {
 
   // Get all limits using shared cache (3min for API, 2min for system)
   const limits = await getAllCachedLimits(VERBOSE);
-
   // Format message with usage limits and queue status (issues #1343, #1267)
   const claudeError = limits.claude.success ? null : limits.claude.error;
   const codexError = limits.codex.success ? null : limits.codex.error;
@@ -544,7 +521,6 @@ bot.command('version', async ctx => {
 
 const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
 registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
-
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
@@ -566,7 +542,6 @@ async function handleSolveCommand(ctx) {
   const solveCommandName = getSolveCommandNameFromText(ctx.message?.text) || 'solve';
   const solveCommandDisplay = `/${solveCommandName}`;
   VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} command received`);
-
   // Add breadcrumb for error tracking
   await addBreadcrumb({
     category: 'telegram.command',
@@ -588,7 +563,6 @@ async function handleSolveCommand(ctx) {
     await ctx.reply(t('telegram.solve_disabled', {}, { locale: solveLocale }));
     return;
   }
-
   // Ignore messages sent before bot started
   if (isOldMessage(ctx)) {
     if (VERBOSE) {
@@ -606,7 +580,6 @@ async function handleSolveCommand(ctx) {
     }
     return;
   }
-
   if (!_isGroupChat(ctx)) {
     if (VERBOSE) {
       console.log(`[VERBOSE] ${solveCommandDisplay} ignored: not a group chat`);
@@ -622,7 +595,6 @@ async function handleSolveCommand(ctx) {
     await ctx.reply(buildAuthErrorMessage(ctx), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   // Check if chat is stopped (issue #1081) - reject with same style as queue rejected mode
   const chatId = ctx.chat.id;
   if (isChatStopped(chatId)) {
@@ -632,7 +604,6 @@ async function handleSolveCommand(ctx) {
   }
 
   VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} passed all checks, executing...`);
-
   const solveToolAlias = getSolveToolAliasFromText(ctx.message.text);
   let userArgs = parseCommandArgs(ctx.message.text);
 
@@ -641,7 +612,6 @@ async function handleSolveCommand(ctx) {
   if (solveSL.handled) return;
   const solveShowLimits = solveSL.showLimits;
   userArgs = solveSL.args;
-
   // Check if this is a reply to a message and user didn't provide URL as first argument
   // In that case, try to extract GitHub URL from the replied message
   // Issue #1325: Support all options via /solve command when replying (e.g., "/solve --model opus")
@@ -651,7 +621,6 @@ async function handleSolveCommand(ctx) {
   const commandUrlArg = await getCommandUrlArg(userArgs, createSolveYargsConfig, ['issue-url']);
   const commandUrlText = commandUrlArg ? cleanNonPrintableChars(commandUrlArg) : '';
   const commandHasUrl = commandUrlText.includes('github.com') || /^https?:\/\//.test(commandUrlText);
-
   if (isReply && !commandHasUrl) {
     if (VERBOSE) {
       console.log('[VERBOSE] /solve is a reply without URL in args, extracting from replied message...');
@@ -660,7 +629,6 @@ async function handleSolveCommand(ctx) {
 
     const replyText = message.reply_to_message.text || '';
     const extraction = _extractGitHubUrl(replyText, { parseGitHubUrl, cleanNonPrintableChars });
-
     if (extraction.error) {
       // Multiple links found
       if (VERBOSE) {
@@ -688,7 +656,6 @@ async function handleSolveCommand(ctx) {
   }
 
   userArgs = applySolveToolAlias(userArgs, solveToolAlias);
-
   const { malformed, errors: malformedErrors } = detectMalformedFlags(userArgs);
   if (malformed.length > 0) {
     await safeReply(ctx, `❌ ${escapeMarkdown(malformedErrors.join('\n'))}\n\n${t('telegram.option_syntax_check', {}, { locale: solveLocale })}`, { reply_to_message_id: ctx.message.message_id });
@@ -728,7 +695,6 @@ async function handleSolveCommand(ctx) {
       solveTool = args[i].substring('--tool='.length);
     }
   }
-
   // Validate model name with helpful error message (before yargs validation)
   const modelError = validateModelInArgs(args, solveTool);
   if (modelError) {
@@ -788,7 +754,6 @@ async function handleSolveCommand(ctx) {
     lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',
   });
   const solveQueue = getSolveQueue({ verbose: VERBOSE });
-
   // Check for duplicate URL in queue (issue #1080)
   const existingItem = solveQueue.findByUrl(normalizedUrl);
   if (existingItem) {
@@ -813,7 +778,6 @@ async function handleSolveCommand(ctx) {
 
   // Issue #1688: parsed URL context lets the completion message look up linked PRs.
   const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: validation.parsed.normalized || normalizedUrl } : null;
-
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
   const argsWithLocale = injectLanguageIfMissing(args, solveLocale);
@@ -821,7 +785,6 @@ async function handleSolveCommand(ctx) {
   // Issue #594: append "Limits at start" to infoBlock; thread snapshot via sessionInfo.
   let solveLimitsAtStart = null;
   if (solveShowLimits) ({ infoBlock, limitsAtStart: solveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: solveTool, verbose: VERBOSE, limitsLib, commandLabel: '/solve', locale: solveLocale }));
-
   if (check.canStart && check.startReserved) {
     const startingMessage = await safeReply(ctx, formatStartingWorkSessionMessage({ infoBlock, locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
     await executeAndUpdateMessage(ctx, startingMessage, 'solve', argsWithLocale, infoBlock, effectiveSolveIsolation, solveTool, solveUrlContext, { showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale, commandAlias: solveCommandName });
@@ -841,7 +804,6 @@ bot.command(
   SOLVE_COMMAND_NAMES.map(command => new RegExp(`^${command}$`, 'i')),
   handleSolveCommand
 );
-
 // Named handler for /hive command - extracted for reuse by text-based fallback (issue #1207)
 async function handleHiveCommand(ctx) {
   if (VERBOSE) {
@@ -860,7 +822,6 @@ async function handleHiveCommand(ctx) {
       username: ctx.from?.username,
     },
   });
-
   const hiveLocale = resolveLocaleFromTelegramCtx(ctx);
   if (!hiveEnabled) {
     if (VERBOSE) {
@@ -877,7 +838,6 @@ async function handleHiveCommand(ctx) {
     }
     return;
   }
-
   // Ignore forwarded or reply messages
   if (isForwardedOrReply(ctx)) {
     if (VERBOSE) {
@@ -893,7 +853,6 @@ async function handleHiveCommand(ctx) {
     await ctx.reply(t('telegram.hive_only_in_groups', {}, { locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   if (!isTopicAuthorized(ctx)) {
     if (VERBOSE) {
       console.log('[VERBOSE] /hive ignored: not authorized');
@@ -909,11 +868,9 @@ async function handleHiveCommand(ctx) {
     await safeReply(ctx, getStoppedChatRejectMessage(chatId, 'Hive'), { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   VERBOSE && console.log('[VERBOSE] /hive passed all checks, executing...');
 
   let userArgs = parseCommandArgs(ctx.message.text);
-
   // Issue #594: see /solve handler.
   const hiveSL = await handleShowLimitsFlag({ ctx, safeReply, args: userArgs, enabled: SHOW_LIMITS_ENABLED, locale: hiveLocale });
   if (hiveSL.handled) return;
@@ -936,7 +893,6 @@ async function handleHiveCommand(ctx) {
     normalizedArgs[0] = `https://github.com/${p.owner}/${p.repo}`;
     if (VERBOSE) console.log(`[VERBOSE] /hive: Normalized ${p.type} URL to repo URL: ${normalizedArgs[0]}`);
   } else if (validation.normalizedUrl && validation.normalizedUrl !== userArgs[0]) normalizedArgs[0] = validation.normalizedUrl;
-
   const { backend: hivePerCommandIsolation, filteredArgs: normalizedArgsWithoutIsolation } = extractIsolationFromArgs(normalizedArgs); // issue #1534
   if (hivePerCommandIsolation && !isValidPerCommandIsolation(hivePerCommandIsolation)) {
     await safeReply(ctx, t('telegram.invalid_isolation', { value: escapeMarkdown(hivePerCommandIsolation) }, { locale: hiveLocale }), { reply_to_message_id: ctx.message.message_id });
@@ -972,7 +928,6 @@ async function handleHiveCommand(ctx) {
     await safeReply(ctx, `❌ ${escapeMarkdown(hiveBranchError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-
   // Validate merged arguments using hive's yargs config
   try {
     await parseArgsWithYargs(args, yargs, createHiveYargsConfig);
@@ -995,7 +950,6 @@ async function handleHiveCommand(ctx) {
     optionsRaw: userOptionsRaw ? escapeMarkdown(userOptionsRaw) : '',
     lockedOptions: hiveOverrides.length > 0 ? escapeMarkdown(hiveOverrides.join(' ')) : '',
   });
-
   // Issue #594: see /solve handler.
   let hiveLimitsAtStart = null;
   if (hiveShowLimits) ({ infoBlock, limitsAtStart: hiveLimitsAtStart } = await captureStartSnapshotAndAppend({ infoBlock, tool: hiveTool, verbose: VERBOSE, limitsLib, commandLabel: '/hive', locale: hiveLocale }));
@@ -1005,7 +959,6 @@ async function handleHiveCommand(ctx) {
   const hiveArgsWithLocale = injectLanguageIfMissing(args, hiveLocale);
   await executeAndUpdateMessage(ctx, startingMessage, 'hive', hiveArgsWithLocale, infoBlock, effectiveHiveIsolation, hiveTool, null, { showLimits: hiveShowLimits, limitsAtStart: hiveLimitsAtStart, locale: hiveLocale });
 }
-
 bot.command(/^hive$/i, handleHiveCommand);
 
 const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
@@ -1015,7 +968,6 @@ registerTopCommand(bot, sharedCommandOpts);
 registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
-
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
 // undocumented, masked output). Lets operators audit which local tokens are
 // live in the bot's environment so they can search for accidental leaks.
@@ -1055,7 +1007,6 @@ registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
     }
   }
 });
-
 // Add message listener for verbose debugging
 if (VERBOSE) {
   bot.on('message', (ctx, next) => {
@@ -1103,7 +1054,6 @@ if (VERBOSE) {
 bot.on('message', async (ctx, next) => {
   const text = ctx.message?.text;
   if (!text) return next();
-
   // Extract command from text using the testable filter function
   // Note: We pass null for botUsername here and check it separately with ctx.me
   // which is set by Telegraf after bot initialization
@@ -1117,7 +1067,6 @@ bot.on('message', async (ctx, next) => {
       return next(); // Command is for a different bot or we can't verify
     }
   }
-
   // /subscribe + /unsubscribe (#1688) are intentionally not in the text fallback — Telegraf's bot.command() is sufficient.
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
@@ -1126,13 +1075,11 @@ bot.on('message', async (ctx, next) => {
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
-
   // Log that fallback was triggered - this indicates bot.command() entity matching failed
   console.warn(`[WARNING] Command /${extracted.command} matched by text fallback, not by entity-based bot.command(). ` + `Entities: ${JSON.stringify(ctx.message.entities || [])}. ` + `User: ${ctx.from?.username || ctx.from?.id}. ` + `This may indicate a Telegram client entity issue (issue #1207).`);
 
   await handler(ctx);
 });
-
 // Add global error handler for uncaught errors in middleware
 bot.catch((error, ctx) => {
   console.error('Unhandled error while processing update', ctx.update.update_id);
@@ -1163,14 +1110,12 @@ bot.catch((error, ctx) => {
       username: ctx.from?.username,
     },
   });
-
   // Try to notify the user about the error with more details
   if (ctx?.reply) {
     const isTelegramParsingError = isTelegramFormattingError(error);
     const isTelegramTextLimitError = isTelegramMessageTooLongError(error);
 
     let errorMessage;
-
     if (isTelegramParsingError || isTelegramTextLimitError) {
       // Issue #1460: Log detailed context for root cause analysis (always logged, not just in verbose mode)
       const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
@@ -1217,7 +1162,6 @@ bot.catch((error, ctx) => {
     });
   }
 });
-
 // Track shutdown state to prevent startup messages after shutdown
 let isShuttingDown = false;
 
@@ -1239,7 +1183,6 @@ if (VERBOSE) {
   console.log('[VERBOSE] Bot start time (Unix):', BOT_START_TIME);
   console.log('[VERBOSE] Bot start time (ISO):', new Date(BOT_START_TIME * 1000).toISOString());
 }
-
 // Launch bot with retry logic (issue #1240: handle 409 Conflict with exponential backoff)
 // The launcher handles deleteWebhook + bot.launch() with retry on transient errors.
 // Non-retryable errors (401 Unauthorized) cause immediate exit.
@@ -1254,7 +1197,6 @@ function startSessionMonitoringOnce() {
   // working session when `--on-session-kill=resume` is in effect.
   sessionMonitoringTimer = startSessionMonitoring(bot, VERBOSE, 30000, { isolationRunner });
 }
-
 // Issue #2146 (PR #2147 review): stop the Formal AI sidecar once no Formal AI
 // task holds a lease, then — while the host is idle — update its image (with a
 // non-destructive memory migration) and refresh the agentic CLIs. Every step is
@@ -1273,7 +1215,6 @@ function startFormalAiMaintenanceOnce() {
 // time the bot was alive" is always discoverable from the log. The heartbeat
 // logic lives in bot-lifecycle.lib.mjs so it can be unit tested.
 const heartbeat = createHeartbeat({ logger: botLogger, getActiveSessionCount });
-
 async function onBotLaunched() {
   if (isShuttingDown || launchAnnouncementShown) return;
   launchAnnouncementShown = true;
@@ -1281,7 +1222,6 @@ async function onBotLaunched() {
   console.log('✅ SwarmMindBot is now running!');
   console.log('Press Ctrl+C to stop');
   botLogger.event('bot_launched', { pid: process.pid, botStartTime: BOT_START_TIME });
-
   // Issue #1927 (requirements #2/#4): after a restart, reload sessions that were
   // still being tracked when the previous process died and re-register them so
   // the monitor resumes watching — and finally reports any that were killed while
@@ -1292,7 +1232,6 @@ async function onBotLaunched() {
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
   heartbeat.start();
-
   if (VERBOSE) {
     console.log('[VERBOSE] Bot launched successfully');
     console.log('[VERBOSE] Polling is active, waiting for messages...');
@@ -1301,7 +1240,6 @@ async function onBotLaunched() {
     try {
       const botInfo = await bot.telegram.getMe();
       const webhookInfo = await bot.telegram.getWebhookInfo();
-
       console.log('[VERBOSE] Bot info:');
       console.log('[VERBOSE]   Username: @' + botInfo.username);
       console.log('[VERBOSE]   Bot ID:', botInfo.id);
@@ -1326,7 +1264,6 @@ async function onBotLaunched() {
     } catch (err) {
       console.log('[VERBOSE] Could not fetch bot info:', err.message);
     }
-
     console.log('[VERBOSE] Send a message to the bot to test message reception');
   }
 }
@@ -1335,7 +1272,6 @@ async function onBotLaunched() {
 // session map is empty until commands are received, but bot.launch() may stay
 // pending while polling is active.
 startSessionMonitoringOnce();
-
 launchBotWithRetry(
   bot,
   {
@@ -1372,7 +1308,6 @@ const stopSolveQueue = () => {
     /* ignore errors during shutdown */
   }
 };
-
 // Issue #1927: record the shutdown (with a timestamp) so the log shows the bot
 // stopped cleanly — the ABSENCE of this line before the next startup is how a
 // later analysis tells an orderly stop apart from a hard kill. The handler lives
@@ -1399,7 +1334,6 @@ process.once('SIGINT', () => {
   console.log('\n🛑 Received SIGINT (Ctrl+C), stopping bot...');
   handleShutdownSignal('SIGINT');
 });
-
 process.once('SIGTERM', () => {
   console.log('\n🛑 Received SIGTERM, stopping bot... (Check system logs: journalctl -u <service> or dmesg)');
   handleShutdownSignal('SIGTERM');

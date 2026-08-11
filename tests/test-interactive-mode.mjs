@@ -6,20 +6,15 @@
  * Tests the interactive mode library with proper mocking
  * to avoid actual GitHub API calls.
  */
-
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 // Import the module under test
 const interactiveModeLib = await import(join(__dirname, '..', 'src', 'interactive-mode.lib.mjs'));
 const { createInteractiveHandler, isInteractiveModeSupported, validateInteractiveModeConfig, utils } = interactiveModeLib;
-
 let testsPassed = 0;
 let testsFailed = 0;
-
 async function runTest(name, testFn) {
   process.stdout.write(`Testing ${name}... `);
   try {
@@ -31,7 +26,6 @@ async function runTest(name, testFn) {
     testsFailed++;
   }
 }
-
 /** Create a handler with default test mocks, overridable per-test. */
 let mockCommentIdCounter = 1000;
 function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123, verbose = false, onComment, handlerOptions = {} } = {}) {
@@ -70,32 +64,26 @@ function makeHandler({ owner = 'test-owner', repo = 'test-repo', prNumber = 123,
 // ============================================
 // UTILITY FUNCTION TESTS
 // ============================================
-
 console.log('\n=== Testing Utility Functions ===\n');
-
 await runTest('truncateMiddle with short content', () => {
   const shortContent = 'Line 1\nLine 2\nLine 3';
   const result = utils.truncateMiddle(shortContent, { maxLines: 10 });
   if (result !== shortContent) throw new Error(`Expected content to remain unchanged, got: ${result}`);
 });
-
 await runTest('truncateMiddle with long content', () => {
   const lines = Array(100).fill('Line content').join('\n');
   const result = utils.truncateMiddle(lines, { maxLines: 50, keepStart: 20, keepEnd: 20 });
   if (!result.includes('[21-80 lines are omitted]')) throw new Error('Expected truncation indicator with line range');
   if (result.split('\n').length > 50) throw new Error(`Expected max ~43 lines, got ${result.split('\n').length}`);
 });
-
 await runTest('truncateMiddle with null/undefined', () => {
   if (utils.truncateMiddle(null) !== '') throw new Error('Expected empty string for null');
   if (utils.truncateMiddle(undefined) !== '') throw new Error('Expected empty string for undefined');
 });
-
 await runTest('safeJsonStringify basic object', () => {
   const result = utils.safeJsonStringify({ name: 'test', value: 123 });
   if (!result.includes('"name": "test"')) throw new Error('Expected JSON to contain name property');
 });
-
 await runTest('safeJsonStringify circular reference', () => {
   const obj = { name: 'test' };
   obj.self = obj;
@@ -109,32 +97,26 @@ await runTest('createCollapsible basic', () => {
   if (!result.includes('<summary>Summary</summary>')) throw new Error('Expected summary with correct text');
   if (!result.includes('Content')) throw new Error('Expected content');
 });
-
 await runTest('createCollapsible open by default', () => {
   const result = utils.createCollapsible('Summary', 'Content', true);
   if (!result.includes('<details open>')) throw new Error('Expected <details open> tag');
 });
-
 await runTest('formatDuration seconds only', () => {
   const result = utils.formatDuration(45000);
   if (result !== '45s') throw new Error(`Expected '45s', got '${result}'`);
 });
-
 await runTest('formatDuration minutes and seconds', () => {
   const result = utils.formatDuration(127000);
   if (result !== '2m 7s') throw new Error(`Expected '2m 7s', got '${result}'`);
 });
-
 await runTest('formatDuration hours, minutes, seconds', () => {
   const result = utils.formatDuration(3661000);
   if (result !== '1h 1m 1s') throw new Error(`Expected '1h 1m 1s', got '${result}'`);
 });
-
 await runTest('formatDuration invalid values', () => {
   if (utils.formatDuration(null) !== 'unknown') throw new Error('Expected unknown for null');
   if (utils.formatDuration(-1000) !== 'unknown') throw new Error('Expected unknown for negative');
 });
-
 await runTest('formatCost basic', () => {
   const result = utils.formatCost(1.6043);
   if (result !== '$1.60') throw new Error(`Expected '$1.60', got '${result}'`);
@@ -144,41 +126,34 @@ await runTest('formatCost small value', () => {
   const result = utils.formatCost(0.05);
   if (result !== '$0.05') throw new Error(`Expected '$0.05', got '${result}'`);
 });
-
 await runTest('formatCost invalid values', () => {
   if (utils.formatCost(null) !== 'unknown') throw new Error('Expected unknown for null');
   if (utils.formatCost('not a number') !== 'unknown') throw new Error('Expected unknown for string');
   if (utils.formatCost(NaN) !== 'unknown') throw new Error('Expected unknown for NaN');
 });
-
 await runTest('escapeMarkdown basic', () => {
   const result = utils.escapeMarkdown('code```block```here');
   if (result !== 'code\\`\\`\\`block\\`\\`\\`here') throw new Error(`Expected escaped backticks, got '${result}'`);
 });
-
 await runTest('escapeMarkdown empty/null', () => {
   if (utils.escapeMarkdown(null) !== '') throw new Error('Expected empty string for null');
   if (utils.escapeMarkdown('') !== '') throw new Error('Expected empty string for empty');
 });
-
 await runTest('getToolIcon known tools', () => {
   if (utils.getToolIcon('Bash') !== '💻') throw new Error('Expected 💻 for Bash');
   if (utils.getToolIcon('Read') !== '📖') throw new Error('Expected 📖 for Read');
   if (utils.getToolIcon('Edit') !== '📝') throw new Error('Expected 📝 for Edit');
   if (utils.getToolIcon('TodoWrite') !== '📋') throw new Error('Expected 📋 for TodoWrite');
 });
-
 await runTest('getToolIcon unknown tool', () => {
   if (utils.getToolIcon('UnknownTool') !== '🔧') throw new Error('Expected 🔧 for unknown tool');
 });
-
 await runTest('createRawJsonSection basic', () => {
   const result = utils.createRawJsonSection({ type: 'test', value: 123 });
   if (!result.includes('<details>')) throw new Error('Expected collapsible section');
   if (!result.includes('📄 Raw JSON')) throw new Error('Expected Raw JSON summary');
   if (!result.includes('```json')) throw new Error('Expected json code block');
 });
-
 await runTest('createRawJsonSection wraps single object in array', () => {
   const result = utils.createRawJsonSection({ type: 'test', value: 123 });
   if (!result.includes('[\n')) throw new Error('Expected array wrapper in JSON output');
@@ -190,34 +165,27 @@ await runTest('createRawJsonSection preserves existing arrays', () => {
     throw new Error('Expected both array elements in output');
   }
 });
-
 // ============================================
 // FUNCTION EXPORT TESTS
 // ============================================
-
 console.log('\n=== Testing Function Exports ===\n');
-
 await runTest('isInteractiveModeSupported claude', () => {
   if (!isInteractiveModeSupported('claude')) throw new Error('Expected true for claude');
 });
-
 await runTest('isInteractiveModeSupported opencode', () => {
   if (isInteractiveModeSupported('opencode')) throw new Error('Expected false for opencode');
 });
-
 await runTest('isInteractiveModeSupported other tools', () => {
   if (!isInteractiveModeSupported('codex')) throw new Error('Expected true for codex');
   for (const tool of ['opencode', 'agent', 'qwen', 'gemini', 'unknown', undefined, null]) {
     if (isInteractiveModeSupported(tool)) throw new Error(`Expected false for ${tool}`);
   }
 });
-
 // ============================================
 // ASYNC TESTS
 // ============================================
 
 console.log('\n=== Testing Async Functions ===\n');
-
 await runTest('validateInteractiveModeConfig disabled', async () => {
   const logs = [];
   const mockLog = msg => {
@@ -227,7 +195,6 @@ await runTest('validateInteractiveModeConfig disabled', async () => {
   const result = await validateInteractiveModeConfig({ interactiveMode: false, tool: 'claude' }, mockLog);
   if (!result) throw new Error('Expected true when interactive mode is disabled');
 });
-
 await runTest('validateInteractiveModeConfig enabled with claude', async () => {
   const logs = [];
   const mockLog = msg => {
@@ -238,7 +205,6 @@ await runTest('validateInteractiveModeConfig enabled with claude', async () => {
   if (!result) throw new Error('Expected true when interactive mode is enabled with claude');
   if (!logs.some(l => l.includes('Interactive mode: ENABLED'))) throw new Error('Expected ENABLED log message');
 });
-
 await runTest('validateInteractiveModeConfig enabled with opencode', async () => {
   const logs = [];
   const mockLog = msg => {
@@ -249,7 +215,6 @@ await runTest('validateInteractiveModeConfig enabled with opencode', async () =>
   if (result) throw new Error('Expected false when interactive mode is enabled with unsupported tool');
   if (!logs.some(l => l.includes('only supported for --tool claude'))) throw new Error('Expected warning log message');
 });
-
 await runTest('validateInteractiveModeConfig enabled with codex', async () => {
   const logs = [];
   const mockLog = (msg, opts) => {
@@ -262,11 +227,9 @@ await runTest('validateInteractiveModeConfig enabled with codex', async () => {
     throw new Error('Expected codex interactive mode enable log');
   }
 });
-
 // ============================================
 // HANDLER TESTS
 // ============================================
-
 console.log('\n=== Testing Interactive Handler ===\n');
 
 await runTest('createInteractiveHandler returns expected interface', async () => {
@@ -276,7 +239,6 @@ await runTest('createInteractiveHandler returns expected interface', async () =>
   if (typeof handler.getState !== 'function') throw new Error('Expected getState function');
   if (typeof handler._handlers !== 'object') throw new Error('Expected _handlers object');
 });
-
 await runTest('handler initial state', async () => {
   const { handler } = makeHandler();
   const state = handler.getState();
@@ -284,14 +246,12 @@ await runTest('handler initial state', async () => {
   if (state.messageCount !== 0) throw new Error('Expected messageCount to be 0 initially');
   if (state.toolUseCount !== 0) throw new Error('Expected toolUseCount to be 0 initially');
 });
-
 await runTest('processEvent handles system.init', async () => {
   const { handler } = makeHandler({ verbose: true });
   await handler.processEvent({ type: 'system', subtype: 'init', session_id: 'test-session-123', cwd: '/tmp/test', tools: ['Read', 'Write', 'Bash'] });
   const state = handler.getState();
   if (state.sessionId !== 'test-session-123') throw new Error('Expected sessionId to be set');
 });
-
 await runTest('processEvent handles assistant text', async () => {
   const { handler } = makeHandler();
   await new Promise(r => setTimeout(r, 100));
@@ -306,7 +266,6 @@ await runTest('processEvent handles assistant text', async () => {
   const state = handler.getState();
   if (state.messageCount !== 1) throw new Error('Expected messageCount to be 1');
 });
-
 await runTest('interactive GitHub comments ignore local sanitization bypass flags', async () => {
   const rawSecret = 'abcdefghijklmnop';
   const { handler, comments } = makeHandler({
@@ -326,7 +285,6 @@ await runTest('interactive GitHub comments ignore local sanitization bypass flag
   if (published.includes(rawSecret)) throw new Error('External comment retained a credential');
   if (!published.includes('abc…nop')) throw new Error(`Expected exact masked value, got: ${published}`);
 });
-
 await runTest('processEvent handles tool_use', async () => {
   const { handler } = makeHandler();
   await handler.processEvent({
@@ -339,7 +297,6 @@ await runTest('processEvent handles tool_use', async () => {
   const state = handler.getState();
   if (state.toolUseCount !== 1) throw new Error('Expected toolUseCount to be 1');
 });
-
 await runTest('processEvent handles result', async () => {
   const { handler } = makeHandler();
   await handler.processEvent({
@@ -353,7 +310,6 @@ await runTest('processEvent handles result', async () => {
   });
   // Just verifies no errors are thrown
 });
-
 await runTest('processEvent handles codex thread.started and agent_message', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({ type: 'thread.started', thread_id: 'thread_codex_123', model: 'gpt-5.4' });
@@ -367,7 +323,6 @@ await runTest('processEvent handles unrecognized events', async () => {
   const { handler } = makeHandler();
   await handler.processEvent({ type: 'custom_type', subtype: 'unknown', data: { foo: 'bar' } });
 });
-
 await runTest('processEvent handles null/invalid input', async () => {
   const { handler } = makeHandler();
   await handler.processEvent(null);
@@ -375,19 +330,15 @@ await runTest('processEvent handles null/invalid input', async () => {
   await handler.processEvent({});
   await handler.processEvent('not an object');
 });
-
 await runTest('handler does not post without PR info', async () => {
   const { handler, comments } = makeHandler({ owner: '', prNumber: null, verbose: true });
   await handler.processEvent({ type: 'system', subtype: 'init', session_id: 'test-123', cwd: '/tmp', tools: [] });
   if (comments.length > 0) throw new Error('Expected no comments when PR info is missing');
 });
-
 // ============================================
 // COMMENT ID EXTRACTION TESTS (Issue #844 fix validation)
 // ============================================
-
 console.log('\n=== Testing Comment ID Extraction ===\n');
-
 await runTest('comment ID extraction from gh output URL', () => {
   const testCases = [
     ['https://github.com/owner/repo/pull/123#issuecomment-1234567890\n', '1234567890'],
@@ -400,7 +351,6 @@ await runTest('comment ID extraction from gh output URL', () => {
     if (match[1] !== expected) throw new Error(`Expected ID ${expected}, got ${match[1]}`);
   }
 });
-
 await runTest('comment ID extraction handles empty/invalid output', () => {
   for (const output of ['', null, undefined, 'no comment id here', 'https://github.com/']) {
     const match = (output?.toString() || '').match(/issuecomment-(\d+)/);
@@ -413,7 +363,6 @@ await runTest('comment ID extraction with Buffer-like objects', () => {
   const match = (bufferLike?.toString() || '').match(/issuecomment-(\d+)/);
   if (!match || match[1] !== '555666777') throw new Error(`Buffer-like toString extraction failed: ${match}`);
 });
-
 // ============================================
 // UNICODE SANITIZATION TESTS (Issue #1324)
 // ============================================
@@ -427,22 +376,18 @@ await runTest('comment ID extraction with Buffer-like objects', () => {
 // JavaScript strings as UTF-16 surrogate pairs (\uD83E\uDD16). When content
 // is truncated at a code-unit boundary that falls between the two halves,
 // the orphaned high surrogate (\uD83E) causes a 400 API error.
-
 console.log('\n=== Testing Unicode Sanitization (Issue #1324) ===\n');
-
 await runTest('sanitizeUnicode: clean string passes through unchanged', () => {
   const clean = 'Hello, world!\nLine 2\nLine 3';
   const result = utils.sanitizeUnicode(clean);
   if (result !== clean) throw new Error(`Expected clean string to be unchanged, got: ${JSON.stringify(result)}`);
 });
-
 await runTest('sanitizeUnicode: full emoji surrogate pair is preserved', () => {
   // 🤖 (U+1F916) = \uD83E\uDD16 — a valid surrogate pair, must NOT be replaced
   const withEmoji = 'Bot \uD83E\uDD16 deployed successfully';
   const result = utils.sanitizeUnicode(withEmoji);
   if (result !== withEmoji) throw new Error(`Expected full surrogate pair to be preserved, got: ${JSON.stringify(result)}`);
 });
-
 await runTest('sanitizeUnicode: orphaned high surrogate is replaced with U+FFFD', () => {
   // Simulate the exact bug from issue #1324: \uD83E without its low surrogate \uDD16
   const orphanedHigh = 'text\uD83Emore';
@@ -450,7 +395,6 @@ await runTest('sanitizeUnicode: orphaned high surrogate is replaced with U+FFFD'
   if (!result.includes('\uFFFD')) throw new Error(`Expected U+FFFD replacement character, got: ${JSON.stringify(result)}`);
   if (result.includes('\uD83E')) throw new Error(`Expected orphaned high surrogate to be removed, got: ${JSON.stringify(result)}`);
 });
-
 await runTest('sanitizeUnicode: orphaned low surrogate is replaced with U+FFFD', () => {
   const orphanedLow = 'text\uDD16more';
   const result = utils.sanitizeUnicode(orphanedLow);
@@ -463,17 +407,14 @@ await runTest('sanitizeUnicode: reproduces and fixes exact bug from issue #1324'
   // The emoji 🤖 was truncated, leaving only the high surrogate \uD83E
   const buggyContent = 'All changes have been merged to the main branch.\n\n---\n\uD83E\n...';
   const sanitized = utils.sanitizeUnicode(buggyContent);
-
   // After sanitization, JSON.stringify must produce output the Anthropic API accepts
   const jsonString = JSON.stringify({ content: sanitized });
-
   // Verify no orphaned high surrogate (\uD83E not followed by \uDC00-\uDFFF)
   if (jsonString.includes('\\ud83e') && !jsonString.includes('\\ud83e\\u')) {
     throw new Error(`JSON still contains orphaned surrogate: ${jsonString.substring(0, 200)}`);
   }
   if (sanitized.includes('\uD83E')) throw new Error('Sanitized content still contains the orphaned high surrogate');
 });
-
 await runTest('sanitizeUnicode: multiple orphaned surrogates in one string', () => {
   const text = 'a\uD83Eb\uD83Fc';
   const result = utils.sanitizeUnicode(text);
@@ -483,25 +424,21 @@ await runTest('sanitizeUnicode: multiple orphaned surrogates in one string', () 
   const replacements = [...result].filter(c => c === '\uFFFD').length;
   if (replacements !== 2) throw new Error(`Expected 2 replacement characters, got ${replacements} in: ${JSON.stringify(result)}`);
 });
-
 await runTest('sanitizeUnicode: null/undefined/empty returns empty string', () => {
   if (utils.sanitizeUnicode(null) !== '') throw new Error('Expected empty string for null');
   if (utils.sanitizeUnicode(undefined) !== '') throw new Error('Expected empty string for undefined');
   if (utils.sanitizeUnicode('') !== '') throw new Error('Expected empty string for empty input');
 });
-
 await runTest('truncateMiddle: sanitizes content even when no truncation needed', () => {
   const result = utils.truncateMiddle('Line with orphan: \uD83E end', { maxLines: 100 });
   if (result.includes('\uD83E')) throw new Error('Expected orphaned surrogate to be sanitized even in short content');
   if (!result.includes('\uFFFD')) throw new Error('Expected replacement character in sanitized short content');
 });
-
 await runTest('truncateMiddle: sanitizes content after truncation', () => {
   const lines = Array.from({ length: 100 }, (_, i) => (i === 19 ? 'Last kept line ending with orphan: \uD83E' : `Line ${i}: some content here`));
   const result = utils.truncateMiddle(lines.join('\n'), { maxLines: 50, keepStart: 20, keepEnd: 20 });
   if (result.includes('\uD83E')) throw new Error('Expected orphaned surrogate to be removed after truncation');
 });
-
 await runTest('safeJsonStringify: sanitizes string values before serialization', () => {
   const obj = { message: 'content with orphan: \uD83E end', nested: { text: 'another \uD83F orphan' } };
   const json = utils.safeJsonStringify(obj);
@@ -519,7 +456,6 @@ await runTest('safeJsonStringify: normal strings are not corrupted', () => {
   if (parsed.value !== 42) throw new Error('Expected value to be preserved');
   if (parsed.emoji !== '🤖') throw new Error(`Expected emoji to be preserved, got: ${parsed.emoji}`);
 });
-
 // ============================================
 // REAL-WORLD UNICODE & LOG DATA TESTS (Issue #1324)
 // ============================================
@@ -528,18 +464,14 @@ await runTest('safeJsonStringify: normal strings are not corrupted', () => {
 // logs found in merged pull requests. They ensure the sanitization functions
 // correctly handle the same kind of content that hive-mind processes in
 // production without breaking anything that previously worked.
-
 console.log('\n=== Testing Real-World Log Data Patterns (Issue #1324) ===\n');
-
 // --- sanitizeUnicode: real-world patterns ---
-
 await runTest('sanitizeUnicode: preserves emoji-rich GitHub PR comment (real log pattern)', () => {
   // This is the exact pattern found in PR comments posted by hive-mind
   const realContent = '## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n💰 **Cost estimation:**\n- Public pricing estimate: $3.003222\n- Calculated by Anthropic: $2.339325 USD\n📎 **Log file uploaded as Gist** (647KB)\n🔗 [View complete solution draft log](https://example.com)';
   const result = utils.sanitizeUnicode(realContent);
   if (result !== realContent) throw new Error('Expected emoji-rich content to pass through unchanged');
 });
-
 await runTest('sanitizeUnicode: preserves real hive-mind status messages with emojis', () => {
   const statusMessages = ['🔧 Raw command executed: claude --version', '💾 Disk space check: 66991MB available (2048MB required) ✅', '🧠 Memory check: 11394MB available ✅', '📋 URL validation: https://github.com/owner/repo/issues/1', '✅ Auto-fork: No write access detected, enabling fork mode', '📝 Issue mode: Working with issue #23', '🔗 Setting upstream: owner/repo', '✅ Branch checked out: issue-23-abc123', '## ✅ Ready to merge\n\nThis pull request is now ready:\n- All CI checks passed\n- No merge conflicts'];
   for (const msg of statusMessages) {
@@ -547,7 +479,6 @@ await runTest('sanitizeUnicode: preserves real hive-mind status messages with em
     if (result !== msg) throw new Error(`Status message was modified: ${JSON.stringify(msg).substring(0, 80)}`);
   }
 });
-
 await runTest('sanitizeUnicode: preserves Cyrillic and mixed scripts (real log pattern)', () => {
   // The original issue logs contained Cyrillic text from a Russian-language issue
   const cyrillic = '✅ Полная реализация AKSI Backend\n\n### 📋 Issue Reference\n- ✅ AKSI Bot proof file';
@@ -560,34 +491,28 @@ await runTest('sanitizeUnicode: fixes the exact persisted-output truncation from
   // The emoji 🤖 (U+1F916 = \uD83E\uDD16) was split by truncation, leaving only \uD83E.
   const persistedOutput = '<persisted-output>\nOutput too large (44.8KB). Full output saved to: /home/hive/.claude/projects/tool-results/toolu_abc.txt\n\nPreview (first 2KB):\n[{"url":"https://api.github.com/repos/owner/repo/issues/comments/123"}]\n...\nAll changes have been merged to the main branch.\n\n---\n\uD83E\n...\n</persisted-output>';
   const sanitized = utils.sanitizeUnicode(persistedOutput);
-
   // The orphaned \uD83E must be replaced with \uFFFD
   if (sanitized.includes('\uD83E')) throw new Error('Orphaned high surrogate not removed');
   if (!sanitized.includes('\uFFFD')) throw new Error('Expected U+FFFD replacement');
-
   // Everything else must be preserved
   if (!sanitized.includes('<persisted-output>')) throw new Error('persisted-output tag lost');
   if (!sanitized.includes('Output too large')) throw new Error('Output message lost');
   if (!sanitized.includes('</persisted-output>')) throw new Error('closing tag lost');
-
   // Must be safe for JSON serialization
   const json = JSON.stringify({ content: sanitized });
   JSON.parse(json); // Must not throw
 });
-
 await runTest('sanitizeUnicode: handles multiple emoji at end of truncation boundary', () => {
   // Simulate truncation that cuts through a sequence of emojis
   const text = 'End: \uD83D\uDE00\uD83D\uDE01\uD83D'; // 😀😁 then orphaned high
   const result = utils.sanitizeUnicode(text);
   if (result !== 'End: \uD83D\uDE00\uD83D\uDE01\uFFFD') throw new Error('Wrong sanitization of trailing orphan after valid pairs');
 });
-
 await runTest('sanitizeUnicode: handles orphaned low surrogate at start of string', () => {
   const text = '\uDC00Hello world';
   const result = utils.sanitizeUnicode(text);
   if (result !== '\uFFFDHello world') throw new Error('Orphaned low at start not replaced');
 });
-
 await runTest('sanitizeUnicode: handles orphaned high surrogate at end of string', () => {
   const text = 'Hello world\uD800';
   const result = utils.sanitizeUnicode(text);
@@ -599,21 +524,18 @@ await runTest('sanitizeUnicode: preserves all BMP characters including CJK and A
   const result = utils.sanitizeUnicode(text);
   if (result !== text) throw new Error('BMP characters were modified');
 });
-
 await runTest('sanitizeUnicode: preserves multiple valid surrogate pairs in sequence', () => {
   // 🤖🎉🔧💻📖 = five valid surrogate pairs in a row
   const emoji5 = '🤖🎉🔧💻📖';
   const result = utils.sanitizeUnicode(emoji5);
   if (result !== emoji5) throw new Error('Sequential valid surrogate pairs were modified');
 });
-
 await runTest('sanitizeUnicode: handles reversed surrogate pair (low before high)', () => {
   // \uDC00\uD800 — low then high is BOTH orphaned (not a valid pair)
   const reversed = 'x\uDC00\uD800y';
   const result = utils.sanitizeUnicode(reversed);
   if (result !== 'x\uFFFD\uFFFDy') throw new Error('Reversed pair not correctly handled');
 });
-
 await runTest('sanitizeUnicode: stress test with 1000 emojis', () => {
   const emoji = '🤖';
   const bigString = emoji.repeat(1000);
@@ -621,15 +543,12 @@ await runTest('sanitizeUnicode: stress test with 1000 emojis', () => {
   if (result !== bigString) throw new Error('Large string of valid emojis was modified');
   if (result.length !== bigString.length) throw new Error('Length changed');
 });
-
 // --- truncateMiddle: real-world patterns ---
-
 await runTest('truncateMiddle: preserves short emoji-rich content (real log format)', () => {
   const content = '🔧 Raw command: ls -la\n✅ Passed\n📋 Results:\n- Item 1\n- Item 2';
   const result = utils.truncateMiddle(content, { maxLines: 100 });
   if (result !== content) throw new Error('Short emoji content was modified');
 });
-
 await runTest('truncateMiddle: truncates large output with emoji safely', () => {
   // Simulate a large tool result that contains emojis and gets truncated
   const lines = [];
@@ -645,7 +564,6 @@ await runTest('truncateMiddle: truncates large output with emoji safely', () => 
   // Must be safe for JSON
   JSON.parse(JSON.stringify({ content: result }));
 });
-
 await runTest('truncateMiddle: handles truncation point exactly at emoji boundary', () => {
   // Create content where line 20 (keepStart boundary) ends with an emoji
   const lines = Array.from({ length: 60 }, (_, i) => {
@@ -658,7 +576,6 @@ await runTest('truncateMiddle: handles truncation point exactly at emoji boundar
 });
 
 // --- safeJsonStringify: real-world patterns ---
-
 await runTest('safeJsonStringify: handles real Claude assistant event with emojis', () => {
   const event = {
     type: 'assistant',
@@ -674,7 +591,6 @@ await runTest('safeJsonStringify: handles real Claude assistant event with emoji
   if (!parsed.message.content[0].text.includes('🤖')) throw new Error('Emoji lost in serialization');
   if (!parsed.message.content[0].text.includes('✅')) throw new Error('Check emoji lost');
 });
-
 await runTest('safeJsonStringify: handles real tool_result event with persisted-output', () => {
   const event = {
     type: 'user',
@@ -697,7 +613,6 @@ await runTest('safeJsonStringify: handles real tool_result event with persisted-
   if (parsed.message.content[0].content.includes('\uD83E')) throw new Error('Orphaned surrogate survived serialization');
   if (!parsed.message.content[0].content.includes('\uFFFD')) throw new Error('Expected replacement char');
 });
-
 await runTest('safeJsonStringify: handles real result event structure', () => {
   const event = {
     type: 'result',
@@ -714,14 +629,12 @@ await runTest('safeJsonStringify: handles real result event structure', () => {
   const parsed = JSON.parse(json);
   if (!parsed.result.includes('no low surrogate')) throw new Error('Error message content lost');
 });
-
 await runTest('safeJsonStringify: handles deeply nested objects with emojis', () => {
   const deep = { a: { b: { c: { d: { e: { f: { text: '🤖 deep emoji' } } } } } } };
   const json = utils.safeJsonStringify(deep);
   const parsed = JSON.parse(json);
   if (!parsed.a.b.c.d.e.f.text.includes('🤖')) throw new Error('Deep emoji lost');
 });
-
 await runTest('safeJsonStringify: handles arrays with mixed content types', () => {
   const data = {
     items: ['text with emoji 🎉', 42, null, true, { nested: 'value with orphan \uD800' }, 'another \uDBFF orphan'],
@@ -734,11 +647,9 @@ await runTest('safeJsonStringify: handles arrays with mixed content types', () =
   if (parsed.items[4].nested.includes('\uD800')) throw new Error('Orphan in nested object survived');
   if (parsed.items[5].includes('\uDBFF')) throw new Error('Orphan in array string survived');
 });
-
 // --- Handler pipeline tests with real event structures ---
 
 console.log('\n=== Testing Handler Pipeline with Real Events (Issue #1324) ===\n');
-
 await runTest('handler processes assistant text with emojis without error', async () => {
   const { handler, comments } = makeHandler();
   await new Promise(r => setTimeout(r, 100));
@@ -756,7 +667,6 @@ await runTest('handler processes assistant text with emojis without error', asyn
   // Verify the comment can be safely JSON-serialized (as GitHub API would)
   JSON.parse(JSON.stringify({ body: comments[0] }));
 });
-
 await runTest('handler processes tool_use with emoji-containing command', async () => {
   const { handler } = makeHandler();
   await handler.processEvent({
@@ -769,7 +679,6 @@ await runTest('handler processes tool_use with emoji-containing command', async 
   });
   // Should not throw
 });
-
 await runTest('handler processes tool_result with orphaned surrogate (exact issue #1324 scenario)', async () => {
   const { handler, comments } = makeHandler();
   // First send a tool_use so there's context for the result
@@ -806,7 +715,6 @@ await runTest('handler processes tool_result with orphaned surrogate (exact issu
     }
   }
 });
-
 await runTest('handler processes result event with error message', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -824,7 +732,6 @@ await runTest('handler processes result event with error message', async () => {
     JSON.parse(JSON.stringify({ body: comment }));
   }
 });
-
 await runTest('handler processes system.init with real structure', async () => {
   const { handler } = makeHandler({ verbose: true });
   await handler.processEvent({
@@ -840,11 +747,9 @@ await runTest('handler processes system.init with real structure', async () => {
   const state = handler.getState();
   if (state.sessionId !== 'real-session-abc') throw new Error('Session ID not set');
 });
-
 // --- Edge case: end-to-end JSON round-trip safety ---
 
 console.log('\n=== Testing JSON Round-Trip Safety ===\n');
-
 await runTest('JSON round-trip: all surrogate ranges are handled', () => {
   // Test every high surrogate range boundary
   const boundaries = ['\uD800', '\uD801', '\uDBFE', '\uDBFF', '\uDC00', '\uDC01', '\uDFFE', '\uDFFF'];
@@ -856,20 +761,17 @@ await runTest('JSON round-trip: all surrogate ranges are handled', () => {
     if (sanitized.includes(ch)) throw new Error(`Surrogate ${ch.charCodeAt(0).toString(16)} not replaced`);
   }
 });
-
 await runTest('JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse is idempotent for clean strings', () => {
   const clean = 'Normal ASCII text with numbers 12345 and symbols !@#$%^&*()';
   const result = JSON.parse(JSON.stringify({ v: utils.sanitizeUnicode(clean) })).v;
   if (result !== clean) throw new Error('Clean string modified by round-trip');
 });
-
 await runTest('JSON round-trip: sanitizeUnicode + JSON.stringify + JSON.parse preserves all valid emoji', () => {
   // Comprehensive emoji test — emojis from different Unicode blocks
   const emojis = '😀😃😄😁😆🤖🎉✅❌💰📎🔗📋💻📖📝🔧⚙️🚀🎯🔒🔑💡🔍📦🗂️';
   const result = JSON.parse(JSON.stringify({ v: utils.sanitizeUnicode(emojis) })).v;
   if (result !== emojis) throw new Error(`Emojis modified: expected length ${emojis.length}, got ${result.length}`);
 });
-
 await runTest('JSON round-trip: safeJsonStringify output is always parseable', () => {
   // Test with pathological inputs that contain surrogates mixed with normal content
   const cases = [
@@ -891,7 +793,6 @@ await runTest('JSON round-trip: safeJsonStringify output is always parseable', (
     }
   }
 });
-
 // ============================================
 // AGENT TASK EVENT TESTS (Issue #1450)
 // ============================================
@@ -899,9 +800,7 @@ await runTest('JSON round-trip: safeJsonStringify output is always parseable', (
 // These tests verify the new handlers for system.task_started,
 // system.task_progress, system.task_notification, and rate_limit_event.
 // Previously these were all posted as "Unrecognized Event" comments.
-
 console.log('\n=== Testing Agent Task Events (Issue #1450) ===\n');
-
 await runTest('processEvent handles system.task_started', async () => {
   const { handler, comments } = makeHandler({ verbose: true });
   await handler.processEvent({
@@ -953,7 +852,6 @@ await runTest('processEvent handles system.task_progress with pending task', asy
   // Should NOT create a new comment (should edit the existing one)
   if (comments.length > commentsAfterStart) throw new Error('Expected no new comment for task_progress (should edit existing)');
 });
-
 await runTest('processEvent handles system.task_progress without pending task (graceful fallback)', async () => {
   const { handler, comments } = makeHandler({ verbose: true });
   // Send progress for a task that was never started
@@ -969,7 +867,6 @@ await runTest('processEvent handles system.task_progress without pending task (g
   // Should NOT create a comment (silently logged instead of unrecognized)
   if (comments.length > 0) throw new Error('Expected no comment for orphaned task_progress');
 });
-
 await runTest('processEvent handles system.task_notification (completed)', async () => {
   const { handler } = makeHandler({ verbose: true });
   // Create task first
@@ -998,7 +895,6 @@ await runTest('processEvent handles system.task_notification (completed)', async
   const state = handler.getState();
   if (state.pendingTasks.has('task-notify-1')) throw new Error('Expected task to be removed from pendingTasks after notification');
 });
-
 await runTest('processEvent handles system.task_notification without pending task (standalone)', async () => {
   const { handler, comments } = makeHandler({ verbose: true });
   // Send notification for a task that was never started
@@ -1014,7 +910,6 @@ await runTest('processEvent handles system.task_notification without pending tas
   if (comments.length === 0) throw new Error('Expected standalone comment for orphaned task_notification');
   if (!comments[comments.length - 1].body.includes('Completed')) throw new Error('Expected completion status in comment');
 });
-
 await runTest('processEvent handles rate_limit_event silently', async () => {
   const { handler, comments, logs } = makeHandler({ verbose: true });
   await handler.processEvent({
@@ -1033,7 +928,6 @@ await runTest('processEvent handles rate_limit_event silently', async () => {
   // Should log in verbose mode
   if (!logs.some(l => l.includes('Rate limit event'))) throw new Error('Expected verbose log for rate_limit_event');
 });
-
 await runTest('processEvent no longer marks known system subtypes as unrecognized', async () => {
   const { handler, comments } = makeHandler();
   // Test all previously unrecognized system subtypes
@@ -1050,7 +944,6 @@ await runTest('processEvent no longer marks known system subtypes as unrecognize
   const unrecognized = comments.filter(c => c.body.includes('Unrecognized Event'));
   if (unrecognized.length > 0) throw new Error(`Found ${unrecognized.length} unrecognized event comments for known system subtypes`);
 });
-
 await runTest('processEvent still marks truly unknown system subtypes as unrecognized', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1077,7 +970,6 @@ await runTest('full agent task lifecycle: started -> progress -> progress -> not
   });
   const commentsAfterStart = comments.length;
   if (commentsAfterStart === 0) throw new Error('Expected task_started comment');
-
   // 2. First progress
   await new Promise(r => setTimeout(r, 100));
   await handler.processEvent({
@@ -1089,7 +981,6 @@ await runTest('full agent task lifecycle: started -> progress -> progress -> not
     last_tool_name: 'Bash',
     session_id: 'lifecycle-session',
   });
-
   // 3. Second progress
   await handler.processEvent({
     type: 'system',
@@ -1100,10 +991,8 @@ await runTest('full agent task lifecycle: started -> progress -> progress -> not
     last_tool_name: 'Read',
     session_id: 'lifecycle-session',
   });
-
   // Should NOT have created new comments for progress
   if (comments.length > commentsAfterStart) throw new Error(`Expected no new comments for progress, got ${comments.length - commentsAfterStart} new`);
-
   // 4. Task notification (completed)
   await handler.processEvent({
     type: 'system',
@@ -1114,11 +1003,9 @@ await runTest('full agent task lifecycle: started -> progress -> progress -> not
     usage: { total_tokens: 15000, tool_uses: 3, duration_ms: 10000 },
     session_id: 'lifecycle-session',
   });
-
   // Task should be cleaned up
   const state = handler.getState();
   if (state.pendingTasks.has('lifecycle-task-1')) throw new Error('Expected task to be cleaned up');
-
   // Total comments should be just 1 (the initial task_started comment, edited by progress/notification)
   if (comments.length > commentsAfterStart) throw new Error(`Expected no new comments beyond task_started, got ${comments.length} total`);
 });
@@ -1126,7 +1013,6 @@ await runTest('full agent task lifecycle: started -> progress -> progress -> not
 await runTest('getToolIcon returns Agent icon', () => {
   if (utils.getToolIcon('Agent') !== '🤖') throw new Error('Expected 🤖 for Agent');
 });
-
 await runTest('handler exposes new task handlers', async () => {
   const { handler } = makeHandler();
   const handlers = handler._handlers;
@@ -1135,29 +1021,23 @@ await runTest('handler exposes new task handlers', async () => {
   if (typeof handlers.handleTaskNotification !== 'function') throw new Error('Expected handleTaskNotification function');
   if (typeof handlers.handleRateLimitEvent !== 'function') throw new Error('Expected handleRateLimitEvent function');
 });
-
 // ============================================
 // CONFIG CONSTANT TESTS
 // ============================================
-
 console.log('\n=== Testing Configuration Constants ===\n');
-
 await runTest('CONFIG constants are defined', () => {
   if (typeof utils.CONFIG.MIN_COMMENT_INTERVAL !== 'number') throw new Error('Expected MIN_COMMENT_INTERVAL to be a number');
   if (typeof utils.CONFIG.MAX_LINES_BEFORE_TRUNCATION !== 'number') throw new Error('Expected MAX_LINES_BEFORE_TRUNCATION to be a number');
   if (typeof utils.CONFIG.LINES_TO_KEEP_START !== 'number') throw new Error('Expected LINES_TO_KEEP_START to be a number');
   if (typeof utils.CONFIG.LINES_TO_KEEP_END !== 'number') throw new Error('Expected LINES_TO_KEEP_END to be a number');
 });
-
 await runTest('CONFIG constants have reasonable values', () => {
   if (utils.CONFIG.MIN_COMMENT_INTERVAL < 1000) throw new Error('MIN_COMMENT_INTERVAL should be at least 1000ms');
   if (utils.CONFIG.MAX_LINES_BEFORE_TRUNCATION < 10) throw new Error('MAX_LINES_BEFORE_TRUNCATION should be at least 10');
 });
-
 // ============================================
 // EXECFILEASYNC STDIN PIPING TESTS (Issue #1532)
 // ============================================
-
 console.log('\n=== Testing execFileAsync stdin piping (Issue #1532) ===\n');
 
 await runTest('execFileAsync passes input to child stdin (Issue #1532)', async () => {
@@ -1170,14 +1050,12 @@ await runTest('execFileAsync passes input to child stdin (Issue #1532)', async (
     throw new Error(`Expected "hello from stdin", got: "${stdout}"`);
   }
 });
-
 await runTest('execFileAsync works without input option', async () => {
   const { stdout } = await utils.execFileAsync('echo', ['test output']);
   if (stdout.trim() !== 'test output') {
     throw new Error(`Expected "test output", got: "${stdout.trim()}"`);
   }
 });
-
 await runTest('execFileAsync rejects on non-zero exit code', async () => {
   try {
     await utils.execFileAsync('sh', ['-c', 'exit 1']);
@@ -1187,7 +1065,6 @@ await runTest('execFileAsync rejects on non-zero exit code', async () => {
     if (error.code !== 1) throw new Error(`Expected exit code 1, got: ${error.code}`, { cause: error });
   }
 });
-
 await runTest('execFileAsync handles large stdin input', async () => {
   const largeInput = 'x'.repeat(100000); // 100KB
   const { stdout } = await utils.execFileAsync('cat', [], { input: largeInput });
@@ -1195,7 +1072,6 @@ await runTest('execFileAsync handles large stdin input', async () => {
     throw new Error(`Expected ${largeInput.length} chars, got: ${stdout.length}`);
   }
 });
-
 await runTest('execFileAsync handles JSON payload for gh api simulation (Issue #1532)', async () => {
   // Simulates the actual use case: passing JSON payload to a command via stdin
   const jsonPayload = JSON.stringify({ body: '## Interactive session started\n\nSome **markdown** content with `code`' });
@@ -1205,11 +1081,9 @@ await runTest('execFileAsync handles JSON payload for gh api simulation (Issue #
     throw new Error(`Expected JSON body to contain "Interactive session started", got: ${parsed.body}`);
   }
 });
-
 // ============================================
 // ISSUE #1576: INTERACTIVE MODE FIXES AND IMPROVEMENTS
 // ============================================
-
 console.log('\n=== Testing Issue #1576 Fixes ===\n');
 
 await runTest('truncateMiddle shows line range instead of count', () => {
@@ -1220,7 +1094,6 @@ await runTest('truncateMiddle shows line range instead of count', () => {
   if (result.includes('lines truncated')) throw new Error('Should not use old "lines truncated" format');
   if (!result.includes('[21-40 lines are omitted]')) throw new Error(`Expected [21-40 lines are omitted], got: ${result.match(/\[.*\]/)?.[0]}`);
 });
-
 await runTest('Session Complete renamed to Interactive session completed', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1236,7 +1109,6 @@ await runTest('Session Complete renamed to Interactive session completed', async
   if (!comment.includes('Interactive session completed')) throw new Error('Expected "Interactive session completed"');
   if (comment.includes('Session Complete')) throw new Error('Should not use old "Session Complete" text');
 });
-
 await runTest('Session Failed renamed to Interactive session failed', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1249,7 +1121,6 @@ await runTest('Session Failed renamed to Interactive session failed', async () =
   const comment = comments[comments.length - 1].body;
   if (!comment.includes('Interactive session failed')) throw new Error('Expected "Interactive session failed"');
 });
-
 await runTest('TodoWrite shows checked/total count', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1276,7 +1147,6 @@ await runTest('TodoWrite shows checked/total count', async () => {
   const comment = comments[comments.length - 1].body;
   if (!comment.includes('Todos (2/4 items)')) throw new Error(`Expected "Todos (2/4 items)", got: ${comment.match(/Todos \([^)]+\)/)?.[0]}`);
 });
-
 await runTest('Write tool displays as Change (expanded by default)', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1302,7 +1172,6 @@ await runTest('Write tool displays as Change (expanded by default)', async () =>
   // Should be expanded (open attribute)
   if (!comment.includes('<details open>')) throw new Error('Expected Change section to be expanded by default');
 });
-
 await runTest('Write tool diff contains line numbers', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1327,7 +1196,6 @@ await runTest('Write tool diff contains line numbers', async () => {
   if (!comment.includes('+   1 |')) throw new Error('Expected line numbers in diff');
   if (!comment.includes('+   2 |')) throw new Error('Expected line number 2 in diff');
 });
-
 await runTest('Task prompt is expanded by default', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1366,11 +1234,9 @@ await runTest('Agent task comments show agent ID and sub-agent emoji', async () 
   if (!comment.includes('Agent ID')) throw new Error('Expected Agent ID field');
   if (!comment.includes('agent-xyz-123')) throw new Error('Expected agent ID value');
 });
-
 await runTest('ToolSearch has specific icon and formatting', () => {
   if (utils.getToolIcon('ToolSearch') !== '🔍') throw new Error('Expected 🔍 for ToolSearch');
 });
-
 await runTest('ToolSearch tool gets specific display (not generic JSON)', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1391,7 +1257,6 @@ await runTest('ToolSearch tool gets specific display (not generic JSON)', async 
   if (!comment.includes('**Query:** `select:TodoWrite`')) throw new Error('Expected ToolSearch query display');
   if (comment.includes('📥 Input')) throw new Error('Should not fall through to generic input display');
 });
-
 await runTest('Result event prefers modelUsage for token display', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1423,7 +1288,6 @@ await runTest('Result event prefers modelUsage for token display', async () => {
   if (!comment.includes('5,000')) throw new Error('Expected cumulative input tokens (5,000) not last-iteration (47)');
   if (!comment.includes('by model')) throw new Error('Expected "by model" in section header');
 });
-
 await runTest('Result event falls back to usage when modelUsage is absent', async () => {
   const { handler, comments } = makeHandler();
   await handler.processEvent({
@@ -1436,7 +1300,6 @@ await runTest('Result event falls back to usage when modelUsage is absent', asyn
   const comment = comments[comments.length - 1].body;
   if (!comment.includes('500')) throw new Error('Expected usage fallback with input_tokens');
 });
-
 await runTest('Task comment queue tracking: taskId propagated through queue', async () => {
   // This tests the root cause fix for tasks stuck at "⏳ Running..."
   // When task_started comments are queued (rate-limited), the taskId must
@@ -1468,12 +1331,10 @@ await runTest('Task comment queue tracking: taskId propagated through queue', as
   if (!pendingTask) throw new Error('Expected pending task to exist');
   if (!pendingTask.commentId) throw new Error('Expected pending task to have commentId after queue flush');
 });
-
 // Summary
 console.log('\n' + '='.repeat(50));
 console.log(`Test Results for interactive-mode.lib.mjs:`);
 console.log(`  ✅ Passed: ${testsPassed}`);
 console.log(`  ❌ Failed: ${testsFailed}`);
 console.log('='.repeat(50));
-
 process.exit(testsFailed > 0 ? 1 : 0);

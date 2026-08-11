@@ -3,7 +3,6 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
-
 // Use use-m to dynamically import modules for cross-runtime compatibility
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
@@ -18,18 +17,15 @@ const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
 const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
 const $ = wrapDollarWithGhRetry(__rawDollar$);
 const path = (await use('path')).default;
-
 // Import shared library functions
 const lib = await import('./lib.mjs');
 const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
-
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
-
 // Issue #1745: process-wide sanitization counters used to print a one-line
 // "we masked N secrets" summary at the end of each run.
 const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublicationFile } = await import('./token-sanitization.lib.mjs');
@@ -41,7 +37,6 @@ const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.li
 // Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
 const { autoContinueWhenLimitResets } = autoContinue;
-
 // Import Claude-specific command builders
 // These are used to generate copy-pasteable Claude CLI resume commands for users
 // Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
@@ -55,13 +50,11 @@ export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, bui
 // imported from tool libraries (claude/codex/gemini) without circular imports.
 import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
 export { buildSolveResumeCommand };
-
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
-
 // Import pull request issue-link preservation helpers
 const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
 const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
@@ -69,7 +62,6 @@ const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 const { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
-
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -77,7 +69,6 @@ const { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspa
 export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
 
 export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
-
 /**
  * Check if PR title still contains auto-generated placeholder content
  * @param {string} title - PR title
@@ -95,7 +86,6 @@ export const hasPRTitlePlaceholder = title => {
 export const hasPRBodyPlaceholder = body => {
   return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
 };
-
 /**
  * Build a short factual hint for auto-restart when PR title/description was not updated.
  * Uses neutral, fact-stating language (no forcing words).
@@ -114,7 +104,6 @@ export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) =>
   }
   return lines;
 };
-
 /**
  * Ensure an existing pull request body contains a GitHub closing keyword for the issue.
  *
@@ -140,7 +129,6 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
     await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
     return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
   }
-
   prBody = prBodyResult.stdout.toString();
   const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
     issueNumber,
@@ -153,9 +141,7 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
     await logger('  ✅ PR body already contains issue reference');
     return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
   }
-
   await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
   const fs = (await use('fs')).promises;
   const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
   await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
@@ -163,7 +149,6 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
   try {
     const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
     await fs.unlink(tempBodyFile).catch(() => {});
-
     if (updateResult.code === 0) {
       await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
       return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
@@ -177,7 +162,6 @@ export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner,
     throw updateError;
   }
 };
-
 export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
   if (!prNumber) {
     return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }) };
@@ -191,7 +175,6 @@ export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, iss
     return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: issueLinkError.message };
   }
 };
-
 /**
  * Detect the CLAUDE.md or .gitkeep commit hash from branch structure when not available in session
  * This handles continue mode where the commit hash was lost between sessions
@@ -209,7 +192,6 @@ export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, iss
 const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
   try {
     await log('   Attempting to detect CLAUDE.md or .gitkeep commit from branch structure...', { verbose: true });
-
     // First check if CLAUDE.md or .gitkeep exists in current branch
     const claudeMdExistsResult = await $({ cwd: tempDir })`git ls-files CLAUDE.md 2>&1`;
     const gitkeepExistsResult = await $({ cwd: tempDir })`git ls-files .gitkeep 2>&1`;
@@ -220,7 +202,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
       await log('   Neither CLAUDE.md nor .gitkeep exists in current branch', { verbose: true });
       return null;
     }
-
     // Get the default branch to find the fork point
     const defaultBranchResult = await $({ cwd: tempDir })`git symbolic-ref refs/remotes/origin/HEAD 2>&1`;
     let defaultBranch = 'main';
@@ -240,7 +221,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     }
     const mergeBase = mergeBaseResult.stdout.toString().trim();
     await log(`   Merge base: ${mergeBase.substring(0, 7)}`, { verbose: true });
-
     // Get all commits on the PR branch (commits after the merge base)
     // Format: hash|message|files_changed
     const branchCommitsResult = await $({ cwd: tempDir })`git log ${mergeBase}..HEAD --reverse --format="%H|%s" 2>&1`;
@@ -248,7 +228,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
       await log('   No commits found on PR branch', { verbose: true });
       return null;
     }
-
     const branchCommits = branchCommitsResult.stdout.toString().trim().split('\n').filter(Boolean);
     if (branchCommits.length === 0) {
       await log('   No commits found on PR branch', { verbose: true });
@@ -256,7 +235,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     }
 
     await log(`   Found ${branchCommits.length} commit(s) on PR branch`, { verbose: true });
-
     // Safety check: Must have at least 2 commits (CLAUDE.md commit + actual work)
     if (branchCommits.length < 2) {
       await log('   Only 1 commit on branch - not enough commits to safely revert CLAUDE.md', { verbose: true });
@@ -267,14 +245,12 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     // Get the first commit on the PR branch
     const firstCommitLine = branchCommits[0];
     const [firstCommitHash, firstCommitMessage] = firstCommitLine.split('|');
-
     await log(`   First commit on branch: ${firstCommitHash.substring(0, 7)} - "${firstCommitMessage}"`, {
       verbose: true,
     });
 
     // Safety check: Verify commit message matches expected pattern (CLAUDE.md or .gitkeep)
     const expectedMessagePatterns = [/^Initial commit with task details/i, /^Add CLAUDE\.md/i, /^CLAUDE\.md/i, /^Add \.gitkeep/i, /\.gitkeep/i];
-
     const messageMatches = expectedMessagePatterns.some(pattern => pattern.test(firstCommitMessage));
     if (!messageMatches) {
       await log('   First commit message does not match expected pattern', { verbose: true });
@@ -283,7 +259,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
       });
       return null;
     }
-
     // Safety check: Verify the commit ONLY adds CLAUDE.md or .gitkeep file (no other files)
     const filesChangedResult = await $({
       cwd: tempDir,
@@ -295,7 +270,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
 
     const filesChanged = filesChangedResult.stdout.toString().trim().split('\n').filter(Boolean);
     await log(`   Files changed in first commit: ${filesChanged.join(', ')}`, { verbose: true });
-
     // Check if CLAUDE.md or .gitkeep is in the files changed
     const hasClaudeMd = filesChanged.includes('CLAUDE.md');
     const hasGitkeep = filesChanged.includes('.gitkeep');
@@ -305,7 +279,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     }
 
     const targetFile = hasClaudeMd ? 'CLAUDE.md' : '.gitkeep';
-
     // CRITICAL SAFETY CHECK: Only allow revert if the target file is the ONLY file changed
     // This prevents Issue #617 where reverting a commit deleted .gitignore, LICENSE, README.md
     if (filesChanged.length > 1) {
@@ -316,7 +289,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
       await log('   Refusing to revert to prevent data loss (Issue #617 safety)', { verbose: true });
       return null;
     }
-
     // All safety checks passed!
     await log(`   ✅ Detected ${targetFile} commit: ${firstCommitHash.substring(0, 7)}`, { verbose: true });
     await log(`   ✅ Commit only contains ${targetFile} (safe to revert)`, { verbose: true });
@@ -334,7 +306,6 @@ const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
     return null;
   }
 };
-
 const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
   const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
   if (changedCommitsResult.code === 0) {
@@ -345,7 +316,6 @@ const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
     await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
     await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
   }
-
   return true;
 };
 
@@ -357,14 +327,12 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     if (!claudeCommitHash) {
       await log('   No initial commit hash from session, attempting to detect from branch...', { verbose: true });
       claudeCommitHash = await detectClaudeMdCommitFromBranch(tempDir, branchName);
-
       if (!claudeCommitHash) {
         await log('   Could not safely detect initial commit to revert', { verbose: true });
         return;
       }
       await log(`   Detected initial commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
     }
-
     // Determine which file was used based on the commit message or actual files changed
     // Use %B (full message including body) instead of %s (subject only) to catch ".gitkeep" in body
     // Also check the actual files changed as a fallback (Issue #1436)
@@ -379,7 +347,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       isGitkeepFile = files.includes('.gitkeep');
     }
     const fileName = isGitkeepFile ? '.gitkeep' : 'CLAUDE.md';
-
     await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
     await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
 
@@ -391,9 +358,7 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     } else {
       throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
     }
-
     const commitToRevert = claudeCommitHash;
-
     // Issue #1791: .gitkeep is a normal repository file in some projects, and
     // user work may intentionally edit or delete it. Once later PR commits touch
     // .gitkeep, final cleanup must not restore the pre-session version.
@@ -410,7 +375,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     // Issue #2135: `mirror: false`. Only "is it non-empty" is asked here, and
     // the answer is a file's whole diff.
     const diffResult = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff ${commitToRevert} HEAD -- ${fileName} 2>&1`;
-
     if (diffResult.stdout && diffResult.stdout.trim()) {
       // File was modified after initial commit - use manual approach to avoid conflicts
       await log(`   ${fileName} was modified after initial commit, using manual cleanup...`, { verbose: true });
@@ -418,7 +382,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       // Get the state of the file from before the initial commit (parent of the commit we're reverting)
       const parentCommit = `${commitToRevert}~1`;
       const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
-
       if (parentFileExists.code === 0) {
         // File existed before the initial commit - restore it to that state
         await log(`   ${fileName} existed before session, restoring to previous state...`, { verbose: true });
@@ -431,10 +394,8 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 
       // Create a manual revert commit
       const commitResult = await $({ cwd: tempDir })`git commit -m "Revert: Remove ${fileName} changes from initial commit" 2>&1`;
-
       if (commitResult.code === 0) {
         await log(formatAligned('📦', 'Committed:', `${fileName} revert (manual)`));
-
         // Push the revert
         const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
         if (pushRevertResult.code === 0) {
@@ -454,7 +415,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
       const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
       if (revertResult.code === 0) {
         await log(formatAligned('📦', 'Committed:', `${fileName} revert`));
-
         // Push the revert
         const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
         if (pushRevertResult.code === 0) {
@@ -469,11 +429,9 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 
         if (hasConflict) {
           await log('   Unexpected conflict detected, attempting automatic resolution...', { verbose: true });
-
           // Check git status to see what files are in conflict
           const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
           const statusOutput = statusResult.stdout || '';
-
           // Check if the file is in the conflict
           if (statusOutput.includes(fileName)) {
             await log(`   Resolving ${fileName} conflict by restoring pre-session state...`, { verbose: true });
@@ -481,7 +439,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
             // Get the state of the file from before the initial commit (parent of the commit we're reverting)
             const parentCommit = `${commitToRevert}~1`;
             const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
-
             if (parentFileExists.code === 0) {
               // File existed before the initial commit - restore it to that state
               await log(`   ${fileName} existed before session, restoring to previous state...`, { verbose: true });
@@ -497,7 +454,6 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
 
             // Complete the revert with the resolved conflict
             const continueResult = await $({ cwd: tempDir })`git revert --continue --no-edit 2>&1`;
-
             if (continueResult.code === 0) {
               await log(formatAligned('📦', 'Committed:', `${fileName} revert (conflict resolved)`));
 
@@ -559,11 +515,9 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     await log('   Initial commit revert failed or not needed', { verbose: true });
   }
 };
-
 // Show session summary and handle limit reached scenarios
 export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
   await log('\n=== Session Summary ===');
-
   // Issue #1745: report how many tokens were masked during this run, with the
   // "use --dangerously-skip-output-sanitization to skip" hint when > 0.
   try {
@@ -580,7 +534,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     // Always use absolute path for log file display
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
-
     // Show three resume options:
     //   1. Interactive claude  - opens Claude Code interactively (claude only)
     //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
@@ -601,7 +554,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
 
     if (limitReached) {
       await log('⏰ LIMIT REACHED DETECTED!');
-
       if ((argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
         const isRestart = !!argv.autoRestartOnLimitReset;
         await log(`\n🔄 AUTO-${isRestart ? 'RESTART' : 'RESUME'} ON LIMIT RESET ENABLED - Will ${isRestart ? 'restart' : 'resume'} at ${global.limitResetTime}`);
@@ -612,7 +564,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
         if (global.limitResetTime) {
           await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
         }
-
         await log('\n💡 After the limit resets, resume using the command above.');
 
         if (argv.autoCleanup !== false) {
@@ -628,7 +579,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
         await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
       }
     }
-
     // Don't show log preview, it's too technical
   } else {
     // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
@@ -669,7 +619,6 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     await log(`⚠️ Post-finish sanitization sweep failed: ${sweepErr.message || sweepErr}`);
   }
 };
-
 // Build token/context data once so every end-of-session publication can use the
 // same observed facts (working-session summary and attached log alike).
 export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, tempDir = null, resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, pricingInfo = null }) => {
@@ -714,7 +663,6 @@ export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, temp
 // Verify results by searching for new PRs and comments
 export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, precomputedBudgetStatsData = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
-
   // Issue #1491, #1526, #2115: reuse data already calculated for the working
   // session summary; retain the fallback for callers that do not precompute it.
   const budgetStatsData =
@@ -728,7 +676,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       subAgentCalls,
       pricingInfo,
     }));
-
   try {
     // Get the current user's GitHub username
     const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
@@ -736,7 +683,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     if (userResult.code !== 0) {
       throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
     }
-
     const currentUser = userResult.stdout.toString().trim();
     if (!currentUser) {
       throw new Error('Unable to determine current GitHub user');
@@ -744,20 +690,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
     // Search for pull requests created from our branch
     await log('\n🔍 Checking for pull requests from branch ' + branchName + '...');
-
     // First, get all PRs from our branch
     // IMPORTANT: Use --state all to find PRs that may have been merged during the session (Issue #1008)
     // Without --state all, gh pr list only returns OPEN PRs, missing merged ones
     // Issue #2135: `mirror: false` - the pull requests found are named below.
     const allBranchPrsResult = await $(QUIET_PROBE)`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
-
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
       // Continue with empty list
     }
 
     const allBranchPrs = allBranchPrsResult.stdout.toString().trim() ? JSON.parse(allBranchPrsResult.stdout.toString().trim()) : [];
-
     // Check if we have any PRs from our branch
     // If auto-PR was created, it should be the one we're working on
     if (allBranchPrs.length > 0) {
@@ -766,7 +709,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
       // If we created a PR earlier in this session, it would be prNumber
       // Or if the PR was updated during the session (updatedAt > referenceTime)
       const isPrFromSession = (prNumber && pr.number.toString() === prNumber) || (prUrl && pr.url === prUrl) || new Date(pr.updatedAt) > referenceTime || new Date(pr.createdAt) > referenceTime;
-
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
 
@@ -775,11 +717,9 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
         if (isPrMerged) {
           await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
-
         // Declare placeholder detection variables outside block scopes for use in return value
         let prTitleHasPlaceholder = false;
         let prBodyHasPlaceholder = false;
-
         // Skip PR body update and ready conversion for merged PRs (they can't be edited)
         if (!isPrMerged) {
           const issueLinkResult = await ensurePullRequestIssueLink({
@@ -797,7 +737,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
           prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
           prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
-
           // Issue #1162: Remove [WIP] prefix from title if still present
           // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
           // (let the agent handle it on restart instead)
@@ -817,7 +756,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           const hasPlaceholder = prBodyHasPlaceholder;
           if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
             await log(`  📝 Updating PR description to remove placeholder text...`);
-
             // Issue #2119: measure the net diff. The reproduction PRs published
             // "1 file(s) modified, 1 line(s) added" for a pull request that
             // changed nothing, because the stats were never checked for being
@@ -826,7 +764,6 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             if (!changeStats.hasChanges) {
               await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
             }
-
             // Get the issue title for context
             const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
             const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
@@ -846,10 +783,8 @@ Fixes ${issueRef}
 
 ---
 *This PR was created automatically by the AI issue solver*`;
-
             const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
             await writeSanitizedPublicationFile(tempBodyFile, newDescription);
-
             try {
               const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
               await fs.unlink(tempBodyFile).catch(() => {});
@@ -864,7 +799,6 @@ Fixes ${issueRef}
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
           }
-
           // Check if PR is ready for review (convert from draft if necessary)
           if (pr.isDraft) {
             await log('  🔄 Converting PR from draft to ready for review...');
@@ -913,7 +847,6 @@ Fixes ${issueRef}
             budgetStatsData,
           });
         }
-
         await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
@@ -945,7 +878,6 @@ Fixes ${issueRef}
     } else {
       await log(`  ℹ️  No pull requests found from branch ${branchName}`);
     }
-
     // If no PR found, search for recent comments on the issue
     await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
 
@@ -954,21 +886,18 @@ Fixes ${issueRef}
     // Issue #2135: `mirror: false` - the counts below are the report; the raw
     // answer is every comment body on the issue.
     const allCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');
       // Continue with empty list
     }
 
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
-
     // Filter for new comments by current user
     const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
       await log(`  ✅ Found new comment by ${currentUser}`);
-
       // Upload log file to issue if requested
       if (shouldAttachLogs) {
         await log('\n📎 Uploading solution draft log to issue...');
@@ -1002,7 +931,6 @@ Fixes ${issueRef}
           budgetStatsData,
         });
       }
-
       await log('\n💬 SUCCESS: Comment posted on issue');
       await log(`📍 URL: ${lastComment.html_url}`);
       if (shouldAttachLogs) {
@@ -1059,7 +987,6 @@ Fixes ${issueRef}
     return { logUploadSuccess: false }; // Return for watch mode
   }
 };
-
 // Handle execution errors with log attachment
 export const handleExecutionError = async (error, shouldAttachLogs, owner, repo, argv = {}) => {
   const { cleanErrorMessage } = await import('./lib.mjs');
@@ -1069,7 +996,6 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   // If --attach-logs is enabled, try to attach failure logs
   if (shouldAttachLogs && getLogFile()) {
     await log('\n📄 Attempting to attach failure logs...');
-
     // Try to attach to existing PR first
     if (global.createdPR && global.createdPR.number) {
       try {
@@ -1089,7 +1015,6 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
         });
-
         if (logUploadSuccess) {
           await log('📎 Failure log attached to Pull Request');
         }
@@ -1123,7 +1048,6 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
   }
-
   await safeExit(1, 'Execution error');
 };
 
@@ -1134,7 +1058,6 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
 // from solve.results.lib.mjs.
 const toolComments = await import('./tool-comments.lib.mjs');
 export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackToolCommentId, isToolTrackedCommentId, getTrackedToolCommentIds, postTrackedComment } = toolComments;
-
 /**
  * Check if new comments were created by the AI during the session.
  * This is used by --auto-attach-solution-summary to determine if the AI
@@ -1164,7 +1087,6 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
     }
 
     await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
-
     // Issue #1625: A comment counts as an "AI comment" only if it was posted
     // by the current user AFTER sessionStartTime AND solve.mjs did NOT post it
     // itself. We identify tool-posted comments in two ways, in order:
@@ -1184,7 +1106,6 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
       for (const comment of comments) {
         if (!comment || !comment.user || comment.user.login !== currentUser) continue;
         if (!(new Date(comment.created_at) > sessionStartTime)) continue;
-
         const isReview = kind === 'review';
         if (!isReview) {
           if (isToolTrackedCommentId(comment.id)) {
@@ -1223,7 +1144,6 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
           return true;
         }
       }
-
       // Check PR review comments (inline code comments)
       const reviewCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
       if (reviewCommentsResult.code === 0) {
@@ -1248,7 +1168,6 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
         }
       }
     }
-
     return false;
   } catch (error) {
     // On error, default to not attaching (safer choice)
@@ -1256,7 +1175,6 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
     return false;
   }
 };
-
 /**
  * Attach the AI's working session summary as a comment to the PR or issue.
  * The summary is extracted from the tool's result field and posted
@@ -1295,7 +1213,6 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
   }
-
   const targetNumber = prNumber || issueNumber;
   const targetType = prNumber ? 'pr' : 'issue';
 
@@ -1303,7 +1220,6 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     await log('⚠️  No PR or issue number to attach working session summary to', { verbose: true });
     return false;
   }
-
   try {
     // Issue #2119: publish what the session actually produced. The reported
     // summary said "The `pwd` command completed" and printed the solver's own
@@ -1320,7 +1236,6 @@ ${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}
 *${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
 
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
-
     if (ok) {
       await log(`✅ Working session summary attached to ${targetType} #${targetNumber}${commentId ? ` (id=${commentId})` : ''}`);
       return true;
@@ -1375,10 +1290,8 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
   if (!success) {
     return { attached: false, reason: 'iteration_failed' };
   }
-
   const attachFlag = argv && (argv.attachSolutionSummary || argv['attach-solution-summary']);
   const autoAttachFlag = argv && (argv.autoAttachSolutionSummary || argv['auto-attach-solution-summary']);
-
   if (!attachFlag && !autoAttachFlag) {
     return { attached: false, reason: 'flag_disabled' };
   }
@@ -1387,7 +1300,6 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
     await log('ℹ️  No working session summary available from AI tool output', { verbose: true });
     return { attached: false, reason: 'no_result_summary' };
   }
-
   let shouldAttach = false;
   if (attachFlag) {
     shouldAttach = true;
@@ -1406,7 +1318,6 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
   if (!shouldAttach) {
     return { attached: false, reason: 'no_attach_decision' };
   }
-
   const resolvedBudgetStatsData =
     budgetStatsData ??
     (sessionUsage
@@ -1419,7 +1330,6 @@ export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, wo
   // Issue #2119: a summary posted on a pull request that changed nothing must
   // say so, instead of reading as a report of completed work.
   const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $, log }) : null;
-
   // Issue #2132: the summary carries no cost/budget block. `resolvedBudgetStatsData`
   // is computed only so the caller can reuse it for this session's log comment.
   const ok = await attachSolutionSummary({

@@ -13,7 +13,6 @@
 import assert from 'node:assert/strict';
 import { parseRepositoryUrl, READY_LABEL, syncReadyTags } from '../src/github-merge.lib.mjs';
 import { MergeStatus, MergeItemStatus, MERGE_QUEUE_CONFIG, MergeQueueProcessor } from '../src/telegram-merge-queue.lib.mjs';
-
 // Test utilities
 let testsPassed = 0;
 let testsFailed = 0;
@@ -29,11 +28,9 @@ function test(name, fn) {
     testsFailed++;
   }
 }
-
 // ============================================================================
 // Configuration Tests
 // ============================================================================
-
 console.log('\n📋 Configuration Tests\n');
 
 test('READY_LABEL has correct structure', () => {
@@ -42,7 +39,6 @@ test('READY_LABEL has correct structure', () => {
   assert.ok(READY_LABEL.color !== undefined, 'READY_LABEL.color should be defined');
   assert.equal(READY_LABEL.name, 'ready', 'READY_LABEL.name should be "ready"');
 });
-
 test('MERGE_QUEUE_CONFIG has all required fields', () => {
   assert.ok(MERGE_QUEUE_CONFIG.CI_POLL_INTERVAL_MS !== undefined, 'CI_POLL_INTERVAL_MS should be defined');
   assert.ok(MERGE_QUEUE_CONFIG.CI_TIMEOUT_MS !== undefined, 'CI_TIMEOUT_MS should be defined');
@@ -60,11 +56,9 @@ test('MERGE_QUEUE_CONFIG values are reasonable', () => {
   // Default is 10, but allow up to 100 via ENV configuration
   assert.ok(MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION <= 100, 'MAX_PRS_PER_SESSION should be at most 100');
 });
-
 // ============================================================================
 // Status Enum Tests
 // ============================================================================
-
 console.log('\n📋 Status Enum Tests\n');
 
 test('MergeStatus has all required values', () => {
@@ -75,7 +69,6 @@ test('MergeStatus has all required values', () => {
   assert.ok(MergeStatus.FAILED !== undefined, 'MergeStatus.FAILED should be defined');
   assert.ok(MergeStatus.CANCELLED !== undefined, 'MergeStatus.CANCELLED should be defined');
 });
-
 test('MergeItemStatus has all required values', () => {
   assert.ok(MergeItemStatus.PENDING !== undefined, 'MergeItemStatus.PENDING should be defined');
   assert.ok(MergeItemStatus.CHECKING_CI !== undefined, 'MergeItemStatus.CHECKING_CI should be defined');
@@ -86,13 +79,11 @@ test('MergeItemStatus has all required values', () => {
   assert.ok(MergeItemStatus.FAILED !== undefined, 'MergeItemStatus.FAILED should be defined');
   assert.ok(MergeItemStatus.SKIPPED !== undefined, 'MergeItemStatus.SKIPPED should be defined');
 });
-
 // ============================================================================
 // URL Parsing Tests
 // ============================================================================
 
 console.log('\n📋 URL Parsing Tests\n');
-
 test('parseRepositoryUrl accepts valid repository URLs', () => {
   const result = parseRepositoryUrl('https://github.com/owner/repo');
   assert.ok(result.valid, 'Should accept valid repo URL');
@@ -107,14 +98,12 @@ test('parseRepositoryUrl accepts issues list URLs', () => {
   assert.equal(result.owner, 'owner', 'Should extract owner');
   assert.equal(result.repo, 'repo', 'Should extract repo');
 });
-
 test('parseRepositoryUrl accepts pulls list URLs', () => {
   const result = parseRepositoryUrl('https://github.com/owner/repo/pulls');
   assert.ok(result.valid, 'Should accept pulls list URL');
   assert.equal(result.owner, 'owner', 'Should extract owner');
   assert.equal(result.repo, 'repo', 'Should extract repo');
 });
-
 test('parseRepositoryUrl rejects user/organization URLs', () => {
   const result = parseRepositoryUrl('https://github.com/owner');
   assert.ok(!result.valid, 'Should reject user URL');
@@ -126,7 +115,6 @@ test('parseRepositoryUrl rejects issue URLs', () => {
   assert.ok(!result.valid, 'Should reject issue URL');
   assert.ok(result.error.includes('not supported'), 'Should mention unsupported in error');
 });
-
 test('parseRepositoryUrl rejects PR URLs', () => {
   const result = parseRepositoryUrl('https://github.com/owner/repo/pull/123');
   assert.ok(!result.valid, 'Should reject PR URL');
@@ -139,14 +127,12 @@ test('parseRepositoryUrl handles URLs without https', () => {
   assert.equal(result.owner, 'owner', 'Should extract owner');
   assert.equal(result.repo, 'repo', 'Should extract repo');
 });
-
 test('parseRepositoryUrl handles shorthand format', () => {
   const result = parseRepositoryUrl('owner/repo');
   assert.ok(result.valid, 'Should accept shorthand format');
   assert.equal(result.owner, 'owner', 'Should extract owner');
   assert.equal(result.repo, 'repo', 'Should extract repo');
 });
-
 test('parseRepositoryUrl rejects empty input', () => {
   const result = parseRepositoryUrl('');
   assert.ok(!result.valid, 'Should reject empty input');
@@ -156,18 +142,15 @@ test('parseRepositoryUrl rejects null input', () => {
   const result = parseRepositoryUrl(null);
   assert.ok(!result.valid, 'Should reject null input');
 });
-
 test('parseRepositoryUrl rejects non-GitHub URLs', () => {
   const result = parseRepositoryUrl('https://gitlab.com/owner/repo');
   assert.ok(!result.valid, 'Should reject non-GitHub URL');
 });
-
 // ============================================================================
 // MergeQueueProcessor Tests
 // ============================================================================
 
 console.log('\n📋 MergeQueueProcessor Tests\n');
-
 test('MergeQueueProcessor initializes with correct defaults', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -181,14 +164,12 @@ test('MergeQueueProcessor initializes with correct defaults', () => {
   assert.equal(processor.items.length, 0, 'Should start with empty items');
   assert.equal(processor.isCancelled, false, 'Should not be cancelled initially');
 });
-
 test('MergeQueueProcessor initializes with verbose option', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
     verbose: true,
   });
-
   assert.equal(processor.verbose, true, 'Should respect verbose option');
 });
 
@@ -197,7 +178,6 @@ test('MergeQueueProcessor cancel sets isCancelled flag', () => {
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.cancel();
   assert.ok(processor.isCancelled, 'Should set isCancelled to true');
 });
@@ -207,9 +187,7 @@ test('MergeQueueProcessor getProgressUpdate returns valid structure', () => {
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   const update = processor.getProgressUpdate();
-
   assert.ok(update.status !== undefined, 'Should have status');
   assert.ok(update.progress !== undefined, 'Should have progress');
   assert.ok(update.stats !== undefined, 'Should have stats');
@@ -224,9 +202,7 @@ test('MergeQueueProcessor getFinalReport returns valid structure', () => {
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   const report = processor.getFinalReport();
-
   assert.ok(report.status !== undefined, 'Should have status');
   assert.ok(report.duration !== undefined, 'Should have duration');
   assert.ok(report.stats !== undefined, 'Should have stats');
@@ -242,7 +218,6 @@ test('MergeQueueProcessor escapeMarkdown escapes special characters', () => {
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   const input = 'Test *bold* _italic_ `code` [link](url)';
   const escaped = processor.escapeMarkdown(input);
 
@@ -251,13 +226,11 @@ test('MergeQueueProcessor escapeMarkdown escapes special characters', () => {
   assert.ok(!escaped.includes('`') || escaped.includes('\\`'), 'Should escape backtick');
   assert.ok(!escaped.includes('[') || escaped.includes('\\['), 'Should escape bracket');
 });
-
 test('MergeQueueProcessor formatProgressMessage returns string', () => {
   const processor = new MergeQueueProcessor({
     owner: 'testowner',
     repo: 'testrepo',
   });
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
@@ -265,7 +238,6 @@ test('MergeQueueProcessor formatProgressMessage returns string', () => {
   assert.ok(message.includes('testowner'), 'Should include owner');
   assert.ok(message.includes('testrepo'), 'Should include repo');
 });
-
 test('MergeQueueProcessor formatFinalMessage returns string', () => {
   const processor = new MergeQueueProcessor({
     owner: 'testowner',
@@ -273,13 +245,11 @@ test('MergeQueueProcessor formatFinalMessage returns string', () => {
   });
 
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.length > 0, 'Should not be empty');
   assert.ok(message.includes('testowner'), 'Should include owner');
   assert.ok(message.includes('testrepo'), 'Should include repo');
 });
-
 // Issue #1269: Test error display in progress message
 test('MergeQueueProcessor formatProgressMessage shows errors inline', () => {
   const processor = new MergeQueueProcessor({
@@ -300,9 +270,7 @@ test('MergeQueueProcessor formatProgressMessage shows errors inline', () => {
   ];
   processor.stats.total = 1;
   processor.stats.failed = 1;
-
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1294: Changed from "Errors" to "Issues" to include both failed and skipped items
   assert.ok(message.includes('Issues'), 'Should include Issues section for failed items');
@@ -315,7 +283,6 @@ test('MergeQueueProcessor formatProgressMessage hides errors section when no fai
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Simulate adding a successful item with all required methods
   processor.items = [
     {
@@ -331,18 +298,15 @@ test('MergeQueueProcessor formatProgressMessage hides errors section when no fai
   processor.stats.merged = 1;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1294: Changed from "Errors" to "Issues"
   assert.ok(!message.includes('⚠️ *Issues:*'), 'Should not include Issues section when no failures');
 });
-
 // ============================================================================
 // Issue #1294: Skip Reason Display Tests
 // ============================================================================
 
 console.log('\n📋 Issue #1294: Skip Reason Display Tests\n');
-
 test('MergeQueueProcessor formatProgressMessage shows skipped items with reasons', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -362,9 +326,7 @@ test('MergeQueueProcessor formatProgressMessage shows skipped items with reasons
   ];
   processor.stats.total = 1;
   processor.stats.skipped = 1;
-
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.includes('Issues'), 'Should include Issues section for skipped items');
   assert.ok(message.includes('PR has merge conflicts'), 'Should include the skip reason');
@@ -376,7 +338,6 @@ test('MergeQueueProcessor formatFinalMessage shows skip reasons in results', () 
     owner: 'link-assistant',
     repo: 'hive-mind',
   });
-
   // Simulate completed queue with skipped items
   processor.status = MergeStatus.COMPLETED;
   processor.items = [
@@ -401,7 +362,6 @@ test('MergeQueueProcessor formatFinalMessage shows skip reasons in results', () 
   processor.stats.skipped = 2;
   processor.startedAt = new Date();
   processor.completedAt = new Date();
-
   const message = processor.formatFinalMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
@@ -411,7 +371,6 @@ test('MergeQueueProcessor formatFinalMessage shows skip reasons in results', () 
   // Issue #1294: The key assertion - skip reasons should be shown
   assert.ok(message.includes('PR has merge conflicts'), 'Should include skip reason in final message');
 });
-
 test('MergeQueueProcessor formatFinalMessage shows fail reasons in results', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -433,9 +392,7 @@ test('MergeQueueProcessor formatFinalMessage shows fail reasons in results', () 
   processor.stats.failed = 1;
   processor.startedAt = new Date();
   processor.completedAt = new Date();
-
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.includes('CI checks failed'), 'Should include fail reason in final message');
 });
@@ -445,7 +402,6 @@ test('MergeQueueProcessor formatFinalMessage does not show reasons for merged it
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.status = MergeStatus.COMPLETED;
   processor.items = [
     {
@@ -463,7 +419,6 @@ test('MergeQueueProcessor formatFinalMessage does not show reasons for merged it
   processor.completedAt = new Date();
 
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1805: the Results section now renders the PR title alongside the
   // number (so the line is `✅ \#200: Merged PR` or, when a URL is known,
@@ -472,7 +427,6 @@ test('MergeQueueProcessor formatFinalMessage does not show reasons for merged it
   assert.ok(message.includes('\\#200'), 'Should include the PR number');
   assert.ok(!message.includes('CI checks failed'), 'No failure-reason text should leak in for merged items');
 });
-
 test('MergeQueueProcessor formatFinalMessage escapes special chars in skip reasons', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -494,9 +448,7 @@ test('MergeQueueProcessor formatFinalMessage escapes special chars in skip reaso
   processor.stats.skipped = 1;
   processor.startedAt = new Date();
   processor.completedAt = new Date();
-
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Special chars should be escaped for MarkdownV2
   assert.ok(message.includes('\\*bold\\*'), 'Should escape asterisks in reason');
@@ -508,7 +460,6 @@ test('MergeQueueProcessor formatFinalMessage truncates long skip reasons', () =>
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.status = MergeStatus.COMPLETED;
   const longReason = 'This is a very long error message that exceeds the maximum character limit and should be truncated';
   processor.items = [
@@ -527,33 +478,28 @@ test('MergeQueueProcessor formatFinalMessage truncates long skip reasons', () =>
   processor.completedAt = new Date();
 
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Long reasons should be truncated (47 chars + "...")
   // Note: "..." gets escaped to "\.\.\." for MarkdownV2
   assert.ok(message.includes('\\.\\.\\.'), 'Should truncate long reasons with escaped ellipsis');
   assert.ok(!message.includes('truncated'), 'Should not include full text beyond truncation point');
 });
-
 // ============================================================================
 // Issue #1292: MarkdownV2 Escaping Tests
 // ============================================================================
 
 console.log('\n📋 Issue #1292: MarkdownV2 Escaping Tests\n');
-
 test('MergeQueueProcessor escapeMarkdown escapes hyphens', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   const input = 'link-assistant/hive-mind';
   const escaped = processor.escapeMarkdown(input);
 
   assert.ok(escaped.includes('\\-'), 'Should escape hyphens');
   assert.equal(escaped, 'link\\-assistant/hive\\-mind', 'Should properly escape all hyphens');
 });
-
 test('MergeQueueProcessor escapeMarkdown escapes underscores', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test_owner',
@@ -562,11 +508,9 @@ test('MergeQueueProcessor escapeMarkdown escapes underscores', () => {
 
   const input = 'test_owner/test_repo';
   const escaped = processor.escapeMarkdown(input);
-
   assert.ok(escaped.includes('\\_'), 'Should escape underscores');
   assert.equal(escaped, 'test\\_owner/test\\_repo', 'Should properly escape all underscores');
 });
-
 test('MergeQueueProcessor escapeMarkdown escapes periods', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test.owner',
@@ -575,7 +519,6 @@ test('MergeQueueProcessor escapeMarkdown escapes periods', () => {
 
   const input = 'test.owner/test.repo';
   const escaped = processor.escapeMarkdown(input);
-
   assert.ok(escaped.includes('\\.'), 'Should escape periods');
   assert.equal(escaped, 'test\\.owner/test\\.repo', 'Should properly escape all periods');
 });
@@ -585,9 +528,7 @@ test('MergeQueueProcessor formatProgressMessage escapes owner/repo with hyphens 
     owner: 'link-assistant',
     repo: 'hive-mind',
   });
-
   const message = processor.formatProgressMessage();
-
   // The message should contain escaped hyphens in owner/repo
   assert.ok(message.includes('link\\-assistant'), 'Should include escaped owner');
   assert.ok(message.includes('hive\\-mind'), 'Should include escaped repo');
@@ -600,9 +541,7 @@ test('MergeQueueProcessor formatFinalMessage escapes owner/repo with hyphens (Is
     owner: 'link-assistant',
     repo: 'hive-mind',
   });
-
   const message = processor.formatFinalMessage();
-
   // The message should contain escaped hyphens in owner/repo
   assert.ok(message.includes('link\\-assistant'), 'Should include escaped owner');
   assert.ok(message.includes('hive\\-mind'), 'Should include escaped repo');
@@ -613,25 +552,21 @@ test('MergeQueueProcessor formatProgressMessage escapes special chars in owner/r
     owner: 'org.name_test-123',
     repo: 'repo.name_test-456',
   });
-
   const message = processor.formatProgressMessage();
 
   // Check that all special characters are escaped
   assert.ok(message.includes('org\\.name\\_test\\-123'), 'Should escape all special chars in owner');
   assert.ok(message.includes('repo\\.name\\_test\\-456'), 'Should escape all special chars in repo');
 });
-
 // ============================================================================
 // Issue #1269: Merge Method Configuration Tests
 // ============================================================================
-
 console.log('\n📋 Issue #1269: Merge Method Configuration Tests\n');
 
 test('MERGE_QUEUE_CONFIG has MERGE_METHOD field', () => {
   assert.ok(MERGE_QUEUE_CONFIG.MERGE_METHOD !== undefined, 'MERGE_METHOD should be defined');
   assert.ok(typeof MERGE_QUEUE_CONFIG.MERGE_METHOD === 'string', 'MERGE_METHOD should be a string');
 });
-
 test('MERGE_QUEUE_CONFIG.MERGE_METHOD has valid default value', () => {
   const validMethods = ['merge', 'squash', 'rebase'];
   assert.ok(validMethods.includes(MERGE_QUEUE_CONFIG.MERGE_METHOD), `MERGE_METHOD should be one of: ${validMethods.join(', ')}`);
@@ -640,9 +575,7 @@ test('MERGE_QUEUE_CONFIG.MERGE_METHOD has valid default value', () => {
 // ============================================================================
 // Issue #1304: Empty CI Checks Handling Tests
 // ============================================================================
-
 console.log('\n📋 Issue #1304: Empty CI Checks Handling Tests\n');
-
 // Note: checkPRCIStatus is an async function that calls GitHub API,
 // so we can't fully unit test it without mocking. Instead, we verify
 // the fix documentation and behavior expectations.
@@ -664,13 +597,11 @@ test('Issue #1304: Document that empty checks should return pending status', () 
   // The fix ensures that when no checks exist, status is 'pending' not 'success'.
   assert.ok(true, 'Issue #1304 fix documented: empty checks = pending status');
 });
-
 test('JavaScript vacuous truth: empty array .every() returns true', () => {
   // Demonstrate the JavaScript behavior that caused the bug
   const emptyArray = [];
   const everyResult = emptyArray.every(c => c.conclusion === 'success');
   assert.equal(everyResult, true, 'Empty array .every() should return true (vacuous truth)');
-
   // This is why we need to check for empty array BEFORE calling .every()
   const someResult = emptyArray.some(c => c.status !== 'completed');
   assert.equal(someResult, false, 'Empty array .some() should return false');
@@ -683,7 +614,6 @@ test('JavaScript vacuous truth: empty array .every() returns true', () => {
   const allPassed = !hasPending && emptyArray.every(c => c.conclusion === 'success');
   assert.equal(allPassed, true, 'Old buggy logic would return allPassed=true for empty array');
 });
-
 test('Issue #1304 fix: empty array should NOT return allPassed=true', () => {
   // The fixed logic should check array length first
   const allChecks = [];
@@ -704,11 +634,9 @@ test('Issue #1304 fix: empty array should NOT return allPassed=true', () => {
     assert.fail('This code path should not execute for empty array');
   }
 });
-
 // ============================================================================
 // Issue #1307: Target Branch CI Waiting Configuration Tests
 // ============================================================================
-
 console.log('\n📋 Issue #1307: Target Branch CI Waiting Configuration Tests\n');
 
 test('MERGE_QUEUE_CONFIG has target branch CI waiting fields', () => {
@@ -716,7 +644,6 @@ test('MERGE_QUEUE_CONFIG has target branch CI waiting fields', () => {
   assert.ok(MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_TIMEOUT_MS !== undefined, 'TARGET_BRANCH_CI_TIMEOUT_MS should be defined');
   assert.ok(MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_POLL_INTERVAL_MS !== undefined, 'TARGET_BRANCH_CI_POLL_INTERVAL_MS should be defined');
 });
-
 test('MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI defaults to true', () => {
   // Default should be true to ensure CI completes before merging
   assert.equal(typeof MERGE_QUEUE_CONFIG.WAIT_FOR_TARGET_BRANCH_CI, 'boolean', 'WAIT_FOR_TARGET_BRANCH_CI should be a boolean');
@@ -729,14 +656,12 @@ test('MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_TIMEOUT_MS has reasonable value', () =
   // Should be at most 2 hours (7200000ms) to avoid indefinite waiting
   assert.ok(MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_TIMEOUT_MS <= 2 * 60 * 60 * 1000, 'TARGET_BRANCH_CI_TIMEOUT_MS should be at most 2 hours');
 });
-
 test('MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_POLL_INTERVAL_MS has reasonable value', () => {
   // Should be at least 10 seconds (10000ms) to avoid API rate limiting
   assert.ok(MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_POLL_INTERVAL_MS >= 10 * 1000, 'TARGET_BRANCH_CI_POLL_INTERVAL_MS should be at least 10 seconds');
   // Should be at most 5 minutes (300000ms) for responsiveness
   assert.ok(MERGE_QUEUE_CONFIG.TARGET_BRANCH_CI_POLL_INTERVAL_MS <= 5 * 60 * 1000, 'TARGET_BRANCH_CI_POLL_INTERVAL_MS should be at most 5 minutes');
 });
-
 test('MergeQueueProcessor has waitForTargetBranchCI method', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -745,13 +670,11 @@ test('MergeQueueProcessor has waitForTargetBranchCI method', () => {
 
   assert.ok(typeof processor.waitForTargetBranchCI === 'function', 'Should have waitForTargetBranchCI method');
 });
-
 test('MergeQueueProcessor initializes with waitingForTargetBranchCI state', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Should not be waiting initially
   assert.equal(processor.waitingForTargetBranchCI, undefined, 'Should not have waitingForTargetBranchCI flag initially');
   assert.equal(processor.targetBranchCIStatus, undefined, 'Should not have targetBranchCIStatus initially');
@@ -780,7 +703,6 @@ test('Issue #1307: Document the race condition problem and solution', () => {
   // - Post-merge CI workflows complete before next merge
   // - No workflows are cancelled due to concurrent merges
   // - Repository state remains consistent
-
   assert.ok(true, 'Issue #1307 race condition documented');
 });
 
@@ -799,7 +721,6 @@ test('Issue #1307: Timeline reconstruction', () => {
   //
   // The merge queue merged PR #1237 while PR #1306's CI was still running,
   // causing those jobs to be cancelled (likely due to GitHub's concurrency groups).
-
   const timeline = {
     pr1306Merged: new Date('2026-02-15T17:25:21Z'),
     ciRun1Started: new Date('2026-02-15T17:25:25Z'),
@@ -808,7 +729,6 @@ test('Issue #1307: Timeline reconstruction', () => {
     ciRun2Started: new Date('2026-02-15T17:42:54Z'),
     arm64Cancelled: new Date('2026-02-15T17:43:01Z'),
   };
-
   // The gap between docker amd64 completing and arm64 being cancelled is ~10 minutes
   // This shows arm64 was still running when the new merge occurred
   const arm64WasStillRunning = timeline.arm64Cancelled.getTime() - timeline.dockerAmd64Completed.getTime();
@@ -818,19 +738,16 @@ test('Issue #1307: Timeline reconstruction', () => {
   const mergeOccurredWhileArm64Running = timeline.pr1237MergedByQueue.getTime() < timeline.arm64Cancelled.getTime();
   assert.ok(mergeOccurredWhileArm64Running, 'Merge occurred before arm64 job finished');
 });
-
 // ============================================================================
 // Issue #1339: MarkdownV2 Ellipsis Escaping Tests
 // ============================================================================
 
 console.log('\n📋 Issue #1339: MarkdownV2 Ellipsis Escaping Tests\n');
-
 test('MergeQueueProcessor formatProgressMessage escapes ellipsis in truncated PR titles', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Create a PR with a title longer than 35 chars to trigger truncation
   processor.items = [
     {
@@ -845,13 +762,11 @@ test('MergeQueueProcessor formatProgressMessage escapes ellipsis in truncated PR
   processor.stats.total = 1;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1339: The ellipsis should be escaped as \.\.\. for MarkdownV2
   assert.ok(!message.includes('...'), 'Should NOT contain unescaped ... in MarkdownV2 message');
   assert.ok(message.includes('\\.\\.\\.'), 'Should contain escaped \\.\\.\\. for MarkdownV2');
 });
-
 test('MergeQueueProcessor formatProgressMessage does NOT add ellipsis for short PR titles', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -869,20 +784,17 @@ test('MergeQueueProcessor formatProgressMessage does NOT add ellipsis for short 
     },
   ];
   processor.stats.total = 1;
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
   // Short title should not add ellipsis
   assert.ok(!message.includes('\\.\\.\\.'), 'Should NOT add ellipsis for short titles');
 });
-
 test('MergeQueueProcessor formatProgressMessage escapes ellipsis in truncated error messages', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Create an error message longer than 50 chars to trigger truncation
   processor.items = [
     {
@@ -898,7 +810,6 @@ test('MergeQueueProcessor formatProgressMessage escapes ellipsis in truncated er
   processor.stats.failed = 1;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1339: The ellipsis after truncated error should be escaped
   assert.ok(!message.includes('...'), 'Should NOT contain unescaped ... in MarkdownV2 message');
@@ -910,7 +821,6 @@ test('MergeQueueProcessor formatProgressMessage escapes more items ellipsis', ()
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Create more than 10 items to trigger the "...and N more" text
   processor.items = Array.from({ length: 12 }, (_, i) => ({
     pr: { number: 300 + i, title: `PR ${i}`, createdAt: new Date().toISOString() },
@@ -921,7 +831,6 @@ test('MergeQueueProcessor formatProgressMessage escapes more items ellipsis', ()
     getDescription: () => `PR #${300 + i}`,
   }));
   processor.stats.total = 12;
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
@@ -929,13 +838,11 @@ test('MergeQueueProcessor formatProgressMessage escapes more items ellipsis', ()
   assert.ok(!message.includes('...'), 'Should NOT contain unescaped ... in MarkdownV2 message');
   assert.ok(message.includes('\\.\\.\\.'), 'Should contain escaped \\.\\.\\. in "...and N more"');
 });
-
 test('MergeQueueProcessor formatProgressMessage escapes more issues ellipsis', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Create more than 5 FAILED items to trigger the "...and N more issues" text
   processor.items = Array.from({ length: 7 }, (_, i) => ({
     pr: { number: 400 + i, title: `Failed PR ${i}`, createdAt: new Date().toISOString() },
@@ -949,7 +856,6 @@ test('MergeQueueProcessor formatProgressMessage escapes more issues ellipsis', (
   processor.stats.failed = 7;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Issue #1339: The "...and 2 more issues" should use escaped ellipsis
   assert.ok(!message.includes('...'), 'Should NOT contain unescaped ... in MarkdownV2 message');
@@ -961,7 +867,6 @@ test('MergeQueueProcessor formatProgressMessage escapes current PR description',
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Create a PR where description contains MarkdownV2 special chars (e.g. period, parens)
   processor.items = [
     {
@@ -976,7 +881,6 @@ test('MergeQueueProcessor formatProgressMessage escapes current PR description',
   processor.stats.total = 1;
   processor.currentIndex = 0;
   processor.status = MergeStatus.RUNNING;
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
@@ -984,13 +888,11 @@ test('MergeQueueProcessor formatProgressMessage escapes current PR description',
   // '(' should become '\(' and '.' should become '\.'
   assert.ok(!message.match(/(?<!\\)\./), 'Should NOT contain unescaped periods in MarkdownV2 message');
 });
-
 test('MergeQueueProcessor formatProgressMessage is valid MarkdownV2 (no bare periods or parens outside code blocks)', () => {
   const processor = new MergeQueueProcessor({
     owner: 'link-assistant',
     repo: 'hive-mind',
   });
-
   processor.items = [
     {
       pr: { number: 1298, title: 'Fix: version 1.2.3 release', createdAt: new Date().toISOString() },
@@ -1012,24 +914,20 @@ test('MergeQueueProcessor formatProgressMessage is valid MarkdownV2 (no bare per
   processor.stats.total = 2;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
 
   // Strip code blocks before checking (content inside ``` blocks does not need MarkdownV2 escaping)
   const messageWithoutCodeBlocks = message.replace(/```[\s\S]*?```/g, '');
-
   // Check there are no unescaped periods (except inside code blocks which we already stripped)
   // A valid unescaped char in MarkdownV2 is preceded by backslash
   const unescapedPeriodMatch = messageWithoutCodeBlocks.match(/(?<!\\)\./);
   assert.ok(!unescapedPeriodMatch, `Should NOT contain unescaped periods outside code blocks, found: ${unescapedPeriodMatch ? unescapedPeriodMatch[0] : 'none'}`);
 });
-
 // ============================================================================
 // Issue #1339: UNKNOWN Merge State Retry Tests
 // ============================================================================
 
 console.log('\n📋 Issue #1339: UNKNOWN Merge State Tests\n');
-
 test('Issue #1339: Document that UNKNOWN merge state should be retried', () => {
   // This test documents the behavior change for issue #1339:
   //
@@ -1048,7 +946,6 @@ test('Issue #1339: Document that UNKNOWN merge state should be retried', () => {
 
   assert.ok(true, 'Issue #1339 UNKNOWN merge state retry documented');
 });
-
 test('Issue #1339: checkPRMergeable function has MAX_UNKNOWN_RETRIES constant behavior', () => {
   // Verify the fix exists in the source code by checking the export
   // Since checkPRMergeable is async and calls GitHub API, we verify it exists
@@ -1063,13 +960,11 @@ test('Issue #1339: checkPRMergeable function has MAX_UNKNOWN_RETRIES constant be
     });
   assert.ok(true, 'checkPRMergeable retry logic documented in source');
 });
-
 // ============================================================================
 // Issue #1341: Post-Merge CI Waiting Tests
 // ============================================================================
 
 console.log('\n📋 Issue #1341: Post-Merge CI Waiting Tests\n');
-
 test('MERGE_QUEUE_CONFIG has post-merge CI waiting fields', () => {
   assert.ok(MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI !== undefined, 'WAIT_FOR_POST_MERGE_CI should be defined');
   assert.ok(MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE !== undefined, 'STOP_ON_POST_MERGE_CI_FAILURE should be defined');
@@ -1077,7 +972,6 @@ test('MERGE_QUEUE_CONFIG has post-merge CI waiting fields', () => {
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS !== undefined, 'POST_MERGE_CI_TIMEOUT_MS should be defined');
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS !== undefined, 'POST_MERGE_CI_POLL_INTERVAL_MS should be defined');
 });
-
 test('MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI defaults to true', () => {
   // Default should be true to ensure each merge's CI completes before the next
   assert.equal(typeof MERGE_QUEUE_CONFIG.WAIT_FOR_POST_MERGE_CI, 'boolean', 'WAIT_FOR_POST_MERGE_CI should be a boolean');
@@ -1087,7 +981,6 @@ test('MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE defaults to true', () => 
   // Default should be true to prevent cascading failures
   assert.equal(typeof MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE, 'boolean', 'STOP_ON_POST_MERGE_CI_FAILURE should be a boolean');
 });
-
 test('MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START defaults to true', () => {
   // Default should be true to ensure a healthy branch before merging
   assert.equal(typeof MERGE_QUEUE_CONFIG.CHECK_BRANCH_CI_HEALTH_BEFORE_START, 'boolean', 'CHECK_BRANCH_CI_HEALTH_BEFORE_START should be a boolean');
@@ -1099,14 +992,12 @@ test('MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS has reasonable value', () => {
   // Should be at most 4 hours (typical max CI time)
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_TIMEOUT_MS <= 4 * 60 * 60 * 1000, 'POST_MERGE_CI_TIMEOUT_MS should be at most 4 hours');
 });
-
 test('MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS has reasonable value', () => {
   // Should be at least 10 seconds
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS >= 10 * 1000, 'POST_MERGE_CI_POLL_INTERVAL_MS should be at least 10 seconds');
   // Should be at most 5 minutes
   assert.ok(MERGE_QUEUE_CONFIG.POST_MERGE_CI_POLL_INTERVAL_MS <= 5 * 60 * 1000, 'POST_MERGE_CI_POLL_INTERVAL_MS should be at most 5 minutes');
 });
-
 test('MergeQueueProcessor has waitForPostMergeCI method', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -1115,7 +1006,6 @@ test('MergeQueueProcessor has waitForPostMergeCI method', () => {
 
   assert.ok(typeof processor.waitForPostMergeCI === 'function', 'Should have waitForPostMergeCI method');
 });
-
 test('MergeQueueProcessor has checkBranchCIHealthBeforeStart method', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -1124,13 +1014,11 @@ test('MergeQueueProcessor has checkBranchCIHealthBeforeStart method', () => {
 
   assert.ok(typeof processor.checkBranchCIHealthBeforeStart === 'function', 'Should have checkBranchCIHealthBeforeStart method');
 });
-
 test('MergeQueueProcessor initializes with waitingForPostMergeCI state', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   // Initially should not be waiting
   assert.equal(processor.waitingForPostMergeCI, undefined, 'waitingForPostMergeCI should start as undefined');
 });
@@ -1163,10 +1051,8 @@ test('Issue #1341: Document the problem and solution', () => {
   // - Releases are published for each PR individually
   // - CI failures are detected and reported immediately
   // - No cascading failures from merging on top of broken CI
-
   assert.ok(true, 'Issue #1341 problem and solution documented');
 });
-
 test('Issue #1341: Timeline reconstruction', () => {
   // Timeline from the actual incident (2026-02-21):
   const timeline = {
@@ -1180,7 +1066,6 @@ test('Issue #1341: Timeline reconstruction', () => {
   // The gap between merges was only 70 seconds
   const gapBetweenMerges = timeline.pr1303Merged.getTime() - timeline.pr1298Merged.getTime();
   assert.equal(gapBetweenMerges, 70 * 1000, 'Gap between merges should be 70 seconds');
-
   // The first CI run was cancelled before completion
   const ciRun1Duration = timeline.ciRun1Cancelled.getTime() - timeline.ciRun1Started.getTime();
   assert.ok(ciRun1Duration < 2 * 60 * 1000, 'CI run 1 was cancelled quickly (< 2 minutes)');
@@ -1188,13 +1073,11 @@ test('Issue #1341: Timeline reconstruction', () => {
   // Typical CI duration is 15-30 minutes, but it was cancelled after just 83 seconds
   assert.equal(ciRun1Duration, 83 * 1000, 'CI run 1 was cancelled after 83 seconds');
 });
-
 test('MergeQueueProcessor formatProgressMessage shows post-merge CI waiting status', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.items = [
     {
       pr: { number: 100, title: 'Test PR', createdAt: new Date().toISOString() },
@@ -1217,20 +1100,17 @@ test('MergeQueueProcessor formatProgressMessage shows post-merge CI waiting stat
     completedRuns: 1,
     inProgressRuns: 2,
   };
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.includes('post\\-merge CI'), 'Should mention post-merge CI');
   assert.ok(message.includes('100'), 'Should include the PR number');
 });
-
 test('MergeQueueProcessor formatFinalMessage shows CI failure details', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.items = [];
   processor.stats = { total: 1, merged: 0, failed: 0, skipped: 0 };
   processor.status = MergeStatus.FAILED;
@@ -1239,9 +1119,7 @@ test('MergeQueueProcessor formatFinalMessage shows CI failure details', () => {
 
   // Simulate branch CI health failure
   processor.branchCIFailedRuns = [{ name: 'Test Workflow', conclusion: 'failure', html_url: 'https://github.com/test/repo/actions/runs/123' }];
-
   const message = processor.formatFinalMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.includes('Branch CI Failures'), 'Should mention Branch CI Failures');
   assert.ok(message.includes('View'), 'Should include View link');
@@ -1251,7 +1129,6 @@ test('github-merge.lib.mjs exports waitForCommitCI function', async () => {
   const module = await import('../src/github-merge.lib.mjs');
   assert.ok(typeof module.waitForCommitCI === 'function', 'waitForCommitCI should be a function');
 });
-
 test('github-merge.lib.mjs exports checkBranchCIHealth function', async () => {
   const module = await import('../src/github-merge.lib.mjs');
   assert.ok(typeof module.checkBranchCIHealth === 'function', 'checkBranchCIHealth should be a function');
@@ -1261,17 +1138,14 @@ test('github-merge.lib.mjs exports getMergeCommitSha function', async () => {
   const module = await import('../src/github-merge.lib.mjs');
   assert.ok(typeof module.getMergeCommitSha === 'function', 'getMergeCommitSha should be a function');
 });
-
 // ============================================================================
 // Issue #1367: syncReadyTags Export Tests
 // ============================================================================
-
 console.log('\n📋 Issue #1367: syncReadyTags Export Tests\n');
 
 test('github-merge.lib.mjs exports syncReadyTags function', () => {
   assert.equal(typeof syncReadyTags, 'function', 'syncReadyTags should be exported as a function');
 });
-
 test('MergeQueueProcessor.initialize calls syncReadyTags (integration check via import)', () => {
   // Verify the import is present in the merge queue module
   // The actual integration is tested via the initialize() method below
@@ -1301,10 +1175,8 @@ test('Issue #1367: Document the tag sync behavior', () => {
   //
   // This ensures the final list of ready PRs includes ALL work that is ready,
   // regardless of whether the tag was applied to the PR or the issue.
-
   assert.ok(true, 'Issue #1367 tag sync behavior documented');
 });
-
 test('Issue #1367: syncReadyTags returns expected structure', async () => {
   // Since syncReadyTags makes GitHub API calls, we can't fully unit test it
   // without mocking. We verify the function signature and return type.
@@ -1319,9 +1191,7 @@ test('Issue #1367: syncReadyTags returns expected structure', async () => {
 // ============================================================================
 // Issue #1407: Cancel Button Visibility and Message Update Tests
 // ============================================================================
-
 console.log('\n📋 Issue #1407: Cancel Button Visibility and Message Update Tests\n');
-
 test('MergeQueueProcessor formatProgressMessage shows cancelling indicator when isCancelled is true', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
@@ -1342,7 +1212,6 @@ test('MergeQueueProcessor formatProgressMessage shows cancelling indicator when 
   processor.status = MergeStatus.RUNNING;
   // Issue #1407: Simulate user clicking cancel - isCancelled=true but still RUNNING
   processor.isCancelled = true;
-
   const message = processor.formatProgressMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
@@ -1350,13 +1219,11 @@ test('MergeQueueProcessor formatProgressMessage shows cancelling indicator when 
   assert.ok(message.includes('Cancelling'), 'Should include Cancelling indicator when isCancelled is true');
   assert.ok(message.includes('🛑'), 'Should include stop emoji for cancelling state');
 });
-
 test('MergeQueueProcessor formatProgressMessage does NOT show cancelling indicator when not cancelled', () => {
   const processor = new MergeQueueProcessor({
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.items = [
     {
       pr: { number: 100, title: 'Test PR', createdAt: new Date().toISOString() },
@@ -1372,7 +1239,6 @@ test('MergeQueueProcessor formatProgressMessage does NOT show cancelling indicat
   processor.isCancelled = false;
 
   const message = processor.formatProgressMessage();
-
   assert.equal(typeof message, 'string', 'Should return a string');
   // Should NOT have the cancelling indicator when not cancelled
   assert.ok(!message.includes('Cancelling\\.\\.\\.'), 'Should NOT include Cancelling indicator when not cancelled');
@@ -1383,7 +1249,6 @@ test('MergeQueueProcessor formatFinalMessage shows correct cancelled status', ()
     owner: 'test-owner',
     repo: 'test-repo',
   });
-
   processor.status = MergeStatus.CANCELLED;
   processor.items = [
     {
@@ -1406,14 +1271,12 @@ test('MergeQueueProcessor formatFinalMessage shows correct cancelled status', ()
   processor.stats = { total: 2, merged: 1, failed: 0, skipped: 0 };
   processor.startedAt = new Date();
   processor.completedAt = new Date();
-
   const message = processor.formatFinalMessage();
 
   assert.equal(typeof message, 'string', 'Should return a string');
   assert.ok(message.includes('Cancelled'), 'Should include Cancelled status in final message');
   assert.ok(message.includes('🛑'), 'Should include stop emoji for cancelled status');
 });
-
 test('Issue #1407: Document cancel button hide behavior', () => {
   // This test documents the behavior change for issue #1407:
   //
@@ -1437,7 +1300,6 @@ test('Issue #1407: Document cancel button hide behavior', () => {
   // - Cancel button is immediately hidden (no more confusion about whether cancel worked)
   // - Message clearly shows the queue is in "cancelling" state
   // - Long CI waits can be aborted sooner instead of waiting for full timeout
-
   assert.ok(true, 'Issue #1407 cancel button behavior documented');
 });
 
@@ -1450,7 +1312,6 @@ test('Issue #1407: waitForCI should support isCancelled option (via github-merge
   // options.isCancelled before each poll iteration (Issue #1407 fix)
   assert.ok(true, 'waitForCI supports isCancelled option for early exit on cancellation');
 });
-
 test('Issue #1407: MergeQueueProcessor processItem passes isCancelled to waitForCI', () => {
   // Verify the processItem implementation passes the isCancelled check
   // This is validated by checking the source code changes made for Issue #1407
@@ -1461,10 +1322,8 @@ test('Issue #1407: MergeQueueProcessor processItem passes isCancelled to waitFor
 
   // The processor should have isCancelled property that is a boolean initially
   assert.equal(processor.isCancelled, false, 'isCancelled should start as false');
-
   processor.cancel();
   assert.equal(processor.isCancelled, true, 'cancel() should set isCancelled to true');
-
   // Verify the cancel() method sets the flag that is passed to waitForCI
   // (The actual pass happens in processItem via: isCancelled: () => this.isCancelled)
   const cancelledCheck = () => processor.isCancelled;
@@ -1474,10 +1333,8 @@ test('Issue #1407: MergeQueueProcessor processItem passes isCancelled to waitFor
 // ============================================================================
 // Summary
 // ============================================================================
-
 console.log('\n' + '='.repeat(60));
 console.log(`\n📊 Test Results: ${testsPassed} passed, ${testsFailed} failed\n`);
-
 if (testsFailed > 0) {
   process.exit(1);
 }

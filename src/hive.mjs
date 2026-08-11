@@ -133,7 +133,6 @@ if (isRunningDirectly) {
         }
         await log('   📋 Fetching repository list (using --paginate for unlimited pagination)...', { verbose: true });
         await log(`   🔎 Command: ${repoListCmd}`, { verbose: true });
-
         // Add delay for rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
         // #1756: route through execGhWithRetry for transient 5xx + rate-limit
@@ -148,7 +147,6 @@ if (isRunningDirectly) {
           .filter(line => line.trim());
         const allRepositories = repoLines.map(line => JSON.parse(line));
         await log(`   📊 Found ${allRepositories.length} repositories`);
-
         // Filter repositories to only include those owned by the target user/org
         const ownedRepositories = allRepositories.filter(repo => {
           const repoOwner = repo.owner?.login || repo.owner;
@@ -165,7 +163,6 @@ if (isRunningDirectly) {
           await log(`   ⏭️  Skipping ${archivedCount} archived repository(ies)`);
         }
         await log(`   ✅ Processing ${repositories.length} non-archived repositories owned by ${owner}`);
-
         let collectedIssues = [];
         let processedRepos = 0;
         // Process repositories in batches to avoid overwhelming the API
@@ -174,7 +171,6 @@ if (isRunningDirectly) {
             const repoName = repo.name;
             const ownerName = repo.owner?.login || owner;
             await log(`   🔍 Fetching issues from ${ownerName}/${repoName}...`, { verbose: true });
-
             // Build the appropriate issue list command
             let issueCmd;
             if (fetchAllIssues) {
@@ -210,7 +206,6 @@ if (isRunningDirectly) {
             // Continue with other repositories
           }
         }
-
         await log(`   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`);
         return collectedIssues;
       } catch (error) {
@@ -224,14 +219,12 @@ if (isRunningDirectly) {
         return [];
       }
     }
-
     // Configure command line arguments - GitHub URL as positional argument
     const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
     // When you use .argv, strict mode doesn't trigger properly
     // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
     let argv;
-
     // Temporarily suppress stderr to prevent yargs from printing error messages
     // We'll handle error reporting ourselves
     const originalStderrWrite = process.stderr.write;
@@ -246,7 +239,6 @@ if (isRunningDirectly) {
       }
       return true;
     };
-
     try {
       argv = parseCliArgumentsWithLino({
         argv: ['node', 'hive', ...rawArgs],
@@ -259,14 +251,12 @@ if (isRunningDirectly) {
     } catch (error) {
       // Restore stderr before handling the error
       process.stderr.write = originalStderrWrite;
-
       // If .strict() mode catches an unknown argument, yargs will throw an error
       // We should fail fast for truly invalid arguments
       if (error.message && error.message.includes('Unknown argument')) {
         console.error('Error:', error.message);
         process.exit(1);
       }
-
       // Yargs sometimes throws "Not enough arguments" errors even when arguments are present
       // This is a quirk with optional positional arguments [github-url]
       // The error.argv object still contains the parsed arguments, so we can safely continue
@@ -279,27 +269,20 @@ if (isRunningDirectly) {
         }
         throw error;
       }
-
       // Normalize deprecated flags to new names
       if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
       if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
     }
-
     let githubUrl = argv['github-url'];
-
     // Set global verbose mode
     global.verboseMode = argv.verbose;
-
     const { initI18n } = await import('./i18n.lib.mjs');
     await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
-
     setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
     setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
-
     // Use the universal GitHub URL parser
     if (githubUrl) {
       const parsedUrl = parseGitHubUrl(githubUrl);
-
       if (!parsedUrl.valid) {
         console.error('Error: Invalid GitHub URL format');
         if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
@@ -314,7 +297,6 @@ if (isRunningDirectly) {
         console.error('  - owner/repo (will be converted to https://github.com/owner/repo)');
         await safeExit(1, 'Error occurred');
       }
-
       // Check if it's a valid type for hive (user or repo)
       if (parsedUrl.type !== 'user' && parsedUrl.type !== 'repo') {
         console.error('Error: Invalid GitHub URL for monitoring');
@@ -322,18 +304,14 @@ if (isRunningDirectly) {
         console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
         await safeExit(1, 'Error occurred');
       }
-
       // Use the normalized URL
       githubUrl = parsedUrl.normalized;
     }
-
     // Validate GitHub URL format ONCE AND FOR ALL at the beginning
     // Parse URL format: https://github.com/owner or https://github.com/owner/repo
     let urlMatch = null;
-
     // Only validate if we have a URL
     const needsUrlValidation = githubUrl;
-
     if (needsUrlValidation) {
       // Do the regex matching ONCE - this result will be used everywhere
       urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^/]+)(\/([^/]+))?$/);
@@ -350,11 +328,9 @@ if (isRunningDirectly) {
         await safeExit(1, 'Error occurred');
       }
     }
-
     // Create log file with timestamp
     // Use log-dir option if provided, otherwise use current working directory
     let targetDir = argv.logDir || process.cwd();
-
     // Verify the directory exists, create if necessary
     try {
       await fs.access(targetDir);
@@ -379,20 +355,16 @@ if (isRunningDirectly) {
         targetDir = process.cwd();
       }
     }
-
     const timestamp = formatTimestamp();
     const logFile = path.join(targetDir, `hive-${timestamp}.log`);
-
     // Set the log file for the lib.mjs logging system
     setLogFile(logFile);
-
     // Create the log file immediately
     await fs.writeFile(logFile, `# Hive.mjs Log - ${new Date().toISOString()}\n\n`);
     // Always use absolute path for log file display
     const absoluteLogPath = path.resolve(logFile);
     await log(`📁 Log file: ${absoluteLogPath}`);
     await log('   (All output will be logged here)');
-
     // Initialize Sentry integration (unless disabled)
     if (argv.sentry) {
       await initializeSentry({
@@ -400,7 +372,6 @@ if (isRunningDirectly) {
         debug: argv.verbose,
         version: process.env.npm_package_version || '0.12.0',
       });
-
       // Add breadcrumb for monitoring configuration
       addBreadcrumb({
         category: 'hive',
@@ -413,11 +384,9 @@ if (isRunningDirectly) {
         },
       });
     }
-
     // Initialize the exit handler with getAbsoluteLogPath function and Sentry cleanup
     initializeExitHandler(getAbsoluteLogPath, log);
     installGlobalExitHandlers();
-
     // Validate GitHub URL requirement
     if (!githubUrl) {
       await log('❌ GitHub URL is required', { level: 'error' });
@@ -425,7 +394,6 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
-
     // Validate project mode arguments
     if (argv.projectMode) {
       if (!argv.projectNumber) {
@@ -435,7 +403,6 @@ if (isRunningDirectly) {
         });
         await safeExit(1, 'Error occurred');
       }
-
       if (!argv.projectOwner) {
         await log('❌ Project mode requires --project-owner', { level: 'error' });
         await log('   Usage: hive <github-url> --project-mode --project-number NUMBER --project-owner OWNER', {
@@ -443,24 +410,20 @@ if (isRunningDirectly) {
         });
         await safeExit(1, 'Error occurred');
       }
-
       if (typeof argv.projectNumber !== 'number' || argv.projectNumber <= 0) {
         await log('❌ Project number must be a positive integer', { level: 'error' });
         await safeExit(1, 'Error occurred');
       }
     }
-
     // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
     if (argv.plan) {
       if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
       if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
     }
-
     const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
     if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
       argv.model = await resolveRuntimeDefaultModel(argv.tool);
     }
-
     // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
     await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
@@ -477,11 +440,9 @@ if (isRunningDirectly) {
     if (argv.subAgentModel) {
       await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
     }
-
     // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
     const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
     const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
-
     if (argv.skipIssuesWithPrs) {
       if (hasExplicitAutoContinue) {
         await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
@@ -492,15 +453,12 @@ if (isRunningDirectly) {
         await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
         await safeExit(1, 'Error occurred');
       }
-
       // -s implies disabling auto-continue unless explicitly set
       if (!hasExplicitNoAutoContinue) {
         argv.autoContinue = false;
       }
     }
-
     // Helper function to check GitHub permissions - moved to github.lib.mjs
-
     // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
     if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
       await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', {
@@ -513,13 +471,11 @@ if (isRunningDirectly) {
         await safeExit(1, 'Error occurred');
       }
     }
-
     // YouTrack configuration and validation
     let youTrackConfig = null;
     if (argv.youtrackMode) {
       // Create YouTrack config from environment variables and CLI overrides
       youTrackConfig = createYouTrackConfigFromEnv();
-
       if (!youTrackConfig) {
         await log('❌ YouTrack mode requires environment variables to be set', { level: 'error' });
         await log('   Required: YOUTRACK_URL, YOUTRACK_API_KEY, YOUTRACK_PROJECT_CODE, YOUTRACK_STAGE', {
@@ -528,7 +484,6 @@ if (isRunningDirectly) {
         await log('   Example: YOUTRACK_URL=https://mycompany.youtrack.cloud', { level: 'error' });
         process.exit(1);
       }
-
       // Apply CLI overrides
       if (argv.youtrackStage) {
         youTrackConfig.stage = argv.youtrackStage;
@@ -536,7 +491,6 @@ if (isRunningDirectly) {
       if (argv.youtrackProject) {
         youTrackConfig.projectCode = argv.youtrackProject;
       }
-
       // Validate configuration
       try {
         validateYouTrackConfig(youTrackConfig);
@@ -544,7 +498,6 @@ if (isRunningDirectly) {
         await log(`❌ YouTrack configuration error: ${error.message}`, { level: 'error' });
         process.exit(1);
       }
-
       // Test YouTrack connection
       const youTrackConnected = await testYouTrackConnection(youTrackConfig);
       if (!youTrackConnected) {
@@ -552,12 +505,10 @@ if (isRunningDirectly) {
         process.exit(1);
       }
     }
-
     // Parse GitHub URL to determine organization, repository, or user
     let scope = 'repository';
     let owner = null;
     let repo = null;
-
     // NO DUPLICATE VALIDATION! URL was already validated at the beginning.
     // If we have a URL but no validation results, that's a logic error.
     if (githubUrl && urlMatch === null) {
@@ -566,12 +517,10 @@ if (isRunningDirectly) {
       await log('This is a bug in the script logic', { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
-
     if (urlMatch) {
       owner = urlMatch[1];
       repo = urlMatch[3] || null;
     }
-
     // Determine scope
     if (!repo) {
       // Check if it's an organization or user (skip in dry-run mode to avoid hanging)
@@ -597,7 +546,6 @@ if (isRunningDirectly) {
     } else {
       scope = 'repository';
     }
-
     await log('🎯 Monitoring Configuration:');
     if (argv.youtrackMode) {
       await log(`   📍 Source: YouTrack - ${youTrackConfig.url}`);
@@ -647,7 +595,6 @@ if (isRunningDirectly) {
     if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
     if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
     await log('');
-
     // Producer/Consumer Queue implementation
     class IssueQueue {
       constructor() {
@@ -658,7 +605,6 @@ if (isRunningDirectly) {
         this.workers = [];
         this.isRunning = true;
       }
-
       // Add issue to queue if not already processed or in queue
       enqueue(issueUrl) {
         if (this.completed.has(issueUrl) || this.processing.has(issueUrl) || this.queue.includes(issueUrl)) {
@@ -667,7 +613,6 @@ if (isRunningDirectly) {
         this.queue.push(issueUrl);
         return true;
       }
-
       // Get next issue from queue
       dequeue() {
         if (this.queue.length === 0) {
@@ -677,19 +622,16 @@ if (isRunningDirectly) {
         this.processing.add(issue);
         return issue;
       }
-
       // Mark issue as completed
       markCompleted(issueUrl) {
         this.processing.delete(issueUrl);
         this.completed.add(issueUrl);
       }
-
       // Mark issue as failed
       markFailed(issueUrl) {
         this.processing.delete(issueUrl);
         this.failed.add(issueUrl);
       }
-
       // Get queue statistics
       getStats() {
         return {
@@ -700,36 +642,28 @@ if (isRunningDirectly) {
           processingIssues: Array.from(this.processing),
         };
       }
-
       // Stop all workers
       stop() {
         this.isRunning = false;
       }
     }
-
     // Create global queue instance
     const issueQueue = new IssueQueue();
-
     // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
     // controlled SIGTERM to each (they run in their own detached process group, so the
     // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
     const activeSolveChildren = new Set();
-
     // Worker function to process issues from queue
     async function worker(workerId) {
       await log(`🔧 Worker ${workerId} started`, { verbose: true });
-
       while (issueQueue.isRunning) {
         const issueUrl = issueQueue.dequeue();
-
         if (!issueUrl) {
           // No work available, wait a bit
           await new Promise(resolve => setTimeout(resolve, 5000));
           continue;
         }
-
         await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
-
         // Recheck conditions before processing to avoid wasted work
         const recheckResult = await recheckIssueConditions(issueUrl, argv);
         if (!recheckResult.shouldProcess) {
@@ -739,18 +673,15 @@ if (isRunningDirectly) {
           await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
           continue;
         }
-
         // Track if this issue failed
         let issueFailed = false;
         // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
         let gracefulStop = false;
-
         // Process the issue multiple times if needed
         for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
           if (argv.pullRequestsPerIssue > 1) {
             await log(`   📝 Creating PR ${prNum}/${argv.pullRequestsPerIssue} for issue`);
           }
-
           try {
             // Execute solve command using spawn to enable real-time streaming while avoiding command-stream quoting issues
             if (argv.dryRun) {
@@ -758,7 +689,6 @@ if (isRunningDirectly) {
             } else {
               await log(`   🚀 Executing ${solveCommand} for ${issueUrl}...`);
             }
-
             const startTime = Date.now();
             // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
             const { spawn } = await import('child_process');
@@ -784,7 +714,6 @@ if (isRunningDirectly) {
             if (argv.dryRun) args.push('--dry-run');
             if (argv.autoCleanup) args.push('--auto-cleanup');
             const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
-
             for (const optionName of getSolvePassthroughOptionNames()) {
               if (SKIP_AUTO_FORWARD.has(optionName)) continue;
               const camelName = kebabToCamel(optionName);
@@ -809,7 +738,6 @@ if (isRunningDirectly) {
             }
             // Log the actual command being executed so users can investigate/reproduce
             await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
-
             let exitCode = 0;
             // Create promise to handle async spawn process
             await new Promise(resolve => {
@@ -822,11 +750,9 @@ if (isRunningDirectly) {
                 // must NOT unref() — hive keeps waiting. See docs/case-studies/issue-1823.
                 detached: true,
               });
-
               // Issue #1823: register the in-flight child for optional force-kill on a 2nd signal
               activeSolveChildren.add(child);
               log(`   🧒 Spawned ${solveCommand} worker-${workerId} (pid ${child.pid}, detached process group)`, { verbose: true }).catch(() => {});
-
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
                 const lines = data.toString().split('\n');
@@ -842,7 +768,6 @@ if (isRunningDirectly) {
                   }
                 }
               });
-
               // Handle stderr data - stream output in real-time.
               // Issue #1823: Do NOT blanket-tag stderr as ERROR — solve relays non-error
               // diagnostics there (codex DEBUG/INFO traces, git branch messages, etc.), which
@@ -862,7 +787,6 @@ if (isRunningDirectly) {
                   }
                 }
               });
-
               // Handle process completion and spawn failure. Issue #2135: a signalled
               // child reports `code === null`, which `code || 0` read as success.
               attachChildExitHandlers({
@@ -879,9 +803,7 @@ if (isRunningDirectly) {
                 },
               });
             });
-
             const duration = Math.round((Date.now() - startTime) / 1000);
-
             if (exitCode === 0) {
               await log(`   ✅ Worker ${workerId} completed ${issueUrl} (${duration}s)`);
             } else if (!issueQueue.isRunning && (exitCode === 130 || exitCode === 143)) {
@@ -894,7 +816,6 @@ if (isRunningDirectly) {
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
-
             // Small delay between multiple PRs for same issue
             if (prNum < argv.pullRequestsPerIssue) {
               await new Promise(resolve => setTimeout(resolve, 10000));
@@ -914,19 +835,16 @@ if (isRunningDirectly) {
             break; // Stop trying more PRs for this issue
           }
         }
-
         // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
         // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
         // "processing" so it is not miscounted as completed (which would also trigger cleanup).
         if (!issueFailed && !gracefulStop) {
           issueQueue.markCompleted(issueUrl);
         }
-
         // Show queue stats
         const stats = issueQueue.getStats();
         await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
         await log(`   📁 Hive log file: ${absoluteLogPath}`);
-
         // Show which issues are currently being processed
         if (stats.processingIssues && stats.processingIssues.length > 0) {
           await log('   🔧 Currently processing solve commands:');
@@ -935,14 +853,11 @@ if (isRunningDirectly) {
           }
         }
       }
-
       await log(`🔧 Worker ${workerId} stopped`, { verbose: true });
     }
-
     // Function to check if an issue has open pull requests
     // Note: hasOpenPullRequests function has been replaced by batchCheckPullRequestsForIssues
     // in github.lib.mjs for better performance and reduced API calls
-
     // Function to fetch issues from GitHub
     async function fetchIssues() {
       if (argv.youtrackMode) {
@@ -954,24 +869,19 @@ if (isRunningDirectly) {
       } else {
         await log(`\n🔍 Fetching issues with label "${argv.monitorTag}"...`);
       }
-
       // In dry-run mode, skip actual API calls and return empty list immediately
       if (argv.dryRun) {
         await log('   🧪 Dry-run mode: Skipping actual issue fetching');
         return [];
       }
-
       try {
         let issues = [];
-
         if (argv.youtrackMode) {
           // Sync YouTrack issues to GitHub
           if (!owner || !repo) {
             throw new Error('YouTrack mode requires a specific repository URL (not organization/user)');
           }
-
           const githubIssues = await syncYouTrackToGitHub(youTrackConfig, owner, repo, $, log);
-
           // Convert to format expected by hive
           issues = formatIssuesForHive(githubIssues).map(issue => ({
             url: issue.html_url,
@@ -983,7 +893,6 @@ if (isRunningDirectly) {
           if (!argv.projectNumber || !argv.projectOwner) {
             throw new Error('Project mode requires --project-number and --project-owner');
           }
-
           issues = await fetchProjectIssues(argv.projectNumber, argv.projectOwner, argv.projectStatus);
         } else if (argv.allIssues) {
           // Fetch all open issues without label filter using pagination
@@ -996,10 +905,8 @@ if (isRunningDirectly) {
             // User scope
             searchCmd = `gh search issues user:${owner} is:open --json url,title,number,createdAt,repository`;
           }
-
           await log('   🔎 Fetching all issues with pagination and rate limiting...');
           await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-
           try {
             issues = await fetchAllIssuesWithPagination(searchCmd);
           } catch (searchError) {
@@ -1010,7 +917,6 @@ if (isRunningDirectly) {
               operation: 'search_all_issues',
             });
             await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
-
             // Check if the error is due to rate limiting or search API limit and we're not in repository scope
             const errorMsg = searchError.message || searchError.toString();
             const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
@@ -1035,13 +941,11 @@ if (isRunningDirectly) {
         } else {
           // Use label filter
           // execSync is used within fetchAllIssuesWithPagination
-
           // For repositories, use gh issue list which works better with new repos
           if (scope === 'repository') {
             const listCmd = `gh issue list --repo ${owner}/${repo} --state open --label "${argv.monitorTag}" --json url,title,number,createdAt`;
             await log('   🔎 Fetching labeled issues with pagination and rate limiting...');
             await log(`   🔎 Command: ${listCmd}`, { verbose: true });
-
             try {
               issues = await fetchAllIssuesWithPagination(listCmd);
             } catch (listError) {
@@ -1063,11 +967,9 @@ if (isRunningDirectly) {
             } else {
               baseQuery = `user:${owner} is:issue is:open`;
             }
-
             // Handle label with potential spaces
             let searchQuery;
             let searchCmd;
-
             if (argv.monitorTag.includes(' ')) {
               searchQuery = `${baseQuery} label:"${argv.monitorTag}"`;
               searchCmd = `gh search issues '${searchQuery}' --json url,title,number,createdAt,repository`;
@@ -1075,11 +977,9 @@ if (isRunningDirectly) {
               searchQuery = `${baseQuery} label:${argv.monitorTag}`;
               searchCmd = `gh search issues '${searchQuery}' --json url,title,number,createdAt,repository`;
             }
-
             await log('   🔎 Fetching labeled issues with pagination and rate limiting...');
             await log(`   🔎 Search query: ${searchQuery}`, { verbose: true });
             await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
-
             try {
               issues = await fetchAllIssuesWithPagination(searchCmd);
             } catch (searchError) {
@@ -1091,7 +991,6 @@ if (isRunningDirectly) {
                 operation: 'search_labeled_issues',
               });
               await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
-
               // Check if the error is due to rate limiting or search API limit
               const errorMsg = searchError.message || searchError.toString();
               const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
@@ -1116,7 +1015,6 @@ if (isRunningDirectly) {
             }
           }
         }
-
         if (issues.length === 0) {
           if (argv.youtrackMode) {
             await log(`   ℹ️  No issues found in YouTrack with stage "${youTrackConfig.stage}"`);
@@ -1129,7 +1027,6 @@ if (isRunningDirectly) {
           }
           return [];
         }
-
         if (argv.youtrackMode) {
           await log(`   📋 Found ${issues.length} YouTrack issue(s) with stage "${youTrackConfig.stage}"`);
         } else if (argv.projectMode) {
@@ -1139,7 +1036,6 @@ if (isRunningDirectly) {
         } else {
           await log(`   📋 Found ${issues.length} issue(s) with label "${argv.monitorTag}"`);
         }
-
         // Sort issues by publication date (createdAt) based on issue-order option
         if (issues.length > 0 && issues[0].createdAt) {
           await log(`   🔄 Sorting issues by publication date (${argv.issueOrder === 'asc' ? 'oldest first' : 'newest first'})...`);
@@ -1150,16 +1046,13 @@ if (isRunningDirectly) {
           });
           await log('   ✅ Issues sorted by publication date');
         }
-
         // Filter out issues from archived repositories
         // This is critical because we cannot do write operations on archived repositories
         let issuesToProcess = issues;
-
         // Helper function to extract repository info from issue (API response or URL)
         const getRepoInfo = issue => {
           let repoName = issue.repository?.name;
           let repoOwner = issue.repository?.owner?.login || issue.repository?.nameWithOwner?.split('/')[0];
-
           // If repository info is not available, extract it from the issue URL
           if (!repoName || !repoOwner) {
             const urlMatch = issue.url?.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/\d+/);
@@ -1168,15 +1061,12 @@ if (isRunningDirectly) {
               repoName = urlMatch[2];
             }
           }
-
           return { repoOwner, repoName };
         };
-
         // Only filter for organization/user scopes
         // For repository scope, we're already working on a specific repo
         if (scope !== 'repository' && issues.length > 0) {
           await log('   🔍 Checking for archived repositories...');
-
           // Extract unique repositories from issues
           const uniqueRepos = new Map();
           for (const issue of issues) {
@@ -1188,20 +1078,15 @@ if (isRunningDirectly) {
               }
             }
           }
-
           // Batch check archived status for all repositories
           const archivedStatusMap = await batchCheckArchivedRepositories(Array.from(uniqueRepos.values()));
-
           // Filter out issues from archived repositories
           const filteredIssues = [];
           let archivedIssuesCount = 0;
-
           for (const issue of issues) {
             const { repoOwner, repoName } = getRepoInfo(issue);
-
             if (repoOwner && repoName) {
               const repoKey = `${repoOwner}/${repoName}`;
-
               if (archivedStatusMap[repoKey] === true) {
                 await log(`      ⏭️  Skipping (archived repository): ${issue.title || 'Untitled'} (${issue.url})`, {
                   verbose: true,
@@ -1216,18 +1101,14 @@ if (isRunningDirectly) {
               filteredIssues.push(issue);
             }
           }
-
           if (archivedIssuesCount > 0) {
             await log(`   ⏭️  Skipped ${archivedIssuesCount} issue(s) from archived repositories`);
           }
-
           issuesToProcess = filteredIssues;
         }
-
         // Filter out issues with open PRs if option is enabled
         if (argv.skipIssuesWithPrs) {
           await log('   🔍 Checking for existing pull requests using batch GraphQL query...');
-
           // Extract issue numbers and repository info from URLs
           const issuesByRepo = {};
           for (const issue of issuesToProcess) {
@@ -1235,7 +1116,6 @@ if (isRunningDirectly) {
             if (urlMatch) {
               const [, issueOwner, issueRepo, issueNumber] = urlMatch;
               const repoKey = `${issueOwner}/${issueRepo}`;
-
               if (!issuesByRepo[repoKey]) {
                 issuesByRepo[repoKey] = {
                   owner: issueOwner,
@@ -1243,22 +1123,18 @@ if (isRunningDirectly) {
                   issues: [],
                 };
               }
-
               issuesByRepo[repoKey].issues.push({
                 number: parseInt(issueNumber),
                 issue: issue,
               });
             }
           }
-
           // Batch check PRs for each repository
           const filteredIssues = [];
           let totalSkipped = 0;
-
           for (const repoData of Object.values(issuesByRepo)) {
             const issueNumbers = repoData.issues.map(i => i.number);
             const prResults = await batchCheckPullRequestsForIssues(repoData.owner, repoData.repo, issueNumbers);
-
             // Process results
             for (const issueData of repoData.issues) {
               const prInfo = prResults[issueData.number];
@@ -1270,19 +1146,16 @@ if (isRunningDirectly) {
               }
             }
           }
-
           if (totalSkipped > 0) {
             await log(`   ⏭️  Skipped ${totalSkipped} issue(s) with existing pull requests`);
           }
           issuesToProcess = filteredIssues;
         }
-
         // Apply max issues limit if set (after filtering to exclude skipped issues from count)
         if (argv.maxIssues > 0 && issuesToProcess.length > argv.maxIssues) {
           issuesToProcess = issuesToProcess.slice(0, argv.maxIssues);
           await log(`   🔢 Limiting to first ${argv.maxIssues} issues (after filtering)`);
         }
-
         // In dry-run mode, show the issues that would be processed
         if (argv.dryRun && issuesToProcess.length > 0) {
           await log('\n   📝 Issues that would be processed:');
@@ -1290,7 +1163,6 @@ if (isRunningDirectly) {
             await log(`      - ${issue.title || 'Untitled'} (${issue.url})`);
           }
         }
-
         return issuesToProcess.map(issue => issue.url);
       } catch (error) {
         reportError(error, {
@@ -1304,26 +1176,21 @@ if (isRunningDirectly) {
         return [];
       }
     }
-
     // Main monitoring loop
     async function monitor() {
       await log('\n🚀 Starting Hive Mind monitoring system...');
-
       // Start workers
       await log(`\n👷 Starting ${argv.concurrency} workers...`);
       for (let i = 1; i <= argv.concurrency; i++) {
         issueQueue.workers.push(worker(i));
       }
-
       // Main monitoring loop
       let iteration = 0;
       while (true) {
         iteration++;
         await log(`\n🔄 Monitoring iteration ${iteration} at ${new Date().toISOString()}`);
-
         // Fetch issues
         const issueUrls = await fetchIssues();
-
         // Add new issues to queue
         let newIssues = 0;
         for (const url of issueUrls) {
@@ -1332,13 +1199,11 @@ if (isRunningDirectly) {
             await log(`   ➕ Added to queue: ${url}`);
           }
         }
-
         if (newIssues > 0) {
           await log(`   📥 Added ${newIssues} new issue(s) to queue`);
         } else {
           await log('   ℹ️  No new issues to add (all already processed or in queue)');
         }
-
         // Show current stats
         const stats = issueQueue.getStats();
         await log('\n📊 Current Status:');
@@ -1347,7 +1212,6 @@ if (isRunningDirectly) {
         await log(`   ✅ Completed: ${stats.completed}`);
         await log(`   ❌ Failed: ${stats.failed}`);
         await log(`   📁 Hive log file: ${absoluteLogPath}`);
-
         // Show which issues are currently being processed
         if (stats.processingIssues && stats.processingIssues.length > 0) {
           await log('   🔧 Currently processing solve commands:');
@@ -1355,11 +1219,9 @@ if (isRunningDirectly) {
             await log(`      - ${issueUrl}`);
           }
         }
-
         // If running once, wait for queue to empty then exit
         if (argv.once) {
           await log('\n🏁 Single run mode - waiting for queue to empty...');
-
           while (stats.queued > 0 || stats.processing > 0) {
             await new Promise(resolve => setTimeout(resolve, 5000));
             const currentStats = issueQueue.getStats();
@@ -1376,36 +1238,29 @@ if (isRunningDirectly) {
           await log(`   Completed: ${stats.completed}`);
           await log(`   Failed: ${stats.failed}`);
           await log(`   📁 Full log file: ${absoluteLogPath}`);
-
           // Perform cleanup if enabled and there were successful completions
           if (stats.completed > 0) {
             await cleanupTempDirectories(argv);
           }
-
           // Stop workers before breaking to avoid hanging
           issueQueue.stop();
           break;
         }
-
         // Wait for next iteration
         await log(`\n⏰ Next check in ${argv.interval} seconds...`);
         await new Promise(resolve => setTimeout(resolve, argv.interval * 1000));
       }
-
       // Stop workers
       issueQueue.stop();
       await Promise.all(issueQueue.workers);
-
       // Perform cleanup if enabled and there were successful completions
       const finalStats = issueQueue.getStats();
       if (finalStats.completed > 0) {
         await cleanupTempDirectories();
       }
-
       await log('\n👋 Hive Mind monitoring stopped');
       await log(`   📁 Full log file: ${absoluteLogPath}`);
     }
-
     // Issue #1823: Graceful-shutdown + force-kill logic lives in hive.shutdown.lib.mjs.
     // gracefulShutdown waits (uncapped) for in-flight solve workers to finish on the first
     // interrupt; on a second interrupt it force-kills their detached process groups.
@@ -1420,7 +1275,6 @@ if (isRunningDirectly) {
       absoluteLogPath,
       activeSolveChildren,
     });
-
     // Handle graceful shutdown.
     // Issue #1823: Tell the global exit handler (installed earlier via installGlobalExitHandlers)
     // to stand down on SIGINT/SIGTERM so it does not call process.exit() and race us. From here
@@ -1429,7 +1283,6 @@ if (isRunningDirectly) {
     delegateSignalHandling(true);
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
-
     // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
     if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
       await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
@@ -1447,11 +1300,9 @@ if (isRunningDirectly) {
         },
         { log }
       );
-
       if (!systemCheck.success) {
         await safeExit(1, 'Error occurred');
       }
-
       // Validate the selected AI tool connection before starting monitoring with the same model that will be used
       const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
       if (!isToolConnected) {
@@ -1459,10 +1310,8 @@ if (isRunningDirectly) {
         await safeExit(1, 'Error occurred');
       }
     }
-
     // Wrap monitor function with Sentry error tracking
     const monitorWithSentry = !argv.sentry ? monitor : withSentry(monitor, 'hive.monitor', 'command');
-
     // Start monitoring
     try {
       await monitorWithSentry();
@@ -1475,7 +1324,6 @@ if (isRunningDirectly) {
       await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
       await safeExit(1, 'Error occurred');
     }
-
     const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
     if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {

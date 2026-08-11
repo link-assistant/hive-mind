@@ -129,7 +129,7 @@ The service and its Docker network are both named `link-assistant-formal-ai`, an
 HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
 ```
 
-Hive Mind forwards that endpoint into every `--isolation docker` task. For the Compose hostname `link-assistant-formal-ai`, the root container resolves the outer-network address immediately before launch and gives the nested task the resulting routable IP. Custom external hostnames remain unchanged, preserving DNS, virtual-host routing, and HTTPS certificate verification. In custom nested-Docker deployments, attach the service and root container to a shared routable network. The current `start-command` Docker backend forwards environment variables but does not expose a Docker `--network` option, so unusual network policies may still require setting the variable to an address routable from nested task containers.
+Hive Mind forwards that endpoint into every `--isolation docker` task. For the Compose hostname `link-assistant-formal-ai`, the root container resolves the outer-network address immediately before launch and gives the nested task the resulting routable IP. Custom external hostnames remain unchanged, preserving DNS, virtual-host routing, and HTTPS certificate verification. In custom nested-Docker deployments, attach the service and root container to a shared routable network. `start-command` 0.31.0 can select a network at launch ([start#154](https://github.com/link-foundation/start/issues/154)), but `docker run --network` _replaces_ the default bridge, which would cut a task off from GitHub, so Hive Mind attaches nested task containers with `docker network connect` after they are created (see the next section); unusual network policies may still require setting the variable to an address routable from nested task containers.
 
 For a manual deployment:
 
@@ -150,6 +150,48 @@ docker run --rm --network link-assistant-formal-ai \
   konard/hive-mind:latest \
   solve ISSUE_URL --tool agent --model formal-ai
 ```
+
+#### On-demand Formal AI sidecar (default for the bot)
+
+The Compose service above keeps Formal AI running permanently. A bot host that
+only occasionally answers `--model formal-ai` does not need that, so Hive Mind
+manages the container itself: the first Formal AI task starts it, and the last
+one to finish stops it again.
+
+```text
+task container ──docker network connect──▶ hive-mind-formal-ai (internal)
+                                              └── hive-mind-formal-ai container
+                                                    └── hive-mind-formal-ai-memory volume
+```
+
+- The sidecar runs as `hive-mind-formal-ai` on the internal network of the same
+  name, with the alias `link-assistant-formal-ai`. `--internal` means the
+  network has no egress, and no port is published, so the model is reachable
+  from attached task containers and from nowhere else.
+- Each task holds a lease keyed on its session id (which is also its container
+  name). Leases are re-derived from Docker on every reconcile, so a task that
+  crashes cannot pin the container forever, and a task that is still being
+  created keeps its lease for a one-hour launch window.
+- Task containers are attached with `docker network connect` inside the same
+  gate that starts the sidecar, and receive the sidecar's address (not the DNS
+  alias) as `HIVE_MIND_FORMAL_AI_BASE_URL`.
+- If the sidecar cannot start or the attach fails, the task is stopped instead
+  of continuing on a different model
+  ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)).
+- Memory lives in the `hive-mind-formal-ai-memory` volume, which is never
+  removed — not when the container stops, not when the image changes.
+
+While no lease is held, the sidecar image is refreshed by pulling
+`HIVE_MIND_FORMAL_AI_UPDATE_TAG` and comparing digests. A new digest is adopted
+only through the Formal AI persisted-memory upgrade contract
+([formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)):
+`memory upgrade-status` preflight, `memory migrate` with a byte-exact backup and
+a receipt, then a boot of the new image whose `/health` must report the memory
+as compatible. Any failure after the migration restores the backup named in the
+receipt and keeps the previous image. Installed agentic CLIs (`claude`, `codex`,
+`agent`, `gemini`, `qwen`, `copilot`, `opencode`) are refreshed on the same idle
+condition. The environment variables for both are documented in
+[Configuration](CONFIGURATION.md#41-docker-isolation-settings).
 
 #### Host-image passthrough (avoid re-downloading multi-GB images)
 

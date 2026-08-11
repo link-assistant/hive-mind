@@ -31,6 +31,7 @@ import { firstErrorText, stringifyErrorValue } from './error-text.lib.mjs';
 import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
@@ -355,6 +356,22 @@ export const agentCliSupportsLiveInput = versionOutput => {
   return !!version && semver.gte(version, MIN_AGENT_LIVE_INPUT_VERSION);
 };
 
+/**
+ * Agent only fails closed on a `--model` argv it cannot parse from js-0.25.8
+ * onwards (link-assistant/agent#293, fixed by PR #294): earlier releases logged
+ * a CRITICAL record and then answered with their *default* model. Issue #2146
+ * requires Formal AI to be the only model a task can reach, and a guard that
+ * reads the CRITICAL record can only stop the run after Agent has already
+ * decided, so a Formal AI task refuses to start below this release.
+ */
+export const MIN_AGENT_FORMAL_AI_VERSION = '0.25.8';
+
+/** True when this Agent CLI aborts instead of silently picking another model. */
+export const agentCliFailsClosedOnModelMismatch = versionOutput => {
+  const version = getAgentCliVersion(versionOutput);
+  return !!version && semver.gte(version, MIN_AGENT_FORMAL_AI_VERSION);
+};
+
 // Function to validate Agent connection
 export const validateAgentConnection = async (model = defaultModels.agent, options = {}) => {
   // Map model alias to full ID
@@ -392,6 +409,19 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
 
       if (requireLiveInput && (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_LIVE_INPUT_VERSION))) {
         await log(`❌ Agent live stream-json input requires @link-assistant/agent >= ${MIN_AGENT_LIVE_INPUT_VERSION}`, { level: 'error' });
+        if (agentVersion) {
+          await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
+        } else {
+          await log('   Could not determine the installed Agent CLI version.', { level: 'error' });
+        }
+        await log('   Update with: bun install -g @link-assistant/agent@latest', { level: 'error' });
+        return false;
+      }
+
+      if (isFormalAiModel(model) && !(agentVersion && semver.gte(agentVersion, MIN_AGENT_FORMAL_AI_VERSION))) {
+        await log(`❌ Formal AI tasks require @link-assistant/agent >= ${MIN_AGENT_FORMAL_AI_VERSION}`, { level: 'error' });
+        await log('   Older releases answer with their default model when they cannot parse the requested one', { level: 'error' });
+        await log('   (link-assistant/agent#293), and issue #2146 forbids any model other than Formal AI.', { level: 'error' });
         if (agentVersion) {
           await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
         } else {
@@ -600,17 +630,8 @@ export const executeAgentCommand = async params => {
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'agent', model: argv.model, toolPath: agentPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: agentEnv });
     Object.assign(agentEnv, toolInvocation.env);
 
-    // Build agent command arguments
-    let agentArgs = `--model ${mappedModel}`;
-
-    // Propagate verbose flag to agent for detailed debugging output
-    if (argv.verbose) {
-      agentArgs += ' --verbose';
-    }
-
     if (argv.resume) {
       await log(`🔄 Resuming from session: ${argv.resume}`);
-      agentArgs += ` --resume ${argv.resume} --no-fork`;
     }
 
     // Agent supports stdin in both plain text and JSON format
@@ -631,9 +652,11 @@ export const executeAgentCommand = async params => {
         });
       }
       const streamingInput = !!bidirectionalHandler;
-      if (streamingInput) {
-        agentArgs += ' --input-format stream-json --output-format stream-json';
-      }
+      // Issue #2146: command-stream treats an interpolated string as one argv
+      // atom. The old `--model formalai/formal-ai --verbose` string made Agent
+      // ignore the requested model and contact its default provider.
+      const agentArgs = buildAgentArgs({ model: mappedModel, verbose: argv.verbose, resume: argv.resume, streamingInput });
+      const displayedAgentArgs = formatAgentArgsForDisplay(agentArgs);
 
       let promptFile = null;
       if (!streamingInput) {
@@ -643,7 +666,7 @@ export const executeAgentCommand = async params => {
         await fs.writeFile(promptFile, combinedPrompt);
       }
 
-      const fullCommand = streamingInput ? `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${agentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${agentArgs})`;
+      const fullCommand = streamingInput ? `(cd "${tempDir}" && ${toolInvocation.displayCommand} ${displayedAgentArgs})` : `(cd "${tempDir}" && cat "${promptFile}" | ${toolInvocation.displayCommand} ${displayedAgentArgs})`;
 
       const preparedResult = await logPreparedToolCommand({ argv, fullCommand, log, formatAligned });
       if (preparedResult) return preparedResult;
@@ -691,26 +714,21 @@ export const executeAgentCommand = async params => {
       // Post-hoc detection on fullOutput can miss errors if NDJSON lines get concatenated without newlines
       let streamingErrorDetected = false;
       let streamingErrorMessage = null;
-      // Issue #1276: Track successful completion events to clear error flags
-      // When agent emits session.idle or disposal events, it means it recovered and completed successfully
+      // Only a strong terminal success record may clear a preceding error.
+      // `session.idle` is also emitted after terminal API failures (#2146).
       let agentCompletedSuccessfully = false;
       // Issue #2141: a fatal startup log record (e.g. ProviderModelNotFoundError)
       // that the agent CLI reports without any `{"type":"error"}` event.
       let fatalLogErrorMessage = null;
+      // A Formal AI run must never continue after Agent resolves another model.
+      let formalAiRoutingErrorMessage = null;
       // Issue #1250: Accumulate token usage during streaming instead of parsing fullOutput later
       // This fixes the issue where NDJSON lines get concatenated without newlines, breaking JSON.parse
       const streamingTokenUsage = createAgentTokenUsage();
       const accumulateTokenUsage = data => accumulateAgentStepFinishUsage(streamingTokenUsage, data);
-      const isAgentSuccessfulCompletionEvent = data => {
-        if (data.type === 'session.idle' || data.type === 'session_idle' || data.type === 'idle') return true;
-        if (data.type === 'log' && data.message === 'exiting loop') return true;
-        if (data.type === 'step_finish' && data.part?.reason === 'stop') return true;
-        if (data.type === 'result' && (data.status === 'success' || data.subtype === 'success')) return true;
-        return false;
-      };
       const markBidirectionalStateFromAgentEvent = async data => {
         if (!bidirectionalHandler) return;
-        if (isAgentSuccessfulCompletionEvent(data)) {
+        if (isAgentIdleEvent(data)) {
           if (typeof bidirectionalHandler.markAiIdle === 'function') {
             try {
               await bidirectionalHandler.markAiIdle();
@@ -754,6 +772,17 @@ export const executeAgentCommand = async params => {
         // Issue #1250: Accumulate token usage during streaming
         accumulateTokenUsage(data);
         await markBidirectionalStateFromAgentEvent(data);
+        if (!formalAiRoutingErrorMessage) {
+          const routingMismatch = detectFormalAiAgentRoutingMismatch(data, mappedModel);
+          if (routingMismatch) {
+            formalAiRoutingErrorMessage = routingMismatch;
+            await log(`🛑 ${routingMismatch}`, { level: 'error' });
+            // Agent emits its parser warning and selected provider before its
+            // first HTTP request. Stop immediately instead of trusting a later
+            // error or cost report to reveal that the wrong LLM was used.
+            execCommand?.kill?.('SIGTERM');
+          }
+        }
         // Issue #1201: Detect error events during streaming for reliable detection
         if (data.type === 'error' || data.type === 'step_error') {
           streamingErrorDetected = true;
@@ -807,17 +836,7 @@ export const executeAgentCommand = async params => {
           // Explicit result message (like Claude outputs)
           lastTextContent = data.result;
         }
-        // Issue #1276: Detect successful completion events
-        // When agent emits session.idle or log with "exiting loop" message, it completed successfully
-        // This means any previous error events were recovered from (e.g., timeout then retry)
-        if (isAgentSuccessfulCompletionEvent(data)) {
-          agentCompletedSuccessfully = true;
-        }
-        // Issue #1296: Detect step_finish with reason "stop" as successful completion
-        // This is a clear marker of success - agent finished normally, not due to error or limit
-        // When this event appears, we should ignore any error events that appeared earlier in the stream
-        // (e.g., timeout errors that were recovered from via retry logic)
-        if (data.type === 'step_finish' && data.part?.reason === 'stop') agentCompletedSuccessfully = true;
+        if (isAgentStrongCompletionEvent(data)) agentCompletedSuccessfully = true;
       };
 
       const handleAgentStreamEvents = async events => {
@@ -866,6 +885,12 @@ export const executeAgentCommand = async params => {
       // Only check for JSON error messages, not pattern matching in output
       // Issue #2141: the detection now renders structured payloads as text.
       const outputError = detectAgentErrorsInOutput(fullOutput);
+
+      if (formalAiRoutingErrorMessage) {
+        outputError.detected = true;
+        outputError.type = 'AgentModelRoutingMismatch';
+        outputError.match = formalAiRoutingErrorMessage;
+      }
 
       // Issue #1276: Clear streaming error detection if agent completed successfully
       // When an error occurs during execution (e.g., timeout) but the agent recovers and completes,

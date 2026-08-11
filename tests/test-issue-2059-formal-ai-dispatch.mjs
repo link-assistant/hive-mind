@@ -258,7 +258,7 @@ test('Formal AI connection validation checks the client registry and selected CL
     env: { HIVE_MIND_FORMAL_AI_PATH: '/opt/formal-ai' },
     run: async (command, args) => {
       calls.push({ command, args });
-      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      if (command === '/opt/formal-ai' && args[0] === '--version') return { stdout: 'formal-ai 0.336.0\n' };
       if (command === '/opt/formal-ai') return { stdout: JSON.stringify([{ id: 'qwen', default_protocol: 'openai', global_configs: [] }]) };
       return { stdout: 'qwen 1.2.3\n' };
     },
@@ -266,7 +266,7 @@ test('Formal AI connection validation checks the client registry and selected CL
 
   assert.equal(result.valid, true);
   assert.equal(result.version, 'qwen 1.2.3');
-  assert.equal(result.formalAiVersion, '0.317.0');
+  assert.equal(result.formalAiVersion, '0.336.0');
   assert.equal(result.client, 'qwen');
   assert.equal(result.protocol, 'openai');
   assert.deepEqual(calls, [
@@ -280,7 +280,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
     run: async (command, args) => {
-      if (args[0] === '--version') return { stdout: 'formal-ai 0.317.0\n' };
+      if (args[0] === '--version') return { stdout: 'formal-ai 0.336.0\n' };
       return { stdout: JSON.stringify([{ id: 'claude' }, { id: 'codex' }]) };
     },
   });
@@ -290,7 +290,7 @@ test('Formal AI connection validation reports a tool Formal AI cannot configure'
   assert.match(result.error, /claude, codex/);
   // Issue #2130: the wrapper version has to survive onto the failure path too,
   // because that is the path whose logs get attached to the pull request.
-  assert.equal(result.formalAiVersion, '0.317.0');
+  assert.equal(result.formalAiVersion, '0.336.0');
 });
 
 test('Formal AI wrapper version is parsed from the --version line and reported on every result path', async () => {
@@ -303,9 +303,9 @@ test('Formal AI wrapper version is parsed from the --version line and reported o
   assert.equal(await readFormalAiVersion({ env: {}, run: async () => ({ stdout: 'formal-ai 1.0.0' }) }), '1.0.0');
 });
 
-test('An unreadable Formal AI wrapper version never fails the run', async () => {
-  // `--version` is diagnostics, not a gate: a wrapper that cannot answer it must
-  // still be allowed to dispatch.
+test('Formal AI connection validation rejects an unreadable runtime version', async () => {
+  // The optional preflight and mandatory runtime preparation use the same
+  // support policy; disabling preflight cannot bypass the runtime gate.
   const result = await validateFormalAiToolConnection('qwen', {
     env: {},
     run: async (command, args) => {
@@ -315,8 +315,9 @@ test('An unreadable Formal AI wrapper version never fails the run', async () => 
     },
   });
 
-  assert.equal(result.valid, true);
+  assert.equal(result.valid, false);
   assert.equal(result.formalAiVersion, null);
+  assert.match(result.error, /could not determine the Formal AI version/i);
   assert.equal(
     await readFormalAiVersion({
       env: {},
@@ -388,13 +389,41 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
     assert.match(contents, /formal-ai --version/, `${name} must verify that the Formal AI wrapper is installed`);
   }
 
+  // Formal AI 0.333.0-0.338.0 pulled native-tls through web-search ->
+  // web-capture -> reqwest, so `cargo install formal-ai --locked` needed
+  // pkg-config and the OpenSSL headers, which rust:slim does not carry
+  // (link-assistant/formal-ai#988, fixed upstream in 0.339.0). The packages
+  // stay as defense in depth while the root causes remain open upstream
+  // (web-capture#151, browser-commander#77): without them a release that drags
+  // openssl-sys back in dies in the Docker job, long after the unit suite is
+  // green; with them the build succeeds either way and both are inert when
+  // openssl-sys is absent.
+  for (const [name, contents] of [
+    ['Dockerfile', dockerfile],
+    ['Dockerfile.dind', dindDockerfile],
+    ['coolify/Dockerfile', coolifyDockerfile],
+    ['Dockerfile.formal-ai', serverDockerfile],
+  ]) {
+    const builderStage = contents.slice(contents.indexOf('AS formal-ai-builder'), contents.indexOf('RUN cargo install formal-ai'));
+    assert.match(builderStage, /apt-get install [^\n]*pkg-config/, `${name} must install pkg-config before building Formal AI`);
+    assert.match(builderStage, /apt-get install [^\n]*libssl-dev/, `${name} must install the OpenSSL headers before building Formal AI`);
+    assert.match(builderStage, /^ENV OPENSSL_STATIC=1$/m, `${name} must link OpenSSL statically so the copy into the runtime image carries no soname dependency`);
+  }
+
   assert.match(serverDockerfile, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, 'the service must build against a runtime-compatible glibc');
   assert.match(serverDockerfile, /FROM konard\/hive-mind-dind:/, 'the service image must extend the root Telegram/DinD image');
   assert.match(serverDockerfile, /formal-ai", "serve", "--agent-mode"/, 'the service image must start the agent-mode API');
   assert.match(verifyImageScript, /check_tool "Formal AI" formal-ai --version/, 'image verification must exercise the installed wrapper');
   assert.match(compose, /hostname: link-assistant-formal-ai/, 'the service must have the requested stable network hostname');
   assert.match(compose, /aliases:\s+- link-assistant-formal-ai/, 'the stable hostname must be registered in Compose DNS');
-  assert.match(compose, /formal-ai-network:\s+name: link-assistant-formal-ai/, 'Compose must create the requested stable Docker network');
+  // The Compose network and volume deliberately carry the same Docker names the
+  // on-demand sidecar uses (issue #2146, PR #2147 review), so persisted memory
+  // survives a move between the two deployment shapes, and the network is
+  // `internal` so the always-on service is no more reachable than the sidecar.
+  assert.match(compose, /^ {2}formal-ai:\n {4}name: hive-mind-formal-ai$/m, 'Compose must create the shared Formal AI network under the same Docker name as the sidecar');
+  assert.match(compose, /^ {4}internal: true$/m, 'the Compose Formal AI network must carry no egress');
+  assert.match(compose, /^ {2}formal-ai-memory:\n {4}name: hive-mind-formal-ai-memory$/m, 'the Compose memory volume must be the volume the sidecar reuses');
   assert.match(compose, /formal-ai-memory:\/home\/box\/\.formal-ai/, 'the Formal AI memory must survive service restarts');
+  assert.match(compose, /HIVE_MIND_FORMAL_AI_SIDECAR=0/, 'a Compose deployment must not also start an on-demand sidecar');
   assert.match(compose, /HIVE_MIND_FORMAL_AI_BASE_URL=http:\/\/link-assistant-formal-ai:8080/, 'Hive Mind must use the persistent service endpoint');
 });

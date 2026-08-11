@@ -18,10 +18,25 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.317.0
+ARG FORMAL_AI_VERSION=0.339.1
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.96-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
+# Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
+# web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
+# the builder needs pkg-config and the OpenSSL headers; rust:slim ships neither
+# and the openssl-sys build script aborts the install. Reported upstream as
+# link-assistant/formal-ai#988 and fixed in 0.339.0 (its Cargo.lock no longer
+# contains openssl-sys), but the root causes are still open upstream
+# (link-assistant/web-capture#151, link-foundation/browser-commander#77), so the
+# packages stay as defense in depth: if a future release drags openssl-sys back
+# in, OPENSSL_STATIC links libssl into the binary and the copy into the Ubuntu
+# 24.04 runtime below stays independent of the runtime's OpenSSL soname; when
+# openssl-sys is absent both are inert (see docs/case-studies/issue-2146).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
 FROM konard/box:2.3.5
@@ -126,7 +141,7 @@ RUN bun install -g @openai/codex && \
 # Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
 # The Box base image includes screen. For tmux/docker isolation, ensure they are
 # available in the base image or install them separately.
-# start-command is pinned to 0.30.3: 0.29.1 fixed detached docker
+# start-command is pinned to 0.32.1: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -141,6 +156,17 @@ RUN bun install -g @openai/codex && \
 # #1990 fix (the primary terminal-completion gate lives in this repo's solve).
 # 0.30.3 (start#148/#149) reconciles detached Docker `OOMKilled=true` as terminal
 # in upstream `--status`/`--list`, which directly covers issue #2015.
+# 0.31.0 (start#154 / start PR #155) adds `--network` / `--network-alias` for the
+# docker isolation backend. 0.32.0 (start#156 / start PR #157, unblocked for npm
+# by start#160) makes `--network` repeatable: the first network is passed to
+# `docker create` and the rest are attached with `docker network connect` before
+# `docker start`, so a task could join the default bridge AND the `--internal`
+# Formal AI sidecar network at launch. Hive Mind still performs that same
+# additive `docker network connect` itself, inside the already-held start gate:
+# the sequencing is identical, the gate is held anyway for the writable-layer
+# baseline, and the in-repo attach keeps working (fail-closed) on any
+# start-command version instead of silently degrading to a single network on
+# pre-0.32.0 parsers (see docs/case-studies/issue-2146, issue #2146).
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
@@ -148,7 +174,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
-    bun install -g start-command@0.30.3 && \
+    bun install -g start-command@0.32.1 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

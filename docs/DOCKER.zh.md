@@ -91,7 +91,7 @@ docker compose run --rm hive-mind-solver \
 HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
 ```
 
-Hive Mind 会将该端点传给每个 `--isolation docker` 任务。对于 Compose 主机名 `link-assistant-formal-ai`，根容器会在启动前解析外层网络地址，并把可路由 IP 交给嵌套任务。自定义外部主机名保持不变，以保留 DNS、虚拟主机路由和 HTTPS 证书验证。自定义嵌套 Docker 部署应将服务和根容器接入可相互路由的网络。当前 `start-command` Docker 后端可以传递环境变量，但不提供 Docker `--network` 选项，因此特殊网络策略可能需要把此变量设为嵌套任务可访问的地址。
+Hive Mind 会将该端点传给每个 `--isolation docker` 任务。对于 Compose 主机名 `link-assistant-formal-ai`，根容器会在启动前解析外层网络地址，并把可路由 IP 交给嵌套任务。自定义外部主机名保持不变，以保留 DNS、虚拟主机路由和 HTTPS 证书验证。自定义嵌套 Docker 部署应将服务和根容器接入可相互路由的网络。`start-command` 0.31.0 已可在启动时选择网络（[start#154](https://github.com/link-foundation/start/issues/154)），但 `docker run --network` 会*替换*默认网桥，从而切断任务与 GitHub 的连接，因此 Hive Mind 在嵌套任务容器创建之后用 `docker network connect` 把它们接入网络（见下一节）；特殊网络策略仍可能需要把此变量设为嵌套任务可访问的地址。
 
 手动部署示例：
 
@@ -109,6 +109,24 @@ docker run --rm --network link-assistant-formal-ai \
   konard/hive-mind:latest \
   solve ISSUE_URL --tool agent --model formal-ai
 ```
+
+#### 按需启动的 Formal AI 容器（机器人的默认方式）
+
+上面的 Compose 服务会让 Formal AI 一直运行。只是偶尔处理 `--model formal-ai` 的机器人主机并不需要这样，因此 Hive Mind 自己管理该容器：第一个 Formal AI 任务启动它，最后结束的任务再把它停掉。
+
+```text
+任务容器 ──docker network connect──▶ hive-mind-formal-ai（internal）
+                                        └── hive-mind-formal-ai 容器
+                                              └── hive-mind-formal-ai-memory 卷
+```
+
+- 容器以 `hive-mind-formal-ai` 为名运行在同名的内部网络上，别名为 `link-assistant-formal-ai`。`--internal` 表示该网络没有对外出口，且不发布任何端口，因此只有接入该网络的任务容器能访问模型，其他任何地方都不能。
+- 每个任务持有一份以其 session id（同时也是容器名）为键的租约。每次对账都会依据 Docker 重新推导租约，因此崩溃的任务不会永久占住容器，而仍在创建中的任务会在一小时的启动窗口内保留租约。
+- 任务容器在启动 Formal AI 容器的同一临界区内通过 `docker network connect` 接入，并以容器地址（而非 DNS 别名）作为 `HIVE_MIND_FORMAL_AI_BASE_URL`。
+- 如果容器无法启动或接入失败，任务会被停止，而不是改用其他模型继续（[issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)）。
+- 内存保存在 `hive-mind-formal-ai-memory` 卷中，该卷永远不会被删除——容器停止时不会，镜像更换时也不会。
+
+在没有租约期间，镜像会通过 pull `HIVE_MIND_FORMAL_AI_UPDATE_TAG` 并比较摘要来刷新。新摘要只会经由 Formal AI 的持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）被采纳：先执行 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像，其 `/health` 必须报告内存兼容。迁移之后的任何失败都会恢复回执中记录的备份并保留原镜像。已安装的 agentic CLI（`claude`、`codex`、`agent`、`gemini`、`qwen`、`copilot`、`opencode`）在相同的空闲条件下刷新。两者的环境变量见 [Configuration](CONFIGURATION.zh.md)。
 
 #### 宿主镜像透传（避免重复下载数 GB 镜像）
 

@@ -53,6 +53,8 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
+import { assertSupportedFormalAiVersion, FORMAL_AI_MINIMUM_VERSION, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 
 export const FORMAL_AI_DEFAULT_API_KEY = 'formal-ai';
@@ -359,6 +361,13 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
 
   installExitHook();
 
+  // Issue #2146: `--no-tool-check` skipped the only version probe, allowing an
+  // old Formal AI build to return the same unexecuted plan through all five
+  // Claude/Codex restarts. Runtime safety cannot depend on preflight options.
+  const formalAiVersion = await (deps.readVersionImpl || readFormalAiBinaryVersion)({ formalAiPath: resolvedFormalAiPath, env });
+  assertSupportedFormalAiVersion(formalAiVersion);
+  await log(`🧠 Formal AI: version ${formalAiVersion} (minimum ${FORMAL_AI_MINIMUM_VERSION})`);
+
   const apiKey = resolveFormalAiApiKey(env);
   const externalBaseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL?.trim() || null;
   const homeRoot = resolveFormalAiHomeRoot(env);
@@ -420,6 +429,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       client,
       notes,
       serverStarted: !!server,
+      formalAiVersion,
       stop: async () => {
         runtimeCache.delete(cacheKey);
         await server?.stop?.();

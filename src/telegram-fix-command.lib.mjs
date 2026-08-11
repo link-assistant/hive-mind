@@ -10,6 +10,7 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
 import { validateModelName } from './models/index.mjs';
 import { parseFixRepository } from './fix.ci-cd.lib.mjs';
+import { getModelFromArgs } from './model-args.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
@@ -45,14 +46,6 @@ export function getFixToolFromArgs(args) {
     if (args[i].startsWith('--tool=')) return args[i].substring('--tool='.length);
   }
   return 'claude';
-}
-
-function getModelFromArgs(args) {
-  for (let i = 0; i < args.length; i++) {
-    if ((args[i] === '--model' || args[i] === '-m') && i + 1 < args.length) return args[i + 1];
-    if (args[i].startsWith('--model=')) return args[i].substring('--model='.length);
-  }
-  return null;
 }
 
 function validateFixModel(args) {

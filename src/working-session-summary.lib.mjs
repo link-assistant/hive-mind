@@ -50,6 +50,52 @@ export const redactWorkspacePaths = text => {
 };
 
 /**
+ * Fence structured text emitted after a Markdown lead-in ending in `:`.
+ * Formal AI plan events use a root record followed by space/tab-indented Lino;
+ * GitHub otherwise collapses that layout into ordinary prose. Existing fences
+ * and ordinary Markdown are preserved, making this safe to apply at the final
+ * GitHub-comment boundary.
+ */
+export const formatWorkingSessionSummaryMarkdown = text => {
+  if (typeof text !== 'string' || !text) return text;
+
+  const lines = text.split('\n');
+  const output = [];
+  let inFence = false;
+  let previousNonEmpty = '';
+
+  for (let index = 0; index < lines.length; ) {
+    const line = lines[index];
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      output.push(line);
+      if (line.trim()) previousNonEmpty = line;
+      index += 1;
+      continue;
+    }
+
+    if (!inFence && line.trim() && previousNonEmpty.trimEnd().endsWith(':')) {
+      let end = index;
+      while (end < lines.length && lines[end].trim()) end += 1;
+      const block = lines.slice(index, end);
+      const looksStructured = block.length >= 2 && block.some(blockLine => /^(?:\t| {2,})/.test(blockLine));
+      if (looksStructured) {
+        output.push('```text', ...block, '```');
+        previousNonEmpty = '```';
+        index = end;
+        continue;
+      }
+    }
+
+    output.push(line);
+    if (line.trim()) previousNonEmpty = line;
+    index += 1;
+  }
+
+  return output.join('\n');
+};
+
+/**
  * The line appended when the pull request still has an empty diff.
  *
  * @param {{measured: boolean, hasChanges: boolean}|null} changeStats - from
@@ -62,4 +108,4 @@ export const buildNoChangesNotice = changeStats => {
   return '> ⚠️ This pull request still contains no changes - nothing was implemented yet.';
 };
 
-export default { buildNoChangesNotice, redactWorkspacePaths, WORKSPACE_PATH_PLACEHOLDER };
+export default { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, WORKSPACE_PATH_PLACEHOLDER };

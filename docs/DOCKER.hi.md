@@ -91,7 +91,7 @@ Service और उसका Docker network दोनों `link-assistant-forma
 HIVE_MIND_FORMAL_AI_BASE_URL=http://link-assistant-formal-ai:8080
 ```
 
-Hive Mind endpoint को हर `--isolation docker` task में forward करता है। Compose hostname `link-assistant-formal-ai` के लिए root container launch से ठीक पहले outer-network address resolve करके nested task को routable IP देता है। Custom external hostnames unchanged रहते हैं, जिससे DNS, virtual-host routing और HTTPS certificate verification सुरक्षित रहते हैं। Custom nested-Docker deployments में service और root container को shared routable network से जोड़ें। Current `start-command` Docker backend environment variables forward करता है लेकिन Docker `--network` option expose नहीं करता, इसलिए unusual network policies में variable को nested task से routable address पर set करना पड़ सकता है।
+Hive Mind endpoint को हर `--isolation docker` task में forward करता है। Compose hostname `link-assistant-formal-ai` के लिए root container launch से ठीक पहले outer-network address resolve करके nested task को routable IP देता है। Custom external hostnames unchanged रहते हैं, जिससे DNS, virtual-host routing और HTTPS certificate verification सुरक्षित रहते हैं। Custom nested-Docker deployments में service और root container को shared routable network से जोड़ें। `start-command` 0.31.0 launch पर network चुन सकता है ([start#154](https://github.com/link-foundation/start/issues/154)), लेकिन `docker run --network` default bridge को _बदल_ देता है और task को GitHub से काट देता, इसलिए Hive Mind nested task containers को उनके बनने के बाद `docker network connect` से जोड़ता है (अगला section देखें); unusual network policies में फिर भी variable को nested task से routable address पर set करना पड़ सकता है।
 
 Manual deployment:
 
@@ -109,6 +109,24 @@ docker run --rm --network link-assistant-formal-ai \
   konard/hive-mind:latest \
   solve ISSUE_URL --tool agent --model formal-ai
 ```
+
+#### On-demand Formal AI container (bot का default)
+
+ऊपर वाली Compose service Formal AI को हमेशा चलाए रखती है। जो bot host कभी-कभार ही `--model formal-ai` संभालता है उसे इसकी ज़रूरत नहीं, इसलिए Hive Mind container स्वयं manage करता है: पहला Formal AI task उसे शुरू करता है और आख़िरी समाप्त होने वाला task उसे रोक देता है।
+
+```text
+task container ──docker network connect──▶ hive-mind-formal-ai (internal)
+                                              └── hive-mind-formal-ai container
+                                                    └── hive-mind-formal-ai-memory volume
+```
+
+- Container उसी नाम के internal network पर `hive-mind-formal-ai` के रूप में चलता है, alias `link-assistant-formal-ai` के साथ। `--internal` का अर्थ है कि network का कोई egress नहीं है, और कोई port publish नहीं होता, इसलिए model केवल जुड़े हुए task containers से पहुँच में है, और कहीं से नहीं।
+- हर task अपने session id (जो उसका container name भी है) पर keyed एक lease रखता है। हर reconcile पर leases Docker से दोबारा निकाले जाते हैं, इसलिए crash हुआ task container को हमेशा के लिए नहीं रोक सकता, और अभी बन रहा task एक घंटे की launch window तक अपना lease रखता है।
+- Task containers उसी gate के भीतर `docker network connect` से जोड़े जाते हैं जो container शुरू करता है, और उन्हें `HIVE_MIND_FORMAL_AI_BASE_URL` के रूप में container का address मिलता है (DNS alias नहीं)।
+- यदि container शुरू नहीं हो पाता या attach विफल होता है, तो task रोक दिया जाता है — किसी दूसरे model पर आगे नहीं बढ़ता ([issue #2146](https://github.com/link-assistant/hive-mind/issues/2146))।
+- Memory `hive-mind-formal-ai-memory` volume में रहती है, जो कभी नहीं हटाई जाती — न container रुकने पर, न image बदलने पर।
+
+जब तक कोई lease नहीं होता, image `HIVE_MIND_FORMAL_AI_UPDATE_TAG` को pull करके digests की तुलना करते हुए refresh होता है। नया digest केवल Formal AI के persisted-memory upgrade contract ([formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)) से अपनाया जाता है: `memory upgrade-status` preflight, byte-exact backup और receipt के साथ `memory migrate`, फिर नए image का boot जिसका `/health` memory को compatible बताए। Migration के बाद कोई भी विफलता receipt में दर्ज backup restore करती है और पिछला image बनाए रखती है। Installed agentic CLIs (`claude`, `codex`, `agent`, `gemini`, `qwen`, `copilot`, `opencode`) इसी idle condition पर refresh होते हैं। दोनों के environment variables [Configuration](CONFIGURATION.hi.md) में हैं।
 
 #### Host-image passthrough (मल्टी-GB images फिर से download होने से बचाएं)
 

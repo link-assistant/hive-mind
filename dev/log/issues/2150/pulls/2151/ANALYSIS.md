@@ -26,25 +26,27 @@ logs. This avoids basing conclusions on filtered GitHub annotations alone.
 
 There were no screenshots or user-attachment URLs in the issue, PR, or
 comments. There were also no issue comments, PR conversation comments, inline
-review comments, or submitted reviews at collection time; the corresponding
-JSON files preserve that fact.
+review comments, or submitted reviews at initial collection time. CodeQL later
+posted one informational setup comment during hosted validation; the final API
+files preserve it. No human feedback or review was present at final collection.
 
 ## Timeline
 
-| Time                      | Event and evidence                                                                                                                                                                                                                                                            |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-07-31 20:23          | `use-m@8.15.0` was published. It was still the latest version during this incident (`npm-use-m.json`).                                                                                                                                                                        |
-| 2026-08-07 20:21          | `command-stream@0.18.0` was published with the behavior previously consumed by Hive Mind.                                                                                                                                                                                     |
-| 2026-08-11 10:26–11:28    | `command-stream` 0.18.1, 0.18.2, and 0.19.0 were published. Version 0.19.0 changed the package's CommonJS entry behavior and became `latest` (`npm-command-stream-full.json`).                                                                                                |
-| 2026-08-11 13:49          | Main commit `4873c0d` triggered Checks and release run `31498219981`. The unchanged application dynamically resolved the newly published dependency.                                                                                                                          |
-| 2026-08-11 13:56          | Run `31498219981` failed in `test-suites`, `test-execution`, and `memory-check-linux`. Its other passing jobs emitted Git, action-runtime, and file-size warnings.                                                                                                            |
-| 2026-08-11 14:15          | Issue #2150 was opened from that run, requesting a complete CI/CD audit and template comparison.                                                                                                                                                                              |
-| 2026-08-11 14:16          | Draft PR #2151 and commit `a4a5663` were created. Run `31500665379` was green, but all substantive checks were skipped because the scaffold changed only `.gitkeep`; it did not validate a solution.                                                                          |
-| 2026-08-11 investigation  | Exact Node/package matrix reproduced the crash only with Node 24 and `command-stream@0.19.0`; Node 20 and `command-stream@0.18.0` were controls. Regression tests were captured before the fix.                                                                               |
-| 2026-08-11 investigation  | An upstream reproducer, workaround, root cause, and proposed code fix were reported as [`use-m` issue #72](https://github.com/link-foundation/use-m/issues/72).                                                                                                               |
-| 2026-08-11 implementation | Runtime dependency pins and CommonJS namespace normalization restored all Node 24 command entry points. CI false-negative paths, false-positive tests, security gaps, dependency warnings, action warnings, and file-size warnings were then addressed and regression-tested. |
-| 2026-08-11 verification   | A clean global-install test exposed npm alias executable collisions when both `latest` and pinned `use-m` aliases coexist. The repair was regression-tested and reported upstream as [`use-m` issue #73](https://github.com/link-foundation/use-m/issues/73).                 |
-| 2026-08-11 verification   | Running the newly strict execution contract exposed a nonexistent network fixture that always exits 1. It was replaced by a deterministic invalid-URL contract that accepts only the exact expected status and reason.                                                        |
+| Time                      | Event and evidence                                                                                                                                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-07-31 20:23          | `use-m@8.15.0` was published. It was still the latest version during this incident (`npm-use-m.json`).                                                                                                                                                                               |
+| 2026-08-07 20:21          | `command-stream@0.18.0` was published with the behavior previously consumed by Hive Mind.                                                                                                                                                                                            |
+| 2026-08-11 10:26–11:28    | `command-stream` 0.18.1, 0.18.2, and 0.19.0 were published. Version 0.19.0 changed the package's CommonJS entry behavior and became `latest` (`npm-command-stream-full.json`).                                                                                                       |
+| 2026-08-11 13:49          | Main commit `4873c0d` triggered Checks and release run `31498219981`. The unchanged application dynamically resolved the newly published dependency.                                                                                                                                 |
+| 2026-08-11 13:56          | Run `31498219981` failed in `test-suites`, `test-execution`, and `memory-check-linux`. Its other passing jobs emitted Git, action-runtime, and file-size warnings.                                                                                                                   |
+| 2026-08-11 14:15          | Issue #2150 was opened from that run, requesting a complete CI/CD audit and template comparison.                                                                                                                                                                                     |
+| 2026-08-11 14:16          | Draft PR #2151 and commit `a4a5663` were created. Run `31500665379` was green, but all substantive checks were skipped because the scaffold changed only `.gitkeep`; it did not validate a solution.                                                                                 |
+| 2026-08-11 investigation  | Exact Node/package matrix reproduced the crash only with Node 24 and `command-stream@0.19.0`; Node 20 and `command-stream@0.18.0` were controls. Regression tests were captured before the fix.                                                                                      |
+| 2026-08-11 investigation  | An upstream reproducer, workaround, root cause, and proposed code fix were reported as [`use-m` issue #72](https://github.com/link-foundation/use-m/issues/72).                                                                                                                      |
+| 2026-08-11 implementation | Runtime dependency pins and CommonJS namespace normalization restored all Node 24 command entry points. CI false-negative paths, false-positive tests, security gaps, dependency warnings, action warnings, and file-size warnings were then addressed and regression-tested.        |
+| 2026-08-11 verification   | A clean global-install test exposed npm alias executable collisions when both `latest` and pinned `use-m` aliases coexist. The repair was regression-tested and reported upstream as [`use-m` issue #73](https://github.com/link-foundation/use-m/issues/73).                        |
+| 2026-08-11 verification   | Running the newly strict execution contract exposed a nonexistent network fixture that always exits 1. It was replaced by a deterministic invalid-URL contract that accepts only the exact expected status and reason.                                                               |
+| 2026-08-11 hosted CI      | Security run `31514274130` initially failed because GitHub's dependency-diff API returned 403 while the repository Dependency Graph was disabled. The documented admin endpoint enabled vulnerability alerts and the graph; attempt 2 passed Dependency Review and both CodeQL jobs. |
 
 Run metadata, including exact SHA and job conclusions, is in
 `ci-run-31498219981.json` and `ci-run-31500665379.json`. This timestamp/SHA check
@@ -78,7 +80,7 @@ is important: the initially green PR run predates the substantive fixes.
 | U6  | Report defects in a related project with reproducer, workaround, and fix suggestion.      | `use-m` #72 and #73 each contain all three. Template duplicates were not reopened.                                                                                                                                                 |
 | U7  | Apply a cross-cutting defect everywhere it occurs.                                        | All eight bare runtime package dependencies are pinned at their common loader boundary and preinstaller; every command consumer benefits. All workflow action occurrences were upgraded. Every warning-threshold file was reduced. |
 | U8  | Include automated checks and a release trigger.                                           | Regression tests and a patch changeset are included. This repository releases through Changesets, so `package.json`'s version was intentionally not edited by hand.                                                                |
-| U9  | Finalize the existing PR, preserve evidence, and validate fresh CI against the final SHA. | Completion is recorded in the PR description and final CI artifacts after the final push.                                                                                                                                          |
+| U9  | Finalize the existing PR, preserve evidence, and validate fresh CI against the final SHA. | PR metadata is complete. Hosted Security attempt 2 passed against code SHA `023586b2`; the matching Checks and release run is preserved and verified below.                                                                        |
 
 ## Root-cause and solution matrix
 
@@ -245,7 +247,12 @@ template security workflow and had not inherited it.
 both JavaScript/TypeScript and Actions on PRs, main, manual dispatch, and weekly
 schedule; dependency review on PRs fails at high severity; permissions are
 least-privilege, jobs are bounded by timeouts, and read-only runs cancel when
-superseded.
+superseded. The first hosted run then found that the repository-level Dependency
+Graph prerequisite was disabled: both the workflow token and an admin token got
+HTTP 403 from the dependency-diff endpoint. Enabling vulnerability alerts through
+GitHub's documented repository API also enabled the Dependency Graph; the same
+15-change diff became readable and an unchanged workflow rerun passed. The gate
+was not weakened with `continue-on-error`.
 
 ### 9. Duplication output and initial green PR run (not defects)
 
@@ -311,6 +318,10 @@ Only primary/maintainer sources informed implementation:
   shows checkout/setup-node v6 together.
 - [GitHub dependency-review configuration](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/manage-your-dependency-security/configure-dependency-review-action)
   recommends a PR action with explicit `contents: read` and severity policy.
+- [GitHub's repository REST API](https://docs.github.com/en/rest/repos/repos#enable-vulnerability-alerts)
+  documents that enabling vulnerability alerts also enables the Dependency
+  Graph, which resolved the hosted dependency-review prerequisite without
+  suppressing the check.
 - [GitHub CodeQL for Actions](https://docs.github.com/en/code-security/reference/code-scanning/codeql/codeql-queries/actions-built-in-queries)
   confirms that workflow permissions and other Actions-specific weaknesses are
   analyzable, motivating the `actions` matrix entry.
@@ -338,24 +349,26 @@ existing test runner collectively cover the identified CI/CD failure classes.
 
 ## Verification map
 
-| Claim                                    | Evidence                                                                                                                                                     |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Original CI root errors                  | `ci-logs/checks-and-release-31498219981.log`, diagnostics extracts                                                                                           |
-| Exact Node/package reproduction          | `reproduction-node24-use-m-command-stream-shape.log`, `control-node20-use-m-command-stream-shape.log`, package/export matrices                               |
-| Regression fails before and passes after | `local-tests/regression-use-m-node24-before.log`, `local-tests/regression-use-m-node24-after.log`, `$`-validation before/after logs                          |
-| Memory false positive corrected          | `reproduction-node24-memory-check-before.log`, `local-tests/reproduction-node24-memory-check-after.log`, `local-tests/test-memory-check-after.log`           |
-| Security workflow absent then enforced   | `local-tests/security-workflow-before.log`, `local-tests/ci-integrity-with-security-after.log`                                                               |
-| Pipeline-gate semantics                  | `local-tests/ci-cancellation-and-gate-after.log`                                                                                                             |
-| Deterministic log smoke contract         | `local-tests/log-file-content-smoke-final.log`, `local-tests/deterministic-log-smoke-regression-before.log`, `local-tests/deterministic-log-smoke-after.log` |
-| Source syntax                            | `local-tests/check-mjs-syntax-after.log`                                                                                                                     |
-| ESLint / formatting / duplication        | `local-tests/npm-run-lint-after.log`, `local-tests/npm-run-format-check-after.log`, `local-tests/npm-run-duplication-after.log`                              |
-| No line warnings / semantic compaction   | `local-line-limit-before.log`, `local-line-limit-final.log`, `line-headroom-compaction-report.txt`, `local-tests/compaction-semantics-final.log`             |
-| Audit and install warning cleanup        | `npm-audit-before-fix.json`, `npm-audit-after-fix.json`, `local-npm-ci-before.log`, `local-npm-ci-after.log`                                                 |
-| Full unit behavior                       | `full-default-suite-final.log`                                                                                                                               |
-| Upstream report                          | `upstream-use-m-issue-body.md`, `upstream-use-m-created-issue.json`                                                                                          |
-| Safe pinned-alias migration              | `local-tests/regression-bin-links-before.log`, `local-tests/regression-bin-links-after.log`, `local-tests/preinstall-all-pinned-after.log`                   |
-| Second upstream report                   | `upstream-use-m-bin-conflict-issue-body.md`, `upstream-use-m-bin-conflict-created-issue.json`                                                                |
+| Claim                                    | Evidence                                                                                                                                                                 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Original CI root errors                  | `ci-logs/checks-and-release-31498219981.log`, diagnostics extracts                                                                                                       |
+| Exact Node/package reproduction          | `reproduction-node24-use-m-command-stream-shape.log`, `control-node20-use-m-command-stream-shape.log`, package/export matrices                                           |
+| Regression fails before and passes after | `local-tests/regression-use-m-node24-before.log`, `local-tests/regression-use-m-node24-after.log`, `$`-validation before/after logs                                      |
+| Memory false positive corrected          | `reproduction-node24-memory-check-before.log`, `local-tests/reproduction-node24-memory-check-after.log`, `local-tests/test-memory-check-after.log`                       |
+| Security workflow absent then enforced   | `local-tests/security-workflow-before.log`, `local-tests/ci-integrity-with-security-after.log`                                                                           |
+| Pipeline-gate semantics                  | `local-tests/ci-cancellation-and-gate-after.log`                                                                                                                         |
+| Deterministic log smoke contract         | `local-tests/log-file-content-smoke-final.log`, `local-tests/deterministic-log-smoke-regression-before.log`, `local-tests/deterministic-log-smoke-after.log`             |
+| Source syntax                            | `local-tests/check-mjs-syntax-after.log`                                                                                                                                 |
+| ESLint / formatting / duplication        | `local-tests/npm-run-lint-after.log`, `local-tests/npm-run-format-check-after.log`, `local-tests/npm-run-duplication-after.log`                                          |
+| No line warnings / semantic compaction   | `local-line-limit-before.log`, `local-line-limit-final.log`, `line-headroom-compaction-report.txt`, `local-tests/compaction-semantics-final.log`                         |
+| Audit and install warning cleanup        | `npm-audit-before-fix.json`, `npm-audit-after-fix.json`, `local-npm-ci-before.log`, `local-npm-ci-after.log`                                                             |
+| Full unit behavior                       | `full-default-suite-final.log`                                                                                                                                           |
+| Upstream report                          | `upstream-use-m-issue-body.md`, `upstream-use-m-created-issue.json`                                                                                                      |
+| Safe pinned-alias migration              | `local-tests/regression-bin-links-before.log`, `local-tests/regression-bin-links-after.log`, `local-tests/preinstall-all-pinned-after.log`                               |
+| Second upstream report                   | `upstream-use-m-bin-alias-issue-body.md`, `upstream-use-m-bin-alias-created-issue.json`                                                                                  |
+| Hosted security prerequisite and pass    | `ci-logs/security-31514274130-attempt-1.log`, `ci-logs/security-31514274130-attempt-2.log`, `dependency-graph-enabled-response.txt`, `dependency-diff-after-enable.json` |
 
-The final GitHub run IDs, final commit SHA comparison, and any downloaded
-non-passing logs are added to this folder after the branch is pushed. A local
-pass is necessary but not substituted for a fresh hosted run.
+Fresh hosted runs `31514274130` (Security) and `31514274046` (Checks and release)
+were created at 2026-08-11 16:47:46 for code SHA
+`023586b227416e1ce59f11b8eb7525c0403ee4bf`; they supersede the green scaffold
+run at `a4a56635`. Their complete logs and metadata are stored beside this file.

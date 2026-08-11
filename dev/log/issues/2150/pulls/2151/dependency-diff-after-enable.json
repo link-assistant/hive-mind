@@ -1,0 +1,90 @@
+[
+  { "change_type": "added", "manifest": ".github/workflows/security.yml", "ecosystem": "actions", "name": "actions/checkout", "version": "6.*.*", "package_url": "pkg:githubactions/actions/checkout@6.%2A.%2A", "license": null, "source_repository_url": null, "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": ".github/workflows/security.yml", "ecosystem": "actions", "name": "actions/dependency-review-action", "version": "5.*.*", "package_url": "pkg:githubactions/actions/dependency-review-action@5.%2A.%2A", "license": null, "source_repository_url": null, "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": ".github/workflows/security.yml", "ecosystem": "actions", "name": "github/codeql-action/analyze", "version": "4.*.*", "package_url": "pkg:githubactions/github/codeql-action/analyze@4.%2A.%2A", "license": null, "source_repository_url": null, "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": ".github/workflows/security.yml", "ecosystem": "actions", "name": "github/codeql-action/autobuild", "version": "4.*.*", "package_url": "pkg:githubactions/github/codeql-action/autobuild@4.%2A.%2A", "license": null, "source_repository_url": null, "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": ".github/workflows/security.yml", "ecosystem": "actions", "name": "github/codeql-action/init", "version": "4.*.*", "package_url": "pkg:githubactions/github/codeql-action/init@4.%2A.%2A", "license": null, "source_repository_url": null, "scope": "runtime", "vulnerabilities": [] },
+  {
+    "change_type": "removed",
+    "manifest": "package-lock.json",
+    "ecosystem": "npm",
+    "name": "brace-expansion",
+    "version": "5.0.6",
+    "package_url": "pkg:npm/brace-expansion",
+    "license": "MIT",
+    "source_repository_url": "https://github.com/juliangruber/brace-expansion",
+    "scope": "development",
+    "vulnerabilities": [
+      { "severity": "high", "advisory_ghsa_id": "GHSA-3jxr-9vmj-r5cp", "advisory_summary": "brace-expansion: DoS via exponential-time expansion of consecutive non-expanding {} groups", "advisory_url": "https://github.com/advisories/GHSA-3jxr-9vmj-r5cp" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-mh99-v99m-4gvg", "advisory_summary": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash", "advisory_url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-rgw5-rvv9-x895", "advisory_summary": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation", "advisory_url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895" }
+    ]
+  },
+  {
+    "change_type": "removed",
+    "manifest": "package-lock.json",
+    "ecosystem": "npm",
+    "name": "fast-uri",
+    "version": "3.1.2",
+    "package_url": "pkg:npm/fast-uri",
+    "license": "BSD-3-Clause",
+    "source_repository_url": "https://github.com/fastify/fast-uri",
+    "scope": "runtime",
+    "vulnerabilities": [
+      { "severity": "high", "advisory_ghsa_id": "GHSA-4c8g-83qw-93j6", "advisory_summary": "fast-uri vulnerable to host confusion via failed IDN canonicalization", "advisory_url": "https://github.com/advisories/GHSA-4c8g-83qw-93j6" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-v2hh-gcrm-f6hx", "advisory_summary": "fast-uri vulnerable to host confusion via literal backslash authority delimiter", "advisory_url": "https://github.com/advisories/GHSA-v2hh-gcrm-f6hx" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-7p8r-x3mc-p8w7", "advisory_summary": "fast-uri vulnerable to host confusion via backslash authority introducer", "advisory_url": "https://github.com/advisories/GHSA-7p8r-x3mc-p8w7" }
+    ]
+  },
+  {
+    "change_type": "removed",
+    "manifest": "package-lock.json",
+    "ecosystem": "npm",
+    "name": "flatted",
+    "version": "3.3.3",
+    "package_url": "pkg:npm/flatted",
+    "license": "ISC",
+    "source_repository_url": "https://github.com/WebReflection/flatted",
+    "scope": "development",
+    "vulnerabilities": [
+      { "severity": "high", "advisory_ghsa_id": "GHSA-25h7-pfq9-p65f", "advisory_summary": "flatted vulnerable to unbounded recursion DoS in parse() revive phase", "advisory_url": "https://github.com/advisories/GHSA-25h7-pfq9-p65f" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-rf6f-7fwh-wjgh", "advisory_summary": "Prototype Pollution via parse() in NodeJS flatted", "advisory_url": "https://github.com/advisories/GHSA-rf6f-7fwh-wjgh" }
+    ]
+  },
+  {
+    "change_type": "removed",
+    "manifest": "package-lock.json",
+    "ecosystem": "npm",
+    "name": "js-yaml",
+    "version": "4.2.0",
+    "package_url": "pkg:npm/js-yaml",
+    "license": "MIT",
+    "source_repository_url": "https://github.com/nodeca/js-yaml",
+    "scope": "runtime",
+    "vulnerabilities": [
+      { "severity": "high", "advisory_ghsa_id": "GHSA-52cp-r559-cp3m", "advisory_summary": "js-yaml: YAML merge-key chains can force quadratic CPU consumption", "advisory_url": "https://github.com/advisories/GHSA-52cp-r559-cp3m" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-5p4m-2wfm-xmqj", "advisory_summary": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported", "advisory_url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj" }
+    ]
+  },
+  {
+    "change_type": "removed",
+    "manifest": "package-lock.json",
+    "ecosystem": "npm",
+    "name": "js-yaml",
+    "version": "3.14.2",
+    "package_url": "pkg:npm/js-yaml",
+    "license": "MIT",
+    "source_repository_url": "https://github.com/nodeca/js-yaml",
+    "scope": "development",
+    "vulnerabilities": [
+      { "severity": "high", "advisory_ghsa_id": "GHSA-52cp-r559-cp3m", "advisory_summary": "js-yaml: YAML merge-key chains can force quadratic CPU consumption", "advisory_url": "https://github.com/advisories/GHSA-52cp-r559-cp3m" },
+      { "severity": "high", "advisory_ghsa_id": "GHSA-5p4m-2wfm-xmqj", "advisory_summary": "JS-YAML: Quadratic CPU consumption in !!omap resolution (3.x and 4.x) — CVE-2026-59870 fix not backported", "advisory_url": "https://github.com/advisories/GHSA-5p4m-2wfm-xmqj" },
+      { "severity": "moderate", "advisory_ghsa_id": "GHSA-h67p-54hq-rp68", "advisory_summary": "JS-YAML: Quadratic-complexity DoS in merge key handling via repeated aliases", "advisory_url": "https://github.com/advisories/GHSA-h67p-54hq-rp68" }
+    ]
+  },
+  { "change_type": "added", "manifest": "package-lock.json", "ecosystem": "npm", "name": "brace-expansion", "version": "5.0.9", "package_url": "pkg:npm/brace-expansion@5.0.9", "license": "MIT", "source_repository_url": "https://github.com/juliangruber/brace-expansion", "scope": "development", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": "package-lock.json", "ecosystem": "npm", "name": "fast-uri", "version": "3.1.5", "package_url": "pkg:npm/fast-uri@3.1.5", "license": "BSD-3-Clause", "source_repository_url": "https://github.com/fastify/fast-uri", "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": "package-lock.json", "ecosystem": "npm", "name": "flatted", "version": "3.4.4", "package_url": "pkg:npm/flatted@3.4.4", "license": "ISC", "source_repository_url": "https://github.com/WebReflection/flatted", "scope": "development", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": "package-lock.json", "ecosystem": "npm", "name": "js-yaml", "version": "4.3.1", "package_url": "pkg:npm/js-yaml@4.3.1", "license": "MIT", "source_repository_url": "https://github.com/nodeca/js-yaml", "scope": "runtime", "vulnerabilities": [] },
+  { "change_type": "added", "manifest": "package-lock.json", "ecosystem": "npm", "name": "js-yaml", "version": "3.15.1", "package_url": "pkg:npm/js-yaml@3.15.1", "license": "MIT", "source_repository_url": "https://github.com/nodeca/js-yaml", "scope": "development", "vulnerabilities": [] }
+]

@@ -1,0 +1,8 @@
+file:///tmp/gh-issue-solver-1786457752545/src/memory-check.mjs:20
+const $silent = $({ mirror: false, capture: true });
+                ^
+
+TypeError: $ is not a function
+    at file:///tmp/gh-issue-solver-1786457752545/src/memory-check.mjs:20:17
+
+Node.js v24.19.0

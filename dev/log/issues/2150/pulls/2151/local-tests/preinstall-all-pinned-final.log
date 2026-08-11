@@ -1,0 +1,18 @@
+[preinstall-use-m] global root: /home/box/.npm/_npx/387698761821791d/node_modules/node/lib/node_modules
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links dotenvx-dotenvx-v-2.21.0@npm:@dotenvx/dotenvx@2.21.0
+[preinstall-use-m] ✅ installed @dotenvx/dotenvx@2.21.0 as dotenvx-dotenvx-v-2.21.0 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links command-stream-v-0.18.0@npm:command-stream@0.18.0
+[preinstall-use-m] ✅ installed command-stream@0.18.0 as command-stream-v-0.18.0 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links getenv-v-2.0.0@npm:getenv@2.0.0
+[preinstall-use-m] ✅ installed getenv@2.0.0 as getenv-v-2.0.0 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links links-notation-v-0.13.0@npm:links-notation@0.13.0
+[preinstall-use-m] ✅ installed links-notation@0.13.0 as links-notation-v-0.13.0 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links lino-arguments-v-0.3.0@npm:lino-arguments@0.3.0
+[preinstall-use-m] ✅ installed lino-arguments@0.3.0 as lino-arguments-v-0.3.0 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links telegraf-v-4.16.3@npm:telegraf@4.16.3
+[preinstall-use-m] ✅ installed telegraf@4.16.3 as telegraf-v-4.16.3 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links yargs-v-17.7.2@npm:yargs@17.7.2
+[preinstall-use-m] ✅ installed yargs@17.7.2 as yargs-v-17.7.2 (attempt 1)
+[preinstall-use-m][debug] attempt 1/3: npm install -g --no-bin-links zx-v-8.8.5@npm:zx@8.8.5
+[preinstall-use-m] ✅ installed zx@8.8.5 as zx-v-8.8.5 (attempt 1)
+[preinstall-use-m] ✅ all 8 pinned use-m packages pre-installed

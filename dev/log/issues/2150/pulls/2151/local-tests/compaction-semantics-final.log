@@ -1,0 +1,14 @@
+Restored 0 template literals.
+AST identical: src/codex.lib.mjs
+AST identical: src/hive.mjs
+AST identical: src/interactive-mode.lib.mjs
+AST identical: src/limits.lib.mjs
+AST identical: src/models/index.mjs
+AST identical: src/solve.auto-merge.lib.mjs
+AST identical: src/solve.repository.lib.mjs
+AST identical: src/solve.results.lib.mjs
+AST identical: src/telegram-bot.mjs
+AST identical: tests/solve-queue.test.mjs
+AST identical: tests/test-interactive-mode.mjs
+AST identical: tests/test-merge-queue.mjs
+Verified 12 compaction-only files.

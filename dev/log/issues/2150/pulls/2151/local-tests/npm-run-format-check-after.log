@@ -1,0 +1,45 @@
+
+> @link-assistant/hive-mind@2.12.0 format:check
+> prettier --check "**/*.{js,mjs,json,md}" --ignore-path .prettierignore
+
+Checking formatting...
+[warn] dev/log/issues/2150/pulls/2151/ci-main-runs.json
+[warn] dev/log/issues/2150/pulls/2151/ci-run-31498219981.json
+[warn] dev/log/issues/2150/pulls/2151/ci-run-31500665379.json
+[warn] dev/log/issues/2150/pulls/2151/ci-runs.json
+[warn] dev/log/issues/2150/pulls/2151/issue-comments.json
+[warn] dev/log/issues/2150/pulls/2151/issue-events.json
+[warn] dev/log/issues/2150/pulls/2151/issue.json
+[warn] dev/log/issues/2150/pulls/2151/npm-audit-before-fix.json
+[warn] dev/log/issues/2150/pulls/2151/npm-audit-current.json
+[warn] dev/log/issues/2150/pulls/2151/npm-audit.json
+[warn] dev/log/issues/2150/pulls/2151/npm-command-stream-full.json
+[warn] dev/log/issues/2150/pulls/2151/npm-command-stream-versions.json
+[warn] dev/log/issues/2150/pulls/2151/pr-commits.json
+[warn] dev/log/issues/2150/pulls/2151/pr-conversation-comments.json
+[warn] dev/log/issues/2150/pulls/2151/pr-events.json
+[warn] dev/log/issues/2150/pulls/2151/pr-files.json
+[warn] dev/log/issues/2150/pulls/2151/pr-review-comments.json
+[warn] dev/log/issues/2150/pulls/2151/pr-reviews.json
+[warn] dev/log/issues/2150/pulls/2151/pr.json
+[warn] dev/log/issues/2150/pulls/2151/related-merged-prs.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-123-comments.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-123-events.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-123.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-126-comments.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-126-events.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-126.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-41-comments.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-41-events.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-41.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-99-comments.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-99-events.json
+[warn] dev/log/issues/2150/pulls/2151/template-issue-99.json
+[warn] dev/log/issues/2150/pulls/2151/template-issues.json
+[warn] dev/log/issues/2150/pulls/2151/template-prs.json
+[warn] dev/log/issues/2150/pulls/2151/upstream-command-stream-releases.json
+[warn] dev/log/issues/2150/pulls/2151/upstream-command-stream-search-not-function.json
+[warn] dev/log/issues/2150/pulls/2151/upstream-use-m-created-issue.json
+[warn] dev/log/issues/2150/pulls/2151/upstream-use-m-issues.json
+[warn] dev/log/issues/2150/pulls/2151/use-m-commits.json
+[warn] Code style issues found in 39 files. Run Prettier with --write to fix.

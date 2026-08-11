@@ -1,0 +1,30 @@
+Issue #2150 file-headroom repair (final counts)
+
+.github/workflows/release.yml: 1452 baseline / 1516 after functional CI additions -> 1327
+src/hive.mjs: 1492 -> 1340
+src/solve.auto-merge.lib.mjs: 1464 -> 1345
+src/solve.mjs: 1497 -> 1335 (tool loader extracted)
+src/interactive-mode.lib.mjs: 1393 -> 1350
+src/telegram-solve-queue.lib.mjs: 1499 -> 1340
+src/models/index.mjs: 1355 -> 1340
+src/github.lib.mjs: 1500 -> 1179 (URL parser extracted)
+src/telegram-bot.mjs: 1406 -> 1340
+src/solve.repository.lib.mjs: 1426 -> 1343
+src/limits.lib.mjs: 1429 -> 1340
+src/isolation-runner.lib.mjs: 1500 -> 1340
+src/telegram-merge-queue.lib.mjs: 1492 -> 1340
+src/session-monitor.lib.mjs: 1498 -> 1340
+src/solve.results.lib.mjs: 1434 -> 1344
+src/codex.lib.mjs: 1468 -> 1340
+src/claude.lib.mjs: 1500 -> 1304 (connection/version/thinking logic extracted)
+tests/test-merge-queue.mjs: 1483 -> 1340
+tests/solve-queue.test.mjs: 1488 -> 1340
+tests/test-interactive-mode.mjs: 1479 -> 1340
+
+The mechanical pass removed source-only blank lines and joined adjacent line
+comments without deleting their text. Three cohesive responsibilities were
+extracted into tested modules. A subsequent Acorn-based audit found 24 template
+literals whose internal blank lines had been touched; all 24 runtime values
+were restored byte-for-byte. The final AST comparison confirms every
+compaction-only source/test file is semantically identical to its pre-change
+version. scripts/check-file-line-limits.sh reports no warning annotations.

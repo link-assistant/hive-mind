@@ -1,0 +1,11 @@
+[
+  {
+    "body": "## Reproduction\n\nOn Node 20.20.2 with `command-stream@0.17.0`, any terminal capture with\n`artifactDirectory` fails while writing the newly added GIF:\n\n```js\nimport { captureTerminal } from 'command-stream';\n\nawait captureTerminal({\n  file: process.execPath,\n  args: ['-e', 'console.log(\"hello\")'],\n  artifactDirectory: '/tmp/terminal-artifacts',\n});\n```\n\n```text\nTypeError: GIFEncoder is not a function\n    at renderGif (.../node_modules/command-stream/src/terminal-artifacts.mjs:429:15)\n    at async writeTerminalArtifacts (.../terminal-artifacts.mjs:502:15)\n```\n\nThe dynamic import only exposes `default` on Node:\n\n```text\nObject.keys(await import('gifenc')) = [ 'default' ]\nObject.keys((await import('gifenc')).default) includes GIFEncoder, applyPalette, quantize\n```\n\nThe current destructuring assumes synthetic named exports. Normalizing the\nmodule first (`const gifenc = module.default ?? module`) should preserve Bun\nbehavior and support the package's declared Node >=20 engine.\n\nThis blocks link-assistant/agent-commander#46 from consuming 0.17.0 and\nverifying default SVG+GIF replay bundles on its Node CI matrix.\n",
+    "createdAt": "2026-07-25T19:23:16Z",
+    "number": 183,
+    "state": "closed",
+    "title": "GIF artifact rendering fails on Node 20: GIFEncoder is not a function",
+    "updatedAt": "2026-07-26T09:05:16Z",
+    "url": "https://github.com/link-foundation/command-stream/issues/183"
+  }
+]

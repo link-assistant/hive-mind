@@ -1,0 +1,65 @@
+keys [
+  'AnsiUtils',             'ProcessRunner',
+  'captureTerminal',       'configureAnsi',
+  'create',                'disableVirtualCommands',
+  'enableVirtualCommands', 'exec',
+  'forceCleanupAll',       'getAnsiConfig',
+  'listCommands',          'literal',
+  'openTerminal',          'processOutput',
+  'quote',                 'quoteLiteral',
+  'raw',                   'readAsciicast',
+  'register',              'resetGlobalState',
+  'run',                   'set',
+  'sh',                    'shell',
+  'unregister',            'unrollTerminalFrames',
+  'unset',                 '$',
+  'default'
+]
+typeof $ function
+default type function
+default keys []
+module <ref *1> [Function: $] {
+  AnsiUtils: {
+    stripAnsi: [Function: stripAnsi],
+    stripControlChars: [Function: stripControlChars],
+    stripAll: [Function: stripAll],
+    cleanForProcessing: [Function: cleanForProcessing]
+  },
+  ProcessRunner: [class ProcessRunner extends StreamEmitter],
+  captureTerminal: [AsyncFunction: captureTerminal],
+  configureAnsi: [Function: configureAnsi],
+  create: [Function: create],
+  disableVirtualCommands: [Function: disableVirtualCommands],
+  enableVirtualCommands: [Function: enableVirtualCommands],
+  exec: [AsyncFunction: exec],
+  forceCleanupAll: [Function: forceCleanupAll],
+  getAnsiConfig: [Function: getAnsiConfig],
+  listCommands: [Function: listCommands],
+  literal: [Function: literal],
+  openTerminal: [AsyncFunction: openTerminal],
+  processOutput: [Function: processOutput],
+  quote: [Function: quote],
+  quoteLiteral: [Function: quoteLiteral],
+  raw: [Function: raw],
+  readAsciicast: [AsyncFunction: readAsciicast],
+  register: [Function: register],
+  resetGlobalState: [Function: resetGlobalState],
+  run: [AsyncFunction: run],
+  set: [Function: set],
+  sh: [AsyncFunction: sh],
+  shell: {
+    set: [Function: set],
+    unset: [Function: unset],
+    settings: [Function: settings],
+    errexit: [Function: errexit],
+    verbose: [Function: verbose],
+    xtrace: [Function: xtrace],
+    pipefail: [Function: pipefail],
+    nounset: [Function: nounset]
+  },
+  unregister: [Function: unregister],
+  unrollTerminalFrames: [Function: unrollTerminalFrames],
+  unset: [Function: unset],
+  '$': [Circular *1],
+  default: [Circular *1]
+}

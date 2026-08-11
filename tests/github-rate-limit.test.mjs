@@ -355,6 +355,10 @@ await test('does not break wrapped gh calls when usage logging fails', async () 
 
 console.log('\n📋 wrapDollarWithGhRetry\n');
 
+await test('rejects a missing command-stream export at wrapper construction', () => {
+  assert.throws(() => wrapDollarWithGhRetry(undefined), /command-stream.*\$.*function/i);
+});
+
 await test('passes non-gh commands through to the underlying $ unchanged', async () => {
   const calls = [];
   const fakeDollar = (strings, ...values) => {

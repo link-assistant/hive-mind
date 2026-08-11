@@ -31,6 +31,49 @@
 const ALIAS_CLEANUP_ERROR = /^Failed to remove (?:corrupt|incomplete) npm alias '([^']+)'\.$/;
 const RETRYABLE_RM_CODES = new Set(['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'EPERM']);
 
+// `use-m` otherwise resolves every bare specifier through npm's mutable
+// `latest` tag at runtime. command-stream@0.19.0 changing its CommonJS entry
+// point broke unchanged Hive Mind commits in issue #2150. Keep every runtime
+// dependency reproducible; explicit versions and subpaths remain untouched.
+export const USE_M_PACKAGE_VERSIONS = Object.freeze({
+  '@dotenvx/dotenvx': '2.21.0',
+  'command-stream': '0.18.0',
+  getenv: '2.0.0',
+  'links-notation': '0.13.0',
+  'lino-arguments': '0.3.0',
+  telegraf: '4.16.3',
+  yargs: '17.7.2',
+  zx: '8.8.5',
+});
+
+export const pinUseMSpecifier = specifier => {
+  const version = USE_M_PACKAGE_VERSIONS[specifier];
+  return version ? `${specifier}@${version}` : specifier;
+};
+
+/**
+ * Undo Node 24's CommonJS namespace wrapper when `use-m` returns it verbatim.
+ *
+ * Node 23+ exposes `module.exports` as a synthetic named export alongside the
+ * default export. use-m@8.15.0 does not classify that key as namespace
+ * metadata, so a CommonJS package with no real named exports is returned as an
+ * object instead of its `module.exports` value. Requiring object identity keeps
+ * real ESM namespaces and unusual hybrid modules intact.
+ *
+ * @param {unknown} loaded
+ * @param {object} [options]
+ * @param {string} [options.specifier]
+ * @param {(message: string) => void} [options.log]
+ * @returns {unknown}
+ */
+export const normalizeCommonJsNamespace = (loaded, options = {}) => {
+  if (loaded && typeof loaded === 'object' && Object.hasOwn(loaded, 'default') && Object.hasOwn(loaded, 'module.exports') && loaded.default === loaded['module.exports']) {
+    options.log?.(`use('${options.specifier ?? 'unknown'}') normalized Node's CommonJS namespace marker`);
+    return loaded.default;
+  }
+  return loaded;
+};
+
 /**
  * @param {(specifier: string) => Promise<unknown>} use - the use-m loader.
  * @param {string} specifier - the npm specifier to load (e.g. `'getenv'`).
@@ -46,6 +89,8 @@ const RETRYABLE_RM_CODES = new Set(['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'E
  * @returns {Promise<unknown>} the module returned by use-m.
  */
 export const useWithRetry = async (use, specifier, options = {}) => {
+  const requestedSpecifier = specifier;
+  specifier = pinUseMSpecifier(specifier);
   const attempts = options.attempts ?? 3;
   const cleanup = options.cleanup ?? defaultCleanup;
   const sleep = options.sleep ?? defaultSleep;
@@ -53,11 +98,13 @@ export const useWithRetry = async (use, specifier, options = {}) => {
   const log = options.log ?? defaultLog;
   const importModule = options.importModule ?? defaultImport;
   const extraArgs = options.args ?? [];
+  if (requestedSpecifier !== specifier) log(`use('${requestedSpecifier}') pinned to '${specifier}'`);
   let lastError;
   let cleanedImportPath = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await use(specifier, ...extraArgs);
+      const loaded = await use(specifier, ...extraArgs);
+      return normalizeCommonJsNamespace(loaded, { specifier, log });
     } catch (error) {
       lastError = error;
       // Node's ESM loader caches *failed* module evaluations by resolved URL.
@@ -71,7 +118,7 @@ export const useWithRetry = async (use, specifier, options = {}) => {
         try {
           const recovered = await importModule(cleanedImportPath, attempt);
           log(`use('${specifier}') recovered via a cache-busted import of ${cleanedImportPath}`);
-          return recovered;
+          return normalizeCommonJsNamespace(recovered, { specifier, log });
         } catch (reimportError) {
           log(`cache-busted import of ${cleanedImportPath} also failed: ${reimportError?.message}`);
         }

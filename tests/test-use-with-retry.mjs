@@ -12,6 +12,7 @@
  *      `npm install -g` itself fails (issue #2092).
  *   5. ERR_MODULE_NOT_FOUND for an internal file in an incomplete alias.
  *   6. A retryable ENOTEMPTY race in use-m's corrupt-alias cleanup.
+ *   7. Node 24's synthetic `module.exports` CommonJS namespace export.
  *
  * Also covers wrapUseWithRetry/ensureUseM, which make every `use(...)` call
  * site in the codebase inherit this recovery (issue #2092).
@@ -20,7 +21,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { useWithRetry, wrapUseWithRetry, resolveAliasDir, removeAliasWithRetry, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath } from '../src/use-with-retry.lib.mjs';
+import { useWithRetry, wrapUseWithRetry, resolveAliasDir, removeAliasWithRetry, isTransientInstallError, isCorruptInstallError, extractCorruptedFilePath, pinUseMSpecifier } from '../src/use-with-retry.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -418,6 +419,34 @@ await test('does not cache-bust for resolve-path failures', async () => {
 
 console.log('\n📋 wrapUseWithRetry (issue #2092)\n');
 
+await test('pins mutable runtime package specifiers (issue #2150)', () => {
+  assert.equal(pinUseMSpecifier('command-stream'), 'command-stream@0.18.0');
+  assert.equal(pinUseMSpecifier('@dotenvx/dotenvx'), '@dotenvx/dotenvx@2.21.0');
+  assert.equal(pinUseMSpecifier('yargs@17.7.2'), 'yargs@17.7.2');
+  assert.equal(pinUseMSpecifier('node:path'), 'node:path');
+});
+
+await test("unwraps Node 24's CommonJS namespace marker (issue #2150)", async () => {
+  const commandStream = () => 'command-stream';
+  commandStream.$ = () => 'dollar';
+  const wrapped = wrapUseWithRetry(async () => ({
+    default: commandStream,
+    'module.exports': commandStream,
+  }));
+
+  const result = await wrapped('command-stream');
+
+  assert.equal(result, commandStream);
+  assert.equal(result.$(), 'dollar');
+});
+
+await test('preserves real ESM namespaces with meaningful named exports', async () => {
+  const namespace = { default: () => 'default', named: 'named' };
+  const wrapped = wrapUseWithRetry(async () => namespace);
+
+  assert.equal(await wrapped('real-esm-package'), namespace);
+});
+
 await test('wrapped use recovers from a corrupt command-stream install', async () => {
   let calls = 0;
   const cleaned = [];
@@ -442,7 +471,7 @@ await test('wrapped use forwards extra arguments', async () => {
     return 'ok';
   });
   assert.equal(await wrapped('getenv', { alias: 'x' }), 'ok');
-  assert.deepEqual(seen, [['getenv', { alias: 'x' }]]);
+  assert.deepEqual(seen, [['getenv@2.0.0', { alias: 'x' }]]);
 });
 
 await test('wrapping is idempotent', () => {

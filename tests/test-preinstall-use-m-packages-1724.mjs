@@ -48,9 +48,9 @@ const test = (name, fn) => {
 };
 
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
-  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-latest');
-  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-latest');
-  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-latest');
+  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-0.18.0');
+  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.21.0');
+  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.13.0');
 });
 
 await test('isRetryableNpmError detects ENOTEMPTY and friends', () => {
@@ -71,7 +71,7 @@ await test('installWithRetry returns ok on first success', async () => {
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-latest',
+    alias: 'command-stream-v-0.18.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -86,7 +86,7 @@ await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-latest',
+    alias: 'command-stream-v-0.18.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -108,7 +108,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-latest',
+    alias: 'command-stream-v-0.18.0',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -127,7 +127,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
 await test('installWithRetry treats package-present-on-disk as recovered success', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'preinstall-1724-'));
   try {
-    const alias = 'command-stream-v-latest';
+    const alias = 'command-stream-v-0.18.0';
     mkdirSync(join(tmp, alias));
     writeFileSync(join(tmp, alias, 'package.json'), JSON.stringify({ name: 'command-stream', version: '1.0.0' }));
     let calls = 0;

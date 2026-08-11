@@ -33,12 +33,9 @@ function runTest(name, testFn) {
 }
 
 function execCommand(command) {
-  try {
-    return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
-  } catch (error) {
-    // For commands that exit with non-zero, we still want the output
-    return error.stdout || error.stderr || error.message;
-  }
+  // A non-zero exit is a test failure. The old helper returned stderr as if it
+  // were successful output, allowing a startup stack trace to satisfy --help.
+  return execSync(command, { encoding: 'utf8', stdio: 'pipe' });
 }
 
 // Test 1: Check if memory-check.mjs exists
@@ -58,17 +55,13 @@ runTest('memory-check.mjs --help', () => {
     console.log(`    [DEBUG] Help output: "${output.trim()}"`);
   }
 
-  // The help test is getting regular execution output in CI instead of help
-  // This indicates --help is not being processed correctly
-  // For now, just check that the command runs without error
-  // If output contains system check results, that's a failure
-  if (output.includes('Disk space check') || output.includes('Memory check') || output.includes('System Check Summary')) {
-    // This means the script ran normally instead of showing help
-    throw new Error('Script executed instead of showing help');
+  if (!output.includes('Usage: memory-check.mjs') || !output.includes('--min-memory')) {
+    throw new Error(`Missing expected help text: ${output.trim()}`);
   }
 
-  // If we get here, either help worked or something else happened
-  // Accept any output that doesn't look like normal execution
+  if (output.includes('Disk space check') || output.includes('Memory check') || output.includes('System Check Summary')) {
+    throw new Error('Script executed instead of showing help');
+  }
 });
 
 // Test 3: Check basic execution

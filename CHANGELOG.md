@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.12.2
+
+### Patch Changes
+
+- a33befc: Document native multi-architecture container builds, build caching, release independence, and published-manifest verification in the CI/CD guide.
+
 ## 2.12.1
 
 ### Patch Changes

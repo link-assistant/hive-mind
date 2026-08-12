@@ -318,6 +318,42 @@ validate-docs:
     - run: node tests/docs-validation.mjs
 ```
 
+### 13. 容器镜像：每种架构使用原生运行器
+
+**在各自的原生运行器上构建每种架构。** GitHub 为公共仓库提供免费的 arm64 Linux 运行器（`ubuntu-24.04-arm`）。在 x86 运行器上通过 QEMU 模拟 arm64 会慢得多，而且单个任务中的两个构建会串行而非并行执行。
+
+```yaml
+build-image:
+  strategy:
+    matrix:
+      include:
+        - platform: linux/amd64
+          runner: ubuntu-latest
+        - platform: linux/arm64
+          runner: ubuntu-24.04-arm
+  runs-on: ${{ matrix.runner }}
+  steps:
+    - uses: docker/build-push-action@v7
+      with:
+        platforms: ${{ matrix.platform }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+merge-manifest:
+  needs: [build-image]
+  steps:
+    - run: docker buildx imagetools create -t $IMAGE:$VERSION $DIGESTS
+```
+
+- **不要使用 `setup-qemu-action`。** 它表示正在模拟架构；请使用原生运行器。
+- **为用户使用的每种架构发布镜像。** 单架构镜像会排除 Apple Silicon、Graviton 和 arm CI runners。
+- **始终使用缓存。** 在每个构建步骤设置 `cache-from: type=gha` 和 `cache-to: type=gha,mode=max`。
+- **绝不要让发布依赖镜像推送。** 先发布 GitHub Release 和语言注册表软件包，再附加已完成的镜像。
+- **验证发布内容。** Manifest 应列出所有预期平台，default branch 上的每个 tag 都应有对应的 GitHub Release。
+
+参考实现：[`link-foundation/box`](https://github.com/link-foundation/box) 和 [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind)。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：

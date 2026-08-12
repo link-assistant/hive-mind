@@ -318,6 +318,42 @@ validate-docs:
     - run: node tests/docs-validation.mjs
 ```
 
+### 13. Образы контейнеров: нативный runner для каждой архитектуры
+
+**Собирайте каждую архитектуру на отдельном нативном runner.** GitHub предоставляет бесплатные arm64 Linux runners для публичных репозиториев (`ubuntu-24.04-arm`). Эмуляция arm64 через QEMU на x86 runner значительно медленнее, а две сборки в одном задании выполняются последовательно, а не параллельно.
+
+```yaml
+build-image:
+  strategy:
+    matrix:
+      include:
+        - platform: linux/amd64
+          runner: ubuntu-latest
+        - platform: linux/arm64
+          runner: ubuntu-24.04-arm
+  runs-on: ${{ matrix.runner }}
+  steps:
+    - uses: docker/build-push-action@v7
+      with:
+        platforms: ${{ matrix.platform }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+merge-manifest:
+  needs: [build-image]
+  steps:
+    - run: docker buildx imagetools create -t $IMAGE:$VERSION $DIGESTS
+```
+
+- **Не используйте `setup-qemu-action`.** Это означает эмуляцию архитектуры; используйте нативный runner.
+- **Публикуйте образы для всех архитектур пользователей.** Одноархитектурный образ исключает Apple Silicon, Graviton и arm CI runners.
+- **Всегда используйте кеш.** Укажите `cache-from: type=gha` и `cache-to: type=gha,mode=max` на каждом шаге сборки.
+- **Не ставьте релиз в зависимость от отправки образа.** Сначала публикуйте GitHub Release и пакет языкового реестра, затем добавляйте готовые образы.
+- **Проверяйте публикацию.** Manifest должен содержать все ожидаемые платформы, а каждому тегу default branch должен соответствовать GitHub Release.
+
+Примеры: [`link-foundation/box`](https://github.com/link-foundation/box) и [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind).
+
 ## Стратегия обеспечения качества
 
 Шаблоны реализуют многоуровневый подход к защите:

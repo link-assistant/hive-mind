@@ -318,6 +318,42 @@ validate-docs:
     - run: node tests/docs-validation.mjs
 ```
 
+### 13. Container Images: Native Runners per Architecture
+
+**Build each architecture on its own native runner.** GitHub provides free arm64 Linux runners for public repositories (`ubuntu-24.04-arm`). Emulating arm64 with QEMU on an x86 runner is much slower for compiled languages, and building two architectures inside one job makes them sequential instead of parallel.
+
+```yaml
+build-image:
+  strategy:
+    matrix:
+      include:
+        - platform: linux/amd64
+          runner: ubuntu-latest
+        - platform: linux/arm64
+          runner: ubuntu-24.04-arm
+  runs-on: ${{ matrix.runner }}
+  steps:
+    - uses: docker/build-push-action@v7
+      with:
+        platforms: ${{ matrix.platform }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+merge-manifest:
+  needs: [build-image]
+  steps:
+    - run: docker buildx imagetools create -t $IMAGE:$VERSION $DIGESTS
+```
+
+- **No `setup-qemu-action`.** Its presence means an architecture is being emulated; use a native runner instead.
+- **Publish images for every architecture your users run.** A single-architecture image silently excludes Apple Silicon, Graviton, and arm CI runners.
+- **Always cache.** Set `cache-from: type=gha` and `cache-to: type=gha,mode=max` on every build step; otherwise every architecture rebuilds the full dependency tree for every release.
+- **Never gate the release on the image push.** Publish the GitHub Release and language-registry package first, then attach images as they finish. Release notes contain no data derived from image bytes, so a slow or failed registry push must not hide an otherwise completed release.
+- **Assert what you shipped.** Verify that the published manifest lists every intended platform and that each default-branch tag has a corresponding GitHub Release; a missing release is otherwise easy to overlook.
+
+Reference implementations: [`link-foundation/box`](https://github.com/link-foundation/box) and [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind).
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:

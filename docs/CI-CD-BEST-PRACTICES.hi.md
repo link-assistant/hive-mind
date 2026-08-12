@@ -318,6 +318,42 @@ validate-docs:
     - run: node tests/docs-validation.mjs
 ```
 
+### 13. कंटेनर इमेज: प्रत्येक आर्किटेक्चर के लिए नेटिव रनर
+
+**हर architecture को उसके अपने native runner पर बनाएँ।** GitHub public repositories के लिए मुफ़्त arm64 Linux runners (`ubuntu-24.04-arm`) देता है। x86 runner पर QEMU से arm64 emulation बहुत धीमा होता है और एक job में दोनों builds parallel के बजाय sequential चलते हैं।
+
+```yaml
+build-image:
+  strategy:
+    matrix:
+      include:
+        - platform: linux/amd64
+          runner: ubuntu-latest
+        - platform: linux/arm64
+          runner: ubuntu-24.04-arm
+  runs-on: ${{ matrix.runner }}
+  steps:
+    - uses: docker/build-push-action@v7
+      with:
+        platforms: ${{ matrix.platform }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        outputs: type=image,push-by-digest=true,name-canonical=true,push=true
+
+merge-manifest:
+  needs: [build-image]
+  steps:
+    - run: docker buildx imagetools create -t $IMAGE:$VERSION $DIGESTS
+```
+
+- **`setup-qemu-action` का उपयोग न करें।** यह architecture emulation दर्शाता है; native runner उपयोग करें।
+- **Users के हर architecture के लिए images प्रकाशित करें।** Single-architecture image Apple Silicon, Graviton और arm CI runners को बाहर कर देती है।
+- **हमेशा cache करें।** हर build step पर `cache-from: type=gha` और `cache-to: type=gha,mode=max` सेट करें।
+- **Release को image push पर निर्भर न करें।** पहले GitHub Release और language-registry package प्रकाशित करें, फिर images तैयार होने पर जोड़ें।
+- **प्रकाशित परिणाम जाँचें।** Manifest में हर अपेक्षित platform और default branch के हर tag का GitHub Release होना चाहिए।
+
+संदर्भ implementations: [`link-foundation/box`](https://github.com/link-foundation/box) और [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind)।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:

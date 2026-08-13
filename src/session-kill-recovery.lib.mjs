@@ -24,6 +24,7 @@
 
 import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
+import { sanitizeForPublication } from './token-sanitization.lib.mjs'; // issue #2156: this body is published to a pull request
 import { KILL_CAUSE_DISK_FULL, KILL_CAUSE_FORCED_KILL, KILL_CAUSE_OUT_OF_MEMORY } from './session-kill-diagnostics.lib.mjs';
 import { ON_SESSION_KILL_RESUME } from './session-kill-policy.lib.mjs';
 
@@ -161,6 +162,13 @@ const defaultUnlink = async filePath => {
  * `--body-file` (not `--body`) is used deliberately: the notice contains
  * backticks and newlines that would otherwise have to survive shell quoting.
  *
+ * Issue #2156: the body is sanitized here rather than by the caller. It carries
+ * kill diagnostics and a resume command, both assembled from process and log
+ * data, so it is a publication boundary like any other and must fail closed.
+ * The array-argument `gh` invocation below is invisible to the
+ * `require-sanitized-output` ESLint rule, which is exactly how this path stayed
+ * unsanitized; the rule now understands this shape too.
+ *
  * @param {Object} options
  * @param {string} options.pullRequestUrl
  * @param {string} options.body
@@ -178,7 +186,7 @@ export async function postKillRecoveryNotice({ pullRequestUrl, body, runCommand 
 
   const bodyFile = `${tempDir.replace(/\/$/, '')}/hive-mind-kill-notice-${fileSuffix}.md`;
   try {
-    await writeFile(bodyFile, body);
+    await writeFile(bodyFile, await sanitizeForPublication(body));
     const result = await runCommand('gh', ['pr', 'comment', pullRequestUrl, '--body-file', bodyFile]);
     if (result?.code === 0) {
       const url = String(result.stdout || '').trim() || null;

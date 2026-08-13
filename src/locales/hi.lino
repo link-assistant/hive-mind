@@ -671,6 +671,8 @@ hi
         resumed_attempt "🔄 इस समाप्ति से पुनर्प्राप्ति हेतु नया कार्य सत्र शुरू किया गया (प्रयास {{attempt}}): {{sessionId}}"
     isolation
       label "Isolation"
+    execution
+      label "निष्पादन"
     error
       executing
         command "❌ {{commandName}} command चलाने में त्रुटि"

@@ -671,6 +671,8 @@ ru
         resumed_attempt "🔄 Запущена новая рабочая сессия для восстановления после этого завершения (попытка {{attempt}}): {{sessionId}}"
     isolation
       label "Изоляция"
+    execution
+      label "Запуск"
     error
       executing
         command "❌ Ошибка выполнения команды {{commandName}}"

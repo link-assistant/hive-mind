@@ -130,8 +130,13 @@ export function buildExecuteAndUpdateMessage(deps) {
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
       result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
-      if (result.success && sessionInfo && Number.isFinite(result.containerFilesystemStartBytes)) {
-        sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+      if (result.success && sessionInfo && (Number.isFinite(result.containerFilesystemStartBytes) || result.executionUuid)) {
+        if (Number.isFinite(result.containerFilesystemStartBytes)) sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+        // Issue #2154: `$ --list` identifies executions by start-command's own
+        // UUID, not by the session name the bot shows. Keep both on the session
+        // so the two views can be joined — in the reply, in the structured log
+        // and in the durable snapshot after a restart.
+        if (result.executionUuid) sessionInfo.executionUuid = result.executionUuid;
         trackSession(session, sessionInfo, VERBOSE);
       }
       if (!result.success) {
@@ -160,7 +165,7 @@ export function buildExecuteAndUpdateMessage(deps) {
     }
     if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
     if (result.success) {
-      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock, locale }));
+      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
     } else {
       // Issue #2154: keep the session UUID in the failure reply. It is the only

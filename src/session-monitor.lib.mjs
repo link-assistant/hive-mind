@@ -164,6 +164,9 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
     url: sessionInfo.url || null,
     command: sessionInfo.command || null,
     sessionId: sessionInfo.sessionId || null,
+    // Issue #2154: `$ --list` prints start-command's execution UUID, not the
+    // session name. Logging both is what makes the two views joinable.
+    executionUuid: sessionInfo.executionUuid || null,
     startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
   });
 }
@@ -660,6 +663,18 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       // the log footer to learn whether it was killed.
       if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
         sessionInfo.logPath = statusResult.logPath;
+        persistSessionSnapshot(sessionName, sessionInfo);
+      }
+      // Issue #2154: the same status record carries start-command's *execution*
+      // UUID — the only identifier `$ --list` prints. A session launched before
+      // this fix (or by a start-command whose banner we could not parse) has
+      // none, so backfill it here; otherwise that session stays impossible to
+      // find in the session list for its whole lifetime.
+      if (statusResult?.uuid && sessionInfo.executionUuid !== statusResult.uuid) {
+        if (verbose) {
+          console.log(`[VERBOSE] Session ${sessionName}: recorded start-command execution UUID ${statusResult.uuid} (this is what '$ --list' shows)`);
+        }
+        sessionInfo.executionUuid = statusResult.uuid;
         persistSessionSnapshot(sessionName, sessionInfo);
       }
     } else {

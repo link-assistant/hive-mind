@@ -269,6 +269,48 @@ async function runStartCommand(binPath, startCommandArgs) {
 export function generateSessionId() {
   return crypto.randomUUID();
 }
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Extract start-command's own execution UUID from a launch banner.
+ *
+ * Issue #2154: an isolated task has two UUIDs. Hive Mind generates the session
+ * name and passes it as `--session` (it also becomes the container name);
+ * start-command mints a separate execution UUID and prints it as the `session`
+ * field of its launch banner:
+ *
+ * ```
+ * │ session   edc7b051-e12f-4f7b-b677-c885f3208407
+ * │ container 0a3627ef-f1f1-4801-a073-3678b9453db7
+ * ```
+ *
+ * `$ --list` shows the execution UUID, while Telegram and the logs showed the
+ * session UUID, so the two views could not be joined — which is why three
+ * refused tasks and two healthy ones looked equally unaccounted for. Returning
+ * it lets the caller record both.
+ *
+ * Only a well-formed UUID is returned; a banner we do not recognise yields
+ * null rather than a guess, because a wrong correlation is worse than none.
+ *
+ * @param {string} output - Raw stdout from the detached `$` launch
+ * @returns {string|null}
+ */
+export function parseStartCommandExecutionUuid(output) {
+  const raw = (output || '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const data = Array.isArray(parsed) ? parsed[0] : parsed;
+    const uuid = data?.uuid || data?.session || null;
+    if (typeof uuid === 'string' && UUID_PATTERN.test(uuid.trim())) return uuid.trim();
+  } catch {
+    // Human-readable banner — fall through.
+  }
+  // The banner is box-drawn (`│ session   <uuid>`); tolerate the prefix, an
+  // ASCII `|`, or no prefix at all.
+  const match = raw.match(/^[\s│|]*session\s+([^\s]+)\s*$/im);
+  const candidate = match?.[1]?.trim();
+  return candidate && UUID_PATTERN.test(candidate) ? candidate : null;
+}
 /**
  * Parse output from `$ --status <session>`.
  *
@@ -611,9 +653,17 @@ export async function executeWithIsolation(command, args, options = {}) {
     await logDockerIsolationPostLaunchDiagnostics(sessionId, options.env || process.env);
   }
   if (result.success) {
+    // Issue #2154: hand the caller start-command's own execution UUID as well.
+    // It is the identifier `$ --list` prints, so without it the bot and the
+    // session list cannot be joined by an operator.
+    const executionUuid = parseStartCommandExecutionUuid(result.output);
+    if (verbose) {
+      console.log(executionUuid ? `[VERBOSE] isolation-runner: start-command execution UUID for session ${sessionId}: ${executionUuid} (this is what '$ --list' shows)` : `[VERBOSE] isolation-runner: start-command reported no execution UUID for session ${sessionId}; '$ --list' cannot be correlated for this session`);
+    }
     return {
       success: true,
       sessionId,
+      executionUuid,
       output: result.output,
       containerFilesystemStartBytes,
     };

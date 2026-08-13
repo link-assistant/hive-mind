@@ -671,6 +671,8 @@ zh
         resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
     isolation
       label "隔离"
+    execution
+      label "执行"
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"

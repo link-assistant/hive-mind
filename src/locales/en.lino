@@ -671,6 +671,8 @@ en
         resumed_attempt "🔄 A new working session was started to recover from this kill (attempt {{attempt}}): {{sessionId}}"
     isolation
       label "Isolation"
+    execution
+      label "Execution"
     error
       executing
         command "❌ Error executing {{commandName}} command"

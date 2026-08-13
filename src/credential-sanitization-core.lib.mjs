@@ -7,6 +7,7 @@
  */
 
 import { StringDecoder } from 'node:string_decoder';
+import { sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
 
 export const CREDENTIAL_SANITIZATION_ERROR_CODE = 'ERR_CREDENTIAL_SANITIZATION';
 export const CREDENTIAL_SANITIZATION_FAILURE_MESSAGE = 'Credential sanitization failed; publication was blocked.';
@@ -90,14 +91,38 @@ const normalizeAssignmentKey = prefix =>
     .toLowerCase();
 
 const isTokenCounterAssignment = (prefix, value) => NUMERIC_VALUE.test(String(value ?? '').trim()) && TOKEN_COUNTER_KEY.test(normalizeAssignmentKey(prefix));
+
+// Issue #2156: `SENSITIVE_KEY` matches any key *containing* `secret`, `token`
+// or `auth`, which includes real npm package names — `secretlint`,
+// `@secretlint/secretlint-rule-preset-recommend`, `next-auth`. Their manifest
+// values are version ranges, and masking those rewrote dependency versions to
+// `[REDACTED]` in every published `package.json` excerpt. A credential is
+// never a bare semver range, so exempting that exact value shape costs no
+// protection. The guard is on the value alone; `token: "1.2.3"` in a real
+// credential field would be a 5-character value that `maskToken` reduces to
+// `[REDACTED]` anyway.
+// One comparator (`^1.2.3`, `>=4.0.0`, `v2.1`), optionally repeated as a range
+// joined by whitespace, `-` or `||` — the full npm/semver range grammar.
+const VERSION_COMPARATOR = String.raw`(?:\^|~|[><]=?|=)?\s*v?\d+(?:\.\d+){1,2}(?:[-+][0-9A-Za-z.-]+)?`;
+const VERSION_RANGE_VALUE = new RegExp(`^${VERSION_COMPARATOR}(?:(?:\\s*(?:\\|\\||-)\\s*|\\s+)${VERSION_COMPARATOR})*$`);
+const isVersionRangeAssignment = value => VERSION_RANGE_VALUE.test(String(value ?? '').trim());
 const SENSITIVE_ENV_NAME = /(?:API_?KEY|ACCOUNT_?KEY|CLIENT_?SECRET|CONSUMER_?SECRET|WEBHOOK_?SECRET|ACCESS_?TOKEN|REFRESH_?TOKEN|AUTH_?TOKEN|PASSWORD|PASSWD|PRIVATE_?KEY|SECRET|TOKEN|COOKIE|AUTH)$/i;
-const QUOTED_ASSIGNMENT = new RegExp(`((?:["']?${SENSITIVE_KEY}["']?)\\s*(?:=>|[:=])\\s*)(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
+// Issue #2156: structured output is routinely nested inside another JSON
+// document — an agent tool result embeds the command's stdout as a JSON
+// *string*, so a response body reaches the log as `{\"token\":\"...\"}` with
+// every quote backslash-escaped. Anchoring on a bare `"` missed all of those,
+// which meant the generic `token` / `password` / `api_key` rules silently did
+// nothing for the single most common shape in our own logs. A quote delimiter
+// is therefore any run of backslashes followed by a quote character, and the
+// value is matched lazily so it stops at the escape rather than swallowing it.
+const QUOTE = String.raw`\\*["']`;
+const QUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(${QUOTE})([^"'\\r\\n]*?)(${QUOTE})`, 'gi');
 // Issue #2119: a value that *opens* a JSON/JS structure is punctuation, not a
 // secret. Without this guard `"tokens": {` was rewritten to `"tokens": [REDACTED]`,
 // which silently truncated the object and made the whole record unparseable.
 // The guard only rejects a structural character in first position, so a
 // credential that merely contains a brace (`password=ab{cd`) is still masked whole.
-const UNQUOTED_ASSIGNMENT = new RegExp(`((?:["']?${SENSITIVE_KEY}["']?)\\s*(?:=>|[:=])\\s*)(?!["']|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
+const UNQUOTED_ASSIGNMENT = new RegExp(`((?:${QUOTE})?${SENSITIVE_KEY}(?:${QUOTE})?\\s*(?:=>|[:=])\\s*)(?!${QUOTE}|[{[]|(?:Bearer|Basic|SharedAccessSignature)\\s)([^\\s,;}&'"\\r\\n]+)`, 'gi');
 const XML_CREDENTIAL = new RegExp(`(<(${SENSITIVE_KEY})\\b[^>]*>)([\\s\\S]*?)(<\\/\\2\\s*>)`, 'gi');
 const CLI_CREDENTIAL_QUOTED = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(["'])([^"'\\r\\n]*)(\\2)`, 'gi');
 const CLI_CREDENTIAL = new RegExp(`(--${SENSITIVE_KEY}(?:\\s+|=))(?!["'])([^\\s"'\\r\\n]+)`, 'gi');
@@ -121,9 +146,13 @@ const replaceCookieHeader = (_match, prefix, cookieText) => {
 
 /**
  * Synchronously sanitize known vendor credentials and credential-like
- * structured values. The operation is deterministic and idempotent.
+ * structured values in their plaintext representation.
+ *
+ * Encoded representations are handled by {@link sanitizeCredentialText}, which
+ * wraps this function; keeping the plaintext rules separate is what lets the
+ * encoded layer call back into them without recursing forever.
  */
-export const sanitizeCredentialText = (input, options = {}) => {
+const sanitizePlaintextCredentials = (input, options = {}) => {
   let output = String(input ?? '');
 
   // Known active credentials are the strongest signal and are replaced before
@@ -160,8 +189,11 @@ export const sanitizeCredentialText = (input, options = {}) => {
 
   // XML and JSON/YAML/TOML/INI/shell-style assignments.
   output = output.replace(XML_CREDENTIAL, (_match, start, _key, value, end) => `${start}${maskValue(value.trim())}${end}`);
-  output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, quote, value) => (isTokenCounterAssignment(prefix, value) ? match : `${prefix}${quote}${maskValue(value)}${quote}`));
-  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) ? match : `${prefix}${maskValue(value)}`));
+  // The opening and closing delimiters are captured independently because an
+  // escaped payload may not balance them symmetrically; each is preserved as
+  // written so the surrounding document stays byte-for-byte parseable.
+  output = output.replace(QUOTED_ASSIGNMENT, (match, prefix, openQuote, value, closeQuote) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${openQuote}${maskValue(value)}${closeQuote}`));
+  output = output.replace(UNQUOTED_ASSIGNMENT, (match, prefix, value) => (isTokenCounterAssignment(prefix, value) || isVersionRangeAssignment(value) ? match : `${prefix}${maskValue(value)}`));
 
   // CLI arguments and sensitive query parameters.
   output = output.replace(CLI_CREDENTIAL_QUOTED, (_match, prefix, quote, value) => `${prefix}${quote}${maskValue(value)}${quote}`);
@@ -174,6 +206,50 @@ export const sanitizeCredentialText = (input, options = {}) => {
   output = output.replace(/(https:\/\/(?:canary\.)?discord(?:app)?\.com\/api\/webhooks\/)([0-9A-Za-z/_-]+)/gi, (_match, prefix, value) => `${prefix}${maskValue(value)}`);
 
   return output;
+};
+
+/**
+ * How many nested encoding layers to peel. A credential wrapped in base64 of
+ * base64 is still a credential; beyond three layers the payload is no longer
+ * something any real service produces.
+ */
+const MAX_ENCODED_SANITIZATION_DEPTH = 3;
+
+const collectKnownTokenValues = options => {
+  const environmentTokens =
+    options.includeEnvironmentCredentials === false
+      ? []
+      : Object.entries(process.env)
+          .filter(([name, value]) => SENSITIVE_ENV_NAME.test(name) && typeof value === 'string' && value.length > 0)
+          .map(([, value]) => value);
+  const explicit = (options.knownTokens || []).map(token => (typeof token === 'string' ? token : token?.value)).filter(Boolean);
+  return [...environmentTokens, ...explicit];
+};
+
+/**
+ * Synchronously sanitize known vendor credentials and credential-like
+ * structured values, in both plaintext **and encoded** representations. The
+ * operation is deterministic and idempotent.
+ *
+ * Issue #2156: a credential that reaches a log only as base64 (or hex, percent,
+ * escape or entity encoding) has no plaintext substring for the rules above to
+ * match, yet remains fully recoverable — and GitHub's secret scanning does
+ * recover it. Encoded runs are therefore decoded, sanitized with the same
+ * rules, and re-encoded in place.
+ */
+export const sanitizeCredentialText = (input, options = {}) => {
+  const knownTokens = collectKnownTokenValues(options);
+
+  const sanitizeAtDepth = (text, depth) => {
+    const plain = sanitizePlaintextCredentials(text, options);
+    if (depth >= MAX_ENCODED_SANITIZATION_DEPTH || options.skipEncodedCredentials === true) return plain;
+    return sanitizeEncodedCredentials(plain, {
+      knownTokens,
+      sanitizePlaintext: nested => sanitizeAtDepth(nested, depth + 1),
+    });
+  };
+
+  return sanitizeAtDepth(String(input ?? ''), 0);
 };
 
 /**

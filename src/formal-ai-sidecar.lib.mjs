@@ -46,7 +46,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { FORMAL_AI_BOOTSTRAP_VERSION } from './formal-ai-version.lib.mjs';
+import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
+import { ensureFormalAiSidecarImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { resolveBotStateDir } from './session-store.lib.mjs';
@@ -77,8 +78,14 @@ export const FORMAL_AI_SIDECAR_PORT = 8080;
 export const FORMAL_AI_MEMORY_MOUNT = '/home/box/.formal-ai';
 export const FORMAL_AI_MEMORY_PATH = `${FORMAL_AI_MEMORY_MOUNT}/memory.lino`;
 
-/** Image published by every Formal AI release (`:latest` plus the bare version). */
-export const FORMAL_AI_IMAGE_REPOSITORY = 'ghcr.io/link-assistant/formal-ai';
+/**
+ * Image published by every Formal AI release (`:latest` plus the bare version).
+ *
+ * Re-exported from `formal-ai-image.lib.mjs`, which owns image resolution since
+ * issue #2154 taught us that "which image" and "is it actually pullable" are the
+ * same question.
+ */
+export { FORMAL_AI_IMAGE_REPOSITORY, resolveFormalAiSidecarImage, resolveFormalAiSidecarImageCandidates } from './formal-ai-image.lib.mjs';
 
 /** Applied to the sidecar, its network and its volume so reconciliation can find them. */
 export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
@@ -86,6 +93,9 @@ export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
 const STATE_FILE_NAME = 'formal-ai-sidecar.json';
 const SIDECAR_LOCK_NAME = 'formal-ai-sidecar';
 const DEFAULT_DOCKER_TIMEOUT_MS = 120_000;
+// Pulling a sidecar image is the one Docker call that legitimately takes many
+// minutes, so it gets its own budget instead of the general command timeout.
+const DEFAULT_IMAGE_TIMEOUT_MS = 600_000;
 const DEFAULT_HEALTH_ATTEMPTS = 60;
 const DEFAULT_HEALTH_DELAY_MS = 1000;
 
@@ -106,9 +116,6 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
  * @returns {boolean}
  */
 export const isFormalAiTask = ({ args = [], model = null } = {}) => isFormalAiModel(model || getModelFromArgs(args));
-
-/** Resolve the image the sidecar boots with. Operators may pin their own build. */
-export const resolveFormalAiSidecarImage = (env = process.env) => String(env.HIVE_MIND_FORMAL_AI_IMAGE || '').trim() || `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
 
 /** Build the endpoint origin for a host name or address. */
 export const buildFormalAiSidecarBaseUrl = (host = FORMAL_AI_SIDECAR_NETWORK_ALIAS) => `http://${host}:${FORMAL_AI_SIDECAR_PORT}`;
@@ -433,17 +440,13 @@ export const stopFormalAiSidecar = async ({ env = process.env, fsImpl = fs, run 
  * Must be called *before* the task container's command is allowed to run.
  * Returns the endpoint the task should be pointed at.
  */
-export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
+export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = null, env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, imageTimeoutMs = DEFAULT_IMAGE_TIMEOUT_MS, log = null, verbose = false, now = () => new Date(), healthAttempts, healthDelayMs, sleepImpl = sleep, lockOptions = {} } = {}) => {
   if (!sessionId) throw new Error('acquireFormalAiSidecar requires a sessionId');
 
   return withFormalAiSidecarLock(
     async () => {
-      const image = resolveFormalAiSidecarImage(env);
       const state = readFormalAiSidecarState({ env, fsImpl });
       const leases = await reconcileLeases(state.leases, { run, timeoutMs, log, verbose });
-
-      await ensureFormalAiNetwork({ run, timeoutMs, log, verbose });
-      await ensureFormalAiMemoryVolume({ image, run, timeoutMs, log, verbose });
 
       let container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       if (container.exists && !container.running) {
@@ -453,8 +456,18 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         container = { exists: false, running: false, image: null, imageDigest: null };
       }
 
+      // Resolve the image *before* anything shells out with it. Until issue
+      // #2154 the reference went straight into `docker run`, so a registry that
+      // refused the pull surfaced as an unreadable `Command failed: docker run …`
+      // dump and the task died even though a usable image sat on the host.
+      const resolved = container.exists && container.image ? { image: container.image, source: 'running-sidecar', pulled: false } : await ensureFormalAiSidecarImage({ env, run, timeoutMs: imageTimeoutMs, log, verbose });
+      const image = resolved.image;
+
+      await ensureFormalAiNetwork({ run, timeoutMs, log, verbose });
+      await ensureFormalAiMemoryVolume({ image, run, timeoutMs, log, verbose });
+
       if (!container.exists) {
-        if (log) await log(`🧠 Starting the Formal AI sidecar (${image}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
+        if (log) await log(`🧠 Starting the Formal AI sidecar (${image}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
         await dockerText(run, buildFormalAiSidecarRunArgs({ image, env }), { timeoutMs });
         container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       }
@@ -466,12 +479,21 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         throw new Error(`Formal AI sidecar '${FORMAL_AI_SIDECAR_CONTAINER_NAME}' did not become healthy: ${health.error}`);
       }
 
+      // The sidecar may now boot from any of several images (issue #2154), so
+      // the version floor is enforced against what the process actually reports
+      // rather than assumed from the tag. A too-old binary would answer /health
+      // and then fail on the agent-mode API the tasks depend on.
+      const reportedVersion = health.health?.version ?? null;
+      if (reportedVersion && !isFormalAiVersionAtLeast(reportedVersion, FORMAL_AI_MINIMUM_VERSION)) {
+        throw new Error(`Formal AI sidecar image ${image} (${resolved.source}) runs formal-ai ${reportedVersion}, but Hive Mind requires >= ${FORMAL_AI_MINIMUM_VERSION}. Rebuild or repin the image (HIVE_MIND_FORMAL_AI_IMAGE) before running Formal AI tasks.`);
+      }
+
       const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
       const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt }];
       writeFormalAiSidecarState({ ...state, image: container.image || image, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases }, { env, fsImpl });
 
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${container.image || image}, digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${health.health?.version ?? 'unknown'}, memory schema=${health.health?.memory?.schema_version ?? 'unknown'}`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${container.image || image} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${health.health?.version ?? 'unknown'}, memory schema=${health.health?.memory?.schema_version ?? 'unknown'}`);
 
       return {
         address,
@@ -482,6 +504,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME,
         memoryVolume: FORMAL_AI_MEMORY_VOLUME_NAME,
         image: container.image || image,
+        imageSource: resolved.source,
         imageDigest: container.imageDigest,
         health: health.health,
         leaseCount: nextLeases.length,

@@ -32,7 +32,14 @@ export const acquireFormalAiSidecarForTask = async ({ backend, args = [], model 
   try {
     return { sidecar: await acquire({ sessionId, tool, model, env, verbose, log }), error: null };
   } catch (error) {
-    return { sidecar: null, error: `Formal AI sidecar could not be started, so the task was not launched (issue #2146): ${error?.message || error}` };
+    const message = `Formal AI sidecar could not be started, so the task was not launched (issue #2146): ${error?.message || error}`;
+    // Issue #2154: this used to be returned and nothing else. The reply went to
+    // Telegram, the session was untracked, and the bot log showed only the
+    // untracking — so the operator could see that a task had vanished but never
+    // why. Every refusal is now on the record, with the session UUID that names
+    // the task in `$ --list` and in the session store.
+    console.error(`[formal-ai-isolation] Session ${sessionId}: ${message}`);
+    return { sidecar: null, error: message };
   }
 };
 

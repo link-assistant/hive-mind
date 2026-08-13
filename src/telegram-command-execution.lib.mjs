@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
-import { t } from './i18n.lib.mjs';
+import { formatFailedLaunchMessage as defaultFormatFailedLaunchMessage } from './work-session-formatting.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -101,7 +101,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
  */
 export function buildExecuteAndUpdateMessage(deps) {
-  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = deps;
+  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
   return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null, commandAlias = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const safeEdit = async text => {
@@ -130,14 +130,27 @@ export function buildExecuteAndUpdateMessage(deps) {
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
       result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
-      if (result.success && sessionInfo && Number.isFinite(result.containerFilesystemStartBytes)) {
-        sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+      if (result.success && sessionInfo && (Number.isFinite(result.containerFilesystemStartBytes) || result.executionUuid)) {
+        if (Number.isFinite(result.containerFilesystemStartBytes)) sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+        // Issue #2154: `$ --list` identifies executions by start-command's own
+        // UUID, not by the session name the bot shows. Keep both on the session
+        // so the two views can be joined — in the reply, in the structured log
+        // and in the durable snapshot after a restart.
+        if (result.executionUuid) sessionInfo.executionUuid = result.executionUuid;
         trackSession(session, sessionInfo, VERBOSE);
       }
       if (!result.success) {
         // The launch never produced a live container — drop the optimistic
         // tracking so a phantom session is not monitored or resumed.
-        if (typeof untrackSession === 'function') untrackSession(session, VERBOSE);
+        // Issue #2154: the untracking used to be the *only* trace of the
+        // failure anywhere outside Telegram. Record the UUID, the backend and
+        // the reason first, so the bot log explains why a session that was
+        // announced a second ago is gone and absent from `--list`.
+        const launchError = result.error || result.output || 'unknown error';
+        console.error(`[telegram-bot] ${commandName} session ${session} was not launched (isolation=${iso.backend}, tool=${tool}): ${launchError}`);
+        // The reason also goes into the structured `session_untracked` event, so
+        // the timestamped log explains the disappearance on its own.
+        if (typeof untrackSession === 'function') untrackSession(session, VERBOSE, { reason: launchError });
         sessionInfo = undefined;
       }
     } else {
@@ -152,9 +165,15 @@ export function buildExecuteAndUpdateMessage(deps) {
     }
     if (result.warning) return safeEdit(`⚠️  ${result.warning}`);
     if (result.success) {
-      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, isolationBackend: iso?.backend || null, infoBlock, locale }));
+      await safeEdit(formatExecutingWorkSessionMessage({ sessionName: session, executionUuid: result.executionUuid || null, isolationBackend: iso?.backend || null, infoBlock, locale }));
       if (AUTO_WATCH_MESSAGE && commandName === 'solve' && sessionInfo?.isolationBackend) await startAutoTerminalWatchForSession({ bot, ctx, sessionId: session, sessionInfo, verbose: VERBOSE });
-    } else await safeEdit(`${t('telegram.error_executing_command', { commandName }, { locale })}:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${infoBlock}`);
+    } else {
+      // Issue #2154: keep the session UUID in the failure reply. It is the only
+      // handle the operator has on the attempt, and this edit replaces the
+      // "🔄 Starting..." message that used to carry it.
+      if (!iso) console.error(`[telegram-bot] ${commandName} command failed to start (no isolation, tool=${tool}): ${result.error || result.output || 'unknown error'}`);
+      await safeEdit(formatFailedLaunchMessage({ commandName, sessionName: iso ? session : null, isolationBackend: iso?.backend || null, infoBlock, error: result.error || result.output, locale }));
+    }
   };
 }
 

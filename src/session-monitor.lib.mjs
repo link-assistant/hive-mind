@@ -164,6 +164,9 @@ export function trackSession(sessionName, sessionInfo, verbose = false) {
     url: sessionInfo.url || null,
     command: sessionInfo.command || null,
     sessionId: sessionInfo.sessionId || null,
+    // Issue #2154: `$ --list` prints start-command's execution UUID, not the
+    // session name. Logging both is what makes the two views joinable.
+    executionUuid: sessionInfo.executionUuid || null,
     startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
   });
 }
@@ -230,24 +233,40 @@ export function markSessionStopRequested(sessionId, { requestedBy = null, verbos
  * map and the durable store without emitting a `session_completed` audit event —
  * the session never ran, so it has no exit code to record (issue #1946).
  *
+ * Issue #2154: the durable structured log recorded only
+ * `session_untracked {"sessionName":…}`. Why the session disappeared a second
+ * after it was announced lived on untimestamped console lines, so an incident
+ * could not be reconstructed from the timestamped log alone. Callers now pass
+ * the reason and it is recorded with the event.
+ *
  * @param {string} sessionName - Name/UUID of the session to drop
  * @param {boolean} verbose - Whether to log verbose output
+ * @param {object} [details] - Extra context recorded with the `session_untracked` event
+ * @param {string} [details.reason] - Why the session was dropped (e.g. the launch error)
  */
-export function untrackSession(sessionName, verbose = false) {
+export function untrackSession(sessionName, verbose = false, details = {}) {
   if (!sessionName) return;
   const sessionInfo = activeSessions.get(sessionName) || null;
   const existed = activeSessions.delete(sessionName);
+  const reason = typeof details?.reason === 'string' && details.reason.trim() ? details.reason.trim() : null;
   if (verbose && existed) {
-    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)`);
+    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)${reason ? `: ${reason}` : ''}`);
   }
   if (sessionStore && isPersistableSession(sessionInfo)) {
     try {
-      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null });
+      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null, reason });
     } catch (error) {
       console.error(`[session-monitor] Could not remove untracked session ${sessionName}: ${error.message}`);
     }
   }
-  logEvent('session_untracked', { sessionName });
+  logEvent('session_untracked', {
+    sessionName,
+    reason,
+    url: sessionInfo?.url || null,
+    command: sessionInfo?.command || null,
+    tool: sessionInfo?.tool || null,
+    isolationBackend: sessionInfo?.isolationBackend || null,
+  });
 }
 /**
  * Get the number of active sessions being tracked
@@ -644,6 +663,18 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
       // the log footer to learn whether it was killed.
       if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
         sessionInfo.logPath = statusResult.logPath;
+        persistSessionSnapshot(sessionName, sessionInfo);
+      }
+      // Issue #2154: the same status record carries start-command's *execution*
+      // UUID — the only identifier `$ --list` prints. A session launched before
+      // this fix (or by a start-command whose banner we could not parse) has
+      // none, so backfill it here; otherwise that session stays impossible to
+      // find in the session list for its whole lifetime.
+      if (statusResult?.uuid && sessionInfo.executionUuid !== statusResult.uuid) {
+        if (verbose) {
+          console.log(`[VERBOSE] Session ${sessionName}: recorded start-command execution UUID ${statusResult.uuid} (this is what '$ --list' shows)`);
+        }
+        sessionInfo.executionUuid = statusResult.uuid;
         persistSessionSnapshot(sessionName, sessionInfo);
       }
     } else {

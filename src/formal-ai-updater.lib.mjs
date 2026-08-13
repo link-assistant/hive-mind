@@ -33,6 +33,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import { promisify } from 'node:util';
 
+import { classifyDockerRegistryError } from './formal-ai-image.lib.mjs';
 import { FORMAL_AI_IMAGE_REPOSITORY, FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_PATH, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, buildFormalAiSidecarRunArgs, ensureFormalAiMemoryVolume, ensureFormalAiNetwork, inspectDockerContainer, readDockerImageDigest, readFormalAiSidecarState, reconcileFormalAiSidecar, stopFormalAiSidecar, waitForFormalAiSidecarHealth, withFormalAiSidecarLock, writeFormalAiSidecarState } from './formal-ai-sidecar.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -207,8 +208,19 @@ export const updateFormalAiSidecarWhenIdle = async ({ env = process.env, fsImpl 
         await dockerText(run, ['pull', '--quiet', image], { timeoutMs: pullTimeoutMs });
       } catch (error) {
         const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
-        if (log) await log(`⚠️ Could not pull ${image}; keeping the current Formal AI image: ${message}`);
-        return { status: 'failed', stage: 'pull', image, error: message };
+        // Issue #2154: this warning fired every ~5 minutes for hours ("Could not
+        // pull … unauthorized") without ever saying that the registry was
+        // refusing us, and the operator only learned of it when a Formal AI task
+        // failed to start. A permanent refusal (unauthorized/denied/not-found)
+        // is a configuration fault, not a transient blip: name it, say how to
+        // fix it, and report the classification to the caller.
+        const classification = classifyDockerRegistryError(message);
+        const permanent = ['unauthorized', 'denied', 'not-found'].includes(classification.kind);
+        if (log) {
+          const remediation = classification.remediation.length ? ` Fix it by one of: ${classification.remediation.join('; ')}.` : '';
+          await log(`${permanent ? '🚨' : '⚠️'} Could not pull ${image} — ${classification.reason} (${classification.kind}); keeping the current Formal AI image: ${message}${permanent ? remediation : ''}`);
+        }
+        return { status: 'failed', stage: 'pull', image, error: message, classification: classification.kind, permanent, remediation: classification.remediation };
       }
 
       const pulledDigest = await readDockerImageDigest(image, { run, timeoutMs });

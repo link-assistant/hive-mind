@@ -654,6 +654,7 @@ ru
         runner_also_failed "Средство запуска также завершилось с ошибкой; код выхода сохранён для расследования."
         killed "Рабочий сеанс остановлен: {{reason}}{{exitSuffix}}"
         stopped "Рабочий сеанс остановлен пользователем{{requestedBy}}{{exitSuffix}}"
+        not_launched "Рабочий сеанс не был запущен, поэтому у него нет журнала и он не отображается в `--list`."
     duration
       label "Длительность"
     session
@@ -670,6 +671,8 @@ ru
         resumed_attempt "🔄 Запущена новая рабочая сессия для восстановления после этого завершения (попытка {{attempt}}): {{sessionId}}"
     isolation
       label "Изоляция"
+    execution
+      label "Запуск"
     error
       executing
         command "❌ Ошибка выполнения команды {{commandName}}"

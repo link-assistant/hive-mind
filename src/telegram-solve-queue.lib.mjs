@@ -15,7 +15,7 @@ import { collectExecutingItems, formatDuration, formatQueueToolSection, formatWa
 export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
-import { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 export const QueueItemStatus = {
@@ -1070,9 +1070,24 @@ export class SolveQueue {
         // This was a bug where the final message update never happened because messageInfo was null
         // See: https://github.com/link-assistant/hive-mind/issues/1062
         const savedMessageInfo = item.messageInfo;
-        // Update to Started status (terminal - forgets message tracking)
-        item.setStarted(sessionName);
-        this.stats.totalCompleted++;
+        // Issue #2154: a launch that never produced a container was still marked
+        // STARTED, counted in `totalCompleted`, pushed onto `completed` and
+        // logged as `Finished: […] (started)`. Three Formal AI tasks that never
+        // ran therefore appear in the bot log as successful starts — a false
+        // positive that hid the incident and contradicted `$ --list`, which had
+        // no such sessions. A refused launch is a failure of the queue item.
+        const launchFailed = Boolean(result) && result.success === false;
+        if (launchFailed) {
+          item.setFailed(result.error || result.output || 'the launch was refused before the container started');
+          item.sessionName = sessionName;
+          item.messageInfo = null; // terminal status — stop tracking the message
+          this.stats.totalFailed++;
+          console.error(`[solve_queue] Item ${item.id} was not launched (session ${sessionName}): ${item.error}`);
+        } else {
+          // Update to Started status (terminal - forgets message tracking)
+          item.setStarted(sessionName);
+          this.stats.totalCompleted++;
+        }
         // Final message update using saved messageInfo
         if (item.ctx && result && savedMessageInfo) {
           const { chatId, messageId } = savedMessageInfo;
@@ -1089,7 +1104,17 @@ export class SolveQueue {
                 });
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               } else {
-                const response = `${t('telegram.error_executing_command', { commandName: 'solve' }, { locale: item.locale })}:\n\n\`\`\`\n${result.error || result.output}\n\`\`\`\n\n${item.infoBlock}`;
+                // Issue #2154: a queued /solve that fails to launch reports the
+                // same way as a direct one — with its session UUID and a note
+                // that nothing was started, instead of a bare error dump.
+                const response = formatFailedLaunchMessage({
+                  commandName: 'solve',
+                  sessionName: sessionName === 'unknown' ? null : sessionName,
+                  isolationBackend: result.isolationBackend || null,
+                  infoBlock: item.infoBlock,
+                  error: result.error || result.output,
+                  locale: item.locale,
+                });
                 await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
               }
             } catch (error) {

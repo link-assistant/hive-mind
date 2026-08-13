@@ -21,6 +21,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
+// The image references live in their own module so the Formal AI sidecar can
+// resolve the locally present Hive Mind image (which bakes `formal-ai`) without
+// importing this runner and creating a cycle. Re-exported here because callers
+// and tests have always reached them through the isolation runner. See #2154.
+import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
+export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
   if (!commandStreamDollarPromise) {
@@ -43,9 +49,6 @@ async function getCommandStreamDollar() {
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
-const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
-const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
 const DOCKER_CONTAINER_HOME = '/home/box';
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
@@ -95,36 +98,6 @@ function maybeAddMount(mounts, source, target, existsSync) {
   if (!source) return;
   if (!existsSync(source)) return;
   mounts.push({ source, target });
-}
-/**
- * Resolve the tag used for the Docker isolation image.
- *
- * Release Docker images bake this env var from `HIVE_MIND_VERSION`, so a parent
- * container started via `:latest` still launches child isolation containers from
- * the same immutable release tag. Local/PR builds fall back to `latest`, and
- * operators can override the tag explicitly when using custom images. Pinning
- * matters for Docker-in-Docker deployments: the nested daemon starts with an
- * empty image store, so a `:latest` digest drift from the host copy forces a
- * fresh multi-gigabyte pull. See issue #1879.
- */
-export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
-  const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();
-  return explicit || DEFAULT_HIVE_MIND_IMAGE_TAG;
-}
-/**
- * Pick the Docker image used for `--isolation docker`.
- *
- * start-command defaults its Docker backend to a base OS image. Hive Mind needs
- * an image with the same CLI/tooling baseline as the parent process instead.
- *
- * `HIVE_MIND_DOCKER_ISOLATION_IMAGE` is a full override (repo:tag). Otherwise
- * the repo is chosen by image variant and the tag by
- * `resolveDockerIsolationImageTag()`.
- */
-export function getDockerIsolationImage({ env = process.env } = {}) {
-  if (env.HIVE_MIND_DOCKER_ISOLATION_IMAGE) return env.HIVE_MIND_DOCKER_ISOLATION_IMAGE;
-  const repo = String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? HIVE_MIND_DIND_IMAGE_REPO : HIVE_MIND_IMAGE_REPO;
-  return `${repo}:${resolveDockerIsolationImageTag({ env })}`;
 }
 /**
  * Resolve the path where the host Docker socket is expected to be mounted inside
@@ -295,6 +268,48 @@ async function runStartCommand(binPath, startCommandArgs) {
  */
 export function generateSessionId() {
   return crypto.randomUUID();
+}
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Extract start-command's own execution UUID from a launch banner.
+ *
+ * Issue #2154: an isolated task has two UUIDs. Hive Mind generates the session
+ * name and passes it as `--session` (it also becomes the container name);
+ * start-command mints a separate execution UUID and prints it as the `session`
+ * field of its launch banner:
+ *
+ * ```
+ * │ session   edc7b051-e12f-4f7b-b677-c885f3208407
+ * │ container 0a3627ef-f1f1-4801-a073-3678b9453db7
+ * ```
+ *
+ * `$ --list` shows the execution UUID, while Telegram and the logs showed the
+ * session UUID, so the two views could not be joined — which is why three
+ * refused tasks and two healthy ones looked equally unaccounted for. Returning
+ * it lets the caller record both.
+ *
+ * Only a well-formed UUID is returned; a banner we do not recognise yields
+ * null rather than a guess, because a wrong correlation is worse than none.
+ *
+ * @param {string} output - Raw stdout from the detached `$` launch
+ * @returns {string|null}
+ */
+export function parseStartCommandExecutionUuid(output) {
+  const raw = (output || '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const data = Array.isArray(parsed) ? parsed[0] : parsed;
+    const uuid = data?.uuid || data?.session || null;
+    if (typeof uuid === 'string' && UUID_PATTERN.test(uuid.trim())) return uuid.trim();
+  } catch {
+    // Human-readable banner — fall through.
+  }
+  // The banner is box-drawn (`│ session   <uuid>`); tolerate the prefix, an
+  // ASCII `|`, or no prefix at all.
+  const match = raw.match(/^[\s│|]*session\s+([^\s]+)\s*$/im);
+  const candidate = match?.[1]?.trim();
+  return candidate && UUID_PATTERN.test(candidate) ? candidate : null;
 }
 /**
  * Parse output from `$ --status <session>`.
@@ -544,23 +559,22 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
   const sessionId = options.sessionId || generateSessionId();
+  // Issue #2154: a launch that never produced a container left no trace in the
+  // bot log — the reply went to Telegram and the log jumped straight to
+  // "session untracked", so an operator could see that tasks were disappearing
+  // but not why, and could not even name them. Every unsuccessful return from
+  // this function now records the session UUID (the same one `$ --list` and the
+  // session store use) together with the reason.
+  const failLaunch = (error, extra = {}) => {
+    console.error(`[isolation-runner] Session ${sessionId} was not launched (backend=${backend}, tool=${options.tool ?? 'claude'}, model=${options.model ?? 'default'}): ${error}`);
+    return { success: false, sessionId, output: '', error, ...extra };
+  };
   if (!VALID_ISOLATION_BACKENDS.includes(backend)) {
-    return {
-      success: false,
-      sessionId,
-      output: '',
-      error: `Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`,
-    };
+    return failLaunch(`Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`);
   }
   const binPath = await findStartCommandBinary();
   if (!binPath) {
-    return {
-      success: false,
-      sessionId,
-      output: '',
-      warning: '⚠️ WARNING: start-command ($) not found in PATH\nPlease install: npm install -g start-command',
-      error: 'start-command ($) not found',
-    };
+    return failLaunch('start-command ($) not found', { warning: '⚠️ WARNING: start-command ($) not found in PATH\nPlease install: npm install -g start-command' });
   }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: Using $ binary at: ${binPath}`);
@@ -573,7 +587,7 @@ export async function executeWithIsolation(command, args, options = {}) {
   // fails. Fail closed — a Formal AI task must never start without Formal AI.
   const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
-  if (sidecarError) return { success: false, sessionId, output: '', error: sidecarError };
+  if (sidecarError) return failLaunch(sidecarError);
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
@@ -628,7 +642,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (formalAiAttachError) await removeDockerContainer(sessionId, verbose);
     await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
     if (formalAiAttachError) {
-      return { success: false, sessionId, output: result.output, error: `Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}` };
+      return failLaunch(`Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}`, { output: result.output });
     }
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
@@ -639,19 +653,22 @@ export async function executeWithIsolation(command, args, options = {}) {
     await logDockerIsolationPostLaunchDiagnostics(sessionId, options.env || process.env);
   }
   if (result.success) {
+    // Issue #2154: hand the caller start-command's own execution UUID as well.
+    // It is the identifier `$ --list` prints, so without it the bot and the
+    // session list cannot be joined by an operator.
+    const executionUuid = parseStartCommandExecutionUuid(result.output);
+    if (verbose) {
+      console.log(executionUuid ? `[VERBOSE] isolation-runner: start-command execution UUID for session ${sessionId}: ${executionUuid} (this is what '$ --list' shows)` : `[VERBOSE] isolation-runner: start-command reported no execution UUID for session ${sessionId}; '$ --list' cannot be correlated for this session`);
+    }
     return {
       success: true,
       sessionId,
+      executionUuid,
       output: result.output,
       containerFilesystemStartBytes,
     };
   }
-  return {
-    success: false,
-    sessionId,
-    output: result.output,
-    error: result.error,
-  };
+  return failLaunch(result.error, { output: result.output });
 }
 /**
  * Query the status of an isolated session via `$ --status <uuid>`

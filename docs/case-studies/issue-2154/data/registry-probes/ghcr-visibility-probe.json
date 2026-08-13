@@ -1,0 +1,76 @@
+{
+  "endpoint": "https://ghcr.io/token",
+  "method": "GET (no credentials)",
+  "results": [
+    {
+      "name": "token-link-assistant-formal-ai",
+      "repository": "link-assistant/formal-ai",
+      "expectation": "the image the incident could not pull",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/formal-ai:pull",
+      "status": 401,
+      "verdict": "private — the package exists and requires credentials",
+      "body": {
+        "errors": [
+          {
+            "code": "UNAUTHORIZED",
+            "message": "authentication required"
+          }
+        ]
+      }
+    },
+    {
+      "name": "token-link-assistant-agent",
+      "repository": "link-assistant/agent",
+      "expectation": "control: another package in the same org",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/agent:pull",
+      "status": 403,
+      "verdict": "absent or invisible — no such package for an anonymous caller",
+      "body": {
+        "errors": [
+          {
+            "code": "DENIED",
+            "message": "requested access to the resource is denied"
+          }
+        ]
+      }
+    },
+    {
+      "name": "token-link-assistant-hive-mind-does-not-exist",
+      "repository": "link-assistant/hive-mind-does-not-exist",
+      "expectation": "control: a package that certainly does not exist",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/hive-mind-does-not-exist:pull",
+      "status": 403,
+      "verdict": "absent or invisible — no such package for an anonymous caller",
+      "body": {
+        "errors": [
+          {
+            "code": "DENIED",
+            "message": "requested access to the resource is denied"
+          }
+        ]
+      }
+    },
+    {
+      "name": "token-public-homebrew-core-hello",
+      "repository": "homebrew/core/hello",
+      "expectation": "control: a known-public package",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:homebrew/core/hello:pull",
+      "status": 200,
+      "verdict": "public — anonymous pull is allowed",
+      "body": {
+        "token": "<redacted: short-lived anonymous pull token>"
+      }
+    },
+    {
+      "name": "token-public-actions-actions-runner",
+      "repository": "actions/actions-runner",
+      "expectation": "control: a known-public package",
+      "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:actions/actions-runner:pull",
+      "status": 200,
+      "verdict": "public — anonymous pull is allowed",
+      "body": {
+        "token": "<redacted: short-lived anonymous pull token>"
+      }
+    }
+  ]
+}

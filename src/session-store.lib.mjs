@@ -35,7 +35,10 @@ import path from 'node:path';
 // with its exact original invocation plus `--resume <lastSessionId>`.
 // `commandAlias` (#2109) preserves the Telegram spelling (`solve`, `codex`,
 // `claude`, etc.) so a bot notification never suggests a terminal-only command.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
+// `executionUuid` (#2154) is start-command's own identifier for the execution —
+// the one `$ --list` prints. It differs from `sessionId`, so persisting it is
+// what lets a restarted bot still correlate its sessions with the session list.
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors
@@ -213,7 +216,9 @@ export function createSessionStore(options = {}) {
         delete sessions[sessionName];
         writeSnapshotMap(sessions);
       }
-      appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null });
+      // Issue #2154: carry the reason (when the caller knows it) so the durable
+      // event log says why a session ended, not just that it did.
+      appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null, reason: meta.reason ?? null });
       log('debug', `Removed session ${sessionName} from snapshot`, meta);
     },
 

@@ -80,12 +80,58 @@ export function formatStartingWorkSessionMessage({ sessionName = null, isolation
   return `${header}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
 }
 
-export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', isolationBackend = null, infoBlock = '', locale = null } = {}) {
+export function formatExecutingWorkSessionMessage({ sessionName = 'unknown', executionUuid = null, isolationBackend = null, infoBlock = '', locale = null } = {}) {
   const sessionLabel = text(locale, 'telegram.session_label', 'Session');
   const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
   const isolationInfo = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
   const details = infoBlock ? `\n\n${infoBlock}` : '';
-  return `${text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${isolationInfo}${details}`;
+  // Issue #2154: `$ --list` identifies an execution by start-command's own UUID,
+  // which is *not* the session name shown above it. Printing only one of the two
+  // left the operator unable to match a running task to the session list. The
+  // line is omitted entirely when start-command reported no UUID, so a session
+  // never carries an empty label.
+  const executionLabel = text(locale, 'telegram.execution_label', 'Execution');
+  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
+  return `${text(locale, 'telegram.work_session_executing', '⏳ Executing...')}\n\n📊 ${sessionLabel}: \`${sessionName}\`${executionInfo}${isolationInfo}${details}`;
+}
+
+/**
+ * Render the reply for a work session that never started (issue #2154).
+ *
+ * The previous reply was the raw runner error in a code fence and nothing else.
+ * Two things were missing, and both were reported as separate symptoms of the
+ * same incident:
+ *
+ *   - **The session UUID.** It was generated before the launch and shown in the
+ *     "🔄 Starting..." message, but the failure reply *overwrote* that message,
+ *     so the only identifier the task ever had was destroyed by its own error
+ *     report. Nothing then connected the Telegram thread to the bot log lines,
+ *     to the session store, or to a `--log <uuid>` lookup.
+ *   - **Why the task is missing from `--list`.** A failed launch produces no
+ *     container, so the session is untracked and never appears in the listing.
+ *     Without saying so, the reply reads as if the task were running somewhere.
+ *
+ * @param {Object} params
+ * @param {string} [params.commandName] - Command the user invoked (`solve`, `hive`, …)
+ * @param {string|null} [params.sessionName] - Session UUID, when one was generated
+ * @param {string|null} [params.isolationBackend]
+ * @param {string} [params.infoBlock]
+ * @param {string} [params.error] - Runner error text
+ * @param {string|null} [params.locale]
+ * @returns {string} Markdown reply
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/2154
+ */
+export function formatFailedLaunchMessage({ commandName = 'command', sessionName = null, isolationBackend = null, infoBlock = '', error = '', locale = null } = {}) {
+  const header = text(locale, 'telegram.error_executing_command', `❌ Error executing ${commandName} command`, { commandName });
+  const sessionLabel = text(locale, 'telegram.session_label', 'Session');
+  const isolationLabel = text(locale, 'telegram.isolation_label', 'Isolation');
+  const sessionLine = sessionName ? `\n📊 ${sessionLabel}: \`${sessionName}\`` : '';
+  const isolationLine = isolationBackend ? `\n🔒 ${isolationLabel}: \`${isolationBackend}\`` : '';
+  const body = String(error ?? '').trim() || 'unknown error';
+  const notLaunched = sessionName ? `\n\n${text(locale, 'telegram.work_session_not_launched', 'The work session was not launched, so it has no log and is not listed by `--list`.')}` : '';
+  const details = infoBlock ? `\n\n${infoBlock}` : '';
+  return `${header}:${sessionLine}${isolationLine}\n\n\`\`\`\n${body}\n\`\`\`${notLaunched}${details}`;
 }
 
 /**
@@ -176,6 +222,13 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const sessionLabel = text(messageLocale, 'telegram.session_label', 'Session');
   const isolationLabel = text(messageLocale, 'telegram.isolation_label', 'Isolation');
   const isolationInfo = sessionInfo?.isolationBackend ? `\n🔒 ${isolationLabel}: \`${sessionInfo.isolationBackend}\`` : '';
+  // Issue #2154: the completion reply is the last word the Telegram thread has
+  // on a task, and the handle an operator uses afterwards to fetch its log. Keep
+  // start-command's execution UUID (the one `$ --list` prints) next to the
+  // session UUID, so the finished task can still be found in the session list.
+  const executionLabel = text(messageLocale, 'telegram.execution_label', 'Execution');
+  const executionUuid = sessionInfo?.executionUuid || statusResult?.uuid || null;
+  const executionInfo = executionUuid ? `\n🆔 ${executionLabel}: \`${executionUuid}\`` : '';
   const startTime = parseDateValue(statusResult?.startTime) || parseDateValue(sessionInfo?.startTime) || observedEndTime;
   const endTime = parseDateValue(statusResult?.endTime) || observedEndTime;
   const durationSeconds = Math.max(0, (endTime.getTime() - startTime.getTime()) / 1000);
@@ -188,7 +241,7 @@ export function formatSessionCompletionMessage({ sessionName, sessionInfo, statu
   const statusEmoji = statusEmojiOverride || (failed ? '❌' : '✅');
   let message = `${statusEmoji} *${statusText}*\n\n`;
   message += `⏱️ ${durationLabel}: ${formatSessionDurationSeconds(durationSeconds)}\n`;
-  message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${isolationInfo}${details}`;
+  message += `📊 ${sessionLabel}: \`${sessionName || 'unknown'}\`${executionInfo}${isolationInfo}${details}`;
 
   // Issue #594: --show-limits virtual option appends snapshot/delta sections
   // (Markdown code blocks) below the standard completion details.

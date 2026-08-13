@@ -1,0 +1,50 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4973680850",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2059#issuecomment-4973680850",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2059",
+    "id": 4973680850,
+    "node_id": "IC_kwDOPUU0qc8AAAABKHRY0g",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-14T20:28:03Z",
+    "updated_at": "2026-07-14T21:14:28Z",
+    "body": "We must support all agentic CLI tools we have with formal-ai model, and Agent CLI should be set to formal-ai model by default, once they are fully supported by formal-ai package.\n\nAlso we need to make sure we use separate docker image that starts from hive-mind root docker image of telegram bot, and is available at docker network in all `/solve` or `solve` spawned containers.\n\nSo we need to make sure we properly preconfigured our hive-mind image for both scenarios.\n\nAnd we should use docker network name `link-assistant-formal-ai` as host name and some standard port for API server operation. At the moment we don't store any memory of formal AI system, so once server restarted - it will be reset to its initial state.",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/4973680850/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5074100013",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2059#issuecomment-5074100013",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2059",
+    "id": 5074100013,
+    "node_id": "IC_kwDOPUU0qc8AAAABLnCfLQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-24T20:29:55Z",
+    "updated_at": "2026-07-24T20:29:55Z",
+    "body": "Measurement from the Formal AI side, in case it is useful for sequencing this change.\n\nWe built a coding-task ladder that drives `formal-ai with agent` — the same path this issue enables (Hive Mind → Agent CLI → `formal-ai serve --agent-mode`) — over real open Formal AI issues that have never had a PR, decomposed from \"solve this issue and open a pull request\" down to single atomic edits.\n\n**Result at formal-ai v0.303.0 with agent CLI 0.25.0: 2/13.** Both passes are read-only; **zero write operations succeeded at any level**, including the atomic one (\"add this string to that array in this named file\").\n\nRoot cause is intent routing rather than tool wiring — the agent CLI does advertise `write`, `edit` and `bash`, and Formal AI never calls them:\n\n```\n\"Create a file named /tmp/x.txt containing exactly the word hello\"\n  -> formalized as an *arithmetic* task -> \"I could not determine ...\"\n```\n\nDetails, dataset and per-task output: [link-assistant/formal-ai#848](https://github.com/link-assistant/formal-ai/issues/848).\n\nThis does not argue against the change requested here — adding `formal-ai` to `agentModels` and the validation map is correct on its own merits, and the requested test (`--only-prepare-command` reaching command preparation) is exactly the right scope, since it verifies the plumbing without depending on the model completing work.\n\nThe suggestion is only about **enabling real `solve` dispatch**: until the routing defect is fixed, a real run would reliably produce PR attempts that do nothing. We are tracking a gate on the formal-ai side (writes succeeding at the atomic and single-edit levels) before recommending `--model formal-ai` for actual issue solving.\n\nHappy to re-run the ladder against any candidate build.",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5074100013/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5083180497",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2059#issuecomment-5083180497",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2059",
+    "id": 5083180497,
+    "node_id": "IC_kwDOPUU0qc8AAAABLvst0Q",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-07-26T11:00:09Z",
+    "updated_at": "2026-07-26T11:08:20Z",
+    "body": "We must to add ability to use \n\n```\n--tool agent --model formal-ai\n--tool codex --model formal-ai\n--tool claude --model formal-ai\n```\n\nAs\n\n```\nformal-ai with agent\nformal-ai with codex\nformal-ai with claude\n```\n\nNow working with TUI, it may also mean to work with CLI. And we should also support all other tools we have in the same way if possible, so we can test them all via Hive Mind.\n\nAnyway the faster we fail, faster we fix.\n\nThere is no more time to wait.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5083180497/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

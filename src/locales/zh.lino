@@ -654,6 +654,7 @@ zh
         runner_also_failed "运行器也失败了；其退出代码已保留以供调查。"
         killed "工作会话已终止：{{reason}}{{exitSuffix}}"
         stopped "工作会话已由用户停止{{requestedBy}}{{exitSuffix}}"
+        not_launched "工作会话未启动，因此没有日志，也不会出现在 `--list` 中。"
     duration
       label "耗时"
     session
@@ -670,6 +671,8 @@ zh
         resumed_attempt "🔄 已启动新的工作会话以从此次终止中恢复（第 {{attempt}} 次尝试）：{{sessionId}}"
     isolation
       label "隔离"
+    execution
+      label "执行"
     error
       executing
         command "❌ 执行 {{commandName}} 命令时出错"

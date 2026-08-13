@@ -120,8 +120,39 @@ credential, and encoding defeated all three at once:
 - **Structured-assignment rules** (`token=…`, `"token": "…"`) would have been
   the safety net — the payload _is_ a `"token"` field — but see RC2.
 
-GitHub's scanner does the one thing ours did not: it decodes candidate runs
-before matching. Reproduced against the pre-fix tree in
+GitHub's scanner does the one thing ours did not: it handles encoded content.
+That capability is dated and public — GitHub
+[announced base64-encoded token detection on 2025-02-14](https://github.blog/changelog/2025-02-14-secret-scanning-detects-base64-encoded-github-tokens/)
+covering personal access tokens, **OAuth access tokens**, and user-to-server and
+server-to-server tokens, which is exactly the class that leaked here. So this
+was a solved detection problem eighteen months before the incident, on the other
+side of the boundary.
+
+**The tempting shortcut does not work.** The obvious cheap fix is to match the
+_encoded shape_ rather than decode. A pattern for it circulates — quoted by
+Secretlint's maintainer in
+[secretlint#19](https://github.com/secretlint/secretlint/issues/19#issuecomment-2660645177) —
+as `/(Z2hw|Z2hv|Z2h1|Z2hz|Z2hy)Xz[A-Za-z0-9+\/]{48}={0,2}/`. Measured rather
+than assumed, in
+[`experiments/issue-2156-base64-token-regex-coverage.mjs`](../../../experiments/issue-2156-base64-token-regex-coverage.mjs),
+it catches **10 of 186** token/alignment combinations in the incident's own
+shape. Two arithmetic limits stack:
+
+- It reads **byte alignment 0 only**, and a token embedded in a JSON body starts
+  wherever the surrounding bytes put it. `{"token":"` is ten characters, so two
+  of the three alignments are unreachable by construction.
+- Even at alignment 0 the literal `Xz` pins the **fifth character of the token**.
+  `_` is `0x5F`, so the second sextet is `0x30 | (c5 >> 4)`, which equals `z`
+  only for `c5` in `0x30`–`0x3F` — the ten digits out of the sixty-two
+  characters a token body is drawn from. That is 16.1% of tokens even before
+  alignment is considered.
+
+Whether this approximates GitHub's production pattern is unknown and beside the
+point: it is what a maintainer would reach for, and a sanitizer built on it
+would have caught roughly one leak in twenty. §6 fix 1 decodes instead, which is
+indifferent to both variables.
+
+Reproduced against the pre-fix tree in
 [`experiments/issue-2156-reproduce-before-fix.mjs`](../../../experiments/issue-2156-reproduce-before-fix.mjs).
 
 ### RC2 — the structured-assignment rules could not see through escaped JSON
@@ -296,6 +327,13 @@ External sources consulted:
 - [GitHub — secret scanning partner program](https://docs.github.com/en/code-security/secret-scanning/introduction/about-secret-scanning),
   which is why a valid `gho_` in a public gist is revoked automatically and
   within minutes.
+- [GitHub changelog, 2025-02-14 — secret scanning detects base64-encoded GitHub
+  tokens](https://github.blog/changelog/2025-02-14-secret-scanning-detects-base64-encoded-github-tokens/).
+  The detection that revoked this credential, announced eighteen months before
+  the incident and naming OAuth access tokens explicitly.
+- [secretlint#19 — "Rule: decode Base64"](https://github.com/secretlint/secretlint/issues/19),
+  open since 2020, including the maintainer's false-positive objection that
+  shaped the round-trip design here (§10).
 - The [OCI distribution auth spec](https://distribution.github.io/distribution/spec/auth/token/)
   defines the `{"token": …}` response body; GHCR's behaviour of echoing the
   supplied password back as that token is registry-specific (§10).
@@ -305,9 +343,24 @@ External sources consulted:
 - **Secretlint** — the recommended preset does not inspect encoded content, so a
   credential that only ever appears base64-encoded passes cleanly. Reproducible
   with [`experiments/issue-2156-secretlint-encoded-probe.mjs`](../../../experiments/issue-2156-secretlint-encoded-probe.mjs),
-  which is a 20-line script using only the shipped preset. Worth reporting as an
-  enhancement with the probe attached; the workaround is the one implemented
-  here (decode, then scan each decoded run separately).
+  which uses only the shipped preset.
+
+  This is already tracked upstream as
+  [secretlint#19, "Rule: decode Base64"](https://github.com/secretlint/secretlint/issues/19),
+  open since 2020-02-11 — so the right contribution is evidence on the existing
+  thread, not a duplicate report. What we can add that the thread does not have:
+  a real incident where the gap cost a live credential, the measurement that the
+  preset finds nothing across a 16.9 MB log of encoded payloads, the coverage
+  arithmetic showing why the regex approach discussed there catches ~5% of cases
+  (§5 RC1), and a working design for the alternative — decode each run, scan the
+  runs separately, verify the re-encode round trip before substituting.
+
+  The maintainer's own objection on that thread is worth recording because it is
+  correct: decoded content raises false positives, since an _encrypted_ value can
+  decode to something a rule matches. It is also why the fix here re-encodes and
+  verifies rather than reporting on decoded text — a false positive costs a
+  masked run, never a corrupted document.
+
 - **GHCR** — echoing the supplied PAT back to the caller, base64-encoded, in a
   token response turns any client that logs HTTP responses into a credential
   leak. This is registry-specific behaviour, not required by the OCI auth spec.

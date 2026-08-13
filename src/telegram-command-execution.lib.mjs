@@ -141,8 +141,11 @@ export function buildExecuteAndUpdateMessage(deps) {
         // failure anywhere outside Telegram. Record the UUID, the backend and
         // the reason first, so the bot log explains why a session that was
         // announced a second ago is gone and absent from `--list`.
-        console.error(`[telegram-bot] ${commandName} session ${session} was not launched (isolation=${iso.backend}, tool=${tool}): ${result.error || result.output || 'unknown error'}`);
-        if (typeof untrackSession === 'function') untrackSession(session, VERBOSE);
+        const launchError = result.error || result.output || 'unknown error';
+        console.error(`[telegram-bot] ${commandName} session ${session} was not launched (isolation=${iso.backend}, tool=${tool}): ${launchError}`);
+        // The reason also goes into the structured `session_untracked` event, so
+        // the timestamped log explains the disappearance on its own.
+        if (typeof untrackSession === 'function') untrackSession(session, VERBOSE, { reason: launchError });
         sessionInfo = undefined;
       }
     } else {

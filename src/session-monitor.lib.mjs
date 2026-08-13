@@ -230,24 +230,40 @@ export function markSessionStopRequested(sessionId, { requestedBy = null, verbos
  * map and the durable store without emitting a `session_completed` audit event —
  * the session never ran, so it has no exit code to record (issue #1946).
  *
+ * Issue #2154: the durable structured log recorded only
+ * `session_untracked {"sessionName":…}`. Why the session disappeared a second
+ * after it was announced lived on untimestamped console lines, so an incident
+ * could not be reconstructed from the timestamped log alone. Callers now pass
+ * the reason and it is recorded with the event.
+ *
  * @param {string} sessionName - Name/UUID of the session to drop
  * @param {boolean} verbose - Whether to log verbose output
+ * @param {object} [details] - Extra context recorded with the `session_untracked` event
+ * @param {string} [details.reason] - Why the session was dropped (e.g. the launch error)
  */
-export function untrackSession(sessionName, verbose = false) {
+export function untrackSession(sessionName, verbose = false, details = {}) {
   if (!sessionName) return;
   const sessionInfo = activeSessions.get(sessionName) || null;
   const existed = activeSessions.delete(sessionName);
+  const reason = typeof details?.reason === 'string' && details.reason.trim() ? details.reason.trim() : null;
   if (verbose && existed) {
-    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)`);
+    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)${reason ? `: ${reason}` : ''}`);
   }
   if (sessionStore && isPersistableSession(sessionInfo)) {
     try {
-      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null });
+      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null, reason });
     } catch (error) {
       console.error(`[session-monitor] Could not remove untracked session ${sessionName}: ${error.message}`);
     }
   }
-  logEvent('session_untracked', { sessionName });
+  logEvent('session_untracked', {
+    sessionName,
+    reason,
+    url: sessionInfo?.url || null,
+    command: sessionInfo?.command || null,
+    tool: sessionInfo?.tool || null,
+    isolationBackend: sessionInfo?.isolationBackend || null,
+  });
 }
 /**
  * Get the number of active sessions being tracked

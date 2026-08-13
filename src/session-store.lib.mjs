@@ -213,7 +213,9 @@ export function createSessionStore(options = {}) {
         delete sessions[sessionName];
         writeSnapshotMap(sessions);
       }
-      appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null });
+      // Issue #2154: carry the reason (when the caller knows it) so the durable
+      // event log says why a session ended, not just that it did.
+      appendEvent('complete', sessionName, { status: meta.status ?? null, exitCode: meta.exitCode ?? null, reason: meta.reason ?? null });
       log('debug', `Removed session ${sessionName} from snapshot`, meta);
     },
 

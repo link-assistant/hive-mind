@@ -517,23 +517,22 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
   const sessionId = options.sessionId || generateSessionId();
+  // Issue #2154: a launch that never produced a container left no trace in the
+  // bot log — the reply went to Telegram and the log jumped straight to
+  // "session untracked", so an operator could see that tasks were disappearing
+  // but not why, and could not even name them. Every unsuccessful return from
+  // this function now records the session UUID (the same one `$ --list` and the
+  // session store use) together with the reason.
+  const failLaunch = (error, extra = {}) => {
+    console.error(`[isolation-runner] Session ${sessionId} was not launched (backend=${backend}, tool=${options.tool ?? 'claude'}, model=${options.model ?? 'default'}): ${error}`);
+    return { success: false, sessionId, output: '', error, ...extra };
+  };
   if (!VALID_ISOLATION_BACKENDS.includes(backend)) {
-    return {
-      success: false,
-      sessionId,
-      output: '',
-      error: `Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`,
-    };
+    return failLaunch(`Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`);
   }
   const binPath = await findStartCommandBinary();
   if (!binPath) {
-    return {
-      success: false,
-      sessionId,
-      output: '',
-      warning: '⚠️ WARNING: start-command ($) not found in PATH\nPlease install: npm install -g start-command',
-      error: 'start-command ($) not found',
-    };
+    return failLaunch('start-command ($) not found', { warning: '⚠️ WARNING: start-command ($) not found in PATH\nPlease install: npm install -g start-command' });
   }
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: Using $ binary at: ${binPath}`);
@@ -546,7 +545,7 @@ export async function executeWithIsolation(command, args, options = {}) {
   // fails. Fail closed — a Formal AI task must never start without Formal AI.
   const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
-  if (sidecarError) return { success: false, sessionId, output: '', error: sidecarError };
+  if (sidecarError) return failLaunch(sidecarError);
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
@@ -601,7 +600,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (formalAiAttachError) await removeDockerContainer(sessionId, verbose);
     await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
     if (formalAiAttachError) {
-      return { success: false, sessionId, output: result.output, error: `Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}` };
+      return failLaunch(`Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}`, { output: result.output });
     }
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
@@ -619,12 +618,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       containerFilesystemStartBytes,
     };
   }
-  return {
-    success: false,
-    sessionId,
-    output: result.output,
-    error: result.error,
-  };
+  return failLaunch(result.error, { output: result.output });
 }
 /**
  * Query the status of an isolated session via `$ --status <uuid>`

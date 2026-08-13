@@ -654,6 +654,7 @@ hi
         runner_also_failed "रनर भी विफल हुआ; जाँच के लिए उसका exit code सुरक्षित रखा गया है।"
         killed "कार्य सत्र रोका गया: {{reason}}{{exitSuffix}}"
         stopped "कार्य सत्र उपयोगकर्ता द्वारा रोका गया{{requestedBy}}{{exitSuffix}}"
+        not_launched "कार्य सत्र शुरू ही नहीं हुआ, इसलिए उसका कोई log नहीं है और वह `--list` में नहीं दिखता।"
     duration
       label "अवधि"
     session

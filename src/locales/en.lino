@@ -654,6 +654,7 @@ en
         runner_also_failed "The runner also failed; its exit code is preserved for investigation."
         killed "Work session {{reason}}{{exitSuffix}}"
         stopped "Work session stopped by user{{requestedBy}}{{exitSuffix}}"
+        not_launched "The work session was not launched, so it has no log and is not listed by `--list`."
     duration
       label "Duration"
     session

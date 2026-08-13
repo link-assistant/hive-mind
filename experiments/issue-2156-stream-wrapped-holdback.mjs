@@ -21,5 +21,15 @@ for (const w of [20, 64, 76]) {
 }
 const s = createCredentialStreamSanitizer();
 console.log('plain passthrough immediate:', s.write('hello world\n') === 'hello world\n');
-console.log('url line immediate:', s.write('see https://gist.github.com/konard/63a67ea16390b5f0c819e3d5ca749693\n').includes('gist.github.com'));
+const urlLine = s.write('see https://gist.github.com/konard/63a67ea16390b5f0c819e3d5ca749693\n');
+const candidateUrl = urlLine.trim().split(/\s+/).find((part) => part.startsWith('http://') || part.startsWith('https://'));
+let isExpectedHost = false;
+if (candidateUrl) {
+  try {
+    isExpectedHost = new URL(candidateUrl).hostname === 'gist.github.com';
+  } catch {
+    isExpectedHost = false;
+  }
+}
+console.log('url line immediate:', isExpectedHost);
 console.log(bad === 0 ? 'ALL OK' : `FAILURES: ${bad}`);

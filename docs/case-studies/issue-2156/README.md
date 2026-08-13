@@ -348,7 +348,9 @@ External sources consulted:
   This is already tracked upstream as
   [secretlint#19, "Rule: decode Base64"](https://github.com/secretlint/secretlint/issues/19),
   open since 2020-02-11 — so the right contribution is evidence on the existing
-  thread, not a duplicate report. What we can add that the thread does not have:
+  thread, not a duplicate report.
+  **Reported: [secretlint#19 (comment)](https://github.com/secretlint/secretlint/issues/19#issuecomment-5281579597).**
+  What that adds which the thread did not have:
   a real incident where the gap cost a live credential, the measurement that the
   preset finds nothing across a 16.9 MB log of encoded payloads, the coverage
   arithmetic showing why the regex approach discussed there catches ~5% of cases

@@ -28,8 +28,29 @@ const flagValue = (args, flag) => {
   return index < 0 ? null : args[index + 1];
 };
 
-/** The image reference in a `docker run` argv, which is always the ghcr.io atom. */
-const imageOf = args => args.find(arg => arg.startsWith('ghcr.io/')) ?? null;
+/** Flags of `docker run` that consume the argument after them. */
+const VALUE_FLAGS = new Set(['--name', '--label', '-l', '--network', '--network-alias', '--restart', '--env', '-e', '--volume', '-v', '--entrypoint', '--user', '-u', '--workdir', '-w', '--publish', '-p']);
+
+/**
+ * The image reference in a `docker run` argv: the first positional argument.
+ *
+ * Issue #2154 made this worth parsing properly. The sidecar may now boot from
+ * the local Hive Mind image (`konard/hive-mind-dind:…`, which bakes `formal-ai`)
+ * when the published `ghcr.io/…` image cannot be pulled, so a simulator that
+ * recognised only `ghcr.io/` references would have declared the very fallback
+ * under test to be "no image at all".
+ */
+const imageOf = args => {
+  for (let index = args[0] === 'run' ? 1 : 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg.startsWith('-')) {
+      if (VALUE_FLAGS.has(arg)) index += 1;
+      continue;
+    }
+    return arg;
+  }
+  return null;
+};
 
 /**
  * @param {object} [options]

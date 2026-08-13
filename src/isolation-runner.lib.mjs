@@ -21,6 +21,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
+// The image references live in their own module so the Formal AI sidecar can
+// resolve the locally present Hive Mind image (which bakes `formal-ai`) without
+// importing this runner and creating a cycle. Re-exported here because callers
+// and tests have always reached them through the isolation runner. See #2154.
+import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
+export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
   if (!commandStreamDollarPromise) {
@@ -43,9 +49,6 @@ async function getCommandStreamDollar() {
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
-const HIVE_MIND_IMAGE_REPO = 'konard/hive-mind';
-const HIVE_MIND_DIND_IMAGE_REPO = 'konard/hive-mind-dind';
-const DEFAULT_HIVE_MIND_IMAGE_TAG = 'latest';
 const DOCKER_CONTAINER_HOME = '/home/box';
 const FORMAL_AI_COMPOSE_HOSTNAME = 'link-assistant-formal-ai';
 // Default path where the host Docker socket is bind-mounted inside a DinD container so box's host-image passthrough can copy host images into the nested daemon. Matches box's own DIND_HOST_DOCKER_SOCK default. The deploy must mount it (`-v /var/run/docker.sock:/var/run/host-docker.sock:ro`) or the nested daemon starts empty and the first isolated task pulls the full, multi-gigabyte image. See issue #1914.
@@ -95,36 +98,6 @@ function maybeAddMount(mounts, source, target, existsSync) {
   if (!source) return;
   if (!existsSync(source)) return;
   mounts.push({ source, target });
-}
-/**
- * Resolve the tag used for the Docker isolation image.
- *
- * Release Docker images bake this env var from `HIVE_MIND_VERSION`, so a parent
- * container started via `:latest` still launches child isolation containers from
- * the same immutable release tag. Local/PR builds fall back to `latest`, and
- * operators can override the tag explicitly when using custom images. Pinning
- * matters for Docker-in-Docker deployments: the nested daemon starts with an
- * empty image store, so a `:latest` digest drift from the host copy forces a
- * fresh multi-gigabyte pull. See issue #1879.
- */
-export function resolveDockerIsolationImageTag({ env = process.env } = {}) {
-  const explicit = String(env.HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG || '').trim();
-  return explicit || DEFAULT_HIVE_MIND_IMAGE_TAG;
-}
-/**
- * Pick the Docker image used for `--isolation docker`.
- *
- * start-command defaults its Docker backend to a base OS image. Hive Mind needs
- * an image with the same CLI/tooling baseline as the parent process instead.
- *
- * `HIVE_MIND_DOCKER_ISOLATION_IMAGE` is a full override (repo:tag). Otherwise
- * the repo is chosen by image variant and the tag by
- * `resolveDockerIsolationImageTag()`.
- */
-export function getDockerIsolationImage({ env = process.env } = {}) {
-  if (env.HIVE_MIND_DOCKER_ISOLATION_IMAGE) return env.HIVE_MIND_DOCKER_ISOLATION_IMAGE;
-  const repo = String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' ? HIVE_MIND_DIND_IMAGE_REPO : HIVE_MIND_IMAGE_REPO;
-  return `${repo}:${resolveDockerIsolationImageTag({ env })}`;
 }
 /**
  * Resolve the path where the host Docker socket is expected to be mounted inside

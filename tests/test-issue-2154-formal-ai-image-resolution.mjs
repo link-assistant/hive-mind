@@ -38,6 +38,7 @@ import path from 'node:path';
 import { classifyDockerRegistryError, ensureFormalAiSidecarImage, resolveFormalAiSidecarImageCandidates } from '../src/formal-ai-image.lib.mjs';
 import { acquireFormalAiSidecarForTask } from '../src/formal-ai-isolation.lib.mjs';
 import { FORMAL_AI_SIDECAR_CONTAINER_NAME, acquireFormalAiSidecar } from '../src/formal-ai-sidecar.lib.mjs';
+import { updateFormalAiSidecarWhenIdle } from '../src/formal-ai-updater.lib.mjs';
 import { FORMAL_AI_BOOTSTRAP_VERSION, FORMAL_AI_MINIMUM_VERSION } from '../src/formal-ai-version.lib.mjs';
 import { createDockerSimulator } from './formal-ai-docker-simulator.mjs';
 
@@ -214,6 +215,53 @@ const fastSidecar = { healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () =
   assert.match(error.message, new RegExp(`runs formal-ai 0\\.300\\.0.*requires >= ${FORMAL_AI_MINIMUM_VERSION.replaceAll('.', '\\.')}`, 's'));
 }
 
+// ---------------------------------------------------------------------------
+// The auto-updater knew the registry was refusing us, and only shrugged.
+//
+// From the incident log, once every ~5 minutes for over three hours:
+//   ⚠️ Could not pull ghcr.io/link-assistant/formal-ai:latest; keeping the
+//   current Formal AI image: … error from registry: unauthorized
+//
+// 151 identical warnings, none of which said the package was private or what to
+// do about it — so the first anyone heard of the real problem was a task that
+// refused to launch. A permanent refusal is now escalated and explained.
+// ---------------------------------------------------------------------------
+
+{
+  const env = makeEnv();
+  const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: UNAUTHORIZED });
+  const logs = [];
+  const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });
+
+  assert.equal(result.status, 'failed');
+  assert.equal(result.stage, 'pull');
+  assert.equal(result.classification, 'unauthorized', 'the caller can tell a refusal from a blip');
+  assert.equal(result.permanent, true, 'retrying every 5 minutes will never fix a private package');
+  assert.match(result.remediation.join(' '), /public/);
+
+  const warning = logs.find(line => line.includes('Could not pull'));
+  assert.match(warning, /🚨/, 'a permanent refusal is escalated, not repeated as a routine warning');
+  assert.match(warning, /the registry refused an anonymous or under-scoped pull \(unauthorized\)/, 'the cause is named');
+  assert.match(warning, /Fix it by one of:.*read:packages/s, 'and the fix is spelled out');
+  // The current image stays in service either way.
+  assert.match(warning, /keeping the current Formal AI image/);
+}
+
+{
+  // A transient failure keeps its old, quieter shape: nothing is broken, the
+  // next cycle will simply try again.
+  const env = makeEnv();
+  const docker = createDockerSimulator({ images: { 'ghcr.io/link-assistant/formal-ai:latest': 'sha256:old' }, pullError: 'dial tcp 140.82.121.33:443: i/o timeout' });
+  const logs = [];
+  const result = await updateFormalAiSidecarWhenIdle({ env, run: docker.run, log: async line => logs.push(line), healthAttempts: 2, healthDelayMs: 0, sleepImpl: async () => {} });
+
+  assert.equal(result.classification, 'network');
+  assert.equal(result.permanent, false);
+  const warning = logs.find(line => line.includes('Could not pull'));
+  assert.match(warning, /⚠️/, 'a transient failure is still just a warning');
+  assert.equal(/Fix it by one of/.test(warning), false, 'and carries no remediation to act on');
+}
+
 for (const dir of stateDirs) fs.rmSync(dir, { recursive: true, force: true });
 
-console.log('PASS: issue #2154 Formal AI image resolution (local fallback, diagnosed registry failures, fail-closed launch, enforced version floor)');
+console.log('PASS: issue #2154 Formal AI image resolution (local fallback, diagnosed registry failures, escalated update refusals, fail-closed launch, enforced version floor)');

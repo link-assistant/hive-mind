@@ -304,7 +304,16 @@ export const wrappedBase64HoldStart = (text, end) => {
     if (end - lineStart > MAX_WRAPPED_HOLD_CHARS) return null;
     cursor = beforeSeparator(start);
   }
-  if (lineStart === null) return null;
+  if (lineStart === null) {
+    // No group yet — but the last complete line may be the one a blob *starts*
+    // on, with its continuation still in flight. Expanding backwards over that
+    // line (below) only works while it is still pending; once it has been
+    // released there is nothing left to join the group to, and a credential
+    // straddling the two is invisible to both halves. So the opening line is
+    // held on its own, for exactly one record.
+    const openerStart = wrappedBase64OpenerStart(content, end, beforeSeparator);
+    return openerStart === null || end - openerStart > MAX_WRAPPED_HOLD_CHARS ? null : openerStart;
+  }
 
   // The line before the group may be the partial one the blob started on — the
   // shape `body=<first segment>` takes — so it is held too. That costs one
@@ -312,6 +321,53 @@ export const wrappedBase64HoldStart = (text, end) => {
   const beforeGroup = beforeSeparator(lineStart);
   const previousSeparator = Math.max(content.lastIndexOf('\n', beforeGroup - 1), content.lastIndexOf('\r', beforeGroup - 1));
   return Math.max(previousSeparator + 1, 0);
+};
+
+/**
+ * Start of the last complete line in `text[0, end)` when that line looks like
+ * the opening line of a wrapped base64 blob: `body=<first segment>`.
+ *
+ * Length alone cannot decide this. Ordinary output is full of long runs drawn
+ * from the base64 alphabet — URL path segments, commit SHAs, content digests —
+ * and holding every line that ends in one would add a record of latency to
+ * routine terminal output. What separates them is that an encoded *payload*
+ * decodes to text: the discriminator is the printable ratio of the decoded run,
+ * which measures 1.00 for a JSON body and below 0.5 for a URL, a hex digest or
+ * a commit SHA.
+ *
+ * @param {string} content
+ * @param {number} end offset just past the last complete record
+ * @param {(index: number) => number} beforeSeparator steps back over one record separator
+ * @returns {number|null} start offset of the line to hold, or null to release
+ */
+const wrappedBase64OpenerStart = (content, end, beforeSeparator) => {
+  const lineEnd = beforeSeparator(end);
+  if (lineEnd <= 0) return null;
+  const lineStart = Math.max(content.lastIndexOf('\n', lineEnd - 1), content.lastIndexOf('\r', lineEnd - 1)) + 1;
+  const line = content.slice(lineStart, lineEnd).trimEnd();
+
+  // A run that carries padding is a blob that already ended, so nothing
+  // follows it and there is nothing to wait for.
+  const run = /[A-Za-z0-9+/_-]+$/.exec(line)?.[0];
+  if (!run || run.length < MIN_WRAPPED_LINE_LENGTH) return null;
+
+  // Decoded directly rather than through `decodeBase64Bounded`, whose floor is
+  // the 24 characters a *whole* credential needs. This run is a fragment of a
+  // blob, and the fold width sets its length: `MIN_WRAPPED_LINE_LENGTH` is the
+  // relevant bound, and the 20-column fold that first exposed this gap sits
+  // between the two.
+  const normalized = run.replace(/-/g, '+').replace(/_/g, '/');
+  if (!/[A-Za-z0-9]/.test(normalized)) return null;
+
+  // The blob may begin at any of the three byte alignments within the run, so
+  // a decode that yields text at any of them is enough to hold.
+  for (let alignment = 0; alignment < 4; alignment++) {
+    const shifted = normalized.slice(alignment);
+    const usable = shifted.length % 4 === 1 ? shifted.slice(0, -1) : shifted;
+    if (usable.length < MIN_WRAPPED_LINE_LENGTH) break;
+    if (printableRatio(decodeBytes(Buffer.from(usable, 'base64'))) >= MIN_PRINTABLE_RATIO) return lineStart;
+  }
+  return null;
 };
 
 // ---------------------------------------------------------------------------

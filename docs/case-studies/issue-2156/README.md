@@ -214,7 +214,8 @@ the call. Not the cause of this leak, but the same failure mode one step away.
    keeping the one that actually decodes. The stream sanitizer holds a trailing
    group of base64-only lines back until a line arrives that cannot belong to
    the blob — releasing them one at a time would hand the sanitizer
-   byte-misaligned slices.
+   byte-misaligned slices. It also holds the line the blob _starts_ on; see
+   below.
 4. **Secretlint over decoded payloads** (R3). Both layers now walk the _same_
    decoder table via a shared `findDecodableRuns`, so an encoding one layer
    could decode and the other could not would be a hole exactly the width of the
@@ -236,6 +237,49 @@ Regression coverage:
 (the incident shapes, the stream boundary, and the backtracking bound) and
 [`tests/test-encoded-secretlint-layer-2156.mjs`](../../../tests/test-encoded-secretlint-layer-2156.mjs)
 (both directions of the two-layer independence).
+
+### A second leak, found in this pull request
+
+The line-wrapped fix above was incomplete, and the incomplete version was
+committed before the gap was measured. The holdback expands backwards over the
+partial line a blob starts on — but only while that line is still buffered. A
+record is released as soon as it is complete, so whenever `body=<first segment>`
+arrived before its continuation, it was sanitized and emitted on its own, and
+the base64-only group that followed was then sanitized without it. A credential
+straddling the first fold is in neither piece. At a 64-column fold the opening
+line decodes to `{"pad":"pppppppppp","token":"gho_SYNTHETIC0000No` — a truncated
+token too short for the rule to fire — and the group decodes to
+`tARealToken1111111111","note":"keep me"}`, which no longer carries a `gho_`
+prefix to fire on. Neither half matched, the whole blob passed through intact,
+and the token is recoverable by rejoining the released lines and decoding.
+
+This was not confined to unusual fold widths. Measured over the credential's 24
+possible offsets relative to the fold at three chunk sizes, the committed code
+leaks in 28 of 72 cases at 64 columns and 10 of 72 at 76 columns — the PEM and
+MIME defaults. After the fix, none of the 144 cases leak.
+[`experiments/issue-2156-stream-opener-leak.mjs`](../../../experiments/issue-2156-stream-opener-leak.mjs)
+runs the sweep and records the one-line edit that reproduces the pre-fix counts.
+
+The fix holds the opening line for one record so the group can absorb it. What
+makes that affordable is the test used to recognise such a line: not the length
+of its trailing base64 run, but whether that run _decodes to text_. Ordinary
+output is full of long base64-alphabet runs — URL path segments, commit SHAs,
+content digests — and holding every line that ends in one would add a record of
+latency to routine terminal output. Measured on the shapes this tool actually
+prints, an encoded JSON body scores a printable ratio of 1.00 while a gist URL
+scores 0.45, a commit SHA 0.37 and a `sha256:` digest 0.49, against a threshold
+of 0.9.
+
+Two things are worth recording about how this was caught, because neither is
+flattering. The experiment script had reported the failure all along, and it was
+committed in a state that printed `FAILURES: 8`; the count conflated a real leak
+with a benign difference from whole-text sanitization, which made it easy to
+read as noise. And the regression test covered only the shape where the blob
+starts on its own line, which is the shape the fix was written against. The test
+now covers the inline-prefix shape at every offset of the credential relative to
+the fold, and asserts the credential cannot be recovered by decoding what was
+released — checking for the literal token is not enough when the output is
+base64.
 
 ### A performance defect found on the way
 

@@ -321,6 +321,47 @@ const assertAbsent = (output, needles, message) => {
     }
   }
 
+  // A blob that starts on the same line as its label is the harder shape, and
+  // the one that leaked in review. That line is not base64-only, so it does not
+  // join the held-back group; when it is complete before the next line arrives
+  // it is released on its own, and the group that follows is then sanitized
+  // without it. At a 20-column fold neither piece carries a whole credential —
+  // the first holds `{"token":"gho_S`, the group holds the body without its
+  // `gho_` prefix — so nothing matched and the blob passed through intact.
+  // A line whose trailing base64 run decodes to text is now held for one record
+  // so the group can absorb it. Checked at every offset of the credential
+  // relative to the fold, including the ones that straddle it.
+  for (const width of [20, 64, 76]) {
+    for (let pad = 0; pad < 24; pad += 1) {
+      const payload = JSON.stringify({ pad: 'p'.repeat(pad), token: SYNTHETIC_GHO, note: 'keep me' });
+      const straddling = Buffer.from(payload)
+        .toString('base64')
+        .replace(new RegExp(`(.{${width}})`, 'g'), '$1\n')
+        .replace(/\n$/, '');
+      const text = `start of output\nresponse body=${straddling}\ntrailing line\n`;
+      for (const chunk of [1, 7, 4096]) {
+        const stream = createCredentialStreamSanitizer();
+        let output = '';
+        for (let offset = 0; offset < text.length; offset += chunk) output += stream.write(text.slice(offset, offset + chunk));
+        output += stream.flush();
+        const label = `inline-prefix wrapped base64 (width ${width}, pad ${pad}, chunk ${chunk})`;
+        assertAbsent(output, [SYNTHETIC_GHO, straddling], `${label} must be masked`);
+        assert.equal(output, sanitizeCredentialText(text), `${label} must match whole-text sanitization`);
+        // Absence of the literal is not enough: what was released is still
+        // base64, so the credential must not survive being decoded back. Runs
+        // are rejoined across folds first, which is exactly how an attacker
+        // would read the released text.
+        const rejoined = output.replace(/\n(?=[A-Za-z0-9+/=]{8,}(?:\n|$))/g, '');
+        for (const run of rejoined.match(/[A-Za-z0-9+/=]{16,}/g) ?? []) {
+          for (const alignment of [0, 1, 2, 3]) {
+            const decoded = Buffer.from(run.slice(alignment), 'base64').toString('utf8');
+            assert.ok(!decoded.includes(SYNTHETIC_GHO), `${label} must not decode back to the credential`);
+          }
+        }
+      }
+    }
+  }
+
   // Holding back must not cost latency on ordinary output. A complete record
   // that cannot start a wrapped blob is released by the same write that
   // completes it — including the URL- and path-heavy lines this tool prints,

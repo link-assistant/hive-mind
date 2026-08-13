@@ -805,6 +805,45 @@ const scanDecoded = (run, decode, detect, maxDepth) => {
   return null;
 };
 
+/**
+ * Every run in `text` that decodes to printable text, with its decoded payload.
+ *
+ * This is the single walk over the decoder table that both the synchronous
+ * masking path and the asynchronous scanner layer consume. Sharing it is the
+ * point: an encoding one layer knows how to decode but the other does not would
+ * be a hole exactly the width of the difference, and that hole would not show
+ * up in any test that exercises only one of them.
+ *
+ * @param {string} input
+ * @returns {Array<{start: number, end: number, encoding: string, run: string, decoded: string}>}
+ *   in decoder-table order, so wrapped base64 precedes its single-line form
+ */
+export const findDecodableRuns = input => {
+  const text = String(input ?? '');
+  if (text.length === 0) return [];
+
+  const found = [];
+  for (const decoder of DECODERS) {
+    const { encoding, decode, accept } = decoder;
+    for (const { run, index } of runsOf(decoder, text)) {
+      if (run.length < MIN_ENCODED_RUN_LENGTH) continue;
+      if (accept && !accept(run)) continue;
+
+      const decoded = decode(run);
+      // Text rules over binary noise report credentials that are not there.
+      // A genuinely encoded credential always decodes to printable text.
+      if (typeof decoded !== 'string' || decoded.length === 0) continue;
+      if (printableRatio(decoded) < MIN_PRINTABLE_RATIO) continue;
+
+      found.push({ start: index, end: index + run.length, encoding, run, decoded });
+    }
+  }
+  return found;
+};
+
+/** Look up a decoder by the `encoding` tag {@link findDecodableRuns} reports. */
+const decoderFor = encoding => DECODERS.find(decoder => decoder.encoding === encoding);
+
 // ---------------------------------------------------------------------------
 // Masking
 // ---------------------------------------------------------------------------
@@ -843,29 +882,18 @@ export const sanitizeEncodedCredentials = (input, options = {}) => {
 
   const replacements = [];
 
-  for (const decoder of DECODERS) {
-    const { decode, encode, accept } = decoder;
-    for (const { run, index } of runsOf(decoder, text)) {
-      if (run.length < MIN_ENCODED_RUN_LENGTH) continue;
-      if (accept && !accept(run)) continue;
+  for (const { start, end, encoding, run, decoded } of findDecodableRuns(text)) {
+    const sanitized = sanitizePlaintext(decoded);
+    if (sanitized === decoded) continue;
 
-      const decoded = decode(run);
-      // Text rules over binary noise report credentials that are not there.
-      // A genuinely encoded credential always decodes to printable text.
-      if (typeof decoded !== 'string' || decoded.length === 0) continue;
-      if (printableRatio(decoded) < MIN_PRINTABLE_RATIO) continue;
+    const { decode, encode } = decoderFor(encoding);
+    let replacement = redactedMarker;
+    const reEncoded = encode(sanitized, run);
+    // Only substitute a rebuilt run when it provably decodes back to exactly
+    // what we intended to publish.
+    if (decode(reEncoded) === sanitized) replacement = reEncoded;
 
-      const sanitized = sanitizePlaintext(decoded);
-      if (sanitized === decoded) continue;
-
-      let replacement = redactedMarker;
-      const reEncoded = encode(sanitized, run);
-      // Only substitute a rebuilt run when it provably decodes back to exactly
-      // what we intended to publish.
-      if (decode(reEncoded) === sanitized) replacement = reEncoded;
-
-      replacements.push({ start: index, end: index + run.length, replacement });
-    }
+    replacements.push({ start, end, replacement });
   }
 
   // Exact encoded forms of credentials we already hold are matched without

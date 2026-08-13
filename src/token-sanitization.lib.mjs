@@ -19,7 +19,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 // lib.mjs, so it must not depend on this asynchronous Secretlint layer.
 import { log, isENOSPC } from './lib.mjs';
 import { CREDENTIAL_SANITIZATION_ERROR_CODE, CREDENTIAL_SANITIZATION_FAILURE_MESSAGE, createCredentialStreamSanitizer, findCredentialResiduals, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
-import { findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
+import { findDecodableRuns, findEncodedKnownTokenRuns, sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs'; // issue #2156: credentials that only appear re-encoded
 import { reportError } from './sentry.lib.mjs';
 
 export { createCredentialStreamSanitizer };
@@ -581,6 +581,69 @@ const maskEncodedKnownTokens = (text, values, depth = 0) => {
 };
 
 /**
+ * Mask encoded runs whose *decoded* payload Secretlint recognises.
+ *
+ * This is the redundancy the issue asks for, aimed at where it actually helps.
+ * Secretlint is blind to encoding: its GitHub rule flags a bare `gho_…` but
+ * reports nothing for the same token base64-encoded, and neither does any other
+ * pattern scanner, because a pattern scanner matches the bytes it is given.
+ * Adding a third scanner alongside the first two would therefore have changed
+ * nothing about this incident. Decoding first and *then* asking both detectors
+ * is what closes the gap, so the external rule set is applied to the decoded
+ * payload exactly as the maintained core already is.
+ *
+ * The two detectors stay independent: this runs whether or not the core found
+ * anything, so a credential format Secretlint knows and we do not is still
+ * caught once it is decoded.
+ *
+ * @param {string} text
+ * @param {Set<string>} [excludedSet] issue #1745 user-content carve-out
+ * @returns {Promise<{text: string, masked: number, ruleIds: Array<string>}>}
+ */
+const maskEncodedSecretsWithSecretlint = async (text, excludedSet) => {
+  const runs = findDecodableRuns(text);
+  if (runs.length === 0) return { text, masked: 0, ruleIds: [] };
+
+  // Each payload is scanned on its own rather than as one joined document: a
+  // rule that matched across a join boundary would blame a run that is
+  // innocent, and masking an innocent run destroys log content.
+  const verdicts = await Promise.all(runs.map(run => detectSecretsWithSecretlint(run.decoded)));
+
+  // Keyed by decoded content, because that is what the sync layer hands back
+  // when it re-walks the same runs below. Two runs that decode identically are
+  // masked identically, which is what we want.
+  const maskedPayloads = new Map();
+  const ruleIds = new Set();
+  for (const [index, findings] of verdicts.entries()) {
+    const usable = findings.filter(finding => !excludedSet?.has(finding.token));
+    if (usable.length === 0) continue;
+    const { decoded } = runs[index];
+
+    // Mask inside the decoded payload so the surrounding structure survives.
+    // Ranges are spliced from the end so earlier offsets stay valid.
+    let payload = decoded;
+    for (const finding of [...usable].sort((a, b) => b.start - a.start)) {
+      if (payload.substring(finding.start, finding.end) !== finding.token) continue;
+      payload = payload.substring(0, finding.start) + maskToken(finding.token) + payload.substring(finding.end);
+      ruleIds.add(finding.ruleId);
+    }
+    if (payload === decoded) continue;
+    maskedPayloads.set(decoded, payload);
+  }
+
+  if (maskedPayloads.size === 0) return { text, masked: 0, ruleIds: [] };
+
+  // Re-encoding, round-trip verification and overlap merging are the sync
+  // layer's job. Driving it with a lookup of payloads we have already masked
+  // means the two paths cannot disagree about what a masked run looks like.
+  const output = sanitizeEncodedCredentials(text, {
+    sanitizePlaintext: decoded => maskedPayloads.get(decoded) ?? decoded,
+  });
+
+  return { text: output, masked: maskedPayloads.size, ruleIds: [...ruleIds] };
+};
+
+/**
  * Sanitize arbitrary outbound output by masking sensitive tokens while avoiding false positives
  * Uses DUAL APPROACH: Both secretlint AND custom patterns run independently
  *
@@ -605,6 +668,8 @@ export const sanitizeOutput = async (output, options = {}) => {
   const stats = {
     knownTokens: 0,
     secretlintDetections: 0,
+    encodedSecretlintDetections: 0,
+    encodedSecretlintRuleIds: [],
     customDetections: 0,
     secretlintOnlyWarnings: [],
     customOnlyDetections: [],
@@ -736,6 +801,21 @@ export const sanitizeOutput = async (output, options = {}) => {
       }
     }
 
+    // Step 3b (issue #2156): everything above compares against the *surface*
+    // text, so a credential that only ever appears encoded is invisible to it —
+    // that is exactly how the leaked token survived. The maintained core
+    // already reads decoded payloads; run the external rule set over them too,
+    // so the two layers cover the same ground and either one can be the catch.
+    const beforeEncodedScan = sanitized;
+    const encodedScan = await maskEncodedSecretsWithSecretlint(sanitized, excludedSet);
+    if (encodedScan.text !== beforeEncodedScan) {
+      sanitized = encodedScan.text;
+      stats.encodedSecretlintDetections += encodedScan.masked;
+      stats.encodedSecretlintRuleIds = encodedScan.ruleIds;
+      sanitizationStats.patternMasks += encodedScan.masked;
+      sanitizationStats.totalMasked += encodedScan.masked;
+    }
+
     // Step 4: Handle 40-char hex tokens specially - only mask if NOT in safe context
     // These could be GitHub tokens OR git commit hashes/gist IDs
     const hexPattern = /(?:^|[\s:=])([a-f0-9]{40})(?=[\s\n]|$)/gm;
@@ -774,11 +854,14 @@ export const sanitizeOutput = async (output, options = {}) => {
     }
 
     // Summary logging
-    const totalMasked = allSecrets.size + hexReplacements.length + stats.knownTokens;
+    const totalMasked = allSecrets.size + hexReplacements.length + stats.knownTokens + stats.encodedSecretlintDetections;
     if (global.verboseMode && totalMasked > 0) {
       await log(`  🔒 Sanitized ${totalMasked} secrets using dual approach:`, { verbose: true });
       await log(`      • Known tokens: ${stats.knownTokens}`, { verbose: true });
       await log(`      • Secretlint: ${stats.secretlintDetections} detections`, { verbose: true });
+      if (stats.encodedSecretlintDetections > 0) {
+        await log(`      • Secretlint (encoded payloads): ${stats.encodedSecretlintDetections} run(s) [${stats.encodedSecretlintRuleIds.join(', ')}]`, { verbose: true });
+      }
       await log(`      • Custom patterns: ${stats.customDetections} detections`, { verbose: true });
       await log(`      • Hex tokens: ${hexReplacements.length}`, { verbose: true });
       if (stats.secretlintOnlyWarnings.length > 0) {

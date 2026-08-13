@@ -32,6 +32,24 @@ ruleTester.run('require-sanitized-output', requireSanitizedOutput, {
     {
       code: String.raw`const safeBody = await sanitizeForPublication(body); const payload = JSON.stringify({ body: safeBody }); await $({ stdin: payload })` + '`gh api repos/o/r/issues/1/comments -X POST --input -`' + ';',
     },
+    // Issue #2156: array-argument `gh` invocations.
+    {
+      code: String.raw`await writeFile(bodyFile, await sanitizeForPublication(body)); await runCommand('gh', ['pr', 'comment', url, '--body-file', bodyFile]);`,
+    },
+    {
+      code: String.raw`await writeSanitizedPublicationFile(bodyFile, body); await runCommand('gh', ['issue', 'create', '--body-file', bodyFile]);`,
+    },
+    {
+      code: String.raw`const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(title), sanitizeForPublication(body)]); const args = ['issue', 'create', '--title', safeTitle, '--body', safeBody]; await commandOutput('gh', args);`,
+    },
+    {
+      // Reading, not publishing — no sink flag, so no requirement.
+      code: String.raw`await runCommand('gh', ['pr', 'view', url, '--json', 'body']);`,
+    },
+    {
+      // A non-gh program that happens to take a --body flag is out of scope.
+      code: String.raw`await runCommand('curl', ['issue', 'create', '--body', body]);`,
+    },
   ],
   invalid: [
     {
@@ -76,6 +94,33 @@ ruleTester.run('require-sanitized-output', requireSanitizedOutput, {
     },
     {
       code: String.raw`const payload = JSON.stringify({ safe: await sanitizeForPublication(body), unsafe: rawOutput }); await $({ stdin: payload })` + '`gh api repos/o/r/issues/1/comments -X POST --input -`' + ';',
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    // Issue #2156: the exact shape postKillRecoveryNotice() used to have — an
+    // argv array, so none of the string-based checks above could see it.
+    {
+      code: String.raw`await writeFile(bodyFile, body); await runCommand('gh', ['pr', 'comment', url, '--body-file', bodyFile]);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    {
+      code: String.raw`await runCommand('gh', ['pr', 'comment', url, '--body-file', bodyFile]);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    {
+      code: String.raw`await commandOutput('gh', ['issue', 'comment', String(n), '--body', body]);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    {
+      code: String.raw`const args = ['issue', 'create', '--title', title, '--body', await sanitizeForPublication(body)]; await commandOutput('gh', args);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    {
+      // Sanitized once, then overwritten with raw content before publishing.
+      code: String.raw`await writeFile(bodyFile, await sanitizeForPublication(body)); await writeFile(bodyFile, body); await runCommand('gh', ['pr', 'comment', url, '--body-file', bodyFile]);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
+    {
+      code: String.raw`const [title, safeBody] = await Promise.all([rawTitle, sanitizeForPublication(body)]); await runCommand('gh', ['issue', 'create', '--title', title, '--body', safeBody]);`,
       errors: [{ messageId: 'unsanitizedOutput' }],
     },
   ],

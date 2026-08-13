@@ -105,6 +105,50 @@ const templateHasUnsafeExpression = (node, sanitizedIdentifiers = new Set()) => 
   return false;
 };
 
+// ---------------------------------------------------------------------------
+// Issue #2156 — array-argument `gh` invocations
+// ---------------------------------------------------------------------------
+// `postKillRecoveryNotice()` published an unsanitized pull-request comment for
+// two releases because it spawns gh as `runCommand('gh', ['pr', 'comment', url,
+// '--body-file', bodyFile])`. There is no shell string and no tagged template,
+// so every check above looked straight past it. These helpers read the argv
+// array instead: find a body/title flag, then require the element after it to
+// be sanitized.
+// ---------------------------------------------------------------------------
+
+/** argv flags whose following element is generated, publishable content. */
+const ARGV_SINK_FLAGS = new Set(['--body', '-b', '--body-file', '-F', '--title', '-t', '--notes', '--notes-file', '--comment']);
+
+/** argv[0] values that identify a gh subcommand group that publishes content. */
+const ARGV_SUBJECTS = new Set(['issue', 'pr', 'gist', 'release']);
+
+/** argv[1] values that identify a publishing (rather than reading) action. */
+const ARGV_ACTIONS = new Set(['create', 'comment', 'edit', 'review']);
+
+const literalStringOf = node => (node?.type === 'Literal' && typeof node.value === 'string' ? node.value : null);
+
+/** True when a call names `gh` as the program to spawn. */
+const spawnsGh = node => {
+  const program = literalStringOf(node.arguments?.[0]);
+  return program === 'gh' || (typeof program === 'string' && program.endsWith('/gh'));
+};
+
+/**
+ * Report on an argv array such as `['pr', 'comment', url, '--body-file', file]`.
+ *
+ * @returns {boolean} true when a sink flag is followed by an unsanitized value
+ */
+const argvHasUnsafeSink = (arrayNode, sanitizedIdentifiers = new Set()) => {
+  const elements = arrayNode?.elements || [];
+  if (!ARGV_SUBJECTS.has(literalStringOf(elements[0]))) return false;
+  if (!ARGV_ACTIONS.has(literalStringOf(elements[1]))) return false;
+  for (let index = 0; index < elements.length - 1; index++) {
+    if (!ARGV_SINK_FLAGS.has(literalStringOf(elements[index]))) continue;
+    if (!expressionIsSanitized(elements[index + 1], sanitizedIdentifiers)) return true;
+  }
+  return false;
+};
+
 const callHasUnsafeStringSink = (node, sanitizedIdentifiers = new Set()) => {
   if (!COMMAND_EXECUTOR_NAMES.has(calleeName(node.callee))) return false;
   const firstArg = node.arguments?.[0];
@@ -129,6 +173,37 @@ export const _testing = {
   flattenTemplateLiteral,
   expressionContainsSanitizer,
   expressionIsSanitized,
+  argvHasUnsafeSink,
+  spawnsGh,
+};
+
+/**
+ * Writers that make the path in their first argument safe to publish, provided
+ * the content in their second argument is itself sanitized. Issue #2156: a
+ * `--body-file` is only as clean as whatever wrote the file, and
+ * `writeSanitizedPublicationFile` is not the only way that file gets written.
+ */
+const FILE_WRITER_NAMES = new Set(['writeFile', 'writeFileSync', 'outputFile']);
+
+/**
+ * Unwrap `await`/`Promise.all(...)` down to the array whose elements line up
+ * positionally with an array destructuring pattern.
+ *
+ * `const [safeTitle, safeBody] = await Promise.all([sanitizeForPublication(a),
+ * sanitizeForPublication(b)])` is the idiomatic way to sanitize two values at
+ * once in this codebase, and without this the rule saw two untracked names.
+ *
+ * @returns {Object|null} the ArrayExpression, or null when it cannot be resolved
+ */
+const destructuredSourceArray = node => {
+  let current = node;
+  while (current?.type === 'AwaitExpression') current = current.argument;
+  if (current?.type === 'ArrayExpression') return current;
+  if (current?.type === 'CallExpression' && calleeName(current.callee) === 'all' && current.callee?.object?.name === 'Promise') {
+    const first = current.arguments?.[0];
+    return first?.type === 'ArrayExpression' ? first : null;
+  }
+  return null;
 };
 
 export default {
@@ -146,11 +221,25 @@ export default {
 
   create(context) {
     const sanitizedIdentifiers = new Set();
+    // Issue #2156: argv arrays are routinely built into a `const args = [...]`
+    // and only then handed to the spawner, so the array literal and the `'gh'`
+    // that gives it meaning are two different nodes.
+    const argvArraysByName = new Map();
     return {
       VariableDeclarator(node) {
         if (node.id?.type === 'Identifier') {
+          if (node.init?.type === 'ArrayExpression') argvArraysByName.set(node.id.name, node.init);
           if (expressionIsSanitized(node.init, sanitizedIdentifiers)) sanitizedIdentifiers.add(node.id.name);
           else sanitizedIdentifiers.delete(node.id.name);
+          return;
+        }
+        if (node.id?.type === 'ArrayPattern') {
+          const source = destructuredSourceArray(node.init);
+          node.id.elements.forEach((element, index) => {
+            if (element?.type !== 'Identifier') return;
+            if (source && expressionIsSanitized(source.elements?.[index], sanitizedIdentifiers)) sanitizedIdentifiers.add(element.name);
+            else sanitizedIdentifiers.delete(element.name);
+          });
         }
       },
 
@@ -162,11 +251,27 @@ export default {
       },
 
       'CallExpression:exit'(node) {
-        if (calleeName(node.callee) === 'writeSanitizedPublicationFile' && node.arguments?.[0]?.type === 'Identifier') {
+        const callee = calleeName(node.callee);
+        if (callee === 'writeSanitizedPublicationFile' && node.arguments?.[0]?.type === 'Identifier') {
           sanitizedIdentifiers.add(node.arguments[0].name);
+        }
+        if (FILE_WRITER_NAMES.has(callee) && node.arguments?.[0]?.type === 'Identifier') {
+          if (expressionIsSanitized(node.arguments[1], sanitizedIdentifiers)) sanitizedIdentifiers.add(node.arguments[0].name);
+          else sanitizedIdentifiers.delete(node.arguments[0].name);
         }
         if (callHasUnsafeStringSink(node, sanitizedIdentifiers)) {
           context.report({ node, messageId: 'unsanitizedOutput' });
+          return;
+        }
+        // Issue #2156: `runCommand('gh', ['pr', 'comment', url, '--body-file', f])`.
+        if (spawnsGh(node)) {
+          for (const argument of node.arguments.slice(1)) {
+            const argv = argument.type === 'ArrayExpression' ? argument : argument.type === 'Identifier' ? argvArraysByName.get(argument.name) : null;
+            if (argv && argvHasUnsafeSink(argv, sanitizedIdentifiers)) {
+              context.report({ node, messageId: 'unsanitizedOutput' });
+              return;
+            }
+          }
         }
       },
 

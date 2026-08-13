@@ -27,7 +27,7 @@
 
 import assert from 'node:assert/strict';
 
-import { sanitizeCredentialText, findCredentialResiduals, maskToken } from '../src/credential-sanitization-core.lib.mjs';
+import { createCredentialStreamSanitizer, sanitizeCredentialText, findCredentialResiduals, maskToken } from '../src/credential-sanitization-core.lib.mjs';
 import { base64AlignmentFragments, encodedRepresentations, findEncodedKnownTokenRuns, printableRatio, sanitizeEncodedCredentials } from '../src/encoded-credential-detection.lib.mjs';
 import { containsKnownToken, sanitizeCommentBody, sanitizeForPublication, sanitizeOutput } from '../src/token-sanitization.lib.mjs';
 
@@ -262,6 +262,101 @@ const assertAbsent = (output, needles, message) => {
   const text = `blob ${Buffer.from(JSON.stringify({ token: SYNTHETIC_GHO })).toString('base64')}`;
   assert.equal(sanitizeEncodedCredentials(text, {}), text, 'no detector means no changes');
   assert.equal(sanitizeEncodedCredentials('', { sanitizePlaintext: value => value }), '', 'empty input must be handled');
+}
+
+{
+  // Root cause class 3: line-wrapped base64. Every wrapper in common use folds
+  // its output — `base64(1)` and MIME at 76 columns, PEM and `openssl` at 64 —
+  // and a folded blob has no single-line run for the encoded detector to match,
+  // so it passed straight through. Each wrap width must be caught.
+  const payload = JSON.stringify({ token: SYNTHETIC_GHO, note: 'keep me' });
+  const encoded = Buffer.from(payload).toString('base64');
+  for (const width of [20, 64, 76]) {
+    const wrapped = encoded.replace(new RegExp(`(.{${width}})`, 'g'), '$1\n').replace(/\n$/, '');
+    assert.ok(wrapped.includes('\n'), `fixture for width ${width} must actually wrap`);
+
+    const sanitized = sanitizeCredentialText(`response body=${wrapped}\nnext line\n`);
+    assertAbsent(sanitized, [SYNTHETIC_GHO, wrapped, encoded], `wrapped base64 at width ${width} must be masked`);
+    assert.ok(sanitized.includes('next line'), 'surrounding records must survive');
+
+    // CRLF is what a Windows runner writes, and the indented form is what a
+    // pretty-printer emits; both must fold to the same payload.
+    const crlf = wrapped.replace(/\n/g, '\r\n');
+    assertAbsent(sanitizeCredentialText(`body=${crlf}\r\n`), [SYNTHETIC_GHO, crlf], `CRLF-wrapped base64 at width ${width} must be masked`);
+    const indented = wrapped.replace(/\n/g, '\n    ');
+    assertAbsent(sanitizeCredentialText(`body=${indented}\n`), [SYNTHETIC_GHO, indented], `indented wrapped base64 at width ${width} must be masked`);
+  }
+
+  // Known-token matching must work on a wrapped blob even when the payload has
+  // no recognisable format of its own — exact value, not pattern.
+  const opaque = Buffer.from(`prefix ${SYNTHETIC_GHO} suffix`).toString('base64');
+  const wrappedOpaque = opaque.replace(/(.{24})/g, '$1\n').replace(/\n$/, '');
+  assert.ok(findEncodedKnownTokenRuns(`x\n${wrappedOpaque}\n`, KNOWN_TOKENS).length > 0, 'wrapped known tokens must be located');
+
+  // Prose must not be mistaken for a wrapped blob: consecutive long words are
+  // the shape a fold produces, and a false positive here would corrupt logs.
+  const prose = 'transformation pipeline\nconfiguration management\nreproducible builds\n';
+  assert.equal(sanitizeCredentialText(prose), prose, 'consecutive long words must not be treated as wrapped base64');
+}
+
+{
+  // The stdio interceptor sanitizes a stream record by record, but a wrapped
+  // blob is one credential carrier spread across many records. Released one at
+  // a time, each line decodes to byte-misaligned noise and nothing matches, so
+  // a trailing group of base64-only lines is held back until a line that cannot
+  // belong to the blob arrives.
+  const encoded = Buffer.from(JSON.stringify({ token: SYNTHETIC_GHO, note: 'keep me' })).toString('base64');
+  for (const width of [20, 64, 76]) {
+    const wrapped = encoded.replace(new RegExp(`(.{${width}})`, 'g'), '$1\n').replace(/\n$/, '');
+    const text = `start of output\nresponse body=\n${wrapped}\ntrailing line\n`;
+    const whole = sanitizeCredentialText(text);
+    // Chunk sizes deliberately unaligned to the record and wrap boundaries.
+    for (const chunk of [1, 5, 21, 4096]) {
+      const stream = createCredentialStreamSanitizer();
+      let output = '';
+      for (let offset = 0; offset < text.length; offset += chunk) output += stream.write(text.slice(offset, offset + chunk));
+      output += stream.flush();
+      assertAbsent(output, [SYNTHETIC_GHO, wrapped], `streamed wrapped base64 (width ${width}, chunk ${chunk}) must be masked`);
+      assert.equal(output, whole, `streaming must match whole-text sanitization (width ${width}, chunk ${chunk})`);
+    }
+  }
+
+  // Holding back must not cost latency on ordinary output. A complete record
+  // that cannot start a wrapped blob is released by the same write that
+  // completes it — including the URL- and path-heavy lines this tool prints,
+  // whose tails are made entirely of base64 alphabet characters.
+  for (const line of ['hello world\n', 'see https://gist.github.com/konard/63a67ea16390b5f0c819e3d5ca749693\n', '[STDOUT] /tmp/gh-issue-solver-1786621862337/src/lib.mjs\n']) {
+    assert.equal(createCredentialStreamSanitizer().write(line), line, `plain record must pass through immediately: ${line.trim()}`);
+  }
+
+  // A stream that is nothing but base64 must not be buffered without bound —
+  // a redirected image or a `cat` of an encoded artefact would never reach the
+  // terminal. Output is released once the hold exceeds its ceiling.
+  const bulk = `${Buffer.from('x'.repeat(768 * 1024))
+    .toString('base64')
+    .replace(/(.{76})/g, '$1\n')}\n`;
+  const bulkStream = createCredentialStreamSanitizer();
+  assert.ok(bulkStream.write(bulk).length > 0, 'an unbounded base64 stream must still be released');
+}
+
+{
+  // Availability of the fail-closed path. `SENSITIVE_KEY` allowed unbounded
+  // `[A-Za-z0-9_.-]` on both sides of the keyword, so the assignment rules
+  // retried from every offset of a long unbroken run: 64 KB took 38 s and a
+  // 553 KB blob never finished. Publication sanitizes before it releases
+  // anything, so that is a hang, not a slowdown.
+  const started = Date.now();
+  const sanitized = sanitizeCredentialText(`payload=${'A'.repeat(256 * 1024)}`);
+  const elapsed = Date.now() - started;
+  assert.ok(elapsed < 20_000, `long unbroken runs must sanitize in linear time (took ${elapsed}ms)`);
+  assert.ok(sanitized.length > 0, 'output must still be produced');
+
+  // Bounding the affixes must not cost coverage: keys are still matched with
+  // realistic prefixes and suffixes around the keyword.
+  for (const key of ['api_key', 'GITHUB_TOKEN', 'x-api-key', 'my_service_api_key_v2']) {
+    const text = `${key}=${SYNTHETIC_GHO}`;
+    assert.ok(!sanitizeCredentialText(text).includes(SYNTHETIC_GHO), `assignment to ${key} must still be masked`);
+  }
 }
 
 console.log('encoded credential leak tests passed (issue #2156)');

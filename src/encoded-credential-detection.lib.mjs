@@ -87,6 +87,29 @@ const MIN_PRINTABLE_RATIO = 0.9;
 const BASE64_RUN = `[A-Za-z0-9+/_-]{${MIN_ENCODED_RUN_LENGTH},}={0,2}`;
 const HEX_RUN = String.raw`\b[0-9a-fA-F]{32,}\b`;
 
+// Base64 is very often *wrapped*: the `base64` CLI breaks its output at 76
+// characters by default, MIME bodies wrap at 76, PEM at 64, and pretty-printed
+// JSON viewers wrap at whatever the terminal is. A wrapped blob defeats
+// {@link BASE64_RUN} completely — each line is matched as a separate run, and
+// an individual line is a byte-misaligned slice that decodes to noise, so the
+// printable-ratio gate discards it and the credential inside is never seen.
+//
+// Matching the wrapped form as one run and folding the whitespace out before
+// decoding restores the blob. Lines are required to be substantial so that two
+// consecutive short words of prose cannot be mistaken for a wrapped blob.
+// A wrapped run is found by locating its *interior* — the lines that consist of
+// nothing but base64 — and then expanding outwards over the partial first line
+// (`body=AAAA…`) and the short remainder line that ends the blob.
+//
+// The alternative, one regular expression describing the whole shape, is
+// ruinously slow. It can begin matching at any base64 character, which in a
+// 17 MB log is most of the file: 2235 ms per scan, against 23 ms for the
+// line-anchored form below, for identical results.
+const MIN_WRAPPED_LINE_LENGTH = 16;
+const WRAPPED_FULL_LINE = String.raw`(\r?\n)([ \t]*)([A-Za-z0-9+/_-]{${MIN_WRAPPED_LINE_LENGTH},}={0,2})[ \t]*(?=\r?\n|$)`;
+const WRAPPED_TAIL_LINE = new RegExp(String.raw`^[ \t]*\r?\n[ \t]*[A-Za-z0-9+/_-]{1,${MIN_WRAPPED_LINE_LENGTH - 1}}={0,2}(?=[ \t]*(?:\r?\n|$))`);
+const BASE64_LINE_CHARACTER = /[A-Za-z0-9+/_-]/;
+
 // Percent-encoding leaves unreserved characters alone, and every character a
 // GitHub token is made of is unreserved. `encodeURIComponent(JSON.stringify(…))`
 // therefore yields `%7B%22access_token%22%3A%22gho_…%22%7D`: the punctuation is
@@ -122,6 +145,8 @@ const hasEnoughEscapes = run => (run.match(/%[0-9a-fA-F]{2}/g) || []).length >= 
  * @param {string} source regular-expression source
  * @returns {Array<{run: string, index: number}>}
  */
+const runsOf = (decoder, text) => (decoder.findRuns ? decoder.findRuns(text) : matchRuns(text, decoder.pattern));
+
 const matchRuns = (text, source) => {
   const pattern = new RegExp(source, 'g');
   const runs = [];
@@ -131,6 +156,162 @@ const matchRuns = (text, source) => {
     if (match[0].length === 0) pattern.lastIndex++;
   }
   return runs;
+};
+
+/**
+ * Whether the short line following a group of base64 lines is the payload's
+ * remainder or an unrelated record.
+ *
+ * Both readings are syntactically valid — `done`, `OK` and `tail` are as much
+ * base64 as any remainder — so the question is settled by decoding. Appending a
+ * genuine remainder extends printable text with printable text; appending an
+ * unrelated word appends bytes that decode to noise. Absorbing the wrong line
+ * deletes it from the log, so anything that lowers printability is rejected.
+ *
+ * @param {string} group the base64-only lines, as found
+ * @param {string} tail the candidate remainder line, including its separator
+ * @returns {boolean}
+ */
+const tailContinuesPayload = (group, tail) => {
+  const folded = foldWhitespace(group);
+  const extended = folded + foldWhitespace(tail);
+  // `=` padding terminates a payload, so nothing can follow it. This has to be
+  // checked explicitly: decoders ignore whatever comes after the padding, so
+  // the printability comparison below sees two identical decodes and absorbs a
+  // line that was never part of the blob.
+  if (folded.endsWith('=')) return false;
+
+  // Every wrapper we have seen emits canonical, padded base64, whose total
+  // length is a multiple of 4. A remainder that does not complete the payload
+  // to that boundary is a different record — `OK` decodes to a printable byte
+  // and would otherwise pass the check below.
+  if (extended.length % 4 !== 0) return false;
+  return printableRatio(decodeBase64Bounded(extended)) >= printableRatio(decodeBase64Bounded(folded));
+};
+
+/**
+ * Locate wrapped base64 blobs: two or more lines that together form one
+ * encoded payload.
+ *
+ * Matching starts from complete base64-only lines, of which a log has very few,
+ * and each contiguous group of them is then expanded to cover the partial line
+ * it may have started on and the short remainder line it may end on.
+ *
+ * @param {string} text
+ * @returns {Array<{run: string, index: number}>}
+ */
+export const findWrappedBase64Runs = text => {
+  const content = String(text ?? '');
+  if (content.length < MIN_WRAPPED_FOLDED_LENGTH || content.indexOf('\n') === -1) return [];
+
+  const pattern = new RegExp(WRAPPED_FULL_LINE, 'g');
+  const groups = [];
+  let group = null;
+  let previousEnd = -1;
+  let match;
+
+  while ((match = pattern.exec(content)) !== null) {
+    const contentStart = match.index + match[1].length + match[2].length;
+    const contentEnd = contentStart + match[3].length;
+    // A following line is part of the same blob only when this match begins
+    // exactly where the previous one stopped, i.e. no other line came between.
+    if (group && match.index === previousEnd) group.end = contentEnd;
+    else {
+      if (group) groups.push(group);
+      group = { breakStart: match.index, start: contentStart, end: contentEnd };
+    }
+    previousEnd = pattern.lastIndex;
+  }
+  if (group) groups.push(group);
+
+  const runs = [];
+  for (const { breakStart, start, end } of groups) {
+    // Backwards over the partial first line. `=` is not in the class, so a
+    // `body=` prefix stops the walk exactly where the payload begins.
+    let from = breakStart;
+    while (from > 0 && (content[from - 1] === ' ' || content[from - 1] === '\t')) from--;
+    while (from > 0 && BASE64_LINE_CHARACTER.test(content[from - 1])) from--;
+    if (from === breakStart) from = start;
+
+    // Forwards over a short remainder line, which is too short to have been
+    // matched as a full line of its own — but only when it really belongs to
+    // the payload, since the next line of a log is very often a short word.
+    let to = end;
+    const tail = WRAPPED_TAIL_LINE.exec(content.slice(to));
+    if (tail && tailContinuesPayload(content.slice(start, end), tail[0])) to += tail[0].length;
+
+    const run = content.slice(from, to);
+    if (run.indexOf('\n') !== -1) runs.push({ run, index: from });
+
+    // Absorbing that first line is a guess. A preceding line made entirely of
+    // base64 alphabet characters — a bare word, a path, the tail of an earlier
+    // blob — is indistinguishable from a real `body=<first segment>` prefix,
+    // and absorbing one that does not belong shifts the fold out of alignment
+    // so the payload decodes to noise and nothing is detected at all. Offer the
+    // line-aligned group as a second candidate: overlapping candidates collapse
+    // to whichever one actually decodes, so the correct reading wins either way.
+    if (from < start) {
+      const aligned = content.slice(start, to);
+      if (aligned.indexOf('\n') !== -1) runs.push({ run: aligned, index: start });
+    }
+  }
+  return runs;
+};
+
+/**
+ * Upper bound on how much of a stream may be retained while waiting to see
+ * whether a run of base64-only lines ends. Output that is nothing but base64
+ * (a redirected image, a `cat` of an encoded artefact) would otherwise be
+ * buffered without limit and never reach the terminal.
+ */
+const MAX_WRAPPED_HOLD_CHARS = 256 * 1024;
+
+/**
+ * Offset from which a record-oriented sanitizer must retain `text[0, end)`
+ * because its final lines may be the beginning of a wrapped base64 blob whose
+ * remaining lines have not arrived yet.
+ *
+ * @param {string} text
+ * @param {number} end offset just past the last complete record
+ * @returns {number|null} offset to release up to, or null to release everything
+ */
+export const wrappedBase64HoldStart = (text, end) => {
+  const content = String(text ?? '');
+  if (end <= 0 || end > content.length) return null;
+
+  // Step back over exactly one record separator. Doing this before each
+  // backwards search is what lets the walk move from line to line: without it
+  // the search starts *on* the separator it just consumed, finds itself, and
+  // reports an empty line. Only one separator is skipped, so a blank line still
+  // terminates the walk rather than silently joining two blobs.
+  const beforeSeparator = index => {
+    let at = index;
+    if (at > 0 && content[at - 1] === '\n') at -= 1;
+    if (at > 0 && content[at - 1] === '\r') at -= 1;
+    return at;
+  };
+
+  let cursor = beforeSeparator(end);
+  let lineStart = null;
+  // Walk complete lines backwards for as long as each is base64 and nothing
+  // else. Trailing `=` padding means the blob ended, so nothing is held.
+  while (cursor > 0) {
+    const separator = Math.max(content.lastIndexOf('\n', cursor - 1), content.lastIndexOf('\r', cursor - 1));
+    const start = separator + 1;
+    const line = content.slice(start, cursor).trim();
+    if (line.length < MIN_WRAPPED_LINE_LENGTH || !/^[A-Za-z0-9+/_-]+$/.test(line)) break;
+    lineStart = start;
+    if (end - lineStart > MAX_WRAPPED_HOLD_CHARS) return null;
+    cursor = beforeSeparator(start);
+  }
+  if (lineStart === null) return null;
+
+  // The line before the group may be the partial one the blob started on — the
+  // shape `body=<first segment>` takes — so it is held too. That costs one
+  // extra record of latency and is released as soon as the blob ends.
+  const beforeGroup = beforeSeparator(lineStart);
+  const previousSeparator = Math.max(content.lastIndexOf('\n', beforeGroup - 1), content.lastIndexOf('\r', beforeGroup - 1));
+  return Math.max(previousSeparator + 1, 0);
 };
 
 // ---------------------------------------------------------------------------
@@ -219,6 +400,55 @@ const decodeBase64Bounded = run => {
   }
 };
 
+/**
+ * Remove the line structure from a wrapped base64 run, leaving the blob.
+ *
+ * @param {string} run
+ * @returns {string}
+ */
+const foldWhitespace = run => run.replace(/[\s]+/g, '');
+
+/**
+ * Line layout of a wrapped run, so a rebuilt blob can be re-wrapped the same
+ * way. The first line is frequently a partial one — the run starts wherever
+ * `body=` ended — so the wrap width is taken from the longest line rather than
+ * the first.
+ *
+ * @param {string} run
+ * @returns {{width: number, separator: string, indent: string}}
+ */
+const wrappedLayout = run => {
+  const separator = run.includes('\r\n') ? '\r\n' : '\n';
+  const lines = run.split(/\r?\n/);
+  const indentMatch = /^[ \t]*/.exec(lines[1] ?? '');
+  return {
+    width: Math.max(...lines.map(line => line.trim().length), MIN_WRAPPED_LINE_LENGTH),
+    separator,
+    indent: indentMatch ? indentMatch[0] : '',
+  };
+};
+
+/**
+ * Minimum folded length for a wrapped run to be worth decoding. A blob only
+ * gets wrapped because it exceeded the wrap width, so anything this short is
+ * two ordinary words that happened to land on consecutive lines.
+ */
+const MIN_WRAPPED_FOLDED_LENGTH = MIN_ENCODED_RUN_LENGTH * 2;
+
+/**
+ * Reject wrapped candidates that cannot be base64 at all. A length of 1 (mod 4)
+ * is the only remainder base64 can never produce.
+ *
+ * @param {string} run
+ * @returns {boolean}
+ */
+const isWrappedBase64Candidate = run => {
+  const folded = foldWhitespace(run);
+  return folded.length >= MIN_WRAPPED_FOLDED_LENGTH && folded.length % 4 !== 1;
+};
+
+const decodeWrappedBase64 = run => decodeBase64Bounded(foldWhitespace(run));
+
 const decodeHex = run => {
   if (run.length % 2 !== 0) return null;
   try {
@@ -266,6 +496,25 @@ const encodeBase64Like = (text, run) => {
   return encoded;
 };
 
+/**
+ * Re-encode sanitized content and re-apply the original line layout, so a
+ * wrapped blob stays wrapped — and, more importantly, so that decoding the
+ * rebuilt run reproduces the sanitized bytes and the round-trip check passes.
+ *
+ * @param {string} text decoded, already-sanitized content
+ * @param {string} run the original wrapped run
+ * @returns {string}
+ */
+const encodeWrappedBase64Like = (text, run) => {
+  const encoded = encodeBase64Like(text, foldWhitespace(run));
+  const { width, separator, indent } = wrappedLayout(run);
+  const lines = [];
+  for (let offset = 0; offset < encoded.length; offset += width) {
+    lines.push(encoded.slice(offset, offset + width));
+  }
+  return lines.join(`${separator}${indent}`);
+};
+
 const encodeHex = (text, run) => {
   const encoded = encodeBytes(text).toString('hex');
   return /[A-F]/.test(run) && !/[a-f]/.test(run) ? encoded.toUpperCase() : encoded;
@@ -281,8 +530,12 @@ const encodeEscapes = (text, run) => [...Buffer.from(text, 'latin1')].map(byte =
 const encodeEntities = (text, run) => [...text].map(char => (/&#x/.test(run) ? `&#x${char.codePointAt(0).toString(16)};` : `&#${char.codePointAt(0)};`)).join('');
 
 // `accept` is an optional per-encoding gate applied to a matched run before it
-// is decoded, for conditions a regular expression cannot express.
+// is decoded, for conditions a regular expression cannot express. `findRuns`
+// replaces `pattern` for shapes no single expression can locate efficiently.
 const DECODERS = Object.freeze([
+  // Wrapped base64 is tried before the single-line form so that its (wider)
+  // range wins the overlap merge in `sanitizeEncodedCredentials`.
+  { encoding: 'base64-wrapped', findRuns: findWrappedBase64Runs, decode: decodeWrappedBase64, encode: encodeWrappedBase64Like, accept: isWrappedBase64Candidate },
   { encoding: 'base64', pattern: BASE64_RUN, decode: decodeBase64Bounded, encode: encodeBase64Like },
   { encoding: 'hex', pattern: HEX_RUN, decode: decodeHex, encode: encodeHex },
   { encoding: 'percent', pattern: PERCENT_RUN, decode: decodePercent, encode: encodePercent, accept: hasEnoughEscapes },
@@ -424,17 +677,35 @@ export const findEncodedKnownTokenRuns = (text, knownTokens = []) => {
   if (content.length === 0) return [];
 
   const found = [];
+  const wrappedNeedles = [];
   for (const entry of knownTokens) {
     const value = typeof entry === 'string' ? entry : entry?.value;
     if (typeof value !== 'string' || value.length < 12) continue;
 
     for (const { encoding, needle } of encodedRepresentations(value)) {
+      // A wrapped blob has line breaks inside it, so no needle occurs verbatim.
+      // Collect the base64 forms for the folded scan below; the other encodings
+      // are not line-wrapped by any tool we have seen.
+      if (encoding === 'base64' || encoding === 'base64url') wrappedNeedles.push({ needle, value });
+
       let index = content.indexOf(needle);
       while (index !== -1) {
         const characterClass = CHARACTER_CLASS_FOR_ENCODING[encoding] || BASE64_CHARACTER;
         const range = expandRun(content, index, index + needle.length, characterClass);
         found.push({ ...range, encoding, value });
         index = content.indexOf(needle, index + needle.length);
+      }
+    }
+  }
+
+  if (wrappedNeedles.length > 0) {
+    for (const { run, index } of findWrappedBase64Runs(content)) {
+      if (!isWrappedBase64Candidate(run)) continue;
+      const folded = foldWhitespace(run);
+      for (const { needle, value } of wrappedNeedles) {
+        if (!folded.includes(needle)) continue;
+        found.push({ start: index, end: index + run.length, encoding: 'base64-wrapped', value });
+        break;
       }
     }
   }
@@ -490,8 +761,9 @@ export const findEncodedSecretRuns = (text, detect, options = {}) => {
 
   const found = [];
 
-  for (const { encoding, pattern, decode, accept } of DECODERS) {
-    for (const { run, index } of matchRuns(content, pattern)) {
+  for (const decoder of DECODERS) {
+    const { encoding, decode, accept } = decoder;
+    for (const { run, index } of runsOf(decoder, content)) {
       if (run.length < MIN_ENCODED_RUN_LENGTH) continue;
       if (accept && !accept(run)) continue;
 
@@ -571,8 +843,9 @@ export const sanitizeEncodedCredentials = (input, options = {}) => {
 
   const replacements = [];
 
-  for (const { pattern, decode, encode, accept } of DECODERS) {
-    for (const { run, index } of matchRuns(text, pattern)) {
+  for (const decoder of DECODERS) {
+    const { decode, encode, accept } = decoder;
+    for (const { run, index } of runsOf(decoder, text)) {
       if (run.length < MIN_ENCODED_RUN_LENGTH) continue;
       if (accept && !accept(run)) continue;
 
@@ -641,6 +914,8 @@ export const findEncodedCredentialResiduals = (input, options = {}) => {
 
 export default {
   base64AlignmentFragments,
+  findWrappedBase64Runs,
+  wrappedBase64HoldStart,
   encodedRepresentations,
   findEncodedKnownTokenRuns,
   findEncodedSecretRuns,

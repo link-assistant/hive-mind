@@ -7,7 +7,7 @@
  */
 
 import { StringDecoder } from 'node:string_decoder';
-import { sanitizeEncodedCredentials } from './encoded-credential-detection.lib.mjs';
+import { sanitizeEncodedCredentials, wrappedBase64HoldStart } from './encoded-credential-detection.lib.mjs';
 
 export const CREDENTIAL_SANITIZATION_ERROR_CODE = 'ERR_CREDENTIAL_SANITIZATION';
 export const CREDENTIAL_SANITIZATION_FAILURE_MESSAGE = 'Credential sanitization failed; publication was blocked.';
@@ -71,7 +71,17 @@ const VENDOR_PATTERNS = Object.freeze([
   /\b(?:[A-Z0-9]+[_-])+(?:TOKEN|SECRET|PASSWORD|CREDENTIAL|API[_-]?KEY)(?:[_-][A-Z0-9]+)+\b/g,
 ]);
 
-const SENSITIVE_KEY = String.raw`(?:[A-Za-z0-9_.-]*(?:api[-_]?key|account[-_]?key|client[-_]?secret|consumer[-_]?secret|webhook[-_]?secret|access[-_]?token|refresh[-_]?token|auth[-_]?token|password|passwd|pwd|private[-_]?key|secret|token|session[-_]?key|session[-_]?token|cookie|docker[-_]?auth|registry[-_]?auth|shared[-_]?access[-_]?signature|sas[-_]?token)[A-Za-z0-9_.-]*|auth|authorization)`;
+// The affixes around the sensitive word are bounded rather than `*`. Unbounded
+// they made every assignment rule quadratic: at each of the N starting offsets
+// in a long identifier-shaped run the engine consumed to the end and then
+// backtracked one character at a time looking for the sensitive word. A single
+// 64 KB base64 blob — routine in a published log — took 19 s per rule and a
+// 256 KB one never finished, which turns the fail-closed publication path into
+// a hang. Bounding costs nothing in coverage: a key whose affix is longer than
+// this simply matches from a later offset, and the affix is preserved text
+// rather than masked content, so the sanitized output is identical.
+const MAX_KEY_AFFIX = 64;
+const SENSITIVE_KEY = String.raw`(?:[A-Za-z0-9_.-]{0,${MAX_KEY_AFFIX}}(?:api[-_]?key|account[-_]?key|client[-_]?secret|consumer[-_]?secret|webhook[-_]?secret|access[-_]?token|refresh[-_]?token|auth[-_]?token|password|passwd|pwd|private[-_]?key|secret|token|session[-_]?key|session[-_]?token|cookie|docker[-_]?auth|registry[-_]?auth|shared[-_]?access[-_]?signature|sas[-_]?token)[A-Za-z0-9_.-]{0,${MAX_KEY_AFFIX}}|auth|authorization)`;
 
 // Issue #2119: token *accounting* is not a credential. Every AI provider SDK
 // spells usage telemetry with the plural "tokens" (`tokens`, `inputTokens`,
@@ -308,8 +318,17 @@ export const createCredentialStreamSanitizer = options => {
 
       const boundary = Math.max(pending.lastIndexOf('\n'), pending.lastIndexOf('\r'));
       if (boundary < 0) break;
-      output += sanitizeCredentialText(pending.slice(0, boundary + 1), options);
-      pending = pending.slice(boundary + 1);
+
+      // Issue #2156: a base64 blob wrapped across lines is one credential
+      // carrier spread over many records. Releasing those records one at a time
+      // hands the sanitizer a byte-misaligned slice that decodes to noise, so
+      // hold a trailing group of base64-only lines back until a line that
+      // cannot belong to the blob arrives (or `flush` forces the issue), the
+      // same way an unterminated PEM block is held above.
+      const releaseEnd = wrappedBase64HoldStart(pending, boundary + 1) ?? boundary + 1;
+      if (releaseEnd <= 0) break;
+      output += sanitizeCredentialText(pending.slice(0, releaseEnd), options);
+      pending = pending.slice(releaseEnd);
     }
 
     return output;

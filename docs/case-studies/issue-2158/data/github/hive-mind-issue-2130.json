@@ -1,0 +1,25 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "Previously we tried to fix it here:  https://github.com/link-assistant/hive-mind/issues/2119\n\nBut it didn't work and we still get fails:\n- https://gist.githubusercontent.com/konard/1963a8876911f1087aa868c89839a837/raw/03f83364a0a97df256e6f9af0257a4c543132c6a/tmp-hive-mind-log-upload-FTn7sm-sanitized.log.txt (started at https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2#issuecomment-5158866526)\n- https://gist.githubusercontent.com/konard/b97b374233894030445443e3da2d24bf/raw/06af159a3568d6758fc087c4f64dfd4a887fa07c/tmp-hive-mind-log-upload-rv2k7W-sanitized.log.txt (started at https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2#issuecomment-5158964914)\n- And for agent CLI - it started at https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2#issuecomment-5158414013 after that it restarted multiple times, and failed at https://gist.githubusercontent.com/konard/32b1af3dddc10939d2ee8af95a46aa6b/raw/90524a4c596288828f644e48a7b22df40208a929/tmp-hive-mind-log-upload-V7E0Ee-sanitized.log.txt (here we need to collect all logs from all restarts/resumes).\n\nFirst of all we must fix all false positives, false negatives, warnings and errors on Hive Mind side.\n\nOnce that is done, we must also report issues to github.com/link-assistant/formal-ai and github.com/link-assistant/agent where applicable.\n\nSo we make sure such errors will not happen again, and Formal AI is capable of solving such simple tasks.\n\nWe can use for reference of examples of how it worked previously with LLMs:\n- https://github.com/konard/test-hello-world-01992020-00f8-7cf2-9bb6-a1c2a7718de5\n- https://github.com/konard/test-hello-world-01991e7d-f3e2-713e-a22a-0e69a326dc93\n- https://github.com/konard/test-hello-world-01991e68-059d-749e-900f-af9e7aa44451\n\n(see pull requests to these repositories)\n\nFormal AI must perform better than any LLM, it must be more precise, perfect, grounded and so on.\n\nOnce Formal AI will be trully capable of solving simple hello world tasks, it we will make sure it will learn to do more complex tasks in the future by failing at real tasks and making sure we fix Formal AI code, once Formal AI will be useful enough to code itself, we will be able to significantly speed up development and make it cheaper.\n\nWe must ensure that Formal AI is fully supported in Hive Mind for all tools - claude, codex, agent, gemini, qwen. Agent CLI should be fully ready to operate Formal AI. And Formal AI should be capable of coding through reasoning as per Formal AI's vision.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "closedAt": "2026-08-02T21:10:56Z",
+  "createdAt": "2026-08-02T16:35:39Z",
+  "labels": [
+    {
+      "id": "LA_kwDOPUU0qc8AAAACGYm6iw",
+      "name": "bug",
+      "description": "Something isn't working",
+      "color": "d73a4a"
+    }
+  ],
+  "number": 2130,
+  "state": "CLOSED",
+  "title": "`--model formal-ai` still not working on simplest hello world",
+  "updatedAt": "2026-08-02T21:10:57Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2130"
+}

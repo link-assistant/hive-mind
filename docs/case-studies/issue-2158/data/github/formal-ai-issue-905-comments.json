@@ -1,0 +1,49 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/formal-ai/issues/comments/5160149739",
+    "html_url": "https://github.com/link-assistant/formal-ai/issues/905#issuecomment-5160149739",
+    "issue_url": "https://api.github.com/repos/link-assistant/formal-ai/issues/905",
+    "id": 5160149739,
+    "node_id": "IC_kwDOSbOoU88AAAABM5Gi6w",
+    "user": {
+      "login": "konard",
+      "id": 1431904,
+      "node_id": "MDQ6VXNlcjE0MzE5MDQ=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/konard",
+      "html_url": "https://github.com/konard",
+      "followers_url": "https://api.github.com/users/konard/followers",
+      "following_url": "https://api.github.com/users/konard/following{/other_user}",
+      "gists_url": "https://api.github.com/users/konard/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/konard/subscriptions",
+      "organizations_url": "https://api.github.com/users/konard/orgs",
+      "repos_url": "https://api.github.com/users/konard/repos",
+      "events_url": "https://api.github.com/users/konard/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/konard/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "created_at": "2026-08-02T20:15:40Z",
+    "updated_at": "2026-08-02T20:15:40Z",
+    "body": "## The same failure through `qwen`, with the mechanism visible\n\nThe codex log above shows `write_stdin failed: Unknown process id 0`, which hides *why* the write did\nnot happen. Running the identical prompt through `qwen` against the same server surfaces the actual\ntool results, and they are more damning.\n\nLog: [`direct-qwen.log`](https://github.com/link-assistant/hive-mind/blob/main/docs/case-studies/issue-2130/data/runs/direct-qwen.log) ·\nformal-ai 0.317.0, qwen-code 0.21.2.\n\n**Both `write_file` calls are rejected, and Formal AI never reacts:**\n\n```json\n{\"name\":\"write_file\",\"input\":{\"file_path\":\"…/.formal-ai/general-change-plan.lino\",\"content\":\"…\"}}\n→ {\"is_error\":true,\"content\":\"File …/general-change-plan.lino has not been read in this session.\n    Use the read_file tool first to load the current content … before overwriting it.\"}\n\n{\"name\":\"write_file\",\"input\":{\"file_path\":\"…/hello.txt\",\"content\":\"exactly: Hello World\"}}\n→ {\"is_error\":true,\"content\":\"File …/hello.txt has not been read in this session.\n    Use the read_file tool first …\"}\n```\n\nThe harness told it exactly what to do — call `read_file` first — and returned a structured\n`is_error: true`. Formal AI called neither `read_file` nor a retry. It went straight to step 3.\n\n**The verification then fails explicitly, with the exit code spelled out:**\n\n```json\n{\"is_error\":true,\"content\":\"Command: cat hello.txt\\nOutput: cat: hello.txt: No such file or directory\\nExit Code: 1\"}\n```\n\n**And the turn still ends in success:**\n\n```json\n{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\n \"result\":\"Completed the general change request for hello.txt and verified it with `cat hello.txt`. …\"}\n```\n\nThree `is_error: true` tool results in a four-turn session, and the session's own terminal record is\n`\"subtype\":\"success\",\"is_error\":false`.\n\n### What this adds\n\n1. **The write failure is not codex-specific.** `Unknown process id 0` was a codex-side symptom; the\n   underlying behaviour is that Formal AI ignores `is_error: true` tool results entirely. Fixing the\n   pid will not fix this.\n2. **`is_error: true` is being discarded, not misread.** The error text here is plain English with a\n   remedy in it. Any handling of the result at all — even \"stop on error\" — would have prevented the\n   false claim.\n3. **Confirms the content-extraction defect concretely:** the content it tried to write to\n   `hello.txt` is the literal string `exactly: Hello World`. So even had the write been permitted,\n   the file would have held the wrong bytes. That is the same slice reported in §3 of this issue,\n   now visible as an actual `write_file` argument rather than only as `expected_evidence`.\n\n### Adjusted suggestion\n\nThe fix in §1 above (\"fail the step when the capability fails\") should be stated more generally:\n**treat `is_error: true` on any tool result as a step failure**, and feed the error text back into\nthe next reasoning step — the harnesses are already returning actionable remedies that are currently\nthrown away. A two-turn retry (`read_file` then `write_file`) would have completed this task.\n",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": {
+      "url": "https://api.github.com/repos/link-assistant/formal-ai/issues/comments/5160149739/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

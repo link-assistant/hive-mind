@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-08-15T14:24:10.044Z",
+  "formalAiVersion": "0.339.1",
+  "client": "codex",
+  "results": [
+    {
+      "name": "before-former-request",
+      "exitCode": 0,
+      "promptCharacters": 570,
+      "stdout": "{\"type\":\"thread.started\",\"thread_id\":\"01a005cd-4509-72e0-b578-4bc4008b5094\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Let me run a quick command to get that for you.\"}}\n{\"type\":\"item.started\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"/bin/bash -lc pwd\",\"aggregated_output\":\"\",\"exit_code\":null,\"status\":\"in_progress\"}}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_1\",\"type\":\"command_execution\",\"command\":\"/bin/bash -lc pwd\",\"aggregated_output\":\"<workspace>\\n\",\"exit_code\":0,\"status\":\"completed\"}}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_2\",\"type\":\"agent_message\",\"text\":\"The `pwd` command completed. Output:\\n\\n```text\\n<workspace>\\n```\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":21462,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":165,\"reasoning_output_tokens\":0}}\n",
+      "stderr": "Reading prompt from stdin..."
+    },
+    {
+      "name": "after-bounded-request",
+      "exitCode": 0,
+      "promptCharacters": 281,
+      "stdout": "{\"type\":\"thread.started\",\"thread_id\":\"01a005ce-e991-78a3-9ba0-b9e0ad090157\"}\n{\"type\":\"turn.started\"}\n{\"type\":\"item.completed\",\"item\":{\"id\":\"item_0\",\"type\":\"agent_message\",\"text\":\"Planned, not executed: https://github.com/example/example/issues/1.\\n\\nNothing the request names was changed. The only file this run wrote is its own plan record (.formal-ai/general-change-plan.lino), and reading that record back would prove nothing about the requested work, so no verification was claimed. Plan event:\\n\\ngeneral_change_plan\\n  id \\\"repository_work_item_plan_7b552ff93fd638b2\\\"\\n  execution_mode \\\"repository_work_item\\\"\\n  terminal_state \\\"planned_not_executed\\\"\\n  goal \\\"Resolve the GitHub issue at https://github.com/example/example/issues/1 in this repository.\\\\nKeep the solution on branch issue-1-example.\\\\nUpdate the pull request at https://github.com/example/example/pull/2.\\\\n\\\\nImplement and verify the solution before reporting completion.\\\\nContinue.\\\"\\n  target \\\"https://github.com/example/example/issues/1\\\"\\n  step 1\\n    capability \\\"Write\\\"\\n    action \\\"append the bounded repository work-item plan to .formal-ai/general-change-plan.lino\\\"\\n    expected_evidence \\\"the exact repository work-item goal and execution boundary\\\"\"}}\n{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":10313,\"cached_input_tokens\":0,\"cache_write_input_tokens\":0,\"output_tokens\":1030,\"reasoning_output_tokens\":0}}\n",
+      "stderr": "Reading prompt from stdin..."
+    }
+  ]
+}

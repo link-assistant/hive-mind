@@ -9,6 +9,8 @@ import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
 import { buildWorkLanguageDirective } from './work-language.prompts.lib.mjs';
 import { buildRequestedBaseBranchDirective } from './solve-option-contract.prompts.lib.mjs';
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
+import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 
 /**
  * Build the user prompt for Agent
@@ -16,6 +18,9 @@ import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
  * @returns {string} The formatted user prompt
  */
 export const buildUserPrompt = params => {
+  const formalAiPrompt = buildFormalAiRepositoryPrompt(params);
+  if (formalAiPrompt !== null) return formalAiPrompt;
+
   const { issueUrl, issueNumber, prNumber, prUrl, branchName, tempDir, workspaceTmpDir, isContinueMode, forkedRepo, feedbackLines, forkActionsUrl, owner, repo, argv } = params;
 
   const promptLines = [];
@@ -91,6 +96,13 @@ export const buildUserPrompt = params => {
  */
 export const buildSystemPrompt = params => {
   const { owner, repo, issueNumber, prNumber, branchName, workspaceTmpDir, argv, modelSupportsVision, forkedRepo } = params;
+
+  // Issue #2158: Formal AI's deterministic intent router considers the whole
+  // provider request, including this caller-owned workflow prompt. Command
+  // examples such as `sudo` and `pwd` were consequently executed as if the
+  // issue requested them. The compact user prompt remains the repository
+  // objective; Formal AI supplies its own execution policy.
+  if (isFormalAiModel(argv?.model)) return '';
 
   // When in fork mode, screenshots are pushed to the fork, not the original repo
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;

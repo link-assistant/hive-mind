@@ -69,6 +69,7 @@ const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidMod
 const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
 const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
 const { resolveUncommittedChangesTool } = await import('./solve.tool-uncommitted.lib.mjs');
+const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 const logFile = await initializeLogFile(null);
 const versionInfo = await getVersionInfo();
 const rawCommand = await logSolveStartup(versionInfo);
@@ -535,7 +536,10 @@ try {
   let prUrl = null;
   // In continue mode, we already have the PR details
   if (isContinueMode) {
-    prUrl = issueUrl; // The input URL is the PR URL
+    // Issue #2158: auto-continue can discover a PR while the input remains an
+    // issue URL. Passing that issue URL as "Your prepared Pull Request" sent
+    // the first Formal AI attempt to the wrong GitHub entity.
+    prUrl = githubLib.buildGitHubPullRequestUrl({ owner, repo, number: prNumber });
     // prNumber is already set from earlier when we parsed the PR
   }
   // Handle auto PR creation using the new module
@@ -756,6 +760,11 @@ try {
       $,
     });
     toolResult = claudeResult;
+  }
+  toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
+  if (toolResult?.formalAiNonExecution) {
+    await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
+    await log('   The deterministic terminal response will not be retried as a mergeability problem.', { level: 'error' });
   }
   try {
     await recordAfterAgentSize({ tempDir, beforeBytes: cleanupContext.diskDiagnostics?.beforeBytes ?? null, log });

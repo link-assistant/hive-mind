@@ -34,6 +34,7 @@ const { log, formatAligned, extractToolErrorCore } = lib;
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
+const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
 const { ensurePullRequestIsDraft } = await import('./pr-draft-state.lib.mjs');
 
@@ -490,6 +491,11 @@ export const executeToolIteration = async params => {
       claudePath,
       $,
     });
+  }
+
+  toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
+  if (toolResult?.formalAiNonExecution) {
+    await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
   }
 
   await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });

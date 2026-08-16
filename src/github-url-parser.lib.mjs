@@ -241,6 +241,14 @@ export function normalizeGitHubUrl(url) {
   const parsed = parseGitHubUrl(url);
   return parsed.valid ? parsed.normalized : null;
 }
+
+/** Build the canonical web URL for a pull request already identified by GitHub. */
+export function buildGitHubPullRequestUrl({ owner, repo, number } = {}) {
+  if (!owner || !repo || !Number.isInteger(Number(number)) || Number(number) <= 0) {
+    throw new TypeError('A GitHub pull request URL requires owner, repo, and a positive integer number');
+  }
+  return `https://github.com/${owner}/${repo}/pull/${Number(number)}`;
+}
 /**
  * Check if a URL is a valid GitHub URL of a specific type
  * @param {string} url - The URL to check

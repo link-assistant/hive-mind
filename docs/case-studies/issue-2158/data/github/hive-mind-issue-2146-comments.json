@@ -1,0 +1,49 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5228508712",
+    "html_url": "https://github.com/link-assistant/hive-mind/issues/2146#issuecomment-5228508712",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2146",
+    "id": 5228508712,
+    "node_id": "IC_kwDOPUU0qc8AAAABN6S2KA",
+    "user": {
+      "login": "konard",
+      "id": 1431904,
+      "node_id": "MDQ6VXNlcjE0MzE5MDQ=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/konard",
+      "html_url": "https://github.com/konard",
+      "followers_url": "https://api.github.com/users/konard/followers",
+      "following_url": "https://api.github.com/users/konard/following{/other_user}",
+      "gists_url": "https://api.github.com/users/konard/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/konard/subscriptions",
+      "organizations_url": "https://api.github.com/users/konard/orgs",
+      "repos_url": "https://api.github.com/users/konard/repos",
+      "events_url": "https://api.github.com/users/konard/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/konard/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "created_at": "2026-08-08T22:32:17Z",
+    "updated_at": "2026-08-08T22:32:17Z",
+    "body": "Follow-up to the requested idle lifecycle and auto-update behavior in [this review comment](https://github.com/link-assistant/hive-mind/pull/2147#issuecomment-5228459541).\n\nI confirmed the current gaps:\n\n- `docker-compose.yml` starts the Formal AI service permanently (`restart: unless-stopped`) and makes the Hive Mind container depend on its health. It is not task-scoped today.\n- Docker-isolated tasks receive the sidecar URL, but the sidecar is outside the task daemon/network. The requested task-only internal network is not implemented.\n- Formal AI memory is persisted in a named volume, but replacing the image currently has no machine-readable memory-schema preflight, explicit migration transaction, or rollback contract. `/health` proves the binary is alive and reports its version; it does not prove persisted-memory compatibility.\n- Claude, Codex, Agent, Gemini, Qwen, Copilot, and OpenCode are installed at Hive Mind image-build time. There is no idle-only runtime refresh mechanism today.\n\nThe responsibility split is:\n\n- **Hive Mind:** count live tasks, pull only while idle, compare image digests, start/stop the sidecar on demand, create the internal network, attach only Formal AI task containers before releasing their startup gate, keep the named memory volume, orchestrate backup/rollback, and refresh the agentic CLI runtime only while no task is active.\n- **Formal AI:** define whether an old persisted-memory schema is readable by a candidate binary and provide a non-destructive, atomic, idempotent migration/preflight contract that an unattended orchestrator can trust.\n\nUpstream reports:\n\n- **Blocking:** [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) — reproducible named-volume replacement case, current backup/pin workaround, proposed machine-readable preflight/transaction, and old-to-new/interruption/rollback acceptance tests.\n- **Non-blocking:** [link-foundation/start#154](https://github.com/link-foundation/start/issues/154) — native Docker `--network`/`--network-alias` support. Hive Mind can safely work around this one with `docker network connect` while its existing task startup gate is closed.\n\nPer issue #2146's explicit instruction to report missing Formal AI features as blockers and pause the pull request until they are resolved, PR #2147 remains **draft**. I am not enabling a health-check-only `latest` replacement path: it could appear successful while silently damaging memory or making rollback impossible. The general agentic-CLI updater remains part of the Hive Mind follow-up scope; no upstream Agent defect is required merely to install its latest published package while Hive Mind is idle.\n",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5228508712/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

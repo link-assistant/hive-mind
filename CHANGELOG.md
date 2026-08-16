@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.12.5
+
+### Patch Changes
+
+- 77ed9bc: Keep Formal AI repository requests bounded, target the discovered pull request URL, and stop retrying explicit `planned_not_executed` results as successful work.
+
 ## 2.12.4
 
 ### Patch Changes

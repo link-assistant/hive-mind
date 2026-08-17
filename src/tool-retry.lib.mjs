@@ -2,6 +2,7 @@
 
 import { retryLimits } from './config.lib.mjs';
 import { resolveDefaultFallbackModel, resolveModelId } from './models/index.mjs';
+import { detectSubscriptionError, isTransientAuthError } from './subscription-error.lib.mjs';
 
 const normalizeMessage = value => {
   if (value === null || value === undefined) return '';
@@ -26,6 +27,34 @@ const normalizeModelKey = value => {
 export const classifyRetryableError = value => {
   const message = normalizeMessage(value);
   const lower = message.toLowerCase();
+
+  // Issue #2161: account/subscription-level blocks ("Your organization has
+  // disabled Claude subscription access for Claude Code", "You do not have
+  // access to Codex", revoked OAuth tokens, expired subscriptions, …). These are
+  // terminal by nature: the credentials themselves are no longer accepted, so
+  // neither a backoff nor a different model can recover — the run must stop and
+  // the operator must restore access. isCapacity stays false so
+  // maybeSwitchToFallbackModel() never burns a fallback hop on them.
+  //
+  // Checked first, because several of these messages contain words ("timed
+  // out", "rate", "503") that later transient branches would otherwise claim.
+  // detectSubscriptionError() itself excludes provider errors that are
+  // explicitly described as temporary — see isTransientAuthError below.
+  const subscriptionError = detectSubscriptionError(message);
+  if (subscriptionError) {
+    return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access blocked' };
+  }
+
+  // Issue #2161: the counterpart — Claude Code's own wording marks this
+  // authentication failure as temporary ("This may be a temporary network
+  // issue, please try again"). Without an explicit branch it would fall through
+  // to the non-retryable default and abort a run that a retry would have saved.
+  // The `auth` guard keeps purely network-level members of that list (e.g.
+  // "Temporary failure in name resolution") on their own, more specific branches
+  // below — this branch only claims the *authentication* wordings.
+  if (isTransientAuthError(lower) && lower.includes('auth')) {
+    return { message, isRetryable: true, isCapacity: false, label: 'Transient authentication/network error' };
+  }
 
   // Genuine model-specific capacity: the API explicitly tells us this *particular*
   // model is full and recommends trying a *different* model (e.g. Codex's

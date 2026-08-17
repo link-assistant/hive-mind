@@ -36,6 +36,7 @@ if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
 }
 export { createYargsConfig } from './hive.config.lib.mjs';
 import { attachChildExitHandlers } from './child-exit.lib.mjs';
+import { SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
 import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
 import { createShutdownManager } from './hive.shutdown.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
@@ -653,6 +654,22 @@ if (isRunningDirectly) {
     // controlled SIGTERM to each (they run in their own detached process group, so the
     // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
     const activeSolveChildren = new Set();
+    // Issue #2161: an account/subscription block is hive-wide, not per-issue. The
+    // credentials every worker shares have been refused, so each remaining issue
+    // would spin up a full solve run only to die the same way — burning clones,
+    // containers and PR comments while the queue drains into "failed". The first
+    // worker to see the marker in its child's output records it here and stops the
+    // queue; the rest exit as soon as their current child returns.
+    let subscriptionBlock = null;
+    const noteSubscriptionBlock = (workerId, line) => {
+      if (subscriptionBlock) return;
+      subscriptionBlock = { workerId, line: line.trim() };
+      log(`\n${SUBSCRIPTION_BLOCKED_MARKER} — worker ${workerId} reported that the account can no longer use the tool:`, { level: 'error' }).catch(() => {});
+      log(`   ${subscriptionBlock.line}`, { level: 'error' }).catch(() => {});
+      log('   Stopping the hive: every remaining issue would fail the same way until access is restored.', { level: 'error' }).catch(() => {});
+      log('   In-flight workers finish (and auto-commit their work) before the run ends.', { level: 'error' }).catch(() => {});
+      issueQueue.stop();
+    };
     // Worker function to process issues from queue
     async function worker(workerId) {
       await log(`🔧 Worker ${workerId} started`, { verbose: true });
@@ -758,6 +775,9 @@ if (isRunningDirectly) {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
+                    // Issue #2161: solve prints SUBSCRIPTION_BLOCKED_MARKER on a terminal
+                    // account block. Seen here, it stops the whole hive (see noteSubscriptionBlock).
+                    if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line);
                     log(`   [${solveCommand} worker-${workerId}] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stdout_log',
@@ -777,6 +797,7 @@ if (isRunningDirectly) {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
+                    if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line); // Issue #2161
                     log(`   [${solveCommand} worker-${workerId} stderr] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stderr_log',
@@ -813,6 +834,14 @@ if (isRunningDirectly) {
               await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
               gracefulStop = true;
               break; // stop processing more PRs for this issue
+            } else if (subscriptionBlock) {
+              // Issue #2161: the run did not fail because of this issue — the account
+              // lost access mid-flight. Report the real reason and stop; solve has
+              // already auto-committed whatever work existed.
+              await log(`   ${SUBSCRIPTION_BLOCKED_MARKER} Worker ${workerId} stopped on ${issueUrl} after ${duration}s: the tool account can no longer be used (exit ${exitCode}).`, { level: 'error' });
+              await log(`   Restore access, then re-run the hive — this issue stays queued, not failed.`, { level: 'error' });
+              gracefulStop = true;
+              break;
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
@@ -1260,6 +1289,16 @@ if (isRunningDirectly) {
       }
       await log('\n👋 Hive Mind monitoring stopped');
       await log(`   📁 Full log file: ${absoluteLogPath}`);
+      // Issue #2161: the hive did not simply "finish" — it was cut short because the
+      // account lost access. Say so last (that is what a human scrolls to) and exit
+      // non-zero so supervisors and the Telegram monitor report a failure, not a
+      // clean completion.
+      if (subscriptionBlock) {
+        await log(`\n${SUBSCRIPTION_BLOCKED_MARKER} Hive stopped early: the tool account can no longer be used.`, { level: 'error' });
+        await log(`   Reported by worker ${subscriptionBlock.workerId}: ${subscriptionBlock.line}`, { level: 'error' });
+        await log('   Restore subscription/account access, then start the hive again.', { level: 'error' });
+        await safeExit(1, 'Subscription/account access blocked');
+      }
     }
     // Issue #1823: Graceful-shutdown + force-kill logic lives in hive.shutdown.lib.mjs.
     // gracefulShutdown waits (uncapped) for in-flight solve workers to finish on the first

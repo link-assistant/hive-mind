@@ -4,7 +4,7 @@
  * Regression test for issue #2160: an in-session tool failure that the AI handles itself must not
  * be reported as a warning, and must not replace the last assistant message.
  *
- * Reported symptom (hive run 4c1dedd8-a645-479c-84ce-72a0f8d7d179, 23 occurrences):
+ * Reported symptom (hive run 4c1dedd8-a645-479c-84ce-72a0f8d7d179, 26 occurrences):
  *   ⚠️ Tool result error detected: Blocked: sleep 240 followed by: gh pr checks 201 …
  *   ⚠️ Tool result error detected: Exit code 143
  * None of these say anything about the session outcome: the first is the AI tool's own harness

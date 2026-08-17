@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nThe published v0.77.0 does not provide the full client-by-provider matrix promised by a universal router.\n\n### Gemini CLI against a connected Codex/Claude subscription\n\nWith a valid router JWT and an active Codex subscription:\n\n```text\nGET /api/gemini/v1beta/models -> 200 {\"models\":[]}\n```\n\nThe current Gemini documentation states that `/api/gemini` requires `UPSTREAM_PROVIDER=gemini`. Therefore Gemini CLI cannot consume models from connected Codex or Claude subscriptions, even though `/v1/models` exposes them.\n\n### Cursor CLI\n\n`link-assistant-router with cursor` intentionally rejects the client because no Connect-RPC adapter exists. This makes Cursor the explicit missing member of the advertised agentic CLI matrix.\n\n## Expected behavior\n\n- Every connected subscription contributes its live models to every supported client-facing model-list route, with protocol-appropriate metadata.\n- Gemini CLI can generate and stream against Codex, Claude, and Gemini models through its native `generateContent` namespace and one router JWT.\n- Cursor CLI can run through an isolated `with cursor` session using a maintained Connect-RPC adapter; model calls and tool loops are translated to the selected connected provider.\n- No model is synthesized when its provider is disconnected or its live catalog no longer exposes it.\n- Add live end-to-end tests for each client/provider pair, including model listing, text streaming, client tool calls/results, server web tools where supported, errors, cancellation, and multi-turn continuity.\n- Documentation and `clients list/doctor` report actual support instead of requiring provider pinning or declaring Cursor unsupported.\n\nThis is one compatibility-matrix task: the common requirement is completing missing native client-protocol adapters and routing them over the same union of connected subscriptions.",
+  "closedAt": "2026-08-16T19:36:42Z",
+  "createdAt": "2026-08-15T15:27:53Z",
+  "labels": [],
+  "number": 187,
+  "state": "CLOSED",
+  "title": "Complete cross-provider client matrix: Gemini native namespace and Cursor CLI adapter",
+  "updatedAt": "2026-08-16T19:36:42Z",
+  "url": "https://github.com/link-assistant/router/issues/187"
+}

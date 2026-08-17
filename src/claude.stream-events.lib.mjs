@@ -22,8 +22,9 @@ const normalizeToolResultError = value => {
 /**
  * Issue #2160: not every `tool_result` marked `is_error` says something about the session.
  * Most of them are the AI's own command failing inside the session — the AI sees the result and
- * carries on. Run 4c1dedd8 logged 23 "⚠️ Tool result error detected" lines, all of them of this
- * kind (harness-blocked `sleep`, Bash timeouts, non-zero exits), and each one also overwrote the
+ * carries on. Run 4c1dedd8 logged 26 "⚠️ Tool result error detected" lines, all of them of this
+ * kind (11 harness-blocked `sleep`s, 9 × `Exit code 143` Bash timeouts, 4 × `Exit code 1`,
+ * 2 × `Exit code 127`), and each one also overwrote the
  * last assistant message, so a truncated stream could be reported as having failed "after:
  * Blocked: sleep 240 …" instead of after what the AI actually said.
  *

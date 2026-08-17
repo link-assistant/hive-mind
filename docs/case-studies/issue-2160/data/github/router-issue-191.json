@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Reproduction\n\nFor the published `konard/link-assistant-router:0.77.0`:\n\n```text\nOCI org.opencontainers.image.version  = 0.77.0\nOCI org.opencontainers.image.revision = 5d12735630a9d5168e2472e54367ce59dfa86dcb\n```\n\nThe annotated Git tag resolves as:\n\n```text\nrefs/tags/v0.77.0 -> tag 62cdfbd... -> commit c36818b5386486ab74b88740f683076e4015c750\n```\n\n`5d127356...` is the prior merge commit; `c36818b...` is `chore: release v0.77.0`. Therefore the image claims the release version but its source revision label points at a different commit. The workflow appears to continue from the triggering checkout after the release automation creates the release commit instead of checking out the immutable tag for packaging.\n\nThis reopens the provenance/release-order concern behind #112/#163: a user cannot prove that the image content is built from the tagged release source, and the attestation/OCI metadata identify the wrong revision.\n\n## Expected behavior\n\n- After creating the release tag, every binary and image job checks out the fully resolved tag commit by SHA in a fresh workspace.\n- OCI `org.opencontainers.image.revision`, source attestation, SBOM metadata and archive provenance all equal that resolved commit.\n- The release workflow fails if any artifact revision differs from the tag commit.\n- Add a post-publication guard that resolves annotated tags and compares the commit against both platform manifests and downloadable binaries before reporting success.\n- Rebuild v0.77.0 from the tag or publish a corrected patch release; do not silently replace an immutable artifact without documenting the digest change.",
+  "closedAt": "2026-08-16T21:17:21Z",
+  "createdAt": "2026-08-15T15:53:58Z",
+  "labels": [],
+  "number": 191,
+  "state": "CLOSED",
+  "title": "v0.77 image provenance revision does not match the release tag commit",
+  "updatedAt": "2026-08-16T21:17:21Z",
+  "url": "https://github.com/link-assistant/router/issues/191"
+}

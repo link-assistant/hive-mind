@@ -1,0 +1,841 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Fixes all four open issues and the failing `main` CI job.\n\n## CI: `Verify published release provenance`\n\nThe only failing job on `main`. `actions/attest-build-provenance` derives the SLSA source commit from the Actions context, so the predicate always names `github.sha` — the commit the run *started* from. The `chore: release vX.Y.Z` commit is created later by that same run, so no workflow change can make the attestation name it, and every published binary and SBOM failed the guard.\n\nThe guard now accepts the release commit **or exactly its parent**, and still rejects an artifact attesting an unrelated commit or carrying no attestation. The verify job fetches the tag so the parent is resolvable rather than silently absent (which would have quietly weakened the check).\n\nVerified against the real published v0.83.0 assets that failed run `31973050076`: all 8 previously-failing artifacts now pass.\n\n## #195 — `max_tokens` overshoot\n\nA hard cap was checked against already-recorded usage, but usage is only known *after* a response completes, so one large answer could push the total arbitrarily past the cap (the reported `39273/30000`).\n\nThe router now **reserves** each request's declared output budget at admission and settles it against the provider's reported usage afterwards. A request that cannot fit is rejected before dispatch rather than truncated mid-answer. Reserving happens inside the same locked read-modify-write that counts the request, so concurrent requests cannot overshoot together; a `ReservationGuard` releases budget on every early return, cancellation, or usage-less response; stale reservations from an unclean shutdown are cleared at startup.\n\nApplies to Responses, Chat Completions, Anthropic Messages, Gemini, Gonka, Crater and OpenAI-compatible providers. `tokens list` shows reserved alongside actual spend.\n\n**Contract change:** the e2e test that asserted the old \"the response that crosses a cap completes\" behaviour now asserts the documented contract instead. README updated.\n\n## #194 — token controls across admin surfaces\n\nThe web form offered only label/TTL/request-cap/account pin; the chat command was positional-only; rotating a *client* token was not reachable from any human surface.\n\n- Admin UI: token-spend and requests-per-minute fields, plus columns for spend, reserved budget, rate limit, account and state, and a per-token **Rotate** action.\n- Chat: `key=value` options for every constraint (keeping the positional short form), new `/show <id>` and `/rotate-token <id>`.\n- New `POST /api/tokens/rotate-client`; `tokens rotate` gained matching flags.\n- Validation moved into `IssueRequest::validate` and shared by CLI, HTTP and chat, replacing the chat-only rules that were the sole bounds check.\n\n## #193 — `setup-token` in the published image\n\n`LOGIN_CLI_ARGS=setup-token` selected the narrow flow by naming an argument for the vendor CLI, so the published image — which deliberately ships no vendor binary — answered HTTP 502.\n\nBoth modes now run as in-process OAuth. Only a non-default `LOGIN_CLI_COMMAND` spawns a process, and that is the only path `doctor` can report unavailable. The mode is selectable per request (`mode` on `POST /api/login`, `--mode` on `auth claude`), so one image serves both.\n\n**Verified in fresh containers:** the published `0.83.0` image reproduces the exact 502 from the issue; this build answers `200` with `scope=user:inference` for the narrow mode and the full six-scope set for `{\"mode\":\"full\"}` on the *same* container, with no `claude` binary present, and the waiting session stays alive.\n\n## #192 — hardcoded model catalogs\n\nRemoved from production code: the bundled fallback catalogs, per-provider bridge defaults, the OpenAI→Claude alias table, the static `/v1/models` listing, and the built-in client default models — including every constant named in the issue's follow-up comments (`openai.rs`, `gemini.rs`, `responses.rs`, `clients.rs`, `anthropic_bridge.rs`).\n\nCatalogs now start empty and are populated only by successful authenticated discovery, recorded with account identity, fetch time and health. A revoked credential stops exposing its models while the last known catalog stays visible to admins. Bridge models come from the healthy account's catalog under an operator-configurable policy (`--bridge-model-policy`), and an unmatched request fails with `model_selection_required` rather than being routed to a guess. Client setup and `with` resolve the concrete model at execution time.\n\nIncludes a test suite using **only synthetic model names** and a guard that fails the build if a vendor catalog reappears in production sources.\n\n## Verification\n\n- 748 tests passing, 0 failing\n- `cargo fmt --check`, `clippy --all-targets --all-features`, and `cargo doc` all clean (CI runs with `-Dwarnings`)\n- file-size limit respected (`config.rs`, `model_routing.rs`, `token.rs` and `login.rs` test modules split out)\n- measured line coverage is **above** the branch point (77.96% → 78.07% locally; the local figure sits under the committed 79.35% baseline on both `main` and this branch because Docker-dependent tests cannot run here)\n\n### Caveats\n\n- #193's \"test from the exact published image digest\" is satisfied by building the image locally and running both modes in fresh containers; asserting against a *published* digest necessarily happens after release.\n- #194's cross-surface enforcement is proven against the router's own stubs rather than live vendor accounts.\n- The overshoot bound is exact against *declared* budgets. A provider reporting more than the caller declared (hidden reasoning tokens) can still exceed the cap by that provider-side surplus — bounded by one request rather than unbounded, and both figures are exposed to admins. This is documented in the enforcement contract.\n\nCloses #192\nCloses #193\nCloses #194\nCloses #195\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n",
+  "closedAt": "2026-08-17T06:07:57Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-17T03:29:59Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T03:29:59Z",
+      "messageBody": "…guard\n\n`actions/attest-build-provenance` derives the SLSA source commit from the\nActions context, so the predicate always names `github.sha` -- the commit the\nrun started from. The release commit is created by that same run, so no\nworkflow change can make the attestation name it, and every published binary\nand SBOM failed the guard.\n\nAccept the release commit or exactly its parent, and keep rejecting artifacts\nthat attest an unrelated commit or carry no attestation at all. The verify job\nnow fetches the tag so the parent is resolvable rather than silently absent.\n\nVerified against the published v0.83.0 assets that failed run 31973050076.",
+      "messageHeadline": "fix(ci): accept the attested parent commit in the release provenance …",
+      "oid": "8d3de0c8926f1178b9f4d51cbc243269d9d0581b"
+    },
+    {
+      "authoredDate": "2026-08-17T03:46:10Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T03:46:10Z",
+      "messageBody": "…hoot\n\nA hard token cap was checked against already-recorded usage, but usage is\nonly known after a response completes, so one large answer could push the\npersisted total arbitrarily far past the cap (observed 39273/30000).\n\nReserve each request's declared output budget at admission and settle it\nagainst the provider's reported usage afterwards. A request that cannot fit\nis rejected before dispatch rather than truncated mid-answer. Reserving\nhappens inside the same locked read-modify-write that counts the request, so\nconcurrent admissions cannot overshoot together, and a ReservationGuard\nreleases the budget on every early return, cancellation, or usage-less\nresponse. Stale reservations from an unclean shutdown are cleared at startup.\n\nApplies to Responses, Chat Completions, Anthropic Messages, Gemini, Gonka,\nCrater, and OpenAI-compatible providers. The e2e test that asserted the old\novershoot behaviour now asserts the documented contract instead.\n\nCloses #195",
+      "messageHeadline": "fix(tokens): reserve spend before dispatch so max_tokens cannot overs…",
+      "oid": "73d1c89b198ef282319f6f902e6166efa5e5e842"
+    },
+    {
+      "authoredDate": "2026-08-17T03:57:42Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T03:57:42Z",
+      "messageBody": "The web form offered only label, TTL, request cap and account pin, and the\nchat command was positional-only, so max_tokens and rate_limit_per_minute\nwere reachable from the CLI and HTTP API alone. Rotation of a client token\nwas not reachable from any human surface.\n\nAdd the missing fields and columns to the admin UI, a per-token Rotate\naction backed by a new POST /api/tokens/rotate-client, key=value options\nplus /show and /rotate-token in chat, and constraint overrides on\n`tokens rotate`. Rotation preserves every constraint that is not named\nexplicitly and atomically revokes the old value.\n\nValidation now lives in IssueRequest::validate and is shared by all four\nsurfaces, replacing the chat-only rules that were the sole bounds check.\n\nCloses #194",
+      "messageHeadline": "feat(admin): expose every token control in web, Telegram and VK",
+      "oid": "9f7a3cb9fd001ab8ebbde008de7bd6c34a67c866"
+    },
+    {
+      "authoredDate": "2026-08-17T04:16:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T04:16:08Z",
+      "messageBody": "`LOGIN_CLI_ARGS=setup-token` selected the narrow flow by naming an argument\nfor the vendor CLI, so the published image -- which deliberately ships no\nvendor binary -- answered HTTP 502 for the documented alternative.\n\nGive ClaudeAuthConfig a scope set and route both modes through the existing\nin-process PKCE OAuth. Only a non-default LOGIN_CLI_COMMAND now spawns a\nprocess, and that is the sole path doctor can report as unavailable. The\nmode is selectable per request via `mode` on POST /api/login and `--mode` on\n`auth claude`, so one image serves both without a rebuild.\n\nSplit the PTY compatibility backend into src/login_pty_backend.rs to keep\nlogin.rs under the 1000-line limit.\n\nVerified in fresh containers: the published 0.83.0 image reproduces the 502,\nand this build answers 200 with scope=user:inference for the narrow mode and\nthe full six-scope set for `{\"mode\":\"full\"}` on the same container, with no\n`claude` binary present.\n\nCloses #193",
+      "messageHeadline": "fix(login): run setup-token as in-process OAuth, not a vendor CLI spawn",
+      "oid": "05bcd753ce230ffaef2e57a1dcf348f0dd529a0a"
+    },
+    {
+      "authoredDate": "2026-08-17T04:41:19Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T04:41:19Z",
+      "messageBody": "The router shipped vendor model names in production code: fallback catalogs\nseeded at startup, per-provider bridge defaults, an OpenAI->Claude alias\ntable, a static /v1/models listing, and built-in client default models.\nThose names can be renamed, withdrawn, or never entitled for the account, so\nthe router could advertise or route to models it had never seen.\n\nCatalogs now start empty and are populated only by successful authenticated\ndiscovery, recorded with account identity, fetch time and health. A revoked\ncredential stops exposing its models while the last known catalog stays\nvisible to administrators. Bridge models come from the healthy account's\ncatalog under an operator-configurable policy, and a request that cannot be\nmatched fails with model_selection_required rather than being routed to a\nguess. Client setup and `with` resolve the concrete model at execution time.\n\nAdds a test suite using only synthetic model names and a guard that fails if\na vendor catalog reappears in production sources. Splits config.rs and\nmodel_routing.rs test modules out to stay under the 1000-line limit.\n\nCloses #192",
+      "messageHeadline": "feat(catalog): derive all routing from live provider catalogs",
+      "oid": "795a61d6f2d60db29cdbbf76822a0cbc9cc69e67"
+    },
+    {
+      "authoredDate": "2026-08-17T04:41:53Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T04:41:53Z",
+      "messageBody": "",
+      "messageHeadline": "docs: fix the intra-doc link on the reservation field",
+      "oid": "b3c266e6c562ec309fbce6de84578b7a655a2e4f"
+    },
+    {
+      "authoredDate": "2026-08-17T04:48:51Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T04:48:51Z",
+      "messageBody": "Adds unit coverage for doctor's per-mode availability report and the\nstorage-layer reservation invariants (concurrent admission bounding,\nsettlement, stale-reservation recovery, exhausted budgets), plus e2e\ncoverage for the client-token rotate endpoint's rejection paths.\n\nRaises measured line coverage above the branch point rather than below it.",
+      "messageHeadline": "test: cover login-mode reporting, token rotation and spend reservations",
+      "oid": "5ae3dafb2c4e46a277f4df036ebde89218577458"
+    },
+    {
+      "authoredDate": "2026-08-17T05:33:35Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T05:33:35Z",
+      "messageBody": "The branch adds substantial production code (bridge selection, spend\nreservations, client-token rotation, login modes), and CI's coverage ratchet\nmeasured 78.63% against a 79.35% floor.\n\nCovers the pure surfaces of the modules this branch touches: provider_proxy\nURL joining and stream detection, the Gemini request/response translators,\nGonka model defaulting and listing, Crater SSE framing and value walking,\nlogin-mode parsing and error mapping, and client_global path/digest helpers.\n\nLocal measurement now reads 80.15%, above both the enforced floor and the\n80% target; the ratchet's advanced baseline is committed alongside.",
+      "messageHeadline": "test: raise coverage above the ratchet floor",
+      "oid": "dd89e05895093904779ff9494fb251b8c104da67"
+    },
+    {
+      "authoredDate": "2026-08-17T05:49:29Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T05:49:29Z",
+      "messageBody": "Continues closing the coverage-ratchet gap with tests for logic this branch\nintroduced: IssueRequest::validate bounds, rotate_token_with constraint and\nlifetime preservation and its rejection paths, and bridge-model-policy\nconfiguration including the startup error for an unknown policy name.\n\nAlso restores coverage-baseline.txt to the default-branch value. The earlier\ncommit wrote a locally measured baseline, which raised the enforced floor to\n80% in CI and made the gate stricter than the branch point.",
+      "messageHeadline": "test: cover token validation, rotation and config parsing",
+      "oid": "56cfb3d41d2899cbfc55e2a35f4b6e26314a0235"
+    },
+    {
+      "authoredDate": "2026-08-17T05:56:07Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "Konard"
+        }
+      ],
+      "committedDate": "2026-08-17T05:56:07Z",
+      "messageBody": "The ratchet measured 79.39% in CI, above the 79.35% default-branch baseline,\nand requires the advanced value to be committed so the improvement is\nreviewable. This is CI's own measurement, not a local one.",
+      "messageHeadline": "chore: update coverage baseline to 79.386053",
+      "oid": "814092de976ec17cba994000db9d09d90ea1e64a"
+    }
+  ],
+  "createdAt": "2026-08-17T04:49:33Z",
+  "files": [
+    {
+      "path": ".github/workflows/release.yml",
+      "additions": 8,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "README.md",
+      "additions": 42,
+      "deletions": 18,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260817_090000_issue_192_195_release_provenance_attestation.md",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "changelog.d/20260817_100000_issue_195_token_spend_reservations.md",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "changelog.d/20260817_110000_issue_194_admin_token_controls.md",
+      "additions": 7,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "changelog.d/20260817_120000_issue_193_setup_token_login.md",
+      "additions": 6,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "changelog.d/20260817_130000_issue_192_live_catalog_routing.md",
+      "additions": 8,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "coverage-baseline.txt",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/chat-admin-bots.md",
+      "additions": 30,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/remote-login.md",
+      "additions": 34,
+      "deletions": 10,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "scripts/check-release-provenance.rs",
+      "additions": 127,
+      "deletions": 7,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/admin_api.rs",
+      "additions": 4,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/anthropic_bridge.rs",
+      "additions": 57,
+      "deletions": 15,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/app_state.rs",
+      "additions": 5,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/auth_cli.rs",
+      "additions": 41,
+      "deletions": 5,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/bridge_selection.rs",
+      "additions": 212,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/chat_admin.rs",
+      "additions": 16,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/chat_commands.rs",
+      "additions": 396,
+      "deletions": 32,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/claude_auth.rs",
+      "additions": 67,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/cli.rs",
+      "additions": 23,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/cli_tests.rs",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/client_global.rs",
+      "additions": 52,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients.rs",
+      "additions": 18,
+      "deletions": 11,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients/catalog.rs",
+      "additions": 5,
+      "deletions": 16,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/config.rs",
+      "additions": 23,
+      "deletions": 276,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/config_tests.rs",
+      "additions": 356,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/crater.rs",
+      "additions": 66,
+      "deletions": 15,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/doctor.rs",
+      "additions": 130,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/gemini.rs",
+      "additions": 197,
+      "deletions": 21,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/gonka.rs",
+      "additions": 42,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/lib.rs",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/login.rs",
+      "additions": 68,
+      "deletions": 309,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/login/tests.rs",
+      "additions": 0,
+      "deletions": 28,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/login_api.rs",
+      "additions": 70,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/login_pty_backend.rs",
+      "additions": 335,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/main.rs",
+      "additions": 64,
+      "deletions": 20,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/managed_server.rs",
+      "additions": 17,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/model_catalog.rs",
+      "additions": 114,
+      "deletions": 73,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/model_routing.rs",
+      "additions": 14,
+      "deletions": 566,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/model_routing_tests.rs",
+      "additions": 640,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/openai.rs",
+      "additions": 49,
+      "deletions": 22,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/openai_request_tests.rs",
+      "additions": 36,
+      "deletions": 7,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/openai_response_tests.rs",
+      "additions": 15,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/provider_proxy.rs",
+      "additions": 66,
+      "deletions": 6,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/proxy.rs",
+      "additions": 41,
+      "deletions": 22,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/proxy_openai.rs",
+      "additions": 14,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/responses.rs",
+      "additions": 5,
+      "deletions": 5,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/responses_tests.rs",
+      "additions": 2,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/server_router.rs",
+      "additions": 4,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/storage.rs",
+      "additions": 146,
+      "deletions": 18,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/storage/associative.rs",
+      "additions": 14,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/storage/legacy.rs",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/storage_tests.rs",
+      "additions": 104,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/subscription_proxy.rs",
+      "additions": 14,
+      "deletions": 6,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/token.rs",
+      "additions": 149,
+      "deletions": 357,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/token_admin.rs",
+      "additions": 106,
+      "deletions": 9,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/token_reservation.rs",
+      "additions": 197,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/token_tests.rs",
+      "additions": 644,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/usage.rs",
+      "additions": 101,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/with_command.rs",
+      "additions": 27,
+      "deletions": 9,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/admin_ui_test.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/associative_storage_test.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/chat_admin_test.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/claude_auth_test.rs",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/gemini_namespace_test.rs",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/integration_test.rs",
+      "additions": 34,
+      "deletions": 16,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/login_flow_test.rs",
+      "additions": 149,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/network_security_audit_test.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e/cases_regressions.rs",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e/token_budget.rs",
+      "additions": 165,
+      "deletions": 15,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e/token_surfaces.rs",
+      "additions": 469,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/router_e2e_test.rs",
+      "additions": 21,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/security_review_test.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/synthetic_catalog_test.rs",
+      "additions": 259,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "ui/dist/assets/app.js",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "ui/src/Tokens.jsx",
+      "additions": 129,
+      "deletions": 16,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "ui/src/api.js",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-192-195-combined",
+  "headRefOid": "814092de976ec17cba994000db9d09d90ea1e64a",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-17T06:07:57Z",
+  "number": 202,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:57:08Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297486672",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-17T05:56:17Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:57:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297486707",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-17T05:56:17Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:56:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297486713",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-17T05:56:17Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:56:14Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297487435",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-17T05:56:15Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:58:03Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297628446",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-17T05:57:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T05:59:02Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297628398",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-17T05:57:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:00:14Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297628459",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-17T05:57:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:00:13Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297770163",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-17T05:58:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:00:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297770159",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-17T05:58:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:02:53Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297770169",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-17T05:58:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:02:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95297770215",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-17T05:58:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95298580499",
+      "name": "Build Package",
+      "startedAt": "2026-08-17T06:02:55Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245255",
+      "name": "Auto Release",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245060",
+      "name": "Instant Release",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245444",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245692",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245442",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245947",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245501",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T06:06:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31999664243/job/95299245957",
+      "name": "Verify published release provenance",
+      "startedAt": "2026-08-17T06:06:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "fix: resolve all open issues (#192, #193, #194, #195) and the failing release provenance guard",
+  "updatedAt": "2026-08-17T06:07:58Z",
+  "url": "https://github.com/link-assistant/router/pull/202"
+}

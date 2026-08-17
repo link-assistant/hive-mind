@@ -1,0 +1,397 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #2160.\n\n### 📋 Issue Reference\nFixes #2160\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "closedAt": null,
+  "commits": [
+    {
+      "authoredDate": "2026-08-17T08:22:15Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T08:22:15Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2160",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "5b3b52f229c995b2ab1915d3d800194ae1194f84"
+    },
+    {
+      "authoredDate": "2026-08-17T08:38:46Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T08:38:46Z",
+      "messageBody": "…eep cleanup warning\n\nIssue #2160 (hive run 4c1dedd8):\n- src/solve.restart-shared.lib.mjs passed no-op setLogFile/getLogFile stubs to five tool\n  executors and omitted them entirely for executeClaude, so every restart/watch/auto-merge\n  iteration logged \"Could not rename log file: getLogFile is not a function\" and left the\n  session log unnamed. The real accessors from src/lib.mjs are now forwarded everywhere.\n- The rename itself moved to src/session-log-rename.lib.mjs, which reports a named reason\n  instead of throwing a TypeError when a caller forgets the accessors.\n- src/solve.results.lib.mjs warned \"<file> still exists after cleanup\" before checking whether\n  the file predates the session, producing a false positive immediately followed by\n  \"existed before this session - keeping pre-existing file\". The pre-existence check now runs\n  first, so only real leftovers are reported.",
+      "messageHeadline": "fix(solve): rename session logs in restart paths and drop false .gitk…",
+      "oid": "253c259b7d9c6493fdbdc87ccc29ee8e02027feb"
+    },
+    {
+      "authoredDate": "2026-08-17T08:46:55Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T08:46:55Z",
+      "messageBody": "…ed cleanup as problems\n\nIssue #2160: the reported hive run logged 23 \"⚠️ Tool result error detected\" lines that\nwere all harness blocks (\"Blocked: sleep 240 followed by: …\") or the AI tool's own Bash\ntimeout (\"Exit code 143\"), plus two lines that described something that never happened\n(\"--no-auto-cleanup\" was never passed; a long log comment is handled by gh-upload-log).\n\n- classifyToolResultError() marks harness blocks, command timeouts and bare exit codes as\n  benign; claude.lib.mjs logs them as ℹ️ and no longer lets them replace the last assistant\n  message, so a truncated stream is reported after what the AI actually said.\n- solve records that auto-cleanup was defaulted off for a public repository, and the\n  \"keeping directory\" line states that reason instead of naming an unused flag.\n- the \"log comment too long\" line is informational and names the gh-upload-log fallback.\n- prompt guidance (all locales) tells the AI to poll with an until-loop instead of a long\n  foreground sleep, which is what triggered the harness blocks in the first place.",
+      "messageHeadline": "fix(solve): stop reporting benign in-session tool results and default…",
+      "oid": "5ae92b0f4b2e45b7228882c8c9a43cc697c9f056"
+    },
+    {
+      "authoredDate": "2026-08-17T08:56:23Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T08:56:23Z",
+      "messageBody": "…ilures\n\nIssue #2160: `hive --all-issues` reported `❌ 4 task(s) failed (completed: 6)` for 4 issues it\nnever attempted. The repository was public, so solve's auto-cleanup default kept every ~10 GB\nworkspace; hive checked free disk space once at startup (73.2 GB) and kept dequeuing; by task 7\nonly 9.8 GB were left and each remaining task died in solve's pre-flight check\n(`Insufficient disk space: 10047MB available, 10240MB required`), posted a \"Solution Draft Failed\"\ncomment on the target repository's issue, and was counted as a task failure.\n\n- new src/disk-guard.lib.mjs: free-space probe, workspace inventory, and a guard that reclaims\n  idle `/tmp/gh-issue-solver-*` workspaces oldest-first. In-flight workspaces (reported by the\n  worker's own output), workspaces that are a live process cwd, and recently modified ones are\n  never removed; an unreadable /proc or df is treated as \"do not touch\" / \"do not block\".\n- hive re-checks disk space before every task, waits for in-flight work to release space, and\n  requeues the task (bounded deferrals) instead of spawning a solver that cannot start.\n- solve exits 75 (EX_TEMPFAIL) with an environment reason for a disk-space pre-flight failure and\n  no longer posts a solver-failure comment on the issue; hive maps that code to a deferral.\n- hive's startup check reclaims first and exits 75 with an actionable reason instead of\n  process.exit(1) from checkSystem's exitOnFailure path.",
+      "messageHeadline": "fix(hive): treat an exhausted host disk as a deferral, not as task fa…",
+      "oid": "1d2b0411236ab60fb5d337ba9bc862d4d242fe95"
+    },
+    {
+      "authoredDate": "2026-08-17T09:05:11Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T09:05:11Z",
+      "messageBody": "The end-of-run summary asked GraphQL only for OPEN pull requests, so the six issues whose\ndrafts --auto-merge had already merged (link-assistant/router #196-#201) were all listed as\n\"(no PR found)\" in the reported run. Reporting now asks for merged and closed drafts too and\nshows their state, while --skip-issues-with-prs keeps gating on open PRs only.\n\nAlso reorders the two final exits in hive.mjs so genuine task failures are still reported\nbefore the issue #2160 disk-space deferral halt.\n\nRefs #2160",
+      "messageHeadline": "fix(hive): report merged solution drafts instead of \"no PR found\"",
+      "oid": "97002abc259107bf7d8abb160fb9ee4639a7c80d"
+    },
+    {
+      "authoredDate": "2026-08-17T09:16:55Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-17T09:16:55Z",
+      "messageBody": "Issue #2160 (two defects on the same path):\n\n- hive.mjs called cleanupTempDirectories() with no argv in its non---once\n  branch. The function returns immediately without argv, so that call could\n  never clean anything: a silent no-op that hid missing cleanup from the log.\n- The cleanup ran `sudo rm -rf /tmp/* /var/tmp/*`, which also destroys the\n  workspaces, lock directories and log files of any concurrent hive/solve run\n  on the same host. listCleanableTempEntries() now enumerates the temp roots\n  and keeps anything a live process has as cwd (via /proc/<pid>/cwd), anything\n  the caller marks protected, and the run's own log file. An unreadable /proc\n  keeps everything rather than guessing.\n\nAlso downgrades the JSONL deduplication line from a warning to an\ninformational message: skipping the duplicates is a known upstream Claude Code\naccounting quirk (anthropics/claude-code#6805) and is what keeps token totals\ncorrect, so it is not something a human needs to act on.\n\nexperiments/issue-2160-command-stream-array-probe.mjs records why passing the\npath list as an array to command-stream's `$` is safe (each element becomes its\nown argv entry, no word splitting inside an element).\n\ntests/temp-cleanup-2160.test.mjs covers both defects.",
+      "messageHeadline": "fix(cleanup): make --auto-cleanup effective and safe for concurrent runs",
+      "oid": "7ff1866a2b3ccedd381093f86c471c4df1ac2654"
+    }
+  ],
+  "createdAt": "2026-08-17T08:22:25Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 2,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "experiments/issue-2160-command-stream-array-probe.mjs",
+      "additions": 29,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/claude.budget-stats.lib.mjs",
+      "additions": 4,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/claude.lib.mjs",
+      "additions": 22,
+      "deletions": 15,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/claude.stream-events.lib.mjs",
+      "additions": 39,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/disk-guard.lib.mjs",
+      "additions": 256,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/github.batch.lib.mjs",
+      "additions": 31,
+      "deletions": 11,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/github.lib.mjs",
+      "additions": 3,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/hive.mjs",
+      "additions": 97,
+      "deletions": 11,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/lib.mjs",
+      "additions": 23,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/list-solution-drafts.lib.mjs",
+      "additions": 17,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/en.lino",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/hi.lino",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/ru.lino",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/zh.lino",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/session-log-rename.lib.mjs",
+      "additions": 65,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/solve.mjs",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.repository.lib.mjs",
+      "additions": 5,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.restart-shared.lib.mjs",
+      "additions": 18,
+      "deletions": 9,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.results.lib.mjs",
+      "additions": 6,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.validation.lib.mjs",
+      "additions": 7,
+      "deletions": 9,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/disk-guard-2160.test.mjs",
+      "additions": 324,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/gitkeep-cleanup-warning-2160.test.mjs",
+      "additions": 143,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/misleading-messages-2160.test.mjs",
+      "additions": 112,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/session-log-rename-2160.test.mjs",
+      "additions": 148,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/solution-draft-listing-2160.test.mjs",
+      "additions": 152,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/temp-cleanup-2160.test.mjs",
+      "additions": 137,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/tool-result-error-classification-2160.test.mjs",
+      "additions": 166,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-2160-730adf46bb61",
+  "headRefOid": "7ff1866a2b3ccedd381093f86c471c4df1ac2654",
+  "isDraft": true,
+  "mergeStateStatus": "UNSTABLE",
+  "mergeable": "MERGEABLE",
+  "mergedAt": null,
+  "number": 2162,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438354/job/95340772945",
+      "name": "CodeQL (javascript-typescript)",
+      "startedAt": "2026-08-17T09:17:19Z",
+      "status": "QUEUED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340773512",
+      "name": "detect-changes",
+      "startedAt": "2026-08-17T09:19:04Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438354/job/95340772953",
+      "name": "CodeQL (actions)",
+      "startedAt": "2026-08-17T09:17:19Z",
+      "status": "QUEUED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438354/job/95340772883",
+      "name": "Dependency Review",
+      "startedAt": "2026-08-17T09:17:19Z",
+      "status": "QUEUED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340774281",
+      "name": "Instant Release",
+      "startedAt": "2026-08-17T09:17:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340774257",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-17T09:17:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340775123",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-17T09:17:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340774817",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-17T09:17:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340775325",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-17T09:17:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340775501",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-17T09:17:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-17T09:17:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/32014438392/job/95340775597",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-17T09:17:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    }
+  ],
+  "title": "[WIP] `/hive`: `❌ 4 task(s) failed (completed: 6)`",
+  "updatedAt": "2026-08-17T09:17:15Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2162"
+}

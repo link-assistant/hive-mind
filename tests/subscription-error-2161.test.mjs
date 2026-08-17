@@ -19,6 +19,9 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { detectSubscriptionError, isSubscriptionBlockedError, isTransientAuthError, formatSubscriptionErrorReport, formatSubscriptionErrorSummary, SUBSCRIPTION_BLOCKED_MARKER, SUBSCRIPTION_ERROR_KINDS } from '../src/subscription-error.lib.mjs';
 import { classifyRetryableError } from '../src/tool-retry.lib.mjs';
 import { isUsageLimitError } from '../src/usage-limit.lib.mjs';
@@ -188,6 +191,47 @@ test('the one-line summary names the tool and the cause', () => {
   const summary = formatSubscriptionErrorSummary(info);
   assert.ok(summary.startsWith('CLAUDE stopped:'), summary);
   assert.ok(summary.includes('oauth_org_not_allowed'), summary);
+});
+
+// ---------------------------------------------------------------------------
+// Wiring — the detector is useless unless the run actually stops on it
+// ---------------------------------------------------------------------------
+
+const read = name => readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', name), 'utf8');
+
+test('claude.lib.mjs reads the machine-readable error code, not just the text', () => {
+  const source = read('claude.lib.mjs');
+  assert.match(source, /detectSubscriptionError\(\{[\s\S]*?errorCode: typeof data\.error === 'string'/, 'must pass data.error through');
+  assert.ok(source.includes('apiErrorStatus: data.api_error_status'), 'must pass api_error_status through');
+  assert.ok(source.includes('subscriptionError, // Issue #2161'), 'must propagate the classification to the caller');
+});
+
+test('claude.lib.mjs never retries a subscription block', () => {
+  const source = read('claude.lib.mjs');
+  assert.ok(source.includes('isTransientError && !subscriptionError'), 'the transient retry path must be short-circuited');
+});
+
+test('solve.mjs preserves the work, then reports the block, then exits with the marker', () => {
+  const source = read('solve.mjs');
+  const commitAt = source.indexOf('commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo');
+  const reportAt = source.indexOf('formatSubscriptionErrorReport(subscriptionInfo');
+  const exitAt = source.indexOf('await safeExit(1, subscriptionInfo');
+  assert.ok(commitAt > 0, 'emergency commit must name the subscription block as its reason');
+  assert.ok(reportAt > commitAt, 'the report must come after the commit so it can state whether work was preserved');
+  assert.ok(exitAt > reportAt, 'the run must exit after reporting');
+  assert.ok(source.includes('SUBSCRIPTION_BLOCKED_MARKER'), 'the exit message must carry the marker for /hive and the monitor');
+});
+
+test('solve.mjs classifies every tool, not only the ones with structured codes', () => {
+  const source = read('solve.mjs');
+  assert.ok(source.includes('toolResult?.subscriptionError || detectSubscriptionError('), 'must fall back to re-classifying the rendered message');
+});
+
+test('hive.mjs stops the whole queue when a worker reports the block', () => {
+  const source = read('hive.mjs');
+  assert.ok(source.includes('if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line)'), 'worker output must be scanned for the marker');
+  assert.match(source, /noteSubscriptionBlock = \([\s\S]*?issueQueue\.stop\(\);/, 'the queue must be stopped');
+  assert.ok(source.includes("await safeExit(1, 'Subscription/account access blocked')"), 'the hive must exit non-zero');
 });
 
 // ============================================================================

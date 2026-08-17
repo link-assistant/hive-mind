@@ -124,7 +124,7 @@ const PROVIDER_CASES = [
   ['qwen', 'Qwen OAuth credentials expired. Please use /auth to re-authenticate with qwen-oauth.', SUBSCRIPTION_ERROR_KINDS.LOGIN_REQUIRED],
   ['qwen', 'Coding Plan API key not found. Please re-authenticate with Coding Plan.', SUBSCRIPTION_ERROR_KINDS.PLAN_RESTRICTED],
   ['gemini', "The enforced authentication type is 'oauth-personal', but the current type is 'gemini-api-key'. Please re-authenticate with the correct type.", SUBSCRIPTION_ERROR_KINDS.LOGIN_REQUIRED],
-  ['opencode', 'OAuth token refresh failed and no fallback API key environment variable is set.', SUBSCRIPTION_ERROR_KINDS.LOGIN_REQUIRED],
+  ['opencode', "OAuth token refresh failed and no fallback GITLAB_TOKEN environment variable is set. Refresh error: invalid_grant. Re-authenticate with 'opencode auth login gitlab'.", SUBSCRIPTION_ERROR_KINDS.LOGIN_REQUIRED],
 ];
 
 for (const [tool, message, kind] of PROVIDER_CASES) {

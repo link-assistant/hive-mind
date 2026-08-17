@@ -49,7 +49,10 @@ export const classifyRetryableError = value => {
   // authentication failure as temporary ("This may be a temporary network
   // issue, please try again"). Without an explicit branch it would fall through
   // to the non-retryable default and abort a run that a retry would have saved.
-  if (isTransientAuthError(lower)) {
+  // The `auth` guard keeps purely network-level members of that list (e.g.
+  // "Temporary failure in name resolution") on their own, more specific branches
+  // below — this branch only claims the *authentication* wordings.
+  if (isTransientAuthError(lower) && lower.includes('auth')) {
     return { message, isRetryable: true, isCapacity: false, label: 'Transient authentication/network error' };
   }
 

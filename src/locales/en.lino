@@ -322,6 +322,15 @@ en
     session "session"
     start "Start"
     subscription
+      blocked
+        title "Subscription/account access blocked"
+        provider "Provider said"
+        code "Error code"
+        reason "Why the run stopped"
+        note "This is not a usage limit: waiting, retrying or switching model cannot fix it."
+        steps "What to do"
+        preserved "Uncommitted work was auto-committed before stopping."
+        resume "Resume after access is restored"
       detail
         ends
           label "ends {{time}}"

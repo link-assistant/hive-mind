@@ -9,6 +9,7 @@ import { isENOSPC, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 import { timeouts, retryLimits, claudeCode, getClaudeEnv, getMaxOutputTokensForModel } from './config.lib.mjs';
 import { detectUsageLimit, formatUsageLimitMessage, isUsageLimitError } from './usage-limit.lib.mjs';
+import { detectSubscriptionError, SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
 import { createInteractiveHandler } from './interactive-mode.lib.mjs';
 import { setupBidirectionalHandler, finalizeBidirectionalHandler, validateBidirectionalModeConfig, attachStreamingInput } from './bidirectional-interactive.lib.mjs';
 import { initProgressMonitoring } from './solve.progress-monitoring.lib.mjs';
@@ -377,6 +378,10 @@ export const executeClaudeCommand = async params => {
     let isInternalServerError = false;
     let isRequestTimeout = false;
     let isRateLimitError = false; // Issue #1924: server-side 429 temporary rate limiting
+    // Issue #2161: account/subscription-level block (e.g. oauth_org_not_allowed).
+    // Terminal — never retried, never model-switched; carried out to the caller
+    // so /solve can stop with a specific diagnosis instead of a generic failure.
+    let subscriptionError = null;
     let apiMarkedNotRetryable = false;
     let resultNumTurns = 0;
     let stderrErrors = [];
@@ -744,6 +749,24 @@ export const executeClaudeCommand = async params => {
                     isRateLimitError = true;
                     await log(`⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=${data.request_id || 'unknown'}`, { verbose: true });
                   }
+                  // Issue #2161: account/subscription block. `data.error` carries the
+                  // machine-readable code ("oauth_org_not_allowed" for the reported
+                  // case) alongside api_error_status 403 — a far stronger signal than
+                  // the rendered sentence, so it is passed to the detector first.
+                  if (!subscriptionError) {
+                    subscriptionError = detectSubscriptionError({
+                      message: lastMessage,
+                      tool: 'claude',
+                      errorCode: typeof data.error === 'string' ? data.error : null,
+                      apiErrorStatus: data.api_error_status,
+                      terminalReason: data.terminal_reason,
+                    });
+                    if (subscriptionError) {
+                      // Not verbose: this is the reason the whole run is about to end.
+                      await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                      await log(`   code=${subscriptionError.code || 'n/a'} http=${data.api_error_status || 'n/a'} terminal_reason=${data.terminal_reason || 'n/a'} request_id=${data.request_id || 'unknown'}`, { verbose: true });
+                    }
+                  }
                   // Issue #1834: Detect corrupted extended-thinking-block 400 (un-resumable session).
                   // Capture diagnostics (request id, content path) to aid debugging and upstream reports.
                   if ((lastMessage.includes('thinking') || lastMessage.includes('redacted_thinking')) && lastMessage.includes('cannot be modified')) {
@@ -776,6 +799,26 @@ export const executeClaudeCommand = async params => {
                 if (callEntry && data.usage && data.usage.total_tokens) {
                   callEntry.usage.totalTokens = data.usage.total_tokens;
                   await log(`🤖 Sub-agent "${callEntry.description || 'unknown'}" completed: ${data.usage.total_tokens} total tokens`, { verbose: true });
+                }
+              }
+              // Issue #2161: Claude Code injects API failures as synthetic assistant
+              // messages flagged `is_api_error_message` and carrying the error code.
+              // In the reported run this arrived ~40s before the terminal result
+              // event, so detecting it here surfaces the diagnosis earlier.
+              if (data.type === 'assistant' && data.is_api_error_message === true && !subscriptionError) {
+                const apiErrorText = getClaudeMessageContent(data)
+                  .filter(item => item.type === 'text' && item.text)
+                  .map(item => item.text)
+                  .join('\n');
+                subscriptionError = detectSubscriptionError({
+                  message: apiErrorText,
+                  tool: 'claude',
+                  errorCode: typeof data.error === 'string' ? data.error : null,
+                });
+                if (subscriptionError) {
+                  if (apiErrorText) lastMessage = apiErrorText;
+                  await log(`${SUBSCRIPTION_BLOCKED_MARKER} — ${subscriptionError.label}`);
+                  await log(`   code=${subscriptionError.code || 'n/a'} request_id=${data.request_id || 'unknown'} uuid=${data.uuid || 'unknown'}`, { verbose: true });
                 }
               }
               if (data.type === 'assistant' && data.message && data.message.content) {
@@ -992,7 +1035,12 @@ export const executeClaudeCommand = async params => {
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
       const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || isRateLimitError || retryableLastError.isRetryable || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
-      if ((commandFailed || isTransientError) && isTransientError) {
+      // Issue #2161: an account/subscription block short-circuits every retry
+      // path. Stale transient flags from earlier in the run (an overload at hour
+      // one, say) must not schedule a retry that is guaranteed to fail the same
+      // way — and each retry would burn another full startup against a provider
+      // that has already refused the credentials.
+      if ((commandFailed || isTransientError) && isTransientError && !subscriptionError) {
         // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
         const maxRetries = isTimeoutRetry ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
@@ -1020,6 +1068,7 @@ export const executeClaudeCommand = async params => {
             resultSummary,
             // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
             errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: 'API explicitly marked error as not retryable', toolLabel: 'Claude' }), exitCode },
+            subscriptionError, // Issue #2161
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1070,6 +1119,7 @@ export const executeClaudeCommand = async params => {
             resultSummary, // Issue #1263: Include result summary
             // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
             errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Transient API error persisted after ${maxRetries} retries`, toolLabel: 'Claude' }), exitCode },
+            subscriptionError, // Issue #2161
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
@@ -1138,6 +1188,7 @@ export const executeClaudeCommand = async params => {
           // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content filtering policy").
           // Issue #1941: a lone "}" fragment at interrupt time must not become "CLAUDE execution failed with }".
           errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode },
+          subscriptionError, // Issue #2161: terminal account block — /solve stops and preserves the work
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };
       }

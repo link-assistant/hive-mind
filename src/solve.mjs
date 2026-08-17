@@ -19,7 +19,9 @@ const fs = (await use('fs')).promises;
 const crypto = (await use('crypto')).default;
 const memoryCheck = await import('./memory-check.mjs');
 const lib = await import('./lib.mjs');
-const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, getVersionInfo, logSolveStartup, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+const { log, setLogFile, getLogFile, getAbsoluteLogPath, cleanErrorMessage, formatAligned, formatToolExecutionFailure, extractToolErrorCore, getVersionInfo, logSolveStartup, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+// Issue #2161: terminal subscription/account-access blocks.
+const { detectSubscriptionError, formatSubscriptionErrorReport, formatSubscriptionErrorSummary, SUBSCRIPTION_BLOCKED_MARKER } = await import('./subscription-error.lib.mjs');
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub, getToolDisplayName } = githubLib;
 const validation = await import('./solve.validation.lib.mjs');
@@ -1012,6 +1014,15 @@ try {
     const toolForFailure = argv.tool || 'claude';
     // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
     const toolFailureMessage = formatToolExecutionFailure({ tool: toolForFailure, toolResult });
+    // Issue #2161: an account/subscription block ("Your organization has disabled
+    // Claude subscription access for Claude Code", a revoked OAuth token, an
+    // expired plan) is terminal — the run must stop, say precisely what happened
+    // and preserve the work, instead of ending on a bare "<TOOL> execution failed
+    // with <provider sentence>". Adapters that parse structured provider codes
+    // (claude.lib.mjs) hand the classification over directly; for every other tool
+    // the rendered message is re-classified here, so the whole failure surface is
+    // covered by one chokepoint.
+    const subscriptionInfo = toolResult?.subscriptionError || detectSubscriptionError({ message: extractToolErrorCore({ toolResult }) || toolFailureMessage, tool: toolForFailure });
     if (sessionId) {
       await log('');
       await log('💡 To continue this session:');
@@ -1026,14 +1037,31 @@ try {
       await log('');
     }
     // Preserve work before remote diagnostics; issue #2101 ended during log upload.
+    let preservedWork = null;
     try {
       const { criticalErrorRecovery } = await import('./config.lib.mjs');
       if (criticalErrorRecovery.autoCommitUncommittedChanges) {
         const { commitUncommittedChangesOnCriticalError } = await import('./critical-error-commit.lib.mjs');
-        await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: toolFailureMessage });
+        // Issue #2161: when the subscription is gone it is unknown whether/when it
+        // will be restored, so the emergency commit is the only thing standing
+        // between the operator and hours of lost work — name it as such.
+        preservedWork = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $, log, reason: subscriptionInfo ? formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }) : toolFailureMessage });
       }
     } catch (preserveError) {
       await log(`  ⚠️  Could not auto-commit before failure exit: ${preserveError.message}`, { verbose: true });
+    }
+    // Issue #2161: printed after the emergency commit so the block can state
+    // whether the work was preserved. This is the message the operator reads.
+    if (subscriptionInfo) {
+      const reportLines = formatSubscriptionErrorReport(subscriptionInfo, {
+        tool: toolForFailure,
+        sessionId,
+        tempDir,
+        branchName,
+        committed: preservedWork ? preservedWork.committed : null,
+        resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
+      });
+      for (const line of reportLines) await log(line, { level: 'error' });
     }
     // Attach failure logs before exiting (Issues #1212, #1462: fall back to issue if no PR)
     const hasPR = global.createdPR && global.createdPR.number;
@@ -1064,7 +1092,9 @@ try {
           // Include sessionId so the PR comment can present it
           sessionId,
           // If not a usage limit case, fall back to generic failure format
-          errorMessage: limitReached ? undefined : toolFailureMessage,
+          // Issue #2161: the PR/issue comment gets the diagnosis + the remediation
+          // steps too — whoever finds the run in the morning reads that, not the log.
+          errorMessage: limitReached ? undefined : subscriptionInfo ? [formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure }), '', ...(subscriptionInfo.guidance || []).map(step => `- ${step}`)].join('\n') : toolFailureMessage,
           argv,
           requestedModel: argv.originalModel || argv.model,
           tool: argv.tool || 'claude',
@@ -1082,7 +1112,9 @@ try {
         await log(`  ⚠️  Error uploading failure logs: ${uploadError.message}`);
       }
     }
-    await safeExit(1, toolFailureMessage);
+    // Issue #2161: the exit message is what /hive and the session monitor see, so
+    // it carries the marker rather than the generic tool-failure sentence.
+    await safeExit(1, subscriptionInfo ? `${SUBSCRIPTION_BLOCKED_MARKER} — ${formatSubscriptionErrorSummary(subscriptionInfo, { tool: toolForFailure })}` : toolFailureMessage);
   }
   // Clean up .playwright-mcp/ to prevent browser artifacts from triggering auto-restart (Issue #1124)
   if (argv.playwrightMcpAutoCleanup !== false) {

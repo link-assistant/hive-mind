@@ -322,6 +322,15 @@ zh
     session "会话"
     start "开始"
     subscription
+      blocked
+        title "订阅/账号访问被阻止"
+        provider "服务方提示"
+        code "错误代码"
+        reason "运行停止的原因"
+        note "这不是用量限制：等待、重试或切换模型都无法解决。"
+        steps "如何处理"
+        preserved "停止前已自动提交未提交的改动。"
+        resume "恢复访问后继续"
       detail
         ends
           label "结束于 {{time}}"

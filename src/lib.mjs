@@ -950,9 +950,16 @@ export const displayFormattedError = async options => {
 };
 
 /**
- * Clean up temporary directories
+ * Clean up temporary directories.
+ *
+ * Issue #2160: this used to run `sudo rm -rf /tmp/* /var/tmp/*`, which also wipes the workspaces,
+ * lock directories and logs of any *concurrent* hive/solve process on the same host. The entries
+ * are now enumerated first and anything a live process is sitting in (or that the caller protects)
+ * is left alone.
+ *
  * @param {Object} argv - Command line arguments
  * @param {boolean} [argv.autoCleanup] - Whether auto-cleanup is enabled
+ * @param {Iterable<string>} [argv.protectedTempPaths] - Paths this run still needs
  * @returns {Promise<void>}
  */
 export const cleanupTempDirectories = async argv => {
@@ -962,13 +969,26 @@ export const cleanupTempDirectories = async argv => {
 
   // Dynamic import for command-stream
   const { $ } = await use('command-stream');
+  const { listCleanableTempEntries } = await import('./disk-guard.lib.mjs');
+  const path = await use('path');
 
   try {
     await log('\n🧹 Auto-cleanup enabled, removing temporary directories...');
-    await log('   ⚠️  Executing: sudo rm -rf /tmp/* /var/tmp/*', { verbose: true });
+    const protectedPaths = new Set(argv.protectedTempPaths || []);
+    const currentLogFile = getLogFile();
+    if (currentLogFile) protectedPaths.add(path.resolve(currentLogFile));
+    const { remove, keep } = await listCleanableTempEntries({ protectedPaths });
+    for (const kept of keep) {
+      await log(`   🔒 Keeping ${kept.path} (${kept.reason === 'process_cwd' ? 'a live process is using it' : 'needed by this run'})`, { verbose: true });
+    }
+    if (remove.length === 0) {
+      await log('   ✅ Nothing to clean: every temporary entry is still in use');
+      return;
+    }
+    await log(`   ⚠️  Executing: sudo rm -rf on ${remove.length} temporary entr${remove.length === 1 ? 'y' : 'ies'} (${keep.length} kept)`, { verbose: true });
 
     // Execute cleanup command using command-stream
-    const cleanupCommand = $`sudo rm -rf /tmp/* /var/tmp/*`;
+    const cleanupCommand = $`sudo rm -rf ${remove}`;
 
     let exitCode = 0;
     for await (const chunk of cleanupCommand.stream()) {

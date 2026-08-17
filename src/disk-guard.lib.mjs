@@ -120,6 +120,54 @@ export const findBusySolverWorkspaces = async ({ workspaces = [], procRoot = '/p
   return busy;
 };
 
+/**
+ * Entries of the given temp roots that `--auto-cleanup` may delete.
+ *
+ * The old implementation ran `sudo rm -rf /tmp/* /var/tmp/*`, which also destroys the workspaces,
+ * lock directories and log files of any *concurrent* hive/solve run on the same host — the run
+ * doing the cleanup is rarely the only tenant of /tmp. This builds an explicit list instead and
+ * leaves alone anything a live process is sitting in, anything the caller marked as protected, and
+ * the run's own log file.
+ *
+ * @param {Object} [options]
+ * @param {Array<string>} [options.roots=['/tmp','/var/tmp']] - Directories to clean
+ * @param {Iterable<string>} [options.protectedPaths] - Paths that must survive
+ * @returns {Promise<{remove: Array<string>, keep: Array<{path: string, reason: string}>}>}
+ */
+export const listCleanableTempEntries = async ({ roots = ['/tmp', '/var/tmp'], protectedPaths = new Set(), fileSystem = fsPromises, procRoot = '/proc' } = {}) => {
+  const protectedSet = new Set(Array.from(protectedPaths).filter(Boolean).map(String));
+  const remove = [];
+  const keep = [];
+  const candidates = [];
+  for (const root of roots) {
+    let entries;
+    try {
+      entries = await fileSystem.readdir(root);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const name = typeof entry === 'string' ? entry : entry.name;
+      if (!name || name === '.' || name === '..') continue;
+      candidates.push({ path: path.join(root, name), name, mtimeMs: 0 });
+    }
+  }
+  const busy = await findBusySolverWorkspaces({ workspaces: candidates, procRoot, fileSystem });
+  for (const candidate of candidates) {
+    const isProtected = protectedSet.has(candidate.path) || Array.from(protectedSet).some(protectedPath => protectedPath.startsWith(`${candidate.path}/`));
+    if (isProtected) {
+      keep.push({ path: candidate.path, reason: 'protected' });
+      continue;
+    }
+    if (busy.has(candidate.path)) {
+      keep.push({ path: candidate.path, reason: 'process_cwd' });
+      continue;
+    }
+    remove.push(candidate.path);
+  }
+  return { remove, keep };
+};
+
 /** Workspace paths mentioned in a line of solver output, used to protect in-flight workspaces. */
 export const extractSolverWorkspacePaths = (text, { tmpRoot = DEFAULT_TMP_ROOT } = {}) => {
   if (!text) return [];

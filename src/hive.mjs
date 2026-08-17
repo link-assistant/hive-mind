@@ -1330,7 +1330,9 @@ if (isRunningDirectly) {
       // Perform cleanup if enabled and there were successful completions
       const finalStats = issueQueue.getStats();
       if (finalStats.completed > 0) {
-        await cleanupTempDirectories();
+        // Issue #2160: argv must be forwarded — cleanupTempDirectories returns immediately
+        // without it, so this branch used to be a silent no-op even with --auto-cleanup.
+        await cleanupTempDirectories(argv);
       }
       await log('\n👋 Hive Mind monitoring stopped');
       await log(`   📁 Full log file: ${absoluteLogPath}`);

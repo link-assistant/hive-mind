@@ -34,6 +34,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
+import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
@@ -628,16 +629,16 @@ export const executeClaudeCommand = async params => {
               if (!sessionId && data.session_id) {
                 sessionId = data.session_id;
                 await log(`📌 Session ID: ${sessionId}`);
-                let sessionLogFile;
-                try {
-                  const currentLogFile = getLogFile();
-                  sessionLogFile = path.join(path.dirname(currentLogFile), `${sessionId}.log`);
-                  await fs.rename(currentLogFile, sessionLogFile);
-                  setLogFile(sessionLogFile);
-                  await log(`📁 Log renamed to: ${sessionLogFile}`);
-                } catch (renameError) {
-                  reportError(renameError, { context: 'rename_session_log', sessionId, sessionLogFile, operation: 'rename_log_file' });
-                  await log(`⚠️ Could not rename log file: ${renameError.message}`, { verbose: true });
+                // Issue #2160: shared implementation, so restart/watch iterations rename their
+                // logs too and a caller that forgets the accessors gets a named reason.
+                const renameResult = await renameLogToSessionId({ sessionId, getLogFile, setLogFile, log });
+                if (!renameResult.ok && renameResult.error) {
+                  reportError(renameResult.error, {
+                    context: 'rename_session_log',
+                    sessionId,
+                    sessionLogFile: renameResult.sessionLogFile,
+                    operation: 'rename_log_file',
+                  });
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);

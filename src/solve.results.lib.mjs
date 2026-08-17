@@ -485,12 +485,15 @@ export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = 
     const verifyResult = await $({ cwd: tempDir })`git ls-files ${fileName} 2>&1`;
     const fileStillExists = verifyResult.code === 0 && verifyResult.stdout && verifyResult.stdout.trim();
     if (fileStillExists) {
-      await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
-      // Check if the file existed before the initial commit (parent)
+      // Issue #2160: the pre-existence check must come FIRST. A file that legitimately predates
+      // the session is not a cleanup failure, and warning about it produced a false positive
+      // ("⚠️ WARNING: .gitkeep still exists after cleanup" immediately followed by
+      // "ℹ️ .gitkeep existed before this session — keeping pre-existing file").
       const parentCommit = `${claudeCommitHash}~1`;
       const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
       if (parentFileExists.code !== 0) {
-        // File didn't exist before the session — force remove it
+        // File didn't exist before the session — this is a real leftover, force remove it
+        await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
         await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
         const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
         if (fallbackCommit.code === 0) {

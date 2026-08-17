@@ -30,7 +30,10 @@ const fs = (await use('fs')).promises;
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const { log, formatAligned, extractToolErrorCore } = lib;
+// Issue #2160: the real log-file accessors must be forwarded to every tool executor. Passing
+// no-op stubs (or omitting them entirely) broke session-log renaming in restart/watch iterations
+// ("⚠️ Could not rename log file: getLogFile is not a function").
+const { log, formatAligned, extractToolErrorCore, getLogFile, setLogFile } = lib;
 const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
 const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await import('./ai-tool-scratch.lib.mjs');
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
@@ -240,8 +243,8 @@ export const executeToolIteration = async params => {
       log,
       formatAligned,
       getResourceSnapshot,
-      setLogFile: () => {},
-      getLogFile: () => '',
+      setLogFile,
+      getLogFile,
       $,
     });
   } else if (argv.tool === 'opencode') {
@@ -280,6 +283,8 @@ export const executeToolIteration = async params => {
       log,
       formatAligned,
       getResourceSnapshot,
+      setLogFile,
+      getLogFile,
       opencodePath,
       $,
     });
@@ -318,8 +323,8 @@ export const executeToolIteration = async params => {
       repo,
       argv,
       log,
-      setLogFile: () => {},
-      getLogFile: () => '',
+      setLogFile,
+      getLogFile,
       formatAligned,
       getResourceSnapshot,
       codexPath,
@@ -362,6 +367,8 @@ export const executeToolIteration = async params => {
       log,
       formatAligned,
       getResourceSnapshot,
+      setLogFile,
+      getLogFile,
       agentPath,
       $,
     });
@@ -400,8 +407,8 @@ export const executeToolIteration = async params => {
       repo,
       argv,
       log,
-      setLogFile: () => {},
-      getLogFile: () => '',
+      setLogFile,
+      getLogFile,
       formatAligned,
       getResourceSnapshot,
       geminiPath,
@@ -442,8 +449,8 @@ export const executeToolIteration = async params => {
       repo,
       argv,
       log,
-      setLogFile: () => {},
-      getLogFile: () => '',
+      setLogFile,
+      getLogFile,
       formatAligned,
       getResourceSnapshot,
       qwenPath,
@@ -488,6 +495,8 @@ export const executeToolIteration = async params => {
       log,
       formatAligned,
       getResourceSnapshot,
+      setLogFile,
+      getLogFile,
       claudePath,
       $,
     });

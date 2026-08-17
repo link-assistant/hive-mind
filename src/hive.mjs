@@ -1403,12 +1403,13 @@ if (isRunningDirectly) {
       await safeExit(1, 'Error occurred');
     }
     const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
     // Issue #2160: report an exhausted host disk as the environment problem it is, with its own
-    // exit code, instead of letting it be counted as "N task(s) failed".
+    // exit code, instead of letting it be counted as "N task(s) failed". Genuine task failures are
+    // reported first above, because they say more about the run than the environment condition.
     if (diskSpaceHalt) {
       await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `${diskSpaceHalt} — ${finalStats.completed} task(s) completed, ${finalStats.queued} left queued (no task failures)`);
     }
-    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution
     console.error('\n❌ Fatal error occurred during hive initialization or execution');

@@ -113,10 +113,19 @@ assistant said", so a truncated stream could be reported as having failed _after
 `classifyToolResultError()` (`src/claude.stream-events.lib.mjs:40-51`) returns
 `{ benign, category }` for harness blocks, command timeouts and bare exit codes; benign results are
 logged as `ℹ️` and no longer replace `lastText`. Anything unrecognised keeps its previous treatment,
-so the change cannot hide a new class of error. Prompt guidance in all four locales now tells the AI
-to poll with an `until` loop instead of a long foreground `sleep`, removing the most common trigger.
-Test: `tests/tool-result-error-classification-2160.test.mjs` (16 cases, including the exact strings
-from this run).
+so the change cannot hide a new class of error.
+
+The benign text is still kept, in its own variable, because issue #2023 needs _something_ to name
+when a stream ends with no terminal result event and the AI never spoke — `Exit code 144` after a
+lone `gh run view` is exactly that case. `buildMissingClaudeResultMessage()` therefore prefers a
+real tool error, then the last assistant message, then a benign result. That ordering is what keeps
+both regression tests true at once: `tests/test-issue-2023-claude-missing-result-resume.mjs` still
+reports "after: Exit code 144", while a blocked `sleep` never displaces something the AI said.
+
+Prompt guidance in all four locales now tells the AI to poll with an `until` loop instead of a long
+foreground `sleep`, removing the most common trigger. Test:
+`tests/tool-result-error-classification-2160.test.mjs` (17 cases, including the exact strings from
+this run).
 
 ## P5 — messages that described something that did not happen
 

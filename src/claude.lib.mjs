@@ -389,6 +389,11 @@ export const executeClaudeCommand = async params => {
     let resultSummary = null;
     let resultModelUsage = null;
     let lastToolResultError = null;
+    // Issue #2160: an in-session tool failure the AI handles itself (a blocked command, its own
+    // Bash timeout, a bare non-zero exit status). Kept apart from lastToolResultError so it is not
+    // reported as the session error, but still available as the last-resort detail for a
+    // truncated stream that has nothing better to point at (issue #2023).
+    let lastBenignToolResultError = null;
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -654,6 +659,7 @@ export const executeClaudeCommand = async params => {
                 // and it must not replace the last assistant message — that message is what a
                 // truncated-stream failure is reported "after".
                 if (eventFacts.toolResultErrorIsBenign) {
+                  lastBenignToolResultError = eventFacts.toolResultError;
                   await log(`ℹ️ In-session tool result (${eventFacts.toolResultErrorCategory}): ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
                 } else {
                   lastToolResultError = eventFacts.toolResultError;
@@ -868,7 +874,9 @@ export const executeClaudeCommand = async params => {
           if (eventFacts.lastText) lastMessage = eventFacts.lastText;
           if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
           // Issue #2160: same classification as the streaming path above.
-          if (eventFacts.toolResultError && !eventFacts.toolResultErrorIsBenign) {
+          if (eventFacts.toolResultError && eventFacts.toolResultErrorIsBenign) {
+            lastBenignToolResultError = eventFacts.toolResultError;
+          } else if (eventFacts.toolResultError) {
             lastToolResultError = eventFacts.toolResultError;
           }
           if (data?.type === 'result') {
@@ -970,7 +978,7 @@ export const executeClaudeCommand = async params => {
       }
       if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
         commandFailed = true;
-        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
+        lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       const retryableLastError = classifyRetryableError(lastMessage);

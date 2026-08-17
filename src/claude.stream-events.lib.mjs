@@ -94,8 +94,22 @@ export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingIn
   return !commandFailed && !streamingInput && !resultEventReceived;
 };
 
-export const buildMissingClaudeResultMessage = ({ lastToolResultError, lastMessage }) => {
-  const detail = lastToolResultError || lastMessage;
+/**
+ * Describe a stream that ended without a terminal result event (issue #2023).
+ *
+ * Detail preference, in order (issue #2160): a real tool error explains the truncation best; the
+ * last thing the AI said is next; a benign in-session tool result (a blocked command, a Bash
+ * timeout) is only used when there is nothing else, so it stays out of the message whenever the
+ * assistant actually said something.
+ *
+ * @param {Object} params
+ * @param {string|null} [params.lastToolResultError] - last non-benign tool_result error
+ * @param {string|null} [params.lastMessage] - last assistant text
+ * @param {string|null} [params.lastBenignToolResultError] - last self-handled tool_result error
+ * @returns {string}
+ */
+export const buildMissingClaudeResultMessage = ({ lastToolResultError, lastMessage, lastBenignToolResultError = null }) => {
+  const detail = lastToolResultError || lastMessage || lastBenignToolResultError;
   if (!detail) return 'Claude stream ended without a terminal result event';
   return `Claude stream ended without a terminal result event after: ${String(detail).slice(0, 500)}`;
 };

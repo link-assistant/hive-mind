@@ -124,16 +124,35 @@ test('a truncated stream is reported after the assistant message, not after a bl
   // then the stream ends without a terminal result event.
   let lastMessage = null;
   let lastToolResultError = null;
+  let lastBenignToolResultError = null;
   const events = [{ type: 'assistant', message: { content: [{ type: 'text', text: 'Waiting for CI to finish before merging.' }] } }, toolResultEvent('Blocked: sleep 240 followed by: gh pr checks 201')];
   for (const event of events) {
     const facts = collectClaudeStreamEventFacts(event);
     if (facts.lastText) lastMessage = facts.lastText;
-    if (facts.toolResultError && !facts.toolResultErrorIsBenign) lastToolResultError = facts.toolResultError;
+    if (facts.toolResultError && facts.toolResultErrorIsBenign) lastBenignToolResultError = facts.toolResultError;
+    else if (facts.toolResultError) lastToolResultError = facts.toolResultError;
   }
   assert(lastToolResultError === null, 'a blocked sleep must not become the session error');
-  const message = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage });
+  const message = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
   assert(message.includes('Waiting for CI to finish'), `expected the assistant message in the report, got: ${message}`);
   assert(!message.includes('Blocked:'), `the harness block must not be reported as the failure cause, got: ${message}`);
+});
+
+test('a benign result is still the reported detail when the AI said nothing (issue #2023)', () => {
+  // The AI only ran a tool, the tool hit its own timeout, and the stream ended. There is no
+  // assistant text to point at, so the benign result is the only useful detail left.
+  let lastMessage = null;
+  let lastToolResultError = null;
+  let lastBenignToolResultError = null;
+  const events = [{ type: 'assistant', message: { content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'gh run view' } }] } }, toolResultEvent('Exit code 144')];
+  for (const event of events) {
+    const facts = collectClaudeStreamEventFacts(event);
+    if (facts.lastText) lastMessage = facts.lastText;
+    if (facts.toolResultError && facts.toolResultErrorIsBenign) lastBenignToolResultError = facts.toolResultError;
+    else if (facts.toolResultError) lastToolResultError = facts.toolResultError;
+  }
+  const message = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
+  assert(message === 'Claude stream ended without a terminal result event after: Exit code 144', `unexpected report: ${message}`);
 });
 
 console.log('\nWiring in src/claude.lib.mjs:\n');

@@ -5,6 +5,20 @@ Everything below is quoted from `data/solve-log.txt` in this directory — the r
 `--output-format stream-json --verbose` output of Claude Code `2.1.233` on
 2026-08-14.
 
+**Status: reported.** The defect was already open upstream as
+[anthropics/claude-code#79500](https://github.com/anthropics/claude-code/issues/79500)
+("Headless `claude -p`: API errors return `subtype:"success"` + exit code 0"),
+filed against v2.1.49 with a rate-limit trigger. Rather than file a duplicate we
+added this payload as a second data point —
+[comment](https://github.com/anthropics/claude-code/issues/79500#issuecomment-5314107723)
+— because it shows the contradiction is not rate-limit-specific, still present in
+v2.1.233, and survives the addition of the `terminal_reason` / `api_error_status`
+fields (which are themselves correct).
+
+The `oauth_org_not_allowed` condition itself is _not_ an upstream defect from our
+side — it is the provider correctly refusing a blocked account, and it is already
+tracked upstream (#65044, #68370, #72027 and others in `area:auth`).
+
 ## Summary
 
 When a session terminates because the API rejected the request (here: HTTP 403,

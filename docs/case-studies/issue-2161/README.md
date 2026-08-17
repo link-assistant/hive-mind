@@ -188,7 +188,12 @@ One upstream defect was found and written up in
 `result` event carries `subtype: "success"` while `is_error: true` and
 `terminal_reason: "api_error"` (log lines 132977–133041). Hive Mind's own log
 line `⚠️ Detected error from Claude CLI (subtype: success)` (line 133046) is the
-symptom. Everything else Claude Code did was correct and, in fact, better than
+symptom. It was already open upstream as
+[anthropics/claude-code#79500](https://github.com/anthropics/claude-code/issues/79500)
+(filed against v2.1.49 with a rate-limit trigger), so we added our 403 payload
+there as a second data point
+([comment](https://github.com/anthropics/claude-code/issues/79500#issuecomment-5314107723))
+instead of filing a duplicate. Everything else Claude Code did was correct and, in fact, better than
 what Hive Mind did with it: it returned a machine-readable code, marked the
 response `x-should-retry: false`, and did not retry.
 

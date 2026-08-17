@@ -17,19 +17,27 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from
 export { prClosesIssue };
 
 /**
- * Extract open pull requests that are linked to an issue with closing keywords.
+ * Extract pull requests that are linked to an issue with closing keywords.
  * Draft pull requests are still open in-progress solution drafts, so they must
  * count for /hive --skip-issues-with-prs.
+ *
+ * Issue #2160: reporting needs the opposite default from gating. `--skip-issues-with-prs` only
+ * cares about OPEN pull requests, but the end-of-run summary must also see the ones `--auto-merge`
+ * already merged, otherwise a merged solution draft is reported as "(no PR found)".
+ *
  * @param {Object} issueData - GraphQL issue node with timelineItems
  * @param {number} issueNum - Issue number to check
  * @param {Function} logger - Async logger, defaults to shared log helper
- * @returns {Promise<Array<Object>>} Linked open PRs that close the issue
+ * @param {Object} [options]
+ * @param {Array<string>} [options.includeStates=['OPEN']] - PR states to report
+ * @returns {Promise<Array<Object>>} Linked PRs (in the requested states) that close the issue
  */
-export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log) {
+export async function extractLinkedPullRequestsForIssue(issueData, issueNum, logger = log, { includeStates = ['OPEN'] } = {}) {
   const linkedPRs = [];
+  const wantedStates = new Set(includeStates);
 
   for (const item of issueData.timelineItems?.nodes || []) {
-    if (item?.source && item.source.state === 'OPEN') {
+    if (item?.source && wantedStates.has(item.source.state)) {
       // Check if PR actually closes this issue (has "fixes #N", "closes #N", or "resolves #N")
       const prBody = item.source.body || '';
       const prTitle = item.source.title || '';
@@ -58,9 +66,12 @@ export async function extractLinkedPullRequestsForIssue(issueData, issueNum, log
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
  * @param {Array<number>} issueNumbers - Array of issue numbers to check
+ * @param {Object} [options]
+ * @param {Array<string>} [options.includeStates=['OPEN']] - PR states to report in `linkedPRs`
+ *   (issue #2160). `openPRCount` always counts only OPEN pull requests.
  * @returns {Promise<Object>} Object mapping issue numbers to their linked PRs
  */
-export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers) {
+export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers, { includeStates = ['OPEN'] } = {}) {
   try {
     if (!issueNumbers || issueNumbers.length === 0) {
       return {};
@@ -138,12 +149,14 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
             // Issue #1094: Only count PRs that explicitly fix/close/resolve this issue
             // This prevents false positives from PRs that only mention issues without solving them
             // Issue #1760: Draft PRs are still active solution drafts and must block duplicate work
-            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum);
+            const linkedPRs = await extractLinkedPullRequestsForIssue(issueData, issueNum, log, { includeStates });
 
             results[issueNum] = {
               title: issueData.title,
               state: issueData.state,
-              openPRCount: linkedPRs.length,
+              // Issue #2160: linkedPRs may now include merged/closed PRs for reporting, so the
+              // gate count has to be derived from the open ones only.
+              openPRCount: linkedPRs.filter(pr => pr.state === 'OPEN').length,
               linkedPRs: linkedPRs,
             };
           } else {
@@ -165,18 +178,25 @@ export async function batchCheckPullRequestsForIssues(owner, repo, issueNumbers)
 
         for (const issueNum of batch) {
           try {
-            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null and .source.issue.state == "open")] | length'`;
+            // Issue #2160: return the PRs themselves, not just a count, so the end-of-run summary
+            // can name a merged solution draft even when GraphQL was unavailable.
+            const cmd = `gh api repos/${owner}/${repo}/issues/${issueNum}/timeline --paginate --jq '[.[] | select(.event == "cross-referenced" and .source.issue.pull_request != null) | {number: .source.issue.number, title: .source.issue.title, body: .source.issue.body, state: (if .source.issue.pull_request.merged_at then "MERGED" else (.source.issue.state | ascii_upcase) end), isDraft: (.source.issue.draft // false), url: .source.issue.html_url}]'`;
 
             // #1756: route REST fallback through execGhWithRetry for transient 5xx + rate-limit
             const { stdout } = await execGhWithRetry(cmd, {
               execOptions: { encoding: 'utf8', env: process.env },
               label: `gh api timeline (issue #${issueNum})`,
             });
-            const openPrCount = parseInt(stdout.trim()) || 0;
+            const wantedStates = new Set(includeStates);
+            const crossReferenced = JSON.parse(stdout.trim() || '[]');
+            const linkedPRs = crossReferenced
+              .filter(pr => wantedStates.has(pr.state))
+              .filter(pr => prClosesIssue(pr.body || '', issueNum) || prClosesIssue(pr.title || '', issueNum))
+              .map(({ number, title, state, isDraft, url }) => ({ number, title, state, isDraft: Boolean(isDraft), url }));
 
             results[issueNum] = {
-              openPRCount: openPrCount,
-              linkedPRs: [], // REST API doesn't give us PR details easily
+              openPRCount: linkedPRs.filter(pr => pr.state === 'OPEN').length,
+              linkedPRs,
             };
           } catch (restError) {
             results[issueNum] = {

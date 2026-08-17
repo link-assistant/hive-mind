@@ -19,12 +19,46 @@ const normalizeToolResultError = value => {
   }
 };
 
+/**
+ * Issue #2160: not every `tool_result` marked `is_error` says something about the session.
+ * Most of them are the AI's own command failing inside the session — the AI sees the result and
+ * carries on. Run 4c1dedd8 logged 26 "⚠️ Tool result error detected" lines, all of them of this
+ * kind (11 harness-blocked `sleep`s, 9 × `Exit code 143` Bash timeouts, 4 × `Exit code 1`,
+ * 2 × `Exit code 127`), and each one also overwrote the
+ * last assistant message, so a truncated stream could be reported as having failed "after:
+ * Blocked: sleep 240 …" instead of after what the AI actually said.
+ *
+ * Categories:
+ *   - `harness_blocked`     the AI tool's own harness refused the command (e.g. foreground sleep)
+ *   - `command_timeout`     the AI's command hit its Bash timeout (SIGTERM ⇒ exit code 143)
+ *   - `command_exit_code`   a bare non-zero exit status with no further detail
+ * Anything else is left unclassified and keeps being treated as a real error signal.
+ *
+ * @param {string|null} toolResultError - normalized tool_result error text
+ * @returns {{benign: boolean, category: string|null}}
+ */
+export const classifyToolResultError = toolResultError => {
+  if (typeof toolResultError !== 'string' || !toolResultError.trim()) return { benign: false, category: null };
+  const text = toolResultError.trim();
+
+  if (/^Blocked:/i.test(text)) return { benign: true, category: 'harness_blocked' };
+  if (/Command timed out after/i.test(text)) return { benign: true, category: 'command_timeout' };
+  // A bare "Exit code 143" is the SIGTERM the AI tool sends when its own Bash timeout fires.
+  if (/^Exit code 143\.?$/i.test(text)) return { benign: true, category: 'command_timeout' };
+  if (/^Exit code \d+\.?$/i.test(text)) return { benign: true, category: 'command_exit_code' };
+
+  return { benign: false, category: null };
+};
+
 export const collectClaudeStreamEventFacts = data => {
   const facts = {
     messageCountDelta: 0,
     toolUseCountDelta: 0,
     lastText: null,
     toolResultError: null,
+    // Issue #2160: set when toolResultError is an in-session, self-handled tool failure.
+    toolResultErrorIsBenign: false,
+    toolResultErrorCategory: null,
     compactionSummary: null,
   };
   if (!data || typeof data !== 'object') return facts;
@@ -47,6 +81,12 @@ export const collectClaudeStreamEventFacts = data => {
     facts.toolResultError = data.tool_use_result.trim();
   }
 
+  if (facts.toolResultError) {
+    const classification = classifyToolResultError(facts.toolResultError);
+    facts.toolResultErrorIsBenign = classification.benign;
+    facts.toolResultErrorCategory = classification.category;
+  }
+
   return facts;
 };
 
@@ -54,8 +94,22 @@ export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingIn
   return !commandFailed && !streamingInput && !resultEventReceived;
 };
 
-export const buildMissingClaudeResultMessage = ({ lastToolResultError, lastMessage }) => {
-  const detail = lastToolResultError || lastMessage;
+/**
+ * Describe a stream that ended without a terminal result event (issue #2023).
+ *
+ * Detail preference, in order (issue #2160): a real tool error explains the truncation best; the
+ * last thing the AI said is next; a benign in-session tool result (a blocked command, a Bash
+ * timeout) is only used when there is nothing else, so it stays out of the message whenever the
+ * assistant actually said something.
+ *
+ * @param {Object} params
+ * @param {string|null} [params.lastToolResultError] - last non-benign tool_result error
+ * @param {string|null} [params.lastMessage] - last assistant text
+ * @param {string|null} [params.lastBenignToolResultError] - last self-handled tool_result error
+ * @returns {string}
+ */
+export const buildMissingClaudeResultMessage = ({ lastToolResultError, lastMessage, lastBenignToolResultError = null }) => {
+  const detail = lastToolResultError || lastMessage || lastBenignToolResultError;
   if (!detail) return 'Claude stream ended without a terminal result event';
   return `Claude stream ended without a terminal result event after: ${String(detail).slice(0, 500)}`;
 };

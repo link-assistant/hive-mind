@@ -1338,6 +1338,10 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   } else if (limitReached) {
     await log(`\n📁 Keeping directory for future resume: ${tempDir}`);
   } else if (!argv.autoCleanup) {
-    await log(`\n📁 Keeping directory (--no-auto-cleanup): ${tempDir}`);
+    // Issue #2160: `--no-auto-cleanup` is only one of the two ways to get here. On a public
+    // repository auto-cleanup defaults to off, and reporting a flag that was never passed made
+    // the run log misleading — the disk kept filling with no hint of why.
+    const reason = argv.autoCleanupSource === 'repository-visibility-default' ? 'auto-cleanup is off by default for public repositories' : '--no-auto-cleanup';
+    await log(`\n📁 Keeping directory (${reason}): ${tempDir}`);
   }
 };

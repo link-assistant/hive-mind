@@ -755,6 +755,7 @@ en
                - When you execute commands and the output becomes large, save the logs to files for easier review.
                - When running commands, avoid setting a timeout yourself. Let them run as long as needed. The default timeout of 2 minutes is usually enough, and once commands finish, review the logs in the file.
                - When running sudo commands, especially package installations like apt-get, yum, or npm install, run them in the background to avoid timeout issues and permission errors when the process needs to be killed. Use the run_in_background parameter or append & to the command.
+               - When you need to wait for something (CI checks, a background job, a deploy), do not run a long foreground `sleep`: agent harnesses block it ("Blocked: sleep 240 followed by: ..."). Poll instead with a short until-loop (e.g. `until <check>; do sleep 10; done`) or re-check the condition on your next step.
           """
         purpose
           subagent "   - When the task is large and requires processing many files or folders, use `general-purpose` sub-agents to delegate work. Each separate file or folder can be delegated to a sub-agent for more efficient processing."

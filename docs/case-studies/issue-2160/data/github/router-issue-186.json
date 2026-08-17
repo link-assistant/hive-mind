@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Version and environment\n\n- Router: published Docker image `konard/link-assistant-router:0.77.0`\n- Native `linux/arm64` image\n- Live ChatGPT/Codex subscription\n- Fresh router token and isolated OpenCode configuration\n\n## Problem 1: OpenCode fails against a Codex subscription\n\nOpenCode sends an output-token limit as part of its normal OpenAI-compatible request. Router rejects the request before it reaches the provider:\n\n```\n> build · gpt-5.4-mini\nError: Codex subscriptions cannot honor output-token limits because the ChatGPT backend rejects max_output_tokens. Remove the limit or select a provider ...\n```\n\nThis makes the documented OpenCode client unusable with the default Codex subscription even though direct `/v1/responses`, Codex CLI, Qwen and Grok requests work with the same router token and model.\n\nReproduced twice with a real `opencode run` invocation and an isolated config pointing at the router.\n\nExpected behavior: a client configured through `clients setup opencode` should work without requiring users to patch or fork the client. Router should translate or reconcile the client's output limit according to the provider capability matrix. If the upstream cannot accept an explicit field, the compatibility layer should remove or safely translate it while preserving the strongest enforceable limit, rather than rejecting a normal client request.\n\n## Problem 2: catalog alias reports a different model without attribution\n\n`GET /v1/models` advertises `codex-auto-review`. Requesting it succeeds, but the response names an unrelated concrete model:\n\n```console\n$ curl .../v1/chat/completions -d '{\"model\":\"codex-auto-review\",...}' | jq .model\n\"gpt-5.6-luna\"\n```\n\nThe response does not preserve the requested alias or otherwise expose the alias-to-concrete-model resolution. A client therefore cannot reconcile the response with the model it selected, and accounting/telemetry can attribute the exchange to the wrong model.\n\nExpected behavior: either do not advertise service aliases as selectable model IDs, or keep model identity consistent in buffered and streaming responses and expose concrete routing through a standard, explicit field/header that does not replace the requested model identity.\n\n## Acceptance checks\n\n1. Configure OpenCode through the supported router client setup, run a one-turn prompt against a Codex subscription, and receive a normal answer.\n2. Run an OpenCode tool loop and verify the tool call through an external side effect, not model prose.\n3. For every model ID returned by `/v1/models`, send buffered and streaming requests through each supported OpenAI surface and assert a documented, consistent model identity.\n4. Add regression tests using the exact OpenCode request body, including its output limit.\n",
+  "closedAt": "2026-08-16T18:06:34Z",
+  "createdAt": "2026-08-15T15:19:21Z",
+  "labels": [],
+  "number": 186,
+  "state": "CLOSED",
+  "title": "v0.77 compatibility regressions: OpenCode output limits fail and catalog alias changes model identity",
+  "updatedAt": "2026-08-16T18:06:34Z",
+  "url": "https://github.com/link-assistant/router/issues/186"
+}

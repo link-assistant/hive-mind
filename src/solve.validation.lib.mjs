@@ -53,12 +53,6 @@ const { parseResetTime: parseResetTimeToDate } = usageLimitLib;
 
 const { validateClaudeConnection } = claudeLib;
 
-// Wrapper function for disk space check using imported module
-const checkDiskSpace = async (minSpaceMB = 10240) => {
-  const result = await memoryCheck.checkDiskSpace(minSpaceMB, { log });
-  return result.success;
-};
-
 // Wrapper function for memory check using imported module
 const checkMemory = async (minMemoryMB = 256) => {
   const result = await memoryCheck.checkMemory(minMemoryMB, { log });
@@ -217,9 +211,13 @@ export const validateContinueOnlyOnFeedback = async (argv, isPrUrl, isIssueUrl) 
 // Note: skipToolConnection only skips the connection check, not model validation
 // Model validation should be done separately before calling this function
 export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnection = false, model = 'sonnet', argv = {}) => {
-  // Check disk space before proceeding
-  const hasEnoughSpace = await checkDiskSpace(minDiskSpace);
-  if (!hasEnoughSpace) {
+  // Check disk space before proceeding.
+  // Issue #2160: record *which* check failed on argv. A full disk says nothing about the issue
+  // being solved, so the caller exits with a retry-later code and skips the "Solution Draft
+  // Failed" comment instead of blaming the task (hive counted 4 such exits as task failures).
+  const diskSpace = await memoryCheck.checkDiskSpace(minDiskSpace, { log });
+  if (!diskSpace.success) {
+    argv.systemCheckFailure = { check: 'disk-space', availableMB: diskSpace.availableMB, requiredMB: minDiskSpace };
     return false;
   }
 

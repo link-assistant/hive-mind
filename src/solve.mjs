@@ -223,6 +223,15 @@ const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || a
 const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
 await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCheck, argv.model, argv))) {
+  // Issue #2160: an exhausted host disk is an environment condition, not a defect in the issue.
+  // Exit with EX_TEMPFAIL (75) so an orchestrator can requeue the task, and skip the pre-exit
+  // notifier: posting "🚨 Solution Draft Failed — Reason: System checks failed" on the target
+  // repository's issue told its maintainers nothing they could act on.
+  if (argv.systemCheckFailure?.check === 'disk-space') {
+    const { EXIT_CODE_INSUFFICIENT_DISK_SPACE } = await import('./disk-guard.lib.mjs');
+    const { availableMB, requiredMB } = argv.systemCheckFailure;
+    await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space on this host (${availableMB}MB available, ${requiredMB}MB required) — the issue itself was not attempted`, { skipPreExit: true });
+  }
   await safeExit(1, 'System checks failed');
 }
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
@@ -271,6 +280,9 @@ const { isPublic: isRepoPublic } = await detectRepositoryVisibility(owner, repo)
 if (argv.autoCleanup === undefined) {
   // For public repos: keep temp directories (default false) For private repos: clean up temp directories (default true)
   argv.autoCleanup = !isRepoPublic;
+  // Issue #2160: remember that this was a default, not a flag, so the "keeping directory"
+  // message at the end of the session can say why the workspace is being kept.
+  argv.autoCleanupSource = 'repository-visibility-default';
   if (argv.verbose) {
     await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isRepoPublic ? 'public' : 'private'})`, {
       verbose: true,

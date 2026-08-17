@@ -356,9 +356,11 @@ export const displaySessionTokenUsage = async ({ sessionId, tempDir, resultModel
   try {
     const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
     if (!tokenUsage) return;
-    // Issue #1501: Log deduplication stats in verbose mode
+    // Issue #1501: Log deduplication stats in verbose mode.
+    // Issue #2160: informational, not a warning — the duplicates are a known upstream Claude Code
+    // accounting quirk and skipping them is exactly what keeps the token totals correct here.
     if (tokenUsage.duplicateEntriesSkipped > 0) {
-      await log(`\n⚠️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries (upstream: anthropics/claude-code#6805)`, { verbose: true });
+      await log(`\nℹ️  JSONL deduplication: skipped ${tokenUsage.duplicateEntriesSkipped} duplicate entries so token totals stay correct (known upstream behaviour: anthropics/claude-code#87303)`, { verbose: true });
     }
     if (tokenUsage.peakContextUsage > 0) {
       await log(`📊 Peak restored-context input: ${formatNumber(tokenUsage.peakContextUsage)} tokens`, { verbose: true });

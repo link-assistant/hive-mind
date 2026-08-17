@@ -579,7 +579,9 @@ ${logContent}
       if (useLargeFileMode) {
         await log(`  📁 Log file too large for inline comment (${Math.round(logStats.size / 1024 / 1024)}MB), using gh-upload-log`);
       } else {
-        await log(`  ⚠️  Log comment too long (${logComment.length} chars), GitHub limit is ${githubLimits.commentMaxSize} chars`);
+        // Issue #2160: this is the expected route for a long log, not a problem — the upload
+        // below handles it. Reporting it as a warning made every normal run look degraded.
+        await log(`  ℹ️  Log comment too long (${logComment.length} chars, GitHub limit is ${githubLimits.commentMaxSize} chars), using gh-upload-log`);
       }
       await log('  📎 Uploading log using gh-upload-log...');
       try {

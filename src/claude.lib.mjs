@@ -650,9 +650,15 @@ export const executeClaudeCommand = async params => {
                 await log('📝 Captured fallback summary from Claude compaction context', { verbose: true });
               }
               if (eventFacts.toolResultError) {
-                lastToolResultError = eventFacts.toolResultError;
-                lastMessage = eventFacts.toolResultError;
-                await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+                // Issue #2160: an in-session tool failure the AI handles itself is not a warning,
+                // and it must not replace the last assistant message — that message is what a
+                // truncated-stream failure is reported "after".
+                if (eventFacts.toolResultErrorIsBenign) {
+                  await log(`ℹ️ In-session tool result (${eventFacts.toolResultErrorCategory}): ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+                } else {
+                  lastToolResultError = eventFacts.toolResultError;
+                  await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+                }
               }
               // Issue #1708: signal busy/idle to the bidirectional handler so
               // queue-comments-to-input mode can hold frames until the AI is
@@ -861,9 +867,9 @@ export const executeClaudeCommand = async params => {
           toolUseCount += eventFacts.toolUseCountDelta;
           if (eventFacts.lastText) lastMessage = eventFacts.lastText;
           if (!resultSummary && eventFacts.compactionSummary) resultSummary = eventFacts.compactionSummary;
-          if (eventFacts.toolResultError) {
+          // Issue #2160: same classification as the streaming path above.
+          if (eventFacts.toolResultError && !eventFacts.toolResultErrorIsBenign) {
             lastToolResultError = eventFacts.toolResultError;
-            lastMessage = eventFacts.toolResultError;
           }
           if (data?.type === 'result') {
             resultEventReceived = true;

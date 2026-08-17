@@ -269,6 +269,9 @@ const { isPublic: isRepoPublic } = await detectRepositoryVisibility(owner, repo)
 if (argv.autoCleanup === undefined) {
   // For public repos: keep temp directories (default false) For private repos: clean up temp directories (default true)
   argv.autoCleanup = !isRepoPublic;
+  // Issue #2160: remember that this was a default, not a flag, so the "keeping directory"
+  // message at the end of the session can say why the workspace is being kept.
+  argv.autoCleanupSource = 'repository-visibility-default';
   if (argv.verbose) {
     await log(`   Auto-cleanup default: ${argv.autoCleanup} (repository is ${isRepoPublic ? 'public' : 'private'})`, {
       verbose: true,

@@ -389,6 +389,35 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
     return '';
   }
 }
+/**
+ * Issue #2161: Replay the `🚫 SUBSCRIPTION/ACCESS BLOCKED` report from the
+ * captured solve log into the Telegram completion message, so the operator is
+ * told that the account itself lost access (and not that "claude failed") on the
+ * surface they actually watch. Returns '' when the session hit no such block.
+ */
+export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = false, readFile = fs.readFile, locale = null } = {}) {
+  if (!logPath) return '';
+  try {
+    let logText = '';
+    try {
+      logText = await readFile(logPath, 'utf8');
+    } catch (readError) {
+      if (verbose) {
+        console.log(`[VERBOSE] Could not read session log ${logPath} for subscription block: ${readError?.message || readError}`);
+      }
+      return '';
+    }
+    const telegramLib = await import('./subscription-block-telegram.lib.mjs');
+    const parsed = telegramLib.parseSubscriptionBlockFromLog(logText);
+    if (!parsed) return '';
+    return telegramLib.formatSubscriptionBlockedSection(parsed, { locale });
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not build subscription block section for ${logPath}: ${error?.message || error}`);
+    }
+    return '';
+  }
+}
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
   const containerName = sessionInfo.sessionId || sessionName;
@@ -826,6 +855,21 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
         const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
+        // Issue #2161: a blocked subscription/account explains every other
+        // symptom of the run, so it goes first in the completion message.
+        const subscriptionBlockedExtraSections = [];
+        try {
+          const blockedSection = await buildSubscriptionBlockedExtraSection(statusResult?.logPath || sessionInfo?.logPath || null, {
+            verbose,
+            readFile: options.readFile,
+            locale: sessionInfo?.locale || null,
+          });
+          if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
+        } catch (blockedError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build subscription block section for ${sessionName}: ${blockedError?.message || blockedError}`);
+          }
+        }
         // Issue #2134: say exactly WHY a session was killed, and warn when a
         // session merely survived a kill event instead of reporting a plain
         // success. The pull request gets the very same report below.
@@ -869,7 +913,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
           pullRequestState,
-          extraSections: [...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          extraSections: [...subscriptionBlockedExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
         if (killReport.killed || killReport.recovered) {
           const notice = await announceKillOnPullRequest({

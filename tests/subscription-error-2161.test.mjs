@@ -25,6 +25,9 @@ import { fileURLToPath } from 'node:url';
 import { detectSubscriptionError, isSubscriptionBlockedError, isTransientAuthError, formatSubscriptionErrorReport, formatSubscriptionErrorSummary, SUBSCRIPTION_BLOCKED_MARKER, SUBSCRIPTION_ERROR_KINDS } from '../src/subscription-error.lib.mjs';
 import { classifyRetryableError } from '../src/tool-retry.lib.mjs';
 import { isUsageLimitError } from '../src/usage-limit.lib.mjs';
+import { parseSubscriptionBlockFromLog, formatSubscriptionBlockedSection } from '../src/subscription-block-telegram.lib.mjs';
+import { buildSubscriptionBlockedExtraSection } from '../src/session-monitor.lib.mjs';
+import { preloadAllLocales } from '../src/i18n.lib.mjs';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -232,6 +235,81 @@ test('hive.mjs stops the whole queue when a worker reports the block', () => {
   assert.ok(source.includes('if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line)'), 'worker output must be scanned for the marker');
   assert.match(source, /noteSubscriptionBlock = \([\s\S]*?issueQueue\.stop\(\);/, 'the queue must be stopped');
   assert.ok(source.includes("await safeExit(1, 'Subscription/account access blocked')"), 'the hive must exit non-zero');
+});
+
+// ---------------------------------------------------------------------------
+// Telegram — the operator must see the real cause on the surface they watch
+// ---------------------------------------------------------------------------
+
+const SESSION_LOG = [
+  '📝 Starting solve...',
+  ...formatSubscriptionErrorReport(detectSubscriptionError({ message: ISSUE_MESSAGE, tool: 'claude', errorCode: 'oauth_org_not_allowed', apiErrorStatus: 403 }), {
+    sessionId: 'c8ca8b76-2882-4070-80ac-8d28562272e2',
+    tempDir: '/tmp/gh-issue-solver-1',
+    branchName: 'issue-1-abc',
+    committed: true,
+    resumeCommand: './solve.mjs https://github.com/o/r/issues/1 --resume c8ca8b76',
+  }),
+  '❌ CLAUDE execution failed',
+].join('\n');
+
+test('the block is parsed back out of the captured session log', () => {
+  const parsed = parseSubscriptionBlockFromLog(SESSION_LOG);
+  assert.ok(parsed, 'the marker must be found in the log');
+  assert.equal(parsed.tool, 'CLAUDE');
+  assert.ok(parsed.message.includes('disabled Claude subscription access'), parsed.message);
+  assert.ok(parsed.code.includes('oauth_org_not_allowed'), parsed.code);
+  assert.ok(parsed.code.includes('403'), parsed.code);
+  assert.equal(parsed.committed, true);
+  assert.ok(parsed.guidance.length > 0, 'the guidance steps must survive the round trip');
+  assert.ok(parsed.resumeCommand.startsWith('./solve.mjs'), parsed.resumeCommand);
+});
+
+test('a log without the marker produces no Telegram section', () => {
+  assert.equal(parseSubscriptionBlockFromLog('all good\n✅ done'), null);
+  assert.equal(parseSubscriptionBlockFromLog(''), null);
+  assert.equal(parseSubscriptionBlockFromLog(null), null);
+  assert.equal(formatSubscriptionBlockedSection(null), '');
+});
+
+test('the Telegram section names the cause, the code and the preserved work', () => {
+  const section = formatSubscriptionBlockedSection(parseSubscriptionBlockFromLog(SESSION_LOG));
+  assert.ok(section.startsWith('🚫 '), section.slice(0, 40));
+  assert.equal((section.match(/```/g) || []).length, 2, 'the body must be a single fenced block');
+  assert.ok(section.includes('oauth_org_not_allowed'), section);
+  assert.ok(section.includes('not a usage limit'), section);
+  assert.ok(section.includes('auto-committed'), section);
+});
+
+await preloadAllLocales(); // the bot does this at startup; the test needs the same
+test('the Telegram section is translated when the session has a locale', () => {
+  const section = formatSubscriptionBlockedSection(parseSubscriptionBlockFromLog(SESSION_LOG), { locale: 'ru' });
+  assert.ok(section.includes('Код ошибки'), section);
+});
+
+await (async () => {
+  const section = await buildSubscriptionBlockedExtraSection('/session.log', { readFile: async () => SESSION_LOG });
+  test('the session monitor builds the section from the session log', () => {
+    assert.ok(section.includes('oauth_org_not_allowed'), section);
+  });
+  const empty = await buildSubscriptionBlockedExtraSection('/session.log', { readFile: async () => 'nothing to see' });
+  test('the session monitor stays silent for healthy sessions', () => {
+    assert.equal(empty, '');
+  });
+  const unreadable = await buildSubscriptionBlockedExtraSection('/missing.log', {
+    readFile: async () => {
+      throw new Error('ENOENT');
+    },
+  });
+  test('an unreadable session log never breaks the completion message', () => {
+    assert.equal(unreadable, '');
+  });
+})();
+
+test('the completion message puts the block before every other section', () => {
+  const source = read('session-monitor.lib.mjs');
+  const idx = source.indexOf('extraSections: [...subscriptionBlockedExtraSections');
+  assert.ok(idx > 0, 'the blocked section must be prepended to extraSections');
 });
 
 // ============================================================================

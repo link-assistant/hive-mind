@@ -38,6 +38,8 @@ export { createYargsConfig } from './hive.config.lib.mjs';
 import { attachChildExitHandlers } from './child-exit.lib.mjs';
 import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
 import { createShutdownManager } from './hive.shutdown.lib.mjs';
+// Issue #2160: keep dequeuing safe when the host disk fills up mid-run.
+import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSolverWorkspacePaths } from './disk-guard.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -602,6 +604,7 @@ if (isRunningDirectly) {
         this.processing = new Set();
         this.completed = new Set();
         this.failed = new Set();
+        this.deferrals = new Map(); // Issue #2160: issueUrl -> environment deferral count
         this.workers = [];
         this.isRunning = true;
       }
@@ -632,6 +635,18 @@ if (isRunningDirectly) {
         this.processing.delete(issueUrl);
         this.failed.add(issueUrl);
       }
+      // Issue #2160: put an issue back at the head of the queue after an *environment* block (a
+      // full host disk). It is neither completed nor failed — the task was never attempted.
+      // Returns how many times this issue has been deferred so the caller can stop looping.
+      requeue(issueUrl) {
+        this.processing.delete(issueUrl);
+        const deferrals = (this.deferrals.get(issueUrl) || 0) + 1;
+        this.deferrals.set(issueUrl, deferrals);
+        if (!this.completed.has(issueUrl) && !this.queue.includes(issueUrl)) {
+          this.queue.unshift(issueUrl);
+        }
+        return deferrals;
+      }
       // Get queue statistics
       getStats() {
         return {
@@ -653,6 +668,16 @@ if (isRunningDirectly) {
     // controlled SIGTERM to each (they run in their own detached process group, so the
     // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
     const activeSolveChildren = new Set();
+    // Issue #2160: workspaces owned by in-flight workers, learned from the solver's own output.
+    // The disk guard must never reclaim these — they hold work in progress.
+    const workerWorkspaces = new Map(); // workerId -> Set<workspace path>
+    const getProtectedWorkspacePaths = () => new Set(Array.from(workerWorkspaces.values()).flatMap(paths => Array.from(paths)));
+    // How long a worker waits for in-flight work to release disk space before deferring its task,
+    // and how many deferrals of one task are tolerated before hive stops: with nothing else
+    // running, no amount of waiting will free space.
+    const DISK_SPACE_WAIT_MS = 10 * 60 * 1000;
+    const MAX_DISK_SPACE_DEFERRALS = 3;
+    let diskSpaceHalt = null;
     // Worker function to process issues from queue
     async function worker(workerId) {
       await log(`🔧 Worker ${workerId} started`, { verbose: true });
@@ -673,8 +698,35 @@ if (isRunningDirectly) {
           await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
           continue;
         }
+        // Issue #2160: re-check free disk space before every task. hive used to check it once at
+        // startup, so a run whose kept workspaces filled the disk kept spawning solvers that died
+        // in their own pre-flight check — and each of those was counted as a *task* failure
+        // (`❌ 4 task(s) failed (completed: 6)`). Reclaim idle workspaces, wait for in-flight ones,
+        // and defer the task rather than burn it.
+        if (!argv.dryRun) {
+          const requiredDiskSpaceMB = argv.minDiskSpace || 10240;
+          const otherWorkInFlight = issueQueue.getStats().processing > 1;
+          const diskGuard = await ensureDiskSpaceForWorker({
+            requiredMB: requiredDiskSpaceMB,
+            protectedPaths: getProtectedWorkspacePaths(),
+            maxWaitMs: otherWorkInFlight ? DISK_SPACE_WAIT_MS : 0,
+            log,
+          });
+          if (!diskGuard.ok) {
+            const deferrals = issueQueue.requeue(issueUrl);
+            await log(`   ⏸️  Worker ${workerId} deferred ${issueUrl}: ${diskGuard.freeMB}MB free, ${requiredDiskSpaceMB}MB required (deferral ${deferrals}/${MAX_DISK_SPACE_DEFERRALS}, not a task failure)`, { level: 'warning' });
+            if (deferrals >= MAX_DISK_SPACE_DEFERRALS && issueQueue.getStats().processing === 0) {
+              diskSpaceHalt = `Insufficient disk space: ${diskGuard.freeMB}MB free, ${requiredDiskSpaceMB}MB required`;
+              await log('   🛑 Stopping: no in-flight work can release disk space. Free space on this host (or enable --auto-cleanup) and rerun.', { level: 'error' });
+              issueQueue.stop();
+            }
+            continue;
+          }
+        }
         // Track if this issue failed
         let issueFailed = false;
+        // Issue #2160: an environment block (full disk) reported by solve itself — requeue, don't fail.
+        let environmentDeferral = false;
         // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
         let gracefulStop = false;
         // Process the issue multiple times if needed
@@ -752,12 +804,17 @@ if (isRunningDirectly) {
               });
               // Issue #1823: register the in-flight child for optional force-kill on a 2nd signal
               activeSolveChildren.add(child);
+              // Issue #2160: start collecting the workspaces this worker owns so the disk guard
+              // (running in the other workers) never reclaims a directory that is still in use.
+              const ownedWorkspaces = new Set();
+              workerWorkspaces.set(workerId, ownedWorkspaces);
               log(`   🧒 Spawned ${solveCommand} worker-${workerId} (pid ${child.pid}, detached process group)`, { verbose: true }).catch(() => {});
               // Handle stdout data - stream output in real-time
               child.stdout.on('data', data => {
                 const lines = data.toString().split('\n');
                 for (const line of lines) {
                   if (line.trim()) {
+                    for (const workspacePath of extractSolverWorkspacePaths(line)) ownedWorkspaces.add(workspacePath);
                     log(`   [${solveCommand} worker-${workerId}] ${line}`).catch(logError => {
                       reportError(logError, {
                         context: 'worker_stdout_log',
@@ -798,6 +855,8 @@ if (isRunningDirectly) {
                 onLogError: (logError, operation) => reportError(logError, { context: 'worker_child_exit_log', workerId, operation }),
                 onExit: result => {
                   activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
+                  // Issue #2160: the worker released its workspaces — they become reclaimable.
+                  workerWorkspaces.delete(workerId);
                   exitCode = result.exitCode;
                   resolve();
                 },
@@ -813,6 +872,12 @@ if (isRunningDirectly) {
               await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
               gracefulStop = true;
               break; // stop processing more PRs for this issue
+            } else if (exitCode === EXIT_CODE_INSUFFICIENT_DISK_SPACE) {
+              // Issue #2160: solve refused to start because this host is out of disk space. The
+              // issue was never attempted, so it must not be counted as a task failure.
+              await log(`   ⏸️  Worker ${workerId} could not start ${issueUrl}: the host is out of disk space (exit ${exitCode}, ${duration}s) — requeued, not a task failure`, { level: 'warning' });
+              environmentDeferral = true;
+              break;
             } else {
               throw new Error(`${solveCommand} exited with code ${exitCode}`);
             }
@@ -838,7 +903,16 @@ if (isRunningDirectly) {
         // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
         // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
         // "processing" so it is not miscounted as completed (which would also trigger cleanup).
-        if (!issueFailed && !gracefulStop) {
+        if (environmentDeferral) {
+          // Issue #2160: back to the queue (neither completed nor failed). Stop the run when
+          // nothing else is in flight, since no other worker can release disk space.
+          const deferrals = issueQueue.requeue(issueUrl);
+          if (deferrals >= MAX_DISK_SPACE_DEFERRALS && issueQueue.getStats().processing === 0) {
+            diskSpaceHalt = 'Insufficient disk space reported by the solver pre-flight check';
+            await log('   🛑 Stopping: no in-flight work can release disk space. Free space on this host (or enable --auto-cleanup) and rerun.', { level: 'error' });
+            issueQueue.stop();
+          }
+        } else if (!issueFailed && !gracefulStop) {
           issueQueue.markCompleted(issueUrl);
         }
         // Show queue stats
@@ -1292,16 +1366,20 @@ if (isRunningDirectly) {
         verbose: true,
       });
     } else {
-      const systemCheck = await checkSystem(
-        {
-          minDiskSpaceMB: argv.minDiskSpace || 10240,
-          minMemoryMB: 256,
-          exitOnFailure: true,
-        },
-        { log }
-      );
+      // Issue #2160: reclaim idle solver workspaces left behind by earlier runs before refusing to
+      // start, and report an exhausted disk as the environment condition it is (exit 75) instead of
+      // a generic error. `exitOnFailure` is deliberately not used: it calls process.exit(1)
+      // directly, which skips the log-flushing safeExit path and printed no actionable reason.
+      const startupRequiredDiskSpaceMB = argv.minDiskSpace || 10240;
+      const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, log });
+      if (!startupDiskGuard.ok) {
+        await log(`❌ Insufficient disk space to start: ${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required`, { level: 'error' });
+        await log('   Free space on this host, or run with --auto-cleanup so workspaces are removed after each task.', { level: 'error' });
+        await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space (${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required)`);
+      }
+      const systemCheck = await checkSystem({ minDiskSpaceMB: startupRequiredDiskSpaceMB, minMemoryMB: 256 }, { log });
       if (!systemCheck.success) {
-        await safeExit(1, 'Error occurred');
+        await safeExit(1, 'System resource check failed');
       }
       // Validate the selected AI tool connection before starting monitoring with the same model that will be used
       const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
@@ -1325,6 +1403,11 @@ if (isRunningDirectly) {
       await safeExit(1, 'Error occurred');
     }
     const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    // Issue #2160: report an exhausted host disk as the environment problem it is, with its own
+    // exit code, instead of letting it be counted as "N task(s) failed".
+    if (diskSpaceHalt) {
+      await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `${diskSpaceHalt} — ${finalStats.completed} task(s) completed, ${finalStats.queued} left queued (no task failures)`);
+    }
     if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
   } catch (fatalError) {
     // Handle fatal errors during initialization or execution

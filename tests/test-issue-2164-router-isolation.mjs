@@ -40,6 +40,13 @@ function assertDeepEqual(actual, expected, label) {
   else fail(label, expected, actual);
 }
 
+// A failing assertion prints what it compared, and these assertions compare a
+// task's credential. Anything holding a token is therefore compared *before* it
+// reaches the printer, so a failure in CI leaks a label rather than a token
+// (CodeQL js/clear-text-logging).
+const matches = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected);
+const TASK_TOKEN = 'la_sk_x';
+
 const HOME = '/home/box';
 const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex`, `${HOME}/.agents`, `${HOME}/.claude`, `${HOME}/.claude.json`]);
 const existsAll = candidate => hostPaths.has(candidate);
@@ -74,9 +81,11 @@ assertEqual(resolveRouterGhHost({ env: { HIVE_MIND_ROUTER_GH_HOST: 'http://gh.ex
 
 console.log('\n--- Routed tasks are pointed at the router, per tool surface ---');
 
-assertDeepEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: 'la_sk_x' }), { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: 'la_sk_x', ANTHROPIC_BASE_URL: 'http://router:8080', ANTHROPIC_AUTH_TOKEN: 'la_sk_x', ANTHROPIC_API_KEY: 'la_sk_x' }, 'claude is redirected via ANTHROPIC_BASE_URL, with the token offered in both accepted forms');
-assertDeepEqual(buildRouterTaskEnv({ tool: 'codex', baseUrl: 'http://router:8080', token: 'la_sk_x' }), { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: 'la_sk_x', OPENAI_BASE_URL: 'http://router:8080/v1', OPENAI_API_KEY: 'la_sk_x' }, 'codex is redirected via the OpenAI-compatible surface under /v1');
-assertEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: 'la_sk_x', ghHost: 'gh.example.com' }).GH_ENTERPRISE_TOKEN, 'la_sk_x', 'gh authenticates to the router with the same scoped token');
+const claudeTaskEnv = buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: TASK_TOKEN });
+assertEqual(matches(claudeTaskEnv, { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: TASK_TOKEN, ANTHROPIC_BASE_URL: 'http://router:8080', ANTHROPIC_AUTH_TOKEN: TASK_TOKEN, ANTHROPIC_API_KEY: TASK_TOKEN }), true, 'claude is redirected via ANTHROPIC_BASE_URL, with the token offered in both accepted forms');
+assertDeepEqual(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER'], 'and nothing else is injected, so the failure above names the value that differs');
+assertEqual(matches(buildRouterTaskEnv({ tool: 'codex', baseUrl: 'http://router:8080', token: TASK_TOKEN }), { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: TASK_TOKEN, OPENAI_BASE_URL: 'http://router:8080/v1', OPENAI_API_KEY: TASK_TOKEN }), true, 'codex is redirected via the OpenAI-compatible surface under /v1');
+assertEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: TASK_TOKEN, ghHost: 'gh.example.com' }).GH_ENTERPRISE_TOKEN === TASK_TOKEN, true, 'gh authenticates to the router with the same scoped token');
 assertDeepEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080' }), {}, 'no token means no redirect: a task is never pointed at a router it cannot authenticate to');
 
 console.log('\n--- Vendor credentials are withheld from routed tasks (R2, R9) ---');
@@ -119,7 +128,7 @@ const routedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o
 
 assertDeepEqual(envValues(defaultArgs, 'ANTHROPIC_BASE_URL'), [], 'a default launch injects no router endpoint');
 assertDeepEqual(envValues(routedArgs, 'ANTHROPIC_BASE_URL'), [getInternalRouterBaseUrl()], 'a routed launch points Claude Code at the sidecar');
-assertDeepEqual(envValues(routedArgs, 'HIVE_MIND_ROUTER_TOKEN'), ['la_sk_task'], "the task's own token is passed in, not the operator's credential");
+assertEqual(matches(envValues(routedArgs, 'HIVE_MIND_ROUTER_TOKEN'), ['la_sk_task']), true, "the task's own token is passed in, not the operator's credential");
 assertEqual(
   routedArgs.some(value => value.includes('.claude')),
   false,

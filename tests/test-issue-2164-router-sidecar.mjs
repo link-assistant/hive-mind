@@ -38,6 +38,11 @@ function assertEqual(actual, expected, label) {
   else fail(label, expected, actual);
 }
 
+// The signing secret mints subscription access, so assertions about it compare
+// first and report a boolean: a failing test in CI prints its label, never the
+// secret it was checking (CodeQL js/clear-text-logging).
+const holds = (actual, expected) => actual === expected;
+
 console.log('\n=== issue #2164: router sidecar run arguments ===');
 
 const credentialMounts = [
@@ -55,7 +60,7 @@ assertEqual(runArgs.includes('--network'), false, 'the sidecar is not launched o
 assertEqual(runArgs.includes('-p') || runArgs.includes('--publish'), false, 'no port is published to the host');
 assertEqual(runArgs.slice(0, 2).join(' '), 'run --detach', 'the container is started detached');
 assertEqual(flagValue(runArgs, '--name', '').join(''), ROUTER_SIDECAR_CONTAINER_NAME, 'the container carries the stable reconciliation name');
-assertEqual(flagValue(runArgs, '--env', 'TOKEN_SECRET=').join(''), 'deadbeef', 'the signing secret is passed to the router');
+assertEqual(holds(flagValue(runArgs, '--env', 'TOKEN_SECRET=').join(''), 'deadbeef'), true, 'the signing secret is passed to the router');
 assertEqual(flagValue(runArgs, '--env', 'DATA_DIR=').join(''), ROUTER_DATA_MOUNT, 'DATA_DIR points at the mounted volume so request logs persist (R8)');
 assertEqual(
   runArgs.some((value, index) => runArgs[index - 1] === '--volume' && value === `${ROUTER_DATA_VOLUME_NAME}:${ROUTER_DATA_MOUNT}`),
@@ -92,10 +97,10 @@ assertEqual(decodeRouterTokenId('la_sk_only-one-segment'), null, 'a malformed to
 console.log('\n=== issue #2164: signing secret ===');
 
 const generated = resolveRouterTokenSecret({ state: {}, env: {}, generate: () => 'fresh-secret' });
-assertEqual(generated.secret, 'fresh-secret', 'a first run generates a secret');
+assertEqual(holds(generated.secret, 'fresh-secret'), true, 'a first run generates a secret');
 assertEqual(generated.generated, true, 'and reports that it did');
-assertEqual(resolveRouterTokenSecret({ state: { tokenSecret: 'kept' }, env: {}, generate: () => 'fresh' }).secret, 'kept', 'a restart reuses the stored secret, so tokens already handed to running tasks stay valid');
-assertEqual(resolveRouterTokenSecret({ state: { tokenSecret: 'kept' }, env: { HIVE_MIND_ROUTER_TOKEN_SECRET: 'operator' }, generate: () => 'fresh' }).secret, 'operator', 'an operator-supplied secret wins');
+assertEqual(holds(resolveRouterTokenSecret({ state: { tokenSecret: 'kept' }, env: {}, generate: () => 'fresh' }).secret, 'kept'), true, 'a restart reuses the stored secret, so tokens already handed to running tasks stay valid');
+assertEqual(holds(resolveRouterTokenSecret({ state: { tokenSecret: 'kept' }, env: { HIVE_MIND_ROUTER_TOKEN_SECRET: 'operator' }, generate: () => 'fresh' }).secret, 'operator'), true, 'an operator-supplied secret wins');
 
 console.log('\n=== issue #2164: sidecar toggles ===');
 

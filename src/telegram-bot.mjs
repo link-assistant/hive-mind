@@ -524,7 +524,9 @@ bot.command('version', async ctx => {
 const { registerLanguageCommand } = await import('./telegram-language-command.lib.mjs');
 registerLanguageCommand(bot, { VERBOSE, isOldMessage, isForwardedOrReply });
 const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitations.lib.mjs');
-const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage };
+// Issue #2166 (R7): every command module gets the same send helpers, so no
+// command can drift back to a raw, unvalidated, unlogged `ctx.reply`.
+const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
 registerMergeCommand(bot, sharedCommandOpts);
@@ -675,6 +677,9 @@ async function handleSolveCommand(ctx) {
     return;
   }
   userArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
+  // Issue #2166: hand the spawned session the same canonical URL that is shown
+  // in the chat, so the echo and the actual work can never disagree.
+  if (validation.parsed?.canonical && userArgs[0] && cleanNonPrintableChars(userArgs[0]) === validation.normalizedUrl) userArgs[0] = validation.parsed.canonical;
   const { backend: solvePerCommandIsolation, filteredArgs: userArgsWithoutIsolation } = extractIsolationFromArgs(userArgs); // issue #1534
   if (solvePerCommandIsolation && !isValidPerCommandIsolation(solvePerCommandIsolation)) {
     await safeReply(ctx, t('telegram.invalid_isolation', { value: escapeMarkdown(solvePerCommandIsolation) }, { locale: solveLocale }), { reply_to_message_id: ctx.message.message_id });
@@ -741,8 +746,10 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
-  // Use normalized URL from validation to ensure consistent duplicate detection (issue #1080)
-  const normalizedUrl = validation.parsed.normalized;
+  // Use the canonical URL from validation to ensure consistent duplicate
+  // detection (issue #1080) and to echo back only what the bot interpreted —
+  // a `#issuecomment-…` fragment is never used to resolve the target (#2166).
+  const normalizedUrl = validation.parsed.canonical || validation.parsed.normalized;
 
   const requester = buildUserMention({ user: ctx.from, parseMode: 'Markdown' });
   // #1228: only user options; #1460: escape; #1688: 'Issue:' / 'Pull request:' label so completion can append PR link.
@@ -779,7 +786,7 @@ async function handleSolveCommand(ctx) {
   }
 
   // Issue #1688: parsed URL context lets the completion message look up linked PRs.
-  const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: validation.parsed.normalized || normalizedUrl } : null;
+  const solveUrlContext = validation.parsed ? { owner: validation.parsed.owner, repo: validation.parsed.repo, number: validation.parsed.number, type: validation.parsed.type, normalized: normalizedUrl } : null;
   const toolQueuedCount = queueStats.queuedByTool[solveTool] || 0; // tool-specific queue count (#1551)
   // Issue #378: propagate user's effective Telegram locale to the spawned solve session.
   const argsWithLocale = injectLanguageIfMissing(args, solveLocale);

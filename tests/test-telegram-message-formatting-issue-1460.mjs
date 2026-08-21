@@ -11,6 +11,17 @@
 
 import { buildUserMention } from '../src/buildUserMention.lib.mjs';
 import { escapeMarkdown, cleanNonPrintableChars, makeSpecialCharsVisible } from '../src/telegram-markdown.lib.mjs';
+import { parseTelegramLegacyMarkdown } from '../src/telegram-markdown-validator.lib.mjs';
+
+/** Assert that Telegram's legacy-Markdown parser accepts `text` and renders `expectedRendered`. */
+function assertRenders(text, expectedRendered, testName) {
+  const parsed = parseTelegramLegacyMarkdown(text);
+  if (!parsed.ok) {
+    assert(false, testName, `Telegram would reject the message: ${parsed.description}`);
+    return;
+  }
+  assert(parsed.text === expectedRendered, testName, parsed.text === expectedRendered ? '' : `Expected rendering: ${JSON.stringify(expectedRendered)}, Got: ${JSON.stringify(parsed.text)}`);
+}
 
 let passed = 0;
 let failed = 0;
@@ -40,7 +51,10 @@ console.log('─'.repeat(60));
 // Test: Username with underscore
 {
   const result = buildUserMention({ user: { id: 123, username: 'my_user' }, parseMode: 'Markdown' });
-  assert(!result.includes('@my_user]') || result.includes('@my\\_user]'), 'Username with underscore is escaped in Markdown mode', `Got: ${result}`);
+  // Issue #2166: the label lives inside the entity, where TDLib copies bytes
+  // verbatim — escaping it would show a literal backslash to the user.
+  assertEqual(result, '[@my_user](https://t.me/my_user)', 'Username with underscore is left unescaped inside the link label');
+  assertRenders(`Requested by: ${result}`, 'Requested by: @my_user', 'Mention with underscore is still accepted by Telegram');
 }
 
 // Test: Username without special chars (should still work)
@@ -52,19 +66,30 @@ console.log('─'.repeat(60));
 // Test: Username with multiple underscores
 {
   const result = buildUserMention({ user: { id: 123, username: 'my_cool_bot' }, parseMode: 'Markdown' });
-  assert(result.includes('@my\\_cool\\_bot'), 'Username with multiple underscores is fully escaped', `Got: ${result}`);
+  assert(!result.includes('\\'), 'Username with multiple underscores carries no backslashes', `Got: ${result}`);
+  assertRenders(`Requested by: ${result}`, 'Requested by: @my_cool_bot', 'Mention with multiple underscores renders exactly as typed');
 }
 
 // Test: Display name (first_name) with underscore (no username)
 {
   const result = buildUserMention({ user: { id: 123, first_name: 'John_Doe' }, parseMode: 'Markdown' });
-  assert(result.includes('John\\_Doe'), 'First name with underscore is escaped', `Got: ${result}`);
+  assert(result.includes('John_Doe') && !result.includes('\\'), 'First name with underscore is not backslash-escaped', `Got: ${result}`);
+  assertRenders(`Requested by: ${result}`, 'Requested by: John_Doe', 'First name with underscore renders exactly as typed');
 }
 
 // Test: Display name with asterisk
 {
   const result = buildUserMention({ user: { id: 123, first_name: 'Star*User' }, parseMode: 'Markdown' });
-  assert(result.includes('Star\\*User'), 'First name with asterisk is escaped', `Got: ${result}`);
+  assert(result.includes('Star*User') && !result.includes('\\'), 'First name with asterisk is not backslash-escaped', `Got: ${result}`);
+  assertRenders(`Requested by: ${result}`, 'Requested by: Star*User', 'First name with asterisk renders exactly as typed');
+}
+
+// Issue #2166: `]` is the one character that really is dangerous in a label —
+// it would close the entity early and corrupt the rest of the message.
+{
+  const result = buildUserMention({ user: { id: 123, first_name: 'A]B[C' }, parseMode: 'Markdown' });
+  assert(!result.slice(1, result.indexOf('](')).includes(']'), 'Entity-terminating bracket is removed from the label', `Got: ${result}`);
+  assertRenders(`Requested by: ${result}`, 'Requested by: ABC', 'Label with brackets still renders as a single mention');
 }
 
 // Test: MarkdownV2 mode still works (separate escaping)
@@ -147,8 +172,10 @@ console.log('─'.repeat(60));
   const requester = buildUserMention({ user, parseMode: 'Markdown' });
   const message = `🚀 Starting solve command...\n\nRequested by: ${requester}\nURL: ${escapeMarkdown(normalizedUrl)}`;
 
-  // The display name should be escaped within the link
-  assert(message.includes('Test\\_User') && message.includes('Name\\*Star'), 'Special chars in first/last name are escaped in full message', `Got: ${message.substring(0, 200)}`);
+  // Issue #2166: the display name must survive verbatim, and the whole message
+  // must still be accepted by Telegram's parser.
+  assert(message.includes('Test_User Name*Star') && !requester.includes('\\'), 'Special chars in first/last name are preserved verbatim in the full message', `Got: ${message.substring(0, 200)}`);
+  assertRenders(message, `🚀 Starting solve command...\n\nRequested by: Test_User Name*Star\nURL: ${normalizedUrl}`, 'Full message with special chars in names is accepted by Telegram');
 }
 
 // Test with options containing underscores

@@ -243,7 +243,7 @@ export function extractGitHubUrl(text, { parseGitHubUrl, cleanNonPrintableChars 
 
     // Accept issue or PR URLs
     if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
-      foundUrls.push(parsed.normalized);
+      foundUrls.push(parsed.canonical || parsed.normalized);
     }
   }
 

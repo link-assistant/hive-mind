@@ -5,7 +5,8 @@ import { reportError } from './sentry.lib.mjs';
  * @param {string} url - The GitHub URL to parse
  * @returns {Object} Parsed URL information including:
  *   - valid: boolean indicating if the URL is valid
- *   - normalized: the normalized URL (https://github.com/...)
+ *   - normalized: the normalized URL (https://github.com/...), query/fragment kept
+ *   - canonical: the URL the bot actually interprets (no query string, no #fragment)
  *   - type: 'user', 'repo', 'issue', 'pull', 'gist', 'actions', etc.
  *   - owner: repository owner/organization
  *   - repo: repository name (if applicable)
@@ -96,6 +97,13 @@ export function parseGitHubUrl(url) {
   const result = {
     valid: true,
     normalized: normalizedUrl,
+    // Issue #2166: `normalized` keeps whatever query string or fragment the user
+    // pasted (`…/pull/18#issuecomment-5370631063`), but nothing downstream reads
+    // it — the bot resolves the target from owner/repo/number alone. Echoing the
+    // fragment back therefore claims an interpretation that never happened, so
+    // `canonical` is the URL the bot actually acted on and is what gets shown,
+    // queued and matched against.
+    canonical: `https://github.com${urlObj.pathname.replace(/\/+$/, '')}`,
     hostname: 'github.com',
     protocol: 'https',
     path: urlObj.pathname,
@@ -240,6 +248,23 @@ export function parseGitHubUrl(url) {
 export function normalizeGitHubUrl(url) {
   const parsed = parseGitHubUrl(url);
   return parsed.valid ? parsed.normalized : null;
+}
+
+/**
+ * Reduce a GitHub URL to the part the tooling actually interprets: no query
+ * string, no `#issuecomment-…` fragment, no trailing slash.
+ *
+ * Used wherever a URL is echoed back to a user, stored as a queue key, or
+ * compared against another URL, so that a link copied from a comment and the
+ * same link copied from the address bar name one and the same task (issue #2166).
+ *
+ * @param {string} url
+ * @returns {string} The canonical URL, or the trimmed input when it cannot be parsed.
+ */
+export function canonicalizeGitHubUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const parsed = parseGitHubUrl(url);
+  return parsed.valid && parsed.canonical ? parsed.canonical : url.trim();
 }
 
 /** Build the canonical web URL for a pull request already identified by GitHub. */

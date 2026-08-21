@@ -16,6 +16,7 @@ export { QUEUE_CONFIG, THRESHOLD_STRATEGIES } from './queue-config.lib.mjs';
 import { QUEUE_CONFIG } from './queue-config.lib.mjs';
 import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
+import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 export const QueueItemStatus = {
@@ -247,16 +248,23 @@ export class SolveQueue {
    * @see https://github.com/link-assistant/hive-mind/issues/1080
    */
   findByUrl(url) {
+    // Issue #2166: `/solve` and `/stop` must agree on what "the same task" means.
+    // Comparing raw strings made `…/pull/18` and `…/pull/18#issuecomment-123`
+    // two different tasks, so a chat owner could not stop a task they had just
+    // started from a copied comment link. Both sides collapse to the canonical
+    // URL (no query string, no fragment) before comparing.
+    const target = canonicalizeQueueUrl(url);
+    const matches = item => canonicalizeQueueUrl(item.url) === target;
     // Check all tool queues
     for (const toolQueue of Object.values(this.queues)) {
-      const queuedItem = toolQueue.find(item => item.url === url);
+      const queuedItem = toolQueue.find(matches);
       if (queuedItem) {
         return queuedItem;
       }
     }
     // Check processing items
     for (const item of this.processing.values()) {
-      if (item.url === url) {
+      if (matches(item)) {
         return item;
       }
     }

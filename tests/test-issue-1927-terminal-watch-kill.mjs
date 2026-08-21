@@ -93,7 +93,14 @@ watchTerminalLogSession({
   isTerminalSessionStatus,
 });
 
-await new Promise(resolve => setTimeout(resolve, 120));
+// The watch edits through the safe send funnel, which sanitizes every snapshot
+// before it reaches the chat (issue #2166); the first send pays a one-off lazy
+// import of the secret scanner, so wait for the completion edit rather than for
+// a fixed delay.
+const deadline = Date.now() + 15000;
+while (Date.now() < deadline && !String(edits.at(-1)?.[3] || '').includes('Terminal watch complete')) {
+  await new Promise(resolve => setTimeout(resolve, 25));
+}
 const callsAfterFooter = statusCalls;
 await new Promise(resolve => setTimeout(resolve, 60));
 

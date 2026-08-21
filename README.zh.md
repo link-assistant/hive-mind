@@ -88,6 +88,8 @@ Hive Mind 具备与普通程序员无异的高度创造力。当需求不明确�
 
 Hive Mind 会在其维护的终端、日志、遥测、上传和 GitHub 发布路径中清理可识别的凭证。如果扫描器失败，发布会被阻止；但这无法阻止自主工具通过不相关的路径泄露数据。有关掩码约定、支持的格式、维护流程和事件响应指南，请参阅[凭证清理](./docs/CREDENTIAL-SANITIZATION.zh.md)。
 
+默认情况下，Docker 隔离的任务会拿到操作者的 Claude/Codex 凭据。`--use-router` 不再传入这些凭据，而是让模型流量经由 `hive-mind-router` sidecar 转发，使每个任务获得仅限自身的令牌和自己的请求日志——参见[路由器隔离](./docs/ROUTER.zh.md)（实验性）与[收集日志](./docs/COLLECTING-LOGS.zh.md)。
+
 运行 `hive.mjs` 的最低系统要求：
 
 ```

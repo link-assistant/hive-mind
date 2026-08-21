@@ -265,6 +265,16 @@ claude
 - ✅ प्रत्येक container की अपनी अलग-थलग authentication है
 - ✅ Interactive authentication के बिना सफल Docker builds
 
+## राउटर आइसोलेशन (प्रयोगात्मक)
+
+क्रेडेंशियल को कंटेनर में mount करने का अर्थ है भीतर बैठे एजेंट को क्रेडेंशियल स्वयं सौंप देना। `--use-router` इसका विकल्प है: सदस्यता एक आंतरिक Docker नेटवर्क पर मौजूद इकलौते `hive-mind-router` sidecar में ही रहती है, और हर कार्य कंटेनर को केवल अपने लिए जारी अल्पकालिक टोकन तथा अपना request लॉग मिलता है।
+
+```bash
+solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
+```
+
+विकल्प के बिना कुछ नहीं बदलता। डिज़ाइन, कॉन्फ़िगरेशन और प्रयोगात्मक स्थिति की सीमाओं के लिए [राउटर आइसोलेशन](./ROUTER.hi.md) देखें, और उससे बनने वाले ऑडिट रिकॉर्ड को पढ़ने के लिए [लॉग एकत्र करना](./COLLECTING-LOGS.hi.md)।
+
 ## Docker में Playwright MCP State
 
 Image build अब Claude और Codex दोनों के लिए Playwright MCP register करता है:

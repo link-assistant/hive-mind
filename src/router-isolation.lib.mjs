@@ -232,6 +232,6 @@ export function describeRouterCoverageGaps({ model = null, ghRouted = false } = 
   if (String(model || '').toLowerCase() === 'formal-ai') {
     gaps.push('Formal AI model traffic is NOT routed: it still goes straight to the Formal AI sidecar, because automatic routing ignores stored OpenAI-compatible providers (upstream link-assistant/router#260).');
   }
-  gaps.push('Destructive git-transport operations (force push, branch deletion) are NOT blocked by the router; branch protection remains the control (upstream link-assistant/router#261).');
+  gaps.push('Destructive git operations are blocked by a pre-push hook inside the task, which `git push --no-verify` can bypass; branch protection is the only unbypassable control until the router gains a git transport (upstream link-assistant/router#261).');
   return gaps;
 }

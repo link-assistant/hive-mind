@@ -49,18 +49,20 @@ node examples/collect-logs.mjs --out ./audit
 
 ## कॉन्फ़िगरेशन
 
-| वेरिएबल                             | अर्थ                                                                                                            |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`            | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                         |
-| `HIVE_MIND_ROUTER_URL`              | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए |
-| `HIVE_MIND_ROUTER_TOKEN`            | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                               |
-| `HIVE_MIND_ROUTER_SIDECAR=0`        | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                 |
-| `HIVE_MIND_ROUTER_IMAGE`            | राउटर image बदलें                                                                                               |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`       | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                       |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`     | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                            |
-| `HIVE_MIND_ROUTER_GH_HOST`          | `gh` ट्रैफ़िक के लिए HTTPS-terminated राउटर endpoint (नीचे देखें)                                               |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0` | कार्य के अंत में session डेटा संग्रहित न करें                                                                   |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`     | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                  |
+| वेरिएबल                              | अर्थ                                                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`             | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                         |
+| `HIVE_MIND_ROUTER_URL`               | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए |
+| `HIVE_MIND_ROUTER_TOKEN`             | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                               |
+| `HIVE_MIND_ROUTER_SIDECAR=0`         | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                 |
+| `HIVE_MIND_ROUTER_IMAGE`             | राउटर image बदलें                                                                                               |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                       |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                            |
+| `HIVE_MIND_ROUTER_GH_HOST`           | `gh` ट्रैफ़िक के लिए HTTPS-terminated राउटर endpoint (नीचे देखें)                                               |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | कार्य के अंत में session डेटा संग्रहित न करें                                                                   |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                  |
+| `HIVE_MIND_GIT_HOOKS_DIR`            | उत्पन्न `pre-push` पहरे को रखने वाली होस्ट डायरेक्टरी (डिफ़ॉल्ट `~/.hive-mind/git-hooks`)                       |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | routed कार्य को फिर भी force push या remote ref हटाने दें                                                       |
 
 ### Signing secret
 
@@ -72,13 +74,29 @@ node examples/collect-logs.mjs --out ./audit
 
 यदि आप `HIVE_MIND_ROUTER_TOKEN_SECRET` से अपना secret देते हैं, तो उसे root क्रेडेंशियल की तरह ही मानें।
 
+## विनाशकारी git ऑपरेशन
+
+issue की आवश्यकता R13 यह कहती है कि एजेंटों से डेटा नष्ट करने की भौतिक क्षमता ही छीन ली जाए। तीन परतें सोची गई थीं; उनमें से दो लागू हैं।
+
+| परत                                                            | क्या कवर करती है                                                                                                                               | कैसे बायपास होती है                                                           |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| रिमोट पर [branch protection](./BRANCH_PROTECTION_POLICY.hi.md) | संरक्षित branch का force push और deletion                                                                                                      | कार्य के भीतर से बायपास नहीं होती                                             |
+| हर routed कार्य में `pre-push` hook                            | किसी भी remote ref का deletion, और ऐसा हर push जो रिमोट पर पहले से मौजूद commit को गिरा दे — यही `git reset --hard` + `push --force` का रूप है | `git push --no-verify`                                                        |
+| राउटर से होकर जाने वाला git transport                          | सब कुछ, बिना बायपास की गुंजाइश                                                                                                                 | लागू नहीं ([router#261](https://github.com/link-assistant/router/issues/261)) |
+
+Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`) में बनता है और कार्य में **केवल-पढ़ने** के लिए माउंट होता है, इसलिए कार्य उसी नियम को नहीं बदल सकता जिससे वह बँधा है। Git को उस तक `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` से भेजा जाता है, `git config --global` से नहीं, क्योंकि कंटेनर का `~/.gitconfig` होस्ट से माउंट की गई, संचालक की अपनी फ़ाइल है।
+
+सामान्य push, नई branch और नए tag अछूते रहते हैं, और यह पहरा केवल routed कार्यों में मौजूद होता है। `--allow-fork-divergence-resolution-using-force-push-with-lease` संचालक की पहले से दी गई force-push सहमति को कंटेनर तक ले जाता है; `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` वही काम हाथ से करता है।
+
+दूसरी परत गति-अवरोधक है, पिंजरा नहीं: यह पृष्ठ पढ़ चुका एजेंट इससे आगे निकल सकता है। यह दुर्घटना को हटाती है, विरोधी को नहीं — और जब तक तीसरी परत नहीं आती, बायपास-रहित नियंत्रण केवल branch protection ही रहता है।
+
 ## अभी क्या कवर नहीं है
 
 राउटर वाला हर रन शुरू होने से पहले यही सूची छापता है। ये प्रयोगात्मक स्थिति की ईमानदार सीमाएँ हैं:
 
 - **GitHub ट्रैफ़िक राउटर से नहीं जाता**, जब तक आप `HIVE_MIND_ROUTER_GH_HOST` सेट न करें। `gh` किसी custom host का REST base `https://<host>/api/v3/` के रूप में बनाता है और plaintext का कोई विकल्प नहीं देता, जबकि राउटर सादे HTTP पर सुनता है और अपना TLS listener नहीं रखता (upstream में [router#263](https://github.com/link-assistant/router/issues/263) के रूप में दर्ज)। HTTPS-terminated endpoint के बिना कार्य अपना `gh` क्रेडेंशियल रखता है।
 - **`--model formal-ai` राउटर से नहीं जाता।** स्वचालित routing सहेजे गए OpenAI-संगत providers को अनदेखा करती है ([router#260](https://github.com/link-assistant/router/issues/260)), इसलिए Formal AI का ट्रैफ़िक अब भी सीधे अपने sidecar तक जाता है।
-- **विनाशकारी git ऑपरेशन राउटर द्वारा नहीं रोके जाते** ([router#261](https://github.com/link-assistant/router/issues/261))। Force push और branch deletion git transport से चलते हैं, जिसे राउटर proxy नहीं करता; नियंत्रण [branch protection](./BRANCH_PROTECTION_POLICY.hi.md) ही रहता है।
+- **विनाशकारी git ऑपरेशन राउटर द्वारा नहीं रोके जाते** ([router#261](https://github.com/link-assistant/router/issues/261))। Force push और branch deletion git transport से चलते हैं, जिसे राउटर proxy नहीं करता। कार्य के भीतर का `pre-push` hook उन्हें मना कर देता है (देखें [विनाशकारी git ऑपरेशन](#विनाशकारी-git-ऑपरेशन)), पर `git push --no-verify` उससे आगे निकल जाता है, इसलिए बायपास-रहित नियंत्रण [branch protection](./BRANCH_PROTECTION_POLICY.hi.md) ही रहता है।
 
 ## आवश्यकताएँ
 

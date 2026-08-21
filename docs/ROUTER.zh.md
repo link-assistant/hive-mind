@@ -49,18 +49,20 @@ node examples/collect-logs.mjs --out ./audit
 
 ## 配置
 
-| 变量                                | 含义                                                                          |
-| ----------------------------------- | ----------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`            | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定          |
-| `HIVE_MIND_ROUTER_URL`              | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源 |
-| `HIVE_MIND_ROUTER_TOKEN`            | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                      |
-| `HIVE_MIND_ROUTER_SIDECAR=0`        | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                        |
-| `HIVE_MIND_ROUTER_IMAGE`            | 覆盖路由器镜像                                                                |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`       | sidecar 的额外 `docker run` 参数                                              |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`     | 自行提供令牌签名密钥，而不是生成一个                                          |
-| `HIVE_MIND_ROUTER_GH_HOST`          | 供 `gh` 流量使用的、已终结 TLS 的路由器端点（见下文）                         |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0` | 任务结束时不归档会话数据                                                      |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`     | 将会话数据归档到该宿主机目录而非路由器数据卷                                  |
+| 变量                                 | 含义                                                                          |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`             | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定          |
+| `HIVE_MIND_ROUTER_URL`               | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源 |
+| `HIVE_MIND_ROUTER_TOKEN`             | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                      |
+| `HIVE_MIND_ROUTER_SIDECAR=0`         | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                        |
+| `HIVE_MIND_ROUTER_IMAGE`             | 覆盖路由器镜像                                                                |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar 的额外 `docker run` 参数                                              |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | 自行提供令牌签名密钥，而不是生成一个                                          |
+| `HIVE_MIND_ROUTER_GH_HOST`           | 供 `gh` 流量使用的、已终结 TLS 的路由器端点（见下文）                         |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | 任务结束时不归档会话数据                                                      |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | 将会话数据归档到该宿主机目录而非路由器数据卷                                  |
+| `HIVE_MIND_GIT_HOOKS_DIR`            | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）       |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | 仍然允许启用路由器的任务强制推送或删除远端 ref                                |
 
 ### 签名密钥
 
@@ -72,13 +74,29 @@ node examples/collect-logs.mjs --out ./audit
 
 如果你通过 `HIVE_MIND_ROUTER_TOKEN_SECRET` 自行提供密钥，请按根凭据对待它。
 
+## 破坏性 git 操作
+
+issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。设计了三层，其中两层已经就位。
+
+| 层级                                               | 覆盖范围                                                                                              | 如何被绕过                                                                    |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 远端的[分支保护](./BRANCH_PROTECTION_POLICY.zh.md) | 对受保护分支的强制推送与删除                                                                          | 在任务内部无法绕过                                                            |
+| 每个启用路由器的任务中的 `pre-push` 钩子           | 删除任何远端 ref，以及任何会丢弃远端已有提交的推送——也就是 `git reset --hard` + `push --force` 的形态 | `git push --no-verify`                                                        |
+| 经路由器中转的 git 传输                            | 全部，且无法绕过                                                                                      | 尚未实现（[router#261](https://github.com/link-assistant/router/issues/261)） |
+
+钩子在宿主机的 `~/.hive-mind/git-hooks`（`HIVE_MIND_GIT_HOOKS_DIR`）中生成，并以**只读**方式挂载进任务，因此任务无法修改约束自己的那条规则。指向它的方式是 `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` 而非 `git config --global`，因为容器里的 `~/.gitconfig` 是从宿主机挂载进来的、属于操作者本人的文件。
+
+普通推送、新分支和新标签都不受影响，而且该守卫只存在于启用路由器的任务中。`--allow-fork-divergence-resolution-using-force-push-with-lease` 会把操作者已经给出的强制推送授权带进容器；`HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` 则是手动做同一件事。
+
+第二层是减速带，不是牢笼：读过本页的智能体就能绕过它。它消除的是意外，而非蓄意——在第三层落地之前，分支保护仍是唯一无法绕过的控制手段。
+
 ## 尚未覆盖的范围
 
 每次启用路由器的运行都会在开始前打印这些内容。它们是实验阶段如实的边界：
 
 - **GitHub 流量不经过路由器**，除非设置 `HIVE_MIND_ROUTER_GH_HOST`。`gh` 会把自定义主机的 REST 基址拼成 `https://<host>/api/v3/`，且不提供明文选项，而路由器监听普通 HTTP、自身不带 TLS 监听器（已向上游报告为 [router#263](https://github.com/link-assistant/router/issues/263)）。没有已终结 TLS 的端点时，任务仍保留自己的 `gh` 凭据。
 - **`--model formal-ai` 不经过路由器。** 自动路由会忽略已保存的 OpenAI 兼容提供方（[router#260](https://github.com/link-assistant/router/issues/260)），因此 Formal AI 的流量仍直连它自己的 sidecar。
-- **破坏性 git 操作不由路由器拦截**（[router#261](https://github.com/link-assistant/router/issues/261)）。强制推送和删除分支走的是 git 传输协议，路由器并不代理；[分支保护](./BRANCH_PROTECTION_POLICY.zh.md)仍是相应的控制手段。
+- **破坏性 git 操作不由路由器拦截**（[router#261](https://github.com/link-assistant/router/issues/261)）。强制推送和删除分支走的是 git 传输协议，路由器并不代理。任务内部的 `pre-push` 钩子会拒绝它们（见[破坏性 git 操作](#破坏性-git-操作)），但 `git push --no-verify` 能绕过，因此[分支保护](./BRANCH_PROTECTION_POLICY.zh.md)仍是唯一无法绕过的控制手段。
 
 ## 前置条件
 

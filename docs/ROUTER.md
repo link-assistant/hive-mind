@@ -49,18 +49,20 @@ node examples/collect-logs.mjs --out ./audit
 
 ## Configuration
 
-| Variable                            | Meaning                                                                                                    |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`            | Same as passing `--use-router`; how the bot and nested `solve` runs inherit the decision                   |
-| `HIVE_MIND_ROUTER_URL`              | Use an already-running router instead of starting a sidecar. Must be a bare `http(s)://host[:port]` origin |
-| `HIVE_MIND_ROUTER_TOKEN`            | Token for that external router. Required when `HIVE_MIND_ROUTER_URL` is set                                |
-| `HIVE_MIND_ROUTER_SIDECAR=0`        | Never start or stop a sidecar (for operators who manage the router themselves)                             |
-| `HIVE_MIND_ROUTER_IMAGE`            | Override the router image                                                                                  |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`       | Extra `docker run` arguments for the sidecar                                                               |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`     | Supply the token signing secret instead of generating one                                                  |
-| `HIVE_MIND_ROUTER_GH_HOST`          | HTTPS-terminated router endpoint for `gh` traffic (see below)                                              |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0` | Do not archive session data at end of task                                                                 |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`     | Archive session data to this host directory instead of the router volume                                   |
+| Variable                             | Meaning                                                                                                    |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`             | Same as passing `--use-router`; how the bot and nested `solve` runs inherit the decision                   |
+| `HIVE_MIND_ROUTER_URL`               | Use an already-running router instead of starting a sidecar. Must be a bare `http(s)://host[:port]` origin |
+| `HIVE_MIND_ROUTER_TOKEN`             | Token for that external router. Required when `HIVE_MIND_ROUTER_URL` is set                                |
+| `HIVE_MIND_ROUTER_SIDECAR=0`         | Never start or stop a sidecar (for operators who manage the router themselves)                             |
+| `HIVE_MIND_ROUTER_IMAGE`             | Override the router image                                                                                  |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | Extra `docker run` arguments for the sidecar                                                               |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | Supply the token signing secret instead of generating one                                                  |
+| `HIVE_MIND_ROUTER_GH_HOST`           | HTTPS-terminated router endpoint for `gh` traffic (see below)                                              |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | Do not archive session data at end of task                                                                 |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | Archive session data to this host directory instead of the router volume                                   |
+| `HIVE_MIND_GIT_HOOKS_DIR`            | Host directory holding the generated `pre-push` guard (default `~/.hive-mind/git-hooks`)                   |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | Let a routed task force-push or delete remote refs anyway                                                  |
 
 ### The signing secret
 
@@ -72,13 +74,29 @@ The secret that signs tokens is generated once and stored in the bot state direc
 
 If you supply your own via `HIVE_MIND_ROUTER_TOKEN_SECRET`, treat it as a root credential.
 
+## Destructive git operations
+
+R13 of the issue asks that agents lose the physical ability to destroy data. Three layers were designed; two of them are in place.
+
+| Layer                                                            | What it covers                                                                                                                                   | How it is bypassed                                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| [Branch protection](./BRANCH_PROTECTION_POLICY.md) on the remote | Force-push and deletion of a protected branch                                                                                                    | Not bypassable from inside a task                                                   |
+| A `pre-push` hook in every routed task                           | Deleting any remote ref, and any push that would discard a commit the remote already has — the shape a `git reset --hard` + `push --force` takes | `git push --no-verify`                                                              |
+| Router-mediated git transport                                    | Everything, unbypassably                                                                                                                         | Not implemented ([router#261](https://github.com/link-assistant/router/issues/261)) |
+
+The hook is generated on the host under `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`) and mounted **read-only** into the task, so the task cannot edit the rule it is held to. Git is pointed at it with `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` rather than `git config --global`, because the container's `~/.gitconfig` is the operator's own file, bind-mounted from the host.
+
+Ordinary pushes, new branches and new tags are untouched, and the guard only exists in routed tasks. `--allow-fork-divergence-resolution-using-force-push-with-lease` carries the operator's existing force-push opt-in into the container; `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` does the same by hand.
+
+Layer 2 is a speed bump, not a cage: an agent that reads this page can get past it. It removes the accident, not the adversary — and until layer 3 lands, branch protection remains the only unbypassable control.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:
 
 - **GitHub traffic is not routed** unless you set `HIVE_MIND_ROUTER_GH_HOST`. `gh` builds a custom host's REST base as `https://<host>/api/v3/` with no plaintext option, while the router serves plain HTTP and ships no TLS listener (reported upstream as [router#263](https://github.com/link-assistant/router/issues/263)). Without an HTTPS-terminated endpoint the task keeps its own `gh` credential.
 - **`--model formal-ai` is not routed.** Automatic routing ignores stored OpenAI-compatible providers ([router#260](https://github.com/link-assistant/router/issues/260)), so Formal AI traffic still goes straight to its own sidecar.
-- **Destructive git operations are not blocked by the router** ([router#261](https://github.com/link-assistant/router/issues/261)). Force-push and branch deletion travel over the git transport, which the router does not proxy; [branch protection](./BRANCH_PROTECTION_POLICY.md) remains the control.
+- **Destructive git operations are not blocked by the router** ([router#261](https://github.com/link-assistant/router/issues/261)). Force-push and branch deletion travel over the git transport, which the router does not proxy. A `pre-push` hook inside the task refuses them (see [Destructive git operations](#destructive-git-operations)), but `git push --no-verify` gets past it, so [branch protection](./BRANCH_PROTECTION_POLICY.md) remains the only unbypassable control.
 
 ## Requirements
 

@@ -28,6 +28,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 import { buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGhHost } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask } from './router-task-isolation.lib.mjs';
+import { buildGitPushGuardEnv, GIT_PUSH_GUARD_CONTAINER_DIR, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
@@ -210,7 +211,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -237,8 +238,24 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   for (const [name, value] of Object.entries(routerEnv)) {
     startArgs.push('-e', `${name}=${value}`);
   }
-  for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, useRouter: routerWired, ghRouted: routerWired && Boolean(routerGhHost) })) {
-    startArgs.push('--volume', `${mount.source}:${mount.target}`);
+  const mounts = getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, useRouter: routerWired, ghRouted: routerWired && Boolean(routerGhHost) });
+  // Issue #2164 (R13): a routed task also loses the ability to destroy remote
+  // history by accident. The hook lives on the host and is mounted read-only, so
+  // the task cannot edit the rule it is being held to; git is pointed at it with
+  // GIT_CONFIG_* rather than `git config --global`, because the container's
+  // ~/.gitconfig is the operator's own file. This is one layer of three (see
+  // git-push-guard.lib.mjs) and `--no-verify` still gets past it.
+  if (routerWired) {
+    const guard = installGuard({ env, homeDir });
+    if (guard.installed) {
+      mounts.push({ source: guard.dir, target: GIT_PUSH_GUARD_CONTAINER_DIR, readOnly: true });
+      for (const [name, value] of Object.entries(buildGitPushGuardEnv({ allowDestructive: hasForcePushOptIn(args) }))) {
+        startArgs.push('-e', `${name}=${value}`);
+      }
+    }
+  }
+  for (const mount of mounts) {
+    startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
   const taskCommand = buildShellCommand(command, args);
   startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));

@@ -244,8 +244,8 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { installTelegramFormattingFallback, isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
-const { installTelegramRateLimitTracker } = await import('./telegram-rate-limit.lib.mjs');
+const { isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
+const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
 const { trackSession, untrackSession, startSessionMonitoring, hasActiveSessionForUrlAsync, findStoppableSessionByUrl, setSessionStore, setSessionLogger, resumeTrackedSessions, getActiveSessionCount } = await import('./session-monitor.lib.mjs');
@@ -271,8 +271,10 @@ const { Telegraf } = telegrafModule;
 const bot = new Telegraf(BOT_TOKEN, {
   handlerTimeout: Infinity, // Remove default 90s timeout; command handlers like /solve spawn long-running processes
 });
-installTelegramFormattingFallback(bot.telegram, { verbose: VERBOSE });
-installTelegramRateLimitTracker(bot.telegram, { verbose: VERBOSE });
+// Issue #2166: Telegraf hands every update a *new* `Telegram` client, so
+// instrumenting `bot.telegram` alone leaves `ctx.reply()` unprotected. Install
+// on the bot client (for background sends) and on each per-update context.
+installTelegramContextSafety(bot, { verbose: VERBOSE });
 // Track bot startup time (Unix seconds to match Telegram's message.date format)
 const BOT_START_TIME = Math.floor(Date.now() / 1000);
 

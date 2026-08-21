@@ -296,22 +296,41 @@ function stripMarkdown(text) {
   assert(!plain.includes(']('), 'All links converted in complex message', `Got: ${plain}`);
 }
 
-// Test: safeReply warns and falls back to useful plain text on formatting errors
+// Test: safeReply rejects broken Markdown before it reaches Telegram (issue #2166)
 {
   const calls = [];
   const ctx = {
+    chat: { id: 1 },
+    reply: async (text, options = {}) => {
+      calls.push({ text, options });
+      if (options.parse_mode === 'Markdown') throw new Error("400: Bad Request: can't parse entities: Can't find end of the entity");
+      return { ok: true };
+    },
+  };
+  await safeReply(ctx, '*Broken help message', { fallbackLocale: 'ru' });
+  assertEqual(calls.length, 1, 'safeReply skips the doomed Markdown attempt (pre-send validation)');
+  assertEqual(calls[0].options.parse_mode, undefined, 'Fallback removes parse mode');
+  assert(calls[0].text.includes('Обнаружена ошибка форматирования'), 'Fallback warns in user locale');
+  assert(calls[0].text.includes('Broken help message'), 'Fallback includes original message content as plain text');
+}
+
+// Test: safeReply still falls back when Telegram rejects text that parses locally
+{
+  const calls = [];
+  const ctx = {
+    chat: { id: 1 },
     reply: async (text, options = {}) => {
       calls.push({ text, options });
       if (calls.length === 1) throw new Error("400: Bad Request: can't parse entities: Can't find end of the entity");
       return { ok: true };
     },
   };
-  await safeReply(ctx, '*Broken help message', { fallbackLocale: 'ru' });
+  await safeReply(ctx, 'Perfectly *valid* markdown', { fallbackLocale: 'ru' });
   assertEqual(calls.length, 2, 'safeReply retries once as plain text');
   assertEqual(calls[0].options.parse_mode, 'Markdown', 'First attempt uses Markdown');
   assertEqual(calls[1].options.parse_mode, undefined, 'Fallback removes parse mode');
   assert(calls[1].text.includes('Обнаружена ошибка форматирования'), 'Fallback warns in user locale');
-  assert(calls[1].text.includes('Broken help message'), 'Fallback includes original message content as plain text');
+  assert(calls[1].text.includes('valid'), 'Fallback includes original message content as plain text');
 }
 
 // Test: message length errors are handled as Telegram length-limit errors, not formatting errors
@@ -382,8 +401,10 @@ function stripMarkdown(text) {
     },
   };
   installTelegramFormattingFallback(telegram, { fallbackLocale: 'ru', verbose: true });
-  await telegram.sendMessage(1, '*Broken send', { parse_mode: 'Markdown' });
-  await telegram.editMessageText(1, 2, undefined, '*Broken edit', { parse_mode: 'Markdown' });
+  // Valid Markdown locally, rejected by the (fake) Bot API: exercises the
+  // runtime fallback rather than the pre-send validation shortcut.
+  await telegram.sendMessage(1, '*Broken send*', { parse_mode: 'Markdown' });
+  await telegram.editMessageText(1, 2, undefined, '*Broken edit*', { parse_mode: 'Markdown' });
 
   assertEqual(calls.length, 4, 'send and edit each retry once');
   assertEqual(calls[1].options.parse_mode, undefined, 'send fallback removes parse mode');

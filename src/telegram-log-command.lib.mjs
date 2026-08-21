@@ -25,6 +25,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { safeReply, safeReplyWithDocument, safeSendDocument } from './telegram-safe-reply.lib.mjs';
 
 const UUID_RE = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
 const ISOLATION_BACKENDS = new Set(['screen', 'tmux', 'docker']);
@@ -212,9 +213,9 @@ export async function registerLogCommand(bot, options) {
     const sessionId = directSessionId || replySessionId;
 
     if (!sessionId) {
-      await ctx.reply('❌ /log requires a session id.\n\nUsage:\n• `/log <UUID>` — fetch a specific session log\n• Reply to a session message with `/log` — fetch the session referenced in that message', {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, '❌ /log requires a session id.\n\nUsage:\n• `/log <UUID>` — fetch a specific session log\n• Reply to a session message with `/log` — fetch the session referenced in that message', {
         reply_to_message_id: message.message_id,
+        verbose: VERBOSE,
       });
       return;
     }
@@ -261,9 +262,9 @@ export async function registerLogCommand(bot, options) {
     }
 
     if (!statusResult || !statusResult.exists) {
-      await ctx.reply(`❌ Session \`${sessionId}\` is not known to start-command.\n\nUse the session id from a \`📊 Session: <uuid>\` line in one of the bot's status messages.`, {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, `❌ Session \`${sessionId}\` is not known to start-command.\n\nUse the session id from a \`📊 Session: <uuid>\` line in one of the bot's status messages.`, {
         reply_to_message_id: message.message_id,
+        verbose: VERBOSE,
       });
       return;
     }
@@ -305,17 +306,17 @@ export async function registerLogCommand(bot, options) {
       return;
     }
     if (!(await fileExists(logPath))) {
-      await ctx.reply(`❌ Log file does not exist on disk:\n\`${logPath}\`\n\nThe session may have been cleaned up by the host or the isolation backend.`, {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, `❌ Log file does not exist on disk:\n\`${logPath}\`\n\nThe session may have been cleaned up by the host or the isolation backend.`, {
         reply_to_message_id: message.message_id,
+        verbose: VERBOSE,
       });
       return;
     }
     const size = await fileSize(logPath);
     if (size !== null && size > TELEGRAM_DOCUMENT_MAX_BYTES) {
-      await ctx.reply(`❌ Log file is ${(size / (1024 * 1024)).toFixed(1)} MB which exceeds Telegram's 50 MB document upload limit.\n\nFile path on host: \`${logPath}\``, {
-        parse_mode: 'Markdown',
+      await safeReply(ctx, `❌ Log file is ${(size / (1024 * 1024)).toFixed(1)} MB which exceeds Telegram's 50 MB document upload limit.\n\nFile path on host: \`${logPath}\``, {
         reply_to_message_id: message.message_id,
+        verbose: VERBOSE,
       });
       return;
     }
@@ -333,7 +334,7 @@ export async function registerLogCommand(bot, options) {
       let upload;
       try {
         upload = await prepareSanitizedLogUpload(logPath, caption);
-        await ctx.replyWithDocument({ source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown' });
+        await safeReplyWithDocument(ctx, { source: upload.path, filename }, { reply_to_message_id: message.message_id, caption: upload.caption, parse_mode: 'Markdown', verbose: VERBOSE });
       } catch (error) {
         console.error('[ERROR] /log: replyWithDocument failed:', error);
         await ctx.reply('❌ Failed to sanitize or upload the log.', { reply_to_message_id: message.message_id });
@@ -382,7 +383,8 @@ export async function registerLogCommand(bot, options) {
       upload = await prepareSanitizedLogUpload(logPath, caption);
       const replyOpts = forwardedMessageId ? { reply_to_message_id: forwardedMessageId, caption, parse_mode: 'Markdown' } : { caption, parse_mode: 'Markdown' };
       replyOpts.caption = upload.caption;
-      await ctx.telegram.sendDocument(userId, { source: upload.path, filename }, replyOpts);
+      replyOpts.verbose = VERBOSE;
+      await safeSendDocument(ctx.telegram, userId, { source: upload.path, filename }, replyOpts);
     } catch (error) {
       console.error('[ERROR] /log: sendDocument to DM failed:', error);
       // Tell the user, in their original chat, that DM delivery failed
@@ -397,9 +399,9 @@ export async function registerLogCommand(bot, options) {
     // Acknowledge in the original chat (only if it wasn't already a DM).
     if (chatType !== 'private') {
       try {
-        await ctx.reply(`📬 Sent the log for \`${sessionId}\` to your direct messages (private repository).`, {
-          parse_mode: 'Markdown',
+        await safeReply(ctx, `📬 Sent the log for \`${sessionId}\` to your direct messages (private repository).`, {
           reply_to_message_id: message.message_id,
+          verbose: VERBOSE,
         });
       } catch (error) {
         console.error('[ERROR] /log: failed to acknowledge in chat:', error);

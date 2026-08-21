@@ -14,6 +14,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1688
  */
 
+import { safeReply } from './telegram-safe-reply.lib.mjs';
+
 // Map<userId, { username, firstName, subscribedAt, sourceChatId }>
 const subscribers = new Map();
 
@@ -196,9 +198,9 @@ export function registerSubscribeCommands(bot, options = {}) {
       message = 'ℹ️ You are already subscribed.\n\nUse /unsubscribe to stop receiving private notifications when /solve commands finish.';
     }
 
-    await ctx.reply(message, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, message, {
       reply_to_message_id: ctx.message?.message_id,
+      verbose: VERBOSE,
     });
 
     VERBOSE && console.log(`[VERBOSE] Subscriber ${userId} (${ctx.from.username || ctx.from.first_name || 'unknown'}) added (new=${wasNew}); total=${getSubscriberCount()}`);
@@ -210,9 +212,9 @@ export function registerSubscribeCommands(bot, options = {}) {
     const userId = ctx.from.id;
     const wasRemoved = removeSubscriber(userId);
 
-    await ctx.reply(wasRemoved ? UNSUBSCRIBE_CONFIRMATION : NOT_SUBSCRIBED_MESSAGE, {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, wasRemoved ? UNSUBSCRIBE_CONFIRMATION : NOT_SUBSCRIBED_MESSAGE, {
       reply_to_message_id: ctx.message?.message_id,
+      verbose: VERBOSE,
     });
 
     VERBOSE && console.log(`[VERBOSE] Subscriber ${userId} (${ctx.from.username || ctx.from.first_name || 'unknown'}) removed=${wasRemoved}; total=${getSubscriberCount()}`);

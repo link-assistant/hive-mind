@@ -31,6 +31,9 @@
 import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
 import { cleanNonPrintableChars } from './telegram-markdown.lib.mjs';
+// Issue #2166: every reply/edit in this module goes through the one send funnel
+// (validated, logged, plain-text fallback) even when a caller does not inject it.
+import { safeReply as defaultSafeReply, safeEditMessageText as defaultSafeEditMessageText } from './telegram-safe-reply.lib.mjs';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -205,7 +208,7 @@ export function extractStopTarget(text, repliedTo) {
  * @returns {Promise<boolean>} true when the card was edited
  * @see https://github.com/link-assistant/hive-mind/issues/1783
  */
-export async function updateQueueCardForCancellation(item, url, tool, stopperName, { safeEditMessageText = null, verbose = false } = {}) {
+export async function updateQueueCardForCancellation(item, url, tool, stopperName, { safeEditMessageText = defaultSafeEditMessageText, verbose = false } = {}) {
   if (!item || !item.messageInfo || !item.ctx) return false;
   const toolSuffix = tool ? ` from \`${tool}\` queue` : '';
   const stopperSuffix = stopperName ? ` by ${stopperName}` : '';
@@ -215,8 +218,7 @@ export async function updateQueueCardForCancellation(item, url, tool, stopperNam
     // Issue #2166: go through the shared safe funnel when the caller provides
     // it, so a card whose URL contains Markdown-significant characters is
     // still updated (as plain text) instead of failing silently.
-    if (safeEditMessageText) await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, { parse_mode: 'Markdown', verbose });
-    else await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+    await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, { verbose });
     // Match the consumer's contract: once a card reaches a terminal state we
     // forget the message coordinates so nothing else tries to edit it.
     item.messageInfo = null;
@@ -279,7 +281,7 @@ export function registerStartStopCommands(bot, options) {
   // Issue #2166: every reply goes through the shared safe-send funnel (pre-send
   // validation, audit log, plain-text fallback). The defaults keep the module
   // usable in isolation (tests) without a bot wired up.
-  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = (ctx, text, extra = {}) => ctx.reply(text, extra), safeEditMessageText = null } = options;
+  const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, getSolveQueue, safeReply = defaultSafeReply, safeEditMessageText = defaultSafeEditMessageText } = options;
   const stopIsolatedSessionImpl = options.stopIsolatedSession || (async (...args) => (await import('./isolation-runner.lib.mjs')).stopIsolatedSession(...args));
   // Issue #1783: look the UUID up in the session monitor so /stop can let the
   // user who started the task stop it (mirrors /terminal_watch from PR #1779).
@@ -490,7 +492,7 @@ export function registerStartStopCommands(bot, options) {
     }
 
     try {
-      await ctx.telegram.editMessageText(ack.chat.id, ack.message_id, undefined, lines.join('\n'), { parse_mode: 'Markdown' });
+      await safeEditMessageText(ctx.telegram, ack.chat.id, ack.message_id, undefined, lines.join('\n'), { verbose: VERBOSE });
     } catch (error) {
       console.error('[ERROR] /stop: editMessageText failed, falling back to reply:', error);
       await safeReply(ctx, lines.join('\n'), { parse_mode: 'Markdown', reply_to_message_id: message.message_id });

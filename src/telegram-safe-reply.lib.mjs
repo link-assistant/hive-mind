@@ -539,6 +539,31 @@ export async function safeReply(ctx, text, options = {}) {
   });
 }
 
+/**
+ * Bot-initiated send (no `ctx`): same funnel as {@link safeReply}.
+ *
+ * Used by background senders (session monitor, subscriber broadcasts) that hold
+ * a `Telegram` client instead of a context (issue #2166).
+ *
+ * @param {object} telegram - Telegraf `Telegram` client.
+ * @param {number|string} chatId - Target chat.
+ * @param {string} text - Message text.
+ * @param {object} [options] - Telegram options plus `fallbackLocale`/`verbose`.
+ */
+export async function safeSendMessage(telegram, chatId, text, options = {}) {
+  const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
+  const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
+  return await sendTelegramTextChunks({
+    text: await sanitizeForPublication(text),
+    telegramOptions: firstOptions,
+    fallbackLocale,
+    verbose,
+    scope: 'safeSendMessage',
+    target: { chatId, threadId: firstOptions.message_thread_id },
+    sendChunk: (chunk, chunkOptions) => telegram.sendMessage(chatId, chunk, chunkOptions),
+  });
+}
+
 export async function safeEditMessageText(telegram, chatId, messageId, inlineMessageId, text, options = {}) {
   const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
   const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
@@ -551,6 +576,103 @@ export async function safeEditMessageText(telegram, chatId, messageId, inlineMes
     target: { chatId, messageId, inlineMessageId },
     editChunk: (chunk, chunkOptions) => telegram.editMessageText(chatId, messageId, inlineMessageId, chunk, chunkOptions),
     sendFollowUpChunk: chatId !== undefined && chatId !== null && typeof telegram.sendMessage === 'function' ? (chunk, chunkOptions) => telegram.sendMessage(chatId, chunk, chunkOptions) : null,
+  });
+}
+
+/**
+ * Telegram truncates media captions at 1024 characters (text messages get 4096).
+ */
+export const TELEGRAM_CAPTION_LIMIT = 1024;
+
+/**
+ * Make media options safe to send (issue #2166).
+ *
+ * A document/photo caption is parsed with the same entity parser as a message,
+ * so `caption: '📁 Log for session `abc`'` with an unbalanced backtick makes the
+ * whole upload fail with an opaque 400 — and, because captions were never routed
+ * through the send funnel, the failure was invisible. This validates the caption
+ * *before* the call and degrades to plain text instead.
+ *
+ * @param {object} options - Telegram options (may carry `caption`/`parse_mode`).
+ * @param {{scope?: string, verbose?: boolean}} [context]
+ * @returns {object} Options safe to hand to the Bot API.
+ */
+export function buildSafeCaptionOptions(options = {}, { scope = 'caption', verbose = false } = {}) {
+  const { telegramOptions } = splitOptions(options);
+  const caption = telegramOptions.caption;
+  if (typeof caption !== 'string' || caption.length === 0) return telegramOptions;
+
+  let text = caption;
+  let parseMode = telegramOptions.parse_mode;
+
+  if (parseMode) {
+    const validation = validateTelegramText(text, parseMode);
+    if (!validation.valid) {
+      console.error(`[telegram-send] ${scope}: pre-send validation rejected a ${parseMode} caption: ${validation.description}`);
+      if (verbose) console.error(`[telegram-send] ${scope}: byte offset ${validation.byteOffset} context: ${validation.context}`);
+      text = stripTelegramMarkdown(text);
+      parseMode = undefined;
+    }
+  }
+
+  if (text.length > TELEGRAM_CAPTION_LIMIT) {
+    console.warn(`[telegram-send] ${scope}: caption is ${text.length} chars, truncating to ${TELEGRAM_CAPTION_LIMIT} (Telegram limit).`);
+    text = `${stripTelegramMarkdown(text).slice(0, TELEGRAM_CAPTION_LIMIT - 1)}…`;
+    parseMode = undefined;
+  }
+
+  return { ...telegramOptions, caption: text, parse_mode: parseMode };
+}
+
+async function sendMediaWithCaptionFallback({ scope, target, options, verbose, send }) {
+  const safeOptions = buildSafeCaptionOptions(options, { scope, verbose });
+  const id = logSendAttempt({ scope, target, text: safeOptions.caption ?? '', options: safeOptions, verbose });
+  try {
+    const result = await send(safeOptions);
+    logSendSuccess({ id, scope, result });
+    return result;
+  } catch (error) {
+    logSendRejected({ id, scope, error });
+    if (!safeOptions.parse_mode || !isTelegramBadRequestError(error)) throw error;
+    const plainOptions = { ...safeOptions, parse_mode: undefined, caption: typeof safeOptions.caption === 'string' ? stripTelegramMarkdown(safeOptions.caption) : safeOptions.caption };
+    logFormattingFailure(scope, error, safeOptions.caption, verbose, plainOptions.caption);
+    const retryId = logSendAttempt({ scope: `${scope}:plainText`, target, text: plainOptions.caption ?? '', options: plainOptions, verbose });
+    try {
+      const result = await send(plainOptions);
+      logSendSuccess({ id: retryId, scope: `${scope}:plainText`, result });
+      return result;
+    } catch (plainError) {
+      logSendRejected({ id: retryId, scope: `${scope}:plainText`, error: plainError });
+      throw plainError;
+    }
+  }
+}
+
+/**
+ * `ctx.replyWithDocument` with caption validation, logging and plain-text fallback.
+ */
+export async function safeReplyWithDocument(ctx, document, options = {}) {
+  const { verbose } = splitOptions(options);
+  return await sendMediaWithCaptionFallback({
+    scope: 'safeReplyWithDocument',
+    target: { chatId: ctx?.chat?.id },
+    options,
+    verbose,
+    send: sendOptions => ctx.replyWithDocument(document, sendOptions),
+  });
+}
+
+/**
+ * `telegram.sendDocument` with caption validation, logging and plain-text fallback.
+ */
+export async function safeSendDocument(telegram, chatId, document, options = {}) {
+  const { verbose } = splitOptions(options);
+  return await sendMediaWithCaptionFallback({
+    scope: 'safeSendDocument',
+    target: { chatId },
+    options,
+    verbose,
+    send: sendOptions => telegram.sendDocument(chatId, document, sendOptions),
   });
 }
 

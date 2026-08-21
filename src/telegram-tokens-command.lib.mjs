@@ -24,6 +24,7 @@
 
 import { getAllKnownLocalTokens } from './token-sanitization.lib.mjs';
 import { maskToken } from './lib.mjs';
+import { safeReply } from './telegram-safe-reply.lib.mjs';
 
 /**
  * Resolve allowed chat IDs into an array of numeric IDs the user could own.
@@ -146,7 +147,7 @@ export const registerTokensCommand = (bot, options = {}) => {
     }
 
     const message = formatTokenList(tokens);
-    await ctx.reply(message, { parse_mode: 'Markdown' });
+    await safeReply(ctx, message);
   });
 };
 

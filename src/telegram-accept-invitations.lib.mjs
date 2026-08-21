@@ -19,6 +19,7 @@
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
+import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 
 const execRaw = promisify(execCallback);
 // Issue #1726: rate-limit safe gh wrapper.
@@ -148,9 +149,10 @@ export function registerAcceptInvitesCommand(bot, options) {
       return await ctx.reply(errMsg, { reply_to_message_id: ctx.message.message_id });
     }
 
-    const fetchingMessage = await ctx.reply('🔄 Fetching pending GitHub invitations\\.\\.\\.', {
+    const fetchingMessage = await safeReply(ctx, '🔄 Fetching pending GitHub invitations\\.\\.\\.', {
       reply_to_message_id: ctx.message.message_id,
       parse_mode: 'MarkdownV2',
+      verbose: VERBOSE,
     });
 
     // State for tracking progress
@@ -169,7 +171,7 @@ export function registerAcceptInvitesCommand(bot, options) {
     const updateMessage = async () => {
       try {
         const message = buildProgressMessage(state);
-        await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, message, { parse_mode: 'MarkdownV2', verbose: VERBOSE });
       } catch (err) {
         // Ignore "message not modified" errors
         if (!err.message?.includes('message is not modified')) {
@@ -238,7 +240,7 @@ export function registerAcceptInvitesCommand(bot, options) {
     } catch (error) {
       console.error('Error in /accept_invites:', error);
       const escapedError = escapeMarkdown(error.message);
-      await ctx.telegram.editMessageText(fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapedError}\n\nMake sure \`gh\` CLI is installed and authenticated\\.`, { parse_mode: 'MarkdownV2' });
+      await safeEditMessageText(ctx.telegram, fetchingMessage.chat.id, fetchingMessage.message_id, undefined, `❌ Error fetching invitations: ${escapedError}\n\nMake sure \`gh\` CLI is installed and authenticated\\.`, { parse_mode: 'MarkdownV2', verbose: VERBOSE });
     }
   });
 }

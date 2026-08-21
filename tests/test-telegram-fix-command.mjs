@@ -182,7 +182,8 @@ await test('/fix is ignored when disabled on the bot instance', async () => {
   const ctx = buildFixCtx({ text: `/fix ${repoUrl}` });
   await handleFixCommand(ctx);
   assert.equal(calls.executed.length, 0);
-  assert.match(buildFixCtx.lastPlainReply.text, /disabled on this bot instance/);
+  assert.deepEqual(calls.replies.length, 1);
+  assert.match(calls.replies[0], /disabled on this bot instance/);
 });
 
 await test('/fix is ignored in a stopped chat', async () => {
@@ -196,14 +197,16 @@ await test('/fix is ignored outside group chats', async () => {
   const { handleFixCommand, calls } = buildFixHarness({ isGroupChat: () => false });
   await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
   assert.equal(calls.executed.length, 0);
-  assert.match(buildFixCtx.lastPlainReply.text, /only works in group chats/);
+  assert.deepEqual(calls.replies.length, 1);
+  assert.match(calls.replies[0], /only works in group chats/);
 });
 
 await test('/fix is ignored in an unauthorized topic', async () => {
   const { handleFixCommand, calls } = buildFixHarness({ isTopicAuthorized: () => false });
   await handleFixCommand(buildFixCtx({ text: `/fix ${repoUrl}` }));
   assert.equal(calls.executed.length, 0);
-  assert.match(buildFixCtx.lastPlainReply.text, /not authorized/);
+  assert.deepEqual(calls.replies.length, 1);
+  assert.match(calls.replies[0], /not authorized/);
 });
 
 await test('/fix is ignored for messages sent before the bot started', async () => {

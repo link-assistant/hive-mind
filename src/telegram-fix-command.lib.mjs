@@ -19,6 +19,7 @@ import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
+import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 import { partitionFixArgs } from './fix.ci-cd.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
@@ -77,7 +78,7 @@ export function buildFixCommandArgs(text) {
  * Options `/fix` consumes itself; everything else is forwarded to `/solve` and
  * must therefore be a valid `solve` option.
  */
-export const FIX_OWN_OPTIONS = Object.freeze(['--ci-cd', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
+export const FIX_OWN_OPTIONS = Object.freeze(['--ci-cd', '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
 
 /**
  * Reject a `/fix` request that contains any option `fix` or `solve` cannot act on.
@@ -134,7 +135,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerFixCommand(bot, options) {
-  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
+  const { VERBOSE, fixEnabled, addBreadcrumb, isOldMessage, isForwardedOrReply, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply = defaultSafeReply, executeAndUpdateMessage, resolveLocale = null, solveOverrides = [] } = options;
 
   async function handleFixCommand(ctx) {
     const commandDisplay = '/fix';
@@ -178,17 +179,19 @@ export function registerFixCommand(bot, options) {
       return;
     }
 
-    // Issue #2166: fail immediately on any unsupported option, before a work
-    // session is spawned, so a typo can never turn into a silent no-op.
-    const optionsError = await validateFixCommandOptions(built.args);
-    if (optionsError) {
-      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
-      return;
-    }
-
     const { backend: perCommandIsolation, filteredArgs } = extractIsolationFromArgs(built.args);
     if (perCommandIsolation && !isValidPerCommandIsolation(perCommandIsolation)) {
       await safeReply(ctx, `❌ Invalid --isolation value '${escapeMarkdown(perCommandIsolation)}'. Must be: screen, tmux, or docker`, { reply_to_message_id: ctx.message.message_id });
+      return;
+    }
+
+    // Issue #2166: fail immediately on any unsupported option, before a work
+    // session is spawned, so a typo can never turn into a silent no-op. Runs
+    // after --isolation extraction because that flag is consumed by /fix itself
+    // and is not part of the solve vocabulary the probe parser validates.
+    const optionsError = await validateFixCommandOptions(filteredArgs);
+    if (optionsError) {
+      await safeReply(ctx, `❌ Invalid options: ${escapeMarkdown(optionsError)}\n\nUse /help to see available options`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 

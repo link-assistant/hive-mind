@@ -14,6 +14,7 @@
  */
 
 import { t } from './i18n.lib.mjs';
+import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
 
 const GROUP_ONLY_MESSAGE = '❌ The /queue command only works in group chats. Please add this bot to a group and make it an admin.';
 
@@ -50,7 +51,7 @@ export function registerSolveQueueCommand(bot, options) {
       data: { chatId: ctx.chat?.id, chatType: ctx.chat?.type, userId: ctx.from?.id, username: ctx.from?.username },
     });
     const locale = resolveLocale ? resolveLocale(ctx) : null;
-    const replyWithFallback = (text, replyOptions = {}) => (safeReply ? safeReply(ctx, text, replyOptions) : ctx.reply(text, { parse_mode: 'Markdown', ...replyOptions }));
+    const replyWithFallback = (text, replyOptions = {}) => (safeReply || defaultSafeReply)(ctx, text, replyOptions);
 
     // Ignore messages sent before bot started
     if (isOldMessage(ctx)) {

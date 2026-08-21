@@ -18,6 +18,7 @@ import { reserveStartSlotForQueue } from './queue-start-reservation.lib.mjs';
 import { formatExecutingWorkSessionMessage, formatFailedLaunchMessage, formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 import { canonicalizeGitHubUrl as canonicalizeQueueUrl } from './github-url-parser.lib.mjs';
 import { t } from './i18n.lib.mjs';
+import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { lt } from './limits-i18n.lib.mjs';
 export const QueueItemStatus = {
   QUEUED: 'queued',
@@ -956,7 +957,7 @@ export class SolveQueue {
     if (!item.messageInfo || !item.ctx) return;
     try {
       const { chatId, messageId } = item.messageInfo;
-      await item.ctx.telegram.editMessageText(chatId, messageId, undefined, text, { parse_mode: 'Markdown' });
+      await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, { verbose: this.verbose });
       if (trackUpdateTime) {
         item.lastMessageUpdateTime = Date.now();
       }
@@ -1102,7 +1103,7 @@ export class SolveQueue {
           if (chatId && messageId) {
             try {
               if (result.warning) {
-                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, { parse_mode: 'Markdown' });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, { verbose: this.verbose });
               } else if (result.success) {
                 const response = formatExecutingWorkSessionMessage({
                   sessionName,
@@ -1110,7 +1111,7 @@ export class SolveQueue {
                   infoBlock: item.infoBlock,
                   locale: item.locale,
                 });
-                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, { verbose: this.verbose });
               } else {
                 // Issue #2154: a queued /solve that fails to launch reports the
                 // same way as a direct one — with its session UUID and a note
@@ -1123,7 +1124,7 @@ export class SolveQueue {
                   error: result.error || result.output,
                   locale: item.locale,
                 });
-                await item.ctx.telegram.editMessageText(chatId, messageId, undefined, response, { parse_mode: 'Markdown' });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, { verbose: this.verbose });
               }
             } catch (error) {
               // Log message edit failures for debugging
@@ -1145,7 +1146,7 @@ export class SolveQueue {
       if (chatId && messageId && item.ctx) {
         try {
           const errorText = item.infoBlock ? `❌ Error: ${error.message}\n\n${item.infoBlock}` : `❌ Error: ${error.message}`;
-          await item.ctx.telegram.editMessageText(chatId, messageId, undefined, errorText, { parse_mode: 'Markdown' });
+          await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, errorText, { verbose: this.verbose });
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062

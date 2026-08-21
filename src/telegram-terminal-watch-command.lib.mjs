@@ -8,6 +8,7 @@
 import fs from 'fs/promises';
 import { extractSessionIdFromText, decideLogDestination, resolveLogPath } from './telegram-log-command.lib.mjs';
 import { parseSessionExitFooter } from './isolation-runner.lib.mjs';
+import { safeReply, safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, isFailureSessionStatus } from './session-status.lib.mjs';
 
 const DEFAULT_WIDTH = 120;
@@ -248,7 +249,7 @@ export function watchTerminalLogSession({ bot, chatId, messageId, sessionId, log
       const message = formatTerminalWatchMessage({ sessionId, statusResult, logText, options, updateCount, completed, repoDescription });
       const shouldEdit = !lastMessage || snapshotChanged || (completed && message !== lastMessage);
       if (shouldEdit && message !== lastMessage) {
-        await bot.telegram.editMessageText(chatId, messageId, undefined, message, { parse_mode: 'Markdown' });
+        await safeEditMessageText(bot.telegram, chatId, messageId, undefined, message, { verbose });
         lastMessage = message;
       }
       lastSnapshot = snapshot;
@@ -281,9 +282,9 @@ function buildUsage() {
 
 async function createWatchMessage({ ctx, targetChatId, replyToMessageId, text }) {
   if (targetChatId === ctx.chat.id) {
-    return await ctx.reply(text, { parse_mode: 'Markdown', reply_to_message_id: replyToMessageId });
+    return await safeReply(ctx, text, { reply_to_message_id: replyToMessageId });
   }
-  return await ctx.telegram.sendMessage(targetChatId, text, replyToMessageId ? { parse_mode: 'Markdown', reply_to_message_id: replyToMessageId } : { parse_mode: 'Markdown' });
+  return await safeSendMessage(ctx.telegram, targetChatId, text, replyToMessageId ? { reply_to_message_id: replyToMessageId } : {});
 }
 
 async function forwardOrCopyToDm(ctx, sourceMessage) {
@@ -324,7 +325,7 @@ async function startWatchFromResolvedSession({ bot, ctx, sessionId, statusResult
   watchTerminalLogSession({ bot, chatId: targetChatId, messageId: watchMessage.message_id, sessionId, logPath, querySessionStatus, isTerminalSessionStatus, options: watchOptions, repoDescription, verbose, initialStatusResult: statusResult, initialLogText, initialMessage: initialText });
 
   if (!auto && decision.destination === 'dm' && ctx.chat.type !== 'private') {
-    await ctx.reply(`📬 Started terminal watch for \`${sessionId}\` in your direct messages.`, { parse_mode: 'Markdown', reply_to_message_id: ctx.message.message_id });
+    await safeReply(ctx, `📬 Started terminal watch for \`${sessionId}\` in your direct messages.`, { reply_to_message_id: ctx.message.message_id, verbose });
   }
   return { started: true, messageId: watchMessage.message_id, sessionInfo };
 }
@@ -371,13 +372,13 @@ export async function registerTerminalWatchCommand(bot, options) {
 
     const parsedArgs = parseTerminalWatchArgs(message.text || '');
     if (parsedArgs.errors.length > 0) {
-      await ctx.reply(`❌ Invalid /terminal_watch options:\n${parsedArgs.errors.map(e => `• ${e}`).join('\n')}\n\n${buildUsage()}`, { parse_mode: 'Markdown', reply_to_message_id: message.message_id });
+      await safeReply(ctx, `❌ Invalid /terminal_watch options:\n${parsedArgs.errors.map(e => `• ${e}`).join('\n')}\n\n${buildUsage()}`, { reply_to_message_id: message.message_id, verbose: VERBOSE });
       return;
     }
 
     const sessionId = parsedArgs.sessionId || extractSessionIdFromText(message.reply_to_message?.text || message.reply_to_message?.caption || '');
     if (!sessionId) {
-      await ctx.reply(`❌ /terminal_watch requires a session id.\n\n${buildUsage()}`, { parse_mode: 'Markdown', reply_to_message_id: message.message_id });
+      await safeReply(ctx, `❌ /terminal_watch requires a session id.\n\n${buildUsage()}`, { reply_to_message_id: message.message_id, verbose: VERBOSE });
       return;
     }
 
@@ -417,7 +418,7 @@ export async function registerTerminalWatchCommand(bot, options) {
     }
 
     if (!statusResult?.exists) {
-      await ctx.reply(`❌ Session \`${sessionId}\` is not known to start-command.`, { parse_mode: 'Markdown', reply_to_message_id: message.message_id });
+      await safeReply(ctx, `❌ Session \`${sessionId}\` is not known to start-command.`, { reply_to_message_id: message.message_id, verbose: VERBOSE });
       return;
     }
 

@@ -23,6 +23,7 @@ import fs from 'fs/promises';
 import { promisify } from 'util';
 import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
+import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
@@ -942,11 +943,11 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         let notifyFromChatId = null;
         let notifyMessageId = null;
         if (sessionInfo.messageId) {
-          await bot.telegram.editMessageText(sessionInfo.chatId, sessionInfo.messageId, undefined, message, { parse_mode: 'Markdown' });
+          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, { verbose });
           notifyFromChatId = sessionInfo.chatId;
           notifyMessageId = sessionInfo.messageId;
         } else {
-          const sent = await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, { verbose });
           notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
           notifyMessageId = sent?.message_id || null;
         }

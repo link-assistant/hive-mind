@@ -244,7 +244,7 @@ const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFro
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
-const { isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
+const { isTelegramFormattingError, isTelegramMessageTooLongError, safeEditMessageText, safeReply, safeSendMessage, TELEGRAM_TEXT_LIMIT } = await import('./telegram-safe-reply.lib.mjs');
 const { installTelegramContextSafety } = await import('./telegram-context-safety.lib.mjs');
 const { registerTerminalWatchCommand, startAutoTerminalWatchForSession } = await import('./telegram-terminal-watch-command.lib.mjs');
 const { launchBotWithRetry } = await import('./telegram-bot-launcher.lib.mjs');
@@ -1007,7 +1007,7 @@ registerLeakNotifier(async ({ owner, repo, prNumber, tokenHits = [] }) => {
         if (creator && creator.user?.id) ownerUserId = creator.user.id;
       }
       if (ownerUserId) {
-        await bot.telegram.sendMessage(ownerUserId, text, { parse_mode: 'Markdown' }).catch(err => {
+        await safeSendMessage(bot.telegram, ownerUserId, text, { verbose: VERBOSE }).catch(err => {
           console.warn(`[telegram-leak-notifier] DM to user ${ownerUserId} (chat ${chatId}) failed: ${err.message}`);
         });
       }

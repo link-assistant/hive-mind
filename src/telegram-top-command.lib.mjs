@@ -16,6 +16,7 @@
 
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
+import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -128,9 +129,9 @@ export function registerTopCommand(bot, options) {
     }
 
     // Show experimental feature warning
-    await ctx.reply('🧪 *EXPERIMENTAL FEATURE*\n\nThis command is experimental and may have issues. Use with caution.', {
-      parse_mode: 'Markdown',
+    await safeReply(ctx, '🧪 *EXPERIMENTAL FEATURE*\n\nThis command is experimental and may have issues. Use with caution.', {
       reply_to_message_id: ctx.message.message_id,
+      verbose: VERBOSE,
     });
 
     // Check if there's already an active top session for this chat
@@ -188,11 +189,11 @@ export function registerTopCommand(bot, options) {
     const firstOutput = await captureTopOutput(chatId);
     if (firstOutput) {
       try {
-        await ctx.telegram.editMessageText(chatId, initialMessage.message_id, undefined, `\`\`\`\n${firstOutput}\n\`\`\``, {
-          parse_mode: 'Markdown',
+        await safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${firstOutput}\n\`\`\``, {
           reply_markup: {
             inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
           },
+          verbose: VERBOSE,
         });
       } catch (error) {
         console.error('[ERROR] Failed to update message:', error);
@@ -204,11 +205,11 @@ export function registerTopCommand(bot, options) {
       const output = await captureTopOutput(chatId);
       if (output) {
         try {
-          await ctx.telegram.editMessageText(chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
-            parse_mode: 'Markdown',
+          await safeEditMessageText(ctx.telegram, chatId, initialMessage.message_id, undefined, `\`\`\`\n${output}\n\`\`\``, {
             reply_markup: {
               inline_keyboard: [[{ text: '🛑 Stop', callback_data: `stop_top_${chatId}` }]],
             },
+            verbose: VERBOSE,
           });
         } catch (error) {
           // Ignore "message is not modified" errors
@@ -290,9 +291,7 @@ export function registerTopCommand(bot, options) {
 
     // Update the message to show it's stopped
     try {
-      await ctx.editMessageText('🛑 Top session stopped.', {
-        parse_mode: 'Markdown',
-      });
+      await safeEditMessageText(ctx.telegram, chatId, ctx.callbackQuery?.message?.message_id, undefined, '🛑 Top session stopped.', { verbose: VERBOSE });
     } catch (error) {
       console.error('[ERROR] Failed to edit message:', error);
     }

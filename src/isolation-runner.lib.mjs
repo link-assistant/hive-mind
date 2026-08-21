@@ -26,6 +26,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 // importing this runner and creating a cycle. Re-exported here because callers
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
+import { buildRouterTaskEnv, getRouterSuppressedCredentialPaths, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGhHost } from './router-isolation.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
@@ -121,21 +122,31 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
  * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
  * sessions do not receive Claude files and Claude sessions do not receive Codex
  * files.
+ *
+ * Issue #2164 (EXPERIMENTAL): with `useRouter` the vendor credential mounts are
+ * withheld entirely, so the task never holds the subscription — it reaches the
+ * `hive-mind-router` sidecar with its own scoped token instead. Git identity is
+ * still mounted, because it carries no secret and `solve` aborts without it
+ * (issue #1939). The gh config is only withheld when `ghRouted` says gh has
+ * somewhere else to go; otherwise the task would lose GitHub access entirely.
  */
-export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
+export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, ghRouted = false } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
-  maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  const suppressed = useRouter ? new Set(getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted })) : new Set();
+  if (!suppressed.has('.config/gh')) {
+    maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  }
   // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
   maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
   maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
   if (normalizedTool === 'codex') {
-    maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    if (!suppressed.has('.codex')) maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
     // Issue #2074: Codex also discovers persistent user Agent Skills from ~/.agents/skills. Propagate that standard location alongside .codex so direct and Docker-isolated solver sessions expose the same capabilities.
-    maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
+    if (!suppressed.has('.agents')) maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
   } else if (normalizedTool === 'claude') {
-    maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
-    maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
+    if (!suppressed.has('.claude')) maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
+    if (!suppressed.has('.claude.json')) maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
   }
   return mounts;
 }
@@ -198,7 +209,17 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null } = options;
+  // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
+  // with a scoped token pointing at the `hive-mind-router` sidecar. It only
+  // engages when a token was actually issued; without one the task would have
+  // neither credentials nor a route, so we fail open to the default mounts
+  // rather than launching an agent that cannot reach any model.
+  const routerActive = isRouterEnabled({ useRouter, env }) && Boolean(routerToken);
+  const routerBaseUrl = routerActive ? resolveRouterBaseUrl({ env }).baseUrl : null;
+  const routerGhHost = routerActive ? resolveRouterGhHost({ env }) : null;
+  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, ghHost: routerGhHost }) : {};
+  const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
   const startArgs = ['--isolated', 'docker', '--image', image];
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
@@ -212,7 +233,10 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
   }
-  for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
+  for (const [name, value] of Object.entries(routerEnv)) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
+  for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, useRouter: routerWired, ghRouted: routerWired && Boolean(routerGhHost) })) {
     startArgs.push('--volume', `${mount.source}:${mount.target}`);
   }
   const taskCommand = buildShellCommand(command, args);

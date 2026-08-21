@@ -125,8 +125,14 @@ await test('session is tracked and shown BEFORE the (blocking) launch resolves',
   const promise = h.run(h.ctx, h.startingMessage, 'solve', ['https://github.com/o/r/issues/1'], 'Issue: x', 'docker');
 
   // Let the synchronous prelude + the first awaited safeEdit run, but do NOT
-  // resolve the launch yet — this models the long image-pull window.
-  await new Promise(r => setImmediate(r));
+  // resolve the launch yet — this models the long image-pull window. The edit
+  // goes through the safe send funnel (issue #2166), whose first call lazily
+  // imports the secret scanner, so poll for the edit instead of assuming it
+  // lands within a single microtask tick.
+  const editDeadline = Date.now() + 15000;
+  while (Date.now() < editDeadline && !h.edits.some(e => e.includes(SESSION))) {
+    await new Promise(r => setTimeout(r, 25));
+  }
 
   assert.ok(h.tracked.has(SESSION), 'session is tracked while the container is still starting');
   const startingEdit = h.edits.find(e => e.includes(SESSION));

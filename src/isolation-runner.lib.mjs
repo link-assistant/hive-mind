@@ -26,7 +26,8 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 // importing this runner and creating a cycle. Re-exported here because callers
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
-import { buildRouterTaskEnv, getRouterSuppressedCredentialPaths, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGhHost } from './router-isolation.lib.mjs';
+import { buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGhHost } from './router-isolation.lib.mjs';
+import { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask } from './router-task-isolation.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
@@ -612,6 +613,15 @@ export async function executeWithIsolation(command, args, options = {}) {
   const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
   if (sidecarError) return failLaunch(sidecarError);
+  // Issue #2164 (EXPERIMENTAL): --use-router replaces the task's credential
+  // mounts with a token scoped to it alone. Like the Formal AI lease this is
+  // taken before the container exists, because the token is part of the
+  // environment the container is created with — and like it, it fails closed.
+  const { router, error: routerError } = await acquireRouterForTask({ backend, useRouter: options.useRouter === true || hasUseRouterFlag(args), model: options.model ?? null, sessionId, env: hostEnv, verbose });
+  if (routerError) {
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(routerError);
+  }
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
@@ -620,7 +630,7 @@ export async function executeWithIsolation(command, args, options = {}) {
           env: await resolveFormalAiIsolationEnv(taskEnv),
         }
       : options;
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId });
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null });
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
@@ -644,6 +654,7 @@ export async function executeWithIsolation(command, args, options = {}) {
   }
   let containerFilesystemStartBytes = null;
   let formalAiAttachError = null;
+  let routerAttachError = null;
   if (result.success && backend === 'docker') {
     try {
       containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
@@ -656,9 +667,16 @@ export async function executeWithIsolation(command, args, options = {}) {
       // start sequence, and doing it here keeps the attach fail-closed on any
       // installed version instead of silently one-network on older parsers.
       formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
+      routerAttachError = await attachRouterTaskContainer({ router, sessionId, verbose });
     } finally {
       await releaseDockerContainerStartGate(sessionId, verbose);
     }
+  }
+  if (router && (!result.success || formalAiAttachError || routerAttachError)) {
+    // Fail closed for the same reason the acquire does: a task that cannot
+    // reach the router must not be left running with no route to a model.
+    if (routerAttachError) await removeDockerContainer(sessionId, verbose);
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
   }
   if (sidecar && (!result.success || formalAiAttachError)) {
     // Fail closed: without the internal network the task cannot reach Formal
@@ -668,6 +686,10 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (formalAiAttachError) {
       return failLaunch(`Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}`, { output: result.output });
     }
+  }
+  if (routerAttachError) {
+    if (sidecar) await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(`The task container could not be attached to the internal router network, so it was stopped rather than run without a route to any model (issue #2164): ${routerAttachError}`, { output: result.output });
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to

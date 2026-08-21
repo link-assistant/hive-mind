@@ -60,6 +60,25 @@ export function isRouterEnabled({ useRouter = false, env = process.env } = {}) {
 }
 
 /**
+ * Read `--use-router` out of a raw argument vector.
+ *
+ * The host has to know before it launches anything, because the sidecar must be
+ * running and the token minted by the time the task container is created — but
+ * the flag is also a real `solve`/`hive`/`task` option, so it is read from the
+ * args rather than being stripped out of them the way `--isolation` is.
+ *
+ * @param {string[]} args
+ * @returns {boolean}
+ */
+export function hasUseRouterFlag(args) {
+  const list = Array.isArray(args) ? args : [];
+  return list.some(arg => {
+    const value = String(arg ?? '');
+    return value === '--use-router' || value === '--use-router=true';
+  });
+}
+
+/**
  * Validate a router endpoint.
  *
  * Mirrors `normalizeFormalAiBaseUrl`: an origin only. A path, query, fragment

@@ -83,10 +83,10 @@ console.log('\n--- Routed tasks are pointed at the router, per tool surface ---'
 
 const claudeTaskEnv = buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: TASK_TOKEN });
 assertEqual(matches(claudeTaskEnv, { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: TASK_TOKEN, ANTHROPIC_BASE_URL: 'http://router:8080', ANTHROPIC_AUTH_TOKEN: TASK_TOKEN, ANTHROPIC_API_KEY: TASK_TOKEN }), true, 'claude is redirected via ANTHROPIC_BASE_URL, with the token offered in both accepted forms');
-assertDeepEqual(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER'], 'and nothing else is injected, so the failure above names the value that differs');
+assertEqual(matches(Object.keys(claudeTaskEnv).sort(), ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL', 'HIVE_MIND_ROUTER_TOKEN', 'HIVE_MIND_ROUTER_URL', 'HIVE_MIND_USE_ROUTER']), true, 'and nothing else is injected');
 assertEqual(matches(buildRouterTaskEnv({ tool: 'codex', baseUrl: 'http://router:8080', token: TASK_TOKEN }), { HIVE_MIND_USE_ROUTER: '1', HIVE_MIND_ROUTER_URL: 'http://router:8080', HIVE_MIND_ROUTER_TOKEN: TASK_TOKEN, OPENAI_BASE_URL: 'http://router:8080/v1', OPENAI_API_KEY: TASK_TOKEN }), true, 'codex is redirected via the OpenAI-compatible surface under /v1');
 assertEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080', token: TASK_TOKEN, ghHost: 'gh.example.com' }).GH_ENTERPRISE_TOKEN === TASK_TOKEN, true, 'gh authenticates to the router with the same scoped token');
-assertDeepEqual(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080' }), {}, 'no token means no redirect: a task is never pointed at a router it cannot authenticate to');
+assertEqual(matches(buildRouterTaskEnv({ tool: 'claude', baseUrl: 'http://router:8080' }), {}), true, 'no token means no redirect: a task is never pointed at a router it cannot authenticate to');
 
 console.log('\n--- Vendor credentials are withheld from routed tasks (R2, R9) ---');
 

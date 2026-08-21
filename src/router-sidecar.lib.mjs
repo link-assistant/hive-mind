@@ -31,6 +31,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { drainTaskSessionData } from './router-session-drain.lib.mjs';
 import { getInternalRouterBaseUrl, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, resolveRouterBaseUrl } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 
@@ -211,6 +212,20 @@ export const revokeRouterTaskToken = async ({ tokenId, containerName = ROUTER_SI
   return { revoked };
 };
 
+/**
+ * Close out a lease whose task has ended.
+ *
+ * Order matters: the session data is copied out of the task container while the
+ * router is still up to receive it, and only then is the token revoked. Both
+ * steps are best-effort and neither can keep a dead lease alive.
+ */
+export const finalizeEndedLease = async ({ lease, env = process.env, run = execFileAsync, timeoutMs, log = null, verbose = false, drain = drainTaskSessionData } = {}) => {
+  const drained = await drain({ sessionId: lease?.sessionId, env, run, timeoutMs, log, verbose });
+  if (drained?.error && log) await log(`⚠️ Could not archive session data for '${lease?.sessionId}': ${drained.error}`);
+  const revoked = await revokeRouterTaskToken({ tokenId: lease?.tokenId, run, timeoutMs, log, verbose });
+  return { drained, ...revoked };
+};
+
 /** Re-derive the sidecar record from Docker, revoking the tokens of leases that died. */
 export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   const state = readRouterSidecarState({ env, fsImpl });
@@ -220,7 +235,7 @@ export const reconcileRouterSidecar = async ({ env = process.env, fsImpl = fs, r
     log,
     verbose,
     logPrefix: LOG_PREFIX,
-    onDropped: lease => revokeRouterTaskToken({ tokenId: lease.tokenId, run, timeoutMs, log, verbose }),
+    onDropped: lease => finalizeEndedLease({ lease, env, run, timeoutMs, log, verbose }),
   });
   const container = await inspectDockerContainer(ROUTER_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
   const next = {
@@ -358,11 +373,11 @@ export const releaseRouterSidecar = async ({ sessionId, env = process.env, fsImp
   return withRouterSidecarLock(async () => {
     const state = readRouterSidecarState({ env, fsImpl });
     const released = state.leases.find(lease => lease.sessionId === sessionId);
-    if (released) await revokeRouterTaskToken({ tokenId: released.tokenId, run, timeoutMs, log, verbose });
+    if (released) await finalizeEndedLease({ lease: released, env, run, timeoutMs, log, verbose });
 
     const remaining = await reconcileSidecarLeases(
       state.leases.filter(lease => lease.sessionId !== sessionId),
-      { run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX, onDropped: lease => revokeRouterTaskToken({ tokenId: lease.tokenId, run, timeoutMs, log, verbose }) }
+      { run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX, onDropped: lease => finalizeEndedLease({ lease, env, run, timeoutMs, log, verbose }) }
     );
     writeRouterSidecarState({ ...state, leases: remaining }, { env, fsImpl });
 

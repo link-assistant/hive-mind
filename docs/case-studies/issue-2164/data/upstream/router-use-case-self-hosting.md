@@ -54,13 +54,13 @@ Either way, issuing, listing and revoking all require a credential as a Bearer
 token; a missing or wrong one is `401`, and a rejected revoke is a **no-op** —
 an outsider cannot cancel a running task's token:
 
-| Request                                                        | Result                           |
-| -------------------------------------------------------------- | -------------------------------- |
-| `POST /api/tokens` with no key / a wrong key                   | `401`                            |
-| `GET /api/tokens/list` with no key                             | `401`                            |
-| `POST /api/tokens/revoke` with no key                          | `401`, and the token stays valid |
-| any of the above with `Authorization: Bearer $TOKEN_ADMIN_KEY` | `200`                            |
-| any of the above with an admin-scoped `la_sk_…` token          | `200`                            |
+| Request | Result |
+| --- | --- |
+| `POST /api/tokens` with no key / a wrong key | `401` |
+| `GET /api/tokens/list` with no key | `401` |
+| `POST /api/tokens/revoke` with no key | `401`, and the token stays valid |
+| any of the above with `Authorization: Bearer $TOKEN_ADMIN_KEY` | `200` |
+| any of the above with an admin-scoped `la_sk_…` token | `200` |
 
 `--allow-anonymous-admin` (`ALLOW_ANONYMOUS_ADMIN=1`) restores the old open
 behaviour. It exists only so an existing deployment that depends on it is not
@@ -68,10 +68,10 @@ broken by an upgrade; do not use it on a reachable port.
 
 ### The two secrets are not interchangeable
 
-| Secret                                     | Held by      | Grants                                                |
-| ------------------------------------------ | ------------ | ----------------------------------------------------- |
-| `TOKEN_ADMIN_KEY` or an admin-scoped token | the operator | minting, listing, revoking task tokens                |
-| `la_sk_…` task token                       | one task     | proxied inference, within that token's TTL and budget |
+| Secret | Held by | Grants |
+| --- | --- | --- |
+| `TOKEN_ADMIN_KEY` or an admin-scoped token | the operator | minting, listing, revoking task tokens |
+| `la_sk_…` task token | one task | proxied inference, within that token's TTL and budget |
 
 They do not substitute for each other: a task token presented to
 `/api/tokens/list` is `401`, and the admin key presented to `/v1/messages` is
@@ -133,11 +133,11 @@ docker run -it --rm \
 Nothing external is required — no database, no message broker. State is JSON
 under `DATA_DIR` and, when `AUDIT_LOG` is set, an append-only JSONL file:
 
-| Path                | Contents                                                           | Backup?                                |
-| ------------------- | ------------------------------------------------------------------ | -------------------------------------- |
-| `$DATA_DIR`         | issued-token records (id, label, expiry, budget, usage)            | yes — losing it loses revocation state |
-| `$AUDIT_LOG`        | one line per proxied request                                       | ship to your log collector             |
-| `$CLAUDE_CODE_HOME` | the vendor session; read-only unless you log in from the container | never — it is the vendor's             |
+| Path | Contents | Backup? |
+| --- | --- | --- |
+| `$DATA_DIR` | issued-token records (id, label, expiry, budget, usage) | yes — losing it loses revocation state |
+| `$AUDIT_LOG` | one line per proxied request | ship to your log collector |
+| `$CLAUDE_CODE_HOME` | the vendor session; read-only unless you log in from the container | never — it is the vendor's |
 
 `STORAGE_POLICY=memory` keeps tokens in memory only, for ephemeral test
 deployments where nothing should survive a restart.

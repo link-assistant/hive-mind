@@ -12,11 +12,11 @@ This is the first requirement of
 
 ## Why one token per task
 
-| Property        | What a per-task token gives you                                                                                                                    |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Audit**       | Every request carries a token id, so the JSONL audit log answers "which task did this?" after the fact                                             |
-| **Monitoring**  | Admin-only `/v1/usage` exposes per-token request counts while public `/metrics` stays aggregate-only                                               |
-| **Security**    | A leaked task token exposes one task's limits, not the vendor credential, which never leaves the router                                            |
+| Property | What a per-task token gives you |
+| --- | --- |
+| **Audit** | Every request carries a token id, so the JSONL audit log answers "which task did this?" after the fact |
+| **Monitoring** | Admin-only `/v1/usage` exposes per-token request counts while public `/metrics` stays aggregate-only |
+| **Security** | A leaked task token exposes one task's limits, not the vendor credential, which never leaves the router |
 | **Containment** | `--max-tokens` bounds actual reported token spend and `--rate-limit-per-minute` prevents one runaway agent from consuming its allowance in a burst |
 
 ## 1. Start the router
@@ -57,14 +57,14 @@ Issuing is **universal**: one endpoint issues every token. What makes a token
 
 ## 3. Scope the token
 
-| Flag / field                                        | Effect                                                                                                                                                           |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--label` / `label`                                 | Name shown in `tokens list`, admin-only `/v1/usage`, and the audit log                                                                                           |
-| `--ttl-hours` / `ttl_hours`                         | Token stops working after this many hours; short TTLs make revocation mostly unnecessary                                                                         |
-| `--max-requests` / `max_requests`                   | Hard cap on forwarded requests; `429 rate_limit_error` after that. Omit for unlimited                                                                            |
-| `--max-tokens` / `max_tokens`                       | Cap on actual input plus output tokens reported by successful upstream responses; the next request after exhaustion gets `429`                                   |
-| `--rate-limit-per-minute` / `rate_limit_per_minute` | Per-token fixed one-minute request window; a burst does not affect other tokens                                                                                  |
-| `--account` / `account`                             | Strict pin to one account in a multi-subscription pool. With only one subscription it has no effect. Pinned requests fail rather than silently changing identity |
+| Flag / field | Effect |
+| --- | --- |
+| `--label` / `label` | Name shown in `tokens list`, admin-only `/v1/usage`, and the audit log |
+| `--ttl-hours` / `ttl_hours` | Token stops working after this many hours; short TTLs make revocation mostly unnecessary |
+| `--max-requests` / `max_requests` | Hard cap on forwarded requests; `429 rate_limit_error` after that. Omit for unlimited |
+| `--max-tokens` / `max_tokens` | Cap on actual input plus output tokens reported by successful upstream responses; the next request after exhaustion gets `429` |
+| `--rate-limit-per-minute` / `rate_limit_per_minute` | Per-token fixed one-minute request window; a burst does not affect other tokens |
+| `--account` / `account` | Strict pin to one account in a multi-subscription pool. With only one subscription it has no effect. Pinned requests fail rather than silently changing identity |
 
 The controls are enforced for **every** upstream — Anthropic, Codex, Gemini, Qwen,
 Gonka, Crater and generic OpenAI-compatible providers — so a task token cannot

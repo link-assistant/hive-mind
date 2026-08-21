@@ -11,12 +11,12 @@ when it authorises a request.
 
 ## Three views, three retention models
 
-| View                | Endpoint / file                         | Retention                    | Best for                      |
-| ------------------- | --------------------------------------- | ---------------------------- | ----------------------------- |
-| Prometheus counters | `GET /metrics` (public, aggregate only) | in-memory, resets on restart | dashboards, alerts            |
-| JSON snapshot       | `GET /v1/usage` (admin only)            | in-memory, resets on restart | per-token inspection, scripts |
-| Audit trail         | `--audit-log <file>` (JSONL)            | durable, append-only         | forensics, compliance         |
-| Persisted budgets   | `tokens list`                           | durable token store          | quota enforcement             |
+| View | Endpoint / file | Retention | Best for |
+| --- | --- | --- | --- |
+| Prometheus counters | `GET /metrics` (public, aggregate only) | in-memory, resets on restart | dashboards, alerts |
+| JSON snapshot | `GET /v1/usage` (admin only) | in-memory, resets on restart | per-token inspection, scripts |
+| Audit trail | `--audit-log <file>` (JSONL) | durable, append-only | forensics, compliance |
+| Persisted budgets | `tokens list` | durable token store | quota enforcement |
 
 ## Live per-token counters
 
@@ -35,7 +35,7 @@ curl -s http://127.0.0.1:8080/v1/usage \
 }
 ```
 
-The count increments once per _authorised_ request — the same unit
+The count increments once per *authorised* request — the same unit
 `--max-requests` budgets. Persisted `used_tokens/max_tokens` in `tokens list`
 instead comes from actual vendor response usage and survives restarts.
 `/metrics` remains unauthenticated for standard
@@ -55,18 +55,18 @@ AUDIT_LOG=/var/log/link-assistant/audit.jsonl router serve
 One JSON object per line is appended as each request is authorised:
 
 ```json
-{ "time": "2026-08-07T12:00:00.123456+00:00", "token_id": "550e8400-…", "label": "issue-45-solver", "provider": "codex", "surface": "anthropic", "path": "/v1/messages", "model": "claude-sonnet-4-20250514" }
+{"time":"2026-08-07T12:00:00.123456+00:00","token_id":"550e8400-…","label":"issue-45-solver","provider":"codex","surface":"anthropic","path":"/v1/messages","model":"claude-sonnet-4-20250514"}
 ```
 
-| Field      | Meaning                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------- |
-| `time`     | RFC 3339 timestamp of the authorisation                                                                 |
-| `token_id` | Router token id — the JWT `sub`, **not** the token string                                               |
-| `label`    | Label the token was issued with                                                                         |
+| Field | Meaning |
+| --- | --- |
+| `time` | RFC 3339 timestamp of the authorisation |
+| `token_id` | Router token id — the JWT `sub`, **not** the token string |
+| `label` | Label the token was issued with |
 | `provider` | Upstream that served it: `anthropic`, `codex`, `gemini`, `qwen`, `gonka`, `crater`, `openai-compatible` |
-| `surface`  | Client-facing dialect: `anthropic`, `openai_chat`, `openai_responses`                                   |
-| `path`     | Request path as the router saw it                                                                       |
-| `model`    | Model the client asked for, when the body carried one (omitted otherwise)                               |
+| `surface` | Client-facing dialect: `anthropic`, `openai_chat`, `openai_responses` |
+| `path` | Request path as the router saw it |
+| `model` | Model the client asked for, when the body carried one (omitted otherwise) |
 
 ### What the log deliberately does not contain
 

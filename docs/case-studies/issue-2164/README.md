@@ -30,13 +30,15 @@ This case study establishes four things.
    _and_ Gemini _and_ Qwen, a persisted `DATA_DIR`, a GitHub API proxy that
    denies deletions and forced ref updates **by default**, and a `router logs`
    diagnostic command. Evidence for each is quoted in Part 2.
-3. **Three requirements are blocked upstream**, and per the issue's own rule
+3. **Three requirements are blocked upstream**, and a fourth path (`gh`) needs
+   an upstream change to work by default; per the issue's own rule
    ("If … router has missing features … we should first report issues there")
    they are reported to `link-assistant/router` before the corresponding code
    lands here. They are: routing `--model formal-ai` through the same router
    without pinning the whole deployment (G1), containing destructive operations
-   that travel over the **git transport** rather than the GitHub API (G2), and
-   scoping the GitHub credential per task rather than per deployment (G3).
+   that travel over the **git transport** rather than the GitHub API (G2),
+   scoping the GitHub credential per task rather than per deployment (G3), and
+   reaching the router from `gh`, which refuses a plaintext custom host (G4).
 4. **One requirement is a documentation deliverable in its own right** — a
    system-wide "how to collect logs" guide (R15), which this repository does not
    have today (`ls docs/ | grep -i log` returns nothing).
@@ -84,7 +86,7 @@ the way.
 | R9  | Default keeps the current direct mount; `--use-router` isolates each task from direct subscription access                                                              | "By default we keep current mechanics … but when `--use-router` is enabled, we isolate each task"                                                           | Ready                                               | Part 5 · R9               |
 | R10 | Mark the feature **experimental**                                                                                                                                      | "That feature should be marked experimental"                                                                                                                | Ready                                               | Part 5 · R10              |
 | R11 | Support formal-ai routing with `--model formal-ai` through the same router/proxy                                                                                       | "it should also support formal-ai routing when used with `--model formal-ai`, so everything goes through the same router/proxy"                             | **Blocked (G1)**                                    | Part 3 · G1, Part 5 · R11 |
-| R12 | Configure each task's `gh` and `git` to use the router                                                                                                                 | "configure each task's gh and git tools to use router"                                                                                                      | Partly blocked (G2)                                 | Part 5 · R12              |
+| R12 | Configure each task's `gh` and `git` to use the router                                                                                                                 | "configure each task's gh and git tools to use router"                                                                                                      | Partly blocked (G2, G4)                             | Part 5 · R12              |
 | R13 | Block all delete operations and history changes (force push, `git reset` reaching a push) on `git push` **or** via the gh API                                          | "immediately apply block of all delete operations or history changes like git reset and so on detected up on git push, or used directly via gh API"         | API half **ready**, transport half **blocked (G2)** | Part 3 · G2, Part 5 · R13 |
 | R14 | Make task/router logs accessible; double-check everything in that scope                                                                                                | "make sure we will be able to access logs of task/router … so we should also double check everything in that scope"                                         | Ready                                               | Part 5 · R14              |
 | R15 | A dedicated docs section on collecting logs **throughout the system**, not just the router                                                                             | "special docs section about collecting logs though out of the system, not just for router"                                                                  | Ready                                               | Part 5 · R15              |
@@ -304,13 +306,35 @@ _Requested behaviour:_ optional per-token GitHub scope — attach a policy name
 and/or an allowed repository set to a token at issue time, evaluated before the
 global rules.
 
+### G4 — `gh` cannot talk to a custom host over plain HTTP
+
+**Reported upstream: [link-assistant/router#263](https://github.com/link-assistant/router/issues/263).**
+
+**Blocks the `gh` half of R12** in the default deployment.
+
+C7 established that the router understands what `gh` sends. What it does not do
+is terminate TLS: the sidecar serves plain HTTP, while `gh` builds a custom
+host's REST base as `https://<host>/api/v3/` with no plaintext option, so
+`GH_HOST=link-assistant-router:8080` fails to connect before the router ever
+sees a request. The only way to route `gh` today is to put an HTTPS terminator
+in front of the router yourself and name it in `HIVE_MIND_ROUTER_GH_HOST`.
+
+_Assessment:_ same character as G3 — it degrades to today's behaviour (the task
+keeps its own `~/.config/gh`) rather than breaking anything, so it is an
+enhancement request, not a blocker for the PR. But it is the reason a default
+`--use-router` run prints "GitHub traffic is NOT routed".
+
+_Requested behaviour:_ an optional TLS listener on the router (or a documented,
+supported sidecar terminator), so `GH_HOST` can point at it directly.
+
 ### What is _not_ a gap
 
 For the record, these were checked and found already supported, so no upstream
 issue is warranted: per-task token issuance and revocation (C1), per-task log
 separation (C2), Codex/Gemini/Qwen credential homes as well as Claude (C3),
 persisted audit data (C5), API-level destructive denial (C6), `gh` custom-host
-support (C7), per-client setup (C8), log diagnostics (C9), a public container
+support at the protocol level (C7 — though not over plain HTTP, see G4),
+per-client setup (C8), log diagnostics (C9), a public container
 image with the CLI inside (C10).
 
 Merging a finished task's _session_ files (R7) is also not a router gap:
@@ -324,15 +348,15 @@ The issue asks to "check known existing components/libraries that solve similar
 problem or can help in solutions". Full notes and sources are in
 [`data/research/online-research.md`](data/research/online-research.md).
 
-| Component                                                                          | What it solves                                                                                                                                                                                | How it applies here                                                                                                                                                                                                               |
-| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Link.Assistant.Router** (`link-assistant/router`, Rust/axum, v0.105.0)           | AI-API proxy with per-task JWTs, per-token logs, vendor credential custody, GitHub API policy                                                                                                 | The component this issue is built on. Part 2 audits it.                                                                                                                                                                           |
-| **FINOS GitProxy** (`finos/git-proxy`, MIT, FINOS-graduated)                       | "Stands between developers and a Git remote endpoint … and applies rules and workflows to all outgoing git push operations"; v2.0 covers **both HTTP/HTTPS and SSH**                          | Existence proof and reference design for G2. Also a fallback: Hive Mind could point tasks' `insteadOf` at a GitProxy sidecar if the router's git surface is slow to arrive. Used in production by Citi, RBC, NatWest, G-Research. |
-| **git `pre-push` hook**                                                            | Client-side refusal of force pushes and branch deletions                                                                                                                                      | Cheap defence-in-depth _inside_ the task image — but client-side, so an agent that can edit `.git/hooks` or pass `--no-verify` defeats it. Suitable as a speed bump, not as the control.                                          |
-| **GitHub branch protection** (`allow_force_pushes:false`, `allow_deletions:false`) | Server-side, unbypassable refusal of history destruction                                                                                                                                      | The actual control for R13's transport half today; already automated in `src/protect-branch.mjs`. Named by the router README as the necessary backstop.                                                                           |
-| **LiteLLM virtual keys / agent sandboxes**                                         | The mainstream "one gateway credential + N scoped revocable keys with budgets and per-key logs" pattern; injects per-sandbox secrets as `CONTAINER_ENV_*` rather than mounting operator files | Confirms the router's per-task-token model is standard practice and that "env, not mount" is the right boundary at `getDockerIsolationAuthMounts`.                                                                                |
-| **`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`** (Claude Code)                    | Redirects _every_ request the CLI makes, "including its agentic sub-loops and background calls"                                                                                               | The concrete R2 mechanism for Claude; `ANTHROPIC_AUTH_TOKEN` (Bearer) is required for gateway-minted keys — `ANTHROPIC_API_KEY` (`x-api-key`) is the documented cause of 401s against a custom base URL.                          |
-| **Hive Mind's own Formal AI sidecar** (`src/formal-ai-sidecar.lib.mjs`)            | On-demand, lease-counted, internal-network container with bot-driven idle shutdown                                                                                                            | The template for R5. Reuse the pattern, not the code — a shared abstraction is proposed in Part 6.                                                                                                                                |
+| Component                                                                          | What it solves                                                                                                                                                                                | How it applies here                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Link.Assistant.Router** (`link-assistant/router`, Rust/axum, v0.105.0)           | AI-API proxy with per-task JWTs, per-token logs, vendor credential custody, GitHub API policy                                                                                                 | The component this issue is built on. Part 2 audits it.                                                                                                                                                                                                                                                                  |
+| **FINOS GitProxy** (`finos/git-proxy`, MIT, FINOS-graduated)                       | "Stands between developers and a Git remote endpoint … and applies rules and workflows to all outgoing git push operations"; v2.0 covers **both HTTP/HTTPS and SSH**                          | Existence proof and reference design for G2. Also a fallback: Hive Mind could point tasks' `insteadOf` at a GitProxy sidecar if the router's git surface is slow to arrive. Used in production by Citi, RBC, NatWest, G-Research.                                                                                        |
+| **git `pre-push` hook**                                                            | Client-side refusal of force pushes and branch deletions                                                                                                                                      | Delivered as `src/git-push-guard.lib.mjs`: generated on the host, mounted read-only, addressed with `GIT_CONFIG_KEY_0=core.hooksPath` so the task cannot edit the rule it is held to. Still client-side — `--no-verify` defeats it — so it is a speed bump, not the control.                                             |
+| **GitHub branch protection** (`allow_force_pushes:false`, `allow_deletions:false`) | Server-side, unbypassable refusal of history destruction                                                                                                                                      | The actual control for R13's transport half today; already automated in `src/protect-branch.mjs`. Named by the router README as the necessary backstop.                                                                                                                                                                  |
+| **LiteLLM virtual keys / agent sandboxes**                                         | The mainstream "one gateway credential + N scoped revocable keys with budgets and per-key logs" pattern; injects per-sandbox secrets as `CONTAINER_ENV_*` rather than mounting operator files | Confirms the router's per-task-token model is standard practice and that "env, not mount" is the right boundary at `getDockerIsolationAuthMounts`.                                                                                                                                                                       |
+| **`ANTHROPIC_BASE_URL` / `ANTHROPIC_AUTH_TOKEN`** (Claude Code)                    | Redirects _every_ request the CLI makes, "including its agentic sub-loops and background calls"                                                                                               | The concrete R2 mechanism for Claude. Generic gateways commonly require `ANTHROPIC_AUTH_TOKEN` (Bearer) and 401 on `ANTHROPIC_API_KEY` (`x-api-key`); this router accepts a task token in **either** header (router README, lines 66 and 597), so the implementation sets both and the CLI may use whichever it prefers. |
+| **Hive Mind's own Formal AI sidecar** (`src/formal-ai-sidecar.lib.mjs`)            | On-demand, lease-counted, internal-network container with bot-driven idle shutdown                                                                                                            | The template for R5. Reuse the pattern, not the code — a shared abstraction is proposed in Part 6.                                                                                                                                                                                                                       |
 
 ## Part 5 — Solutions and plans, requirement by requirement
 
@@ -519,21 +543,34 @@ test is updated, not replaced, when step 2 lands.
 
 ### R12 + R13 — `gh` and `git` through the router, destructive operations blocked
 
-_`gh` (ready)._ Set `GH_HOST=<router-alias>` and
+_`gh` (blocked by G4 in the default deployment)._ Set `GH_HOST=<router-alias>` and
 `GH_ENTERPRISE_TOKEN=$TASK_TOKEN` in the task environment (C7), and drop the
 `~/.config/gh` mount (R2). The router is configured with `GITHUB_PROXY_TOKEN`
 from the operator's credential and the built-in deny-by-default destructive
 policy (C6), optionally narrowed by a Hive Mind-shipped `GITHUB_PROXY_POLICY`
-that also denies `POST /repos/*/*/git/refs` outside the task's own branch.
+that also denies `POST /repos/*/*/git/refs` outside the task's own branch. This
+only works against an HTTPS-terminated endpoint (G4), so it is opt-in through
+`HIVE_MIND_ROUTER_GH_HOST`; without it the task keeps its own `~/.config/gh` and
+every routed run says so.
 
 _`git` (blocked by G2)._ Three layers, in the order they will be delivered:
 
 1. **Branch protection** (available now, server-side, unbypassable):
    `src/protect-branch.mjs` already applies `allow_force_pushes: false` and
    `allow_deletions: false`.
-2. **A `pre-push` hook** in the isolation image that refuses deletions
-   (`--delete`, or a zero destination SHA) and non-fast-forward updates. Cheap,
-   immediate, and defeated by `--no-verify` — documented as a speed bump.
+2. **A `pre-push` hook** that refuses deletions (`--delete`, or a zero
+   destination SHA) and non-fast-forward updates. Cheap, immediate, and defeated
+   by `--no-verify` — documented as a speed bump. **Delivered** in
+   `src/git-push-guard.lib.mjs`: the hook is generated on the host rather than
+   baked into the image (so it ships with the code that tests it), mounted
+   read-only into routed tasks, and reached through `GIT_CONFIG_COUNT`/
+   `GIT_CONFIG_KEY_0=core.hooksPath` rather than `git config --global`, because
+   the container's `~/.gitconfig` is the operator's own bind-mounted file and
+   writing to it would reconfigure the host.
+   `tests/test-issue-2164-git-push-guard.mjs` runs it against a real repository
+   and a real remote: a force push after `git reset --hard` and a
+   `push --delete` both fail, the remote still holds the discarded commit
+   afterwards, and an ordinary push still succeeds.
 3. **Router git transport** once G2 lands: point the task's git at the router
    with `git config --global url."http://<alias>/github/".insteadOf
 "https://github.com/"`, so the same policy engine sees the ref updates.
@@ -568,15 +605,16 @@ not just the router:
 
 ### R16 — upstream first
 
-Three issues were filed against `link-assistant/router` on 2026-08-21, each
+Four issues were filed against `link-assistant/router` on 2026-08-21, each
 carrying the requirement it blocks, the quoted README/source evidence, the
 workaround in use here, and the concrete behaviour requested:
 
-| Upstream                                                          | Gap                                                                | Blocks                                 | Gates this PR?   |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- | ---------------- |
-| [router#260](https://github.com/link-assistant/router/issues/260) | G1 — automatic routing ignores stored OpenAI-compatible providers  | R11                                    | Yes, for phase 7 |
-| [router#261](https://github.com/link-assistant/router/issues/261) | G2 — destructive git-transport operations bypass the policy engine | R13 (transport half), R12 (`git` half) | Yes, for phase 8 |
-| [router#262](https://github.com/link-assistant/router/issues/262) | G3 — GitHub credential and policy are per-deployment               | R6/R13 hardening                       | No — enhancement |
+| Upstream                                                          | Gap                                                                | Blocks                                 | Gates this PR?                     |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- | ---------------------------------- |
+| [router#260](https://github.com/link-assistant/router/issues/260) | G1 — automatic routing ignores stored OpenAI-compatible providers  | R11                                    | Yes, for phase 7                   |
+| [router#261](https://github.com/link-assistant/router/issues/261) | G2 — destructive git-transport operations bypass the policy engine | R13 (transport half), R12 (`git` half) | Yes, for phase 8                   |
+| [router#262](https://github.com/link-assistant/router/issues/262) | G3 — GitHub credential and policy are per-deployment               | R6/R13 hardening                       | No — enhancement                   |
+| [router#263](https://github.com/link-assistant/router/issues/263) | G4 — no TLS listener, so `gh` cannot use the router as a host      | R12 (`gh` half) by default             | No — degrades to today's behaviour |
 
 Both blocking issues are follow-ups to work the upstream has already done
 (#71 for automatic model routing, #146 for the GitHub API proxy), which is why
@@ -589,7 +627,7 @@ now.
 
 | Phase | Content                                                                                                                                                                               | Gated on                                                                     |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 0     | This case study, the data folder, the three upstream issues                                                                                                                           | —                                                                            |
+| 0     | This case study, the data folder, the four upstream issues                                                                                                                            | —                                                                            |
 | 1     | `docs/COLLECTING-LOGS.md` ×4 languages + the `examples/collect-logs.mjs` recipe (R15, and the R14 groundwork)                                                                         | —                                                                            |
 | 2     | `--use-router` option surface on solve/hive/task/Telegram, experimental marking, default-unchanged regression test (R1, R9, R10)                                                      | —                                                                            |
 | 3     | `src/router-sidecar.lib.mjs` + `src/router-isolation.lib.mjs` + maintenance-tick duty: container, internal network, leases, per-task token issue/revoke, data volume (R3, R5, R6, R8) | —                                                                            |
@@ -636,12 +674,39 @@ documentation states plainly which are missing rather than implying coverage.
 | 2026-08-21       | G1 reported upstream as router#260                                                   | [router#260](https://github.com/link-assistant/router/issues/260)                                                            |
 | 2026-08-21       | G2 reported upstream as router#261                                                   | [router#261](https://github.com/link-assistant/router/issues/261)                                                            |
 | 2026-08-21       | G3 reported upstream as router#262                                                   | [router#262](https://github.com/link-assistant/router/issues/262)                                                            |
+| 2026-08-21       | G4 reported upstream as router#263                                                   | [router#263](https://github.com/link-assistant/router/issues/263)                                                            |
 
 ## Status
 
 Phase 0 is complete: the data is compiled here, all 17 requirements are
 enumerated with an owner section each, every router capability the issue assumes
-has been verified against first-party evidence, and the three genuine gaps are
-identified with the exact upstream behaviour to request. Phases 1–6 are
-unblocked and are what PR #2165 delivers; phases 7–9 wait on
-`link-assistant/router`, as the issue instructs.
+has been verified against first-party evidence, and the four genuine gaps are
+identified with the exact upstream behaviour to request.
+
+Phases 1–6 are delivered in PR #2165. What answers each requirement, so a
+reviewer can go straight to the evidence:
+
+| #           | Delivered by                                                                                                                              | Verified by                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| R1, R9, R10 | `--use-router` in `SOLVE_OPTION_DEFINITIONS` with the `[EXPERIMENTAL]` prefix; nothing changes without it                                 | `tests/test-issue-2164-router-isolation.mjs`                                   |
+| R2, R3      | `getRouterSuppressedCredentialPaths()` + `buildRouterTaskEnv()`, applied at the credential seam in `src/isolation-runner.lib.mjs`         | `tests/test-issue-2164-router-isolation.mjs` (suppression asserted explicitly) |
+| R4          | Part 2 of this document, quoted against the pinned router README                                                                          | `data/upstream/router-README.md`                                               |
+| R5          | Lease-counted sidecar in `src/router-sidecar.lib.mjs`; the bot's maintenance tick reconciles leases against Docker and stops idle routers | `tests/test-issue-2164-router-sidecar.mjs`                                     |
+| R6          | One `router token issue` per session id, revoked on release; never shared                                                                 | `tests/test-issue-2164-router-sidecar.mjs`                                     |
+| R7          | `src/router-session-drain.lib.mjs`, run when the lease drops — `docker cp` works on stopped containers                                    | `tests/test-issue-2164-session-drain.mjs`                                      |
+| R8, R14     | Named volume `hive-mind-router-data` that no code path removes; `src/router-logs.lib.mjs` reads it with or without a running router       | `tests/test-issue-2164-log-collection.mjs`                                     |
+| R11         | Accepted and honestly degraded: model traffic still goes to the Formal AI sidecar, and every run says so                                  | `tests/test-issue-2164-router-isolation.mjs` (coverage-gap warnings)           |
+| R12         | `GH_HOST`/`GH_ENTERPRISE_TOKEN` injection, opt-in through `HIVE_MIND_ROUTER_GH_HOST` because of G4                                        | `tests/test-issue-2164-router-isolation.mjs`                                   |
+| R13         | Layers 1–2: branch protection, plus the `pre-push` guard in `src/git-push-guard.lib.mjs`                                                  | `tests/test-issue-2164-git-push-guard.mjs` (real git, real remote)             |
+| R15         | `docs/COLLECTING-LOGS.md` ×4 languages and `examples/collect-logs.mjs`, both driven by `describeSystemLogLocations()`                     | `tests/test-issue-2164-log-collection.mjs`                                     |
+| R16         | router#260, #261, #262, #263 filed before the corresponding code                                                                          | the upstream issues                                                            |
+| R17         | this document                                                                                                                             | `MANIFEST.md` checksums                                                        |
+
+**R13 is not complete**, and the PR does not claim it is: layer 3 (git traffic
+through the router) needs [router#261](https://github.com/link-assistant/router/issues/261),
+so `git push --no-verify` still gets past the in-task guard and branch
+protection remains the only unbypassable control. R11's model half needs
+[router#260](https://github.com/link-assistant/router/issues/260) and R12's `gh`
+half needs [router#263](https://github.com/link-assistant/router/issues/263) or
+an operator-supplied HTTPS terminator. Phases 7–9 wait on those, as the issue
+instructs; every routed run prints the gaps that apply to it.

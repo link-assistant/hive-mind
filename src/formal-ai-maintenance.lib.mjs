@@ -21,6 +21,7 @@
  */
 
 import { updateAgenticClisWhenIdle } from './agentic-cli-updater.lib.mjs';
+import { startSidecarMaintenance } from './docker-sidecar.lib.mjs';
 import { reconcileFormalAiSidecar, stopFormalAiSidecar, withFormalAiSidecarLock } from './formal-ai-sidecar.lib.mjs';
 import { updateFormalAiSidecarWhenIdle } from './formal-ai-updater.lib.mjs';
 
@@ -88,19 +89,6 @@ export const runFormalAiMaintenanceTick = async ({ env = process.env, run, log =
  *
  * @returns {{stop: () => void}}
  */
-export const startFormalAiMaintenance = ({ env = process.env, log = null, verbose = false, intervalMs = DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, runTick = runFormalAiMaintenanceTick } = {}) => {
-  const tick = () => {
-    runTick({ env, log, verbose }).catch(error => {
-      console.error(`[formal-ai-maintenance] tick failed: ${error?.message || error}`);
-    });
-  };
-
-  const timer = setIntervalImpl(tick, intervalMs);
-  timer?.unref?.();
-  tick();
-  return {
-    stop: () => clearIntervalImpl(timer),
-  };
-};
+export const startFormalAiMaintenance = ({ env = process.env, log = null, verbose = false, intervalMs = DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, runTick = runFormalAiMaintenanceTick } = {}) => startSidecarMaintenance({ runTick, logPrefix: 'formal-ai-maintenance', env, log, verbose, intervalMs, setIntervalImpl, clearIntervalImpl });
 
 export default { DEFAULT_FORMAL_AI_MAINTENANCE_INTERVAL_MS, runFormalAiMaintenanceTick, startFormalAiMaintenance, stopIdleFormalAiSidecar };

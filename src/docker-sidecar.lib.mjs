@@ -232,6 +232,31 @@ export const reconcileSidecarLeases = async (leases, { run = execFileAsync, time
   return live;
 };
 
+/**
+ * Periodic best-effort maintenance timer shared by the sidecar lifecycles.
+ *
+ * Both the Formal AI and the router sidecar need the same thing: a tick that
+ * runs immediately, repeats on an interval, never keeps the process alive on
+ * shutdown, and never rejects into the bot's event loop. Keeping one
+ * implementation means a fix to that shape applies to both.
+ *
+ * @returns {{stop: () => void}}
+ */
+export const startSidecarMaintenance = ({ runTick, logPrefix = 'sidecar-maintenance', env = process.env, log = null, verbose = false, intervalMs, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) => {
+  const tick = () => {
+    runTick({ env, log, verbose }).catch(error => {
+      console.error(`[${logPrefix}] tick failed: ${error?.message || error}`);
+    });
+  };
+
+  const timer = setIntervalImpl(tick, intervalMs);
+  timer?.unref?.();
+  tick();
+  return {
+    stop: () => clearIntervalImpl(timer),
+  };
+};
+
 export default {
   attachDockerNetwork,
   dockerErrorMessage,
@@ -246,5 +271,6 @@ export default {
   reconcileSidecarLeases,
   resolveSidecarStatePath,
   sleep,
+  startSidecarMaintenance,
   writeSidecarState,
 };

@@ -27,7 +27,7 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
-import { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask } from './router-task-isolation.lib.mjs';
+import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
@@ -645,6 +645,16 @@ export async function executeWithIsolation(command, args, options = {}) {
   if (routerError) {
     await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
     return failLaunch(routerError);
+  }
+  // R11: when both sidecars are up, the router is taught to serve `formal-ai`
+  // itself, so that model is mediated and audited like every other one. Done
+  // before the container is created because the provider has to exist by the
+  // time the task issues its first request.
+  const formalAiRoutingError = await registerFormalAiWithRouter({ router, sidecar, verbose });
+  if (formalAiRoutingError) {
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(formalAiRoutingError);
   }
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =

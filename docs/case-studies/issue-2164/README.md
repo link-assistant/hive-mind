@@ -30,25 +30,30 @@ This case study establishes four things.
    _and_ Gemini _and_ Qwen, a persisted `DATA_DIR`, a GitHub API proxy that
    denies deletions and forced ref updates **by default**, and a `router logs`
    diagnostic command. Evidence for each is quoted in Part 2.
-3. **Three requirements are blocked upstream**, and a fourth path (`gh`) needs
+3. **Three requirements were blocked upstream**, and a fourth path (`gh`) needed
    an upstream change to work by default; per the issue's own rule
    ("If … router has missing features … we should first report issues there")
-   they are reported to `link-assistant/router` before the corresponding code
-   lands here. They are: routing `--model formal-ai` through the same router
+   they were reported to `link-assistant/router` before the corresponding code
+   landed here. They are: routing `--model formal-ai` through the same router
    without pinning the whole deployment (G1), containing destructive operations
    that travel over the **git transport** rather than the GitHub API (G2),
    scoping the GitHub credential per task rather than per deployment (G3), and
    reaching the router from `gh`, which refuses a plaintext custom host (G4).
+   **All four were fixed upstream on 2026-08-21 and shipped in `v0.106.0`–`v0.109.0`**;
+   this PR pins `v0.109.0` and re-verifies each one by measurement, which
+   produced three further upstream reports (#270, #271, #272).
 4. **One requirement is a documentation deliverable in its own right** — a
    system-wide "how to collect logs" guide (R15), which this repository does not
    have today (`ls docs/ | grep -i log` returns nothing).
 
-The honest headline: `--use-router` can be delivered as a _credential_
-isolation feature immediately, and becomes a _destructive-action_ containment
-feature only once G2 lands upstream. Until then the transport half of R13 is
-covered by GitHub branch protection, which Hive Mind already automates in
-`src/protect-branch.mjs` and which the router's own README names as the required
-backstop.
+The honest headline: `--use-router` is delivered as a _credential_ isolation
+feature and, after the upstream fixes, as a _destructive-action_ containment
+feature for everything except a force push, which the router still forwards
+([router#272](https://github.com/link-assistant/router/issues/272)). That last
+case is covered by the in-task `pre-push` guard unless the agent passes
+`--no-verify`, and behind it by GitHub branch protection, which Hive Mind
+already automates in `src/protect-branch.mjs` and which the router's own README
+names as the required backstop.
 
 ## Scope and evidence
 
@@ -56,15 +61,16 @@ Everything in this analysis is derived from artifacts committed under
 [`data/`](data), so a reader can re-check any claim without network access.
 Checksums are in [`MANIFEST.md`](MANIFEST.md).
 
-| Source                                          | Location                                                                                                                                                                                                                                                                                                                               | What it establishes                                                                                                                                                                                                                                    |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Issue #2164 body and comment feed               | [`data/github/issue-2164.json`](data/github/issue-2164.json), [`issue-2164-comments.json`](data/github/issue-2164-comments.json)                                                                                                                                                                                                       | The verbatim requirement text; the comment feed is empty, so the body is the only specification.                                                                                                                                                       |
-| PR #2165 and its three comment feeds            | [`data/github/pr-2165.json`](data/github/pr-2165.json), [`pr-2165-review-comments.json`](data/github/pr-2165-review-comments.json), [`pr-2165-conversation-comments.json`](data/github/pr-2165-conversation-comments.json)                                                                                                             | No review feedback exists yet; nothing has been requested beyond the issue.                                                                                                                                                                            |
-| Router README (69 KB, full)                     | [`data/upstream/router-README.md`](data/upstream/router-README.md)                                                                                                                                                                                                                                                                     | Every router capability quoted in Part 2 and every limitation quoted in Part 3.                                                                                                                                                                        |
-| Router use-case docs                            | [`data/upstream/router-use-case-per-task-tokens.md`](data/upstream/router-use-case-per-task-tokens.md), [`…-with-router.md`](data/upstream/router-use-case-with-router.md), [`…-audit-and-monitoring.md`](data/upstream/router-use-case-audit-and-monitoring.md), [`…-self-hosting.md`](data/upstream/router-use-case-self-hosting.md) | The per-task token recipe, the token/server resolution order, and the audit surfaces.                                                                                                                                                                  |
-| Router repo metadata, releases, full issue list | [`data/upstream/router-repo.json`](data/upstream/router-repo.json), [`router-releases.json`](data/upstream/router-releases.json), [`router-issues.json`](data/upstream/router-issues.json)                                                                                                                                             | Latest release `v0.105.0` (2026-08-21T13:23:05Z); **all 139 issues are closed, none open** — the upstream is actively maintained and responsive, which is what makes the issue's "report upstream first" rule practical rather than a permanent block. |
-| Hive Mind code snapshots                        | [`data/hive-mind/`](data/hive-mind)                                                                                                                                                                                                                                                                                                    | The exact credential seam and the Formal AI sidecar template quoted in Part 1, pinned to commit `85e37937`.                                                                                                                                            |
-| Online research notes                           | [`data/research/online-research.md`](data/research/online-research.md)                                                                                                                                                                                                                                                                 | The external-component survey the issue asked for: FINOS GitProxy, LiteLLM virtual keys, `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` semantics.                                                                                                        |
+| Source                                          | Location                                                                                                                                                                                                                                                                                                                               | What it establishes                                                                                                                                                                                                                                                                                                         |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Issue #2164 body and comment feed               | [`data/github/issue-2164.json`](data/github/issue-2164.json), [`issue-2164-comments.json`](data/github/issue-2164-comments.json)                                                                                                                                                                                                       | The verbatim requirement text; the comment feed is empty, so the body is the only specification.                                                                                                                                                                                                                            |
+| PR #2165 and its three comment feeds            | [`data/github/pr-2165.json`](data/github/pr-2165.json), [`pr-2165-review-comments.json`](data/github/pr-2165-review-comments.json), [`pr-2165-conversation-comments.json`](data/github/pr-2165-conversation-comments.json)                                                                                                             | No review feedback exists yet; nothing has been requested beyond the issue.                                                                                                                                                                                                                                                 |
+| Router README (69 KB, full)                     | [`data/upstream/router-README.md`](data/upstream/router-README.md)                                                                                                                                                                                                                                                                     | Every router capability quoted in Part 2 and every limitation quoted in Part 3.                                                                                                                                                                                                                                             |
+| Router use-case docs                            | [`data/upstream/router-use-case-per-task-tokens.md`](data/upstream/router-use-case-per-task-tokens.md), [`…-with-router.md`](data/upstream/router-use-case-with-router.md), [`…-audit-and-monitoring.md`](data/upstream/router-use-case-audit-and-monitoring.md), [`…-self-hosting.md`](data/upstream/router-use-case-self-hosting.md) | The per-task token recipe, the token/server resolution order, and the audit surfaces.                                                                                                                                                                                                                                       |
+| Router repo metadata, releases, full issue list | [`data/upstream/router-repo.json`](data/upstream/router-repo.json), [`router-releases.json`](data/upstream/router-releases.json), [`router-issues.json`](data/upstream/router-issues.json)                                                                                                                                             | Latest release at the time of the audit `v0.105.0` (2026-08-21T13:23:05Z); **all 139 issues were closed, none open** — the upstream is actively maintained and responsive, which is what makes the issue's "report upstream first" rule practical rather than a permanent block.                                            |
+| Hive Mind code snapshots                        | [`data/hive-mind/`](data/hive-mind)                                                                                                                                                                                                                                                                                                    | The exact credential seam and the Formal AI sidecar template quoted in Part 1, pinned to commit `85e37937`.                                                                                                                                                                                                                 |
+| Probe logs, redacted                            | [`data/measurements/`](data/measurements)                                                                                                                                                                                                                                                                                              | The measured behaviour of router `v0.109.0` quoted throughout Part 3 and Part 5: TLS interception of `gh`, the git transport, `formal-ai` as a stored provider, and the audit log. Produced by the scripts in [`experiments/issue-2164/`](../../../experiments/issue-2164); task tokens are replaced with `la_sk_REDACTED`. |
+| Online research notes                           | [`data/research/online-research.md`](data/research/online-research.md)                                                                                                                                                                                                                                                                 | The external-component survey the issue asked for: FINOS GitProxy, LiteLLM virtual keys, `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` semantics.                                                                                                                                                                             |
 
 ## Requirements reconstructed
 
@@ -203,7 +209,9 @@ behaviour to request.
 
 ### G1 — `--model formal-ai` cannot go through the router without pinning the whole deployment
 
-**Reported upstream: [link-assistant/router#260](https://github.com/link-assistant/router/issues/260).**
+**Reported upstream: [link-assistant/router#260](https://github.com/link-assistant/router/issues/260)
+— fixed upstream and closed 2026-08-21 20:53 UTC, shipped in the releases this
+PR pins (`v0.106.0`–`v0.109.0`), re-verified here by measurement.**
 
 **Blocks R11** ("it should also support formal-ai routing when used with
 `--model formal-ai`, so everything goes through the same router/proxy").
@@ -237,18 +245,44 @@ provider, and `openai-compatible` would send Claude tasks to Formal AI too.
 stored provider's advertised models participate in `auto` model-based routing
 rather than requiring a global pin.
 
-_Workaround until then:_ keep the existing Formal AI sidecar path. A
-`--model formal-ai --use-router` run routes model traffic to the Formal AI
-sidecar and `gh`/`git` traffic to the router. That satisfies the credential and
-audit goals but not the literal "everything goes through the same router".
-
 _Requested behaviour:_ a stored `openai-compatible` provider whose `models` are
 merged into the `auto` catalog and routed by model name, so one deployment can
 serve vendor subscriptions and a local OpenAI-compatible endpoint at once.
 
+**Resolution, measured against `v0.109.0`** — the analysis above described
+`v0.105.0`; the requested behaviour now exists.
+[`experiments/issue-2164/probe-formal-ai-provider.sh`](../../../experiments/issue-2164/probe-formal-ai-provider.sh)
+starts a router with the **default** `UPSTREAM_PROVIDER=auto`, registers a stub
+Formal AI server with
+`router providers add --name hive-mind-formal-ai --base-url http://link-assistant-formal-ai:8080/v1 --model formal-ai --models formal-ai`,
+and asks the router for that model as a task would
+([`data/measurements/formal-ai-provider.log`](data/measurements/formal-ai-provider.log)):
+
+```
+-- /v1/models as the task sees it --
+{"data":[{"id":"formal-ai","object":"model","owned_by":"hive-mind-formal-ai"}], …}
+-- chat completion for model 'formal-ai' --
+{"id":"stub-1", …,"content":"FORMAL-AI-STUB"…}
+[http 200]
+```
+
+and the exchange is in the audit trail like any other mediated call:
+
+```
+{"time":"…","token_id":"e0172106-…","label":"probe-formal-ai","provider":"openai-compatible","surface":"openai_chat","path":"/v1/chat/completions","model":"formal-ai"}
+```
+
+No global pin was needed, so a single `hive-mind-router` serves Claude tasks and
+Formal AI tasks at once. R11 is therefore delivered rather than deferred; see
+[R11](#r11--model-formal-ai-through-the-same-router).
+
 ### G2 — destructive operations over the **git transport** are outside the proxy
 
-**Reported upstream: [link-assistant/router#261](https://github.com/link-assistant/router/issues/261).**
+**Reported upstream: [link-assistant/router#261](https://github.com/link-assistant/router/issues/261)
+— fixed upstream and closed 2026-08-21 20:53 UTC; a git proxy now exists at
+`/git/*`. Re-measured here: it refuses deletions but still forwards force
+pushes, which is now
+[router#272](https://github.com/link-assistant/router/issues/272).**
 
 **Blocks the transport half of R13** ("block of all delete operations or history
 changes like git reset and so on detected up on git push") **and the `git` half
@@ -271,6 +305,29 @@ so `GitHubPolicy::decision` is never consulted. Configuring a task's `git` to
 "use the router" therefore has no defensive meaning today; it would only change
 where the credential lives.
 
+**Resolution, measured against `v0.109.0`** —
+[`experiments/issue-2164/probe-git-transport.sh`](../../../experiments/issue-2164/probe-git-transport.sh)
+clones this repository through `https://link-assistant-router/git/…` with no
+GitHub credential in the task at all, then tries both destructive pushes
+([`data/measurements/git-transport.log`](data/measurements/git-transport.log)):
+
+```
+== 4. destructive: delete the branch (expected: refused by the router) ==
+error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+
+== 5. destructive: force-update the branch to unrelated history (expected: refused) ==
+ + f5e3e3e...a861cb3 HEAD -> issue-2164-90464ce530a2 (forced update)
+```
+
+Half the gap is closed: a ref deletion is refused by the router itself. A
+non-fast-forward push is not, because the router's `body_requests_force()` looks
+for `force-ref-updates`/`push-force` capabilities that git never announces —
+[`data/measurements/force-capabilities.log`](data/measurements/force-capabilities.log)
+shows the actual capability list git sends. Filed as
+[router#272](https://github.com/link-assistant/router/issues/272); until it
+lands, the in-task `pre-push` guard covers it unless the agent passes
+`--no-verify`, and branch protection remains the one unbypassable control.
+
 _Workaround until then, and it is a real one:_ GitHub branch protection with
 `allow_force_pushes: false` and `allow_deletions: false`, which
 `src/protect-branch.mjs` already applies, is enforced by the server and cannot
@@ -286,7 +343,10 @@ updates by default, with the same ordered-policy override file. FINOS GitProxy
 
 ### G3 — the GitHub credential and policy are per-deployment, not per-task
 
-**Reported upstream: [link-assistant/router#262](https://github.com/link-assistant/router/issues/262).**
+**Reported upstream: [link-assistant/router#262](https://github.com/link-assistant/router/issues/262)
+— fixed upstream and closed 2026-08-21 20:53 UTC. `router tokens issue` now
+takes `--github-repo`, and `issueRouterTaskToken()` passes the task's repository,
+so a routed task cannot touch any other one.**
 
 **Weakens R6 and R13 for the `gh` path** (it does not block them).
 
@@ -308,7 +368,10 @@ global rules.
 
 ### G4 — `gh` cannot talk to a custom host over plain HTTP
 
-**Reported upstream: [link-assistant/router#263](https://github.com/link-assistant/router/issues/263).**
+**Reported upstream: [link-assistant/router#263](https://github.com/link-assistant/router/issues/263)
+— fixed upstream and closed 2026-08-21 20:53 UTC: the router terminates TLS
+itself (`TLS_SELF_SIGNED=1`, `TLS_SELF_SIGNED_DNS=…`), which is what makes the
+transparent `gh` interception below possible.**
 
 **Blocks the `gh` half of R12** in the default deployment.
 
@@ -326,6 +389,25 @@ enhancement request, not a blocker for the PR. But it is the reason a default
 
 _Requested behaviour:_ an optional TLS listener on the router (or a documented,
 supported sidecar terminator), so `GH_HOST` can point at it directly.
+
+**Resolution, measured against `v0.109.0`** — the listener exists, and it turned
+out to buy more than `GH_HOST`. The sidecar serves 443 with a self-signed
+certificate whose SANs cover both `link-assistant-router` and `api.github.com`,
+so a routed task needs no `GH_HOST` at all: `api.github.com` is pointed at the
+router's address in the task's `/etc/hosts` and an unmodified `gh` verifies the
+connection against the router's CA
+([`data/measurements/github-hosts.log`](data/measurements/github-hosts.log)).
+Two findings came out of the probes and both are upstream:
+
+- `gh` **does** honour `SSL_CERT_FILE` on Linux, contrary to the router's docs —
+  [router#270](https://github.com/link-assistant/router/issues/270),
+  [`data/measurements/gh-ssl-cert-file-linux.log`](data/measurements/gh-ssl-cert-file-linux.log).
+  `SSL_CERT_FILE` _replaces_ the store rather than adding to it, which is why the
+  task is given a bundle of the public roots plus the router CA.
+- Adding `api.github.com` as a network **alias** for the router container makes
+  the router resolve itself and answer its own upstream call with 502; the hosts
+  entry has to live in the task container instead
+  ([`data/measurements/github-alias.log`](data/measurements/github-alias.log)).
 
 ### What is _not_ a gap
 
@@ -526,20 +608,39 @@ contained by branch protection rather than by the router.
 
 ### R11 — `--model formal-ai` through the same router
 
-_Blocked by G1._ The staged plan:
+G1 was fixed upstream while this work was in flight, so the staged plan collapsed
+into one step. When a run has both sidecars —
+`--use-router --model formal-ai` — `registerFormalAiWithRouter()` in
+`src/router-task-isolation.lib.mjs` does two things before the task container is
+created:
 
-1. **Now:** `--use-router --model formal-ai` is accepted. Model traffic uses the
-   existing Formal AI sidecar; `gh` traffic uses the router; credentials are
-   still removed from the task. The run log states plainly that model traffic is
-   not yet router-mediated and links G1. This is the honest partial delivery,
-   not a silent one.
-2. **After G1 lands:** register the Formal AI sidecar as a stored
-   `openai-compatible` provider on the router, drop the direct
-   `HIVE_MIND_FORMAL_AI_BASE_URL` injection for `--use-router` runs, and let the
-   router route by model name. The task then has exactly one AI endpoint.
+1. `attachRouterToNetwork({ network: 'hive-mind-formal-ai' })` — the router is
+   otherwise on its own internal network plus the default bridge and cannot
+   resolve `link-assistant-formal-ai`. No alias is requested in the other
+   direction: nothing on that network calls the router by name.
+2. `registerRouterProvider()` runs
+   `router providers add --name hive-mind-formal-ai --base-url http://link-assistant-formal-ai:8080/v1 --model formal-ai --models formal-ai`
+   inside the sidecar. The key is stored AES-GCM-encrypted in
+   `<DATA_DIR>/providers.lenv`, so it survives a restart and never enters a
+   task's environment.
 
-_Verification:_ a test asserting the staged behaviour and the warning today; the
-test is updated, not replaced, when step 2 lands.
+Both steps fail closed, like every other part of router isolation: a Formal AI
+task that cannot reach Formal AI _through_ the router is not launched around it.
+Because the router dispatches on the model id under the default
+`UPSTREAM_PROVIDER=auto` (measured in G1 above), registering this provider does
+not divert Claude tasks sharing the same sidecar.
+
+What is **not** covered, and is stated by
+`describeRouterCoverageGaps({ model: 'formal-ai' })` on every such run: the
+Formal AI sidecar's _own_ upstream calls. `formal-ai serve --agent-mode` is
+reached through the router, but if that server itself calls a vendor API, that
+leg leaves the sidecar directly rather than coming back through the router.
+
+_Verification:_ `tests/test-issue-2164-router-sidecar.mjs` asserts the argv, the
+ordering (network before provider), that the DNS endpoint is stored rather than a
+container address that changes on every restart, and that each half fails the
+launch; the wire behaviour behind it is measured in
+`experiments/issue-2164/probe-formal-ai-provider.sh`.
 
 ### R12 + R13 — `gh` and `git` through the router, destructive operations blocked
 
@@ -664,17 +765,22 @@ documentation states plainly which are missing rather than implying coverage.
 
 ## Timeline
 
-| When (UTC)       | Event                                                                                | Evidence                                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 2026-08-21 16:17 | Issue #2164 opened by konard, labels `documentation` + `enhancement`                 | [`data/github/issue-2164.json`](data/github/issue-2164.json)                                                                 |
-| 2026-08-21 16:23 | Issue last updated; comment feed still empty, so the body is the whole specification | [`data/github/issue-2164-comments.json`](data/github/issue-2164-comments.json)                                               |
-| 2026-08-21 13:23 | Router `v0.105.0` published — the version this analysis audits                       | [`data/upstream/router-releases.json`](data/upstream/router-releases.json)                                                   |
-| 2026-08-21 16:31 | Router repository last pushed; 139 issues, **0 open**                                | [`data/upstream/router-repo.json`](data/upstream/router-repo.json), [`router-issues.json`](data/upstream/router-issues.json) |
-| 2026-08-21       | Evidence collected, requirements enumerated, gaps G1–G3 identified                   | this document                                                                                                                |
-| 2026-08-21       | G1 reported upstream as router#260                                                   | [router#260](https://github.com/link-assistant/router/issues/260)                                                            |
-| 2026-08-21       | G2 reported upstream as router#261                                                   | [router#261](https://github.com/link-assistant/router/issues/261)                                                            |
-| 2026-08-21       | G3 reported upstream as router#262                                                   | [router#262](https://github.com/link-assistant/router/issues/262)                                                            |
-| 2026-08-21       | G4 reported upstream as router#263                                                   | [router#263](https://github.com/link-assistant/router/issues/263)                                                            |
+| When (UTC)       | Event                                                                                | Evidence                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-21 16:17 | Issue #2164 opened by konard, labels `documentation` + `enhancement`                 | [`data/github/issue-2164.json`](data/github/issue-2164.json)                                                                                                                          |
+| 2026-08-21 16:23 | Issue last updated; comment feed still empty, so the body is the whole specification | [`data/github/issue-2164-comments.json`](data/github/issue-2164-comments.json)                                                                                                        |
+| 2026-08-21 13:23 | Router `v0.105.0` published — the version this analysis audits                       | [`data/upstream/router-releases.json`](data/upstream/router-releases.json)                                                                                                            |
+| 2026-08-21 16:31 | Router repository last pushed; 139 issues, **0 open**                                | [`data/upstream/router-repo.json`](data/upstream/router-repo.json), [`router-issues.json`](data/upstream/router-issues.json)                                                          |
+| 2026-08-21       | Evidence collected, requirements enumerated, gaps G1–G3 identified                   | this document                                                                                                                                                                         |
+| 2026-08-21       | G1 reported upstream as router#260                                                   | [router#260](https://github.com/link-assistant/router/issues/260)                                                                                                                     |
+| 2026-08-21       | G2 reported upstream as router#261                                                   | [router#261](https://github.com/link-assistant/router/issues/261)                                                                                                                     |
+| 2026-08-21       | G3 reported upstream as router#262                                                   | [router#262](https://github.com/link-assistant/router/issues/262)                                                                                                                     |
+| 2026-08-21       | G4 reported upstream as router#263                                                   | [router#263](https://github.com/link-assistant/router/issues/263)                                                                                                                     |
+| 2026-08-21 20:53 | **All four gaps fixed upstream and closed** — #260, #261, #262, #263                 | the upstream issues                                                                                                                                                                   |
+| 2026-08-21 21:16 | Router `v0.106.0` published, the first release carrying the fixes                    | [router releases](https://github.com/link-assistant/router/releases)                                                                                                                  |
+| 2026-08-22 15:48 | Router `v0.109.0` published — the version this PR pins and measures                  | `ROUTER_SIDECAR_IMAGE` in `src/router-isolation.lib.mjs`                                                                                                                              |
+| 2026-08-22       | Re-measured against `v0.109.0`: TLS `gh` interception, git transport, `formal-ai`    | [`data/measurements/`](data/measurements)                                                                                                                                             |
+| 2026-08-22       | Three new findings reported upstream: router#270, #271, #272                         | [#270](https://github.com/link-assistant/router/issues/270), [#271](https://github.com/link-assistant/router/issues/271), [#272](https://github.com/link-assistant/router/issues/272) |
 
 ## Status
 
@@ -686,27 +792,28 @@ identified with the exact upstream behaviour to request.
 Phases 1–6 are delivered in PR #2165. What answers each requirement, so a
 reviewer can go straight to the evidence:
 
-| #           | Delivered by                                                                                                                              | Verified by                                                                    |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| R1, R9, R10 | `--use-router` in `SOLVE_OPTION_DEFINITIONS` with the `[EXPERIMENTAL]` prefix; nothing changes without it                                 | `tests/test-issue-2164-router-isolation.mjs`                                   |
-| R2, R3      | `getRouterSuppressedCredentialPaths()` + `buildRouterTaskEnv()`, applied at the credential seam in `src/isolation-runner.lib.mjs`         | `tests/test-issue-2164-router-isolation.mjs` (suppression asserted explicitly) |
-| R4          | Part 2 of this document, quoted against the pinned router README                                                                          | `data/upstream/router-README.md`                                               |
-| R5          | Lease-counted sidecar in `src/router-sidecar.lib.mjs`; the bot's maintenance tick reconciles leases against Docker and stops idle routers | `tests/test-issue-2164-router-sidecar.mjs`                                     |
-| R6          | One `router token issue` per session id, revoked on release; never shared                                                                 | `tests/test-issue-2164-router-sidecar.mjs`                                     |
-| R7          | `src/router-session-drain.lib.mjs`, run when the lease drops — `docker cp` works on stopped containers                                    | `tests/test-issue-2164-session-drain.mjs`                                      |
-| R8, R14     | Named volume `hive-mind-router-data` that no code path removes; `src/router-logs.lib.mjs` reads it with or without a running router       | `tests/test-issue-2164-log-collection.mjs`                                     |
-| R11         | Accepted and honestly degraded: model traffic still goes to the Formal AI sidecar, and every run says so                                  | `tests/test-issue-2164-router-isolation.mjs` (coverage-gap warnings)           |
-| R12         | `GH_HOST`/`GH_ENTERPRISE_TOKEN` injection, opt-in through `HIVE_MIND_ROUTER_GH_HOST` because of G4                                        | `tests/test-issue-2164-router-isolation.mjs`                                   |
-| R13         | Layers 1–2: branch protection, plus the `pre-push` guard in `src/git-push-guard.lib.mjs`                                                  | `tests/test-issue-2164-git-push-guard.mjs` (real git, real remote)             |
-| R15         | `docs/COLLECTING-LOGS.md` ×4 languages and `examples/collect-logs.mjs`, both driven by `describeSystemLogLocations()`                     | `tests/test-issue-2164-log-collection.mjs`                                     |
-| R16         | router#260, #261, #262, #263 filed before the corresponding code                                                                          | the upstream issues                                                            |
-| R17         | this document                                                                                                                             | `MANIFEST.md` checksums                                                        |
+| #           | Delivered by                                                                                                                                                                                | Verified by                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| R1, R9, R10 | `--use-router` in `SOLVE_OPTION_DEFINITIONS` with the `[EXPERIMENTAL]` prefix; nothing changes without it                                                                                   | `tests/test-issue-2164-router-isolation.mjs`                                                              |
+| R2, R3      | `getRouterSuppressedCredentialPaths()` + `buildRouterTaskEnv()`, applied at the credential seam in `src/isolation-runner.lib.mjs`                                                           | `tests/test-issue-2164-router-isolation.mjs` (suppression asserted explicitly)                            |
+| R4          | Part 2 of this document, quoted against the pinned router README                                                                                                                            | `data/upstream/router-README.md`                                                                          |
+| R5          | Lease-counted sidecar in `src/router-sidecar.lib.mjs`; the bot's maintenance tick reconciles leases against Docker and stops idle routers                                                   | `tests/test-issue-2164-router-sidecar.mjs`                                                                |
+| R6          | One `router token issue` per session id, revoked on release; never shared                                                                                                                   | `tests/test-issue-2164-router-sidecar.mjs`                                                                |
+| R7          | `src/router-session-drain.lib.mjs`, run when the lease drops — `docker cp` works on stopped containers                                                                                      | `tests/test-issue-2164-session-drain.mjs`                                                                 |
+| R8, R14     | Named volume `hive-mind-router-data` that no code path removes; `src/router-logs.lib.mjs` reads it with or without a running router                                                         | `tests/test-issue-2164-log-collection.mjs`                                                                |
+| R11         | `registerFormalAiWithRouter()`: the router joins the Formal AI network and stores the sidecar as a provider, so `--model formal-ai` is mediated too                                         | `tests/test-issue-2164-router-sidecar.mjs`, `experiments/issue-2164/probe-formal-ai-provider.sh`          |
+| R12         | Transparent interception by default: the router's certificate names `api.github.com`, and the task resolves that host to the router. `HIVE_MIND_ROUTER_GH_HOST` remains for an external one | `tests/test-issue-2164-router-isolation.mjs`, `data/measurements/github-hosts.log`                        |
+| R13         | Layers 1–3: branch protection, the `pre-push` guard in `src/git-push-guard.lib.mjs`, and git itself sent through the router's `/git/*` proxy, which refuses deletions                       | `tests/test-issue-2164-git-push-guard.mjs` (real git, real remote), `data/measurements/git-transport.log` |
+| R15         | `docs/COLLECTING-LOGS.md` ×4 languages and `examples/collect-logs.mjs`, both driven by `describeSystemLogLocations()`                                                                       | `tests/test-issue-2164-log-collection.mjs`                                                                |
+| R16         | router#260, #261, #262, #263 filed before the corresponding code — all four now fixed upstream; #270, #271, #272 filed for what the re-measurement found                                    | the upstream issues                                                                                       |
+| R17         | this document                                                                                                                                                                               | `MANIFEST.md` checksums                                                                                   |
 
-**R13 is not complete**, and the PR does not claim it is: layer 3 (git traffic
-through the router) needs [router#261](https://github.com/link-assistant/router/issues/261),
-so `git push --no-verify` still gets past the in-task guard and branch
-protection remains the only unbypassable control. R11's model half needs
-[router#260](https://github.com/link-assistant/router/issues/260) and R12's `gh`
-half needs [router#263](https://github.com/link-assistant/router/issues/263) or
-an operator-supplied HTTPS terminator. Phases 7–9 wait on those, as the issue
-instructs; every routed run prints the gaps that apply to it.
+All four upstream gaps this analysis opened with were fixed while the PR was in
+flight, so R11, R12 and R13 are delivered rather than deferred. **R13 is still
+not airtight**, and the PR does not claim it is: the router refuses a branch
+deletion but forwards a force push
+([router#272](https://github.com/link-assistant/router/issues/272)), the in-task
+`pre-push` guard covers that unless the agent passes `--no-verify`, and branch
+protection remains the only control neither can bypass. The Formal AI sidecar's
+own upstream calls are likewise not routed yet. Every routed run prints the gaps
+that apply to it rather than implying full coverage.

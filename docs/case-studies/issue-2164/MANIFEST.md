@@ -13,12 +13,13 @@ find data -type f | sort | xargs sha256sum
 
 ## Collection method
 
-| Group             | How it was captured                                                                                                                                                                                             |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `data/github/`    | `gh issue view 2164 --json …`, `gh api repos/link-assistant/hive-mind/issues/2164/comments --paginate`, and the three distinct PR comment endpoints for #2165 (review comments, conversation comments, reviews) |
-| `data/upstream/`  | `gh api repos/link-assistant/router …` for metadata, releases and the full issue list; `gh api …/contents/README.md` and the `docs/use-cases/` files for the documentation                                      |
-| `data/hive-mind/` | `sed -n` extracts from this repository at the commit recorded in `hive-mind-commit.txt`, so the quoted code is pinned                                                                                           |
-| `data/research/`  | Hand-written notes from web research, each claim carrying its source                                                                                                                                            |
+| Group                | How it was captured                                                                                                                                                                                             |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data/github/`       | `gh issue view 2164 --json …`, `gh api repos/link-assistant/hive-mind/issues/2164/comments --paginate`, and the three distinct PR comment endpoints for #2165 (review comments, conversation comments, reviews) |
+| `data/upstream/`     | `gh api repos/link-assistant/router …` for metadata, releases and the full issue list; `gh api …/contents/README.md` and the `docs/use-cases/` files for the documentation                                      |
+| `data/hive-mind/`    | `sed -n` extracts from this repository at the commit recorded in `hive-mind-commit.txt`, so the quoted code is pinned                                                                                           |
+| `data/research/`     | Hand-written notes from web research, each claim carrying its source                                                                                                                                            |
+| `data/measurements/` | Output of the probe scripts in `experiments/issue-2164/`, run against router `v0.109.0` and a real Docker daemon, copied here with task tokens replaced by `la_sk_REDACTED` (the raw logs are gitignored)       |
 
 ## Files
 
@@ -34,6 +35,14 @@ find data -type f | sort | xargs sha256sum
 | `data/hive-mind/hive-mind-commit.txt`                         | 48    | `eb737254c258df841d1807feb7e234ed917e982de1d9fd82072969885c6fe3e5` |
 | `data/hive-mind/isolation-runner-auth-mounts.snippet.mjs`     | 7658  | `2b0cc3ca887edbd9452166396d4780cb3c5fd37e63ae9e003eccb330d5fb6ba4` |
 | `data/hive-mind/isolation-runner-formal-ai-lease.snippet.mjs` | 4954  | `0620c5dd63fe6e4c959438f06e67e9b2517a0062a85914a802528d8251773eb5` |
+| `data/measurements/claude-router.log`                         | 958   | `39bc0774c5addadb4ffe2413d5e55e2a56c2b23aa29a5455c032111eeeca7fb2` |
+| `data/measurements/codex-router.log`                          | 1290  | `54dcda7fe556f0d1a58ada5ccbf58321f25b4e274edac7dbb715d1184a7bc431` |
+| `data/measurements/force-capabilities.log`                    | 2077  | `1a9ba49519fcbbcf2105c0f993eb3734e9d3944c8173d34c6b7ec40358e21e22` |
+| `data/measurements/formal-ai-provider.log`                    | 4289  | `68e97c3e4991e9dc389677de344335f81396dfa9b8bc40a8438beafcb78b469e` |
+| `data/measurements/gh-ssl-cert-file-linux.log`                | 688   | `8f8e3b8216878956b29db41644af777b292727863eb506011bf4643718bde66e` |
+| `data/measurements/git-transport.log`                         | 2446  | `c0bebf67a64b365f817a225d8654a41387c33ca67cbf7e59346c19a7d0af89b2` |
+| `data/measurements/github-alias.log`                          | 2996  | `ef2cf36f91e1d46373ca01c2fde9a046f6a6f5d6c1b19196dc1f81a65031f604` |
+| `data/measurements/github-hosts.log`                          | 2569  | `0e855c3a5c63b09ad528a4eb298b821504928dcd26dfb5cceceae0dab7712434` |
 | `data/research/online-research.md`                            | 5159  | `7218569d7a1ba0aea7117a258e5aa9109c40a186accb279db22478e08950f2fb` |
 | `data/upstream/router-README.md`                              | 69210 | `569d58ed868c6f4fbe4272b1bb2aabb15ae7de694cf6d014c2cd4f8553f406b8` |
 | `data/upstream/router-issues.json`                            | 33042 | `f5245657ee41d7575486138227b0742b1fae6488b0467a3772089bb9db209d92` |

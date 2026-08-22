@@ -13,10 +13,11 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
-import { acquireRouterSidecar, buildRouterSidecarRunArgs, decodeRouterTokenId, getRouterCredentialMounts, issueRouterTaskToken, isRouterSidecarEnabled, readRouterCaCertificate, readRouterNetworkIp, releaseRouterSidecar, resolveRouterSidecarImage, resolveRouterTokenSecret, wireRouterTaskContainer } from '../src/router-sidecar.lib.mjs';
-import { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask } from '../src/router-task-isolation.lib.mjs';
+import { acquireRouterSidecar, attachRouterToNetwork, buildRouterSidecarRunArgs, decodeRouterTokenId, getRouterCredentialMounts, issueRouterTaskToken, isRouterSidecarEnabled, readRouterCaCertificate, readRouterNetworkIp, registerRouterProvider, releaseRouterSidecar, resolveRouterSidecarImage, resolveRouterTokenSecret, wireRouterTaskContainer } from '../src/router-sidecar.lib.mjs';
+import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from '../src/router-task-isolation.lib.mjs';
 import { runRouterMaintenanceTick, startRouterMaintenance, stopIdleRouterSidecar } from '../src/router-maintenance.lib.mjs';
-import { getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
+import { FORMAL_AI_SIDECAR_NETWORK_NAME } from '../src/formal-ai-sidecar.lib.mjs';
+import { buildRouterFormalAiProviderArgs, getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_FORMAL_AI_MODEL, ROUTER_FORMAL_AI_PROVIDER_NAME, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -63,6 +64,10 @@ assertEqual(runArgs.slice(0, 2).join(' '), 'run --detach', 'the container is sta
 assertEqual(flagValue(runArgs, '--name', '').join(''), ROUTER_SIDECAR_CONTAINER_NAME, 'the container carries the stable reconciliation name');
 assertEqual(holds(flagValue(runArgs, '--env', 'TOKEN_SECRET=').join(''), 'deadbeef'), true, 'the signing secret is passed to the router');
 assertEqual(flagValue(runArgs, '--env', 'DATA_DIR=').join(''), ROUTER_DATA_MOUNT, 'DATA_DIR points at the mounted volume so request logs persist (R8)');
+// Measured in experiments/issue-2164/probe-formal-ai-provider.sh: the file is
+// created on the first authorised request and then holds one JSON line per
+// mediated call — time, token id, label, provider, surface, path and model.
+assertEqual(flagValue(runArgs, '--env', 'AUDIT_LOG=').join(''), `${ROUTER_DATA_MOUNT}/audit.jsonl`, 'and the audit log is written into that same volume, so who asked for what survives the container (R8)');
 assertEqual(
   runArgs.some((value, index) => runArgs[index - 1] === '--volume' && value === `${ROUTER_DATA_VOLUME_NAME}:${ROUTER_DATA_MOUNT}`),
   true,
@@ -328,6 +333,64 @@ assertEqual(typeof threw.error === 'string' && threw.error.includes('boom'), tru
 
 const attachFailed = await attachRouterTaskContainer({ router: { token: 't' }, sessionId: 's', attach: async () => ({ attached: false, error: 'no such container' }) });
 assertEqual(attachFailed, 'no such container', 'a failed network attach is reported so the caller can stop the container');
+
+console.log('\n=== issue #2164 R11: --model formal-ai is served by the same router ===');
+
+// Measured in experiments/issue-2164/probe-formal-ai-provider.sh against router
+// 0.109.0: a provider stored this way is advertised on GET /v1/models as
+// {"id":"formal-ai","owned_by":"hive-mind-formal-ai"} and answers a chat
+// completion for that id with HTTP 200, recorded in /data/router/audit.jsonl.
+assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }).join(' '), `providers add --name ${ROUTER_FORMAL_AI_PROVIDER_NAME} --base-url http://link-assistant-formal-ai:8080/v1 --model ${ROUTER_FORMAL_AI_MODEL} --models ${ROUTER_FORMAL_AI_MODEL} --api-key unused`, 'the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for');
+assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080/v1/' }).includes('http://link-assistant-formal-ai:8080/v1'), true, 'a base URL that already names the API version is not versioned twice');
+assertEqual(buildRouterFormalAiProviderArgs({}), null, 'and no endpoint yields no command rather than a half-formed one');
+
+const providerCalls = [];
+const providerDocker = {
+  run: async (binary, args) => {
+    providerCalls.push(args);
+    return { stdout: 'ok', stderr: '' };
+  },
+};
+assertEqual((await registerRouterProvider({ providerArgs: buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }), run: providerDocker.run })).registered, true, 'registering a provider succeeds when the router accepts it');
+assertEqual(providerCalls[0].slice(0, 4).join(' '), `exec ${ROUTER_SIDECAR_CONTAINER_NAME} router providers`, 'the CLI is invoked inside the sidecar, naming the binary because docker exec bypasses the entrypoint');
+assertEqual(
+  (
+    await registerRouterProvider({
+      providerArgs: ['providers', 'add'],
+      run: async () => {
+        throw Object.assign(new Error('exit 1'), { stderr: 'unknown provider kind' });
+      },
+    })
+  ).error,
+  'unknown provider kind',
+  "and a refusal is reported with the router's own words"
+);
+
+const networkCalls = [];
+assertEqual((await attachRouterToNetwork({ network: FORMAL_AI_SIDECAR_NETWORK_NAME, run: async (binary, args) => (networkCalls.push(args), { stdout: '', stderr: '' }) })).attached, true, 'the router joins the Formal AI network so it can resolve the alias');
+assertEqual(networkCalls[0].join(' '), `network connect ${FORMAL_AI_SIDECAR_NETWORK_NAME} ${ROUTER_SIDECAR_CONTAINER_NAME}`, 'no alias is requested: nothing on that network calls the router by name');
+
+assertEqual(await registerFormalAiWithRouter({ router: null, sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080' } }), null, 'a Formal AI task without routing is left alone');
+assertEqual(await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: null }), null, 'and a routed task that is not a Formal AI task registers nothing');
+
+const wiredProvider = [];
+assertEqual(
+  await registerFormalAiWithRouter({
+    router: { token: 't' },
+    sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080', baseUrl: 'http://172.20.0.3:8080' },
+    log: async () => {},
+    attach: async options => (wiredProvider.push(options.network), { attached: true }),
+    register: async options => (wiredProvider.push(options.providerArgs.join(' ')), { registered: true }),
+  }),
+  null,
+  'with both sidecars up the router is taught to serve formal-ai itself'
+);
+assertEqual(wiredProvider[0], FORMAL_AI_SIDECAR_NETWORK_NAME, 'the network is joined first, because the provider is useless until the alias resolves');
+assertEqual(wiredProvider[1].includes('http://link-assistant-formal-ai:8080/v1'), true, 'the DNS endpoint is stored rather than an address that changes on every restart');
+
+assertEqual(typeof (await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: false, error: 'network not found' }) })), 'string', 'a router that cannot reach Formal AI fails the launch');
+assertEqual((await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: true }), register: async () => ({ registered: false, error: 'store is read-only' }) }))?.includes('store is read-only'), true, 'and so does a provider the router refuses to store, rather than running unmediated');
+assertEqual(await registerFormalAiWithRouter({ router: { token: 't', external: true }, sidecar: { dnsBaseUrl: 'http://x:8080' }, attach: async () => ({ attached: false, error: 'should not be called' }) }), null, "an external router is somebody else's to configure");
 assertEqual(await attachRouterTaskContainer({ router: { token: 't', external: true }, sessionId: 's' }), null, 'an external router has no network of ours to join');
 assertEqual(await releaseRouterForTask({ router: null, sessionId: 's' }), null, 'releasing a run that never routed does nothing');
 

@@ -1,0 +1,30 @@
+[2m2026-08-22T16:40:03.853980Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T16:40:04.250357Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T16:40:06.735659Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+== forced push, client packet trace ==
+
+== router verdict ==
+remote: outside this token's repositories
+fatal: unable to access 'https://link-assistant-router/git/link-assistant/hive-mind/': The requested URL returned error: 403
+
+== control: the branch on the remote ==
+f5e3e3e3525841ff6130420917324900c49456dc	refs/heads/issue-2164-90464ce530a2
+
+== what a real `git push --force` sends (local transport, same send-pack code path) ==
+$ git --version
+git version 2.43.0
+$ GIT_TRACE_PACKET=1 git push --force ../up.git HEAD:refs/heads/main   # orphan commit, non-fast-forward
+packet: receive-pack> ec3572bcc841c17b559cf593d1320dd01e24d8d0 refs/heads/main\0report-status report-status-v2 delete-refs side-band-64k quiet atomic ofs-delta object-format=sha1 agent=git/2.43.0
+packet:         push> ec3572bcc841c17b559cf593d1320dd01e24d8d0 dc39a4ff07963511c4367a2467db9675e0db38ee refs/heads/main\0 report-status-v2 side-band-64k quiet object-format=sha1 agent=git/2.43.0
+packet: receive-pack> ok refs/heads/main
+
+The client capability list is `report-status-v2 side-band-64k quiet object-format=sha1
+agent=git/2.43.0`. Neither `force-ref-updates` nor `push-force` appears, and neither is
+a capability git sends at all — `force-ref-updates` is a JGit/Gerrit server-side
+capability. Router 0.109.0 decides `forced` from exactly those two strings
+(src/git_proxy.rs `body_requests_force`), so `refuse_destructive_updates` never sees
+`forced = true` from a real git client and a history rewrite is forwarded to GitHub.
+
+Measured end-to-end in git-transport.log section 5: the router forwarded
+`+ f5e3e3e...a861cb3 (forced update)` to an unrelated orphan commit. The branch was
+restored from the host immediately afterwards.

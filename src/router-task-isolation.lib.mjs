@@ -16,8 +16,9 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
-import { describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
-import { acquireRouterSidecar, attachTaskToRouterNetwork, releaseRouterSidecar, wireRouterTaskContainer } from './router-sidecar.lib.mjs';
+import { FORMAL_AI_SIDECAR_NETWORK_NAME, resolveFormalAiSidecarBaseUrl } from './formal-ai-sidecar.lib.mjs';
+import { buildRouterFormalAiProviderArgs, describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting, ROUTER_FORMAL_AI_PROVIDER_NAME } from './router-isolation.lib.mjs';
+import { acquireRouterSidecar, attachRouterToNetwork, attachTaskToRouterNetwork, registerRouterProvider, releaseRouterSidecar, wireRouterTaskContainer } from './router-sidecar.lib.mjs';
 
 const logToConsole = message => console.log(message);
 
@@ -56,6 +57,36 @@ export const acquireRouterForTask = async ({ backend, useRouter = false, model =
 };
 
 /**
+ * Teach the router about the Formal AI sidecar so `--model formal-ai` is served
+ * through the router as well (R11).
+ *
+ * Two steps, both needed and both cheap to repeat: the router joins the Formal
+ * AI network (it is otherwise on its own network and the default bridge, and
+ * cannot resolve the alias), and the sidecar is stored as an OpenAI-compatible
+ * provider. The stored entry does not pin the router — with the default
+ * `UPSTREAM_PROVIDER=auto` it dispatches on the model id in the request, so a
+ * Claude task sharing the same sidecar is unaffected. Measured end to end in
+ * experiments/issue-2164/probe-formal-ai-provider.sh.
+ *
+ * Fails closed like the rest of router isolation: a Formal AI task that cannot
+ * reach Formal AI through the router would either fall back to an unmediated
+ * path or have no model at all.
+ *
+ * @returns {Promise<string|null>} An error message, or null when there is
+ *   nothing to do or the registration succeeded.
+ */
+export const registerFormalAiWithRouter = async ({ router, sidecar, verbose = false, log = logToConsole, attach = attachRouterToNetwork, register = registerRouterProvider } = {}) => {
+  if (!router || router.external || !sidecar) return null;
+  const attached = await attach({ network: FORMAL_AI_SIDECAR_NETWORK_NAME, verbose, log });
+  if (!attached?.attached) return `Router isolation was requested for a Formal AI task, but the router could not join the '${FORMAL_AI_SIDECAR_NETWORK_NAME}' network, so it could not reach Formal AI (issue #2164): ${attached?.error || 'unknown error'}`;
+  const providerArgs = buildRouterFormalAiProviderArgs({ baseUrl: sidecar.dnsBaseUrl || sidecar.baseUrl || resolveFormalAiSidecarBaseUrl() });
+  const registered = await register({ providerArgs, verbose, log });
+  if (!registered?.registered) return `Router isolation was requested for a Formal AI task, but the router refused to store it as a provider (issue #2164): ${registered?.error || 'unknown error'}`;
+  if (log) await log(`🧮 [EXPERIMENTAL] Formal AI is registered on the router as '${ROUTER_FORMAL_AI_PROVIDER_NAME}', so '--model formal-ai' is mediated and logged like every other model (issue #2164)`);
+  return null;
+};
+
+/**
  * Put the freshly-created task container on the router's internal network and
  * finish wiring it up.
  *
@@ -87,4 +118,4 @@ export const releaseRouterForTask = async ({ router, sessionId, env = process.en
   }
 };
 
-export default { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask };
+export default { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask };

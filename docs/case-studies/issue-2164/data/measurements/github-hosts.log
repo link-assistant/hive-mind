@@ -1,0 +1,39 @@
+== 1. router on 443, TLS for link-assistant-router AND api.github.com ==
+[2m2026-08-22T16:30:52.326949Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+github credential: configured from the environment
+router ip on probe-2164-net: 172.20.0.2
+
+== 2. certificate and token ==
+[2m2026-08-22T16:30:52.536880Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+            X509v3 Subject Alternative Name: 
+                DNS:link-assistant-router, DNS:api.github.com, DNS:localhost, IP Address:127.0.0.1
+[2m2026-08-22T16:30:52.786170Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+token issued: 215 chars
+
+== 3. task container: attach, then write /etc/hosts, then assemble the CA bundle ==
+cat: /etc/ssl/certs/ca-certificates.crt: No such file or directory
+172.20.0.2      api.github.com
+
+== 4. gh from the task container, no GH_HOST, no gh credential ==
+--- URL form (what the prompts tell the agent to use)
+{"title":"`--use-router` option"}
+--- repo form
+{"title":"`--use-router` option"}
+--- pr view by URL
+{"state":"OPEN","title":"feat(router): route AI subscriptions through hive-mind-router with per-task tokens (EXPERIMENTAL)"}
+--- gh api path form
+link-assistant/hive-mind
+--- gh api graphql
+{"data":{"viewer":{"login":"konard"}}}--- destructive: DELETE a label
+{"message":"Blocked by Link.Assistant.Router GitHub policy"}gh: Blocked by Link.Assistant.Router GitHub policy (HTTP 403)
+
+== 5. control: the router still reaches real GitHub (no self-loop) ==
+140.82.121.5    api.github.com
+
+== 6. control: same container, CA removed ==
+Get "https://api.github.com/repos/link-assistant/hive-mind": tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+== 7. router request log (per token) ==
+{"body":"","correlation_id":"9abdd464-ed8b-45a1-a3ae-80fbf8770645","headers":{"accept":"*/*","accept-encoding":"gzip","authorization":"tok******************************************************************************************************
+{"correlation_id":"9abdd464-ed8b-45a1-a3ae-80fbf8770645","headers":{"content-type":"application/json","x-link-assistant-policy":"blocked","x-request-id":"9abdd464-ed8b-45a1-a3ae-80fbf8770645"},"latency_ms":1099,"phase":"client_response","st
+{"body":{"message":"Blocked by Link.Assistant.Router GitHub policy"},"correlation_id":"9abdd464-ed8b-45a1-a3ae-80fbf8770645","phase":"client_response_body","time":"2026-08-22T16:31:09.205696005+00:00","token_hash":"d41350cc6483d120e267b7648

@@ -418,6 +418,38 @@ export const readRouterNetworkIp = async ({ containerName = ROUTER_SIDECAR_CONTA
   }
 };
 
+/**
+ * Store an upstream provider in the router (R11).
+ *
+ * Idempotent in practice: re-adding the same name overwrites the entry, so an
+ * acquire that reuses a running sidecar can call this unconditionally.
+ *
+ * @returns {Promise<{registered: boolean, error: string|null}>}
+ */
+export const registerRouterProvider = async ({ providerArgs, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
+  if (!providerArgs?.length) return { registered: false, error: 'no provider arguments' };
+  try {
+    // `docker exec` bypasses the image entrypoint, so the binary is named again.
+    await dockerText(run, ['exec', containerName, 'router', ...providerArgs], { timeoutMs });
+  } catch (error) {
+    return { registered: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+  }
+  if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: registered provider '${providerArgs[providerArgs.indexOf('--name') + 1]}'`);
+  return { registered: true, error: null };
+};
+
+/**
+ * Put the router itself on another sidecar's internal network.
+ *
+ * Needed for R11: the router has to be able to resolve
+ * `link-assistant-formal-ai` before it can forward anything to it. No alias is
+ * requested — nothing on that network calls the router by name.
+ */
+export const attachRouterToNetwork = async ({ network, containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
+  if (!network) return { attached: false, error: 'no network' };
+  return attachDockerNetwork({ network, container: containerName, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
+};
+
 /** Attach a task container to the router network so it can resolve the alias. */
 export const attachTaskToRouterNetwork = async ({ sessionId, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   if (!sessionId) return { attached: false, error: 'no sessionId' };

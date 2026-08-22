@@ -339,6 +339,62 @@ export function buildRouterCodexConfig({ baseUrl } = {}) {
 }
 
 /**
+ * Name the Formal AI sidecar is stored under in the router's provider store, and
+ * the model id it advertises (R11).
+ */
+export const ROUTER_FORMAL_AI_PROVIDER_NAME = 'hive-mind-formal-ai';
+export const ROUTER_FORMAL_AI_MODEL = 'formal-ai';
+
+/**
+ * `router providers add` argv for an OpenAI-compatible upstream.
+ *
+ * The router keeps these in `<DATA_DIR>/providers.lenv` with the key encrypted
+ * from `TOKEN_SECRET`, so a provider registered once survives a restart of the
+ * sidecar and is never written to a task's environment.
+ *
+ * @returns {string[]|null} argv after the `router` binary, or null when a
+ *   required field is missing.
+ */
+export function buildRouterProviderArgs({ name, baseUrl, model, models = null, apiKey = null } = {}) {
+  if (!name || !baseUrl || !model) return null;
+  const advertised = models && models.length ? models : [model];
+  const args = ['providers', 'add', '--name', name, '--base-url', baseUrl, '--model', model, '--models', advertised.join(',')];
+  // The Formal AI sidecar authenticates nothing, but the store requires a key;
+  // an explicit placeholder is clearer than an empty string in providers.lenv.
+  args.push('--api-key', apiKey || 'unused');
+  return args;
+}
+
+/**
+ * Register the Formal AI sidecar as a router provider (R11), so a task that asks
+ * for `--model formal-ai` reaches it *through* the router rather than around it,
+ * and the exchange lands in the same per-token request log and audit trail as
+ * every model call.
+ *
+ * Measured in experiments/issue-2164/probe-formal-ai-provider.sh against router
+ * 0.109.0: with the default `UPSTREAM_PROVIDER=auto` the router picks a stored
+ * provider by the model id in the request, so adding this one does not pin the
+ * router — Claude tasks sharing the same sidecar keep reaching Anthropic. After
+ * the call, GET /v1/models advertises `{"id":"formal-ai","owned_by":
+ * "hive-mind-formal-ai"}` and a chat completion for that id is answered by the
+ * sidecar (HTTP 200), with `"provider":"openai-compatible","model":"formal-ai"`
+ * recorded in /data/router/audit.jsonl.
+ *
+ * @param {string} baseUrl origin of the Formal AI sidecar, e.g.
+ *   `http://link-assistant-formal-ai:8080`
+ */
+export function buildRouterFormalAiProviderArgs({ baseUrl } = {}) {
+  const origin = String(baseUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!origin) return null;
+  // The router calls `<base-url>/chat/completions`, so the version segment
+  // belongs in the stored base URL.
+  const versioned = /\/v1$/.test(origin) ? origin : `${origin}/v1`;
+  return buildRouterProviderArgs({ name: ROUTER_FORMAL_AI_PROVIDER_NAME, baseUrl: versioned, model: ROUTER_FORMAL_AI_MODEL });
+}
+
+/**
  * The one-shot script that finishes wiring a task container from the host.
  *
  * It runs as root through `docker exec` while the start gate still holds the
@@ -416,7 +472,7 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
   }
   const requested = String(model || '').trim();
   if (requested === 'formal-ai') {
-    gaps.push('Formal AI is reached through the router as a stored OpenAI-compatible provider; register it with `router providers add` on the sidecar if the model is not advertised.');
+    gaps.push("Formal AI is registered on the router as an OpenAI-compatible provider, so `--model formal-ai` is served through it and appears in the audit log. The Formal AI sidecar's own upstream calls are not routed yet: when it is run in agent mode against a vendor API, that leg still leaves the sidecar directly.");
   } else if (requested && !/\d/.test(requested)) {
     gaps.push(`The router resolves exact model ids only, as advertised by GET /v1/models — an alias like '${requested}' is rejected. Use the dated id (for example claude-sonnet-4-5-20250929).`);
   }

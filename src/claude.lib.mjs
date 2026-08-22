@@ -28,7 +28,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -341,6 +341,9 @@ export const executeClaudeCommand = async params => {
   const escapePromptForShell = promptText => String(promptText).replace(/"/g, '\\"').replace(/\$/g, '\\$');
   await validateBidirectionalModeConfig(argv, log);
   let retryCount = 0;
+  // Issue #2169: total-time budget shared by every transient-error retry of this run (default
+  // 12 h). Created outside executeWithRetry so the elapsed clock survives the recursive calls.
+  const transientRetryBudget = createTransientRetryBudget();
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
@@ -353,7 +356,8 @@ export const executeClaudeCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Claude:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
+      // Issue #2169: the count cap is a backstop now, so report the retry budget instead.
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount} (${transientRetryBudget.describeProgress()})`)}`);
     }
     if (argv.verbose) {
       // Issue #1949: logExecutionContext shows the requested alias with its resolved
@@ -1035,17 +1039,31 @@ export const executeClaudeCommand = async params => {
       }
       // Issues #1331, #1353, #1472/#1475: Unified transient error retry (exponential backoff, session preservation)
       const isTransientError = isStartupTimeout || isActivityTimeout || isOverloadError || isInternalServerError || is503Error || isRequestTimeout || isRateLimitError || retryableLastError.isRetryable || (lastMessage.includes('API Error: 500') && (lastMessage.includes('Overloaded') || lastMessage.includes('Internal server error'))) || (lastMessage.includes('API Error: 529') && (lastMessage.includes('overloaded_error') || lastMessage.includes('Overloaded'))) || (lastMessage.includes('api_error') && lastMessage.includes('Overloaded')) || (lastMessage.includes('overloaded_error') && lastMessage.includes('Overloaded')) || lastMessage.includes('API Error: 503') || (lastMessage.includes('503') && (lastMessage.includes('upstream connect error') || lastMessage.includes('remote connection failure'))) || lastMessage === 'Request timed out' || lastMessage.includes('Request timed out');
+      // Issue #2169: a run that ended in a *successful* result event must never be retried.
+      // `lastMessage` holds the agent's own last text, so any prose that merely looks like an API
+      // error ("PR #524", "API Error: 503" quoted while working on an issue about it) used to flip
+      // `isTransientError` on and send a finished session into the retry loop. In the reported run
+      // all 11 attempts succeeded and were retried anyway, burning 3 h 54 min before the process
+      // exited 1 with the summary text presented as the error.
+      const runProducedSuccess = resultSuccessReceived && !commandFailed && !errorDuringExecution && exitCode === 0;
+      if (runProducedSuccess && isTransientError) {
+        await log(`🔍 Transient-error pattern seen in a successful run — not retrying (Issue #2169). Pattern: ${retryableLastError.label || 'flagged by stream detector'}; last message: ${JSON.stringify(lastMessage.substring(0, 200))}`, { verbose: true });
+      }
       // Issue #2161: an account/subscription block short-circuits every retry
       // path. Stale transient flags from earlier in the run (an overload at hour
       // one, say) must not schedule a retry that is guaranteed to fail the same
       // way — and each retry would burn another full startup against a provider
       // that has already refused the credentials.
-      if ((commandFailed || isTransientError) && isTransientError && !subscriptionError) {
-        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 2min–30min
+      if (!runProducedSuccess && isTransientError && !subscriptionError) {
+        // Issue #1472/#1475: Startup/activity timeout → 30s–2min backoff; #1353: Request timeout → 5min–1hr; general → 3min–30min
         const isTimeoutRetry = isStartupTimeout || isActivityTimeout;
-        const maxRetries = isTimeoutRetry ? retryLimits.maxTransientErrorRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
+        // Issue #2169: stream timeouts keep their own short count cap; API errors are governed by
+        // the 12-hour budget with a 3-minute floor on every wait.
+        const maxRetries = isTimeoutRetry ? retryLimits.maxStreamTimeoutRetries : isRequestTimeout ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isTimeoutRetry ? 30000 : isRequestTimeout ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutRetry ? 120000 : isRequestTimeout ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
+        const minDelay = isTimeoutRetry ? 0 : retryLimits.minTransientErrorDelayMs;
+        const retryDecision = transientRetryBudget.evaluate({ retryCount, maxRetries, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
         // Issue #1437: Fail fast when API signals x-should-retry: false AND session made no progress
         const isStuckRetry = apiMarkedNotRetryable && retryCount >= retryLimits.maxNotRetryableAttempts && resultNumTurns <= 1;
         if (isStuckRetry) {
@@ -1072,17 +1090,18 @@ export const executeClaudeCommand = async params => {
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
         }
-        if (retryCount < maxRetries) {
+        if (retryDecision.allowed) {
+          transientRetryBudget.grant();
           // Activity timeout preserves session (work was started), startup timeout does not (no session created)
           if (!isStartupTimeout && sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: retryableLastError.message || lastMessage, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isStartupTimeout ? 'Stream startup timeout (Issue #1472/#1475)' : isActivityTimeout ? 'Stream activity timeout (Issue #1472)' : isRequestTimeout ? 'Request timeout' : retryableLastError.label || (isOverloadError || (lastMessage.includes('API Error: 500') && lastMessage.includes('Overloaded')) || (lastMessage.includes('API Error: 529') && lastMessage.includes('Overloaded')) ? `API overload (${lastMessage.includes('529') ? '529' : '500'})` : isInternalServerError || lastMessage.includes('Internal server error') ? 'Internal server error (500)' : isRateLimitError ? 'Server rate limited (429)' : '503 network error');
           const notRetryableHint = apiMarkedNotRetryable ? ' (API says not retryable — will stop early if no progress)' : '';
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
           const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
-          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${retryMode}${notRetryableHint}...`, { level: 'warning' });
+          await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1} in ${delayLabel}${retryMode}${notRetryableHint} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
           await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
           // Issue #1510: Post PR comment when force-killing and auto-resuming so reviewers can follow the session lifecycle
           if ((isActivityTimeout || isStartupTimeout) && owner && repo && prNumber && $) {
@@ -1102,7 +1121,10 @@ export const executeClaudeCommand = async params => {
           retryCount++;
           return await executeWithRetry();
         } else {
-          await log(`\n\n❌ Transient API error persisted after ${maxRetries} retries\n   Please try again later or check https://status.anthropic.com/`, { level: 'error' });
+          // Issue #2169: report *why* we stopped — count backstop vs 12-hour budget — and how long
+          // the run actually spent retrying, so an exhausted window is diagnosable from one line.
+          const exhaustionReason = transientRetryBudget.describeExhaustion(retryDecision);
+          await log(`\n\n❌ Transient API error persisted: ${exhaustionReason}\n   Please try again later or check https://status.anthropic.com/\n   Raise HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS to keep retrying for longer.`, { level: 'error' });
           // Issue #1886: fold captured cost so the carried-forward cost survives this retries-exhausted path.
           seedCumulativeAnthropicCost(argv.previousAnthropicCost);
           const cumulativeAnthropicCostUSDOnRetriesExhausted = addAnthropicRunCost(anthropicTotalCostUSD ?? anthropicCostFromAnyResult);
@@ -1118,7 +1140,7 @@ export const executeClaudeCommand = async params => {
             anthropicTotalCostUSD: cumulativeAnthropicCostUSDOnRetriesExhausted, // Issue #1104/#1886: Include cumulative cost even on failure
             resultSummary, // Issue #1263: Include result summary
             // Issue #1845/#1941: surface the actual error, rejecting meaningless fragments (e.g. a lone "}")
-            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Transient API error persisted after ${maxRetries} retries`, toolLabel: 'Claude' }), exitCode },
+            errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Transient API error persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, toolLabel: 'Claude' }), exitCode },
             subscriptionError, // Issue #2161
             queuedFeedback, // Issue #817: Bidirectional mode feedback
           };
@@ -1253,19 +1275,24 @@ export const executeClaudeCommand = async params => {
         const maxRetries = isTimeoutException ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
         const initialDelay = isTimeoutException ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs;
         const maxDelay = isTimeoutException ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs;
-        if (retryCount < maxRetries) {
+        // Issue #2169: the same 12-hour budget with a 3-minute floor governs the exception path.
+        const minDelay = retryLimits.minTransientErrorDelayMs;
+        const retryDecision = transientRetryBudget.evaluate({ retryCount, maxRetries, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
+        if (retryDecision.allowed) {
+          transientRetryBudget.grant();
           if (sessionId && !argv.resume) argv.resume = sessionId;
           // Issue #2037: retry same model on capacity errors before falling back; a switch retries fast.
-          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay });
+          const retryPlan = await prepareRetryAfterError({ tool: 'claude', argv, log, errorMessage: errorStr, retryCount, initialDelayMs: initialDelay, maxDelayMs: maxDelay, minDelayMs: minDelay });
           const delay = retryPlan.delay;
           const errorLabel = isTimeoutException ? 'Request timeout' : retryableException.label || (errorStr.includes('Overloaded') ? `API overload (${errorStr.includes('529') ? '529' : '500'})` : errorStr.includes('Internal server error') ? 'Internal server error (500)' : '503 network error');
           const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel} (session preserved)...`, { level: 'warning' });
+          await log(`\n⚠️ ${errorLabel} in exception. Retry ${retryCount + 1} in ${delayLabel} (session preserved, ${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
           await waitWithCountdown(delay, log);
           await log('\n🔄 Retrying now...');
           retryCount++;
           return await executeWithRetry();
         }
+        await log(`\n⏹️ Stopped retrying: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'warning' });
       }
       await log(`\n\n❌ Error executing Claude command: ${error.message}`, { level: 'error' });
       // Issue #1886: fold captured cost so the carried-forward cost survives this exception path too.

@@ -20,7 +20,7 @@ node examples/collect-logs.mjs --out ./audit --session <uuid>   # साथ म�
 | **Session console** | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | किसी आइसोलेटेड session का console आउटपुट। Telegram का `/log <uuid>` कमांड यही देता है।                                                                                      |
 | **कंटेनर लॉग**      | `docker logs <sessionId>`                                                 | कार्य कंटेनर के stdout/stderr की Docker द्वारा की गई अपनी रिकॉर्डिंग, कंटेनर हटने तक उपलब्ध।                                                                                |
 | **राउटर अनुरोध**    | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | प्रति जारी टोकन — यानी प्रति कार्य — एक redacted JSONL अनुरोध लॉग। टोकन रद्द होने के बाद भी सुरक्षित।                                                                       |
-| **राउटर ऑडिट**      | `hive-mind-router-data:/data/router/audit.jsonl`                          | टोकन जारी करने, रद्द करने और rotation की घटनाएँ।                                                                                                                            |
+| **राउटर ऑडिट**      | `hive-mind-router-data:/data/router/audit.jsonl`                          | हर अधिकृत अनुरोध के लिए एक पंक्ति: समय, टोकन id, session लेबल, provider, surface, path और मॉडल।                                                                             |
 | **कार्य sessions**  | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | राउटर वाले हर कार्य के कंटेनर को हटाने से पहले उससे निकाला गया एजेंट का session डेटा: एजेंट ने वास्तव में क्या किया इसका लेखा।                                              |
 
 अंतिम तीन केवल तभी होते हैं जब [`--use-router`](./ROUTER.hi.md) उपयोग में हो।
@@ -46,7 +46,7 @@ docker run --rm --entrypoint cp \
   -v hive-mind-router-data:/data/router:ro \
   -v "$PWD/audit/router:/export" \
   --user "$(id -u):$(id -g)" \
-  ghcr.io/link-assistant/router:latest -a /data/router/. /export/
+  ghcr.io/link-assistant/router:0.109.0 -a /data/router/. /export/
 ```
 
 `src/router-logs.lib.mjs` का `collectRouterLogs()` पहला तरीका आज़माता है और विफल होने पर दूसरे पर लौट आता है। दूसरे तरीके की दो सुरक्षा बारीकियाँ ध्यान देने योग्य हैं, और कमांड हाथ से चलाते समय उन्हें बनाए रखना चाहिए: वॉल्यूम **read-only** mount होता है, इसलिए साक्ष्य एकत्र करना उन्हें कभी नुक़सान नहीं पहुँचा सकता, और `--user` से निर्यात की गई फ़ाइलें root के बिना पढ़ी जा सकती हैं।

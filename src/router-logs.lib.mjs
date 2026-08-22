@@ -91,7 +91,7 @@ export const describeSystemLogLocations = ({ env = process.env } = {}) => [
     key: 'router-audit',
     path: `${ROUTER_DATA_VOLUME_NAME}:${ROUTER_DATA_MOUNT}/audit.jsonl`,
     kind: 'volume',
-    description: 'Router audit log: token issuance, revocation and rotation events.',
+    description: 'Router audit log: one line per authorised request — time, token id, session label, provider, surface, path and model.',
   },
   {
     key: 'task-sessions',

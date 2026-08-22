@@ -20,7 +20,7 @@ node examples/collect-logs.mjs --out ./audit --session <uuid>   # плюс ко�
 | **Консоль сессии**     | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | Вывод консоли изолированной сессии. Именно это отдаёт команда Telegram `/log <uuid>`.                                                                                         |
 | **Журналы контейнера** | `docker logs <sessionId>`                                                 | Собственная запись stdout/stderr контейнера задачи, доступная до удаления контейнера.                                                                                         |
 | **Запросы роутера**    | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | По одному JSONL-журналу запросов с редактированием на каждый выпущенный токен, то есть на каждую задачу. Сохраняется после отзыва токена.                                     |
-| **Аудит роутера**      | `hive-mind-router-data:/data/router/audit.jsonl`                          | События выпуска, отзыва и ротации токенов.                                                                                                                                    |
+| **Аудит роутера**      | `hive-mind-router-data:/data/router/audit.jsonl`                          | По строке на каждый разрешённый запрос: время, идентификатор токена, метка сессии, провайдер, интерфейс, путь и модель.                                                       |
 | **Сессии задач**       | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | Данные сессии агента, выгруженные из каждой задачи с роутером до удаления её контейнера: записи того, что агент действительно делал.                                          |
 
 Последние три существуют только при использовании [`--use-router`](./ROUTER.ru.md).
@@ -46,7 +46,7 @@ docker run --rm --entrypoint cp \
   -v hive-mind-router-data:/data/router:ro \
   -v "$PWD/audit/router:/export" \
   --user "$(id -u):$(id -g)" \
-  ghcr.io/link-assistant/router:latest -a /data/router/. /export/
+  ghcr.io/link-assistant/router:0.109.0 -a /data/router/. /export/
 ```
 
 `collectRouterLogs()` из `src/router-logs.lib.mjs` пробует первый способ и при неудаче переходит ко второму. Обратите внимание на две детали безопасности во втором варианте — их стоит сохранить, если запускаете команду вручную: том монтируется **только для чтения**, поэтому сбор доказательств не может их испортить, а `--user` делает выгруженные файлы читаемыми без прав root.

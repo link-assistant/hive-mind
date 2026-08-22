@@ -75,29 +75,30 @@ Checksums are in [`MANIFEST.md`](MANIFEST.md).
 ## Requirements reconstructed
 
 Every sentence of the issue body, split into an independently testable
-requirement. "Blocked" means the requirement cannot be _completed_ here until an
-upstream change lands; "Ready" means nothing outside this repository stands in
-the way.
+requirement. The **State** column records where each one ended up after the
+upgrade to router `v0.109.0`: "Delivered" means it is implemented in this pull
+request and covered by a test, and any residual limit is named in the row
+itself.
 
-| #   | Requirement (issue wording condensed)                                                                                                                                  | Source sentence                                                                                                                                             | State                                               | Where it is answered      |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------- |
-| R1  | Add a `--use-router` option                                                                                                                                            | "We should add `--use-router` option"                                                                                                                       | Ready                                               | Part 5 · R1               |
-| R2  | With it, stop attaching claude/codex files to the task's Docker; reach a `hive-mind-router` container over the Docker network instead                                  | "instead of directly attaching claude/codex files to tasks' docker … access specific hive-mind-router docker on the docker network"                         | Ready                                               | Part 5 · R2               |
-| R3  | The router must be **the only point of contact with the AI subscription**, with global claude/codex files mounted from the root Hive Mind container into it            | "mount claude/codex files and folders from root hive mind docker container to it, and it will be the only point of contact with AI subscription"            | Ready                                               | Part 5 · R3               |
-| R4  | Verify the router actually supports that sync                                                                                                                          | "We also need to make sure https://github.com/link-assistant/router actually supports sync with global claude/codex files/folders"                          | **Done**                                            | Part 2 · C3               |
-| R5  | The Telegram bot keeps `hive-mind-router` running only while ≥1 task uses it                                                                                           | "our telegram bot must ensure we only keep hive-mind-router container running, when there any task that uses it"                                            | Ready                                               | Part 5 · R5               |
-| R6  | One separately issued token per task, so each task has its own logs                                                                                                    | "For each separate task we should have separate token issued, so each task will have its own separate logs"                                                 | Ready                                               | Part 5 · R6               |
-| R7  | On task finish, merge the task's claude/codex **session data** into the router or root container for security audit                                                    | "take claude/codex sessions data from it, and merge it to hive-mind-router container or root hive-mind container, as that may be needed for security audit" | Ready                                               | Part 5 · R7               |
-| R8  | Mount a folder for the router data folder so all logs are preserved                                                                                                    | "mount a folder for router data folder, so all logs are preserved"                                                                                          | Ready                                               | Part 5 · R8               |
-| R9  | Default keeps the current direct mount; `--use-router` isolates each task from direct subscription access                                                              | "By default we keep current mechanics … but when `--use-router` is enabled, we isolate each task"                                                           | Ready                                               | Part 5 · R9               |
-| R10 | Mark the feature **experimental**                                                                                                                                      | "That feature should be marked experimental"                                                                                                                | Ready                                               | Part 5 · R10              |
-| R11 | Support formal-ai routing with `--model formal-ai` through the same router/proxy                                                                                       | "it should also support formal-ai routing when used with `--model formal-ai`, so everything goes through the same router/proxy"                             | **Blocked (G1)**                                    | Part 3 · G1, Part 5 · R11 |
-| R12 | Configure each task's `gh` and `git` to use the router                                                                                                                 | "configure each task's gh and git tools to use router"                                                                                                      | Partly blocked (G2, G4)                             | Part 5 · R12              |
-| R13 | Block all delete operations and history changes (force push, `git reset` reaching a push) on `git push` **or** via the gh API                                          | "immediately apply block of all delete operations or history changes like git reset and so on detected up on git push, or used directly via gh API"         | API half **ready**, transport half **blocked (G2)** | Part 3 · G2, Part 5 · R13 |
-| R14 | Make task/router logs accessible; double-check everything in that scope                                                                                                | "make sure we will be able to access logs of task/router … so we should also double check everything in that scope"                                         | Ready                                               | Part 5 · R14              |
-| R15 | A dedicated docs section on collecting logs **throughout the system**, not just the router                                                                             | "special docs section about collecting logs though out of the system, not just for router"                                                                  | Ready                                               | Part 5 · R15              |
-| R16 | Report missing router features upstream first; continue here once implemented                                                                                          | "If … router has missing features … we should first report issues there, once they are fully implemented we can continue"                                   | **Done** (router#260, #261, #262 filed)             | Part 3                    |
-| R17 | Compile data to `docs/case-studies/issue-2164`, do deep analysis with online research, list every requirement, propose solutions and plans, survey existing components | final paragraph                                                                                                                                             | **This document**                                   | all parts                 |
+| #   | Requirement (issue wording condensed)                                                                                                                                  | Source sentence                                                                                                                                             | State                                                                                                                                                 | Where it is answered      |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| R1  | Add a `--use-router` option                                                                                                                                            | "We should add `--use-router` option"                                                                                                                       | **Delivered**                                                                                                                                         | Part 5 · R1               |
+| R2  | With it, stop attaching claude/codex files to the task's Docker; reach a `hive-mind-router` container over the Docker network instead                                  | "instead of directly attaching claude/codex files to tasks' docker … access specific hive-mind-router docker on the docker network"                         | **Delivered**                                                                                                                                         | Part 5 · R2               |
+| R3  | The router must be **the only point of contact with the AI subscription**, with global claude/codex files mounted from the root Hive Mind container into it            | "mount claude/codex files and folders from root hive mind docker container to it, and it will be the only point of contact with AI subscription"            | **Delivered**                                                                                                                                         | Part 5 · R3               |
+| R4  | Verify the router actually supports that sync                                                                                                                          | "We also need to make sure https://github.com/link-assistant/router actually supports sync with global claude/codex files/folders"                          | **Done**                                                                                                                                              | Part 2 · C3               |
+| R5  | The Telegram bot keeps `hive-mind-router` running only while ≥1 task uses it                                                                                           | "our telegram bot must ensure we only keep hive-mind-router container running, when there any task that uses it"                                            | **Delivered**                                                                                                                                         | Part 5 · R5               |
+| R6  | One separately issued token per task, so each task has its own logs                                                                                                    | "For each separate task we should have separate token issued, so each task will have its own separate logs"                                                 | **Delivered**                                                                                                                                         | Part 5 · R6               |
+| R7  | On task finish, merge the task's claude/codex **session data** into the router or root container for security audit                                                    | "take claude/codex sessions data from it, and merge it to hive-mind-router container or root hive-mind container, as that may be needed for security audit" | **Delivered**                                                                                                                                         | Part 5 · R7               |
+| R8  | Mount a folder for the router data folder so all logs are preserved                                                                                                    | "mount a folder for router data folder, so all logs are preserved"                                                                                          | **Delivered**                                                                                                                                         | Part 5 · R8               |
+| R9  | Default keeps the current direct mount; `--use-router` isolates each task from direct subscription access                                                              | "By default we keep current mechanics … but when `--use-router` is enabled, we isolate each task"                                                           | **Delivered**                                                                                                                                         | Part 5 · R9               |
+| R10 | Mark the feature **experimental**                                                                                                                                      | "That feature should be marked experimental"                                                                                                                | **Delivered**                                                                                                                                         | Part 5 · R10              |
+| R11 | Support formal-ai routing with `--model formal-ai` through the same router/proxy                                                                                       | "it should also support formal-ai routing when used with `--model formal-ai`, so everything goes through the same router/proxy"                             | **Delivered** — the Formal AI sidecar is a stored router provider (its own upstream leg is still direct)                                              | Part 3 · G1, Part 5 · R11 |
+| R12 | Configure each task's `gh` and `git` to use the router                                                                                                                 | "configure each task's gh and git tools to use router"                                                                                                      | **Delivered** — `api.github.com` is intercepted transparently; git pushes through the router                                                          | Part 5 · R12              |
+| R13 | Block all delete operations and history changes (force push, `git reset` reaching a push) on `git push` **or** via the gh API                                          | "immediately apply block of all delete operations or history changes like git reset and so on detected up on git push, or used directly via gh API"         | **Delivered** for the API half and ref deletions; a force push is still forwarded ([router#272](https://github.com/link-assistant/router/issues/272)) | Part 3 · G2, Part 5 · R13 |
+| R14 | Make task/router logs accessible; double-check everything in that scope                                                                                                | "make sure we will be able to access logs of task/router … so we should also double check everything in that scope"                                         | **Delivered**                                                                                                                                         | Part 5 · R14              |
+| R15 | A dedicated docs section on collecting logs **throughout the system**, not just the router                                                                             | "special docs section about collecting logs though out of the system, not just for router"                                                                  | **Delivered**                                                                                                                                         | Part 5 · R15              |
+| R16 | Report missing router features upstream first; continue here once implemented                                                                                          | "If … router has missing features … we should first report issues there, once they are fully implemented we can continue"                                   | **Done** — #260–#263 filed and fixed upstream; #270–#272 filed for what the re-measurement found                                                      | Part 3                    |
+| R17 | Compile data to `docs/case-studies/issue-2164`, do deep analysis with online research, list every requirement, propose solutions and plans, survey existing components | final paragraph                                                                                                                                             | **This document**                                                                                                                                     | all parts                 |
 
 ## Part 1 — Where Hive Mind stands today
 
@@ -442,7 +443,7 @@ problem or can help in solutions". Full notes and sources are in
 
 ## Part 5 — Solutions and plans, requirement by requirement
 
-Each entry lists the options considered, the chosen plan, and how it will be
+Each entry lists the options considered, the plan that was chosen, and how it is
 verified. Test names follow the repository convention
 `tests/test-issue-2164-*.mjs`.
 
@@ -644,17 +645,24 @@ launch; the wire behaviour behind it is measured in
 
 ### R12 + R13 — `gh` and `git` through the router, destructive operations blocked
 
-_`gh` (blocked by G4 in the default deployment)._ Set `GH_HOST=<router-alias>` and
-`GH_ENTERPRISE_TOKEN=$TASK_TOKEN` in the task environment (C7), and drop the
-`~/.config/gh` mount (R2). The router is configured with `GITHUB_PROXY_TOKEN`
-from the operator's credential and the built-in deny-by-default destructive
-policy (C6), optionally narrowed by a Hive Mind-shipped `GITHUB_PROXY_POLICY`
-that also denies `POST /repos/*/*/git/refs` outside the task's own branch. This
-only works against an HTTPS-terminated endpoint (G4), so it is opt-in through
-`HIVE_MIND_ROUTER_GH_HOST`; without it the task keeps its own `~/.config/gh` and
-every routed run says so.
+_`gh` — delivered by interception._ G4 is gone: router `v0.109.0` terminates TLS
+itself, and its self-signed certificate carries `api.github.com` as a SAN, so the
+plan of pointing `GH_HOST` at the router is no longer needed for the sidecar
+case. The `~/.config/gh` mount is dropped (R2), the task container resolves
+`api.github.com` to the router's address through `/etc/hosts`, and the router's
+CA is installed for each client family — `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`
+(a bundle of the public roots _plus_ the router CA, because it replaces the store
+rather than adding to it), `CURL_CA_BUNDLE`, and `http.<url>.sslCAInfo`. The
+router carries `GITHUB_PROXY_TOKEN` from the operator's credential and applies
+its built-in deny-by-default destructive policy (C6). An unmodified `gh` is
+therefore mediated without knowing it, and the task holds no GitHub credential of
+its own. `HIVE_MIND_ROUTER_GH_HOST` survives for an external router, which has no
+container network of ours to intercept in; `HIVE_MIND_ROUTER_GITHUB=0` turns the
+whole thing off, and every routed run says which of the three modes it is in.
+Measured in `data/measurements/github-hosts.log` and
+`data/measurements/gh-ssl-cert-file-linux.log`.
 
-_`git` (blocked by G2)._ Three layers, in the order they will be delivered:
+_`git`._ Three layers, in the order they were delivered:
 
 1. **Branch protection** (available now, server-side, unbypassable):
    `src/protect-branch.mjs` already applies `allow_force_pushes: false` and
@@ -672,12 +680,21 @@ _`git` (blocked by G2)._ Three layers, in the order they will be delivered:
    and a real remote: a force push after `git reset --hard` and a
    `push --delete` both fail, the remote still holds the discarded commit
    afterwards, and an ordinary push still succeeds.
-3. **Router git transport** once G2 lands: point the task's git at the router
-   with `git config --global url."http://<alias>/github/".insteadOf
-"https://github.com/"`, so the same policy engine sees the ref updates.
+3. **Router git transport** — **delivered**, now that the router proxies
+   `/git/*` (G2 fixed upstream). The task's `origin` is rewritten to
+   `https://link-assistant-router/git/<owner>/<repo>` through
+   `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n` entries that share the counter with
+   the hook's `core.hooksPath`, so the task pushes with no GitHub credential of
+   its own. Measured in `data/measurements/git-transport.log`: `git push
+origin :branch` is refused with `HTTP 403` by the router, unbypassable from
+   inside the task. A non-fast-forward push is still forwarded, because
+   `body_requests_force()` keys on a `force-ref-updates` capability git never
+   announces — filed as
+   [router#272](https://github.com/link-assistant/router/issues/272).
 
-The PR must not claim R13 is complete while layer 3 is missing; the docs will
-say which layer is doing the work.
+R13 is therefore delivered for the gh API half and for ref deletions on the
+transport; for a force push the `pre-push` hook and branch protection are what
+hold, and the docs say exactly that rather than claiming the router does it.
 
 ### R15 — the system-wide log-collection guide
 
@@ -710,37 +727,41 @@ Four issues were filed against `link-assistant/router` on 2026-08-21, each
 carrying the requirement it blocks, the quoted README/source evidence, the
 workaround in use here, and the concrete behaviour requested:
 
-| Upstream                                                          | Gap                                                                | Blocks                                 | Gates this PR?                     |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- | ---------------------------------- |
-| [router#260](https://github.com/link-assistant/router/issues/260) | G1 — automatic routing ignores stored OpenAI-compatible providers  | R11                                    | Yes, for phase 7                   |
-| [router#261](https://github.com/link-assistant/router/issues/261) | G2 — destructive git-transport operations bypass the policy engine | R13 (transport half), R12 (`git` half) | Yes, for phase 8                   |
-| [router#262](https://github.com/link-assistant/router/issues/262) | G3 — GitHub credential and policy are per-deployment               | R6/R13 hardening                       | No — enhancement                   |
-| [router#263](https://github.com/link-assistant/router/issues/263) | G4 — no TLS listener, so `gh` cannot use the router as a host      | R12 (`gh` half) by default             | No — degrades to today's behaviour |
+| Upstream                                                          | Gap                                                                | Blocks                                 | Outcome                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- | -------------------------------------------------------------------- |
+| [router#260](https://github.com/link-assistant/router/issues/260) | G1 — automatic routing ignores stored OpenAI-compatible providers  | R11                                    | Fixed upstream, closed 2026-08-21; shipped in 0.106.0–0.109.0        |
+| [router#261](https://github.com/link-assistant/router/issues/261) | G2 — destructive git-transport operations bypass the policy engine | R13 (transport half), R12 (`git` half) | Fixed upstream, closed 2026-08-21; `/git/*` proxy added              |
+| [router#262](https://github.com/link-assistant/router/issues/262) | G3 — GitHub credential and policy are per-deployment               | R6/R13 hardening                       | Fixed upstream, closed 2026-08-21; `--github-repo` scoping used here |
+| [router#263](https://github.com/link-assistant/router/issues/263) | G4 — no TLS listener, so `gh` cannot use the router as a host      | R12 (`gh` half) by default             | Fixed upstream, closed 2026-08-21; TLS on 443, `api.github.com` SAN  |
 
-Both blocking issues are follow-ups to work the upstream has already done
-(#71 for automatic model routing, #146 for the GitHub API proxy), which is why
-they are scoped as extensions rather than new subsystems. Phases 7–9 stay
-unshipped until they are answered, following the same pause rule this repository
-applied in the issue #2146 case study; phases 1–6 do not depend on them and ship
-now.
+All four were answered within hours of being filed, which is what turned the
+issue's "report upstream first" rule into a one-day pause rather than a
+permanent block. Re-measuring `v0.109.0` against the same probes then produced
+three further reports — [#270](https://github.com/link-assistant/router/issues/270),
+[#271](https://github.com/link-assistant/router/issues/271) and
+[#272](https://github.com/link-assistant/router/issues/272) — of which only #272
+still limits a requirement here (R13's force-push case).
 
-## Part 6 — Proposed delivery plan
+## Part 6 — Delivery plan, as shipped
 
-| Phase | Content                                                                                                                                                                               | Gated on                                                                     |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| 0     | This case study, the data folder, the four upstream issues                                                                                                                            | —                                                                            |
-| 1     | `docs/COLLECTING-LOGS.md` ×4 languages + the `examples/collect-logs.mjs` recipe (R15, and the R14 groundwork)                                                                         | —                                                                            |
-| 2     | `--use-router` option surface on solve/hive/task/Telegram, experimental marking, default-unchanged regression test (R1, R9, R10)                                                      | —                                                                            |
-| 3     | `src/router-sidecar.lib.mjs` + `src/router-isolation.lib.mjs` + maintenance-tick duty: container, internal network, leases, per-task token issue/revoke, data volume (R3, R5, R6, R8) | —                                                                            |
-| 4     | Mount suppression and endpoint injection at the credential seam (R2), `gh` via `GH_HOST` (R12 API half), deny-by-default policy file (R13 API half)                                   | —                                                                            |
-| 5     | Session-data preservation volume and drain (R7), router log access surfaces (R14)                                                                                                     | —                                                                            |
-| 6     | `pre-push` hook layer and branch-protection wiring for `--use-router` runs (R13 layer 1–2)                                                                                            | —                                                                            |
-| 7     | Formal AI through the router (R11)                                                                                                                                                    | **[router#260](https://github.com/link-assistant/router/issues/260)**        |
-| 8     | git transport through the router (R13 layer 3)                                                                                                                                        | **[router#261](https://github.com/link-assistant/router/issues/261)**        |
-| 9     | Per-task GitHub scope (R6/R13 hardening)                                                                                                                                              | [router#262](https://github.com/link-assistant/router/issues/262) (optional) |
+| Phase | Content                                                                                                                                                                               | Gated on                                                                                                                               |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | This case study, the data folder, the four upstream issues                                                                                                                            | —                                                                                                                                      |
+| 1     | `docs/COLLECTING-LOGS.md` ×4 languages + the `examples/collect-logs.mjs` recipe (R15, and the R14 groundwork)                                                                         | —                                                                                                                                      |
+| 2     | `--use-router` option surface on solve/hive/task/Telegram, experimental marking, default-unchanged regression test (R1, R9, R10)                                                      | —                                                                                                                                      |
+| 3     | `src/router-sidecar.lib.mjs` + `src/router-isolation.lib.mjs` + maintenance-tick duty: container, internal network, leases, per-task token issue/revoke, data volume (R3, R5, R6, R8) | —                                                                                                                                      |
+| 4     | Mount suppression and endpoint injection at the credential seam (R2), deny-by-default policy file (R13 API half)                                                                      | —                                                                                                                                      |
+| 5     | Session-data preservation volume and drain (R7), router log access surfaces (R14)                                                                                                     | —                                                                                                                                      |
+| 6     | `pre-push` hook layer and branch-protection wiring for `--use-router` runs (R13 layer 1–2)                                                                                            | —                                                                                                                                      |
+| 7     | Formal AI through the router (R11)                                                                                                                                                    | [router#260](https://github.com/link-assistant/router/issues/260) — fixed                                                              |
+| 8     | git transport through the router (R13 layer 3) and transparent `gh` interception (R12)                                                                                                | [router#261](https://github.com/link-assistant/router/issues/261), [#263](https://github.com/link-assistant/router/issues/263) — fixed |
+| 9     | Per-task GitHub scope (R6/R13 hardening)                                                                                                                                              | [router#262](https://github.com/link-assistant/router/issues/262) — fixed                                                              |
 
-Phases 1–6 are deliverable in this PR. Phases 7–9 land after upstream, and the
-documentation states plainly which are missing rather than implying coverage.
+All nine phases ship in this PR: the four gates were fixed upstream the day
+after they were filed, and the pin moved to `v0.109.0` so the delivered
+behaviour is the measured behaviour. What is still missing — a router-side block
+on force pushes, and the Formal AI sidecar's own upstream leg — is stated in the
+documentation rather than implied to be covered.
 
 ## Part 7 — Risks, open questions and explicit non-goals
 

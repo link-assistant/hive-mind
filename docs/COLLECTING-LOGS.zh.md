@@ -20,7 +20,7 @@ node examples/collect-logs.mjs --out ./audit --session <uuid>   # 另加该会�
 | **会话控制台** | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | 隔离会话的控制台输出。Telegram 的 `/log <uuid>` 命令返回的正是它。                                                           |
 | **容器日志**   | `docker logs <sessionId>`                                                 | Docker 自己捕获的任务容器 stdout/stderr，在容器被删除前可用。                                                                |
 | **路由器请求** | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | 每个已签发令牌——也就是每个任务——一份脱敏 JSONL 请求日志。令牌吊销后仍然保留。                                                |
-| **路由器审计** | `hive-mind-router-data:/data/router/audit.jsonl`                          | 令牌的签发、吊销与轮换事件。                                                                                                 |
+| **路由器审计** | `hive-mind-router-data:/data/router/audit.jsonl`                          | 每个获授权的请求一行：时间、令牌 id、会话标签、provider、接口、路径与模型。                                                  |
 | **任务会话**   | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | 在每个使用路由器的任务容器被回收前从中导出的智能体会话数据：智能体实际所作所为的记录。                                       |
 
 最后三项仅在使用 [`--use-router`](./ROUTER.zh.md) 时才存在。
@@ -46,7 +46,7 @@ docker run --rm --entrypoint cp \
   -v hive-mind-router-data:/data/router:ro \
   -v "$PWD/audit/router:/export" \
   --user "$(id -u):$(id -g)" \
-  ghcr.io/link-assistant/router:latest -a /data/router/. /export/
+  ghcr.io/link-assistant/router:0.109.0 -a /data/router/. /export/
 ```
 
 `src/router-logs.lib.mjs` 中的 `collectRouterLogs()` 先尝试前者，失败则回退到后者。请留意回退命令中的两处安全细节，手动执行时同样值得保留：数据卷以**只读**方式挂载，因此收集证据绝不会损坏证据；`--user` 则让导出的文件无需 root 即可读取。

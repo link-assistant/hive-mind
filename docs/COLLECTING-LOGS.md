@@ -20,7 +20,7 @@ The script writes an `INDEX.md` next to what it collected, recording what was in
 | **Session console** | `/tmp/start-command/logs/isolation/<backend>/<uuid>.log`                  | Console output of an isolated session. This is what the Telegram `/log <uuid>` command serves.                                                                    |
 | **Container logs**  | `docker logs <sessionId>`                                                 | Docker's own capture of the task container's stdout/stderr, available until the container is removed.                                                             |
 | **Router requests** | `hive-mind-router-data:/data/router/requests/<token-hash>/requests.jsonl` | One redacted JSONL request log per issued token — that is, per task. Retained after the token is revoked.                                                         |
-| **Router audit**    | `hive-mind-router-data:/data/router/audit.jsonl`                          | Token issuance, revocation and rotation events.                                                                                                                   |
+| **Router audit**    | `hive-mind-router-data:/data/router/audit.jsonl`                          | One line per authorised request: time, token id, session label, provider, surface, path and model.                                                                |
 | **Task sessions**   | `hive-mind-router-data:/data/router/task-sessions/<sessionId>/`           | Agent session data drained out of each routed task before its container was reclaimed: the transcripts of what the agent actually did.                            |
 
 The last three exist only when [`--use-router`](./ROUTER.md) is in use.
@@ -46,7 +46,7 @@ docker run --rm --entrypoint cp \
   -v hive-mind-router-data:/data/router:ro \
   -v "$PWD/audit/router:/export" \
   --user "$(id -u):$(id -g)" \
-  ghcr.io/link-assistant/router:latest -a /data/router/. /export/
+  ghcr.io/link-assistant/router:0.109.0 -a /data/router/. /export/
 ```
 
 `collectRouterLogs()` in `src/router-logs.lib.mjs` tries the first and falls back to the second. Note the two safety details in the fallback, which are worth keeping if you run the command by hand: the volume is mounted **read-only**, so collecting evidence can never damage it, and `--user` makes the exported files readable without root.

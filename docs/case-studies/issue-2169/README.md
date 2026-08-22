@@ -218,9 +218,25 @@ could never reach their classifier. RC1 and RC3, in contrast, were shared by all
 — they all call `classifyRetryableError` and all used the attempt-capped delays — which is
 why the budget and the status-context matcher are applied everywhere.
 
+### Fix 5 — diagnosable classification logging (the issue's debug-output requirement)
+
+The reported log made the misclassification impossible to diagnose: the retry line printed
+only `lastMessage.substring(0, 200)`, while the `PR #524` token that actually made the
+classifier fire sat ~1.6 KB later in the same message. `describeClassificationEvidence()`
+(`src/tool-retry.lib.mjs`) now renders, under `--verbose`, the message length and the
+±40-character context around every HTTP-status-looking token:
+
+```
+   Classification evidence: label="52x gateway error" messageChars=1783 statusTokens=[@1642 "…Opened PR #524 for the fix…"]
+```
+
+It is emitted from `src/claude.lib.mjs` both on the retry path and on the new
+"transient pattern seen in a successful run" near-miss path, so a future false positive is
+identifiable from a single log line without re-running anything.
+
 ## Verification
 
-`tests/transient-retry-budget-2169.test.mjs` (24 assertions) covers:
+`tests/transient-retry-budget-2169.test.mjs` (27 assertions) covers:
 
 - **False positives** — each of the captured success summaries (`Готово. PR: …/pull/524`,
   `The work on issue #523 is complete…`, ``(`463c5ca`, PR #522)``) classifies as
@@ -284,6 +300,6 @@ responsibility, which is what this PR implements.)
 | 6   | "find root causes of the each problem"                                                                                      | ✅ RC1 (bare `52[0-4]` regex), RC2 (no success gate), RC3 (window too short)                                                                  |
 | 7   | "propose possible solutions and solution plans for each requirement"                                                        | ✅ Fixes 1–4, all implemented in this PR                                                                                                      |
 | 8   | "check known existing components/libraries that solve similar problem"                                                      | ✅ p-retry / cockatiel / exponential-backoff / node-retry comparison above                                                                    |
-| 9   | "If there is not enough data to find actual root cause, add debug output and verbose mode"                                  | ✅ Root cause was found; verbose near-miss logging added anyway for future misclassifications                                                 |
+| 9   | "If there is not enough data to find actual root cause, add debug output and verbose mode"                                  | ✅ Root cause was found; verbose near-miss logging + `describeClassificationEvidence()` added anyway (Fix 5)                                  |
 | 10  | "If issue related to any other repository/project … report issues on GitHub"                                                | ✅ Investigated — no upstream defect (see Upstream Reporting)                                                                                 |
 | 11  | "double check to fully apply requirements to entire codebase … fixed in all them"                                           | ✅ claude, agent, gemini, qwen, codex (×2), opencode, claude.connection                                                                       |

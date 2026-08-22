@@ -28,7 +28,7 @@ import { buildMcpConfigWithoutPlaywright, ensureClaudePlaywrightMcpServer } from
 import { resolveClaudeSessionToolFlags } from './useless-tools.lib.mjs';
 import { ensureClaudeQuietConfig } from './claude-quiet-config.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
-import { classifyRetryableError, createTransientRetryBudget, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, logExecutionContext, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -1048,6 +1048,7 @@ export const executeClaudeCommand = async params => {
       const runProducedSuccess = resultSuccessReceived && !commandFailed && !errorDuringExecution && exitCode === 0;
       if (runProducedSuccess && isTransientError) {
         await log(`🔍 Transient-error pattern seen in a successful run — not retrying (Issue #2169). Pattern: ${retryableLastError.label || 'flagged by stream detector'}; last message: ${JSON.stringify(lastMessage.substring(0, 200))}`, { verbose: true });
+        await log(`   Classification evidence: ${describeClassificationEvidence(lastMessage, retryableLastError.label)}`, { verbose: true });
       }
       // Issue #2161: an account/subscription block short-circuits every retry
       // path. Stale transient flags from earlier in the run (an overload at hour
@@ -1103,6 +1104,9 @@ export const executeClaudeCommand = async params => {
           const retryMode = isStartupTimeout ? ' (fresh start)' : ' (session preserved)';
           await log(`\n⚠️ ${errorLabel} detected. Retry ${retryCount + 1} in ${delayLabel}${retryMode}${notRetryableHint} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
           await log(`   Error: ${isStartupTimeout ? `No output from Claude CLI within ${timeouts.streamStartupMs / 1000}s` : isActivityTimeout ? `No output for ${timeouts.streamActivityMs / 1000}s after previous activity` : lastMessage.substring(0, 200)}`, { verbose: true });
+          // Issue #2169: the 200-character excerpt above hid the token that actually triggered the
+          // classifier in the reported run, so also log where every status-looking token sits.
+          await log(`   Classification evidence: ${describeClassificationEvidence(retryableLastError.message || lastMessage, errorLabel)}`, { verbose: true });
           // Issue #1510: Post PR comment when force-killing and auto-resuming so reviewers can follow the session lifecycle
           if ((isActivityTimeout || isStartupTimeout) && owner && repo && prNumber && $) {
             try {

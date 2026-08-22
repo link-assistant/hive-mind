@@ -39,7 +39,7 @@ globalThis.use = async name => {
 };
 
 const { retryLimits } = await import('../src/config.lib.mjs');
-const { classifyRetryableError, createTransientRetryBudget, formatRetryDuration, getRetryDelayMs, matchesHttpStatus } = await import('../src/tool-retry.lib.mjs');
+const { classifyRetryableError, createTransientRetryBudget, describeClassificationEvidence, formatRetryDuration, getRetryDelayMs, matchesHttpStatus } = await import('../src/tool-retry.lib.mjs');
 const { executeClaudeCommand } = await import('../src/claude.lib.mjs');
 
 let passed = 0;
@@ -287,6 +287,27 @@ await test('formatRetryDuration renders seconds, minutes and hours', () => {
   assert.equal(formatRetryDuration(12 * 60 * 1000), '12 min');
   assert.equal(formatRetryDuration(12 * 60 * 60 * 1000), '12h');
   assert.equal(formatRetryDuration(11 * 60 * 60 * 1000 + 45 * 60 * 1000), '11h 45m');
+});
+
+await test('describeClassificationEvidence surfaces status tokens hidden past the 200-character log excerpt', () => {
+  // The reported run logged only `lastMessage.substring(0, 200)`, so the "PR #524" token that made
+  // the classifier fire was invisible. The evidence line must expose it wherever it sits.
+  const message = `${'Summary of the work done. '.repeat(80)}Opened PR #524 for the fix.`;
+  const evidence = describeClassificationEvidence(message, '52x gateway error');
+  assert.match(evidence, /label="52x gateway error"/);
+  assert.match(evidence, new RegExp(`messageChars=${message.length}`));
+  assert.match(evidence, /statusTokens=\[@\d+ "[^"]*PR #524[^"]*"\]/, `expected the PR #524 context, got: ${evidence}`);
+  assert.ok(message.indexOf('524') > 200, 'the token must sit past the truncated excerpt for this test to be meaningful');
+});
+
+await test('describeClassificationEvidence reports an empty token list and tolerates missing input', () => {
+  assert.match(describeClassificationEvidence('Connection reset by peer', 'network error'), /statusTokens=\[\]$/);
+  assert.match(describeClassificationEvidence(null), /label=null messageChars=0 statusTokens=\[\]/);
+});
+
+await test('describeClassificationEvidence caps the number of reported tokens', () => {
+  const evidence = describeClassificationEvidence('API Error: 500 502 503 504 529', 'many', { maxMatches: 2 });
+  assert.equal(evidence.split('@').length - 1, 2, `expected exactly 2 reported tokens, got: ${evidence}`);
 });
 
 rmSync(testHome, { recursive: true, force: true });

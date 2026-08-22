@@ -243,6 +243,25 @@ export const getRetryDelayMs = ({ retryCount, initialDelayMs = retryLimits.initi
   return Math.max(backoff, Math.min(minDelayMs, maxDelayMs));
 };
 
+// Issue #2169: diagnosing a *mis*classification from the log used to be impossible — the retry
+// line printed only the first 200 characters of the message, while the token that actually made
+// the classifier fire ("PR #524", 1.6 KB later) was never shown. This renders the evidence for a
+// classification: how long the message was and the ±40-character context around every HTTP-status
+// -looking token in it, so the next false positive is diagnosable from a single verbose log line.
+export const describeClassificationEvidence = (message, label = null, { maxMatches = 3, contextChars = 40 } = {}) => {
+  const text = String(message ?? '');
+  const parts = [`label=${JSON.stringify(label)}`, `messageChars=${text.length}`];
+  const matches = [];
+  for (const match of text.matchAll(/\b(?:4\d{2}|5\d{2})\b/g)) {
+    const start = Math.max(0, match.index - contextChars);
+    const end = Math.min(text.length, match.index + match[0].length + contextChars);
+    matches.push(`@${match.index} ${JSON.stringify(text.slice(start, end).replace(/\s+/g, ' '))}`);
+    if (matches.length >= maxMatches) break;
+  }
+  parts.push(matches.length > 0 ? `statusTokens=[${matches.join(', ')}]` : 'statusTokens=[]');
+  return parts.join(' ');
+};
+
 // Issue #2169: human-readable duration for retry logs — "45s", "12 min", "3h 15m", "12h".
 export const formatRetryDuration = ms => {
   if (!Number.isFinite(ms)) return 'unlimited';
@@ -469,6 +488,7 @@ export default {
   classifyRetryableError,
   matchesHttpStatus,
   getRetryDelayMs,
+  describeClassificationEvidence,
   formatRetryDuration,
   createTransientRetryBudget,
   waitWithCountdown,

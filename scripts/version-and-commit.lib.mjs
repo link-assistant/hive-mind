@@ -19,11 +19,17 @@
  *     instead of assuming the first attempt won the race.
  *   - Emits `version_committed=true` only after a push that actually landed.
  *
+ * Issue #2175 added the second half of that contract: when the push is rejected
+ * by a repository ruleset ("Changes must be made through a pull request")
+ * rather than by a lost race, the same commit is landed through a pull request
+ * (see release-pull-request.lib.mjs) instead of failing the release.
+ *
  * Uses only Node built-ins so it has no dependency on node_modules state.
  */
 
 import { readFileSync } from 'node:fs';
 
+import { isBlockedByRepositoryRule, landViaPullRequest } from './release-pull-request.lib.mjs';
 import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs';
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
@@ -48,6 +54,11 @@ export function readPackageVersion(path = './package.json') {
  * @returns {boolean}
  */
 export function isNonFastForward(result) {
+  // A ruleset rejection also prints "rejected", but rebasing can never satisfy
+  // a rule, so it must never be mistaken for a lost race (issue #2175).
+  if (isBlockedByRepositoryRule(result)) {
+    return false;
+  }
   const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
   return output.includes('[rejected]') || output.includes('non-fast-forward') || output.includes('fetch first') || output.includes('updates were rejected');
 }
@@ -104,16 +115,22 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {(source?: 'local') => string} [opts.readVersion]
  * @param {() => number} opts.countChangesets
  * @param {string} [opts.branch]
+ * @param {string} [opts.runId] GitHub run id, used to name the fallback release branch
  * @param {(ms: number) => Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
+ * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication] injectable for tests
  * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
  */
-export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', sleeper, logger = console, verbose = false }) {
+export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
-  await strict('git', ['config', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+  // The numeric prefix is what links the commit to the github-actions[bot]
+  // account. Without it the commit is "unattributed", and the Main ruleset's
+  // `require_extra_approval_for_unattributed_changes` would demand a human
+  // approval before the version pull request could be merged (issue #2175).
+  await strict('git', ['config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com']);
 
   logger.log('Checking for remote changes...');
   await strict('git', ['fetch', remote, branch]);
@@ -175,7 +192,17 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
 
   // Only after this resolves has the bump actually reached main. Reporting
   // success before the push landed is the F4 regression.
-  await pushWithRebaseRetry({ runner, branch, remote, sleeper, logger, verbose });
+  try {
+    await pushWithRebaseRetry({ runner, branch, remote, sleeper, logger, verbose });
+  } catch (error) {
+    // A repository ruleset ("Changes must be made through a pull request") is
+    // not a lost race, so no amount of rebasing fixes it. Land the same commit
+    // through a pull request instead (issue #2175).
+    if (!isBlockedByRepositoryRule(error)) {
+      throw error;
+    }
+    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication });
+  }
 
   logger.log(`Version bump committed and pushed to ${branch}`);
   output('version_committed', 'true');

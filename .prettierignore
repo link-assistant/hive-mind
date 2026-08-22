@@ -55,3 +55,6 @@ ci-logs/
 
 # Generated duplication reports
 reports/
+
+# Collected CI/CD investigation evidence: verbatim upstream copies must not be reformatted
+dev/log/

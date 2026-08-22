@@ -29,7 +29,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -136,15 +136,23 @@ test('returns false for a raw Buffer with no string body (defensive)', () => {
 
 console.log('\n📋 compare-readiness handler degrades gracefully on transient compare errors (issue #1829)\n');
 
-const autoPrContent = execSync(`cat ${srcDir}/solve.auto-pr.lib.mjs`, { encoding: 'utf8' });
-const readinessContent = execSync(`cat ${srcDir}/solve.auto-pr-compare-readiness.lib.mjs`, { encoding: 'utf8' });
+const autoPrContent = readFileSync(`${srcDir}/solve.auto-pr.lib.mjs`, 'utf8');
+const readinessContent = readFileSync(`${srcDir}/solve.auto-pr-compare-readiness.lib.mjs`, 'utf8');
+// Issue #2175: the compare-API readiness poll itself moved one level further out,
+// into solve.auto-pr-push-sync.lib.mjs, to keep solve.auto-pr.lib.mjs under the
+// 1350-line warning threshold. The delegation chain asserted below is unchanged,
+// only its middle link now lives in that module.
+const pushSyncContent = readFileSync(`${srcDir}/solve.auto-pr-push-sync.lib.mjs`, 'utf8');
 
 test('auto-pr lib imports and delegates to handleCompareApiNotReady', () => {
   if (!/import\s*\{[^}]*handleCompareApiNotReady[^}]*\}\s*from\s*'\.\/solve\.auto-pr-compare-readiness\.lib\.mjs'/.test(autoPrContent)) {
     throw new Error('solve.auto-pr.lib.mjs does not import handleCompareApiNotReady');
   }
-  if (!autoPrContent.includes('compareReady = await handleCompareApiNotReady(')) {
-    throw new Error('solve.auto-pr.lib.mjs does not delegate the not-ready decision to handleCompareApiNotReady');
+  if (!/waitForCompareApiReady\({[^}]*handleCompareApiNotReady/.test(autoPrContent)) {
+    throw new Error('solve.auto-pr.lib.mjs does not forward handleCompareApiNotReady into the compare-readiness poll');
+  }
+  if (!pushSyncContent.includes('compareReady = await handleCompareApiNotReady(')) {
+    throw new Error('solve.auto-pr-push-sync.lib.mjs does not delegate the not-ready decision to handleCompareApiNotReady');
   }
 });
 

@@ -103,125 +103,10 @@ if (isRunningDirectly) {
     const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
     const isLocalScript = commandName.endsWith('.mjs');
     const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
-    /**
-     * Fallback function to fetch issues from organization/user repositories
-     * when search API hits rate limits
-     * @param {string} owner - Organization or user name
-     * @param {string} scope - 'organization' or 'user'
-     * @param {string} monitorTag - Label to filter by (optional)
-     * @param {boolean} allIssues - Whether to fetch all issues or only labeled ones
-     * @returns {Promise<Array>} Array of issues
-     */
-    async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
-      try {
-        await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
-        // Strategy 1: Try GraphQL approach first (faster but has limitations)
-        // Only try GraphQL for "all issues" mode, not for labeled issues
-        if (fetchAllIssues) {
-          const graphqlResult = await tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage);
-          if (graphqlResult.success) {
-            await log(`   ✅ GraphQL approach successful: ${graphqlResult.issues.length} issues from ${graphqlResult.repoCount} repositories`);
-            return graphqlResult.issues;
-          }
-        }
-        // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
-        await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
-
-        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
-        let repoListCmd;
-        if (scope === 'organization') {
-          repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
-        } else {
-          repoListCmd = `gh api users/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
-        }
-        await log('   📋 Fetching repository list (using --paginate for unlimited pagination)...', { verbose: true });
-        await log(`   🔎 Command: ${repoListCmd}`, { verbose: true });
-        // Add delay for rate limiting
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        // #1756: route through execGhWithRetry for transient 5xx + rate-limit
-        const { stdout: repoOutput } = await execGhWithRetry(repoListCmd, {
-          execOptions: { encoding: 'utf8', env: process.env },
-          label: `gh api ${scope} repos (paginated)`,
-        });
-        // Parse the output line by line, as gh api with --jq outputs one JSON object per line
-        const repoLines = repoOutput
-          .trim()
-          .split('\n')
-          .filter(line => line.trim());
-        const allRepositories = repoLines.map(line => JSON.parse(line));
-        await log(`   📊 Found ${allRepositories.length} repositories`);
-        // Filter repositories to only include those owned by the target user/org
-        const ownedRepositories = allRepositories.filter(repo => {
-          const repoOwner = repo.owner?.login || repo.owner;
-          return repoOwner === owner;
-        });
-        const unownedCount = allRepositories.length - ownedRepositories.length;
-        if (unownedCount > 0) {
-          await log(`   ⏭️  Skipping ${unownedCount} repository(ies) not owned by ${owner}`);
-        }
-        // Filter out archived repositories from owned repositories
-        const repositories = ownedRepositories.filter(repo => !repo.isArchived);
-        const archivedCount = ownedRepositories.length - repositories.length;
-        if (archivedCount > 0) {
-          await log(`   ⏭️  Skipping ${archivedCount} archived repository(ies)`);
-        }
-        await log(`   ✅ Processing ${repositories.length} non-archived repositories owned by ${owner}`);
-        let collectedIssues = [];
-        let processedRepos = 0;
-        // Process repositories in batches to avoid overwhelming the API
-        for (const repo of repositories) {
-          try {
-            const repoName = repo.name;
-            const ownerName = repo.owner?.login || owner;
-            await log(`   🔍 Fetching issues from ${ownerName}/${repoName}...`, { verbose: true });
-            // Build the appropriate issue list command
-            let issueCmd;
-            if (fetchAllIssues) {
-              issueCmd = `gh issue list --repo ${ownerName}/${repoName} --state open --json url,title,number,createdAt`;
-            } else {
-              issueCmd = `gh issue list --repo ${ownerName}/${repoName} --state open --label "${monitorTag}" --json url,title,number,createdAt`;
-            }
-            // Add delay between repository requests
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const repoIssues = await fetchAllIssuesWithPagination(issueCmd);
-            // Add repository information to each issue
-            const issuesWithRepo = repoIssues.map(issue => ({
-              ...issue,
-              repository: {
-                name: repoName,
-                owner: { login: ownerName },
-              },
-            }));
-            collectedIssues.push(...issuesWithRepo);
-            processedRepos++;
-            if (issuesWithRepo.length > 0) {
-              await log(`   ✅ Found ${issuesWithRepo.length} issues in ${ownerName}/${repoName}`, { verbose: true });
-            }
-          } catch (repoError) {
-            reportError(repoError, {
-              context: 'fetchIssuesFromRepositories',
-              repo: repo.name,
-              operation: 'fetch_repo_issues',
-            });
-            await log(`   ⚠️  Failed to fetch issues from ${repo.name}: ${cleanErrorMessage(repoError)}`, {
-              verbose: true,
-            });
-            // Continue with other repositories
-          }
-        }
-        await log(`   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`);
-        return collectedIssues;
-      } catch (error) {
-        reportError(error, {
-          context: 'fetchIssuesFromRepositories',
-          owner,
-          scope,
-          operation: 'repository_fallback',
-        });
-        await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(error)}`, { level: 'error' });
-        return [];
-      }
-    }
+    // Repository-by-repository fallback lives in its own module so hive.mjs stays
+    // under the 1350-line early-warning threshold (issue #2175, warning from #1593).
+    const repositoryFallbackLib = await import('./hive.repository-fallback.lib.mjs');
+    const fetchIssuesFromRepositories = repositoryFallbackLib.createRepositoryIssueFetcher({ log, cleanErrorMessage, tryFetchIssuesWithGraphQL, execGhWithRetry, fetchAllIssuesWithPagination, reportError });
     // Configure command line arguments - GitHub URL as positional argument
     const rawArgs = normalizeCliArgs(hideBin(process.argv));
     // Use .parse() instead of .argv to ensure .strict() mode works correctly
@@ -1398,37 +1283,10 @@ if (isRunningDirectly) {
     delegateSignalHandling(true);
     process.on('SIGINT', () => gracefulShutdown('interrupt'));
     process.on('SIGTERM', () => gracefulShutdown('termination'));
-    // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
-    if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
-      await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
-        verbose: true,
-      });
-      await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', {
-        verbose: true,
-      });
-    } else {
-      // Issue #2160: reclaim idle solver workspaces left behind by earlier runs before refusing to
-      // start, and report an exhausted disk as the environment condition it is (exit 75) instead of
-      // a generic error. `exitOnFailure` is deliberately not used: it calls process.exit(1)
-      // directly, which skips the log-flushing safeExit path and printed no actionable reason.
-      const startupRequiredDiskSpaceMB = argv.minDiskSpace || 10240;
-      const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, log });
-      if (!startupDiskGuard.ok) {
-        await log(`❌ Insufficient disk space to start: ${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required`, { level: 'error' });
-        await log('   Free space on this host, or run with --auto-cleanup so workspaces are removed after each task.', { level: 'error' });
-        await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space (${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required)`);
-      }
-      const systemCheck = await checkSystem({ minDiskSpaceMB: startupRequiredDiskSpaceMB, minMemoryMB: 256 }, { log });
-      if (!systemCheck.success) {
-        await safeExit(1, 'System resource check failed');
-      }
-      // Validate the selected AI tool connection before starting monitoring with the same model that will be used
-      const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
-      if (!isToolConnected) {
-        await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
-        await safeExit(1, 'Error occurred');
-      }
-    }
+    // Pre-flight checks live in hive.startup-checks.lib.mjs so hive.mjs stays under
+    // the 1350-line early-warning threshold (issue #2175, warning from #1593).
+    const startupChecksLib = await import('./hive.startup-checks.lib.mjs');
+    await startupChecksLib.runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE });
     // Wrap monitor function with Sentry error tracking
     const monitorWithSentry = !argv.sentry ? monitor : withSentry(monitor, 'hive.monitor', 'command');
     // Start monitoring

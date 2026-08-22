@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.13.2
+
+### Patch Changes
+
+- 6b0435a: Make every Telegram message the bot sends visible. A single unpaired `_` in a repository name (`save_visiogetbb`) made `parse_mode: 'Markdown'` messages fail with `400: can't parse entities`, and because the plain-text fallback was installed on `bot.telegram` — while telegraf hands each handler a _different_ `Telegram` instance — the fallback never ran, so `/stop` cancelled the task but reported nothing. All sends now go through one funnel that validates the text against a port of TDLib's `parse_markdown()` before the call, logs every attempt/success/rejection, chunks at 4096 chars, and retries as plain text on any `400`; the funnel is re-installed on every per-update context, covers document captions, and a new `telegram-safety/no-unsafe-telegram-send` ESLint rule makes a raw `parse_mode` send a build error. Also: `/stop` and queue cards echo only the URL actually interpreted (no `#issuecomment-…` anchor), mentions no longer render a literal `\_`, and `/fix` rejects unsupported options (`--ci-de`) up front instead of silently spawning a wrong run.
+
 ## 2.13.1
 
 ### Patch Changes

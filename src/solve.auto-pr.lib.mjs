@@ -13,6 +13,7 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry, isTra
 import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { isPullRequestAlreadyExistsError, findExistingPullRequestUrl } from './github-pr-idempotency.lib.mjs'; // Issue #2168: a retried `gh pr create` must not fail because the first (5xx'd) attempt already created the PR.
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
@@ -950,16 +951,41 @@ ${prBody}`,
 
           const prCreateExecOptions = { encoding: 'utf8', cwd: tempDir, env: process.env };
           const prCreateRetryLogger = msg => log(msg, { level: 'warn' });
+          const prHeadRef = argv.fork && forkedRepo ? `${forkedRepo.split('/')[0]}:${branchName}` : branchName;
+
+          // Issue #2168: `execGhWithRetry` now retries GitHub 5xx / GraphQL
+          // internal errors. A mutation that GitHub committed but failed to
+          // acknowledge would make the retry report "a pull request already
+          // exists" — which is success, not failure. Resolve the existing PR
+          // instead of aborting the session.
+          const runPrCreate = async (cmd, label) => {
+            try {
+              const result = await execGhWithRetry(cmd, {
+                execOptions: prCreateExecOptions,
+                label,
+                log: prCreateRetryLogger,
+              });
+              return { stdout: result.stdout, stderr: result.stderr || '' };
+            } catch (error) {
+              if (!isPullRequestAlreadyExistsError(error)) throw error;
+              await log(`   ${label}: GitHub reports a pull request already exists for ${prHeadRef} — treating the retried creation as already applied.`, { level: 'warn' });
+              const existingUrl = await findExistingPullRequestUrl({
+                owner,
+                repo,
+                headRef: prHeadRef,
+                execGh: (lookupCommand, lookupOptions) => execGhWithRetry(lookupCommand, { execOptions: prCreateExecOptions, log: prCreateRetryLogger, ...lookupOptions }),
+                log: msg => log(msg),
+              });
+              if (!existingUrl) throw error;
+              return { stdout: existingUrl, stderr: '' };
+            }
+          };
 
           // Try to create PR with assignee first (if specified)
           try {
-            const result = await execGhWithRetry(command, {
-              execOptions: prCreateExecOptions,
-              label: 'gh pr create',
-              log: prCreateRetryLogger,
-            });
+            const result = await runPrCreate(command, 'gh pr create');
             output = result.stdout;
-            prCreateStderr = result.stderr || '';
+            prCreateStderr = result.stderr;
           } catch (firstError) {
             // Check if the error is specifically about assignee validation
             const errorMsg = firstError.message || '';
@@ -985,13 +1011,9 @@ ${prBody}`,
               }
 
               // Retry without assignee - if this fails, let the error propagate to outer catch
-              const retryResult = await execGhWithRetry(command, {
-                execOptions: prCreateExecOptions,
-                label: 'gh pr create (no assignee)',
-                log: prCreateRetryLogger,
-              });
+              const retryResult = await runPrCreate(command, 'gh pr create (no assignee)');
               output = retryResult.stdout;
-              prCreateStderr = retryResult.stderr || '';
+              prCreateStderr = retryResult.stderr;
             } else {
               // Not an assignee error, re-throw the original error
               throw firstError;

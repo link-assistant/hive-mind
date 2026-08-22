@@ -112,6 +112,15 @@ export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
   maxApiRetries: parseIntWithDefault('HIVE_MIND_MAX_API_RETRIES', 3),
+  // Issue #2168: GitHub's own 5xx / GraphQL-internal failures ("Something went
+  // wrong while executing your query") are usually over within seconds, but 3
+  // attempts at 1s+2s was too tight to ride one out. These budgets are used by
+  // `ghWithRateLimitRetry` for the transient (non-rate-limit) branch.
+  maxGitHubTransientRetries: parseIntWithDefault('HIVE_MIND_MAX_GITHUB_TRANSIENT_RETRIES', 6),
+  initialGitHubTransientDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_GITHUB_TRANSIENT_DELAY_MS', 2000),
+  // Issue #2168: network-facing git operations (push/fetch/clone) get the same
+  // treatment via `gitCmdRetry` in src/lib.mjs.
+  maxGitRetries: parseIntWithDefault('HIVE_MIND_MAX_GIT_RETRIES', 5),
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
   maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),

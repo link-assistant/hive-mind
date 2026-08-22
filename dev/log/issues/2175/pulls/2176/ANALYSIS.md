@@ -202,11 +202,15 @@ so importers and tests keep working:
 `bash scripts/check-file-line-limits.sh` now prints only "All checked files are
 within the 1500 line limit!" with no "approaching" list.
 
-Three source-level tests assert on code that moved; they were updated to read
+Four source-level tests assert on code that moved; they were updated to read
 the module that now holds it, with a comment recording why
 (`tests/test-issue-1829-compare-api-transient.mjs`,
 `tests/test-issue-1716-private-repo-skip-fork.mjs`,
-`tests/test-issue-1332-fork-name-from-pr-data.mjs`). One extraction also removed
+`tests/test-issue-1332-fork-name-from-pr-data.mjs`,
+`tests/test-owner-fork-detection.mjs` — its test 9 matched `autoFork` in
+`solve.mjs`, but those two mentions were the fork-PR branches; the `--auto-fork`
+write-access decision it describes has always lived in `handleAutoForkOption`,
+so it now reads `src/solve.fork-detection.lib.mjs`). One extraction also removed
 a lint exemption side-effect: the auto-continue fork check in `solve.mode.lib.mjs`
 was a direct `gh` invocation that only passed `gh-rate-limit/no-direct-gh-exec`
 because `solve.mjs` is exempt, so it now goes through `githubLib.ghPrView` — the

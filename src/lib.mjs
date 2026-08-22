@@ -3,6 +3,7 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 import { createCredentialStreamSanitizer, maskToken, sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 import { recordLogBytes, resetLogGrowth } from './log-growth.lib.mjs'; // issue #2135: notice a session log that is running away
 import { isPlaceholderErrorText } from './error-text.lib.mjs'; // issue #2141: never publish "[object Object]" as a reason
+import { describeTransientError, formatTransientDiagnostics, isTransientNetworkError as isTransientNetworkErrorShared } from './transient-errors.lib.mjs'; // issue #2168: one shared transient-fault vocabulary for git + gh
 
 export { maskToken };
 
@@ -538,22 +539,18 @@ export const retry = async (fn, options = {}) => {
 /**
  * Check if an error is a transient network error that can be retried.
  * Used by validateForkParent to detect network timeouts (Issue #1311).
+ *
+ * Issue #1536 added 'unexpected eof' (gh CLI dropping mid-response);
+ * issue #1957 added the git fetch-pack/sideband disconnect patterns;
+ * issue #2168 moved the whole vocabulary into
+ * `src/transient-errors.lib.mjs` so `github-rate-limit.lib.mjs` and this
+ * module can no longer drift apart. This re-export is kept so the many
+ * existing `lib.isTransientNetworkError(...)` call sites keep working.
+ *
  * @param {Error|string} error - The error to check
  * @returns {boolean} True if the error is transient and retryable
  */
-export const isTransientNetworkError = error => {
-  const msg = (error?.message || error?.toString() || '').toLowerCase();
-  const output = (error?.stderr?.toString() || error?.stdout?.toString() || '').toLowerCase();
-  const combined = msg + ' ' + output;
-
-  // Issue #1536: added 'unexpected eof' — seen in gh CLI when connection drops mid-response
-  // Issue #1957: added git fetch-pack/sideband disconnect patterns — seen when a
-  // `gh repo clone` / `git clone` connection drops mid-transfer, leaving an incomplete
-  // (or missing) working tree even though the wrapper can exit 0.
-  const transientPatterns = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof', 'unexpected disconnect', 'sideband', 'early eof', 'the remote end hung up', 'rpc failed', 'fetch-pack', 'index-pack failed', 'remote end hung up unexpectedly', 'transfer closed'];
-
-  return transientPatterns.some(pattern => combined.includes(pattern));
-};
+export const isTransientNetworkError = error => isTransientNetworkErrorShared(error);
 
 /**
  * Retry a GitHub CLI / API operation with exponential backoff on transient network errors.
@@ -594,12 +591,16 @@ export const ghRetry = async (fn, options = {}) => {
         await sleep(waitMs);
         continue;
       }
-      if (isTransientNetworkError(error) && attempt < maxAttempts) {
+      // Issue #2168: always record the classification, so a failure that was
+      // NOT retried leaves the reason (and GitHub's request id) in the log.
+      const description = describeTransientError(error);
+      if (description.transient && attempt < maxAttempts) {
         const waitTime = delay * Math.pow(backoff, attempt - 1);
-        await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
+        await log(`⚠️ ${label}: transient error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
         await sleep(waitTime);
         continue;
       }
+      await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
       throw error;
     }
   }
@@ -648,17 +649,77 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
       continue;
     }
 
-    // Check if this is a transient network error worth retrying
-    if (isTransientNetworkError(errorLike) && attempt < maxAttempts) {
+    // Check if this is a transient network / GitHub-server error worth retrying
+    // (issue #2168 — the classification is logged either way so the next
+    // failure of this kind is diagnosable from the session log alone).
+    const description = describeTransientError(errorLike);
+    if (description.transient && attempt < maxAttempts) {
       const waitTime = delay * Math.pow(backoff, attempt - 1);
-      await log(`⚠️ ${label}: Network error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s...`, { level: 'warn' });
+      await log(`⚠️ ${label}: transient error (attempt ${attempt}/${maxAttempts}), retrying in ${waitTime / 1000}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
       await sleep(waitTime);
       continue;
     }
 
+    await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
+
     // Non-transient error or last attempt — return the result as-is
     return result;
   }
+};
+
+/**
+ * Execute a git command-stream `$` call with retry on transient transport
+ * errors. The git analogue of `ghCmdRetry`.
+ *
+ * Issue #2168: `gh` calls have been retry-wrapped since #1536/#1726/#1756, but
+ * the network-facing *git* operations (`git push`, `git fetch`, `git clone`)
+ * were still single-shot — a dropped pack transfer or a GitHub 5xx on the
+ * smart-HTTP endpoint aborted the run exactly like the GraphQL error did.
+ *
+ * Semantics match `ghCmdRetry` deliberately so call sites need only wrap the
+ * existing expression in a thunk: the resolved command-stream result object is
+ * returned unchanged for success, for non-transient failures, and for the
+ * final attempt. Nothing throws that would not have thrown before.
+ *
+ * Retries are only issued for errors classified as transient by
+ * `src/transient-errors.lib.mjs`, so genuinely terminal outcomes
+ * (`non-fast-forward`, `Permission ... denied`, `repository is archived`)
+ * still surface immediately and keep their existing dedicated handling.
+ *
+ * @param {Function} cmdFn - Thunk returning a command-stream result, e.g. `() => $({ cwd })\`git push origin main\``
+ * @param {Object} [options]
+ * @param {number} [options.maxAttempts] - Maximum number of attempts (default `retryLimits.maxGitRetries`)
+ * @param {number} [options.delay=2000] - Initial delay between retries in ms
+ * @param {number} [options.backoff] - Backoff multiplier (default `retryLimits.retryBackoffMultiplier`)
+ * @param {string} [options.label='git command'] - Label for log messages
+ * @returns {Promise<{stdout: *, stderr: *, code: number}>} Command result
+ */
+export const gitCmdRetry = async (cmdFn, options = {}) => {
+  const { retryLimits } = await import('./config.lib.mjs');
+  const { maxAttempts = retryLimits.maxGitRetries, delay = 2000, backoff = retryLimits.retryBackoffMultiplier, label = 'git command', log: logFn = log } = options;
+
+  let result;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    result = await cmdFn();
+
+    if (result?.code === 0) return result;
+
+    // `2>&1` is the prevailing idiom at these call sites, so the diagnosis
+    // text can be on either stream.
+    const combinedOutput = `${result?.stdout?.toString() || ''}\n${result?.stderr?.toString() || ''}`;
+    const description = describeTransientError({ message: combinedOutput });
+
+    if (description.transient && attempt < maxAttempts) {
+      const waitTime = delay * Math.pow(backoff, attempt - 1);
+      await logFn(`⚠️ ${label}: transient git error (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(waitTime / 1000)}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
+      await sleep(waitTime);
+      continue;
+    }
+
+    await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result?.code}`, { verbose: true });
+    return result;
+  }
+  return result;
 };
 
 /**

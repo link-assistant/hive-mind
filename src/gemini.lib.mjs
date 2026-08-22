@@ -8,7 +8,11 @@ if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
 }
 
-const { $ } = await use('command-stream');
+const { $: __rawDollar$ } = await use('command-stream');
+// Issue #2168: retry transient git network failures (push/fetch/pull) the same
+// way `gh` calls are retried, for every command run through this module's `$`.
+const { wrapDollarWithGitRetry } = await import('./git-retry.lib.mjs');
+const $ = wrapDollarWithGitRetry(__rawDollar$);
 
 import { log, buildToolErrorMessage } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';

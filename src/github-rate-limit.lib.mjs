@@ -21,6 +21,8 @@ import { promisify } from 'node:util';
 import { exec as execCb } from 'node:child_process';
 
 import { limitReset, retryLimits } from './config.lib.mjs';
+import { matchGitNetworkCommand } from './git-retry.lib.mjs';
+import { collectErrorText, describeTransientError, formatTransientDiagnostics, isTransientNetworkError, GITHUB_SERVER_TRANSIENT_PATTERNS } from './transient-errors.lib.mjs';
 
 const exec = promisify(execCb);
 
@@ -32,24 +34,6 @@ const githubRateLimitLogging = {
   log: null,
   fetchUsage: null,
   lastUsageByResource: null,
-};
-
-/**
- * Pull every plausible string out of a thrown error/result so pattern matches
- * survive whatever shape the upstream caller gave us (Error, exec result with
- * stdout/stderr, command-stream result, plain string, etc.).
- */
-const collectErrorText = error => {
-  if (!error) return '';
-  if (typeof error === 'string') return error;
-  const parts = [];
-  if (typeof error.message === 'string') parts.push(error.message);
-  if (typeof error.stderr === 'string') parts.push(error.stderr);
-  else if (error.stderr && typeof error.stderr.toString === 'function') parts.push(error.stderr.toString());
-  if (typeof error.stdout === 'string') parts.push(error.stdout);
-  else if (error.stdout && typeof error.stdout.toString === 'function') parts.push(error.stdout.toString());
-  if (error.cause) parts.push(collectErrorText(error.cause));
-  return parts.join('\n');
 };
 
 /**
@@ -288,22 +272,18 @@ const sleepWithCountdown = async (ms, log) => {
 };
 
 /**
- * Patterns matched against an error's combined message/stderr/stdout to decide
- * whether the failure is a transient network/edge fault that deserves a retry.
- * Mirrors `isTransientNetworkError` in `src/lib.mjs` (issue #1536); duplicated
- * here to avoid a circular import — `lib.mjs` already imports from this file.
+ * Transient-fault classification now lives in `src/transient-errors.lib.mjs`
+ * (issue #2168). Both this module and `src/lib.mjs` import from that leaf
+ * module so a pattern added once applies everywhere; previously each file kept
+ * its own copy of the list and `GraphQL: Something went wrong while executing
+ * your query` was missing from both.
  *
  * Issue #1756: `gh pr create` failed with `HTTP 504: 504 Gateway Timeout
  * (https://api.github.com/graphql)`. `execGhWithRetry`/`ghWithRateLimitRetry`
  * only handled rate-limit errors before — a single 504 was fatal.
+ * Issue #2168: the same call failed with GitHub's GraphQL internal error,
+ * which is not an HTTP status at all and so was not covered by #1756.
  */
-const TRANSIENT_NETWORK_PATTERNS = ['i/o timeout', 'dial tcp', 'connection refused', 'connection reset', 'econnreset', 'etimedout', 'enotfound', 'ehostunreach', 'enetunreach', 'network is unreachable', 'temporary failure', 'http 502', 'http 503', 'http 504', 'bad gateway', 'service unavailable', 'gateway timeout', 'tls handshake timeout', 'ssl_error', 'socket hang up', 'unexpected eof'];
-
-const isTransientNetworkError = error => {
-  const text = collectErrorText(error).toLowerCase();
-  if (!text) return false;
-  return TRANSIENT_NETWORK_PATTERNS.some(pattern => text.includes(pattern));
-};
 
 /**
  * Patterns that identify a *transient* failure of GitHub's compare/diff
@@ -318,13 +298,15 @@ const isTransientNetworkError = error => {
  * used to treat this as fatal and abort the whole session. These patterns let
  * callers recognise the transient case and degrade gracefully instead.
  *
- * Note: HTTP 500 is deliberately matched here (and NOT in
- * `TRANSIENT_NETWORK_PATTERNS`) because a bare 500 from arbitrary endpoints is
- * too broad to retry blindly; it is only safe to treat as transient for the
- * compare endpoint, alongside the explicit "not_available" / "heavy server
- * load" markers.
+ * Issue #2168: these markers are now the shared
+ * `GITHUB_SERVER_TRANSIENT_PATTERNS` list. HTTP 500 used to be matched only
+ * here, on the theory that a bare 500 is too broad to retry blindly. That
+ * carve-out is what let GitHub's GraphQL internal error abort `gh pr create`,
+ * so 5xx/GraphQL-internal responses are now retryable everywhere; writes that
+ * could double-apply are made idempotent at the call site instead (see
+ * `src/github-pr-idempotency.lib.mjs`).
  */
-const TRANSIENT_COMPARE_API_PATTERNS = ['this diff is temporarily unavailable', 'temporarily unavailable due to heavy server load', 'heavy server load', 'not_available', 'http 500', 'http 502', 'http 503', 'http 504'];
+const TRANSIENT_COMPARE_API_PATTERNS = GITHUB_SERVER_TRANSIENT_PATTERNS;
 
 /**
  * Detect whether `error` represents a transient failure of GitHub's
@@ -364,8 +346,10 @@ const isTransientCompareApiError = error => {
  */
 export const ghWithRateLimitRetry = async (fn, options = {}) => {
   const maxAttempts = options.maxAttempts ?? retryLimits.maxApiRetries;
-  const transientMaxAttempts = options.transientMaxAttempts ?? retryLimits.maxApiRetries;
-  const transientDelay = options.transientDelay ?? 1000;
+  // Issue #2168: the transient budget used to reuse `maxApiRetries` (3 attempts
+  // at 1s + 2s). GitHub's GraphQL internal errors routinely outlast that.
+  const transientMaxAttempts = options.transientMaxAttempts ?? retryLimits.maxGitHubTransientRetries;
+  const transientDelay = options.transientDelay ?? retryLimits.initialGitHubTransientDelayMs;
   const transientBackoff = options.transientBackoff ?? 2;
   const label = options.label || 'gh';
   const log = options.log || (msg => console.warn(msg));
@@ -403,18 +387,24 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
         continue;
       }
 
-      if (isTransientNetworkError(error)) {
+      // Issue #2168: classify once, and log the classification on every path —
+      // including the "we are not retrying this" path — so the next unknown
+      // failure mode can be diagnosed from the session log without a rerun.
+      const description = describeTransientError(error);
+
+      if (description.transient) {
         transientAttempts++;
         if (transientAttempts >= transientMaxAttempts) {
-          await Promise.resolve(log(`❌ ${label}: transient network error persisted after ${transientAttempts} attempts; giving up.`));
+          await Promise.resolve(log(`❌ ${label}: transient network error persisted after ${transientAttempts} attempts; giving up. [${formatTransientDiagnostics(description)}]`));
           throw error;
         }
         const waitMs = transientDelay * Math.pow(transientBackoff, transientAttempts - 1);
-        await Promise.resolve(log(`⚠️ ${label}: transient network error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s...`));
+        await Promise.resolve(log(`⚠️ ${label}: transient network error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${formatTransientDiagnostics(description)}]`));
         await sleepWithCountdown(waitMs, log);
         continue;
       }
 
+      await Promise.resolve(log(`ℹ️ ${label}: error is not retryable [${formatTransientDiagnostics(description)}]; propagating to caller.`));
       throw error;
     }
   }
@@ -480,7 +470,20 @@ export const wrapDollarWithGhRetry = (dollar, options = {}) => {
       if (i < values.length) preview += String(values[i] ?? '');
     }
     const isGh = /^\s*gh(?:\s|$)/.test(preview);
-    if (!isGh) return dollar(strings, ...values);
+    if (!isGh) {
+      // Issue #2168: "retry for any git/github operation". Network-facing git
+      // commands (`git push`/`fetch`/`pull`/`ls-remote`) get the same treatment
+      // here so every module already using the wrapped `$` is covered without
+      // touching its call sites. Everything else passes straight through.
+      const gitSubcommand = matchGitNetworkCommand(preview);
+      if (gitSubcommand) {
+        return (async () => {
+          const { gitCmdRetry } = await import('./lib.mjs');
+          return gitCmdRetry(() => dollar(strings, ...values), { label: `$git (${gitSubcommand})`, ...options });
+        })();
+      }
+      return dollar(strings, ...values);
+    }
     return ghWithRateLimitRetry(() => dollar(strings, ...values), {
       label: `$gh (${preview.trim().split(/\s+/).slice(0, 3).join(' ')})`,
       ...options,

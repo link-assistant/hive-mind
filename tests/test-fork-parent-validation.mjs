@@ -9,6 +9,8 @@
  */
 
 import { execSync } from 'child_process';
+
+import { isTransientNetworkError } from '../src/lib.mjs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -252,6 +254,9 @@ runTest('network error message differentiation (Issue #1311)', () => {
 });
 
 // Test 14: Verify isTransientNetworkError helper exists in lib.mjs
+// Issue #2168 moved the pattern list itself into `src/transient-errors.lib.mjs`
+// (shared by lib.mjs and github-rate-limit.lib.mjs), so this asserts the
+// behaviour through the lib.mjs export rather than grepping for literals.
 runTest('isTransientNetworkError helper exists', () => {
   const libContent = execSync(`cat ${srcDir}/lib.mjs`, { encoding: 'utf8' });
 
@@ -261,9 +266,9 @@ runTest('isTransientNetworkError helper exists', () => {
   }
 
   // Check for key network error patterns
-  const patterns = ['i/o timeout', 'dial tcp', 'econnreset', 'etimedout', 'http 503'];
+  const patterns = ['i/o timeout', 'dial tcp', 'ECONNRESET', 'ETIMEDOUT', 'HTTP 503'];
   for (const pattern of patterns) {
-    if (!libContent.includes(pattern)) {
+    if (!isTransientNetworkError(new Error(`fatal: ${pattern} while talking to github.com`))) {
       throw new Error(`Missing network error pattern: ${pattern}`);
     }
   }

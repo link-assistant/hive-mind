@@ -15,7 +15,7 @@
  * and continues; when forking is explicitly disabled it falls back to the
  * existing actionable error.
  */
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -38,7 +38,7 @@ function runTest(name, testFn) {
   }
 }
 
-const forkDetectionContent = execSync(`cat ${srcDir}/solve.fork-detection.lib.mjs`, { encoding: 'utf8' });
+const forkDetectionContent = readFileSync(`${srcDir}/solve.fork-detection.lib.mjs`, 'utf8');
 
 runTest('detectAllowForking helper is defined', () => {
   if (!/async function detectAllowForking\(/.test(forkDetectionContent)) {

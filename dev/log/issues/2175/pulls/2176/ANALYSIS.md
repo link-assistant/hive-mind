@@ -331,3 +331,62 @@ example, a workaround, and a code-level fix:
 | `solve.mjs` still runs end to end                   | `--dry-run` against an issue URL (exit 0) and against a PR URL (continue mode, branch and linked issue resolved)                                                        |
 | Pre-existing failures are not caused by this PR     | Each `needs-triage` file reproduced identically on a stashed tree                                                                                                       |
 | Nothing else regressed                              | `npm run lint`, `npm run format:check`, `npm test`                                                                                                                      |
+
+## Follow-up: the CodeQL check on pull request #2176
+
+The `CodeQL` check (the code-scanning pull-request gate, not the
+`CodeQL (javascript-typescript)` / `CodeQL (actions)` analysis jobs, which both
+pass) reported `14 new alerts including 2 high severity security
+vulnerabilities`. The annotations are saved verbatim in
+`codeql/annotations.json`. They fall into exactly two groups, with two distinct
+root causes.
+
+### Group 1 — 2 high alerts inside the collected evidence (root cause: evidence was scanned as source)
+
+| File                                                     | Rule                                     |
+| -------------------------------------------------------- | ---------------------------------------- |
+| `dev/log/.../template-scripts/format-release-notes.mjs:98` | Incomplete URL substring sanitization    |
+| `dev/log/.../template-scripts/version-and-commit.mjs:259`  | Incomplete string escaping or encoding   |
+
+Both files are verbatim copies of the upstream
+`js-ai-driven-development-pipeline-template` scripts, downloaded as evidence for
+this audit. They are never imported or executed by this repository, and the
+defects belong to the upstream project, so no fix is possible here. CodeQL had
+no path filter, so it extracted them as if they were project source. Fix:
+`.github/codeql/codeql-config.yml` declares `paths-ignore: dev/log`, wired into
+both matrix legs via `config-file:` in `.github/workflows/security.yml`. This
+matches how the same directory is already excluded from Prettier
+(`.prettierignore`), jscpd (`.jscpd.json`) and ESLint (its globs cover only
+`src`, `scripts`, `eslint-rules` and `tests`).
+
+### Group 2 — 12 medium alerts in tests (root cause: shelling out to `cat` to read a file)
+
+Every one of the twelve is a pair of rules — `Unnecessary use of 'cat' process`
+and `Shell command built from environment values` — raised against
+`execSync(\`cat ${srcDir}/<module>.mjs\`, { encoding: 'utf8' })`. `srcDir` is
+derived from `import.meta.url`, so an absolute path that CodeQL cannot prove is
+free of shell metacharacters is interpolated into a shell command string.
+
+The pattern predates this pull request, but the extractions in commits
+`e0100587`/`be849c84` rewrote those exact lines (pointing them at the new
+modules), which is what makes CodeQL classify them as *new* alerts in changed
+code. Suppressing them would leave the defect in place, so the pattern was
+replaced with `readFileSync(path, 'utf8')` — CodeQL's own suggested fix, and
+what the rest of the suite already does.
+
+Applied across the whole codebase rather than only the flagged lines: all 55
+occurrences in the seven test files that used it
+(`test-fork-parent-validation.mjs`, `test-issue-1332-fork-name-from-pr-data.mjs`,
+`test-issue-1716-private-repo-skip-fork.mjs`,
+`test-issue-1774-auto-pr-fork-repo-flag.mjs`,
+`test-issue-1795-private-readonly-auto-fork.mjs`,
+`test-issue-1829-compare-api-transient.mjs`, `test-owner-fork-detection.mjs`).
+The one remaining shell-out of the same shape,
+`execSync(\`grep -l "export const validateForkParent" ${srcDir}/...\`)` in
+`test-fork-parent-validation.mjs`, was converted too — it was not yet flagged
+only because the line happened to be untouched, and leaving it would reintroduce
+the alert the next time that file is edited. `execSync` is now unused in all
+seven files and its import was dropped from each.
+
+Verified: the seven suites pass unchanged (14, 13, 19, 23, 16, 8 and 10 assertions
+respectively), and `npm run lint` and `npm run format:check` are clean.

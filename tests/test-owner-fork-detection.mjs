@@ -9,7 +9,7 @@
  * GitHub returns HTTP 403 when users attempt to fork their own repositories.
  */
 
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -34,7 +34,7 @@ function runTest(name, testFn) {
 
 // Test 1: Check that owner detection code exists in setupRepository
 runTest('owner detection exists in setupRepository', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('currentUser === owner')) {
     throw new Error('Owner detection check (currentUser === owner) not found');
@@ -43,7 +43,7 @@ runTest('owner detection exists in setupRepository', () => {
 
 // Test 2: Check that owner detection references Issue #1206
 runTest('owner detection references issue #1206', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('Issue #1206')) {
     throw new Error('Owner detection should reference Issue #1206');
@@ -52,7 +52,7 @@ runTest('owner detection references issue #1206', () => {
 
 // Test 3: Check that owner detection occurs BEFORE fork conflict detection
 runTest('owner detection occurs before fork conflict detection', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   const ownerCheckIndex = content.indexOf('currentUser === owner');
   const forkConflictIndex = content.indexOf('Detecting fork conflicts');
@@ -70,7 +70,7 @@ runTest('owner detection occurs before fork conflict detection', () => {
 
 // Test 4: Check that owner detection fails with safeExit (not silently skipping)
 runTest('owner detection fails with error when --fork is used', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
   if (ownerCheckStart === -1) {
@@ -86,7 +86,7 @@ runTest('owner detection fails with error when --fork is used', () => {
 
 // Test 5: Check that owner detection error message explains the problem
 runTest('owner detection error explains cannot fork own repository', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
   const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
@@ -98,7 +98,7 @@ runTest('owner detection error explains cannot fork own repository', () => {
 
 // Test 6: Check that owner detection suggests --auto-fork as alternative
 runTest('owner detection suggests --auto-fork alternative', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
   const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
@@ -110,7 +110,7 @@ runTest('owner detection suggests --auto-fork alternative', () => {
 
 // Test 7: Check that owner detection provides multiple solution options
 runTest('owner detection provides multiple solution options', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   const ownerCheckStart = content.indexOf('if (currentUser === owner)');
   const ownerBlock = content.substring(ownerCheckStart, ownerCheckStart + 1500);
@@ -125,7 +125,7 @@ runTest('owner detection provides multiple solution options', () => {
 
 // Test 8: Check that owner detection mentions HTTP 403 in comments
 runTest('code comments explain HTTP 403 issue', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // The comment should explain WHY owner detection is needed
   if (!content.includes('HTTP 403')) {
@@ -140,7 +140,7 @@ runTest('code comments explain HTTP 403 issue', () => {
 // always lived in handleAutoForkOption, so this test reads that module.
 runTest('auto-fork path checks write access before forking', () => {
   const forkDetectionPath = join(srcDir, 'solve.fork-detection.lib.mjs');
-  const content = execSync(`cat ${forkDetectionPath}`, { encoding: 'utf8' });
+  const content = readFileSync(forkDetectionPath, 'utf8');
 
   // auto-fork should check permissions before enabling fork mode
   if (!content.includes('autoFork') || !content.includes('hasWriteAccess')) {
@@ -155,7 +155,7 @@ runTest('auto-fork path checks write access before forking', () => {
 
 // Test 10: Verify owner detection is inside the argv.fork block
 runTest('owner detection is inside argv.fork block', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Find the argv.fork block
   const forkBlockStart = content.indexOf('if (argv.fork)');

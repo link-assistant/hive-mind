@@ -24,7 +24,7 @@
  * (e.g. after manual remote edits) stays self-explanatory.
  */
 
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -47,8 +47,8 @@ function runTest(name, testFn) {
   }
 }
 
-const autoPrContent = execSync(`cat ${srcDir}/solve.auto-pr.lib.mjs`, { encoding: 'utf8' });
-const diagnosticContent = execSync(`cat ${srcDir}/solve.auto-pr-fork-diagnostic.lib.mjs`, { encoding: 'utf8' });
+const autoPrContent = readFileSync(`${srcDir}/solve.auto-pr.lib.mjs`, 'utf8');
+const diagnosticContent = readFileSync(`${srcDir}/solve.auto-pr-fork-diagnostic.lib.mjs`, 'utf8');
 
 // Helper: find the start of every `gh pr create` command line (initial +
 // assignee fallback rebuild, both fork and non-fork branches).

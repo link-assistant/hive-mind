@@ -15,7 +15,7 @@
  * upstream repository using regular branches.
  */
 
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -38,13 +38,13 @@ function runTest(name, testFn) {
   }
 }
 
-const solveContent = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+const solveContent = readFileSync(`${srcDir}/solve.mjs`, 'utf8');
 // Issue #2175: the fork-detection paths themselves moved out of solve.mjs into
 // solve.mode.lib.mjs so solve.mjs stays under the 1350-line CI warning
 // threshold. solve.mjs still computes the skipForkForPrivateUpstream flag and
 // passes it in, so the flag tests below still read solve.mjs while the
 // structural fork-detection tests read the module that now holds those paths.
-const modeContent = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
+const modeContent = readFileSync(`${srcDir}/solve.mode.lib.mjs`, 'utf8');
 
 // Test 1: solve.mjs computes a single visibility-aware bypass flag
 runTest('solve.mjs computes skipForkForPrivateUpstream flag', () => {

@@ -8,7 +8,7 @@
  * intended upstream repository.
  */
 
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 
 import { isTransientNetworkError } from '../src/lib.mjs';
 import { fileURLToPath } from 'url';
@@ -35,15 +35,15 @@ function runTest(name, testFn) {
 
 // Test 1: Check that validateForkParent is exported
 runTest('validateForkParent export', () => {
-  const output = execSync(`grep -l "export const validateForkParent" ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
-  if (!output.includes('solve.repository.lib.mjs')) {
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
+  if (!content.includes('export const validateForkParent')) {
     throw new Error('validateForkParent not exported');
   }
 });
 
 // Test 2: Check function signature and JSDoc
 runTest('validateForkParent documentation', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for JSDoc
   if (!content.includes("* Validate that a fork's parent matches the expected upstream repository")) {
@@ -67,7 +67,7 @@ runTest('validateForkParent documentation', () => {
 
 // Test 3: Verify validation is called when existing fork is found
 runTest('validation called for existing forks', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that validateForkParent is called after fork is found
   if (!content.includes('const forkValidation = await validateForkParent(existingForkName')) {
@@ -82,7 +82,7 @@ runTest('validation called for existing forks', () => {
 
 // Test 4: Verify error message mentions issue #967
 runTest('error message references issue #967', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('issue #967')) {
     throw new Error('Error message should reference issue #967 for context');
@@ -91,7 +91,7 @@ runTest('error message references issue #967', () => {
 
 // Test 5: Verify safe auto-recovery for non-fork repositories (Issue #1518)
 runTest('safe auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for safety check before deletion — compares commits against upstream
   if (!content.includes('Safety check:')) {
@@ -131,7 +131,7 @@ runTest('safe auto-recovery for non-fork/mismatch repos (Issue #1518)', () => {
 
 // Test 6: Verify function handles API errors gracefully
 runTest('API error handling', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for try-catch block
   if (!content.includes('} catch (error) {') || !content.includes('validate_fork_parent')) {
@@ -146,7 +146,7 @@ runTest('API error handling', () => {
 
 // Test 7: Verify parent vs source distinction
 runTest('parent vs source distinction', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that both parent and source are extracted
   if (!content.includes('const parent = forkInfo.parent')) {
@@ -165,7 +165,7 @@ runTest('parent vs source distinction', () => {
 
 // Test 8: Verify validation also happens for forkOwner path
 runTest('validation for forkOwner code path', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Count occurrences of validateForkParent being called
   const matches = content.match(/await validateForkParent\(/g);
@@ -176,7 +176,7 @@ runTest('validation for forkOwner code path', () => {
 
 // Test 9: Verify non-fork detection
 runTest('non-fork repository detection', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for isFork field in return
   if (!content.includes('isFork: false')) {
@@ -191,7 +191,7 @@ runTest('non-fork repository detection', () => {
 
 // Test 10: Verify success message when validation passes
 runTest('success message on valid fork', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes("'Fork parent validated:'")) {
     throw new Error('Should log success message when fork parent is valid');
@@ -200,7 +200,7 @@ runTest('success message on valid fork', () => {
 
 // Test 11: Verify retry logic for transient network errors (Issue #1311)
 runTest('retry logic for network errors (Issue #1311)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for retry loop implementation
   if (!content.includes('for (let attempt = 1; attempt <= maxAttempts; attempt++)')) {
@@ -220,7 +220,7 @@ runTest('retry logic for network errors (Issue #1311)', () => {
 
 // Test 12: Verify isNetworkError flag in return value (Issue #1311)
 runTest('isNetworkError flag in return value (Issue #1311)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for isNetworkError field in return
   if (!content.includes('isNetworkError: true')) {
@@ -235,7 +235,7 @@ runTest('isNetworkError flag in return value (Issue #1311)', () => {
 
 // Test 13: Verify separate error message for network errors (Issue #1311)
 runTest('network error message differentiation (Issue #1311)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for network-specific error title
   if (!content.includes('NETWORK ERROR DURING FORK VALIDATION')) {
@@ -258,7 +258,7 @@ runTest('network error message differentiation (Issue #1311)', () => {
 // (shared by lib.mjs and github-rate-limit.lib.mjs), so this asserts the
 // behaviour through the lib.mjs export rather than grepping for literals.
 runTest('isTransientNetworkError helper exists', () => {
-  const libContent = execSync(`cat ${srcDir}/lib.mjs`, { encoding: 'utf8' });
+  const libContent = readFileSync(`${srcDir}/lib.mjs`, 'utf8');
 
   // Check for function definition
   if (!libContent.includes('export const isTransientNetworkError')) {
@@ -276,7 +276,7 @@ runTest('isTransientNetworkError helper exists', () => {
 
 // Test 15: Verify error context preserved in auto-recovery messages (Issue #1518)
 runTest('error context in auto-recovery messages', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that issue references are preserved
   if (!content.includes('see issue #1518')) {
@@ -300,7 +300,7 @@ runTest('error context in auto-recovery messages', () => {
 
 // Test 16: Verify post-creation fork validation (Issue #1518)
 runTest('post-creation fork validation (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that validateForkParent is called after fork creation
   if (!content.includes('fork_creation_validation')) {
@@ -320,7 +320,7 @@ runTest('post-creation fork validation (Issue #1518)', () => {
 
 // Test 17: Verify verbose fork command logging (Issue #1518)
 runTest('verbose fork command logging (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for fork command logging
   if (!content.includes("'Fork command:'")) {
@@ -335,7 +335,7 @@ runTest('verbose fork command logging (Issue #1518)', () => {
 
 // Test 18: Verify --allow-force-non-fork-repository-deletion flag support (Issue #1518)
 runTest('--allow-force-non-fork-repository-deletion flag support (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that the flag is checked in the auto-recovery path
   if (!content.includes('argv.allowForceNonForkRepositoryDeletion')) {
@@ -355,7 +355,7 @@ runTest('--allow-force-non-fork-repository-deletion flag support (Issue #1518)',
 
 // Test 19: Verify --allow-force-non-fork-repository-deletion option defined in config
 runTest('--allow-force-non-fork-repository-deletion option in config', () => {
-  const configContent = execSync(`cat ${srcDir}/solve.config.lib.mjs`, { encoding: 'utf8' });
+  const configContent = readFileSync(`${srcDir}/solve.config.lib.mjs`, 'utf8');
 
   if (!configContent.includes("'allow-force-non-fork-repository-deletion'")) {
     throw new Error('Missing allow-force-non-fork-repository-deletion option in solve.config.lib.mjs');
@@ -369,7 +369,7 @@ runTest('--allow-force-non-fork-repository-deletion option in config', () => {
 
 // Test 20: Verify --allow-force-non-fork-repository-deletion in option suggestions
 runTest('--allow-force-non-fork-repository-deletion in option suggestions', () => {
-  const suggestionsContent = execSync(`cat ${srcDir}/option-suggestions.lib.mjs`, { encoding: 'utf8' });
+  const suggestionsContent = readFileSync(`${srcDir}/option-suggestions.lib.mjs`, 'utf8');
 
   if (!suggestionsContent.includes("'allow-force-non-fork-repository-deletion'")) {
     throw new Error('Missing allow-force-non-fork-repository-deletion in option-suggestions.lib.mjs');
@@ -378,7 +378,7 @@ runTest('--allow-force-non-fork-repository-deletion in option suggestions', () =
 
 // Test 21: Verify verbose fork output logging (Issue #1518)
 runTest('verbose fork output logging (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check for fork output logging
   if (!content.includes("'Fork output:'")) {
@@ -388,7 +388,7 @@ runTest('verbose fork output logging (Issue #1518)', () => {
 
 // Test 22: Verify fork parent validation covers both creation and discovery paths (Issue #1518)
 runTest('fork parent validation in creation/discovery path (Issue #1518)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that post-creation validation covers concurrent worker scenarios too
   if (!content.includes('covers concurrent worker scenarios too')) {
@@ -398,7 +398,7 @@ runTest('fork parent validation in creation/discovery path (Issue #1518)', () =>
 
 // Test 23: Verify missing delete_repo scope remediation (Issue #1651)
 runTest('missing delete_repo scope remediation (Issue #1651)', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // Check that the failure output is inspected for the missing scope
   if (!content.includes('/delete_repo/i.test(delOut)')) {

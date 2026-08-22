@@ -12,7 +12,7 @@
  * in solve.repository.lib.mjs to build the correct fork name.
  */
 
-import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -42,7 +42,7 @@ function runTest(name, testFn) {
 
 // Test 1: solve.mode.lib.mjs declares forkRepoName at outer scope
 runTest('solve.mode.lib.mjs declares forkRepoName at outer scope', () => {
-  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.mode.lib.mjs`, 'utf8');
 
   if (!content.includes('let forkRepoName = null;')) {
     throw new Error('forkRepoName not declared at outer scope in solve.mode.lib.mjs');
@@ -51,7 +51,7 @@ runTest('solve.mode.lib.mjs declares forkRepoName at outer scope', () => {
 
 // Test 2: solve.mode.lib.mjs stores forkRepoName from headRepository.name in auto-continue path
 runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in auto-continue path', () => {
-  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.mode.lib.mjs`, 'utf8');
 
   // After the Issue #1716 refactor, the value is read into a local
   // `detectedForkRepoName` first and then assigned to `forkRepoName` in the
@@ -65,7 +65,7 @@ runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in auto-cont
 
 // Test 3: solve.mode.lib.mjs stores forkRepoName from headRepository.name in PR URL path
 runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in PR URL path', () => {
-  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.mode.lib.mjs`, 'utf8');
 
   const oldShape = content.includes('forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;');
   const newShape = content.includes('detectedForkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;') && content.includes('forkRepoName = detectedForkRepoName;');
@@ -76,7 +76,7 @@ runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in PR URL pa
 
 // Test 4: solve.mjs passes forkRepoName to setupRepositoryAndClone
 runTest('solve.mjs passes forkRepoName to setupRepositoryAndClone', () => {
-  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.mjs`, 'utf8');
 
   if (!content.includes('forkRepoName,')) {
     throw new Error('forkRepoName not passed to setupRepositoryAndClone');
@@ -91,7 +91,7 @@ runTest('solve.mjs passes forkRepoName to setupRepositoryAndClone', () => {
 
 // Test 5: solve.repo-setup.lib.mjs accepts forkRepoName parameter
 runTest('solve.repo-setup.lib.mjs accepts forkRepoName parameter', () => {
-  const content = execSync(`cat ${srcDir}/solve.repo-setup.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repo-setup.lib.mjs`, 'utf8');
 
   if (!content.includes('forkRepoName')) {
     throw new Error('forkRepoName parameter not found in solve.repo-setup.lib.mjs');
@@ -104,7 +104,7 @@ runTest('solve.repo-setup.lib.mjs accepts forkRepoName parameter', () => {
 
 // Test 6: solve.repo-setup.lib.mjs passes forkRepoName to setupRepository
 runTest('solve.repo-setup.lib.mjs passes forkRepoName to setupRepository', () => {
-  const content = execSync(`cat ${srcDir}/solve.repo-setup.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repo-setup.lib.mjs`, 'utf8');
 
   // setupRepository is called with forkRepoName as last argument
   if (!content.includes('return await setupRepoFn(argv, owner, repo, forkOwner, issueUrl, forkRepoName);')) {
@@ -114,7 +114,7 @@ runTest('solve.repo-setup.lib.mjs passes forkRepoName to setupRepository', () =>
 
 // Test 7: solve.repository.lib.mjs accepts forkRepoName parameter in setupRepository signature
 runTest('solve.repository.lib.mjs accepts forkRepoName in setupRepository signature', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('export const setupRepository = async (argv, owner, repo, forkOwner = null, issueUrl = null, forkRepoName = null) =>')) {
     throw new Error('forkRepoName parameter not in setupRepository signature in solve.repository.lib.mjs');
@@ -123,7 +123,7 @@ runTest('solve.repository.lib.mjs accepts forkRepoName in setupRepository signat
 
 // Test 8: solve.repository.lib.mjs uses forkRepoName (or falls back to repo) for headRepoName
 runTest('solve.repository.lib.mjs uses forkRepoName for headRepoName with fallback', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('const headRepoName = forkRepoName || repo;')) {
     throw new Error('headRepoName not computed from forkRepoName with repo fallback');
@@ -132,7 +132,7 @@ runTest('solve.repository.lib.mjs uses forkRepoName for headRepoName with fallba
 
 // Test 9: solve.repository.lib.mjs builds fork names using headRepoName (not repo directly)
 runTest('solve.repository.lib.mjs builds fork names using headRepoName', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   // In the forkOwner path, standardForkName should use headRepoName
   if (!content.includes('const standardForkName = `${forkOwner}/${headRepoName}`;')) {
@@ -146,7 +146,7 @@ runTest('solve.repository.lib.mjs builds fork names using headRepoName', () => {
 
 // Test 10: Error message now says "Fork tried:" instead of "Fork:"
 runTest('improved error message says "Fork tried:"', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes("'Fork tried:', expectedForkName")) {
     throw new Error('Error message should show "Fork tried:" with the attempted fork name');
@@ -155,7 +155,7 @@ runTest('improved error message says "Fork tried:"', () => {
 
 // Test 11: Error message mentions when fork name was guessed
 runTest('error message mentions when fork name was guessed from base repo', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes('Fork name was guessed from base repo name')) {
     throw new Error('Error message should explain when fork name was guessed from base repo');
@@ -164,7 +164,7 @@ runTest('error message mentions when fork name was guessed from base repo', () =
 
 // Test 12: Error message improved suggestion
 runTest('improved error suggestion mentions repo name mismatch', () => {
-  const content = execSync(`cat ${srcDir}/solve.repository.lib.mjs`, { encoding: 'utf8' });
+  const content = readFileSync(`${srcDir}/solve.repository.lib.mjs`, 'utf8');
 
   if (!content.includes("The fork's repo name may differ from the base repo name")) {
     throw new Error("Error suggestion should mention that fork's repo name may differ from base repo name");

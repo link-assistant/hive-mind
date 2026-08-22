@@ -19,6 +19,7 @@
  */
 
 import { checkLabelPermissions, ensureReadyLabel } from './github-merge.lib.mjs';
+import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-merge-targets.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 import { executeStartScreen } from './telegram-command-execution.lib.mjs';
@@ -331,12 +332,12 @@ export function registerMergeCommand(bot, options) {
     const targetResult = resolveMergeCommandTarget(positionals, ctx.message);
 
     if (!targetResult.target && !targetResult.error) {
-      return await ctx.reply(getMergeUsageMessage(), { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
+      return await safeReply(ctx, getMergeUsageMessage(), { parse_mode: 'MarkdownV2', reply_to_message_id: ctx.message.message_id });
     }
 
     if (!targetResult.target || !targetResult.target.valid) {
       const invalidPrefix = targetResult.fromReply ? 'Invalid merge target in replied message' : 'Invalid merge target';
-      return await ctx.reply(`${invalidPrefix}: ${escapeMarkdownV2(targetResult.error || targetResult.target?.error || 'Unknown target error')}\n\nPlease provide a valid GitHub repository, issue, or pull request URL\\.`, {
+      return await safeReply(ctx, `${invalidPrefix}: ${escapeMarkdownV2(targetResult.error || targetResult.target?.error || 'Unknown target error')}\n\nPlease provide a valid GitHub repository, issue, or pull request URL\\.`, {
         parse_mode: 'MarkdownV2',
         reply_to_message_id: ctx.message.message_id,
       });
@@ -352,7 +353,7 @@ export function registerMergeCommand(bot, options) {
     if (activeMergeOperations.has(repoKey)) {
       const existingOp = activeMergeOperations.get(repoKey);
       if (existingOp.processor.status === MergeStatus.RUNNING) {
-        return await ctx.reply(`A merge operation is already running for ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease wait for it to complete or cancel it\\.`, {
+        return await safeReply(ctx, `A merge operation is already running for ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease wait for it to complete or cancel it\\.`, {
           parse_mode: 'MarkdownV2',
           reply_to_message_id: ctx.message.message_id,
         });
@@ -360,7 +361,7 @@ export function registerMergeCommand(bot, options) {
     }
 
     // Send initial status message (reply to the /merge command)
-    const statusMessage = await ctx.reply(`Initializing merge queue for ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\\.\\.\n\nThis may take a moment\\.`, {
+    const statusMessage = await safeReply(ctx, `Initializing merge queue for ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\\.\\.\n\nThis may take a moment\\.`, {
       parse_mode: 'MarkdownV2',
       reply_to_message_id: ctx.message.message_id,
     });
@@ -369,14 +370,14 @@ export function registerMergeCommand(bot, options) {
       // Check permissions
       const permCheck = await checkLabelPermissions(owner, repo, VERBOSE);
       if (!permCheck.canManageLabels) {
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `No permission to manage repository ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease ensure you have write access to this repository\\.`, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `No permission to manage repository ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}\\.\n\nPlease ensure you have write access to this repository\\.`, { parse_mode: 'MarkdownV2' });
         return;
       }
 
       // Ensure ready label exists
       const labelResult = await ensureReadyLabel(owner, repo, VERBOSE);
       if (!labelResult.success) {
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `Failed to setup 'ready' label: ${escapeMarkdownV2(labelResult.error)}`, {
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `Failed to setup 'ready' label: ${escapeMarkdownV2(labelResult.error)}`, {
           parse_mode: 'MarkdownV2',
         });
         return;
@@ -401,7 +402,7 @@ export function registerMergeCommand(bot, options) {
             // Without this check, progress updates from CI wait loops would re-add
             // the cancel button after the cancel handler had already removed it.
             const replyMarkup = processor.isCancelled ? undefined : { inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]] };
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, message, {
+            await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, message, {
               parse_mode: 'MarkdownV2',
               ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
             });
@@ -416,7 +417,7 @@ export function registerMergeCommand(bot, options) {
           try {
             const message = processor.formatFinalMessage();
             // Remove cancel button on completion
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, message, {
+            await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, message, {
               parse_mode: 'MarkdownV2',
             });
             VERBOSE && console.log(`[VERBOSE] /merge: Merge queue completed successfully for ${repoKey}`);
@@ -435,7 +436,7 @@ export function registerMergeCommand(bot, options) {
             const finalReport = processor.formatFinalMessage();
             // Issue #1269: Show error in the reply message with immediate feedback
             // Keep a button so users know the error was displayed and can dismiss
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n${finalReport}`, {
+            await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n${finalReport}`, {
               parse_mode: 'MarkdownV2',
               reply_markup: {
                 inline_keyboard: [[{ text: '❌ Failed - Click to dismiss', callback_data: `merge_dismiss_${repoKey}` }]],
@@ -454,7 +455,7 @@ export function registerMergeCommand(bot, options) {
 
       if (!initResult.success) {
         const userMessage = formatUserError(new Error(initResult.error), VERBOSE);
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `Failed to initialize merge queue: ${escapeMarkdownV2(userMessage)}`, {
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `Failed to initialize merge queue: ${escapeMarkdownV2(userMessage)}`, {
           parse_mode: 'MarkdownV2',
         });
         return;
@@ -462,14 +463,14 @@ export function registerMergeCommand(bot, options) {
 
       if (initResult.message) {
         // No PRs to merge
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to repository PRs, or ensure the issue has a linked open PR\n2\\. Run \`/merge ${escapeMarkdownV2(targetUrl)}\` again`, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${escapeMarkdownV2(initResult.message)}\n\nTo use the merge queue:\n1\\. Add the \`ready\` label to repository PRs, or ensure the issue has a linked open PR\n2\\. Run \`/merge ${escapeMarkdownV2(targetUrl)}\` again`, { parse_mode: 'MarkdownV2' });
         return;
       }
 
       // Update message with PR list and cancel button, start processing
       const truncatedMsg = initResult.truncated ? `\n\n_Note: Only processing first ${MERGE_QUEUE_CONFIG.MAX_PRS_PER_SESSION} PRs_` : '';
 
-      await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${getTargetFoundText(target, initResult.count)}${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
+      await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `*Merge Queue \\- ${escapeMarkdownV2(owner)}/${escapeMarkdownV2(repo)}*${labelMsg}\n\n${getTargetFoundText(target, initResult.count)}${escapeMarkdownV2(truncatedMsg)}\n\nStarting merge process\\.\\.\\.`, {
         parse_mode: 'MarkdownV2',
         reply_markup: {
           inline_keyboard: [[{ text: '🛑 Cancel', callback_data: `merge_cancel_${repoKey}` }]],
@@ -501,7 +502,7 @@ export function registerMergeCommand(bot, options) {
           // Show error in the reply message with immediate feedback
           try {
             const userMessage = formatUserError(error, VERBOSE);
-            await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed unexpectedly*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n_The queue processing has stopped\\. Please try again or check server logs\\._`, {
+            await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `❌ *Merge queue failed unexpectedly*\n\n⚠️ *Error:* ${escapeMarkdownV2(userMessage)}\n\n_The queue processing has stopped\\. Please try again or check server logs\\._`, {
               parse_mode: 'MarkdownV2',
               reply_markup: {
                 inline_keyboard: [[{ text: '❌ Failed - Click to dismiss', callback_data: `merge_dismiss_${repoKey}` }]],
@@ -519,7 +520,7 @@ export function registerMergeCommand(bot, options) {
 
       try {
         const userMessage = formatUserError(error, VERBOSE);
-        await ctx.telegram.editMessageText(statusMessage.chat.id, statusMessage.message_id, undefined, `Error processing merge queue: ${escapeMarkdownV2(userMessage)}\n\nPlease check the repository URL and try again\\.`, { parse_mode: 'MarkdownV2' });
+        await safeEditMessageText(ctx.telegram, statusMessage.chat.id, statusMessage.message_id, undefined, `Error processing merge queue: ${escapeMarkdownV2(userMessage)}\n\nPlease check the repository URL and try again\\.`, { parse_mode: 'MarkdownV2' });
       } catch (editError) {
         VERBOSE && console.error('[VERBOSE] /merge: Failed to edit error message:', editError);
       }
@@ -547,9 +548,10 @@ export function registerMergeCommand(bot, options) {
     // the current PR finishes processing (which can take hours if waiting for CI).
     try {
       const cancellingMessage = operation.processor.formatProgressMessage();
-      await ctx.editMessageText(cancellingMessage, {
+      // No reply_markup = cancel button is removed immediately
+      await safeEditMessageText(ctx.telegram, ctx.chat?.id, ctx.callbackQuery?.message?.message_id, undefined, cancellingMessage, {
         parse_mode: 'MarkdownV2',
-        // No reply_markup = cancel button is removed immediately
+        verbose: VERBOSE,
       });
     } catch (err) {
       // If the full message edit fails, fall back to just removing the button

@@ -3,6 +3,7 @@ import { describeChildExit } from './child-exit.lib.mjs';
 import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { formatFailedLaunchMessage as defaultFormatFailedLaunchMessage } from './work-session-formatting.lib.mjs';
+import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -106,7 +107,7 @@ export function buildExecuteAndUpdateMessage(deps) {
     const { chat, message_id: msgId } = startingMessage;
     const safeEdit = async text => {
       try {
-        await ctx.telegram.editMessageText(chat.id, msgId, undefined, text, { parse_mode: 'Markdown' });
+        await safeEditMessageText(ctx.telegram, chat.id, msgId, undefined, text, { verbose: VERBOSE });
       } catch (e) {
         console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
       }

@@ -1,4 +1,21 @@
 /**
+ * Make a display name safe to use as the label of a legacy-Markdown entity
+ * (`[label](url)`).
+ *
+ * Inside an entity TDLib copies bytes verbatim, so nothing needs escaping — but
+ * a literal `]` would terminate the entity early and turn the rest of the
+ * message into garbage. Those two delimiters are therefore dropped; `_` and `*`
+ * are deliberately left alone (issue #2166).
+ *
+ * @param {string} label - Raw display name.
+ * @returns {string} Label safe to embed between `[` and `]`.
+ */
+export function escapeMarkdownEntityLabel(label) {
+  if (!label || typeof label !== 'string') return label;
+  return label.replace(/[[\]]/g, '');
+}
+
+/**
  * Build a Telegram user mention link in various parse modes.
  *
  * This is a simplified version that doesn't require external dependencies.
@@ -42,9 +59,19 @@ export function buildUserMention({ user, id: idParam, username: usernameParam, f
   switch (parseMode) {
     case 'Markdown': {
       // Legacy Markdown: [text](url)
-      // Escape _ and * in display name to prevent "can't find end of entity" errors (issue #1460)
-      const escapedMarkdownName = displayName.replace(/_/g, '\\_').replace(/\*/g, '\\*');
-      return `[${escapedMarkdownName}](${link})`;
+      //
+      // Issue #2166: do NOT backslash-escape `_` / `*` here. TDLib's
+      // `parse_markdown()` only unescapes `\_ \* \` \[` at the *top level*; once it
+      // is inside an entity it copies bytes verbatim until the closing `]`:
+      //
+      //   while (i < size && text[i] != end_character) { … text[result_size++] = text[i++]; }
+      //
+      // So `[@my\_user](…)` renders the backslashes literally — that is the
+      // unpolished `\_` the issue reports. The label is already inside the entity,
+      // which is what actually prevents the "can't find end of entity" error from
+      // issue #1460; only the delimiters themselves are dangerous.
+      const labelName = escapeMarkdownEntityLabel(displayName);
+      return `[${labelName}](${link})`;
     }
     case 'MarkdownV2': {
       // MarkdownV2 requires escaping special characters

@@ -74,7 +74,14 @@ watchTerminalLogSession({
   isTerminalSessionStatus: status => status === 'executed',
 });
 
-await new Promise(resolve => setTimeout(resolve, 80));
+// The watch now sends through the safe funnel, which sanitizes every snapshot
+// for credentials before it reaches the chat (issue #2166). The first call pays
+// a one-off lazy import of the secret scanner, so wait for the completion edit
+// instead of a fixed delay.
+const deadline = Date.now() + 15000;
+while (Date.now() < deadline && !String(edits.at(-1)?.[3] || '').includes('Terminal watch complete')) {
+  await new Promise(resolve => setTimeout(resolve, 25));
+}
 
 assert(edits.length >= 2, 'still edits the live message while running and at completion', { edits: edits.length });
 assert(documents.length === 0, 'does NOT call sendDocument on completion', { documents });

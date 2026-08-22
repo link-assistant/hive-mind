@@ -222,7 +222,7 @@ console.log('\n  Verbose logging surfaces original + fallback + byte-offset cont
     const fakeTelegram = {
       editMessageText: async (_chatId, _msgId, _inline, text, options) => {
         callCount += 1;
-        if (callCount === 1) {
+        if (options?.parse_mode === 'Markdown') {
           const err = new Error("Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 318");
           err.description = "Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 318";
           throw err;
@@ -237,9 +237,11 @@ console.log('\n  Verbose logging surfaces original + fallback + byte-offset cont
 
     const joined = logged.join('\n');
     assert(/Failing message \(\d+ bytes\)/.test(joined), 'Verbose log includes failing message with byte count');
-    assert(/Byte offset 318 context/.test(joined), 'Verbose log includes byte-offset context window');
+    assert(/Byte offset \d+ context \[\d+\.\.\d+\]: .*save_visiogetbb/.test(joined), 'Verbose log includes byte-offset context window around the offending underscore');
     assert(/Fallback message \(\d+ bytes\)/.test(joined), 'Verbose log includes the fallback message with byte count');
-    assert(callCount === 2, 'Wrapped method retried with the fallback text');
+    // Issue #2166: pre-send validation catches this before the API call, so the
+    // fallback text is the *only* request that leaves the process.
+    assert(callCount === 1, 'Wrapped method sent the fallback text without a doomed Markdown round trip');
   } finally {
     console.error = originalError;
   }

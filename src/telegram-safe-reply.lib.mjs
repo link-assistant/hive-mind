@@ -1,5 +1,6 @@
 import { normalizeLocale, t } from './i18n.lib.mjs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { validateTelegramText } from './telegram-markdown-validator.lib.mjs';
 
 const FORMATTING_FALLBACK_INSTALLED = Symbol.for('hiveMind.telegramFormattingFallbackInstalled');
 const DEFAULT_FORMATTING_FALLBACK_WARNING = '⚠️ Formatting error detected. Showing plain text fallback.';
@@ -252,33 +253,140 @@ function logChunking(scope, text, chunks, verbose = false) {
   }
 }
 
+// Issue #2166: every outgoing Telegram text goes through this module, so this is
+// the one place where a complete audit trail of what the bot tried to send (and
+// what Telegram answered) can be produced. Without it a rejected message is
+// invisible in the logs beyond a stack trace.
+const SEND_LOG_PREVIEW_LIMIT = 300;
+let sendLogSequence = 0;
+
+function nextSendId() {
+  sendLogSequence += 1;
+  return `s${sendLogSequence}`;
+}
+
+export function describeTelegramSendTarget(target) {
+  if (!target || typeof target !== 'object') return target === undefined || target === null ? 'chat=unknown' : `chat=${target}`;
+  const parts = [];
+  if (target.chatId !== undefined && target.chatId !== null) parts.push(`chat=${target.chatId}`);
+  if (target.messageId !== undefined && target.messageId !== null) parts.push(`message=${target.messageId}`);
+  if (target.inlineMessageId) parts.push(`inline=${target.inlineMessageId}`);
+  if (target.threadId !== undefined && target.threadId !== null) parts.push(`thread=${target.threadId}`);
+  return parts.length ? parts.join(' ') : 'chat=unknown';
+}
+
+function previewForLog(text, verbose) {
+  const source = String(text ?? '');
+  if (verbose || source.length <= SEND_LOG_PREVIEW_LIMIT) return JSON.stringify(source);
+  return `${JSON.stringify(source.slice(0, SEND_LOG_PREVIEW_LIMIT))}… (+${source.length - SEND_LOG_PREVIEW_LIMIT} chars)`;
+}
+
+function describeOptionsForLog(options = {}) {
+  const parseMode = options?.parse_mode ?? 'none';
+  const parts = [`parse_mode=${parseMode}`];
+  if (options?.reply_to_message_id) parts.push(`reply_to=${options.reply_to_message_id}`);
+  if (options?.message_thread_id) parts.push(`thread=${options.message_thread_id}`);
+  if (options?.reply_markup) parts.push('reply_markup=yes');
+  return parts.join(' ');
+}
+
+function logSendAttempt({ scope, target, text, options, verbose }) {
+  const id = nextSendId();
+  const source = String(text ?? '');
+  console.log(`[telegram-send] ${id} ${scope} → ${describeTelegramSendTarget(target)} ${describeOptionsForLog(options)} chars=${source.length} bytes=${Buffer.byteLength(source, 'utf-8')} text=${previewForLog(source, verbose)}`);
+  return id;
+}
+
+function logSendSuccess({ id, scope, result }) {
+  const messageId = result?.message_id ?? result?.message?.message_id ?? null;
+  console.log(`[telegram-send] ${id} ${scope} ✓ delivered${messageId === null ? '' : ` message_id=${messageId}`}`);
+}
+
+function logSendRejected({ id, scope, error }) {
+  console.error(`[telegram-send] ${id} ${scope} ✗ rejected: ${getTelegramErrorMessage(error)}`);
+}
+
+/**
+ * A Bot API `400 Bad Request` is never a partial delivery: Telegram refused the
+ * message outright, so retrying it as plain text cannot duplicate anything.
+ * This is the safety net that makes "no silent failures" (issue #2166) hold even
+ * for rejections this module does not recognise yet.
+ */
+export function isTelegramBadRequestError(error) {
+  if (error?.response?.error_code === 400 || error?.error_code === 400) return true;
+  return /^\s*400:/.test(getTelegramErrorMessage(error)) || /bad request/i.test(getTelegramErrorMessage(error));
+}
+
 function getPlainTextOptions(telegramOptions) {
   return { ...telegramOptions, parse_mode: undefined, entities: undefined };
 }
 
-async function sendPlainTextChunks({ text, telegramOptions, scope, verbose, sendChunk }) {
+async function sendPlainTextChunks({ text, telegramOptions, scope, verbose, sendChunk, target }) {
   const plainOptions = getPlainTextOptions(telegramOptions);
   const chunks = splitTelegramMessageText(text);
   logChunking(`${scope}:plainText`, text, chunks, verbose);
 
   let firstResult;
   for (const chunk of chunks) {
-    const result = await sendChunk(chunk, plainOptions);
-    if (firstResult === undefined) firstResult = result;
+    const id = logSendAttempt({ scope: `${scope}:plainText`, target, text: chunk, options: plainOptions, verbose });
+    try {
+      const result = await sendChunk(chunk, plainOptions);
+      logSendSuccess({ id, scope: `${scope}:plainText`, result });
+      if (firstResult === undefined) firstResult = result;
+    } catch (error) {
+      logSendRejected({ id, scope: `${scope}:plainText`, error });
+      throw error;
+    }
   }
   return firstResult;
 }
 
-async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, verbose, scope, sendChunk }) {
+/**
+ * Check a chunk *before* it reaches the Bot API (issue #2166, requirement R2).
+ *
+ * Telegram answers an unterminated entity with an opaque
+ * `Can't find end of the entity starting at byte offset N`, so catching it here
+ * both saves a doomed round trip and lets the log name the offending characters.
+ *
+ * @returns {{valid: boolean, description?: string, byteOffset?: number, context?: string}}
+ */
+function preflightChunk({ scope, chunk, telegramOptions, fallbackLocale, verbose }) {
+  const validation = validateTelegramText(chunk, telegramOptions?.parse_mode);
+  if (validation.valid) return validation;
+  console.error(`[telegram-send] ${scope}: pre-send validation rejected a ${telegramOptions?.parse_mode} message: ${validation.description}`);
+  console.error(`[telegram-send] ${scope}: byte offset ${validation.byteOffset} context: ${validation.context}`);
+  const fallbackText = buildTelegramFormattingFallbackText(chunk, { fallbackLocale });
+  logFormattingFailure(`${scope}:preflight`, { description: validation.description }, chunk, verbose, fallbackText);
+  return { ...validation, fallbackText };
+}
+
+async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, verbose, scope, sendChunk, target }) {
   const chunks = splitTelegramMessageText(text);
   logChunking(scope, text, chunks, verbose);
 
   let firstResult;
   for (const chunk of chunks) {
+    const preflight = preflightChunk({ scope, chunk, telegramOptions, fallbackLocale, verbose });
+    if (!preflight.valid) {
+      const result = await sendPlainTextChunks({
+        text: preflight.fallbackText,
+        telegramOptions,
+        scope: `${scope}:preflight`,
+        verbose,
+        sendChunk,
+        target,
+      });
+      if (firstResult === undefined) firstResult = result;
+      continue;
+    }
+
+    const id = logSendAttempt({ scope, target, text: chunk, options: telegramOptions, verbose });
     try {
       const result = await sendChunk(chunk, telegramOptions);
+      logSendSuccess({ id, scope, result });
       if (firstResult === undefined) firstResult = result;
     } catch (error) {
+      logSendRejected({ id, scope, error });
       let fallbackText;
       if (isTelegramFormattingError(error)) {
         fallbackText = buildTelegramFormattingFallbackText(chunk, { fallbackLocale });
@@ -286,6 +394,11 @@ async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
       } else if (isTelegramMessageTooLongError(error)) {
         fallbackText = stripTelegramMarkdown(chunk);
         logMessageTooLongFailure(scope, error, chunk, verbose, fallbackText);
+      } else if (telegramOptions?.parse_mode && isTelegramBadRequestError(error)) {
+        // Unrecognised 400: the message was definitely not delivered, so a plain
+        // text retry is safe and keeps the failure from being silent.
+        fallbackText = buildTelegramFormattingFallbackText(chunk, { fallbackLocale });
+        logFormattingFailure(scope, error, chunk, verbose, fallbackText);
       } else {
         throw error;
       }
@@ -296,6 +409,7 @@ async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
         scope,
         verbose,
         sendChunk,
+        target,
       });
       if (firstResult === undefined) firstResult = result;
     }
@@ -304,7 +418,7 @@ async function sendTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
   return firstResult;
 }
 
-async function sendRemainingEditChunks({ chunks, telegramOptions, fallbackLocale, verbose, scope, sendFollowUpChunk }) {
+async function sendRemainingEditChunks({ chunks, telegramOptions, fallbackLocale, verbose, scope, sendFollowUpChunk, target }) {
   if (chunks.length === 0) return undefined;
   if (!sendFollowUpChunk) {
     console.error(`[telegram-bot] ${scope}: cannot send ${chunks.length} remaining chunk(s) after edit because chat_id is unavailable.`);
@@ -318,10 +432,11 @@ async function sendRemainingEditChunks({ chunks, telegramOptions, fallbackLocale
     verbose,
     scope: `${scope}:followUp`,
     sendChunk: sendFollowUpChunk,
+    target,
   });
 }
 
-async function sendPlainRemainingEditChunks({ chunks, telegramOptions, verbose, scope, sendFollowUpChunk }) {
+async function sendPlainRemainingEditChunks({ chunks, telegramOptions, verbose, scope, sendFollowUpChunk, target }) {
   if (chunks.length === 0) return undefined;
   if (!sendFollowUpChunk) {
     console.error(`[telegram-bot] ${scope}: cannot send ${chunks.length} plain-text fallback chunk(s) after edit because chat_id is unavailable.`);
@@ -334,33 +449,52 @@ async function sendPlainRemainingEditChunks({ chunks, telegramOptions, verbose, 
     scope: `${scope}:followUp`,
     verbose,
     sendChunk: sendFollowUpChunk,
+    target,
   });
 }
 
-async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, verbose, scope, editChunk, sendFollowUpChunk }) {
+async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, verbose, scope, editChunk, sendFollowUpChunk, target }) {
   const chunks = splitTelegramMessageText(text);
   logChunking(scope, text, chunks, verbose);
 
   const [firstChunk, ...remainingChunks] = chunks;
-  try {
-    const result = await editChunk(firstChunk, telegramOptions);
-    await sendRemainingEditChunks({
-      chunks: remainingChunks,
-      telegramOptions,
-      fallbackLocale,
-      verbose,
-      scope,
-      sendFollowUpChunk,
-    });
-    return result;
-  } catch (error) {
+  const preflight = preflightChunk({ scope, chunk: firstChunk, telegramOptions, fallbackLocale, verbose });
+  let editError = null;
+  if (preflight.valid) {
+    const id = logSendAttempt({ scope, target, text: firstChunk, options: telegramOptions, verbose });
+    try {
+      const result = await editChunk(firstChunk, telegramOptions);
+      logSendSuccess({ id, scope, result });
+      await sendRemainingEditChunks({
+        chunks: remainingChunks,
+        telegramOptions,
+        fallbackLocale,
+        verbose,
+        scope,
+        sendFollowUpChunk,
+        target,
+      });
+      return result;
+    } catch (error) {
+      logSendRejected({ id, scope, error });
+      editError = error;
+    }
+  }
+
+  {
+    const error = editError;
     let fallbackText;
-    if (isTelegramFormattingError(error)) {
+    if (error === null) {
+      fallbackText = preflight.fallbackText;
+    } else if (isTelegramFormattingError(error)) {
       fallbackText = buildTelegramFormattingFallbackText(firstChunk, { fallbackLocale });
       logFormattingFailure(scope, error, firstChunk, verbose, fallbackText);
     } else if (isTelegramMessageTooLongError(error)) {
       fallbackText = stripTelegramMarkdown(firstChunk);
       logMessageTooLongFailure(scope, error, firstChunk, verbose, fallbackText);
+    } else if (telegramOptions?.parse_mode && isTelegramBadRequestError(error)) {
+      fallbackText = buildTelegramFormattingFallbackText(firstChunk, { fallbackLocale });
+      logFormattingFailure(scope, error, firstChunk, verbose, fallbackText);
     } else {
       throw error;
     }
@@ -369,13 +503,22 @@ async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
     const fallbackChunks = splitTelegramMessageText(fallbackText);
     logChunking(`${scope}:plainText`, fallbackText, fallbackChunks, verbose);
     const [firstFallbackChunk, ...remainingFallbackChunks] = fallbackChunks;
-    const result = await editChunk(firstFallbackChunk, plainOptions);
+    const plainId = logSendAttempt({ scope: `${scope}:plainText`, target, text: firstFallbackChunk, options: plainOptions, verbose });
+    let result;
+    try {
+      result = await editChunk(firstFallbackChunk, plainOptions);
+      logSendSuccess({ id: plainId, scope: `${scope}:plainText`, result });
+    } catch (plainError) {
+      logSendRejected({ id: plainId, scope: `${scope}:plainText`, error: plainError });
+      throw plainError;
+    }
     await sendPlainRemainingEditChunks({
       chunks: [...remainingFallbackChunks, ...remainingChunks.map(stripTelegramMarkdown)],
       telegramOptions,
       verbose,
       scope,
       sendFollowUpChunk,
+      target,
     });
     return result;
   }
@@ -391,7 +534,33 @@ export async function safeReply(ctx, text, options = {}) {
     fallbackLocale,
     verbose,
     scope: 'safeReply',
+    target: { chatId: ctx?.chat?.id, threadId: firstOptions.message_thread_id },
     sendChunk: (chunk, chunkOptions) => ctx.reply(chunk, chunkOptions),
+  });
+}
+
+/**
+ * Bot-initiated send (no `ctx`): same funnel as {@link safeReply}.
+ *
+ * Used by background senders (session monitor, subscriber broadcasts) that hold
+ * a `Telegram` client instead of a context (issue #2166).
+ *
+ * @param {object} telegram - Telegraf `Telegram` client.
+ * @param {number|string} chatId - Target chat.
+ * @param {string} text - Message text.
+ * @param {object} [options] - Telegram options plus `fallbackLocale`/`verbose`.
+ */
+export async function safeSendMessage(telegram, chatId, text, options = {}) {
+  const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
+  const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
+  return await sendTelegramTextChunks({
+    text: await sanitizeForPublication(text),
+    telegramOptions: firstOptions,
+    fallbackLocale,
+    verbose,
+    scope: 'safeSendMessage',
+    target: { chatId, threadId: firstOptions.message_thread_id },
+    sendChunk: (chunk, chunkOptions) => telegram.sendMessage(chatId, chunk, chunkOptions),
   });
 }
 
@@ -404,8 +573,106 @@ export async function safeEditMessageText(telegram, chatId, messageId, inlineMes
     fallbackLocale,
     verbose,
     scope: 'safeEditMessageText',
+    target: { chatId, messageId, inlineMessageId },
     editChunk: (chunk, chunkOptions) => telegram.editMessageText(chatId, messageId, inlineMessageId, chunk, chunkOptions),
     sendFollowUpChunk: chatId !== undefined && chatId !== null && typeof telegram.sendMessage === 'function' ? (chunk, chunkOptions) => telegram.sendMessage(chatId, chunk, chunkOptions) : null,
+  });
+}
+
+/**
+ * Telegram truncates media captions at 1024 characters (text messages get 4096).
+ */
+export const TELEGRAM_CAPTION_LIMIT = 1024;
+
+/**
+ * Make media options safe to send (issue #2166).
+ *
+ * A document/photo caption is parsed with the same entity parser as a message,
+ * so `caption: '📁 Log for session `abc`'` with an unbalanced backtick makes the
+ * whole upload fail with an opaque 400 — and, because captions were never routed
+ * through the send funnel, the failure was invisible. This validates the caption
+ * *before* the call and degrades to plain text instead.
+ *
+ * @param {object} options - Telegram options (may carry `caption`/`parse_mode`).
+ * @param {{scope?: string, verbose?: boolean}} [context]
+ * @returns {object} Options safe to hand to the Bot API.
+ */
+export function buildSafeCaptionOptions(options = {}, { scope = 'caption', verbose = false } = {}) {
+  const { telegramOptions } = splitOptions(options);
+  const caption = telegramOptions.caption;
+  if (typeof caption !== 'string' || caption.length === 0) return telegramOptions;
+
+  let text = caption;
+  let parseMode = telegramOptions.parse_mode;
+
+  if (parseMode) {
+    const validation = validateTelegramText(text, parseMode);
+    if (!validation.valid) {
+      console.error(`[telegram-send] ${scope}: pre-send validation rejected a ${parseMode} caption: ${validation.description}`);
+      if (verbose) console.error(`[telegram-send] ${scope}: byte offset ${validation.byteOffset} context: ${validation.context}`);
+      text = stripTelegramMarkdown(text);
+      parseMode = undefined;
+    }
+  }
+
+  if (text.length > TELEGRAM_CAPTION_LIMIT) {
+    console.warn(`[telegram-send] ${scope}: caption is ${text.length} chars, truncating to ${TELEGRAM_CAPTION_LIMIT} (Telegram limit).`);
+    text = `${stripTelegramMarkdown(text).slice(0, TELEGRAM_CAPTION_LIMIT - 1)}…`;
+    parseMode = undefined;
+  }
+
+  return { ...telegramOptions, caption: text, parse_mode: parseMode };
+}
+
+async function sendMediaWithCaptionFallback({ scope, target, options, verbose, send }) {
+  const safeOptions = buildSafeCaptionOptions(options, { scope, verbose });
+  const id = logSendAttempt({ scope, target, text: safeOptions.caption ?? '', options: safeOptions, verbose });
+  try {
+    const result = await send(safeOptions);
+    logSendSuccess({ id, scope, result });
+    return result;
+  } catch (error) {
+    logSendRejected({ id, scope, error });
+    if (!safeOptions.parse_mode || !isTelegramBadRequestError(error)) throw error;
+    const plainOptions = { ...safeOptions, parse_mode: undefined, caption: typeof safeOptions.caption === 'string' ? stripTelegramMarkdown(safeOptions.caption) : safeOptions.caption };
+    logFormattingFailure(scope, error, safeOptions.caption, verbose, plainOptions.caption);
+    const retryId = logSendAttempt({ scope: `${scope}:plainText`, target, text: plainOptions.caption ?? '', options: plainOptions, verbose });
+    try {
+      const result = await send(plainOptions);
+      logSendSuccess({ id: retryId, scope: `${scope}:plainText`, result });
+      return result;
+    } catch (plainError) {
+      logSendRejected({ id: retryId, scope: `${scope}:plainText`, error: plainError });
+      throw plainError;
+    }
+  }
+}
+
+/**
+ * `ctx.replyWithDocument` with caption validation, logging and plain-text fallback.
+ */
+export async function safeReplyWithDocument(ctx, document, options = {}) {
+  const { verbose } = splitOptions(options);
+  return await sendMediaWithCaptionFallback({
+    scope: 'safeReplyWithDocument',
+    target: { chatId: ctx?.chat?.id },
+    options,
+    verbose,
+    send: sendOptions => ctx.replyWithDocument(document, sendOptions),
+  });
+}
+
+/**
+ * `telegram.sendDocument` with caption validation, logging and plain-text fallback.
+ */
+export async function safeSendDocument(telegram, chatId, document, options = {}) {
+  const { verbose } = splitOptions(options);
+  return await sendMediaWithCaptionFallback({
+    scope: 'safeSendDocument',
+    target: { chatId },
+    options,
+    verbose,
+    send: sendOptions => telegram.sendDocument(chatId, document, sendOptions),
   });
 }
 
@@ -428,6 +695,7 @@ function wrapTelegramSendMessage(telegram, defaults = {}) {
       fallbackLocale: fallbackLocale || defaults.fallbackLocale,
       verbose: verbose || defaults.verbose,
       scope: 'sendMessage',
+      target: { chatId: args[0], threadId: telegramOptions.message_thread_id },
       sendChunk: (chunk, chunkOptions) => {
         const chunkArgs = [...args];
         chunkArgs[1] = chunk;
@@ -457,6 +725,7 @@ function wrapTelegramEditMessageText(telegram, defaults = {}) {
       fallbackLocale: fallbackLocale || defaults.fallbackLocale,
       verbose: verbose || defaults.verbose,
       scope: 'editMessageText',
+      target: { chatId: args[0], messageId: args[1], inlineMessageId: args[2] },
       editChunk: (chunk, chunkOptions) => {
         const chunkArgs = [...args];
         chunkArgs[3] = chunk;

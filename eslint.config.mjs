@@ -7,6 +7,7 @@ import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
 import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
 import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
+import noUnsafeTelegramSend from './eslint-rules/no-unsafe-telegram-send.mjs';
 
 // Create custom plugin for gh paginate rule
 const ghPaginatePlugin = {
@@ -33,6 +34,14 @@ const timerPlugin = {
 const streamsPlugin = {
   rules: {
     'no-leaked-streams': noLeakedStreams,
+  },
+};
+
+// Create custom plugin to keep every formatted Telegram send inside the safe
+// send funnel, so a malformed entity can never become a silent 400 (issue #2166)
+const telegramSafetyPlugin = {
+  rules: {
+    'no-unsafe-telegram-send': noUnsafeTelegramSend,
   },
 };
 
@@ -153,6 +162,19 @@ export default [
           skipComments: false,
         },
       ],
+    },
+  },
+  {
+    // Issue #2166: production code must never talk to the Bot API with a
+    // `parse_mode` directly — a malformed entity would surface as an unhandled
+    // 400 and the user would see nothing. Tests and scripts are free to build
+    // raw payloads (they assert on them), so the rule is scoped to src/.
+    files: ['src/**/*.{js,mjs,cjs}'],
+    plugins: {
+      'telegram-safety': telegramSafetyPlugin,
+    },
+    rules: {
+      'telegram-safety/no-unsafe-telegram-send': 'error',
     },
   },
 ];

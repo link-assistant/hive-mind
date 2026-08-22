@@ -106,8 +106,11 @@ export const systemLimits = {
 };
 
 // Retry configurations
-// Issue #1331: All API error types use unified retry parameters:
-// 10 max retries, 2 minute initial delay, 30 minute max delay (exponential backoff), session preserved
+// Issue #1331: All API error types use unified retry parameters (exponential backoff, session preserved).
+// Issue #2169: the retry window is now governed by a *total time budget* (default 12 hours) rather
+// than by the retry count alone. A provider outage can last many hours; the previous 10-retry cap
+// with a 2-minute initial delay gave up after ~3.5 hours. The count caps below are kept as
+// backstops against runaway loops — the budget is the knob operators are expected to tune.
 export const retryLimits = {
   maxForkRetries: parseIntWithDefault('HIVE_MIND_MAX_FORK_RETRIES', 5),
   maxVerifyRetries: parseIntWithDefault('HIVE_MIND_MAX_VERIFY_RETRIES', 5),
@@ -123,9 +126,23 @@ export const retryLimits = {
   maxGitRetries: parseIntWithDefault('HIVE_MIND_MAX_GIT_RETRIES', 5),
   retryBackoffMultiplier: parseFloatWithDefault('HIVE_MIND_RETRY_BACKOFF_MULTIPLIER', 2),
   // Unified retry config for all transient API errors (Overloaded, 503, Internal Server Error)
-  maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 10),
-  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 2 * 60 * 1000), // 2 minutes
+  // Issue #2169: count backstop only. With the defaults below (3 min → 30 min backoff) the 12-hour
+  // budget is exhausted after ~26 retries, so this cap never fires unless an operator shortens the
+  // delays. Lower it (e.g. HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES=5) to fail faster than the budget.
+  maxTransientErrorRetries: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_RETRIES', 100),
+  // Issue #2169: "minimum of 3 minutes" — the first (and therefore smallest) transient backoff.
+  initialTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_TRANSIENT_ERROR_DELAY_MS', 3 * 60 * 1000), // 3 minutes
   maxTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MAX_TRANSIENT_ERROR_DELAY_MS', 30 * 60 * 1000), // 30 minutes
+  // Issue #2169: total wall-clock budget for transient-API-error retries, measured from the first
+  // retry of a run. Retrying stops as soon as the *next* backoff would push the run past this
+  // window. Set to 0 to disable the budget and fall back to the count cap alone.
+  transientErrorRetryBudgetMs: parseIntWithDefault('HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS', 12 * 60 * 60 * 1000), // 12 hours
+  // Issue #2169: floor applied to every transient backoff, including operator-supplied initial
+  // delays. Keeps a misconfigured 5-second delay from hammering an API that is already struggling.
+  minTransientErrorDelayMs: parseIntWithDefault('HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS', 3 * 60 * 1000), // 3 minutes
+  // Issue #2169: stream startup/activity timeouts keep their own (short) count cap. They use 30s–2min
+  // backoffs and force-kill the CLI, so they must not inherit the 100-retry transient backstop.
+  maxStreamTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_STREAM_TIMEOUT_RETRIES', 10),
   // Issue #2037: When a "model is at capacity" error triggers a switch to a *different*
   // fallback model, the long transient backoff is wasteful — the different model is
   // available now, so retry almost immediately instead of stalling for minutes.
@@ -140,7 +157,8 @@ export const retryLimits = {
   maxCapacityRetryDelayMs: parseIntWithDefault('HIVE_MIND_MAX_CAPACITY_RETRY_DELAY_MS', 4 * 60 * 1000), // 4 minutes
   // Request timeout retry configuration (Issue #1353)
   // Network timeouts need longer waits than API errors — Claude CLI already exhausted its own retries
-  maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 10),
+  // Issue #2169: count backstop only — the shared 12-hour budget governs when to stop.
+  maxRequestTimeoutRetries: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_RETRIES', 100),
   initialRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_INITIAL_REQUEST_TIMEOUT_DELAY_MS', 5 * 60 * 1000), // 5 minutes
   maxRequestTimeoutDelayMs: parseIntWithDefault('HIVE_MIND_MAX_REQUEST_TIMEOUT_DELAY_MS', 60 * 60 * 1000), // 1 hour
   // Not-retryable error fail-fast configuration (Issue #1437)

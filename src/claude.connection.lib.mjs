@@ -5,7 +5,8 @@ if (typeof globalThis.use === 'undefined') {
 const { $ } = await use('command-stream');
 import { log } from './lib.mjs';
 import { reportError } from './sentry.lib.mjs';
-import { timeouts, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
+import { timeouts, retryLimits, getThinkingLevelToTokens, getTokensToThinkingLevel, supportsThinkingBudget, DEFAULT_MAX_THINKING_BUDGET } from './config.lib.mjs';
+import { createTransientRetryBudget, waitWithCountdown } from './tool-retry.lib.mjs';
 import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
 import { mapModelToId } from './claude.model-utils.lib.mjs';
@@ -14,15 +15,39 @@ export const validateClaudeConnection = async (model = 'haiku') => {
   const mappedModel = mapModelToId(model);
   // Issue #2130: "run claude login" is wrong advice for a Formal-AI-served model.
   const authRemedyLines = buildAuthRemedyLines({ model, vendorRemedy: 'Please run: claude login' });
-  const maxRetries = 3;
-  const baseDelay = timeouts.retryBaseDelay;
+  // Issue #2169: a provider outage during validation used to abort the whole run after 3 quick
+  // retries (~seconds). Validation now shares the same wall-clock retry budget as execution —
+  // 12 h by default, 3-minute minimum wait, all configurable through HIVE_MIND_* env vars.
+  const maxRetries = retryLimits.maxTransientErrorRetries;
   let retryCount = 0;
+  const transientRetryBudget = createTransientRetryBudget();
+  // Returns true when a retry was performed (caller should recurse), false when the budget is spent.
+  const retryAfterOverload = async context => {
+    const retryDecision = transientRetryBudget.evaluate({
+      retryCount,
+      maxRetries,
+      initialDelayMs: retryLimits.initialTransientErrorDelayMs,
+      maxDelayMs: retryLimits.maxTransientErrorDelayMs,
+      minDelayMs: retryLimits.minTransientErrorDelayMs,
+    });
+    if (!retryDecision.allowed) {
+      await log(`❌ API overload error persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
+      await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
+      return false;
+    }
+    transientRetryBudget.grant();
+    const delayLabel = retryDecision.delayMs >= 60000 ? `${Math.round(retryDecision.delayMs / 60000)} min` : `${Math.round(retryDecision.delayMs / 1000)}s`;
+    await log(`⚠️ API overload error ${context}. Retrying in ${delayLabel} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
+    await waitWithCountdown(retryDecision.delayMs, log);
+    retryCount++;
+    return true;
+  };
   const attemptValidation = async () => {
     try {
       if (retryCount === 0) {
         await log('🔍 Validating Claude CLI connection...');
       } else {
-        await log(`🔄 Retry attempt ${retryCount}/${maxRetries} for Claude CLI validation...`);
+        await log(`🔄 Retry attempt ${retryCount} for Claude CLI validation (${transientRetryBudget.describeProgress()})...`);
       }
       try {
         const versionResult = await $`timeout ${Math.floor(timeouts.claudeCli / 6000)} claude --version`;
@@ -83,21 +108,8 @@ export const validateClaudeConnection = async (model = 'haiku') => {
       const jsonError = checkForJsonError(stdout) || checkForJsonError(stderr);
       const isOverloadError = (stdout.includes('API Error: 500') && stdout.includes('Overloaded')) || (stdout.includes('API Error: 529') && stdout.includes('Overloaded')) || (stderr.includes('API Error: 500') && stderr.includes('Overloaded')) || (stderr.includes('API Error: 529') && stderr.includes('Overloaded')) || (jsonError && (jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded');
       if (isOverloadError) {
-        if (retryCount < maxRetries) {
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`⚠️ API overload error during validation. Retrying in ${delay / 1000} seconds...`, {
-            level: 'warning',
-          });
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retryCount++;
-          return await attemptValidation();
-        } else {
-          await log(`❌ API overload error persisted after ${maxRetries} retries during validation`, {
-            level: 'error',
-          });
-          await log('   The API appears to be heavily loaded. Please try again later.', { level: 'error' });
-          return false;
-        }
+        if (await retryAfterOverload('during validation')) return await attemptValidation();
+        return false;
       }
       const exitCode = result.code ?? result.exitCode ?? 0; // Bun shell compat
       if (exitCode !== 0) {
@@ -116,18 +128,8 @@ export const validateClaudeConnection = async (model = 'haiku') => {
       }
       if (jsonError) {
         if ((jsonError.type === 'api_error' || jsonError.type === 'overloaded_error') && jsonError.message === 'Overloaded') {
-          if (retryCount < maxRetries) {
-            const delay = baseDelay * Math.pow(2, retryCount);
-            await log(`⚠️ API overload error in response. Retrying in ${delay / 1000} seconds...`, {
-              level: 'warning',
-            });
-            await new Promise(resolve => setTimeout(resolve, delay));
-            retryCount++;
-            return await attemptValidation();
-          } else {
-            await log(`❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
-            return false;
-          }
+          if (await retryAfterOverload('in response')) return await attemptValidation();
+          return false;
         }
         await log(`❌ Claude CLI returned error: ${jsonError.type} - ${jsonError.message}`, { level: 'error' });
         if (jsonError.type === 'forbidden') {
@@ -140,18 +142,8 @@ export const validateClaudeConnection = async (model = 'haiku') => {
     } catch (error) {
       const errorStr = error.message || error.toString();
       if ((errorStr.includes('API Error: 500') && errorStr.includes('Overloaded')) || (errorStr.includes('API Error: 529') && errorStr.includes('Overloaded')) || (errorStr.includes('api_error') && errorStr.includes('Overloaded')) || (errorStr.includes('overloaded_error') && errorStr.includes('Overloaded'))) {
-        if (retryCount < maxRetries) {
-          const delay = baseDelay * Math.pow(2, retryCount);
-          await log(`⚠️ API overload error during validation. Retrying in ${delay / 1000} seconds...`, {
-            level: 'warning',
-          });
-          await new Promise(resolve => setTimeout(resolve, delay));
-          retryCount++;
-          return await attemptValidation();
-        } else {
-          await log(`❌ API overload error persisted after ${maxRetries} retries`, { level: 'error' });
-          return false;
-        }
+        if (await retryAfterOverload('during validation')) return await attemptValidation();
+        return false;
       }
       await log(`❌ Failed to validate Claude CLI connection: ${error.message}`, { level: 'error' });
       await log('   💡 Make sure Claude CLI is installed and accessible', { level: 'error' });

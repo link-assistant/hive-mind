@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.13.3
+
+### Patch Changes
+
+- bf38253: Stop losing hours (and money) to retries of runs that already succeeded, and keep retrying a real provider outage for up to 12 hours. A gateway-error check matched any standalone `520`–`524` anywhere in the final message, so a solve run on issue #523 / PR #524 had each of its eleven _successful_ results re-classified as "Gateway error (502/504/52x)" and re-run — $7.65 and 3 h 55 min before `❌ Transient API error persisted after 10 retries`. HTTP status codes are now only recognised next to an error context (`API Error: 502`, `error code: 522`, `HTTP 504`) or a canonical gateway phrase, a run that Claude reported as successful is never retried (the near-miss is logged in verbose mode), and every tool's transient-retry loop is now driven by a wall-clock budget — 12 hours by default (`HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS`, `0` disables) with a 3-minute minimum delay (`HIVE_MIND_MIN_TRANSIENT_ERROR_DELAY_MS`) and a `3 → 30` min exponential backoff — instead of a fixed attempt count that gave up after ~3.5 hours. Full analysis in `docs/case-studies/issue-2169`.
+
 ## 2.13.2
 
 ### Patch Changes

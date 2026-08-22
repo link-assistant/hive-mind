@@ -1,5 +1,24 @@
 # @link-assistant/hive-mind
 
+## 2.13.5
+
+### Patch Changes
+
+- 0d0b96a: Fix every error and warning reported by CI/CD (issue #2175).
+
+  - The release job now lands the version bump through a pull request when a
+    repository ruleset rejects the direct push to `main` (GH013), instead of
+    retrying it as a lost race and failing the release.
+  - The release gate asks the npm registry, not the `.changeset` folder, whether
+    the current version is published, so an interrupted release self-heals on the
+    next push instead of being silently skipped.
+  - Release assets are uploaded with the `gh` CLI, removing the last action
+    pinned to the deprecated Node 20 runtime.
+  - Eight source files that had drifted into the 1350-line warning band were
+    reduced by extracting cohesive modules; behaviour is unchanged.
+
+- 3422f03: Retry transient GitHub and git failures instead of aborting the run. A `gh pr create` died 3.1 seconds after it was issued on `GraphQL: Something went wrong while executing your query …` without a single retry: GitHub reports internal GraphQL faults as **HTTP 200 with an `errors[]` payload**, and the transient-error classifier only knew about TCP/TLS faults and the literal strings `http 502`/`503`/`504`, so the failure was treated as permanent. Classification now lives in one place (`src/transient-errors.lib.mjs`), recognises the GraphQL 200-with-errors family, gets its own larger budget (`HIVE_MIND_MAX_GITHUB_TRANSIENT_RETRIES`, default 6), and logs _why_ an error was or was not retried — including GitHub's support reference id, which was previously discarded. Network git commands (`push`/`fetch`/`pull`/`ls-remote`) are now retried too: the wrapper is installed on command-stream's `$` tag rather than at each of the ~36 call sites, `gh pr create` recovers the existing PR URL when a retry hits "a pull request already exists", and a new `gh-rate-limit/no-unretried-git-network` ESLint rule fails the build on any future unguarded git network call in `src/`.
+
 ## 2.13.4
 
 ### Patch Changes

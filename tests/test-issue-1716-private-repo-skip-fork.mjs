@@ -39,6 +39,12 @@ function runTest(name, testFn) {
 }
 
 const solveContent = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+// Issue #2175: the fork-detection paths themselves moved out of solve.mjs into
+// solve.mode.lib.mjs so solve.mjs stays under the 1350-line CI warning
+// threshold. solve.mjs still computes the skipForkForPrivateUpstream flag and
+// passes it in, so the flag tests below still read solve.mjs while the
+// structural fork-detection tests read the module that now holds those paths.
+const modeContent = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
 
 // Test 1: solve.mjs computes a single visibility-aware bypass flag
 runTest('solve.mjs computes skipForkForPrivateUpstream flag', () => {
@@ -64,14 +70,14 @@ runTest('visibility detection runs unconditionally', () => {
 
 // Test 4: bypass references issue #1716 in code comments
 runTest('bypass references issue #1716', () => {
-  if (!solveContent.includes('Issue #1716')) {
+  if (!modeContent.includes('Issue #1716')) {
     throw new Error('Bypass should reference Issue #1716 for traceability');
   }
 });
 
 // Test 5: bypass message mentions working directly on upstream
 runTest('bypass logs working directly on private upstream', () => {
-  if (!solveContent.includes('Working directly on the private upstream repository')) {
+  if (!modeContent.includes('Working directly on the private upstream repository')) {
     throw new Error('Bypass should log a message about working on upstream directly');
   }
 });
@@ -80,8 +86,8 @@ runTest('bypass logs working directly on private upstream', () => {
 runTest('bypass applied in auto-continue PR-detection path', () => {
   // Ensure the detected fork variables are gated by skipForkForPrivateUpstream
   // in the auto-continue branch (where prCheckData is parsed)
-  const autoContinueIdx = solveContent.indexOf('prCheckData.headRepositoryOwner.login');
-  const skipFlagIdxAfter = solveContent.indexOf('if (skipForkForPrivateUpstream)', autoContinueIdx);
+  const autoContinueIdx = modeContent.indexOf('prCheckData.headRepositoryOwner.login');
+  const skipFlagIdxAfter = modeContent.indexOf('if (skipForkForPrivateUpstream)', autoContinueIdx);
   if (autoContinueIdx === -1 || skipFlagIdxAfter === -1) {
     throw new Error('Auto-continue path does not consult skipForkForPrivateUpstream');
   }
@@ -90,8 +96,8 @@ runTest('bypass applied in auto-continue PR-detection path', () => {
 // Test 7: bypass is applied in the direct PR-URL path
 runTest('bypass applied in direct PR URL path', () => {
   // The path that uses prData.headRepositoryOwner — must also consult the flag
-  const prDataIdx = solveContent.indexOf('prData.headRepositoryOwner.login');
-  const skipFlagIdxAfter = solveContent.indexOf('if (skipForkForPrivateUpstream)', prDataIdx);
+  const prDataIdx = modeContent.indexOf('prData.headRepositoryOwner.login');
+  const skipFlagIdxAfter = modeContent.indexOf('if (skipForkForPrivateUpstream)', prDataIdx);
   if (prDataIdx === -1 || skipFlagIdxAfter === -1) {
     throw new Error('Direct PR-URL path does not consult skipForkForPrivateUpstream');
   }
@@ -103,7 +109,7 @@ runTest('bypass leaves forkOwner null', () => {
   // We verify this structurally by ensuring the assignment to forkOwner is
   // inside an `else` of skipForkForPrivateUpstream, not a sibling.
   const pattern = /if \(skipForkForPrivateUpstream\) \{[\s\S]*?\} else \{\s*forkOwner = detectedForkOwner;/g;
-  const matches = solveContent.match(pattern);
+  const matches = modeContent.match(pattern);
   if (!matches || matches.length < 2) {
     throw new Error('forkOwner assignment is not gated behind the !skipForkForPrivateUpstream branch in both fork-detection paths');
   }
@@ -113,7 +119,7 @@ runTest('bypass leaves forkOwner null', () => {
 runTest('maintainer-modify check requires forkOwner', () => {
   // After the fix, the `if (argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)`
   // block must require forkOwner so it doesn't run when bypass triggered
-  const occurrences = solveContent.split('if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)').length - 1;
+  const occurrences = modeContent.split('if (forkOwner && argv.allowToPushToContributorsPullRequestsAsMaintainer && argv.autoFork)').length - 1;
   if (occurrences < 2) {
     throw new Error('maintainer-modify branch does not require forkOwner in both fork-detection paths');
   }

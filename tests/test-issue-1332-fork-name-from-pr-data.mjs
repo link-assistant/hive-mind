@@ -35,18 +35,23 @@ function runTest(name, testFn) {
   }
 }
 
-// Test 1: solve.mjs declares forkRepoName at outer scope
-runTest('solve.mjs declares forkRepoName at outer scope', () => {
-  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+// Issue #2175: the mode/fork resolution moved out of solve.mjs into
+// solve.mode.lib.mjs so solve.mjs stays under the 1350-line CI warning
+// threshold. The call chain asserted here is unchanged; only the file that
+// holds the fork-name detection changed, so tests 1-3 read that module.
+
+// Test 1: solve.mode.lib.mjs declares forkRepoName at outer scope
+runTest('solve.mode.lib.mjs declares forkRepoName at outer scope', () => {
+  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
 
   if (!content.includes('let forkRepoName = null;')) {
-    throw new Error('forkRepoName not declared at outer scope in solve.mjs');
+    throw new Error('forkRepoName not declared at outer scope in solve.mode.lib.mjs');
   }
 });
 
-// Test 2: solve.mjs stores forkRepoName from headRepository.name in auto-continue path
-runTest('solve.mjs stores forkRepoName from headRepository in auto-continue path', () => {
-  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+// Test 2: solve.mode.lib.mjs stores forkRepoName from headRepository.name in auto-continue path
+runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in auto-continue path', () => {
+  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
 
   // After the Issue #1716 refactor, the value is read into a local
   // `detectedForkRepoName` first and then assigned to `forkRepoName` in the
@@ -58,9 +63,9 @@ runTest('solve.mjs stores forkRepoName from headRepository in auto-continue path
   }
 });
 
-// Test 3: solve.mjs stores forkRepoName from headRepository.name in PR URL path
-runTest('solve.mjs stores forkRepoName from headRepository in PR URL path', () => {
-  const content = execSync(`cat ${srcDir}/solve.mjs`, { encoding: 'utf8' });
+// Test 3: solve.mode.lib.mjs stores forkRepoName from headRepository.name in PR URL path
+runTest('solve.mode.lib.mjs stores forkRepoName from headRepository in PR URL path', () => {
+  const content = execSync(`cat ${srcDir}/solve.mode.lib.mjs`, { encoding: 'utf8' });
 
   const oldShape = content.includes('forkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;');
   const newShape = content.includes('detectedForkRepoName = prData.headRepository && prData.headRepository.name ? prData.headRepository.name : null;') && content.includes('forkRepoName = detectedForkRepoName;');

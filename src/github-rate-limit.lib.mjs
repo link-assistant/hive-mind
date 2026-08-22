@@ -395,11 +395,11 @@ export const ghWithRateLimitRetry = async (fn, options = {}) => {
       if (description.transient) {
         transientAttempts++;
         if (transientAttempts >= transientMaxAttempts) {
-          await Promise.resolve(log(`❌ ${label}: transient error persisted after ${transientAttempts} attempts; giving up. [${formatTransientDiagnostics(description)}]`));
+          await Promise.resolve(log(`❌ ${label}: transient network error persisted after ${transientAttempts} attempts; giving up. [${formatTransientDiagnostics(description)}]`));
           throw error;
         }
         const waitMs = transientDelay * Math.pow(transientBackoff, transientAttempts - 1);
-        await Promise.resolve(log(`⚠️ ${label}: transient error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${formatTransientDiagnostics(description)}]`));
+        await Promise.resolve(log(`⚠️ ${label}: transient network error (attempt ${transientAttempts}/${transientMaxAttempts}), retrying in ${Math.round(waitMs / 1000)}s... [${formatTransientDiagnostics(description)}]`));
         await sleepWithCountdown(waitMs, log);
         continue;
       }

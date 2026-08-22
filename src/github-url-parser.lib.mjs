@@ -270,9 +270,39 @@ export function canonicalizeGitHubUrl(url) {
 /** Build the canonical web URL for a pull request already identified by GitHub. */
 export function buildGitHubPullRequestUrl({ owner, repo, number } = {}) {
   if (!owner || !repo || !Number.isInteger(Number(number)) || Number(number) <= 0) {
-    throw new TypeError('A GitHub pull request URL requires owner, repo, and a positive integer number');
+    // Issue #2170: the bare message left no way to tell which of the three
+    // parts was missing from a stack trace alone, so name the received values.
+    throw new TypeError(`A GitHub pull request URL requires owner, repo, and a positive integer number (received owner=${describeUrlPart(owner)}, repo=${describeUrlPart(repo)}, number=${describeUrlPart(number)})`);
   }
   return `https://github.com/${owner}/${repo}/pull/${Number(number)}`;
+}
+
+/** Render a value for the diagnostic above without hiding null/undefined/''. */
+function describeUrlPart(value) {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return JSON.stringify(value);
+  return String(value);
+}
+
+/**
+ * Build a pull request URL when the pull request is already identified, and
+ * return `null` when it is not (for example, `--auto-continue` resumed a
+ * leftover branch whose pull request has not been created yet).
+ *
+ * Callers that legitimately run before a pull request exists must use this
+ * instead of `buildGitHubPullRequestUrl`, whose throw aborts the whole run.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/2170
+ * @param {{owner?: string, repo?: string, number?: number|string|null}} [params]
+ * @returns {string|null}
+ */
+export function buildGitHubPullRequestUrlOrNull(params = {}) {
+  try {
+    return buildGitHubPullRequestUrl(params);
+  } catch {
+    return null;
+  }
 }
 /**
  * Check if a URL is a valid GitHub URL of a specific type

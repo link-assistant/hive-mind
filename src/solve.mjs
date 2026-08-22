@@ -553,8 +553,18 @@ try {
     // Issue #2158: auto-continue can discover a PR while the input remains an
     // issue URL. Passing that issue URL as "Your prepared Pull Request" sent
     // the first Formal AI attempt to the wrong GitHub entity.
-    prUrl = githubLib.buildGitHubPullRequestUrl({ owner, repo, number: prNumber });
-    // prNumber is already set from earlier when we parsed the PR
+    //
+    // Issue #2170: continue mode does not imply a PR exists. --auto-continue
+    // also resumes a leftover `issue-<n>-<hash>` branch that never got a PR,
+    // and then prNumber is null. Building the URL unconditionally threw
+    // "A GitHub pull request URL requires owner, repo, and a positive integer
+    // number" and killed the run right after checkout. The PR is created a few
+    // lines below by handleAutoPrCreation, which sets both prUrl and prNumber.
+    prUrl = githubLib.buildGitHubPullRequestUrlOrNull({ owner, repo, number: prNumber });
+    if (!prUrl) {
+      await log(formatAligned('ℹ️', 'Continue mode:', 'Resuming an existing branch that has no pull request yet'));
+      await log(formatAligned('', 'Pull request:', 'Will be created before the tool session starts', 2));
+    }
   }
   // Handle auto PR creation using the new module
   const autoPrResult = await handleAutoPrCreation({

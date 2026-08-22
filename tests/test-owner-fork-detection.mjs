@@ -133,10 +133,14 @@ runTest('code comments explain HTTP 403 issue', () => {
   }
 });
 
-// Test 9: Verify the auto-fork path in solve.mjs already checks permissions
+// Test 9: Verify the auto-fork path already checks permissions.
+// Issue #2175: the only `autoFork` mentions left in solve.mjs were the two
+// fork-PR branches that moved into solve.mode.lib.mjs (so solve.mjs stays under
+// the 1350-line CI warning threshold). The --auto-fork decision itself has
+// always lived in handleAutoForkOption, so this test reads that module.
 runTest('auto-fork path checks write access before forking', () => {
-  const solvePath = join(srcDir, 'solve.mjs');
-  const content = execSync(`cat ${solvePath}`, { encoding: 'utf8' });
+  const forkDetectionPath = join(srcDir, 'solve.fork-detection.lib.mjs');
+  const content = execSync(`cat ${forkDetectionPath}`, { encoding: 'utf8' });
 
   // auto-fork should check permissions before enabling fork mode
   if (!content.includes('autoFork') || !content.includes('hasWriteAccess')) {

@@ -33,28 +33,31 @@ const test = (name, fn) => {
 // ============================================================
 console.log('\n=== 1. Unified Transient Error Retry Configuration (Issue #1331) ===');
 
-test('retryLimits has maxTransientErrorRetries set to 10', () => {
-  assert.strictEqual(retryLimits.maxTransientErrorRetries, 10, `maxTransientErrorRetries should be 10, got: ${retryLimits.maxTransientErrorRetries}`);
+// Issue #2169 raised the attempt cap to a runaway backstop and made the 12-hour wall-clock
+// budget the real stop condition; the first wait is now the 3-minute minimum.
+test('retryLimits has maxTransientErrorRetries set to 100 (runaway backstop, Issue #2169)', () => {
+  assert.strictEqual(retryLimits.maxTransientErrorRetries, 100, `maxTransientErrorRetries should be 100, got: ${retryLimits.maxTransientErrorRetries}`);
 });
 
-test('retryLimits has initialTransientErrorDelayMs set to 60000 (1 minute)', () => {
-  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 60 * 1000, `initialTransientErrorDelayMs should be 60000ms (1 minute), got: ${retryLimits.initialTransientErrorDelayMs}`);
+test('retryLimits has initialTransientErrorDelayMs set to 180000 (3 minutes, Issue #2169)', () => {
+  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 3 * 60 * 1000, `initialTransientErrorDelayMs should be 180000ms (3 minutes), got: ${retryLimits.initialTransientErrorDelayMs}`);
 });
 
 test('retryLimits has maxTransientErrorDelayMs set to 1800000 (30 minutes)', () => {
   assert.strictEqual(retryLimits.maxTransientErrorDelayMs, 30 * 60 * 1000, `maxTransientErrorDelayMs should be 1800000ms (30 minutes), got: ${retryLimits.maxTransientErrorDelayMs}`);
 });
 
-test('initialTransientErrorDelayMs is 1 minute', () => {
-  assert(retryLimits.initialTransientErrorDelayMs === 60000, `Initial delay must be 1 minute (60000ms) as required by issue #1331`);
+test('initialTransientErrorDelayMs is 3 minutes (Issue #2169 minimum)', () => {
+  assert(retryLimits.initialTransientErrorDelayMs === 3 * 60 * 1000, `Initial delay must be 3 minutes (180000ms) as required by issue #2169`);
 });
 
 test('maxTransientErrorDelayMs is 30 minutes', () => {
   assert(retryLimits.maxTransientErrorDelayMs === 30 * 60 * 1000, `Max delay must be 30 minutes (1800000ms) as required by issue #1331`);
 });
 
-test('maxTransientErrorRetries is exactly 10', () => {
-  assert(retryLimits.maxTransientErrorRetries === 10, `Max retries must be 10 as required by issue #1331`);
+test('the retry window is governed by a 12-hour budget (Issue #2169)', () => {
+  assert(retryLimits.transientErrorRetryBudgetMs === 12 * 60 * 60 * 1000, `Retry budget must be 12 hours as required by issue #2169`);
+  assert(retryLimits.minTransientErrorDelayMs === 3 * 60 * 1000, `Minimum retry delay must be 3 minutes as required by issue #2169`);
 });
 
 test('retryBackoffMultiplier is 2 (for exponential backoff)', () => {
@@ -71,46 +74,41 @@ const calculateDelay = retryCount => {
   return Math.min(rawDelay, retryLimits.maxTransientErrorDelayMs);
 };
 
-test('Retry 0 delay is 1 minute (60s)', () => {
+// Issue #2169: the schedule now starts at the 3-minute minimum → 3, 6, 12, 24, 30 (capped)…
+test('Retry 0 delay is 3 minutes (the Issue #2169 minimum)', () => {
   const delay = calculateDelay(0);
-  assert.strictEqual(delay, 60 * 1000, `Retry 0 should be 60000ms, got: ${delay}`);
+  assert.strictEqual(delay, 3 * 60 * 1000, `Retry 0 should be 180000ms, got: ${delay}`);
 });
 
-test('Retry 1 delay is 2 minutes (120s)', () => {
+test('Retry 1 delay is 6 minutes', () => {
   const delay = calculateDelay(1);
-  assert.strictEqual(delay, 2 * 60 * 1000, `Retry 1 should be 120000ms, got: ${delay}`);
+  assert.strictEqual(delay, 6 * 60 * 1000, `Retry 1 should be 360000ms, got: ${delay}`);
 });
 
-test('Retry 2 delay is 4 minutes (240s)', () => {
+test('Retry 2 delay is 12 minutes', () => {
   const delay = calculateDelay(2);
-  assert.strictEqual(delay, 4 * 60 * 1000, `Retry 2 should be 240000ms, got: ${delay}`);
+  assert.strictEqual(delay, 12 * 60 * 1000, `Retry 2 should be 720000ms, got: ${delay}`);
 });
 
-test('Retry 3 delay is 8 minutes (480s)', () => {
+test('Retry 3 delay is 24 minutes', () => {
   const delay = calculateDelay(3);
-  assert.strictEqual(delay, 8 * 60 * 1000, `Retry 3 should be 480000ms, got: ${delay}`);
+  assert.strictEqual(delay, 24 * 60 * 1000, `Retry 3 should be 1440000ms, got: ${delay}`);
 });
 
-test('Retry 4 delay is 16 minutes (960s)', () => {
+test('Retry 4 delay is capped at 30 minutes (48min > 30min cap)', () => {
   const delay = calculateDelay(4);
-  assert.strictEqual(delay, 16 * 60 * 1000, `Retry 4 should be 960000ms, got: ${delay}`);
-});
-
-test('Retry 5 delay is capped at 30 minutes (32min > 30min cap)', () => {
-  // 60s * 2^5 = 60 * 32 = 1920s = 32min > 30min cap
-  const delay = calculateDelay(5);
-  assert.strictEqual(delay, 30 * 60 * 1000, `Retry 5 should be capped at 1800000ms (30min), got: ${delay}`);
+  assert.strictEqual(delay, 30 * 60 * 1000, `Retry 4 should be capped at 1800000ms (30min), got: ${delay}`);
 });
 
 test('All delays after cap remain at 30 minutes', () => {
-  for (let i = 5; i <= 9; i++) {
+  for (let i = 4; i <= 9; i++) {
     const delay = calculateDelay(i);
     assert.strictEqual(delay, 30 * 60 * 1000, `Retry ${i} should be capped at 1800000ms (30min), got: ${delay}`);
   }
 });
 
 test('No delay ever exceeds 30 minutes', () => {
-  for (let i = 0; i < retryLimits.maxTransientErrorRetries; i++) {
+  for (let i = 0; i < 20; i++) {
     const delay = calculateDelay(i);
     assert(delay <= 30 * 60 * 1000, `Retry ${i} delay ${delay}ms exceeds 30 minutes (1800000ms)`);
   }
@@ -192,13 +190,14 @@ test('No session ID should not set resume (graceful degradation)', () => {
 // ============================================================
 console.log('\n=== 5. Unified Config Consistency Tests ===');
 
-test('All transient error types use maxTransientErrorRetries (10)', () => {
+test('All transient error types share the same retry budget (Issue #2169)', () => {
   // Overloaded, 503, InternalServerError all use the same limit
-  assert.strictEqual(retryLimits.maxTransientErrorRetries, 10, 'All error types must use 10 retries');
+  assert.strictEqual(retryLimits.maxTransientErrorRetries, 100, 'All error types must use the same backstop');
+  assert.strictEqual(retryLimits.transientErrorRetryBudgetMs, 12 * 60 * 60 * 1000, 'All error types must share the 12-hour budget');
 });
 
-test('All transient error types use initialTransientErrorDelayMs (1 minute)', () => {
-  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 60 * 1000, 'All error types must use 1 minute initial delay');
+test('All transient error types use initialTransientErrorDelayMs (3 minutes)', () => {
+  assert.strictEqual(retryLimits.initialTransientErrorDelayMs, 3 * 60 * 1000, 'All error types must use 3 minute initial delay');
 });
 
 test('All transient error types use maxTransientErrorDelayMs (30 minutes)', () => {

@@ -22,7 +22,7 @@ import { qwenModels, defaultModels, isFormalAiModel } from './models/index.mjs';
 import { buildFormalAiEnvExports, isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { checkPlaywrightMcpPackageAvailability } from './playwright-mcp.lib.mjs';
-import { classifyRetryableError, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
+import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { getCumulativeContextInputTokens, getRestoredContextInputTokens, toTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
@@ -489,6 +489,9 @@ export const executeQwenCommand = async params => {
   const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned = (_icon, label, value = '') => `${label} ${value}`.trim(), getResourceSnapshot = async () => ({ memory: '\nunknown', load: 'unknown' }), forkedRepo, feedbackLines, qwenPath = 'qwen', $: dollar = $, waitForRetryDelay = waitWithCountdown } = params;
 
   let retryCount = 0;
+  // Issue #2169: retries are bounded by a wall-clock budget (12 h by default, configurable via
+  // HIVE_MIND_TRANSIENT_ERROR_RETRY_BUDGET_MS) instead of a low attempt count.
+  const transientRetryBudget = createTransientRetryBudget();
   const promptFile = path.join(os.tmpdir(), `qwen_prompt_${Date.now()}_${process.pid}.txt`);
   const systemPromptFile = path.join(os.tmpdir(), `qwen_system_prompt_${Date.now()}_${process.pid}.txt`);
 
@@ -499,7 +502,7 @@ export const executeQwenCommand = async params => {
     if (retryCount === 0) {
       await log(`\n${formatAligned('🤖', 'Executing Qwen Code:', argv.model.toUpperCase())}`);
     } else {
-      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount}/${retryLimits.maxTransientErrorRetries}`)}`);
+      await log(`\n${formatAligned('🔄', 'Retry attempt:', `${retryCount} (${transientRetryBudget.describeProgress()})`)}`);
     }
 
     if (argv.verbose) {
@@ -625,7 +628,17 @@ export const executeQwenCommand = async params => {
           if (retryableError.isRetryable) {
             const isRequestTimeoutRetry = retryableError.label === 'Request timeout';
             const maxRetries = isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutRetries : retryLimits.maxTransientErrorRetries;
-            if (retryCount < maxRetries) {
+            // Issue #2169: the attempt count is only a runaway backstop — the 12-hour wall-clock budget
+            // (configurable) decides when to stop, and every wait honours the 3-minute minimum.
+            const retryDecision = transientRetryBudget.evaluate({
+              retryCount,
+              maxRetries,
+              initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
+              maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+              minDelayMs: retryLimits.minTransientErrorDelayMs,
+            });
+            if (retryDecision.allowed) {
+              transientRetryBudget.grant();
               if (sessionId && !argv.resume) argv.resume = sessionId;
               // Issue #2037: retry the same model on capacity errors before falling back;
               // after a capacity-driven model switch, retry quickly instead of waiting the
@@ -638,16 +651,17 @@ export const executeQwenCommand = async params => {
                 retryCount,
                 initialDelayMs: isRequestTimeoutRetry ? retryLimits.initialRequestTimeoutDelayMs : retryLimits.initialTransientErrorDelayMs,
                 maxDelayMs: isRequestTimeoutRetry ? retryLimits.maxRequestTimeoutDelayMs : retryLimits.maxTransientErrorDelayMs,
+                minDelayMs: retryLimits.minTransientErrorDelayMs,
               });
               const delay = retryPlan.delay;
               const delayLabel = delay >= 60000 ? `${Math.round(delay / 60000)} min` : `${Math.round(delay / 1000)}s`;
-              await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1}/${maxRetries} in ${delayLabel}${sessionId ? ' (session preserved)' : ''}...`, { level: 'warning' });
+              await log(`\n⚠️ ${retryableError.label} detected. Retry ${retryCount + 1} in ${delayLabel}${sessionId ? ' (session preserved)' : ''} (${transientRetryBudget.describeProgress()})...`, { level: 'warning' });
               await waitForRetryDelay(delay, log);
               await log('\n🔄 Retrying now...');
               retryCount++;
               return await executeWithRetry();
             }
-            await log(`\n\n❌ ${retryableError.label} persisted after ${maxRetries} retries`, { level: 'error' });
+            await log(`\n\n❌ ${retryableError.label} persisted: ${transientRetryBudget.describeExhaustion(retryDecision)}`, { level: 'error' });
           } else if (exitCode === 130) {
             await log('\n\n⚠️ Qwen Code command interrupted (CTRL+C)');
           } else {

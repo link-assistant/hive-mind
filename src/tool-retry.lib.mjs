@@ -24,6 +24,22 @@ const normalizeModelKey = value => {
     .trim();
 };
 
+// Issue #2169: HTTP status codes are only meaningful as errors when they appear in an
+// HTTP-status context. A bare number in prose ("PR #524", "issue #523", "line 502") is
+// not an error — matching it wrongly sent an entire successful session into a multi-hour
+// retry loop (see docs/case-studies/issue-2169). `matchesHttpStatus` accepts:
+//   "API Error: 502", "error code: 522", "status 504", "HTTP/1.1 520", "code=524"
+//   "502 Bad Gateway", "524 A Timeout Occurred" (status followed by its canonical phrase)
+const GATEWAY_STATUS_PHRASES = ['bad gateway', 'gateway timeout', 'gateway time-out', 'unknown error', 'web server is down', 'connection timed out', 'origin is unreachable', 'a timeout occurred'];
+const HTTP_STATUS_PREFIX = String.raw`(?:http(?:s|/\d(?:\.\d)?)?\s*)?(?:api\s+)?(?:error|status(?:\s*code)?|code|response|returned|got)\s*(?:code\s*)?[:=#]?\s*`;
+export const matchesHttpStatus = (lowerText, codePattern, phrases = []) => {
+  if (!lowerText) return false;
+  if (new RegExp(`${HTTP_STATUS_PREFIX}(?:${codePattern})\\b`).test(lowerText)) return true;
+  if (new RegExp(`\\bhttp\\s*(?:status\\s*)?(?:${codePattern})\\b`).test(lowerText)) return true;
+  if (phrases.length > 0 && new RegExp(`\\b(?:${codePattern})\\b[\\s,:;-]*(?:${phrases.join('|')})`).test(lowerText)) return true;
+  return false;
+};
+
 export const classifyRetryableError = value => {
   const message = normalizeMessage(value);
   const lower = message.toLowerCase();
@@ -163,7 +179,12 @@ export const classifyRetryableError = value => {
   // These come from an intermediary (CDN/proxy/load balancer), not from a request the
   // client got wrong, and clear on their own — OpenAI/Anthropic/GitHub all front their
   // APIs with such proxies. Safe to retry the same request after a backoff.
-  if (lower.includes('502 bad gateway') || lower.includes('bad gateway') || lower.includes('504 gateway timeout') || lower.includes('gateway time-out') || lower.includes('gateway timeout') || lower.includes('api error: 502') || lower.includes('api error: 504') || /\b52[0-4]\b/.test(lower)) {
+  // Issue #2169: the bare `/\b52[0-4]\b/` test used here before matched ANY standalone
+  // 520-524 in the text, so an agent's own success summary — "PR #524", "issue #523",
+  // "(`463c5ca`, PR #522)" — was classified as a gateway error and retried for hours.
+  // The number now has to appear in an HTTP-status context ("error code: 522",
+  // "API Error: 502", "HTTP 504") or next to the status' canonical phrase.
+  if (lower.includes('502 bad gateway') || lower.includes('bad gateway') || lower.includes('504 gateway timeout') || lower.includes('gateway time-out') || lower.includes('gateway timeout') || matchesHttpStatus(lower, '502|504|52[0-4]', GATEWAY_STATUS_PHRASES)) {
     return { message, isRetryable: true, isCapacity: false, label: 'Gateway error (502/504/52x)' };
   }
 
@@ -201,7 +222,9 @@ export const classifyRetryableError = value => {
   // Issue #1955: broadened to also catch the bare "503 Service Unavailable" that
   // GitHub/OpenAI/Anthropic return when a backend is briefly saturated — a
   // transient, self-clearing condition, safe to retry with the same request.
-  if (lower.includes('api error: 503') || lower.includes('503 service unavailable') || lower.includes('service unavailable') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
+  // Issue #2169: `matchesHttpStatus` accepts the status only next to an error-ish prefix
+  // ("api error: 503", "status code: 503"), never a bare number in prose.
+  if (lower.includes('api error: 503') || lower.includes('503 service unavailable') || lower.includes('service unavailable') || matchesHttpStatus(lower, '503') || (lower.includes('503') && (lower.includes('upstream connect error') || lower.includes('remote connection failure')))) {
     return { message, isRetryable: true, isCapacity: false, label: '503 network error' };
   }
 
@@ -212,8 +235,92 @@ export const classifyRetryableError = value => {
   return { message, isRetryable: false, isCapacity: false, label: null };
 };
 
-export const getRetryDelayMs = ({ retryCount, initialDelayMs = retryLimits.initialTransientErrorDelayMs, maxDelayMs = retryLimits.maxTransientErrorDelayMs } = {}) => {
-  return Math.min(initialDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelayMs);
+// Issue #2169: `minDelayMs` is the floor for the transient-API-error paths ("with minimum of
+// 3 minutes"). It defaults to 0 so the deliberately fast paths — capacity retries (15s), a
+// model switch (5s), stream startup/activity timeouts (30s) — keep their short delays.
+export const getRetryDelayMs = ({ retryCount, initialDelayMs = retryLimits.initialTransientErrorDelayMs, maxDelayMs = retryLimits.maxTransientErrorDelayMs, minDelayMs = 0 } = {}) => {
+  const backoff = Math.min(initialDelayMs * Math.pow(retryLimits.retryBackoffMultiplier, retryCount), maxDelayMs);
+  return Math.max(backoff, Math.min(minDelayMs, maxDelayMs));
+};
+
+// Issue #2169: diagnosing a *mis*classification from the log used to be impossible — the retry
+// line printed only the first 200 characters of the message, while the token that actually made
+// the classifier fire ("PR #524", 1.6 KB later) was never shown. This renders the evidence for a
+// classification: how long the message was and the ±40-character context around every HTTP-status
+// -looking token in it, so the next false positive is diagnosable from a single verbose log line.
+export const describeClassificationEvidence = (message, label = null, { maxMatches = 3, contextChars = 40 } = {}) => {
+  const text = String(message ?? '');
+  const parts = [`label=${JSON.stringify(label)}`, `messageChars=${text.length}`];
+  const matches = [];
+  for (const match of text.matchAll(/\b(?:4\d{2}|5\d{2})\b/g)) {
+    const start = Math.max(0, match.index - contextChars);
+    const end = Math.min(text.length, match.index + match[0].length + contextChars);
+    matches.push(`@${match.index} ${JSON.stringify(text.slice(start, end).replace(/\s+/g, ' '))}`);
+    if (matches.length >= maxMatches) break;
+  }
+  parts.push(matches.length > 0 ? `statusTokens=[${matches.join(', ')}]` : 'statusTokens=[]');
+  return parts.join(' ');
+};
+
+// Issue #2169: human-readable duration for retry logs — "45s", "12 min", "3h 15m", "12h".
+export const formatRetryDuration = ms => {
+  if (!Number.isFinite(ms)) return 'unlimited';
+  if (ms < 60000) return `${Math.max(0, Math.round(ms / 1000))}s`;
+  const totalMinutes = Math.round(ms / 60000);
+  if (totalMinutes < 60) return `${totalMinutes} min`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
+};
+
+// Issue #2169: a provider outage can last many hours. The retry loops used to stop after a
+// fixed number of attempts (10), which — with the old 2 min → 30 min backoff — gave up after
+// ~3.5 hours. The budget below turns "how long do we keep trying" into the primary knob: retries
+// continue while the *next* backoff still fits inside `budgetMs` (default 12 h), measured from
+// the first retry of the run. The per-tool retry counts stay as runaway-loop backstops.
+//
+// Usage inside a tool's retry loop (the budget object lives outside `executeWithRetry` so it
+// survives the recursive calls):
+//   const budget = createTransientRetryBudget();
+//   const decision = budget.evaluate({ retryCount, maxRetries, initialDelayMs, maxDelayMs, minDelayMs });
+//   if (decision.allowed) { budget.grant(); ...wait decision.delayMs... } else { fail(decision) }
+export const createTransientRetryBudget = ({ budgetMs = retryLimits.transientErrorRetryBudgetMs, now = () => Date.now() } = {}) => {
+  let startedAt = null;
+  let retriesGranted = 0;
+  const elapsedMs = () => (startedAt === null ? 0 : Math.max(0, now() - startedAt));
+  const remainingMs = () => (budgetMs > 0 ? Math.max(0, budgetMs - elapsedMs()) : Infinity);
+  return {
+    budgetMs,
+    elapsedMs,
+    remainingMs,
+    get retriesGranted() {
+      return retriesGranted;
+    },
+    // Starts the clock on the first granted retry and counts it.
+    grant() {
+      if (startedAt === null) startedAt = now();
+      retriesGranted += 1;
+    },
+    evaluate({ retryCount = 0, maxRetries = retryLimits.maxTransientErrorRetries, initialDelayMs, maxDelayMs, minDelayMs = 0 } = {}) {
+      const delayMs = getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs, minDelayMs });
+      const base = { delayMs, elapsedMs: elapsedMs(), remainingMs: remainingMs(), budgetMs, retryCount, maxRetries };
+      if (retryCount >= maxRetries) return { ...base, allowed: false, reason: 'count' };
+      // Never start a wait that would run past the budget window.
+      if (budgetMs > 0 && delayMs > remainingMs()) return { ...base, allowed: false, reason: 'budget' };
+      return { ...base, allowed: true, reason: null };
+    },
+    // One-line explanation for the "giving up" log, e.g.
+    // "retry budget of 12h exhausted after 26 retries over 11h 45m".
+    describeExhaustion(decision) {
+      const spent = formatRetryDuration(decision?.elapsedMs ?? elapsedMs());
+      if (decision?.reason === 'count') return `retry limit of ${decision.maxRetries} attempts reached after ${spent} (budget ${formatRetryDuration(budgetMs)})`;
+      return `retry budget of ${formatRetryDuration(budgetMs)} exhausted after ${decision?.retryCount ?? retriesGranted} retries over ${spent}`;
+    },
+    // Progress suffix for each retry log line, e.g. "budget 25 min/12h used".
+    describeProgress() {
+      return budgetMs > 0 ? `budget ${formatRetryDuration(elapsedMs())}/${formatRetryDuration(budgetMs)} used` : 'budget disabled';
+    },
+  };
 };
 
 export const waitWithCountdown = async (delayMs, log) => {
@@ -352,7 +459,7 @@ export const maybeSwitchToFallbackModel = async ({ tool, argv, log, errorMessage
 // survives the recursive executeWithRetry calls without each tool tracking extra
 // state. It resets to 0 whenever we actually switch models, so every model in the
 // fallback chain gets its own batch of same-model retries before stepping down.
-export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs } = {}) => {
+export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, retryCount, initialDelayMs, maxDelayMs, minDelayMs = 0 } = {}) => {
   const classification = classifyRetryableError(errorMessage);
   const isCapacity = classification.isCapacity === true && !!argv?.model;
   const capacityRetryCount = argv?._capacityRetryCount || 0;
@@ -373,13 +480,17 @@ export const prepareRetryAfterError = async ({ tool, argv, log, errorMessage, re
   const switchResult = await maybeSwitchToFallbackModel({ tool, argv, log, errorMessage });
   // A model switch starts a fresh batch of same-model retries for the new model.
   if (switchResult?.switched && argv) argv._capacityRetryCount = 0;
-  const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs });
+  const delay = switchResult?.switched ? retryLimits.modelSwitchRetryDelayMs : getRetryDelayMs({ retryCount, initialDelayMs, maxDelayMs, minDelayMs });
   return { delay, switched: switchResult?.switched === true };
 };
 
 export default {
   classifyRetryableError,
+  matchesHttpStatus,
   getRetryDelayMs,
+  describeClassificationEvidence,
+  formatRetryDuration,
+  createTransientRetryBudget,
   waitWithCountdown,
   resolveConfiguredFallbackModel,
   maybeSwitchToFallbackModel,

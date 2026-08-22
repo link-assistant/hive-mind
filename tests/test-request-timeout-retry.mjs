@@ -33,8 +33,9 @@ const test = (name, fn) => {
 // ============================================================
 console.log('\n=== 1. Request Timeout Retry Configuration (Issue #1353) ===');
 
-test('retryLimits has maxRequestTimeoutRetries set to 10', () => {
-  assert.strictEqual(retryLimits.maxRequestTimeoutRetries, 10, `maxRequestTimeoutRetries should be 10, got: ${retryLimits.maxRequestTimeoutRetries}`);
+// Issue #2169: the attempt count became a runaway backstop; the 12-hour wall-clock budget stops retries.
+test('retryLimits has maxRequestTimeoutRetries set to the 100-attempt backstop (Issue #2169)', () => {
+  assert.strictEqual(retryLimits.maxRequestTimeoutRetries, 100, `maxRequestTimeoutRetries should be 100, got: ${retryLimits.maxRequestTimeoutRetries}`);
 });
 
 test('retryLimits has initialRequestTimeoutDelayMs set to 300000 (5 minutes)', () => {
@@ -218,9 +219,10 @@ test('No session ID on timeout should not set resume (graceful degradation)', ()
 // ============================================================
 console.log('\n=== 6. Timeout vs Transient Error Config Comparison ===');
 
-test('Timeout initial delay is 5x longer than transient error initial delay', () => {
-  const ratio = retryLimits.initialRequestTimeoutDelayMs / retryLimits.initialTransientErrorDelayMs;
-  assert.strictEqual(ratio, 5, `Timeout initial delay should be 5x transient error delay, got: ${ratio}x`);
+test('Timeout initial delay is longer than the transient error initial delay', () => {
+  // Issue #2169 raised the transient initial delay to the 3-minute minimum, so the ratio is no
+  // longer exactly 5x — the ordering (timeouts back off more slowly) is what matters.
+  assert(retryLimits.initialRequestTimeoutDelayMs > retryLimits.initialTransientErrorDelayMs, `Timeout initial delay (${retryLimits.initialRequestTimeoutDelayMs}ms) should exceed transient error delay (${retryLimits.initialTransientErrorDelayMs}ms)`);
 });
 
 test('Timeout max delay is 2x longer than transient error max delay', () => {
@@ -228,8 +230,8 @@ test('Timeout max delay is 2x longer than transient error max delay', () => {
   assert.strictEqual(ratio, 2, `Timeout max delay should be 2x transient error max delay, got: ${ratio}x`);
 });
 
-test('Both timeout and transient error use same max retry count (10)', () => {
-  assert.strictEqual(retryLimits.maxRequestTimeoutRetries, retryLimits.maxTransientErrorRetries, 'Both should use 10 retries');
+test('Both timeout and transient error use the same runaway backstop (Issue #2169)', () => {
+  assert.strictEqual(retryLimits.maxRequestTimeoutRetries, retryLimits.maxTransientErrorRetries, 'Both should use the same attempt backstop');
 });
 
 test('Both use same exponential backoff multiplier (2)', () => {

@@ -600,7 +600,7 @@ export const ghRetry = async (fn, options = {}) => {
         await sleep(waitTime);
         continue;
       }
-      await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
+      await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
       throw error;
     }
   }
@@ -660,7 +660,7 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
       continue;
     }
 
-    await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
+    await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
 
     // Non-transient error or last attempt — return the result as-is
     return result;
@@ -696,7 +696,7 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
  */
 export const gitCmdRetry = async (cmdFn, options = {}) => {
   const { retryLimits } = await import('./config.lib.mjs');
-  const { maxAttempts = retryLimits.maxGitRetries, delay = 2000, backoff = retryLimits.retryBackoffMultiplier, label = 'git command' } = options;
+  const { maxAttempts = retryLimits.maxGitRetries, delay = 2000, backoff = retryLimits.retryBackoffMultiplier, label = 'git command', log: logFn = log } = options;
 
   let result;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -711,12 +711,12 @@ export const gitCmdRetry = async (cmdFn, options = {}) => {
 
     if (description.transient && attempt < maxAttempts) {
       const waitTime = delay * Math.pow(backoff, attempt - 1);
-      await log(`⚠️ ${label}: transient git error (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(waitTime / 1000)}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
+      await logFn(`⚠️ ${label}: transient git error (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(waitTime / 1000)}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
       await sleep(waitTime);
       continue;
     }
 
-    await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result?.code}`, { verbose: true });
+    await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result?.code}`, { verbose: true });
     return result;
   }
   return result;

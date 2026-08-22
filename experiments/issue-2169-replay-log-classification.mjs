@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Issue #2169 — replay the 11 `result` payloads captured in
- * docs/case-studies/issue-2169/logs/run.log.txt through the OLD (pre-fix) gateway
+ * docs/case-studies/issue-2169/data/run.log.txt through the OLD (pre-fix) gateway
  * matcher and the NEW `classifyRetryableError`, proving the retries were false
  * positives caused by the bare `/\b52[0-4]\b/` test matching PR/issue numbers.
  *
@@ -25,7 +25,7 @@ const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 // The pre-fix predicate, verbatim from `git show main:src/tool-retry.lib.mjs` line 166.
 const oldIsGatewayError = lower => lower.includes('502 bad gateway') || lower.includes('bad gateway') || lower.includes('504 gateway timeout') || lower.includes('gateway time-out') || lower.includes('gateway timeout') || lower.includes('api error: 502') || lower.includes('api error: 504') || /\b52[0-4]\b/.test(lower);
 
-const logPath = pathModule.join(process.cwd(), 'docs/case-studies/issue-2169/logs/run.log.txt');
+const logPath = pathModule.join(process.cwd(), 'docs/case-studies/issue-2169/data/run.log.txt');
 const lines = fsModule.readFileSync(logPath, 'utf8').split('\n');
 const payloads = lines.map(line => line.trim()).filter(line => line.startsWith('"result": "'));
 

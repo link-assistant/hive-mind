@@ -4,7 +4,7 @@
   "primary_evidence": [
     {
       "kind": "run-log",
-      "path": "logs/run.log.txt",
+      "path": "data/run.log.txt",
       "description": "Full 30,806-line start-command log of execution bb1c1a05-5394-4845-a88c-d4ddf9f2361c downloaded from the gist referenced in the issue body."
     },
     {

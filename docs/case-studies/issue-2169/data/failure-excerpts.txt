@@ -1,6 +1,6 @@
-Issue #2169 — decisive excerpts from logs/run.log.txt
+Issue #2169 — decisive excerpts from data/run.log.txt
 Execution bb1c1a05-5394-4845-a88c-d4ddf9f2361c, 2026-08-17 20:34:54.454 → 2026-08-18 00:29:38.995 (exit 1)
-Line numbers refer to logs/run.log.txt (30,806 lines).
+Line numbers refer to data/run.log.txt (30,806 lines).
 
 ----- lines 16120-16135 -----
 16120:   "uuid": "c452ed96-e488-4f41-9176-3769f601a520",

@@ -156,7 +156,7 @@ console.log('\n📋 git retry\n');
 
 const makeDollar = responses => {
   let attempts = 0;
-  const tag = (strings, ...values) => {
+  const tag = strings => {
     if (strings && !Array.isArray(strings) && typeof strings === 'object') return tag;
     const response = responses[Math.min(attempts, responses.length - 1)];
     attempts++;

@@ -600,7 +600,7 @@ export const ghRetry = async (fn, options = {}) => {
         await sleep(waitTime);
         continue;
       }
-      await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
+      await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts}`, { verbose: true });
       throw error;
     }
   }
@@ -660,7 +660,7 @@ export const ghCmdRetry = async (cmdFn, options = {}) => {
       continue;
     }
 
-    await logFn(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
+    await log(`   ${label}: not retrying [${formatTransientDiagnostics(description)}] attempt=${attempt}/${maxAttempts} exit=${result.code}`, { verbose: true });
 
     // Non-transient error or last attempt — return the result as-is
     return result;

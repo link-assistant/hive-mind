@@ -6,6 +6,7 @@ import noUnderscorePassthroughWrapper from './eslint-rules/no-underscore-passthr
 import noLeakedTimers from './eslint-rules/no-leaked-timers.mjs';
 import noLeakedStreams from './eslint-rules/no-leaked-streams.mjs';
 import noDirectGhExec from './eslint-rules/no-direct-gh-exec.mjs';
+import noUnretriedGitNetwork from './eslint-rules/no-unretried-git-network.mjs';
 import requireSanitizedOutput from './eslint-rules/require-sanitized-output.mjs';
 import noUnsafeTelegramSend from './eslint-rules/no-unsafe-telegram-send.mjs';
 
@@ -49,6 +50,8 @@ const telegramSafetyPlugin = {
 const ghRateLimitPlugin = {
   rules: {
     'no-direct-gh-exec': noDirectGhExec,
+    // Issue #2168: the git half of the same requirement.
+    'no-unretried-git-network': noUnretriedGitNetwork,
   },
 };
 
@@ -175,6 +178,22 @@ export default [
     },
     rules: {
       'telegram-safety/no-unsafe-telegram-send': 'error',
+    },
+  },
+  {
+    // Issue #2168: network-facing git commands (`git push`/`fetch`/`pull`/
+    // `ls-remote`) must go through a `$` carrying the retry wrapper, otherwise a
+    // single transient remote failure aborts the whole session. Helpers that
+    // receive `$` from their caller are exempt - the caller owns the wrapper.
+    // Scoped to src/ because tests drive local fixture repositories and the
+    // scripts/ helpers run against the already-checked-out working copy in CI,
+    // where a retry would only hide a genuine failure.
+    files: ['src/**/*.{js,mjs,cjs}'],
+    plugins: {
+      'gh-rate-limit': ghRateLimitPlugin,
+    },
+    rules: {
+      'gh-rate-limit/no-unretried-git-network': 'error',
     },
   },
 ];

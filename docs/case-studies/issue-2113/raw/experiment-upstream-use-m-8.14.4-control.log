@@ -1,0 +1,21 @@
+use-m: https://unpkg.com/use-m@8.14.4/use.js
+node: v20.20.2
+prefix: /tmp/use-m-concurrency-6ROdYc
+
+22/24 concurrent use('command-stream') calls failed in 58255ms
+
+Failed to install command-stream@latest globally into '/tmp/use-m-concurrency-6ROdYc/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js/package.json'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js/README.md'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js/index.d.ts'
+
+Failed to install command-stream@latest globally into '/tmp/use-m-concurrency-6ROdYc/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api/node_api.gyp'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu/resvgjs.linux-x64-gnu.node'
+npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/use-m-concurrency-6ROdYc/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js/index.js'
+
+exit code: 1 — reproduced

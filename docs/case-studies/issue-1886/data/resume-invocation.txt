@@ -1,0 +1,23 @@
+[2026-06-10T17:02:49.945Z] [INFO] 🚀 solve v1.75.0
+[2026-06-10T17:02:49.945Z] [INFO] 🔧 Raw command executed:
+[2026-06-10T17:02:49.945Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/link-assistant/formal-ai/pull/396 --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --auto-resume-on-limit-reset --auto-resume-iteration 1 --auto-resume-max-iterations 5 --session-type auto-resume --model fable --fallback-model opus --verbose --attach-logs --working-directory /tmp/gh-issue-solver-1781100491248
+[2026-06-10T17:02:49.946Z] [INFO] 
+[2026-06-10T17:02:49.973Z] [INFO] 
+---
+[2026-06-10T17:03:09.677Z] [INFO] 📂 Working directory:        /tmp/gh-issue-solver-1781100491248
+[2026-06-10T17:03:09.677Z] [INFO]    Status:                 Using existing repository
+[2026-06-10T17:03:09.678Z] [INFO]    Session:                Resuming 160da4c5-d2f8-4488-873e-5936eacfac37
+[2026-06-10T17:03:09.679Z] [INFO] ℹ️  Skipping clone: Using existing repository in working directory
+[2026-06-10T17:03:09.744Z] [STDOUT] issue-395-3c3ab62d4f7c
+---
+[2026-06-10T17:03:20.408Z] [INFO]    Memory: MemFree:         5499088 kB
+[2026-06-10T17:03:20.408Z] [INFO]    Load: 3.06 1.35 0.62 6/873 960230
+[2026-06-10T17:03:20.409Z] [INFO] 🔄 Resuming from session: 160da4c5-d2f8-4488-873e-5936eacfac37
+[2026-06-10T17:03:20.410Z] [INFO] 🧭 Claude Code quiet config verified at /home/box/.claude/settings.json: settings[autoMemoryEnabled=false, spinnerTipsEnabled=false, awaySummaryEnabled=false, feedbackSurveyRate=0, includeCoAuthoredBy=false, includeGitInstructions=true, prefersReducedMotion=true, showThinkingSummaries=false, skipDangerousModePermissionPrompt=true, viewMode="verbose", attribution={"commit":"","pr":""}, permissions={"defaultMode":"bypassPermissions"}], env[CLAUDE_CODE_DISABLE_AUTO_MEMORY=1, CLAUDE_CODE_DISABLE_CRON=1, CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1, CLAUDE_CODE_DISABLE_CLAUDE_MDS=1, CLAUDE_CODE_DISABLE_FAST_MODE=1, CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1, CLAUDE_CODE_DISABLE_MOUSE=1, CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0, CLAUDE_CODE_ENABLE_TASKS=1, CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4, CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1, DISABLE_FEEDBACK_COMMAND=1]
+[2026-06-10T17:03:20.417Z] [INFO] 🧰 Created filtered MCP config (excluding 'claude.ai gmail*', 'claude.ai google drive*', 'claude.ai google calendar*'): /tmp/claude-mcp-no-useless-1781111000414-946536.json
+[2026-06-10T17:03:20.417Z] [INFO] 🧰 Useless MCP servers (claude.ai Gmail/Drive/Calendar) disabled for this session via --strict-mcp-config (issue #1627)
+[2026-06-10T17:03:20.418Z] [INFO] 🧰 Disallowed 16 useless Claude Code tool(s) for this session (issue #1627)
+[2026-06-10T17:03:20.418Z] [INFO] 
+[2026-06-10T17:03:20.418Z] [INFO] 📝 Raw command:              
+[2026-06-10T17:03:20.419Z] [INFO] (cd "/tmp/gh-issue-solver-1781100491248" && claude --resume 160da4c5-d2f8-4488-873e-5936eacfac37 --output-format stream-json --verbose --dangerously-skip-permissions --model claude-fable-5 --strict-mcp-config --mcp-config "/tmp/claude-mcp-no-useless-1781111000414-946536.json" --disallowedTools AskUserQuestion CronCreate CronDelete CronList EnterPlanMode EnterWorktree ExitPlanMode ExitWorktree Monitor NotebookEdit PushNotification RemoteTrigger ScheduleWakeup mcp__claude_ai_Gmail__* mcp__claude_ai_Google_Drive__* mcp__claude_ai_Google_Calendar__* -p "Issue to solve: https://github.com/link-assistant/formal-ai/issues/395
+[2026-06-10T17:03:20.419Z] [INFO] Your prepared branch: issue-395-3c3ab62d4f7c

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="560" viewBox="0 0 1200 560" role="img" aria-labelledby="title desc">
+  <title id="title">Expected Telegram completion message after the issue 2117 fix</title>
+  <desc id="desc">A Telegram-style message reports that the work session finished successfully, because the monitor waited for the anchored log footer instead of trusting the fabricated exit code.</desc>
+  <rect width="1200" height="560" fill="#dbe7ef"/>
+  <rect x="110" y="55" width="980" height="450" rx="24" fill="#ffffff"/>
+  <circle cx="165" cy="115" r="30" fill="#f2b84b"/>
+  <text x="165" y="126" text-anchor="middle" font-family="Arial, sans-serif" font-size="30">H</text>
+  <text x="220" y="102" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#17212b">Hive Mind</text>
+  <text x="220" y="142" font-family="Arial, sans-serif" font-size="27" font-weight="700" fill="#238636">✅ Work session finished successfully</text>
+  <text x="155" y="205" font-family="Arial, sans-serif" font-size="23" fill="#17212b">⏱ Duration: 24m</text>
+  <text x="155" y="248" font-family="Arial, sans-serif" font-size="23" fill="#17212b">📊 Session: 7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56</text>
+  <text x="155" y="291" font-family="Arial, sans-serif" font-size="23" fill="#17212b">🔒 Isolation: docker</text>
+  <text x="155" y="350" font-family="Arial, sans-serif" font-size="23" fill="#17212b">Issue: github.com/link-foundation/use-m/issues/68</text>
+  <text x="155" y="393" font-family="Arial, sans-serif" font-size="23" fill="#17212b">Pull request: github.com/link-foundation/use-m/pull/69</text>
+  <text x="155" y="460" font-family="Arial, sans-serif" font-size="21" fill="#5a6b78">Reported after the anchored footer "Exit Code: 0" was read from the session log.</text>
+</svg>

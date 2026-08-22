@@ -1,0 +1,35 @@
+Testing issue #1927: killed-session detection (the regression)
+============================================================
+  ✅ PASS: footer reader is called with the start-command log path
+Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+  ✅ PASS: Scenario 1: the log footer is consulted for an executing session
+  ✅ PASS: Scenario 1: the bot reports completion (edits the original message)
+  ✅ PASS: Scenario 1: the report says "Work session killed" (NOT a silent vanish)
+  ✅ PASS: Scenario 1: the report names SIGKILL and exit 137
+  ✅ PASS: Scenario 1: the killed session is removed from tracking
+  ✅ PASS: Scenario 2: liveness probe targets the session backend
+Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+  ✅ PASS: Scenario 2: the backend-liveness probe runs (no footer available)
+  ✅ PASS: Scenario 2: the bot reports completion
+  ✅ PASS: Scenario 2: a vanished backend is reported as killed
+  ✅ PASS: Scenario 2: no misleading "(exit code: 1)" when the real code is unknown
+  ✅ PASS: Scenario 2: the killed session is removed from tracking
+  ✅ PASS: Scenario 3: a freshly-launched session is NOT liveness-probed (age gate)
+  ✅ PASS: Scenario 3: no false completion is sent
+  ✅ PASS: Scenario 3: the session stays tracked (still running)
+  ✅ PASS: Scenario 4: a live session is not reported complete
+  ✅ PASS: Scenario 4: the live session stays tracked
+Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+  ✅ PASS: Scenario 5: completion is reported
+  ✅ PASS: Scenario 5: a nulled exit code is recovered from the footer and labeled a 137 kill
+  ✅ PASS: Scenario 5: the session is removed from tracking
+  ✅ PASS: Scenario 6: liveness fallback targets the session backend
+Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+  ✅ PASS: Scenario 6: the backend liveness fallback runs when the status record is gone
+  ✅ PASS: Scenario 6: a session killed while the bot was down is reported on resume
+  ✅ PASS: Scenario 6: the real 137 is recovered from the persisted log footer
+  ✅ PASS: Scenario 6: the session is removed from tracking
+
+============================================================
+Results: 25 passed, 0 failed, 25 total
+============================================================

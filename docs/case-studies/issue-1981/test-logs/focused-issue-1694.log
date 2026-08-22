@@ -1,0 +1,34 @@
+
+================================================================================
+Issue #1694: Stabilized option defaults
+================================================================================
+
+📋 SOLVE_OPTION_DEFINITIONS
+
+✅ SOLVE_OPTION_DEFINITIONS["auto-accept-invite"].default === true
+✅ SOLVE_OPTION_DEFINITIONS["tokens-budget-stats"].default === true
+✅ SOLVE_OPTION_DEFINITIONS["auto-attach-solution-summary"].default === true
+
+📋 solve parser argv
+
+✅ solve parsed argv.autoAcceptInvite === true
+✅ solve parsed argv.tokensBudgetStats === true
+✅ solve parsed argv.autoAttachSolutionSummary === true
+✅ solve --no-auto-accept-invite disables flag
+✅ solve --no-tokens-budget-stats disables flag
+✅ solve --no-auto-attach-solution-summary disables flag
+
+📋 hive parser argv
+
+✅ hive parsed argv.autoAcceptInvite === true
+✅ hive parsed argv.tokensBudgetStats === true
+✅ hive parsed argv.autoAttachSolutionSummary === true
+
+📋 hive-telegram-bot --isolation default
+
+✅ telegram-bot reports isolation backend = docker by default
+✅ --isolation "" opts out of isolation (no isolation log line)
+
+================================================================================
+Results: 14 passed, 0 failed
+================================================================================

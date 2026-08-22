@@ -1,0 +1,373 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "## Summary\n\n`v0.77.0` published an image labelled `org.opencontainers.image.version=0.77.0` whose\n`org.opencontainers.image.revision` was `5d127356…` — the merge commit that *triggered* the\nrelease run — while `refs/tags/v0.77.0` resolves to `c36818b5…` (`chore: release v0.77.0`).\n\n**Root cause:** the packaging jobs did check out the tag, but `docker/metadata-action`\nderives the revision label from the workflow context (`github.sha`). On a release run that\ncontext is frozen at the commit before the release commit the automation creates, so the\nlabel can never match the tag.\n\nFixes #191.\n\n## Changes\n\n- `create-github-release` resolves `refs/tags/vX.Y.Z^{commit}` (peeling the annotated tag),\n  asserts it equals the workspace, and exports it as the `release-commit` job output.\n- Every packaging job (both image architectures, all four binary targets, the manifest job,\n  the macOS lifecycle check) now checks out that **commit by SHA** and fails if\n  `git rev-parse HEAD` differs. Only the release-creating job resolves the mutable tag ref.\n- Image labels pin `org.opencontainers.image.revision` to the resolved commit, and each\n  build inspects the pushed config to fail *before* the digest is tagged if it disagrees.\n- New post-publication guard `scripts/check-release-provenance.rs`: re-resolves the annotated\n  tag and compares it against the labels of **both platform manifests in both registries**,\n  the checksum files, and the SLSA attestation of every downloadable archive. Wired into the\n  release run (`verify-release-provenance` job) and into the daily\n  `verify-releases.yml` reconciliation.\n- Checksum files are generated from inside `dist/`, so they list flat names; packaging and\n  the guard both run `sha256sum -c` the way a consumer does. This also fixes the report in\n  [the issue comment](https://github.com/link-assistant/router/issues/191#issuecomment-5303017195):\n  `sha256sum -c link-assistant-router-0.77.0-arm64.sha256` failed with\n  `No such file or directory` because the entries carried a `dist/` prefix.\n- `scripts/check-release-workflow.rs` asserts the new wiring statically, and the lint job now\n  runs it plus the new script's unit tests on every PR.\n- Docs: `docs/ci-cd/release-provenance.md`.\n\n## How to reproduce, and the evidence\n\nThe guard reproduces the reported defect against the actually published image:\n\n```console\n$ rust-script scripts/check-release-provenance.rs --release-version 0.77.0 \\\n    --image konard/link-assistant-router:0.77.0\nRelease v0.77.0 must be built from c36818b5386486ab74b88740f683076e4015c750\nError: konard/link-assistant-router:0.77.0 (linux/amd64) has org.opencontainers.image.revision=5d12735630a9d5168e2472e54367ce59dfa86dcb, expected c36818b5386486ab74b88740f683076e4015c750\n       konard/link-assistant-router:0.77.0 (linux/arm64) has ... (same)\n```\n\nThe checksum defect is reproduced and the fix proven by\n`experiments/issue-191/checksum-packaging.sh`: it builds a `dist/`-prefixed checksum file,\nshows the consumer-side `No such file or directory`, shows the guard rejecting it, then\nrepeats with the new packaging and verifies `sha256sum -c` passes.\n\n## Automated tests\n\n- 13 unit tests in `scripts/check-release-provenance.rs` (`rust-script --test`), including a\n  regression test that rejects exactly the `5d127356` / `c36818b5` mismatch from this issue,\n  a test that rejects `dist/`-prefixed checksum entries, and manifest-list/label coverage.\n- `scripts/check-release-workflow.rs` fails if any packaging job goes back to checking out\n  the mutable tag ref, if the revision label is unpinned, or if the guard is dropped.\n\n## v0.77.0 itself\n\nLeft as published: silently replacing an immutable artifact would change digests users may\nhave pinned. The next release built by this pipeline carries the correct revision label and\nflat checksum files; `docs/ci-cd/release-provenance.md` documents how to verify `0.77.0`\nagainst `c36818b5…` manually in the meantime. Note the scheduled provenance job will report\nthe historical mismatch until that next release is published — that is the intended signal.\n",
+  "closedAt": "2026-08-16T21:17:20Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T20:30:59Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:30:59Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/191",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "ec5b670e8ea186b87ffd8d2fb838d598702f3d79"
+    },
+    {
+      "authoredDate": "2026-08-16T20:41:40Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:41:40Z",
+      "messageBody": "The release commit is created after the run starts, so github.sha - and with it\ndocker/metadata-action's default org.opencontainers.image.revision - names the\nprevious merge commit. v0.77.0 therefore shipped an image labelled 0.77.0 whose\nrevision pointed at 5d127356 instead of the tag commit c36818b5.\n\n- create-github-release resolves refs/tags/vX.Y.Z^{commit} and exports it\n- every packaging job checks out that commit by SHA and asserts HEAD matches\n- image labels pin the revision, verified on the pushed digest before tagging\n- scripts/check-release-provenance.rs re-resolves the tag after publication and\n  compares it with both platform manifests, checksum files and attestations\n- checksum files list flat asset names so sha256sum -c works after download\n\nFixes #191",
+      "messageHeadline": "fix: build and label release artifacts from the release tag commit",
+      "oid": "8f2d02c34864864d70b213646b26b3d391139631"
+    },
+    {
+      "authoredDate": "2026-08-16T20:44:13Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:44:13Z",
+      "messageBody": "metadata-action always emits org.opencontainers.image.revision=github.sha.\nAdding a second value for the same key leaves the winner to label ordering, so\nstrip the generated entry and append the resolved tag commit instead.",
+      "messageHeadline": "fix: pin the image revision label deterministically",
+      "oid": "6edaa930f9409161cc65eda82fcf2922cdbf4c8c"
+    },
+    {
+      "authoredDate": "2026-08-16T20:46:24Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:46:24Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-191-d6d0ee077991",
+      "oid": "a4f4e844a9144896a156bfcc23f0b38778698426"
+    },
+    {
+      "authoredDate": "2026-08-16T20:53:12Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:53:12Z",
+      "messageBody": "# Conflicts:\n#\t.gitkeep",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-191-d6d0ee077991",
+      "oid": "6a7c8e6a3c42a3d5c08ec93e62633c7c02f16657"
+    },
+    {
+      "authoredDate": "2026-08-16T21:04:34Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T21:04:34Z",
+      "messageBody": "",
+      "messageHeadline": "test: expect provenance job's registry logins and flat checksum digests",
+      "oid": "8e2a75d0554cb68e51956a45be71db4491f6c559"
+    }
+  ],
+  "createdAt": "2026-08-16T20:31:09Z",
+  "files": [
+    {
+      "path": ".github/workflows/release.yml",
+      "additions": 191,
+      "deletions": 11,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": ".github/workflows/verify-releases.yml",
+      "additions": 73,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_150000_issue_191_release_provenance.md",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/ci-cd/release-provenance.md",
+      "additions": 73,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-191/checksum-packaging.sh",
+      "additions": 61,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "scripts/check-release-provenance.rs",
+      "additions": 559,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "scripts/check-release-workflow.rs",
+      "additions": 44,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/release_workflow_test.rs",
+      "additions": 11,
+      "deletions": 7,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-191-d6d0ee077991",
+  "headRefOid": "8e2a75d0554cb68e51956a45be71db4491f6c559",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T21:17:20Z",
+  "number": 201,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:05:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226762193",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T21:04:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:05:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226762233",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T21:04:44Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:05:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226762240",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T21:04:44Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:04:41Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226762703",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T21:04:42Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:06:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226881969",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T21:05:39Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:07:37Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226882007",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T21:05:39Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:09:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95226881968",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T21:05:39Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:08:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227008304",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T21:06:37Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:09:11Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227008329",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T21:06:39Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:11:30Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227008354",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T21:06:38Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:09:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227008291",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T21:06:37Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227625835",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T21:11:32Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227905434",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T21:13:46Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227905317",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T21:13:46Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227905857",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T21:13:46Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227906188",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T21:13:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227906355",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-16T21:13:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:47Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227906618",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T21:13:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:47Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227906681",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-16T21:13:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T21:13:47Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31972413415/job/95227906721",
+      "name": "Verify published release provenance",
+      "startedAt": "2026-08-16T21:13:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "fix: build and label every release artifact from the release tag commit",
+  "updatedAt": "2026-08-16T21:17:22Z",
+  "url": "https://github.com/link-assistant/router/pull/201"
+}

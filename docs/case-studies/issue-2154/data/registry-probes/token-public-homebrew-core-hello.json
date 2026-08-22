@@ -1,0 +1,11 @@
+{
+  "name": "token-public-homebrew-core-hello",
+  "repository": "homebrew/core/hello",
+  "expectation": "control: a known-public package",
+  "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:homebrew/core/hello:pull",
+  "status": 200,
+  "verdict": "public — anonymous pull is allowed",
+  "body": {
+    "token": "<redacted: short-lived anonymous pull token>"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "captured_at": "2026-07-26T15:00:00Z",
+  "issue": {
+    "repository": "link-assistant/hive-mind",
+    "number": 2059,
+    "url": "https://github.com/link-assistant/hive-mind/issues/2059",
+    "title": "Allow --tool agent --model formal-ai dispatch and for all other tools also",
+    "requirements_sources": ["issue body", "issue comment 2026-07-14", "issue comment 2026-07-24", "issue comment 2026-07-26"]
+  },
+  "pull_request": {
+    "repository": "link-assistant/hive-mind",
+    "number": 2108,
+    "url": "https://github.com/link-assistant/hive-mind/pull/2108",
+    "review_comments_at_capture": 0,
+    "conversation_comments_at_capture": 0,
+    "reviews_at_capture": 0
+  },
+  "formal_ai": {
+    "release": "0.305.0",
+    "release_url": "https://github.com/link-assistant/formal-ai/releases/tag/v0.305.0",
+    "released_at": "2026-07-26T14:35:45Z",
+    "wrapper_pr": "https://github.com/link-assistant/formal-ai/pull/648",
+    "coding_ladder": "https://github.com/link-assistant/formal-ai/issues/848",
+    "coding_ladder_baseline": {
+      "version": "0.303.0",
+      "agent_version": "0.25.0",
+      "passed": 38,
+      "total": 130,
+      "issue_to_pr_passed": 0,
+      "issue_to_pr_total": 16,
+      "valid_code_writes": 0
+    }
+  },
+  "hive_tools": ["claude", "agent", "opencode", "codex", "qwen", "gemini"]
+}

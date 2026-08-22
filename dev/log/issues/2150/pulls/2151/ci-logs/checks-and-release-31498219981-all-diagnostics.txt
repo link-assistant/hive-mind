@@ -1,0 +1,147 @@
+4398:lint	Setup Node.js	2026-08-11T13:52:18.5767657Z (node:2039) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+4422:lint	Install dependencies	2026-08-11T13:52:30.1452254Z 4 high severity vulnerabilities
+4428:lint	Install dependencies	2026-08-11T13:52:30.1461372Z npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+4429:lint	Install dependencies	2026-08-11T13:52:30.1469900Z npm warn allow-scripts   @sentry/node-cpu-profiler@2.4.2 (install: node scripts/check-build.js)
+4430:lint	Install dependencies	2026-08-11T13:52:30.1474284Z npm warn allow-scripts
+4431:lint	Install dependencies	2026-08-11T13:52:30.1475378Z npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+5153:lint	Run code duplication check	2026-08-11T13:53:08.3335789Z  - tests/test-publish-failure-classifier-2028.mjs [17:172 - 32:6] (15 lines, 116 tokens)
+5189:lint	Run code duplication check	2026-08-11T13:53:08.3695408Z  - tests/test-pre-pr-failure-notifier-1640.mjs [150:3 - 155:27] (5 lines, 66 tokens)
+5190:lint	Run code duplication check	2026-08-11T13:53:08.3695967Z    tests/test-pre-pr-failure-notifier-1640.mjs [113:71 - 118:26]
+5193:lint	Run code duplication check	2026-08-11T13:53:08.3700363Z  - tests/test-pre-pr-failure-notifier-1640.mjs [155:42 - 172:41] (17 lines, 204 tokens)
+5194:lint	Run code duplication check	2026-08-11T13:53:08.3700926Z    tests/test-pre-pr-failure-notifier-1640.mjs [118:44 - 135:44]
+5197:lint	Run code duplication check	2026-08-11T13:53:08.3797517Z  - tests/test-pre-pr-failure-notifier-1640.mjs [181:79 - 188:21] (7 lines, 64 tokens)
+5198:lint	Run code duplication check	2026-08-11T13:53:08.3798128Z    tests/test-pre-pr-failure-notifier-1640.mjs [144:83 - 151:14]
+5201:lint	Run code duplication check	2026-08-11T13:53:08.3802291Z  - tests/test-pre-pr-failure-notifier-1640.mjs [192:28 - 198:31] (6 lines, 66 tokens)
+5202:lint	Run code duplication check	2026-08-11T13:53:08.3802837Z    tests/test-pre-pr-failure-notifier-1640.mjs [118:60 - 124:37]
+5205:lint	Run code duplication check	2026-08-11T13:53:08.3815876Z  - tests/test-pre-pr-failure-notifier-1640.mjs [216:107 - 229:28] (13 lines, 137 tokens)
+5206:lint	Run code duplication check	2026-08-11T13:53:08.3816443Z    tests/test-pre-pr-failure-notifier-1640.mjs [144:83 - 194:27]
+5209:lint	Run code duplication check	2026-08-11T13:53:08.3825922Z  - tests/test-pre-pr-failure-notifier-1640.mjs [241:61 - 247:40] (6 lines, 70 tokens)
+5210:lint	Run code duplication check	2026-08-11T13:53:08.3826468Z    tests/test-pre-pr-failure-notifier-1640.mjs [210:79 - 216:39]
+6014:lint	Run code duplication check	2026-08-11T13:53:09.2336433Z    tests/test-pre-pr-failure-notifier-1640.mjs [121:39 - 128:16]
+6569:lint	Run code duplication check	2026-08-11T13:53:09.6701946Z  - tests/test-issue-1845-failure-auto-commit.mjs [28:1 - 40:6] (12 lines, 101 tokens)
+6573:lint	Run code duplication check	2026-08-11T13:53:09.6840878Z  - tests/test-issue-1845-failure-auto-commit.mjs [132:88 - 148:2] (16 lines, 115 tokens)
+6582:lint	Run code duplication check	2026-08-11T13:53:09.6978422Z    tests/test-issue-1845-failure-auto-commit.mjs [26:15 - 31:64]
+6586:lint	Run code duplication check	2026-08-11T13:53:09.6983737Z    tests/test-issue-1845-failure-auto-commit.mjs [44:1 - 56:81]
+7461:lint	Run code duplication check	2026-08-11T13:53:10.3321796Z  - tests/test-hive-no-silent-failure.mjs [17:1 - 24:15] (7 lines, 91 tokens)
+7465:lint	Run code duplication check	2026-08-11T13:53:10.3362383Z  - tests/test-hive-no-silent-failure.mjs [172:28 - 177:3] (5 lines, 41 tokens)
+7469:lint	Run code duplication check	2026-08-11T13:53:10.3365422Z  - tests/test-hive-no-silent-failure.mjs [175:27 - 183:2] (8 lines, 58 tokens)
+8394:lint	Run code duplication check	2026-08-11T13:53:11.3355049Z    tests/test-issue-1845-failure-auto-commit.mjs [44:1 - 50:11]
+8398:lint	Run code duplication check	2026-08-11T13:53:11.3359071Z    tests/test-issue-1845-failure-auto-commit.mjs [49:75 - 56:81]
+8845:lint	Run code duplication check	2026-08-11T13:53:11.8608391Z  - tests/format-tool-execution-failure-1845.test.mjs [22:65 - 39:54] (17 lines, 117 tokens)
+8849:lint	Run code duplication check	2026-08-11T13:53:11.8660979Z  - tests/format-tool-execution-failure-1845.test.mjs [184:3 - 190:9] (6 lines, 54 tokens)
+8853:lint	Run code duplication check	2026-08-11T13:53:11.8708685Z  - tests/format-tool-execution-failure-1845.test.mjs [261:105 - 273:2] (12 lines, 76 tokens)
+10048:lint	Post Setup Node.js	2026-08-11T13:53:15.3297401Z (node:2192) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+12219:validate-docs	Use Node.js 24.x	2026-08-11T13:52:27.0009564Z (node:2260) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+12317:validate-docs	Post Use Node.js 24.x	2026-08-11T13:52:29.0532744Z (node:2326) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+14538:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.0745009Z ./tests/format-tool-execution-failure-1845.test.mjs: 273 lines
+14597:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.1879575Z WARNING: ./tests/test-merge-queue.mjs has 1483 lines (approaching limit of 1500, warning threshold: 1350)
+14598:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.1901091Z ##[warning]File has 1483 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+14624:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.2366462Z WARNING: ./tests/test-interactive-mode.mjs has 1479 lines (approaching limit of 1500, warning threshold: 1350)
+14625:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.2369319Z ##[warning]File has 1479 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+14658:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.2988136Z WARNING: ./tests/solve-queue.test.mjs has 1488 lines (approaching limit of 1500, warning threshold: 1350)
+14659:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.2990391Z ##[warning]File has 1488 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+14695:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.3687848Z ./tests/test-publish-failure-classifier-2028.mjs: 85 lines
+14728:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.4396861Z ./tests/test-pre-pr-failure-notifier-1640.mjs: 272 lines
+14753:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.4914765Z ./tests/test-hive-no-silent-failure.mjs: 183 lines
+14765:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.5181954Z ./tests/test-issue-1845-failure-auto-commit.mjs: 148 lines
+14925:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.8345034Z ./scripts/publish-failure-classifier.mjs: 135 lines
+14950:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.8811665Z WARNING: ./src/models/index.mjs has 1355 lines (approaching limit of 1500, warning threshold: 1350)
+14951:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.8815027Z ##[warning]File has 1355 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+14968:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.9127390Z WARNING: ./src/limits.lib.mjs has 1429 lines (approaching limit of 1500, warning threshold: 1350)
+14969:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.9130207Z ##[warning]File has 1429 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+14973:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.9188905Z WARNING: ./src/isolation-runner.lib.mjs has 1500 lines (approaching limit of 1500, warning threshold: 1350)
+14974:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:22.9191711Z ##[warning]File has 1500 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15037:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0413222Z WARNING: ./src/solve.results.lib.mjs has 1434 lines (approaching limit of 1500, warning threshold: 1350)
+15038:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0416156Z ##[warning]File has 1434 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15041:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0454579Z WARNING: ./src/session-monitor.lib.mjs has 1498 lines (approaching limit of 1500, warning threshold: 1350)
+15042:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0457092Z ##[warning]File has 1498 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15052:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0633475Z WARNING: ./src/claude.lib.mjs has 1500 lines (approaching limit of 1500, warning threshold: 1350)
+15053:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0635450Z ##[warning]File has 1500 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15068:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0908052Z WARNING: ./src/telegram-bot.mjs has 1406 lines (approaching limit of 1500, warning threshold: 1350)
+15069:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.0910565Z ##[warning]File has 1406 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15085:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.1204182Z WARNING: ./src/hive.mjs has 1492 lines (approaching limit of 1500, warning threshold: 1350)
+15086:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.1206941Z ##[warning]File has 1492 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15122:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.1894514Z WARNING: ./src/codex.lib.mjs has 1468 lines (approaching limit of 1500, warning threshold: 1350)
+15123:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.1896711Z ##[warning]File has 1468 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15142:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2278872Z WARNING: ./src/solve.repository.lib.mjs has 1426 lines (approaching limit of 1500, warning threshold: 1350)
+15143:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2282535Z ##[warning]File has 1426 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15145:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2326158Z ./src/solve.pre-pr-failure-notifier.lib.mjs: 282 lines
+15169:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2778510Z WARNING: ./src/solve.auto-merge.lib.mjs has 1464 lines (approaching limit of 1500, warning threshold: 1350)
+15170:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2781490Z ##[warning]File has 1464 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15175:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2861695Z WARNING: ./src/github.lib.mjs has 1500 lines (approaching limit of 1500, warning threshold: 1350)
+15176:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.2865163Z ##[warning]File has 1500 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15216:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.3630880Z WARNING: ./src/interactive-mode.lib.mjs has 1393 lines (approaching limit of 1500, warning threshold: 1350)
+15217:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.3634191Z ##[warning]File has 1393 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15232:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.3907583Z WARNING: ./src/telegram-solve-queue.lib.mjs has 1499 lines (approaching limit of 1500, warning threshold: 1350)
+15233:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.3909610Z ##[warning]File has 1499 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15245:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4123602Z WARNING: ./src/solve.mjs has 1497 lines (approaching limit of 1500, warning threshold: 1350)
+15246:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4126394Z ##[warning]File has 1497 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15251:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4203015Z WARNING: ./src/telegram-merge-queue.lib.mjs has 1492 lines (approaching limit of 1500, warning threshold: 1350)
+15252:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4206341Z ##[warning]File has 1492 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+15257:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4303171Z ./docs/case-studies/issue-599-opencode-command-failures/test-prompt-fix.mjs: 106 lines
+15287:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.4903065Z ./docs/dependencies-research/command-stream-issues/issue-10-git-push-silent-failure.mjs: 216 lines
+15307:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.5296459Z ./experiments/test-pr-creation-failure.mjs: 144 lines
+15361:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.6377265Z ./experiments/simulate-workflow-failure.mjs: 78 lines
+15480:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:23.8724522Z ./experiments/test-hive-silent-failure.mjs: 164 lines
+15770:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:24.4387972Z ./experiments/test-disk-space-failure.mjs: 27 lines
+15842:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:24.5731526Z WARNING: .github/workflows/release.yml has 1452 lines (approaching limit of 1500, warning threshold: 1350)
+15843:check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-08-11T13:54:24.5733613Z ##[warning]File has 1452 lines (approaching limit of 1500). Consider moving inline scripts to ./scripts/ folder.
+16101:test-compilation	Setup Node.js	2026-08-11T13:52:25.8220135Z (node:2406) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+16342:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:31.7762523Z Checking src/solve.pre-pr-failure-notifier.lib.mjs...
+16423:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:33.8851505Z Checking tests/format-tool-execution-failure-1845.test.mjs...
+16541:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:36.7913820Z Checking tests/test-hive-no-silent-failure.mjs...
+16608:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:38.4741833Z Checking tests/test-issue-1845-failure-auto-commit.mjs...
+16741:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:41.8180074Z Checking tests/test-pre-pr-failure-notifier-1640.mjs...
+16747:test-compilation	Check Node.js syntax for all .mjs files	2026-08-11T13:52:41.9649700Z Checking tests/test-publish-failure-classifier-2028.mjs...
+16826:test-compilation	Post Setup Node.js	2026-08-11T13:52:44.0486075Z (node:7570) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+17050:test-suites	Use Node.js 24.x	2026-08-11T13:55:40.9581862Z (node:2138) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+17074:test-suites	Install dependencies	2026-08-11T13:55:53.9537407Z 4 high severity vulnerabilities
+17080:test-suites	Install dependencies	2026-08-11T13:55:53.9547726Z npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+17081:test-suites	Install dependencies	2026-08-11T13:55:53.9548886Z npm warn allow-scripts   @sentry/node-cpu-profiler@2.4.2 (install: node scripts/check-build.js)
+17082:test-suites	Install dependencies	2026-08-11T13:55:53.9549693Z npm warn allow-scripts
+17083:test-suites	Install dependencies	2026-08-11T13:55:53.9550646Z npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+17198:test-suites	Run default test suite	2026-08-11T13:56:01.8163982Z [7/383] tests/format-tool-execution-failure-1845.test.mjs
+17213:test-suites	Run default test suite	2026-08-11T13:56:02.8585207Z ✅ does not duplicate the base phrase when the core already says "execution failed"
+17220:test-suites	Run default test suite	2026-08-11T13:56:02.8588147Z ✅ claude.lib failure shape -> includes the API error
+17221:test-suites	Run default test suite	2026-08-11T13:56:02.8588981Z ✅ codex.lib failure shape (getCodexErrorEventSummary) -> includes the event message
+17222:test-suites	Run default test suite	2026-08-11T13:56:02.8589948Z ✅ gemini.lib failure shape -> includes the error text
+17223:test-suites	Run default test suite	2026-08-11T13:56:02.8590597Z ✅ opencode.lib failure shape -> includes the captured error
+17224:test-suites	Run default test suite	2026-08-11T13:56:02.8591259Z ✅ qwen.lib failure shape -> includes the combined error text
+17225:test-suites	Run default test suite	2026-08-11T13:56:02.8591925Z ✅ agent.lib failure shape -> includes the agent error message
+17238:test-suites	Run default test suite	2026-08-11T13:56:02.8598510Z 📊 Results: 27 passed, 0 failed, 27 total
+17271:test-suites	Run default test suite	2026-08-11T13:56:04.2460192Z Tests failed: 0
+17311:test-suites	Run default test suite	2026-08-11T13:56:05.7000235Z ✅ logs usage after a failed wrapped gh attempt without replacing the original error
+17320:test-suites	Run default test suite	2026-08-11T13:56:05.7060928Z 📊 26 passed, 0 failed
+17414:test-suites	Run default test suite	2026-08-11T13:56:06.9230970Z 5 tests: 5 passed, 0 failed
+17525:test-suites	Run default test suite	2026-08-11T13:56:07.9430285Z Tests failed: 0
+17631:test-suites	Run default test suite	2026-08-11T13:56:08.5623354Z 📊 Results: 73 passed, 0 failed, 73 total
+17654:test-suites	Run default test suite	2026-08-11T13:56:08.6109481Z 📊 Test Results: 8 passed, 0 failed
+17713:test-suites	Run default test suite	2026-08-11T13:56:08.6510709Z Tests failed: 0
+17729:test-suites	Run default test suite	2026-08-11T13:56:09.6105259Z   ^[[32mPASS:^[[0m reports a failed conversion without throwing
+17730:test-suites	Run default test suite	2026-08-11T13:56:09.6106299Z   ^[[32mPASS:^[[0m reports a failed status check without throwing
+17744:test-suites	Run default test suite	2026-08-11T13:56:09.6115667Z Results: 14 passed, 0 failed
+17801:test-suites	Run default test suite	2026-08-11T13:56:10.6218108Z Tests failed: 0
+17814:test-suites	Run default test suite	2026-08-11T13:56:12.0358589Z TypeError: $ is not a function
+17821:test-suites	Run default test suite	2026-08-11T13:56:12.0526470Z ##[error]Process completed with exit code 1.
+18056:test-execution	Use Node.js 24.x	2026-08-11T13:55:50.7984025Z (node:2245) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+18080:test-execution	Install dependencies	2026-08-11T13:56:00.6588891Z 4 high severity vulnerabilities
+18086:test-execution	Install dependencies	2026-08-11T13:56:00.6601478Z npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+18087:test-execution	Install dependencies	2026-08-11T13:56:00.6602660Z npm warn allow-scripts   @sentry/node-cpu-profiler@2.4.2 (install: node scripts/check-build.js)
+18088:test-execution	Install dependencies	2026-08-11T13:56:00.6603860Z npm warn allow-scripts
+18089:test-execution	Install dependencies	2026-08-11T13:56:00.6605189Z npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+18194:test-execution	Test solve.mjs execution	2026-08-11T13:56:06.6154165Z                                             get statistics (⚠️ WARNING: May expo
+18301:test-execution	Test solve.mjs execution	2026-08-11T13:56:06.6224031Z                                             I failures, merge conflicts, or othe
+18306:test-execution	Test solve.mjs execution	2026-08-11T13:56:06.6226698Z                                             /CD failures, PR/issue comments, iss
+18792:test-execution	Test solve.mjs execution	2026-08-11T13:56:06.6455501Z                                             on failure without prompting (non-in
+18806:test-execution	Test solve.mjs execution	2026-08-11T13:56:06.6461082Z                                             es not disable posting failure logs
+18957:test-execution	Verify log files contain version and command (Issue	2026-08-11T13:56:08.1039456Z TypeError: $ is not a function
+18961:test-execution	Verify log files contain version and command (Issue	2026-08-11T13:56:08.1150433Z ##[error]Process completed with exit code 1.
+19193:memory-check-linux	Use Node.js 24.x	2026-08-11T13:56:01.9038146Z (node:2303) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+19217:memory-check-linux	Install dependencies	2026-08-11T13:56:09.5784872Z 4 high severity vulnerabilities
+19223:memory-check-linux	Install dependencies	2026-08-11T13:56:09.5798395Z npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+19224:memory-check-linux	Install dependencies	2026-08-11T13:56:09.5799885Z npm warn allow-scripts   @sentry/node-cpu-profiler@2.4.2 (install: node scripts/check-build.js)
+19225:memory-check-linux	Install dependencies	2026-08-11T13:56:09.5800869Z npm warn allow-scripts
+19226:memory-check-linux	Install dependencies	2026-08-11T13:56:09.5802170Z npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+19296:memory-check-linux	Run memory-check tests	2026-08-11T13:56:11.8961994Z TypeError: $ is not a function
+19312:memory-check-linux	Run memory-check tests	2026-08-11T13:56:16.6570882Z TypeError: $ is not a function
+19324:memory-check-linux	Run memory-check tests	2026-08-11T13:56:16.6615601Z ##[error]Process completed with exit code 1.

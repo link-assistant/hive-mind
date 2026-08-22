@@ -1,0 +1,251 @@
+# Hive Mind Docker image
+# Inherits from konard/box which provides all general-purpose development tools
+# This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)
+#
+# Architecture (see issue #1394, #1499, #1505 and box#79):
+#   konard/box (pinned full image)
+#     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
+#     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
+#     └── /home/box directory owned by box user
+#   hive-mind (konard/hive-mind)
+#     └── Inherits Box, adds AI coding assistants and Playwright MCP
+#     └── Runs entirely as box user (no USER root needed)
+#
+# Box image version: pinned to a specific release for stable, reproducible builds.
+# To upgrade: update the version tag below and in coolify/Dockerfile.
+# Keep this in lockstep with the DinD base-image release.
+# Latest Box releases: https://github.com/link-foundation/box/releases
+#
+# Build: docker build -t konard/hive-mind .
+
+ARG FORMAL_AI_VERSION=0.339.1
+# Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
+FROM rust:1.96-slim-bookworm AS formal-ai-builder
+ARG FORMAL_AI_VERSION
+# Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
+# web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
+# the builder needs pkg-config and the OpenSSL headers; rust:slim ships neither
+# and the openssl-sys build script aborts the install. Reported upstream as
+# link-assistant/formal-ai#988 and fixed in 0.339.0 (its Cargo.lock no longer
+# contains openssl-sys), but the root causes are still open upstream
+# (link-assistant/web-capture#151, link-foundation/browser-commander#77), so the
+# packages stay as defense in depth: if a future release drags openssl-sys back
+# in, OPENSSL_STATIC links libssl into the binary and the copy into the Ubuntu
+# 24.04 runtime below stays independent of the runtime's OpenSSL soname; when
+# openssl-sys is absent both are inert (see docs/case-studies/issue-2146).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends pkg-config libssl-dev && \
+    rm -rf /var/lib/apt/lists/*
+ENV OPENSSL_STATIC=1
+RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
+
+FROM konard/box:2.3.5
+ARG HIVE_MIND_VERSION=latest
+# Release builds pass the exact published package version here. Bake it as the
+# default child isolation image tag so a parent started via :latest still runs
+# Docker-isolated tasks on the same immutable release image.
+ENV HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG="${HIVE_MIND_VERSION}"
+
+# --- Environment variables ---
+# Set environment variables EARLY so they're available in subsequent RUN commands
+# All paths use /home/box (shared directory owned by box:box)
+ENV HOME=/home/box
+ENV NVM_DIR="/home/box/.nvm"
+ENV PYENV_ROOT="/home/box/.pyenv"
+ENV BUN_INSTALL="/home/box/.bun"
+ENV DENO_INSTALL="/home/box/.deno"
+ENV CARGO_HOME="/home/box/.cargo"
+ENV GOROOT="/home/box/.go"
+ENV GOPATH="/home/box/.go/path"
+ENV SDKMAN_DIR="/home/box/.sdkman"
+ENV PERLBREW_ROOT="/home/box/.perl5"
+ENV RBENV_ROOT="/home/box/.rbenv"
+
+# Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
+ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_CRON=1 \
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
+    CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
+    CLAUDE_CODE_DISABLE_FAST_MODE=1 \
+    CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY=1 \
+    CLAUDE_CODE_DISABLE_MOUSE=1 \
+    CLAUDE_CODE_ENABLE_AWAY_SUMMARY=0 \
+    CLAUDE_CODE_ENABLE_TASKS=1 \
+    CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY=4 \
+    CLAUDE_CODE_RESUME_INTERRUPTED_TURN=1 \
+    DISABLE_FEEDBACK_COMMAND=1
+
+# Opam environment variables for Rocq/Coq theorem prover
+ENV OPAM_SWITCH_PREFIX="/home/box/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/box/.opam/default/lib/stublibs:/home/box/.opam/default/lib/ocaml/stublibs:/home/box/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/box/.opam/default/lib/toplevel"
+
+# Comprehensive PATH including all tools
+# Note: Node.js path is added dynamically since NVM version may vary
+# Note: ~/.local/bin is included for user-installed binaries (Claude Code and opam)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/box/.pyenv/bin:/home/box/.pyenv/shims:/home/box/.rbenv/bin:/home/box/.rbenv/shims:/home/box/.swift/usr/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/box/.local/bin:/home/box/.cargo/bin:/home/box/.deno/bin:/home/box/.bun/bin:/home/box/.go/bin:/home/box/.go/path/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Run entirely as box user — no USER root needed (see issue #1505)
+USER box
+WORKDIR /home/box
+
+# Create a stable symlink to the active Node.js version's bin directory
+# This allows us to add it to PATH without knowing the specific version
+RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+    if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
+      ln -sf "$NODE_VERSION_DIR/bin" /home/box/.node-bin; \
+    fi
+
+ENV PATH="/home/box/.node-bin:${PATH}"
+
+# Build with Formal AI's declared MSRV and copy only its release binary.
+COPY --from=formal-ai-builder /usr/local/cargo/bin/formal-ai /usr/local/bin/formal-ai
+RUN formal-ai --version
+
+# --- Install opam binary ---
+# The Box full image includes the Rocq/Coq opam switch data. Keep an explicit
+# opam binary in ~/.local/bin so verification and interactive use are stable.
+RUN mkdir -p /home/box/.local/bin && \
+    ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+      x86_64)  OPAM_ARCH="x86_64" ;; \
+      aarch64) OPAM_ARCH="arm64" ;; \
+      *)       OPAM_ARCH="$ARCH" ;; \
+    esac && \
+    OPAM_TAG=$(curl -fsSIL -o /dev/null -w '%{url_effective}' https://github.com/ocaml/opam/releases/latest | sed 's|.*/||') && \
+    curl -fsSL "https://github.com/ocaml/opam/releases/download/${OPAM_TAG}/opam-${OPAM_TAG}-${OPAM_ARCH}-linux" -o /home/box/.local/bin/opam && \
+    chmod +x /home/box/.local/bin/opam
+
+# --- AI-specific packages installation ---
+# These are the tools that differentiate hive-mind from the generic Box image
+# Global bun packages for AI coding assistants and workflow utilities
+# Every install must fail the build on error — no silent fallbacks (see issue #1505)
+
+# Install Claude Code through Anthropic's native installer. Bun blocks the
+# @anthropic-ai/claude-code postinstall that links the native binary (issue #1633).
+RUN curl -fsSL https://claude.ai/install.sh -o /tmp/claude-code-install.sh && \
+    bash /tmp/claude-code-install.sh && \
+    rm /tmp/claude-code-install.sh && \
+    claude --version
+
+# Install AI coding assistant CLIs
+RUN bun install -g @openai/codex && \
+    bun install -g @qwen-code/qwen-code && \
+    bun install -g @google/gemini-cli && \
+    bun install -g @github/copilot && \
+    bun install -g opencode-ai
+
+# Install hive-mind workflow utilities
+# Release builds pass HIVE_MIND_VERSION after npm publish, so Docker installs
+# the exact package version that contains the configure-claude bin.
+# Note: start-command provides `$` CLI for isolation modes (--isolation screen/tmux/docker)
+# The Box base image includes screen. For tmux/docker isolation, ensure they are
+# available in the base image or install them separately.
+# start-command is pinned to 0.32.1: 0.29.1 fixed detached docker
+# `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
+# sentinel while the container is still running (link-foundation/start#136,
+# link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
+# docker image-preparation phase (the `docker pull`/dind boot) in the session log,
+# so `$ --upload-log` no longer returns a near-empty log while a multi-GB image is
+# still pulling. 0.30.1 (start#140 / start PR #141) adds explicit docker
+# container cleanup policies and removes successful containers by default while
+# keeping the host-side log, which Hive Mind also enforces at task completion
+# for defense in depth (issue #1979). 0.30.2 (start#144) surfaces detached docker
+# `OOMKilled` status and preserves abnormally-terminated container filesystems
+# under the default cleanup policy — the upstream defense-in-depth half of the
+# #1990 fix (the primary terminal-completion gate lives in this repo's solve).
+# 0.30.3 (start#148/#149) reconciles detached Docker `OOMKilled=true` as terminal
+# in upstream `--status`/`--list`, which directly covers issue #2015.
+# 0.31.0 (start#154 / start PR #155) adds `--network` / `--network-alias` for the
+# docker isolation backend. 0.32.0 (start#156 / start PR #157, unblocked for npm
+# by start#160) makes `--network` repeatable: the first network is passed to
+# `docker create` and the rest are attached with `docker network connect` before
+# `docker start`, so a task could join the default bridge AND the `--internal`
+# Formal AI sidecar network at launch. Hive Mind still performs that same
+# additive `docker network connect` itself, inside the already-held start gate:
+# the sequencing is identical, the gate is held anyway for the writable-layer
+# baseline, and the in-repo attach keeps working (fail-closed) on any
+# start-command version instead of silently degrading to a single network on
+# pre-0.32.0 parsers (see docs/case-studies/issue-2146, issue #2146).
+RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
+    fi && \
+    bun install -g @link-assistant/claude-profiles && \
+    bun install -g @link-assistant/agent && \
+    bun install -g start-command@0.32.1 && \
+    bun install -g gh-setup-git-identity && \
+    bun install -g gh-pull-all && \
+    bun install -g gh-load-issue && \
+    bun install -g gh-load-pull-request && \
+    bun install -g gh-upload-log@latest
+
+# --- Playwright MCP Setup ---
+# Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
+# We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
+# --force handles the shared 'playwright' binary conflict between packages.
+RUN npm install -g @playwright/mcp@latest --no-fund --force
+
+# Verify both the Playwright CLI fallback and the locally installed MCP package.
+RUN playwright --version && \
+    npx --no-install @playwright/mcp --help | grep -q -- '--headless'
+
+# Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
+RUN if command -v claude &>/dev/null; then \
+      claude mcp add playwright -s user -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Configure Playwright MCP for Codex CLI with the same server settings
+RUN if command -v codex &>/dev/null; then \
+      codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Fail the image build if MCP registration is merely present but unavailable.
+RUN if command -v claude >/dev/null 2>&1; then \
+      CLAUDE_MCP_OUTPUT="$(claude mcp list 2>&1)" && \
+      echo "$CLAUDE_MCP_OUTPUT" && \
+      echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CLAUDE_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
+    fi && \
+    if command -v codex >/dev/null 2>&1; then \
+      CODEX_MCP_OUTPUT="$(codex mcp list 2>&1)" && \
+      echo "$CODEX_MCP_OUTPUT" && \
+      echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(connected|enabled)' && \
+      ! echo "$CODEX_MCP_OUTPUT" | grep -Eiq 'playwright.*(pending|disabled|failed|error|disconnected|not[-_[:space:]]+connected|unavailable|timed[-_[:space:]]+out|(^|[^[:alnum:]_-])timeout($|[^[:alnum:]_-]))'; \
+    fi
+
+# --- Disable noisy/unused Claude Code features and tools (issue #1627, issue #1642) ---
+# Autonomous headless hive-mind runs never benefit from tools that wait for
+# human interaction (AskUserQuestion, EnterPlanMode) or that register local
+# session cron jobs (CronCreate/List/Delete) or create worktrees
+# (EnterWorktree/ExitWorktree) or fire mobile notifications
+# (PushNotification) or kick off remote agent triggers (RemoteTrigger)
+# or create notebook cells (NotebookEdit) or monitor processes (Monitor) or
+# self-schedule wakeups (ScheduleWakeup). Pre-seed the user-scope
+# ~/.claude/settings.json disallowedTools list so that even interactive
+# claude sessions in this image do not surface them.
+# The three claude.ai OAuth connectors (Gmail/Google Drive/Google Calendar)
+# cannot be removed via `claude mcp remove` because they are not registered
+# under user/local/project scope; solve.mjs filters them at run time using
+# --strict-mcp-config --mcp-config <temp-file>.
+#
+# Behavior matrix:
+#   - Release builds (HIVE_MIND_VERSION=<exact>): `configure-claude` MUST exist
+#     in the published package and MUST succeed. Build fails otherwise.
+#   - PR builds (HIVE_MIND_VERSION=latest): the currently published package on
+#     npm may pre-date this PR and not yet ship `configure-claude`. In that
+#     case we log and skip — the baseline is re-applied at runtime by solve.
+RUN mkdir -p /home/box/.claude && \
+    if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
+      configure-claude --settings-path /home/box/.claude/settings.json && \
+      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
+    elif command -v configure-claude >/dev/null 2>&1; then \
+      configure-claude --settings-path /home/box/.claude/settings.json && \
+      configure-claude --settings-path /home/box/.claude/settings.json --verify; \
+    else \
+      echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
+    fi
+
+SHELL ["/bin/bash", "-c"]
+CMD ["/bin/bash"]

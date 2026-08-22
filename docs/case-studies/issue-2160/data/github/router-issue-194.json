@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nv0.77.0 added token controls beyond request count, but the human admin surfaces expose only a subset.\n\nLive Chakra UI claim/issue form contains:\n\n- label\n- TTL hours\n- request cap\n- account pin\n\nIt has no fields for `max_tokens` or `rate_limit_per_minute`, although the token HTTP/CLI API supports both and the token table/status documentation treats them as important blast-radius controls.\n\nThe documented Telegram/VK command is `/issue <label> [ttl_hours] [max_requests]`; it likewise cannot set token spend or per-minute limits, nor edit/rotate an issued AI token while preserving all controls.\n\n## Expected behavior\n\n- Web, Telegram and VK provide equivalent management for every supported token constraint: label, TTL/expiry, max requests, max actual tokens, requests per minute, scope/role where allowed, and account pin.\n- List/show displays every constraint, current usage, provider/account attribution, expiry and revoked state.\n- Rotate/reissue preserves constraints by default and permits explicit changes; old token is atomically revoked.\n- Validation and bounds are shared with CLI/HTTP rather than reimplemented inconsistently.\n- Chat commands remain usable in private messages (a guided multi-step flow is acceptable instead of an unreadable positional command).\n- Add cross-surface tests proving a token issued in each admin surface is enforced identically on all model protocols and remains correct after restart.",
+  "closedAt": "2026-08-17T06:07:59Z",
+  "createdAt": "2026-08-15T16:04:15Z",
+  "labels": [],
+  "number": 194,
+  "state": "CLOSED",
+  "title": "Expose full token budgets and account controls in web, Telegram, and VK admin surfaces",
+  "updatedAt": "2026-08-17T06:07:59Z",
+  "url": "https://github.com/link-assistant/router/issues/194"
+}

@@ -1,0 +1,11 @@
+ARGV:
+  -m
+  formal-ai
+  --skip-trust
+  --approval-mode
+  auto_edit
+  --output-format
+  stream-json
+  -p
+  $'The previous attempt in this session finished without changing the workspace.\nDisproved claim: workspace_effect_present=true\nEvidence: workspace_effect_count=0\nRestate, in one line, the observable postcondition the request implies: which file must exist afterwards and what it must do.\nThen make that postcondition true by writing the file, and report the path you wrote.\nRequest: --note CronCreate'
+STDIN-BYTES: 0

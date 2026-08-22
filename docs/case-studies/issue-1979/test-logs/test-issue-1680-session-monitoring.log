@@ -1,0 +1,26 @@
+Testing issue #1680: in-memory screen isolation monitoring
+============================================================
+  ✅ PASS: Session monitor keeps Telegram task state in memory
+  ✅ PASS: Session monitor does not expose a JSON session store path
+  ✅ PASS: Tracked screen-isolated session is stored in memory
+  ✅ PASS: Monitor polls the tracked screen session with $ --status
+Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification to chat 12345
+Failed to send completion notification for 6a0ec9c3-04b5-4c22-acc2-8f21e934036e: Error: temporary Telegram API failure
+    at Object.editMessageText (file:///tmp/gh-issue-solver-1782325360082/tests/test-issue-1680-session-monitoring.mjs:49:15)
+    at monitorSessions (file:///tmp/gh-issue-solver-1782325360082/src/session-monitor.lib.mjs:816:30)
+    at async file:///tmp/gh-issue-solver-1782325360082/tests/test-issue-1680-session-monitoring.mjs:72:1
+  ✅ PASS: Monitor checks terminal $ --status on the first pass
+  ✅ PASS: Monitor attempts to update the original Telegram message
+  ✅ PASS: Session remains tracked when Telegram update fails
+  ✅ PASS: Monitor polls the tracked screen session with $ --status
+Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e has finished. Sending notification to chat 12345
+  ✅ PASS: Monitor polls $ --status again while the completion update is pending
+  ✅ PASS: Monitor retries the completion message update
+  ✅ PASS: Retry uses the original chat and message IDs
+  ✅ PASS: Completion edit contains terminal completed status
+  ✅ PASS: Completion edit uses $ --status timestamps
+  ✅ PASS: Session is removed from memory only after message update succeeds
+
+============================================================
+Results: 14 passed, 0 failed, 14 total
+============================================================

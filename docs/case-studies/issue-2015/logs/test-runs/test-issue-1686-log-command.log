@@ -1,0 +1,60 @@
+================================================================================
+Unit Tests: /log command helpers (Issue #1686)
+================================================================================
+
+--- extractSessionIdFromText() ---
+  ✅ extracts UUID from "/log <UUID>"
+  ✅ lowercases extracted UUID
+  ✅ extracts UUID from a typical Executing... message
+  ✅ extracts UUID from a completion message
+  ✅ returns null for empty text
+  ✅ returns null for null
+  ✅ returns null for undefined
+  ✅ returns null for non-UUID arg
+  ✅ returns null for truncated UUID
+  ✅ returns the first UUID when multiple are present
+
+--- parseSessionStatusOutput() exposes logPath/isolation/command ---
+  ✅ JSON: marks the session as exists
+  ✅ JSON: extracts uuid
+  ✅ JSON: lowercases status
+  ✅ JSON: parses exitCode as number
+  ✅ JSON: surfaces command
+  ✅ JSON: surfaces logPath
+  ✅ JSON: derives isolation from options.isolation when no top-level field
+  ✅ JSON: top-level isolation is lowercased
+  ✅ JSON: tmux logPath surfaces
+  ✅ TEXT: marks session as exists
+  ✅ TEXT: extracts uuid
+  ✅ TEXT: lowercases status
+  ✅ TEXT: parses exitCode
+  ✅ TEXT: surfaces logPath
+  ✅ TEXT: surfaces isolation
+  ✅ TEXT: surfaces command
+  ✅ EMPTY: marks not-exists
+  ✅ EMPTY: logPath is null
+  ✅ EMPTY: isolation is null
+
+--- decideLogDestination() ---
+  ✅ public repo + group chat → chat delivery
+  ✅ public repo + supergroup → chat delivery
+  ✅ public repo + private chat (DM) → dm delivery (already in DM)
+  ✅ private repo → dm delivery
+  ✅ internal-visibility repo → dm delivery
+  ✅ unknown visibility → dm delivery (fail-closed)
+  ✅ isPublic:true but visibility unknown → dm delivery (fail-closed)
+  ✅ non-isolation session → reject (issue #1686 R4)
+  ✅ isolation:"direct" → reject
+  ✅ unknown session → reject
+  ✅ sessionInfo.isolationBackend overrides missing status.isolation
+  ✅ sessionInfo.isolationBackend + private repo → dm
+
+--- resolveLogPath() ---
+  ✅ prefers statusResult.logPath when present
+  ✅ falls back to isolation/<backend>/<uuid>.log
+  ✅ falls back to direct/<uuid>.log when no backend
+  ✅ returns null when uuid is missing and no logPath is provided
+
+================================================================================
+Result: 45 passed, 0 failed
+================================================================================

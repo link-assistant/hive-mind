@@ -1,0 +1,14 @@
+Usage: memory-check.mjs [options]
+
+Options:
+      --version          Show version number                           [boolean]
+  -m, --min-memory       Minimum required memory in MB   [number] [default: 256]
+  -d, --min-disk-space   Minimum required disk space in MB
+                                                       [number] [default: 10240]
+  -e, --exit-on-failure  Exit with code 1 if any check fails
+                                                      [boolean] [default: false]
+  -j, --json             Output results as JSON       [boolean] [default: false]
+  -q, --quiet            Suppress detailed output (only show final status)
+                                                      [boolean] [default: false]
+  -l, --log-file         Path to log file for output                    [string]
+  -h, --help             Show help                                     [boolean]

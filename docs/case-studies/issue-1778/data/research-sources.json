@@ -1,0 +1,22 @@
+[
+  {
+    "title": "Telegram Bots: An introduction for developers",
+    "url": "https://core.telegram.org/bots",
+    "notes": "Telegram documents that bots cannot start conversations with users; a user must add the bot to a group or send the bot a message first. This supports the issue requirement to detect DM delivery failures and tell users to send /start privately."
+  },
+  {
+    "title": "Telegram Bot API",
+    "url": "https://core.telegram.org/bots/api",
+    "notes": "The Bot API documents the request/response shape, sendMessage behavior, getChatMember, and ChatMemberOwner status. It confirms sendMessage returns a Message on success and unsuccessful responses include an error description and code."
+  },
+  {
+    "title": "Telegram Bot API ChatMemberOwner",
+    "url": "https://core.telegram.org/bots/api#chatmemberowner",
+    "notes": "Telegram identifies the chat owner status as creator, matching the repository's existing chat-owner permission check."
+  },
+  {
+    "title": "Telegram Bot API sendMessage",
+    "url": "https://core.telegram.org/bots/api#sendmessage",
+    "notes": "sendMessage is the Bot API method used by this command to create the live terminal watch message in either the group chat or a direct message."
+  }
+]

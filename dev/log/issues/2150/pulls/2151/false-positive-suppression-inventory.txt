@@ -1,0 +1,43 @@
+scripts/test-global-commands.sh:20:timeout 10s hive --version || true
+scripts/test-global-commands.sh:21:timeout 10s hive --help || echo "Help command completed"
+scripts/test-global-commands.sh:26:timeout 10s solve --version || true
+scripts/test-global-commands.sh:27:timeout 10s solve --help || echo "Help command completed"
+scripts/test-global-commands.sh:34:trap 'rm -rf "$CONFIGURE_CLAUDE_TEST_DIR"; npm unlink -g @link-assistant/hive-mind || true' EXIT
+scripts/test-global-commands.sh:41:timeout 10s hive-telegram-bot --help || echo "Help command completed"
+scripts/test-global-commands.sh:56:npm unlink -g @link-assistant/hive-mind || true
+scripts/verify-dind-exec-defaults.sh:9:docker rm -f "$container_name" >/dev/null 2>&1 || true
+scripts/verify-dind-exec-defaults.sh:13:  docker rm -f "$container_name" >/dev/null 2>&1 || true
+scripts/verify-dind-exec-defaults.sh:29:  docker logs "$container_name" || true
+scripts/verify-docker-image.sh:71:    "$cmd" $ver_flag 2>&1 | head -n1 || true
+scripts/verify-docker-image.sh:200:  BROWSER_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/${browser}"* 2>/dev/null | head -1 || true)
+scripts/verify-docker-image.sh:213:  CHROME_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/chrome"* 2>/dev/null | head -1 || true)
+scripts/verify-docker-image.sh:217:    echo "  chrome: OK ($(google-chrome --version 2>/dev/null || echo 'installed'))"
+scripts/verify-docker-image.sh:226:  BROWSER_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/${browser}"* 2>/dev/null | head -1 || true)
+scripts/verify-docker-image.sh:235:MSEDGE_DIR=$(ls -d "${PLAYWRIGHT_CACHE}/msedge"* 2>/dev/null | head -1 || true)
+scripts/verify-docker-image.sh:239:  echo "  msedge: OK ($(microsoft-edge --version 2>/dev/null || echo 'installed'))"
+scripts/verify-docker-image.sh:262:  source "$HOME/.opam/opam-init/init.sh" > /dev/null 2>&1 || true
+scripts/verify-docker-image.sh:265:eval "$(opam env --switch=default 2>/dev/null)" || true
+scripts/verify-docker-image.sh:291:    ls -la "$HOME/.opam/default/bin/" 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq binaries found in opam bin"
+scripts/verify-docker-image.sh:293:    opam list --installed 2>/dev/null | grep -i 'rocq\|coq' || echo "No rocq/coq packages found"
+scripts/verify-docker-image.sh:297:    opam list 2>/dev/null | head -20 || echo "Could not list opam packages"
+scripts/verify-docker-image.sh:323:  bun pm ls -g 2>/dev/null | head -20 || true
+scripts/verify-docker-image.sh:331:  configure-claude --help | head -n1 || true
+scripts/verify-docker-image.sh:357:  rows=$(grep -i 'playwright' <<< "$output" || true)
+scripts/verify-docker-image.sh:398:  cat /tmp/playwright-mcp-help.txt 2>/dev/null || true
+scripts/verify-docker-image.sh:404:  CLAUDE_MCP_OUTPUT=$(claude mcp list 2>&1 || true)
+scripts/verify-docker-image.sh:412:  CODEX_MCP_OUTPUT=$(codex mcp list 2>&1 || true)
+scripts/verify-log-file-contents.sh:15:timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt || true
+scripts/verify-log-file-contents.sh:29:  ls -la solve-*.log || echo "No solve log files found"
+scripts/test-auto-fork-option.sh:61:#    what is under test, hence `|| true` — the assertion is on the output.
+scripts/test-auto-fork-option.sh:64:timeout "$DRY_RUN_TIMEOUT" ./src/solve.mjs https://github.com/test/repo/issues/1 --auto-fork --dry-run --skip-tool-check 2>&1 | tee solve_auto_fork.log || true
+scripts/test-auto-fork-option.sh:69:timeout "$DRY_RUN_TIMEOUT" ./src/hive.mjs https://github.com/test/repo --auto-fork --dry-run --skip-tool-check --once --max-issues 1 2>&1 | tee hive_auto_fork.log || true
+scripts/test-auto-fork-option.sh:78:PATH="${NO_SCREEN_PATH}" "${NODE_BIN}" ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork --dry-run 2>&1 | tee start_screen_auto_fork.log || true
+.github/workflows/release.yml:330:          timeout 10s ./src/solve.mjs --help || echo "Help command completed"
+.github/workflows/release.yml:332:          timeout 10s ./src/solve.mjs --version || true
+.github/workflows/release.yml:340:          timeout 10s ./src/hive.mjs --help || echo "Help command completed"
+.github/workflows/release.yml:342:          timeout 10s ./src/hive.mjs --version || true
+.github/workflows/release.yml:347:          timeout 10s ./src/telegram-bot.mjs --help || echo "Help command completed"
+.github/workflows/release.yml:371:          timeout 30s ./src/hive.mjs https://github.com/test/repo --dry-run --skip-claude-check --once --max-issues 1 2>&1 | tee hive_dry_run.log || true
+.github/workflows/release.yml:381:          timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --dry-run --skip-claude-check 2>&1 | head -20 || true
+.github/workflows/release.yml:622:          echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+.github/workflows/release.yml:1427:          npx prettier --write ".changeset/*.md" || true

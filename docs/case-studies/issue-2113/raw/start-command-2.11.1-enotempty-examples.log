@@ -1,0 +1,93 @@
+=== Start Command Log ===
+Execution ID: 0fd1960e-3da1-45a2-9945-15ea01ad2528
+Timestamp: 2026-07-31 18:05:31.231
+Command: gate='/tmp/hive-mind-disk-baseline-baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b'; i=0; while [ ! -e "$gate" ] && [ "$i" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec 'fix' 'https://github.com/link-assistant/agent' '--ci-cd' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'en'
+Environment: docker
+Mode: detached
+Session: baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Image: konard/hive-mind-dind:2.11.1
+Platform: linux
+Node Version: v24.3.0
+Working Directory: /home/box
+==================================================
+
+Command started in detached docker container: baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Container ID: da6728a1948d
+Container will exit automatically after command completes.
+Container will be removed after successful completion.
+Container will be kept if the command fails or Docker reports OOMKilled.
+Remove when done: docker rm -f baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Attach with: docker attach baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+View logs: docker logs baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Live log: /tmp/start-command/logs/isolation/docker/0fd1960e-3da1-45a2-9945-15ea01ad2528.log
+[dind-entrypoint] Starting dockerd (storage-driver=fuse-overlayfs, data-root=/var/lib/docker)
+[dind-entrypoint] dockerd is ready after 1s
+[dind-entrypoint] image preload/passthrough complete
+<anonymous_script>:711
+      throw new Error(
+            ^
+
+Error: Failed to install command-stream@latest globally into '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rmdir '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples'
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-07-31T18_06_17_918Z-debug-0.log
+  - 2/3: npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rmdir '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples'
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-07-31T18_06_21_278Z-debug-0.log
+  - 3/3: npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples
+npm error errno -39
+npm error ENOTEMPTY: directory not empty, rmdir '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples'
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-07-31T18_06_26_141Z-debug-0.log
+    at installPackage (eval at ensureUseM (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/use-m-bootstrap.lib.mjs:55:23), <anonymous>:711:13)
+    at async ensurePackageInstalled (eval at ensureUseM (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/use-m-bootstrap.lib.mjs:55:23), <anonymous>:739:7)
+    at async npm (eval at ensureUseM (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/use-m-bootstrap.lib.mjs:55:23), <anonymous>:753:23)
+    at async eval (eval at ensureUseM (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/use-m-bootstrap.lib.mjs:55:23), <anonymous>:1159:26)
+    at async useWithRetry (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/use-with-retry.lib.mjs:60:14)
+    at async file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/github-entity-validation.lib.mjs:8:15 {
+  [cause]: Error: Command failed: npm install -g command-stream-v-latest@npm:command-stream@latest
+  npm error code ENOTEMPTY
+  npm error syscall rmdir
+  npm error path /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples
+  npm error errno -39
+  npm error ENOTEMPTY: directory not empty, rmdir '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples'
+  npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-07-31T18_06_26_141Z-debug-0.log
+  
+      at genericNodeError (node:internal/errors:984:15)
+      at wrappedFn (node:internal/errors:538:14)
+      at ChildProcess.exithandler (node:child_process:422:12)
+      at ChildProcess.emit (node:events:524:28)
+      at maybeClose (node:internal/child_process:1104:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:304:5) {
+    code: 217,
+    killed: false,
+    signal: null,
+    cmd: 'npm install -g command-stream-v-latest@npm:command-stream@latest',
+    stdout: '',
+    stderr: 'npm error code ENOTEMPTY\n' +
+      'npm error syscall rmdir\n' +
+      'npm error path /home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples\n' +
+      'npm error errno -39\n' +
+      "npm error ENOTEMPTY: directory not empty, rmdir '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules/command-stream-v-latest/examples'\n" +
+      'npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-07-31T18_06_26_141Z-debug-0.log\n'
+  }
+}
+
+Node.js v20.20.2
+
+Container kept for investigation: baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Reason: exitCode=1 oomKilled=false
+Inspect: docker exec -it baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b sh (if running) or docker start -ai baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+Remove when done: docker rm -f baa7e90e-c6c6-4f2a-90c7-a1039fd4f85b
+
+==================================================
+Finished: 2026-07-31 18:06:29.295
+Exit Code: 1

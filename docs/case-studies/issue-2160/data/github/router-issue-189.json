@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nv0.77.0 has two different administrator credential models:\n\n- startup can mint an admin-scoped `la_sk_` HS256 JWT;\n- the web first-visitor claim and `/api/admin/rotate` return `la_admin_...` opaque values with no JWT segments.\n\nA live two-phase browser claim confirms this (`la_admin_` has one dot-separated part; an issued AI token has three). The opaque credential is stored as a digest in `admin-claim.json` and does not carry the JWT `sub`/`iat`/`exp`/`scope` claims requested in #49. Telegram/VK share this parallel claim credential.\n\nThis leaves the primary browser/chat administrator outside the token model that was introduced specifically to provide identity, expiry, scope, revocation, and rotation. It also makes `TOKEN_ADMIN_KEY`, startup admin JWT, and first-visitor admin credentials behave differently.\n\n## Expected behavior\n\n- A confirmed first visitor in web, Telegram, or VK receives an admin-scoped `la_sk_` JWT with `sub`, `iat`, `exp`, label and `scope=admin` (or an explicitly documented equivalent JWT claim).\n- The administrator can choose/limit TTL; expiry is enforced uniformly.\n- Rotation atomically mints a new admin JWT and revokes the old JWT by id.\n- The UI stores the JWT in localStorage only after read-back, preserving the existing two-phase anti-bricking handshake.\n- The single global first-claim lock remains shared by web, Telegram and VK.\n- `TOKEN_ADMIN_KEY` remains an optional bootstrap/compatibility credential, and an externally supplied admin JWT can be provided through environment/secret file without creating a second credential model.\n- Admin-token list/show/revoke/audit behavior uses the same persistent token manager and never exposes token values after issuance.\n- Migration preserves existing `la_admin_` claims long enough for an operator to rotate them into JWTs, with a clear doctor warning.\n\nAdd end-to-end tests for web claim, chat claim, cross-channel claim exclusion, expiry, restart persistence, and atomic rotation.",
+  "closedAt": "2026-08-16T20:51:39Z",
+  "createdAt": "2026-08-15T15:46:14Z",
+  "labels": [],
+  "number": 189,
+  "state": "CLOSED",
+  "title": "Use the scoped JWT model for first-visitor web/chat admin credentials",
+  "updatedAt": "2026-08-16T20:51:39Z",
+  "url": "https://github.com/link-assistant/router/issues/189"
+}

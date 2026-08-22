@@ -1,0 +1,41 @@
+=== Start Command Log ===
+Execution ID: f9cc6a52-a237-4f70-a130-5bd7e540736a
+Timestamp: 2026-07-20 11:44:53.183
+Command: gate='/tmp/hive-mind-disk-baseline-4aff031c-4d1a-43ce-933c-3d774977cb57'; i=0; while [ ! -e "$gate" ] && [ "$i" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec 'fix' 'https://github.com/link-assistant/formal-ai' '--ci-cd' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'en'
+Environment: docker
+Mode: detached
+Session: 4aff031c-4d1a-43ce-933c-3d774977cb57
+Image: konard/hive-mind-dind:2.8.7
+Platform: linux
+Node Version: v24.3.0
+Working Directory: /home/box
+==================================================
+
+Command started in detached docker container: 4aff031c-4d1a-43ce-933c-3d774977cb57
+Container ID: 40ab794ec7dd
+Container will exit automatically after command completes.
+Container will be removed after successful completion.
+Container will be kept if the command fails or Docker reports OOMKilled.
+Remove when done: docker rm -f 4aff031c-4d1a-43ce-933c-3d774977cb57
+Attach with: docker attach 4aff031c-4d1a-43ce-933c-3d774977cb57
+View logs: docker logs 4aff031c-4d1a-43ce-933c-3d774977cb57
+Live log: /tmp/start-command/logs/isolation/docker/f9cc6a52-a237-4f70-a130-5bd7e540736a.log
+[dind-entrypoint] Starting dockerd (storage-driver=fuse-overlayfs, data-root=/var/lib/docker)
+[dind-entrypoint] dockerd is ready after 1s
+[dind-entrypoint] image preload/passthrough complete
+🔧 /fix --ci-cd for link-assistant/formal-ai
+   Default branch: main
+   Latest commit:  bd0bac8
+   CI/CD runs:     2 (1 not passing)
+
+📝 Creating remediation issue...
+❌ Failed to install command-stream@latest globally into '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules'.
+
+Container kept for investigation: 4aff031c-4d1a-43ce-933c-3d774977cb57
+Reason: exitCode=1 oomKilled=false
+Inspect: docker exec -it 4aff031c-4d1a-43ce-933c-3d774977cb57 sh (if running) or docker start -ai 4aff031c-4d1a-43ce-933c-3d774977cb57
+Remove when done: docker rm -f 4aff031c-4d1a-43ce-933c-3d774977cb57
+
+==================================================
+Finished: 2026-07-20 11:45:08.473
+Exit Code: 1

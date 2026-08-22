@@ -1,0 +1,626 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      description:
+        description: 'Release description (optional)'
+        required: false
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  # === DETECT CHANGES - determines which jobs should run ===
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      py-changed: ${{ steps.changes.outputs.py-changed }}
+      tests-changed: ${{ steps.changes.outputs.tests-changed }}
+      package-changed: ${{ steps.changes.outputs.package-changed }}
+      docs-changed: ${{ steps.changes.outputs.docs-changed }}
+      workflow-changed: ${{ steps.changes.outputs.workflow-changed }}
+      any-code-changed: ${{ steps.changes.outputs.any-code-changed }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Detect changes
+        id: changes
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python "${{ steps.python_layout.outputs.root }}/scripts/detect_code_changes.py"
+
+  # REQUIRED CI CHECKS - All must pass before release
+  # These jobs ensure code quality and tests pass before any release
+
+  # === LINT AND FORMAT CHECK ===
+  # Lint runs independently of changelog check - it's a fast check that should always run
+  # See: https://github.com/link-assistant/hive-mind/pull/1024 for why this dependency was removed
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [detect-changes]
+    # always() && !cancelled() lets this job evaluate even though detect-changes
+    # is skipped for workflow_dispatch; without it, the skipped dependency would
+    # propagate and skip lint despite the workflow_dispatch condition below.
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.py-changed == 'true' ||
+        needs.detect-changes.outputs.tests-changed == 'true' ||
+        needs.detect-changes.outputs.docs-changed == 'true' ||
+        needs.detect-changes.outputs.package-changed == 'true' ||
+        needs.detect-changes.outputs.workflow-changed == 'true'
+      )
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install dependencies
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Ruff linting
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          ruff check .
+
+      - name: Check Ruff formatting
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          ruff format --check .
+
+      - name: Run mypy
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          mypy src
+
+      - name: Check file size limit
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python scripts/check_file_size.py
+
+  # === TEST ===
+  # Test on latest Python version only
+  test:
+    name: Test (Python 3.13)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [detect-changes]
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    # always() && !cancelled() lets this job evaluate even though detect-changes
+    # is skipped for workflow_dispatch; without it, the skipped dependency would
+    # propagate and skip test despite the workflow_dispatch condition below.
+    if: |
+      always() && !cancelled() && (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        needs.detect-changes.outputs.py-changed == 'true' ||
+        needs.detect-changes.outputs.tests-changed == 'true' ||
+        needs.detect-changes.outputs.package-changed == 'true' ||
+        needs.detect-changes.outputs.workflow-changed == 'true'
+      )
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install dependencies
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          pytest tests/ -v --cov=src --cov-report=xml --cov-report=term
+
+      - name: Report skipped Codecov upload
+        if: env.CODECOV_TOKEN == ''
+        run: echo "::notice::Skipping Codecov upload because CODECOV_TOKEN is not configured"
+
+      - name: Upload coverage to Codecov
+        if: env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v4
+        with:
+          file: ${{ steps.python_layout.outputs.root }}/coverage.xml
+          token: ${{ env.CODECOV_TOKEN }}
+          disable_search: true
+          fail_ci_if_error: true
+
+  # === BUILD PACKAGE ===
+  # Build package - runs if lint and test pass, or were skipped (docs-only PR)
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [detect-changes, lint, test]
+    # Run if: push/dispatch event, OR lint/test succeeded, OR lint/test were skipped (docs-only PR)
+    if: |
+      always() && (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        (
+          (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+          (needs.test.result == 'success' || needs.test.result == 'skipped')
+        )
+      )
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python -m build
+
+      - name: Check package
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          twine check dist/*
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: ${{ steps.python_layout.outputs.dist_dir }}
+
+  # === CHANGELOG CHECK - only runs on PRs with code changes ===
+  # Docs-only PRs (./docs folder, markdown files) don't require changelog fragments
+  changelog:
+    name: Changelog Fragment Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [detect-changes]
+    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install scriv
+        run: pip install "scriv[toml]"
+
+      - name: Check for changelog fragments
+        run: |
+          PYTHON_ROOT="${{ steps.python_layout.outputs.root }}"
+          if [ "$PYTHON_ROOT" = "." ]; then
+            FRAGMENT_DIR="changelog.d"
+            SOURCE_PATTERN="^(src/|tests/|scripts/)"
+          else
+            FRAGMENT_DIR="$PYTHON_ROOT/changelog.d"
+            SOURCE_PATTERN="^$PYTHON_ROOT/(src/|tests/|scripts/)"
+          fi
+
+          # Get list of fragment files (excluding README and template)
+          FRAGMENTS=$(find "$FRAGMENT_DIR" -name "*.md" ! -name "README.md" ! -name "*.j2" 2>/dev/null | wc -l)
+
+          # Get changed files in PR
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          # Check if any source files changed (excluding docs and config)
+          SOURCE_CHANGED=$(echo "$CHANGED_FILES" | grep -E "$SOURCE_PATTERN" | wc -l)
+
+          if [ "$SOURCE_CHANGED" -gt 0 ] && [ "$FRAGMENTS" -eq 0 ]; then
+            echo "::warning::No changelog fragment found. Please run 'scriv create' and document your changes."
+            echo ""
+            echo "To create a changelog fragment:"
+            echo "  pip install 'scriv[toml]'"
+            echo "  scriv create"
+            echo ""
+            echo "This is similar to adding a changeset in JavaScript projects."
+            echo "See changelog.d/README.md for more information."
+            # Note: This is a warning, not a failure, to allow flexibility
+            # Change 'exit 0' to 'exit 1' to make it required
+            exit 0
+          fi
+
+          echo "✓ Changelog check passed"
+
+  # RELEASE JOBS - Only run after all CI checks pass
+
+  # Automatic release on push to main (if version changed)
+  auto-release:
+    name: Auto Release
+    needs: [lint, test, build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Check if version changed
+        id: version_check
+        run: |
+          PYTHON_ROOT="${{ steps.python_layout.outputs.root }}"
+          PYPROJECT="$PYTHON_ROOT/pyproject.toml"
+
+          # Get current version from pyproject.toml
+          CURRENT_VERSION=$(grep -Po '(?<=^version = ")[^"]*' "$PYPROJECT")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+          if [ "${{ steps.python_layout.outputs.multi_language }}" = "true" ]; then
+            TAG="py_v$CURRENT_VERSION"
+          else
+            TAG="v$CURRENT_VERSION"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          # Check if tag exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, skipping release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "New version detected: $CURRENT_VERSION ($TAG)"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download artifacts
+        if: steps.version_check.outputs.should_release == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        if: steps.version_check.outputs.should_release == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Smoke test published package
+        if: steps.version_check.outputs.should_release == 'true'
+        run: |
+          python scripts/smoke_test_published_package.py \
+            --version "${{ steps.version_check.outputs.current_version }}"
+
+      - name: Create GitHub Release
+        if: steps.version_check.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "${{ steps.python_layout.outputs.root }}/scripts/create_github_release.py" \
+            --version "${{ steps.version_check.outputs.current_version }}" \
+            --repository "${{ github.repository }}" \
+            --repository-root "."
+
+  # Manual release via workflow_dispatch - only after CI passes
+  manual-release:
+    name: Manual Release
+    needs: [lint, test, build]
+    # always() && !cancelled() prevents the skipped detect-changes dependency from
+    # propagating through lint/test/build and silently skipping the release.
+    # The explicit result checks ensure release only proceeds after CI passes.
+    if: |
+      always() && !cancelled() &&
+      github.event_name == 'workflow_dispatch' &&
+      needs.lint.result == 'success' &&
+      needs.test.result == 'success' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Detect Python layout
+        id: python_layout
+        run: |
+          if [ -f pyproject.toml ]; then
+            PYTHON_ROOT="."
+            MULTI_LANGUAGE="false"
+            echo "root=." >> "$GITHUB_OUTPUT"
+            echo "multi_language=false" >> "$GITHUB_OUTPUT"
+          elif [ -f python/pyproject.toml ]; then
+            PYTHON_ROOT="python"
+            MULTI_LANGUAGE="true"
+            echo "root=python" >> "$GITHUB_OUTPUT"
+            echo "multi_language=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Could not find pyproject.toml at repo root or python/pyproject.toml"
+            exit 1
+          fi
+
+          if [ "$PYTHON_ROOT" = "." ]; then
+            echo "dist_dir=dist" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist_dir=$PYTHON_ROOT/dist" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Detected Python layout: root=$PYTHON_ROOT, multi_language=$MULTI_LANGUAGE"
+
+      - name: Install dependencies
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python -m pip install --upgrade pip
+          pip install build twine "scriv[toml]"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Collect changelog fragments
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          # Check if there are any fragments to collect
+          FRAGMENTS=$(find changelog.d -name "*.md" ! -name "README.md" ! -name "*.j2" 2>/dev/null | wc -l)
+          if [ "$FRAGMENTS" -gt 0 ]; then
+            echo "Found $FRAGMENTS changelog fragment(s), collecting..."
+            scriv collect --version "${{ github.event.inputs.bump_type }}"
+          else
+            echo "No changelog fragments found, skipping collection"
+          fi
+
+      - name: Version and commit
+        id: version
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python scripts/version_and_commit.py \
+            --bump-type "${{ github.event.inputs.bump_type }}" \
+            --description "${{ github.event.inputs.description }}"
+
+      - name: Build package
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          python -m build
+
+      - name: Check package
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        run: |
+          cd "${{ steps.python_layout.outputs.root }}"
+          twine check dist/*
+
+      - name: Publish to PyPI
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ steps.python_layout.outputs.dist_dir }}
+
+      - name: Smoke test published package
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        run: |
+          python scripts/smoke_test_published_package.py \
+            --version "${{ steps.version.outputs.new_version }}"
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python "${{ steps.python_layout.outputs.root }}/scripts/create_github_release.py" \
+            --version "${{ steps.version.outputs.new_version }}" \
+            --repository "${{ github.repository }}" \
+            --repository-root "."

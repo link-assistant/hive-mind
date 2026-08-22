@@ -1,0 +1,21 @@
+Detection by shape (findings; 0 = missed)
+
+candidate                                            plain                  base64  base64 in escaped JSON          wrapped base64
+----------------------------------------------------------------------------------------------------------------------------------
+hive-mind core (ours, 0/1)                               1                       1                       1                       1
+secretlint (recommended preset)                          1                       0                       0                       0
+@sanity-labs/secret-scan                                 1                       0                       0                       0
+@visulima/secret-scanner                          unusable                unusable                unusable                unusable
+                                  ↳ v0.0.1 is a placeholder — "OIDC trusted publishing setup package for @visulima/secret-scanner"; no code is published
+detect-secrets (npm)                              unusable                unusable                unusable                unusable
+                                  ↳ v1.0.6 publishes only a CLI (bin: detect-secrets-launcher) wrapping Yelp's Python tool; no library entry point
+redact-secrets                                           0                       0                       0                       0
+
+Findings on /tmp/incident-2156.log (16942751 bytes) — a masking layer redacts every one of these
+
+hive-mind core (ours, 0/1)                1 findings in 7716 ms
+secretlint (recommended preset)           0 findings in 387 ms
+@sanity-labs/secret-scan              95347 findings in 64110 ms
+@visulima/secret-scanner           unusable — v0.0.1 is a placeholder — "OIDC trusted publishing setup package for @visulima/secret-scanner"; no code is published
+detect-secrets (npm)               unusable — v1.0.6 publishes only a CLI (bin: detect-secrets-launcher) wrapping Yelp's Python tool; no library entry point
+redact-secrets                            0 findings in 581 ms

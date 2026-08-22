@@ -1,0 +1,1415 @@
+/**
+ * Session monitoring for Telegram bot
+ *
+ * Tracks active sessions (screen-based or isolation-based) and sends
+ * notifications when they complete.
+ *
+ * Two tracking modes:
+ * 1. Screen mode (default): Uses `screen -ls` to detect session completion
+ * 2. Isolation mode: Uses `$ --status <uuid>` from start-command CLI for reliable tracking
+ *
+ * Session state is stored in-memory and, since issue #1927, mirrored to a
+ * durable on-disk store so a bot restart can reload and resume monitoring of
+ * detached sessions that were still running when the previous process died. The
+ * `$` CLI (start-command) is accessed purely via its CLI interface, not as a
+ * library dependency.
+ *
+ * @see https://github.com/link-foundation/start
+ * @see https://github.com/link-assistant/hive-mind/issues/380
+ * @see https://github.com/link-assistant/hive-mind/issues/1927
+ */
+import { exec as execCallback } from 'child_process';
+import fs from 'fs/promises';
+import { promisify } from 'util';
+import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifySessionOutcome } from './work-session-formatting.lib.mjs';
+import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
+import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
+import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
+// Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
+import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
+import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleExecutingState as resolveStaleExecutingStateImpl } from './session-monitor.stale-executing.lib.mjs';
+// Issue #2134: kill-cause diagnostics + the matching pull-request notice.
+import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
+import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
+export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
+export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
+const exec = promisify(execCallback);
+// Lazy import for isolation runner (only when needed)
+let _isolationRunner = null;
+async function getIsolationRunner() {
+  if (!_isolationRunner) {
+    _isolationRunner = await import('./isolation-runner.lib.mjs');
+  }
+  return _isolationRunner;
+}
+// In-memory session store
+const activeSessions = new Map();
+// Issue #1927: optional durable mirror of the in-memory registry. When set (by the bot at startup via setSessionStore), every track/complete is persisted so a restart can reload and keep monitoring detached sessions. Left null in unit tests and one-off CLI paths, where in-memory tracking is sufficient.
+let sessionStore = null;
+let sessionLogger = null;
+/**
+ * Attach a durable session store (see session-store.lib.mjs) so tracked sessions
+ * survive a bot restart. Passing null disconnects the store (used by tests).
+ * @param {object|null} store
+ */
+export function setSessionStore(store) {
+  sessionStore = store || null;
+}
+/**
+ * Attach a structured logger (see bot-logger.lib.mjs) so session lifecycle
+ * transitions are recorded with timestamps. Optional; console is used otherwise.
+ * @param {object|null} logger
+ */
+export function setSessionLogger(logger) {
+  sessionLogger = logger || null;
+}
+function logEvent(type, data) {
+  if (sessionLogger && typeof sessionLogger.event === 'function') {
+    sessionLogger.event(type, data);
+  }
+}
+export function resetSessionMonitorForTests() {
+  activeSessions.clear();
+  sessionStore = null;
+  sessionLogger = null;
+}
+/**
+ * Inject a stub isolation runner so tests can drive getIsolationSessionState
+ * without spawning real `$ --status` / docker probes. Pass `null` to restore the
+ * lazy real import on the next call. See issue #1939.
+ */
+export function __setIsolationRunnerForTests(runner) {
+  _isolationRunner = runner;
+}
+/**
+ * Test-only accessor for getIsolationSessionState (otherwise module-private).
+ * Used by tests/test-issue-1939-docker-isolation.mjs to verify that an ambiguous
+ * docker terminal status falls through to the live container cross-check.
+ */
+export function getIsolationSessionStateForTests(sessionName, sessionInfo, options = {}) {
+  return getIsolationSessionState(sessionName, sessionInfo, options);
+}
+/**
+ * Issue #1586: Timeout for non-isolation sessions.
+ * Non-isolation (plain start-screen) sessions cannot reliably detect completion
+ * because the screen stays alive via `exec bash`. To prevent false positives
+ * that permanently block users, non-isolation sessions are auto-expired after
+ * this timeout. This still prevents accidental duplicate commands within the
+ * timeout window (5-10 minutes).
+ *
+ * Once --isolation is fully tested and becomes the default, this timeout
+ * mechanism will no longer be needed.
+ */
+export const NON_ISOLATION_SESSION_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+export const DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY = 'on-failure';
+export const DOCKER_TASK_CONTAINER_KEEP_POLICIES = ['always', 'on-failure', 'never'];
+export function resolveDockerTaskContainerKeepPolicy({ env = process.env, verbose = false } = {}) {
+  const raw = String(env?.HIVE_MIND_KEEP_TASK_CONTAINER || '')
+    .trim()
+    .toLowerCase();
+  if (!raw) return DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY;
+  if (DOCKER_TASK_CONTAINER_KEEP_POLICIES.includes(raw)) return raw;
+  if (verbose) {
+    console.log(`[VERBOSE] Invalid HIVE_MIND_KEEP_TASK_CONTAINER='${raw}', using '${DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY}'`);
+  }
+  return DEFAULT_DOCKER_TASK_CONTAINER_KEEP_POLICY;
+}
+/**
+ * Check if a screen session exists
+ * @param {string} sessionName - Name of the screen session to check
+ * @returns {Promise<boolean>} True if session exists, false otherwise
+ */
+export async function checkScreenSessionExists(sessionName) {
+  try {
+    const { stdout } = await exec('screen -ls');
+    return stdout.includes(sessionName);
+  } catch {
+    // screen -ls returns exit code 1 when no sessions exist
+    return false;
+  }
+}
+/**
+ * Track a new session for completion monitoring
+ *
+ * @param {string} sessionName - Name of the screen session or isolation session UUID
+ * @param {Object} sessionInfo - Session metadata
+ * @param {number} sessionInfo.chatId - Telegram chat ID to notify
+ * @param {number} [sessionInfo.messageId] - Telegram message ID to update on completion
+ * @param {Date} sessionInfo.startTime - When the session started
+ * @param {string} sessionInfo.url - GitHub URL being processed
+ * @param {string} sessionInfo.command - Command type (solve/hive)
+ * @param {string} [sessionInfo.isolationBackend] - Isolation backend if using isolation mode
+ * @param {string} [sessionInfo.sessionId] - UUID for isolation-based sessions
+ * @param {boolean} verbose - Whether to log verbose output
+ */
+export function trackSession(sessionName, sessionInfo, verbose = false) {
+  activeSessions.set(sessionName, sessionInfo);
+  const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'screen';
+  if (verbose) {
+    console.log(`[VERBOSE] Session ${sessionName} tracked in memory (mode: ${mode})`);
+  }
+  // Issue #1927: mirror to the durable store so a restart can resume monitoring. Only isolation-backed sessions are persisted — they are the ones tracked in `$` (start-command) with a reliable status record (requirement #2). Plain screen sessions are timeout-based best-effort; resuming them after a restart could fabricate a "finished" message with no real exit code, so they stay in-memory only.
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.persist(sessionName, sessionInfo);
+    } catch (error) {
+      console.error(`[session-monitor] Could not persist session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_tracked', {
+    sessionName,
+    mode,
+    url: sessionInfo.url || null,
+    command: sessionInfo.command || null,
+    sessionId: sessionInfo.sessionId || null,
+    // Issue #2154: `$ --list` prints start-command's execution UUID, not the
+    // session name. Logging both is what makes the two views joinable.
+    executionUuid: sessionInfo.executionUuid || null,
+    startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
+  });
+}
+/**
+ * Whether a session should be mirrored to the durable store. Only isolation
+ * sessions with a start-command UUID qualify (see trackSession rationale).
+ * @param {object} sessionInfo
+ * @returns {boolean}
+ */
+function isPersistableSession(sessionInfo) {
+  return Boolean(sessionInfo?.isolationBackend && sessionInfo?.sessionId);
+}
+function persistSessionSnapshot(sessionName, sessionInfo) {
+  if (!sessionStore || !isPersistableSession(sessionInfo)) return;
+  try {
+    sessionStore.persist(sessionName, sessionInfo);
+  } catch {
+    /* best effort — persistence must never break monitoring */
+  }
+}
+/**
+ * Look up the in-memory record for a session id (UUID for isolation sessions
+ * or the screen session name for non-isolation sessions). Returns null when no
+ * record exists — for example, after a process restart or for sessions that
+ * were never tracked through the Telegram bot. Used by `/log` to discover the
+ * originating chat id and the GitHub URL associated with a session.
+ *
+ * @param {string} sessionName
+ * @returns {Object|null}
+ */
+export function getTrackedSessionInfo(sessionName) {
+  if (!sessionName) return null;
+  return activeSessions.get(sessionName) || null;
+}
+/**
+ * Issue #2052: record that an operator explicitly requested a session stop
+ * (e.g. Telegram `/stop <uuid>`). The subsequent SIGTERM/SIGKILL exit (143/137,
+ * delivered by `docker stop`) is then reported as "🛑 Stopped by user" instead
+ * of the misleading "out of memory or forced kill (SIGKILL)". Matches by
+ * tracking key OR by the isolation `sessionId` UUID (which is how `/stop`
+ * addresses sessions).
+ * @param {string} sessionId - UUID or session name of the session being stopped
+ * @param {{requestedBy?: string|null, verbose?: boolean}} [opts]
+ * @returns {boolean} True when a tracked session was marked.
+ */
+export function markSessionStopRequested(sessionId, { requestedBy = null, verbose = false } = {}) {
+  if (!sessionId) return false;
+  const target = activeSessions.get(sessionId) || Array.from(activeSessions.values()).find(info => info?.sessionId === sessionId) || null;
+  if (!target) {
+    if (verbose) console.log(`[VERBOSE] markSessionStopRequested: no tracked session found for ${sessionId}`);
+    return false;
+  }
+  target.stopRequestedByUser = true;
+  if (requestedBy) target.stopRequestedBy = requestedBy;
+  const key = target.sessionId || sessionId;
+  persistSessionSnapshot(key, target);
+  if (verbose) console.log(`[VERBOSE] markSessionStopRequested: ${sessionId} marked stopped by user${requestedBy ? ` (${requestedBy})` : ''}`);
+  logEvent('session_stop_requested', { sessionName: key, sessionId, requestedBy: requestedBy || null });
+  return true;
+}
+/**
+ * Stop tracking a session that was registered optimistically but never actually
+ * started (e.g. the start-command launch failed). Removes it from the in-memory
+ * map and the durable store without emitting a `session_completed` audit event —
+ * the session never ran, so it has no exit code to record (issue #1946).
+ *
+ * Issue #2154: the durable structured log recorded only
+ * `session_untracked {"sessionName":…}`. Why the session disappeared a second
+ * after it was announced lived on untimestamped console lines, so an incident
+ * could not be reconstructed from the timestamped log alone. Callers now pass
+ * the reason and it is recorded with the event.
+ *
+ * @param {string} sessionName - Name/UUID of the session to drop
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {object} [details] - Extra context recorded with the `session_untracked` event
+ * @param {string} [details.reason] - Why the session was dropped (e.g. the launch error)
+ */
+export function untrackSession(sessionName, verbose = false, details = {}) {
+  if (!sessionName) return;
+  const sessionInfo = activeSessions.get(sessionName) || null;
+  const existed = activeSessions.delete(sessionName);
+  const reason = typeof details?.reason === 'string' && details.reason.trim() ? details.reason.trim() : null;
+  if (verbose && existed) {
+    console.log(`[VERBOSE] Session ${sessionName} untracked (launch failed before it started)${reason ? `: ${reason}` : ''}`);
+  }
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.remove(sessionName, { status: 'launch-failed', exitCode: null, reason });
+    } catch (error) {
+      console.error(`[session-monitor] Could not remove untracked session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_untracked', {
+    sessionName,
+    reason,
+    url: sessionInfo?.url || null,
+    command: sessionInfo?.command || null,
+    tool: sessionInfo?.tool || null,
+    isolationBackend: sessionInfo?.isolationBackend || null,
+  });
+}
+/**
+ * Get the number of active sessions being tracked
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {number} Number of active sessions
+ */
+export function getActiveSessionCount(verbose = false) {
+  if (verbose) {
+    console.log(`[VERBOSE] Active sessions: ${activeSessions.size}`);
+  }
+  return activeSessions.size;
+}
+/**
+ * Get all active sessions
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Array<{sessionName: string, sessionInfo: Object}>} Array of active sessions
+ */
+function getActiveSessions(verbose = false) {
+  const sessions = [];
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    sessions.push({ sessionName, sessionInfo });
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] Retrieved ${sessions.length} active session(s)`);
+  }
+  return sessions;
+}
+/**
+ * Remove a session from tracking
+ * @param {string} sessionName - Name of the session to remove
+ * @param {boolean} verbose - Whether to log verbose output
+ */
+function completeSession(sessionName, exitCode = 0, verbose = false, status = null) {
+  const sessionInfo = activeSessions.get(sessionName) || null;
+  activeSessions.delete(sessionName);
+  if (verbose) {
+    console.log(`[VERBOSE] Session ${sessionName} removed from tracking (exit: ${exitCode}${status ? `, status: ${status}` : ''})`);
+  }
+  // Issue #1927: drop from the durable snapshot (and append a `complete` audit event recording how it ended) so a later restart does not try to resume it.
+  if (sessionStore && isPersistableSession(sessionInfo)) {
+    try {
+      sessionStore.remove(sessionName, { status, exitCode });
+    } catch (error) {
+      console.error(`[session-monitor] Could not remove persisted session ${sessionName}: ${error.message}`);
+    }
+  }
+  logEvent('session_completed', { sessionName, exitCode: exitCode ?? null, status: status || null });
+}
+function isMessageAlreadyUpdatedError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('message is not modified');
+}
+function normalizeSessionUrl(url) {
+  // Strip the fragment first, then any trailing slashes, so URLs that carry a fragment after a trailing slash (e.g. `.../issues/18/#comment`) normalize to the same value as the bare `.../issues/18`. Doing it in the other order would leave a dangling trailing slash. (Issue #1871.)
+  return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
+}
+const GITHUB_PULL_REQUEST_URL_RE = /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
+export function extractPullRequestUrlFromText(text, { owner = null, repo = null } = {}) {
+  if (!text) return null;
+  const expectedOwner = owner ? String(owner).toLowerCase() : null;
+  const expectedRepo = repo ? String(repo).toLowerCase() : null;
+  const value = String(text);
+  GITHUB_PULL_REQUEST_URL_RE.lastIndex = 0;
+  let match;
+  while ((match = GITHUB_PULL_REQUEST_URL_RE.exec(value)) !== null) {
+    const [, matchOwner, matchRepo, pullNumber] = match;
+    if (expectedOwner && matchOwner.toLowerCase() !== expectedOwner) continue;
+    if (expectedRepo && matchRepo.toLowerCase() !== expectedRepo) continue;
+    return `https://github.com/${matchOwner}/${matchRepo}/pull/${pullNumber}`;
+  }
+  return null;
+}
+async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
+  if (!logPath) return null;
+  try {
+    const logText = await readFile(logPath, 'utf8');
+    const pullRequestUrl = extractPullRequestUrlFromText(logText, { owner: ctx.owner, repo: ctx.repo });
+    if (pullRequestUrl && verbose) {
+      console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
+    }
+    return pullRequestUrl;
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect session log ${logPath} for PR URL: ${error?.message || error}`);
+    }
+    return null;
+  }
+}
+/**
+ * Issue #1945/#1988: Parse `📊 [DISK]` repository-size checkpoint markers out
+ * of the captured solve log, optionally add docker writable-layer sizes, and
+ * build the Telegram extraSection. Returns an empty string if there is no
+ * repository or docker filesystem data to show.
+ */
+export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
+  if (!logPath && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
+  try {
+    const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
+    let logText = '';
+    if (logPath) {
+      try {
+        logText = await readFile(logPath, 'utf8');
+      } catch (readError) {
+        if (verbose) {
+          console.log(`[VERBOSE] Could not read session log ${logPath} for disk diagnostics: ${readError?.message || readError}`);
+        }
+      }
+    }
+    const parsed = diskLib.parseDiskMarkers(logText);
+    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
+    return diskLib.formatDiskDiagnosticsBlock(parsed, {
+      isolationBackend,
+      containerFilesystemStartBytes,
+      containerFilesystemAfterBytes,
+    });
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect session log ${logPath} for disk diagnostics: ${error?.message || error}`);
+    }
+    return '';
+  }
+}
+/**
+ * Issue #2161: Replay the `🚫 SUBSCRIPTION/ACCESS BLOCKED` report from the
+ * captured solve log into the Telegram completion message, so the operator is
+ * told that the account itself lost access (and not that "claude failed") on the
+ * surface they actually watch. Returns '' when the session hit no such block.
+ */
+export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = false, readFile = fs.readFile, locale = null } = {}) {
+  if (!logPath) return '';
+  try {
+    let logText = '';
+    try {
+      logText = await readFile(logPath, 'utf8');
+    } catch (readError) {
+      if (verbose) {
+        console.log(`[VERBOSE] Could not read session log ${logPath} for subscription block: ${readError?.message || readError}`);
+      }
+      return '';
+    }
+    const telegramLib = await import('./subscription-block-telegram.lib.mjs');
+    const parsed = telegramLib.parseSubscriptionBlockFromLog(logText);
+    if (!parsed) return '';
+    return telegramLib.formatSubscriptionBlockedSection(parsed, { locale });
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not build subscription block section for ${logPath}: ${error?.message || error}`);
+    }
+    return '';
+  }
+}
+async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
+  if (sessionInfo?.isolationBackend !== 'docker') return null;
+  const containerName = sessionInfo.sessionId || sessionName;
+  if (!containerName) return null;
+  try {
+    if (typeof sizeProvider === 'function') {
+      const bytes = await sizeProvider(containerName, { sessionName, sessionInfo, verbose });
+      return Number.isFinite(bytes) ? bytes : null;
+    }
+    const runner = await getIsolationRunner();
+    if (typeof runner.getDockerContainerWritableLayerSize !== 'function') return null;
+    return await runner.getDockerContainerWritableLayerSize(containerName, verbose);
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not inspect docker filesystem size for ${containerName}: ${error?.message || error}`);
+    }
+    return null;
+  }
+}
+async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
+  const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });
+  if (!Number.isFinite(bytes)) return null;
+  sessionInfo.containerFilesystemLastBytes = bytes;
+  sessionInfo.containerFilesystemLastObservedAt = new Date().toISOString();
+  persistSessionSnapshot(sessionName, sessionInfo);
+  return bytes;
+}
+function getLastKnownDockerContainerFilesystemSize(sessionInfo) {
+  return Number.isFinite(sessionInfo?.containerFilesystemLastBytes) ? sessionInfo.containerFilesystemLastBytes : null;
+}
+function isSuccessfulTaskCompletion({ exitCode = null, status = null } = {}) {
+  const outcome = classifySessionOutcome({ exitCode, status });
+  if (outcome.failed) return false;
+  if (exitCode === 0) return true;
+  const normalizedStatus = String(status || '')
+    .trim()
+    .toLowerCase();
+  return exitCode === null && (normalizedStatus === 'executed' || normalizedStatus === 'completed');
+}
+function formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) {
+  return ['*Docker container kept*', `Container: \`${containerName}\``, `Policy: \`HIVE_MIND_KEEP_TASK_CONTAINER=${keepPolicy}\``, `Inspect: \`docker start -ai ${containerName}\``, `Shell: \`docker exec -it ${containerName} sh\``, `Remove when done: \`docker rm -f ${containerName}\``].join('\n');
+}
+export function buildDockerTaskContainerCompletionAction({ sessionName, sessionInfo, exitCode = null, status = null, env = process.env, verbose = false } = {}) {
+  if (sessionInfo?.isolationBackend !== 'docker') {
+    return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+  }
+  const containerName = sessionInfo.sessionId || sessionName || null;
+  if (!containerName) {
+    return { applies: false, containerName: null, keepPolicy: null, shouldRemove: false, extraSection: '' };
+  }
+  const keepPolicy = resolveDockerTaskContainerKeepPolicy({ env, verbose });
+  const successful = isSuccessfulTaskCompletion({ exitCode, status });
+  const shouldKeep = keepPolicy === 'always' || (keepPolicy === 'on-failure' && !successful);
+  return {
+    applies: true,
+    containerName,
+    keepPolicy,
+    successful,
+    shouldRemove: !shouldKeep,
+    extraSection: shouldKeep ? formatDockerTaskContainerKeptSection({ containerName, keepPolicy }) : '',
+  };
+}
+async function applyDockerTaskContainerCompletionAction(action, { verbose = false, removeDockerContainer = null } = {}) {
+  if (!action?.applies || !action.shouldRemove || !action.containerName) return;
+  try {
+    const removeFn =
+      removeDockerContainer ||
+      (async (containerName, removeVerbose) => {
+        const runner = await getIsolationRunner();
+        return runner.removeDockerContainer(containerName, removeVerbose);
+      });
+    const result = await removeFn(action.containerName, verbose);
+    if (verbose) {
+      if (result?.success) {
+        console.log(`[VERBOSE] Removed docker task container '${action.containerName}' after terminal session completion`);
+      } else {
+        console.log(`[VERBOSE] Could not remove docker task container '${action.containerName}': ${result?.error || 'unknown error'}`);
+      }
+    }
+  } catch (error) {
+    if (verbose) {
+      console.log(`[VERBOSE] Could not remove docker task container '${action.containerName}': ${error?.message || error}`);
+    }
+  }
+}
+function isNonIsolationSessionActive(sessionName, sessionInfo, verbose = false) {
+  const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+  const elapsed = Date.now() - startTime.getTime();
+  if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+    if (verbose) {
+      console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s), removing from tracking`);
+    }
+    activeSessions.delete(sessionName);
+    return false;
+  }
+  if (verbose) {
+    const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+    console.log(`[VERBOSE] Non-isolation session ${sessionName} still within timeout (${remainingSec}s remaining)`);
+  }
+  return true;
+}
+function clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo) {
+  clearUnverifiedDockerTerminalMarkerImpl(sessionInfo, () => persistSessionSnapshot(sessionName, sessionInfo));
+}
+function shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime, verbose }) {
+  return shouldDeferUnverifiedDockerTerminalImpl(sessionName, sessionInfo, { exitCode, endTime, verbose, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
+}
+function resolveStaleExecutingState(sessionName, sessionInfo, statusResult, options) {
+  return resolveStaleExecutingStateImpl(sessionName, sessionInfo, statusResult, { ...options, persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo) });
+}
+async function getIsolationSessionState(sessionName, sessionInfo, options = {}) {
+  const { verbose = false, statusProvider = null, exitFromLog = null, backendAlive = null, sessionRunning = null } = options;
+  const sessionId = sessionInfo.sessionId || sessionName;
+  try {
+    const runner = await getIsolationRunner();
+    const statusResult = statusProvider ? await statusProvider(sessionId, sessionInfo) : await runner.querySessionStatus(sessionId, verbose);
+    if (statusResult?.exists && statusResult.status) {
+      if (statusResult.oomKilled === true) {
+        // Issue #2134: `oomKilled` is a *container* flag — the kernel sets it when any process in the cgroup is OOM-killed — so it is verified against the log footer and container liveness before a kill is announced.
+        return await resolveOomKilledState(sessionName, sessionInfo, statusResult, {
+          verbose,
+          runner,
+          exitFromLog,
+          backendAlive,
+          persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+        });
+      }
+      if (runner.isExecutingSessionStatus(statusResult.status)) {
+        // Issue #1927: an `executing` status is not trusted blindly — verify the process is really alive. start-command can keep reporting `executing` after a kill, which is exactly how an OOM-killed /solve went unreported.
+        const stale = await resolveStaleExecutingState(sessionName, sessionInfo, statusResult, { verbose, runner, exitFromLog, backendAlive });
+        if (stale) {
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} reported '${statusResult.status}' but is actually terminated (${stale.reason}); treating as ${stale.status} (exit ${stale.exitCode})`);
+          }
+          // Rewrite the status payload so downstream completion formatting sees the real terminal status/exit code instead of the stale `executing`.
+          const correctedStatus = stale.status || 'killed';
+          const corrected = { ...statusResult, status: correctedStatus, exitCode: stale.exitCode, endTime: statusResult.endTime || stale.endTime || null };
+          return { running: false, exitCode: stale.exitCode, status: correctedStatus, statusResult: corrected, stale: true };
+        }
+        // Back to a plain `executing` report: any earlier unverified terminal failure was provisional and is now moot (issue #2117).
+        clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
+        return { running: true, exitCode: null, status: statusResult.status, statusResult };
+      }
+      if (runner.isTerminalSessionStatus(statusResult.status)) {
+        const exitCode = statusResult.exitCode !== undefined ? statusResult.exitCode : null;
+        const logPath = statusResult.logPath || sessionInfo?.logPath || null;
+        // The log FOOTER is the authoritative terminal result. It is anchored on the `=====` separator (see parseSessionExitFooter), so — unlike the exit code `$ --status` derives from an unanchored full-log scan — it cannot be forged by output the wrapped command printed (issue #2117). Prefer it whenever it exists: that both recovers a real code from a missing/sentinel status (issue #1927) and overrides a fabricated one.
+        const readFooter = exitFromLog || runner.readSessionExitFromLog;
+        const footer = logPath && readFooter ? readFooter(logPath, { verbose }) : null;
+        if (footer?.finished) {
+          const footerExitCode = footer.exitCode;
+          const correctedStatus = classifyExitStatus(footerExitCode) || statusResult.status;
+          if (verbose && normalizeExitCode(footerExitCode) !== normalizeExitCode(exitCode)) {
+            console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}; the log footer says exit ${footerExitCode} (${correctedStatus}) and wins (issues #1927/#2117)`);
+          }
+          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
+          return { running: false, exitCode: footerExitCode, status: correctedStatus, statusResult: { ...statusResult, status: correctedStatus, exitCode: footerExitCode } };
+        }
+        // Issue #1939: a native docker session can report a terminal status ("executed") with the unknown exit-code sentinel (-1) while the container is still running. When the log footer above did not recover a real terminal exit, such a status is provisional — fall through to isSessionRunning() below, which cross-checks the live container via `docker inspect` before we notify the user the work finished.
+        const dockerSession = isDockerIsolation(sessionInfo, statusResult);
+        const ambiguousDockerTerminal = dockerSession && typeof runner.isUnknownDockerExitCode === 'function' && runner.isUnknownDockerExitCode(exitCode);
+        // Issue #2117: a docker terminal FAILURE with no corroborating footer is provisional too — start-command can fabricate that exit code from the command's own output. Give the real footer a moment to appear instead of announcing a failure the run never had. Only a *freshly* reported end time can still be in that race, so an older terminal record is still reported without delay.
+        const normalizedExitCode = normalizeExitCode(exitCode);
+        const unverifiedDockerFailure = dockerSession && !ambiguousDockerTerminal && normalizedExitCode !== null && normalizedExitCode !== 0;
+        if (unverifiedDockerFailure && shouldDeferUnverifiedDockerTerminal(sessionName, sessionInfo, { exitCode, endTime: statusResult.endTime || null, verbose })) {
+          return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
+        }
+        // Issue #2134: even after the grace window, a container that is verifiably still alive cannot have produced a terminal failure — the same liveness ladder used for `oomKilled` applies here, so no kill is announced while the working session keeps running (that is exactly what #2134 reported).
+        if (unverifiedDockerFailure) {
+          const probe = backendAlive || runner.checkBackendSessionAlive;
+          let alive = null;
+          if (probe && sessionInfo?.isolationBackend) {
+            try {
+              alive = await probe(sessionId, sessionInfo.isolationBackend, verbose);
+            } catch {
+              alive = null;
+            }
+          }
+          if (alive === true) {
+            if (verbose) {
+              console.log(`[VERBOSE] Session ${sessionName} reported terminal '${statusResult.status}' with exit ${exitCode}, but its docker backend is still alive; keeping the session tracked (issue #2134)`);
+            }
+            return { running: true, exitCode: null, status: statusResult.status, statusResult, deferred: true };
+          }
+        }
+        if (!ambiguousDockerTerminal) {
+          clearUnverifiedDockerTerminalMarker(sessionName, sessionInfo);
+          return { running: false, exitCode, status: statusResult.status, statusResult };
+        }
+      }
+    }
+    // The status record is unavailable (no `exists`/`status`). Fall back to a direct backend liveness check. `sessionRunning` is injectable purely so
+    // this path is testable without the real `$`/`screen` binaries; production
+    // always uses the runner's real check.
+    const checkRunning = sessionRunning || runner.isSessionRunning;
+    const running = await checkRunning(sessionId, {
+      backend: sessionInfo.isolationBackend,
+      verbose,
+    });
+    if (!running) {
+      // Issue #1927: the `$ --status` record is unavailable (e.g. garbage-
+      // collected while the bot was down) and the backend reports not-running.
+      // Before declaring a bare null exit — which classifies as success — try
+      // the log footer so a session that was killed while we were offline is
+      // reported as the kill it was, not a silent success.
+      const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+      if (logPath) {
+        const readFooter = exitFromLog || runner.readSessionExitFromLog;
+        const footer = readFooter ? readFooter(logPath, { verbose }) : null;
+        if (footer?.finished) {
+          const correctedStatus = classifyExitStatus(footer.exitCode) || (footer.exitCode === 0 ? 'executed' : 'failed');
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} has no live status record; recovered exit ${footer.exitCode} (${correctedStatus}) from log footer`);
+          }
+          return { running: false, exitCode: footer.exitCode, status: correctedStatus, statusResult: { ...(statusResult || {}), status: correctedStatus, exitCode: footer.exitCode, endTime: statusResult?.endTime || footer.endTime || null } };
+        }
+      }
+    }
+    return {
+      running,
+      exitCode: running ? null : (statusResult?.exitCode ?? null),
+      status: statusResult?.status || null,
+      statusResult,
+    };
+  } catch (error) {
+    if (verbose) {
+      console.error(`[VERBOSE] Error refreshing isolated session ${sessionId}: ${error.message}`);
+    }
+    return { running: false, exitCode: null, status: null, statusResult: null };
+  }
+}
+/**
+ * Monitor active sessions and send notifications when they complete
+ * @param {Object} bot - Telegraf bot instance for sending messages
+ * @param {boolean} verbose - Whether to log verbose output
+ */
+export async function monitorSessions(bot, verbose = false, options = {}) {
+  const sessions = getActiveSessions(verbose);
+  if (sessions.length === 0) {
+    return;
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
+  }
+  for (const { sessionName, sessionInfo } of sessions) {
+    let stillRunning;
+    let exitCode = null;
+    let statusResult = null;
+    let resolvedStatus = null;
+    let observedContainerFilesystemBytes = null;
+    if (sessionInfo.isolationBackend && sessionInfo.sessionId) {
+      // Isolation mode: use $ --status, with screen -ls only as a fallback
+      // when the status record is unavailable. Terminal $ statuses are
+      // authoritative so completed screen sessions do not stay blocked.
+      const state = await getIsolationSessionState(sessionName, sessionInfo, {
+        verbose,
+        statusProvider: options.statusProvider,
+        exitFromLog: options.exitFromLog,
+        backendAlive: options.backendAlive,
+        sessionRunning: options.sessionRunning,
+      });
+      stillRunning = state.running;
+      exitCode = state.exitCode;
+      statusResult = state.statusResult;
+      resolvedStatus = state.status || statusResult?.status || null;
+      if (state.stale && verbose) {
+        console.log(`[VERBOSE] Session ${sessionName} detected as killed/terminated despite an 'executing' status report (issue #1927 cross-check)`);
+      }
+      // Issue #1927: once start-command reveals the log path, record it in the
+      // durable snapshot. If the bot dies and restarts after start-command has
+      // garbage-collected the status record, the resumed session can still read
+      // the log footer to learn whether it was killed.
+      if (statusResult?.logPath && sessionInfo.logPath !== statusResult.logPath) {
+        sessionInfo.logPath = statusResult.logPath;
+        persistSessionSnapshot(sessionName, sessionInfo);
+      }
+      // Issue #2154: the same status record carries start-command's *execution*
+      // UUID — the only identifier `$ --list` prints. A session launched before
+      // this fix (or by a start-command whose banner we could not parse) has
+      // none, so backfill it here; otherwise that session stays impossible to
+      // find in the session list for its whole lifetime.
+      if (statusResult?.uuid && sessionInfo.executionUuid !== statusResult.uuid) {
+        if (verbose) {
+          console.log(`[VERBOSE] Session ${sessionName}: recorded start-command execution UUID ${statusResult.uuid} (this is what '$ --list' shows)`);
+        }
+        sessionInfo.executionUuid = statusResult.uuid;
+        persistSessionSnapshot(sessionName, sessionInfo);
+      }
+    } else {
+      // Issue #1586: Non-isolation screen sessions cannot reliably detect
+      // completion because start-screen keeps the screen alive via `exec bash`.
+      // Auto-expire after timeout; within timeout, use screen -ls as best-effort.
+      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+      const elapsed = Date.now() - startTime.getTime();
+      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        stillRunning = false;
+        if (verbose) {
+          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s (timeout: ${NON_ISOLATION_SESSION_TIMEOUT_MS / 1000}s)`);
+        }
+      } else {
+        stillRunning = await checkScreenSessionExists(sessionName);
+        if (verbose) {
+          const remainingSec = Math.round((NON_ISOLATION_SESSION_TIMEOUT_MS - elapsed) / 1000);
+          console.log(`[VERBOSE] Non-isolation session ${sessionName}: screen -ls says ${stillRunning ? 'running' : 'not found'} (timeout in ${remainingSec}s)`);
+        }
+      }
+    }
+    if (sessionInfo?.isolationBackend === 'docker') {
+      observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
+        verbose,
+        sizeProvider: options.dockerContainerSizeProvider,
+      });
+    }
+    if (!stillRunning) {
+      console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
+      let dockerTaskContainerAction = null;
+      try {
+        const finalExitCode = getSessionCompletionExitCode({ exitCode, statusResult });
+        dockerTaskContainerAction = buildDockerTaskContainerCompletionAction({
+          sessionName,
+          sessionInfo,
+          exitCode: finalExitCode,
+          status: resolvedStatus,
+          env: options.env || process.env,
+          verbose,
+        });
+        // Issue #1688/#1905: Resolve the created PR from GitHub or, when its
+        // linked-issue API lags, from the completed solve log.
+        let pullRequestUrl = null;
+        try {
+          pullRequestUrl = await resolvePullRequestUrlForSession(sessionInfo, {
+            verbose,
+            lookupLinkedPullRequest: options.lookupLinkedPullRequest,
+            statusResult,
+            readFile: options.readFile,
+          });
+        } catch (lookupError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
+          }
+        }
+        let pullRequestState = null;
+        const completionOutcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+        try {
+          pullRequestState = await resolveFailedSessionPullRequestState({
+            pullRequestUrl,
+            outcome: completionOutcome,
+            lookupPullRequestState: options.lookupPullRequestState,
+            verbose,
+            sessionName,
+            exitCode: finalExitCode,
+            status: resolvedStatus,
+            logPath: statusResult?.logPath || sessionInfo?.logPath,
+          });
+        } catch (stateError) {
+          if (verbose) console.log(`[VERBOSE] Pull request state resolution failed for ${sessionName}: ${stateError?.message || stateError}`);
+        }
+        // Issue #594: append an end-of-task limits snapshot/delta. Cached
+        // helpers prevent parallel sessions from stampeding the upstream API.
+        const limitsExtraSections = [];
+        if (sessionInfo?.showLimits) {
+          try {
+            const showLimitsLib = await import('./telegram-show-limits.lib.mjs');
+            const limitsLib = await import('./limits.lib.mjs');
+            const { lt } = await import('./limits-i18n.lib.mjs');
+            const endSnapshot = await showLimitsLib.captureLimitsSnapshot({
+              tool: sessionInfo.tool || 'claude',
+              verbose,
+              limitsLib,
+            });
+            sessionInfo.limitsAtEnd = endSnapshot;
+            const locale = sessionInfo.locale || null;
+            const deltaBlock = showLimitsLib.formatLimitsDeltaBlock(sessionInfo.limitsAtStart || null, endSnapshot, { locale });
+            if (deltaBlock) limitsExtraSections.push(deltaBlock);
+            else {
+              // Either start snapshot was missing or tool changed — fall back
+              // to a plain end-of-task snapshot so the user still sees current state.
+              const endBlock = showLimitsLib.formatLimitsSnapshotBlock(endSnapshot, { title: `📊 ${lt('limits_at_end', {}, { locale })}`, locale });
+              if (endBlock) limitsExtraSections.push(endBlock);
+            }
+          } catch (limitsError) {
+            if (verbose) {
+              console.log(`[VERBOSE] Could not capture end-of-task limits for ${sessionName}: ${limitsError?.message || limitsError}`);
+            }
+          }
+        }
+        // Issue #1927: for a killed /solve, offer a command using the last tool
+        // session ID in the log. Do not auto-relaunch work that may reliably OOM.
+        const resumeExtraSections = [];
+        let killResumeCommand = null;
+        try {
+          const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
+          const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
+          if (outcome.killed && isResumableCommand) {
+            const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+            // The id must be the AI TOOL's session id, not the isolation session
+            //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
+            //   Scan backwards through this task's captured log for its last
+            //   `Session ID:` marker. Do not guess from neighboring UUID-named
+            //   logs: start-command stores unrelated tasks in the same backend
+            //   directory, which caused issue #2109's invalid resume id.
+            const lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
+            const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
+            const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
+            killResumeCommand = resumeCommand || null;
+            if (resumeSection) {
+              resumeExtraSections.push(resumeSection);
+              if (verbose) {
+                console.log(`[VERBOSE] Session ${sessionName} was killed; offering resume from last session ${lastSessionId}`);
+              }
+            }
+          }
+        } catch (resumeError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build resume section for ${sessionName}: ${resumeError?.message || resumeError}`);
+          }
+        }
+        // Issue #1945/#1988: append a "💾 Disk usage" block from repository
+        // size markers and, for docker isolation, the container writable layer.
+        const diskExtraSections = [];
+        try {
+          const diskLogPath = statusResult?.logPath || sessionInfo?.logPath || null;
+          const containerFilesystemAfterBytes = Number.isFinite(observedContainerFilesystemBytes) ? observedContainerFilesystemBytes : getLastKnownDockerContainerFilesystemSize(sessionInfo);
+          const diskBlock = await buildDiskDiagnosticsExtraSection(diskLogPath, {
+            verbose,
+            readFile: options.readFile,
+            isolationBackend: sessionInfo?.isolationBackend || statusResult?.isolation || null,
+            containerFilesystemStartBytes: Number.isFinite(sessionInfo?.containerFilesystemStartBytes) ? sessionInfo.containerFilesystemStartBytes : null,
+            containerFilesystemAfterBytes,
+          });
+          if (diskBlock) diskExtraSections.push(diskBlock);
+        } catch (diskError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build disk diagnostics section for ${sessionName}: ${diskError?.message || diskError}`);
+          }
+        }
+        const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
+        // Issue #2161: a blocked subscription/account explains every other
+        // symptom of the run, so it goes first in the completion message.
+        const subscriptionBlockedExtraSections = [];
+        try {
+          const blockedSection = await buildSubscriptionBlockedExtraSection(statusResult?.logPath || sessionInfo?.logPath || null, {
+            verbose,
+            readFile: options.readFile,
+            locale: sessionInfo?.locale || null,
+          });
+          if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
+        } catch (blockedError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not build subscription block section for ${sessionName}: ${blockedError?.message || blockedError}`);
+          }
+        }
+        // Issue #2134: say exactly WHY a session was killed, and warn when a
+        // session merely survived a kill event instead of reporting a plain
+        // success. The pull request gets the very same report below.
+        const killReport = await buildKillCompletionSections({
+          sessionName,
+          sessionInfo,
+          statusResult,
+          exitCode: finalExitCode,
+          status: resolvedStatus,
+          verbose,
+          readFile: options.readFile,
+          env: options.env || process.env,
+        });
+        // Issue #2134: `--on-session-kill=resume` must actually start a new
+        // working session, and both surfaces must say so. Done before the
+        // message is built so the Telegram report and the pull-request notice
+        // below name the very same recovery session.
+        let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
+        if (killReport.killed) {
+          const recovered = await runKillRecoveryForCompletion({
+            sessionName,
+            sessionInfo,
+            logPath: statusResult?.logPath || sessionInfo?.logPath || null,
+            killed: true,
+            env: options.env || process.env,
+            runner: options.isolationRunner || null,
+            trackSession: options.trackSession || trackSession,
+            persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+            locale: sessionInfo?.locale || null,
+            verbose,
+          });
+          killRecovery = recovered.recovery;
+          if (recovered.section) killReport.sections.push(recovered.section);
+        }
+        const message = formatSessionCompletionMessage({
+          sessionName,
+          sessionInfo,
+          statusResult,
+          observedEndTime: new Date(),
+          exitCode: finalExitCode,
+          infoBlock: sessionInfo?.infoBlock || '',
+          pullRequestUrl,
+          pullRequestState,
+          extraSections: [...subscriptionBlockedExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+        });
+        if (killReport.killed || killReport.recovered) {
+          const notice = await announceKillOnPullRequest({
+            pullRequestUrl,
+            sessionName,
+            sessionInfo,
+            diagnosis: killReport.diagnosis,
+            exitCode: finalExitCode,
+            observedAt: killReport.observedAt,
+            policy: killReport.policy,
+            recovered: killReport.recovered,
+            resumed: killRecovery.resumed,
+            recoverySessionId: killRecovery.resumed ? killRecovery.sessionId : null,
+            attempt: killRecovery.resumed ? killRecovery.attempt : null,
+            maxAttempts: killRecovery.resumed ? killRecovery.maxAttempts : null,
+            resumeCommand: killResumeCommand,
+            runCommand: options.runCommand || undefined,
+            attachLog: options.attachLog || undefined,
+            verbose,
+          });
+          if (verbose && !notice.posted) {
+            console.log(`[VERBOSE] Killed-session notice not posted for ${sessionName}: ${notice.skipped || 'unknown reason'}`);
+          }
+        }
+        // Update the original reply message if messageId is available, otherwise send new message
+        let notifyFromChatId = null;
+        let notifyMessageId = null;
+        if (sessionInfo.messageId) {
+          await bot.telegram.editMessageText(sessionInfo.chatId, sessionInfo.messageId, undefined, message, { parse_mode: 'Markdown' });
+          notifyFromChatId = sessionInfo.chatId;
+          notifyMessageId = sessionInfo.messageId;
+        } else {
+          const sent = await bot.telegram.sendMessage(sessionInfo.chatId, message, { parse_mode: 'Markdown' });
+          notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
+          notifyMessageId = sent?.message_id || null;
+        }
+        // Issue #1688: forward the same completion message to every /subscribe-d user
+        //   in their private chat with the bot. Failures are logged but don't block
+        //   completion of the parent session.
+        if (getSubscriberCount() > 0 && notifyFromChatId && notifyMessageId) {
+          try {
+            const skipUserIds = new Set();
+            if (sessionInfo?.requesterUserId) skipUserIds.add(sessionInfo.requesterUserId);
+            const summary = await notifySubscribers({
+              bot,
+              fromChatId: notifyFromChatId,
+              messageId: notifyMessageId,
+              fallbackText: message,
+              fallbackOptions: { parse_mode: 'Markdown' },
+              skipUserIds,
+              verbose,
+            });
+            if (verbose) {
+              console.log(`[VERBOSE] Subscribe notify summary for ${sessionName}: forwarded=${summary.forwarded}, sent=${summary.sent}, skipped=${summary.skipped}, failures=${summary.failures.length}`);
+            }
+          } catch (notifyError) {
+            console.error(`[session-monitor] notifySubscribers failed for ${sessionName}:`, notifyError);
+          }
+        }
+        await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
+          verbose,
+          removeDockerContainer: options.removeDockerContainer,
+        });
+        completeSession(sessionName, finalExitCode || 0, verbose, resolvedStatus);
+      } catch (error) {
+        console.error(`Failed to send completion notification for ${sessionName}:`, error);
+        if (isMessageAlreadyUpdatedError(error)) {
+          await applyDockerTaskContainerCompletionAction(dockerTaskContainerAction, {
+            verbose,
+            removeDockerContainer: options.removeDockerContainer,
+          });
+          completeSession(sessionName, exitCode || 0, verbose, resolvedStatus);
+        } else {
+          sessionInfo.lastNotificationError = error.message;
+          sessionInfo.lastKnownStatus = statusResult?.status || sessionInfo.lastKnownStatus || null;
+          sessionInfo.lastKnownExitCode = exitCode ?? sessionInfo.lastKnownExitCode ?? null;
+          if (verbose) {
+            console.log(`[VERBOSE] Session ${sessionName} kept in memory so the completion notification can be retried`);
+          }
+        }
+      }
+    }
+  }
+}
+/**
+ * Look up the URL of a pull request linked to the issue this session worked on.
+ * Returns null when the session was already operating on a PR, the URL context
+ * is missing, or no linked PR exists.
+ *
+ * Lazy-loads the GitHub batch helper so unrelated tests/imports don't pull
+ * GitHub deps. Tests can override the lookup via `options.lookupLinkedPullRequest`.
+ *
+ * @param {Object} sessionInfo
+ * @param {Object} [options]
+ * @param {boolean} [options.verbose]
+ * @param {Function} [options.lookupLinkedPullRequest] - Optional override `(ctx) => Promise<string|null>`
+ * @param {Object} [options.statusResult] - Completed start-command status payload, including logPath
+ * @param {Function} [options.readFile] - Optional test override for reading session logs
+ * @returns {Promise<string|null>} PR URL or null
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/1688
+ * @see https://github.com/link-assistant/hive-mind/issues/1905
+ */
+async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, lookupLinkedPullRequest = null, statusResult = null, readFile = fs.readFile } = {}) {
+  const ctx = sessionInfo?.urlContext;
+  if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
+    return null;
+  }
+  if (typeof lookupLinkedPullRequest === 'function') {
+    const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
+    if (linkedPullRequestUrl) return linkedPullRequestUrl;
+  } else {
+    try {
+      const { batchCheckPullRequestsForIssues } = await import('./github.lib.mjs');
+      const result = await batchCheckPullRequestsForIssues(ctx.owner, ctx.repo, [ctx.number]);
+      const linkedPRs = result?.[ctx.number]?.linkedPRs || [];
+      if (linkedPRs.length > 0 && linkedPRs[0].url) {
+        if (verbose) {
+          console.log(`[VERBOSE] Found linked PR ${linkedPRs[0].url} for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+        }
+        return linkedPRs[0].url;
+      }
+    } catch (error) {
+      if (verbose) {
+        console.log(`[VERBOSE] batchCheckPullRequestsForIssues failed for ${ctx.owner}/${ctx.repo}#${ctx.number}: ${error?.message || error}`);
+      }
+    }
+  }
+  const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
+  const pullRequestUrlFromLog = await resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose, readFile });
+  if (pullRequestUrlFromLog) return pullRequestUrlFromLog;
+  if (verbose && logPath) {
+    console.log(`[VERBOSE] No PR URL found for issue ${ctx.owner}/${ctx.repo}#${ctx.number} in session log ${logPath}`);
+  } else if (verbose) {
+    console.log(`[VERBOSE] No session log path available for PR URL fallback for issue ${ctx.owner}/${ctx.repo}#${ctx.number}`);
+  }
+  return null;
+}
+/**
+ * Start the session monitoring interval
+ * @param {Object} bot - Telegraf bot instance for sending messages
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {number} intervalMs - Monitoring interval in milliseconds (default: 30000)
+ * @returns {NodeJS.Timer} The interval timer (can be cleared with clearInterval)
+ */
+export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000, options = {}) {
+  const runMonitor = () => {
+    monitorSessions(bot, verbose, options).catch(error => {
+      console.error(`[session-monitor] Session monitoring tick failed: ${error.message}`);
+    });
+  };
+  const timer = setInterval(runMonitor, intervalMs);
+  runMonitor();
+  const storage = sessionStore ? `durable+in-memory (${sessionStore.snapshotPath})` : 'in-memory';
+  console.log(`📊 Session monitoring started (checking every ${intervalMs / 1000} seconds, storage: ${storage})`);
+  return timer;
+}
+/**
+ * Issue #1927 (requirements #2 and #4): after a bot restart, reload the sessions
+ * that were still being tracked when the previous process died and re-register
+ * them so {@link monitorSessions} resumes watching them to completion. The very
+ * next monitor tick re-queries each session's status — so a session that was
+ * *killed while the bot was down* is finally reported (via the log-footer /
+ * backend-liveness cross-check in {@link getIsolationSessionState}) instead of
+ * vanishing silently.
+ *
+ * Only sessions persisted by this bot are resumed (they carry the chatId /
+ * messageId needed to notify). The durable snapshot already contains exactly the
+ * sessions that had not completed when the previous process died, because
+ * completed sessions are removed from it. As a guard we additionally skip any
+ * record whose startTime is after the current bot start (it cannot belong to a
+ * previous run), satisfying requirement #2's "started before bot start time".
+ *
+ * @param {object} [options]
+ * @param {object} [options.store] - Session store to load from (default: the store set via setSessionStore).
+ * @param {number} [options.botStartTime] - Epoch seconds; only sessions started strictly before this are resumed. Defaults to now.
+ * @param {boolean} [options.verbose]
+ * @returns {Promise<{resumed: Array<{sessionName: string, sessionInfo: object}>, skipped: Array<{sessionName: string, reason: string}>}>}
+ */
+export async function resumeTrackedSessions(options = {}) {
+  const { store = sessionStore, verbose = false, botStartTime = Math.floor(Date.now() / 1000) } = options;
+  const resumed = [];
+  const skipped = [];
+  if (!store) {
+    if (verbose) console.log('[VERBOSE] resumeTrackedSessions: no durable session store configured, nothing to resume');
+    return { resumed, skipped };
+  }
+  let persisted;
+  try {
+    persisted = store.load();
+  } catch (error) {
+    console.error(`[session-monitor] resumeTrackedSessions: could not load persisted sessions: ${error.message}`);
+    return { resumed, skipped };
+  }
+  for (const { sessionName, sessionInfo } of persisted) {
+    if (activeSessions.has(sessionName)) {
+      skipped.push({ sessionName, reason: 'already-tracked' });
+      continue;
+    }
+    // Requirement #2/#4: a session that started after this bot came up cannot be
+    // a leftover from a previous run, so never resume it here.
+    const startMs = sessionStartMs(sessionInfo);
+    if (startMs != null && startMs > botStartTime * 1000) {
+      skipped.push({ sessionName, reason: 'started-after-bot-start' });
+      if (verbose) console.log(`[VERBOSE] Skipping resume of ${sessionName}: started after bot start`);
+      continue;
+    }
+    activeSessions.set(sessionName, sessionInfo);
+    resumed.push({ sessionName, sessionInfo });
+    logEvent('session_resumed', {
+      sessionName,
+      url: sessionInfo.url || null,
+      command: sessionInfo.command || null,
+      sessionId: sessionInfo.sessionId || null,
+      startTime: sessionInfo.startTime instanceof Date ? sessionInfo.startTime.toISOString() : sessionInfo.startTime || null,
+    });
+    if (verbose) {
+      console.log(`[VERBOSE] Resumed tracking of session ${sessionName} (url: ${sessionInfo.url || 'n/a'}, command: ${sessionInfo.command || 'n/a'}, backend: ${sessionInfo.isolationBackend || 'screen'})`);
+    }
+  }
+  if (resumed.length > 0) {
+    console.log(`♻️  Resumed monitoring of ${resumed.length} session(s) from durable store after restart`);
+  } else if (verbose) {
+    console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
+  }
+  return { resumed, skipped };
+}
+/**
+ * Issue #1567: Check if there's an active session for a given URL.
+ * This prevents concurrent sessions on the same PR/issue, which causes
+ * iteration number jumps, duplicate "Ready to merge" comments, and other
+ * inconsistencies when two auto-restart-until-mergeable processes run
+ * simultaneously.
+ *
+ * Issue #1586: Non-isolation sessions (plain start-screen) cannot reliably
+ * detect completion because the screen stays alive via `exec bash`. To avoid
+ * permanent false positives, non-isolation sessions are auto-expired after
+ * NON_ISOLATION_SESSION_TIMEOUT_MS (10 minutes). Within that window they
+ * still block duplicate commands for the same URL, which prevents accidental
+ * re-runs. Isolation-backed sessions have no timeout since their completion
+ * is reliably detected by monitorSessions().
+ *
+ * @param {string} url - The GitHub URL to check (issue or PR URL)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {{isActive: boolean, sessionName: string|null}} Whether an active session exists for this URL
+ */
+export function hasActiveSessionForUrl(url, verbose = false) {
+  if (!url) return { isActive: false, sessionName: null };
+  // Normalize the URL for comparison (remove trailing slashes, fragments, etc.)
+  const normalizedUrl = normalizeSessionUrl(url);
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    // Issue #1586: Auto-expire non-isolation sessions after timeout
+    if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+      continue;
+    }
+    if (sessionInfo.url && normalizeSessionUrl(sessionInfo.url) === normalizedUrl) {
+      if (verbose) {
+        const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation (timeout-based)';
+        console.log(`[VERBOSE] Found active session for URL ${url}: ${sessionName} (${mode})`);
+      }
+      return { isActive: true, sessionName };
+    }
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] No active session found for URL ${url}`);
+  }
+  return { isActive: false, sessionName: null };
+}
+const SESSION_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * Issue #1871: Find a tracked, still-running session for a GitHub issue/PR URL
+ * and report whether it can be stopped by forwarding CTRL+C to the
+ * start-command session UUID.
+ *
+ * The `/stop <url>` Telegram flow originally consulted only the in-memory solve
+ * queue. But a `/solve` or `/codex` that starts immediately (queue empty)
+ * dispatches straight to a detached isolation session and is removed from the
+ * queue's `processing` Map the moment it is launched. From that point on the
+ * session-monitor's in-memory registry is the only place that still knows the
+ * URL → start-command-UUID mapping, so `/stop <url>` reported "no task found"
+ * even though the task was clearly running. This helper exposes that registry
+ * so the stop flow can recover the UUID and interrupt the session.
+ *
+ * A session is stoppable when it was launched with an isolation backend and its
+ * start-command UUID is UUID-shaped (the value `$ --stop <uuid>` expects). Plain
+ * non-isolation screen sessions are reported but marked `stoppable: false`
+ * because `$ --stop` cannot interrupt them.
+ *
+ * @param {string} url - GitHub issue or PR URL (any normalization)
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {{ sessionName: string, sessionId: string|null, sessionInfo: Object,
+ *   isolationBackend: string|null, stoppable: boolean }|null} Match or null
+ */
+export function findStoppableSessionByUrl(url, verbose = false) {
+  if (!url) return null;
+  const normalizedUrl = normalizeSessionUrl(url);
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
+      continue;
+    }
+    // Issue #1586: skip expired non-isolation sessions — they are no longer running.
+    if (!sessionInfo.isolationBackend && !isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+      continue;
+    }
+    // The UUID `$ --stop` expects is the start-command session id. For
+    // isolation sessions it is tracked either as sessionInfo.sessionId or as
+    // the (UUID-shaped) session key itself.
+    const candidateId = sessionInfo.sessionId || sessionName;
+    const sessionId = SESSION_UUID_RE.test(candidateId) ? candidateId : null;
+    const stoppable = Boolean(sessionInfo.isolationBackend && sessionId);
+    if (verbose) {
+      const mode = sessionInfo.isolationBackend ? `isolation:${sessionInfo.isolationBackend}` : 'non-isolation';
+      console.log(`[VERBOSE] findStoppableSessionByUrl: matched ${sessionName} for ${url} (${mode}, stoppable=${stoppable})`);
+    }
+    return {
+      sessionName,
+      sessionId,
+      sessionInfo,
+      isolationBackend: sessionInfo.isolationBackend || null,
+      stoppable,
+    };
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] findStoppableSessionByUrl: no tracked session for ${url}`);
+  }
+  return null;
+}
+/**
+ * Async active-session check for command handlers.
+ *
+ * Isolation-backed sessions are refreshed through `$ --status` before they
+ * block a duplicate URL, so completed screen-isolated runs no longer require
+ * waiting for the background polling interval.
+ *
+ * @param {string} url - The GitHub URL to check
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @returns {Promise<{isActive: boolean, sessionName: string|null, status?: string|null}>}
+ */
+export async function hasActiveSessionForUrlAsync(url, verbose = false, options = {}) {
+  if (!url) return { isActive: false, sessionName: null };
+  const normalizedUrl = normalizeSessionUrl(url);
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.url || normalizeSessionUrl(sessionInfo.url) !== normalizedUrl) {
+      continue;
+    }
+    if (!sessionInfo.isolationBackend) {
+      if (isNonIsolationSessionActive(sessionName, sessionInfo, verbose)) {
+        return { isActive: true, sessionName, status: null };
+      }
+      continue;
+    }
+    const state = await getIsolationSessionState(sessionName, sessionInfo, {
+      verbose,
+      statusProvider: options.statusProvider,
+    });
+    if (state.running) {
+      if (verbose) {
+        console.log(`[VERBOSE] Found executing isolated session for URL ${url}: ${sessionName} (status: ${state.status || 'unknown'})`);
+      }
+      return { isActive: true, sessionName, status: state.status || null };
+    }
+    if (verbose) {
+      console.log(`[VERBOSE] Isolated session ${sessionName} for URL ${url} is no longer running (status: ${state.status || 'unknown'}), allowing retry while monitor sends completion`);
+    }
+    sessionInfo.lastKnownStatus = state.status || null;
+    sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] No active session found for URL ${url}`);
+  }
+  return { isActive: false, sessionName: null };
+}
+/**
+ * Refresh tracked isolation sessions and count only those that are executing.
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @returns {Promise<{count: number, sessions: string[], byTool: Object}>}
+ */
+export async function getRunningTrackedIsolationSessions(verbose = false, options = {}) {
+  const sessions = [];
+  const byTool = {};
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    if (!sessionInfo.isolationBackend) {
+      continue;
+    }
+    const state = await getIsolationSessionState(sessionName, sessionInfo, {
+      verbose,
+      statusProvider: options.statusProvider,
+    });
+    if (!state.running) {
+      sessionInfo.lastKnownStatus = state.status || null;
+      sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+      continue;
+    }
+    const tool = sessionInfo.tool || 'claude';
+    sessions.push(sessionName);
+    byTool[tool] = (byTool[tool] || 0) + 1;
+  }
+  return { count: sessions.length, sessions, byTool };
+}
+/**
+ * Return the currently-executing tracked sessions with the details needed to
+ * render them as a clickable list in `/queue`: the issue/PR
+ * `url`, the `tool`, the start time, and (for isolation sessions) the backend
+ * status. Both isolation and non-isolation screen sessions are included so the
+ * list matches what is actually executing — the queue's own in-memory
+ * `processing` Map is empty once a task has been dispatched to a detached
+ * session, which is why executing tasks were previously not listed.
+ *
+ * Liveness is determined the same way as {@link monitorSessions}: isolation
+ * sessions via `$ --status`, non-isolation screen sessions via a timeout window
+ * plus a best-effort `screen -ls` check.
+ *
+ * @param {boolean} verbose - Whether to log verbose output
+ * @param {Object} [options] - Test/support options
+ * @param {Function} [options.statusProvider] - Optional `$ --status` provider
+ * @param {Function} [options.screenChecker] - Optional screen-existence checker
+ * @returns {Promise<Array<{sessionName: string, url: string|null, tool: string, status: string|null, startTime: (Date|string|number|null), isolationBackend: (string|null)}>>}
+ * @see https://github.com/link-assistant/hive-mind/issues/1837
+ */
+export async function getRunningSessionItems(verbose = false, options = {}) {
+  const items = [];
+  const screenChecker = options.screenChecker || checkScreenSessionExists;
+  for (const [sessionName, sessionInfo] of activeSessions.entries()) {
+    let running;
+    let status = null;
+    if (sessionInfo.isolationBackend) {
+      // Forward every injectable seam so the listing applies the same #1927
+      // stale-`executing` reconciliation the monitor does — a session that
+      // start-command still reports as `executing` but whose backend is gone (or
+      // whose log footer shows a kill) must not be listed as running — and so the
+      // whole path stays controllable from tests.
+      const state = await getIsolationSessionState(sessionName, sessionInfo, {
+        verbose,
+        statusProvider: options.statusProvider,
+        exitFromLog: options.exitFromLog,
+        backendAlive: options.backendAlive,
+        sessionRunning: options.sessionRunning,
+      });
+      running = state.running;
+      status = state.status || null;
+      if (!running) {
+        sessionInfo.lastKnownStatus = state.status || null;
+        sessionInfo.lastKnownExitCode = state.exitCode ?? null;
+        continue;
+      }
+    } else {
+      const startTime = sessionInfo.startTime instanceof Date ? sessionInfo.startTime : new Date(sessionInfo.startTime);
+      const elapsed = Date.now() - startTime.getTime();
+      if (elapsed >= NON_ISOLATION_SESSION_TIMEOUT_MS) {
+        if (verbose) {
+          console.log(`[VERBOSE] Non-isolation session ${sessionName} expired after ${Math.round(elapsed / 1000)}s; excluded from running list`);
+        }
+        continue;
+      }
+      running = await screenChecker(sessionName);
+      if (!running) {
+        continue;
+      }
+    }
+    items.push({
+      sessionName,
+      url: sessionInfo.url || null,
+      tool: sessionInfo.tool || 'claude',
+      status,
+      startTime: sessionInfo.startTime || null,
+      isolationBackend: sessionInfo.isolationBackend || null,
+    });
+  }
+  if (verbose) {
+    console.log(`[VERBOSE] getRunningSessionItems found ${items.length} running session(s)`);
+  }
+  return items;
+}
+/**
+ * Get statistics about session tracking
+ * @param {boolean} verbose - Whether to log verbose output
+ * @returns {Object} Statistics object
+ */
+export function getSessionStats(verbose = false) {
+  const sessions = Array.from(activeSessions.values());
+  const isolated = sessions.filter(s => s.isolationBackend);
+  if (verbose) {
+    console.log(`[VERBOSE] Session stats: ${sessions.length} total, ${isolated.length} isolated`);
+  }
+  return {
+    total: activeSessions.size,
+    executing: activeSessions.size,
+    executed: 0,
+    successful: 0,
+    failed: 0,
+    isolated: isolated.length,
+    storageType: 'in-memory',
+  };
+}

@@ -1,0 +1,38 @@
+--- a/deploy-docker.mjs	2026-06-13 11:44:25.850437992 +0000
++++ b/deploy-docker.mjs	2026-06-13 11:42:55.473070398 +0000
+@@ -83,6 +83,17 @@
+     // image, but pinning it here defends against future commit-semantics or
+     // base-image surprises.
+     entrypointFlag: '--entrypoint /usr/local/bin/dind-entrypoint.sh',
++    // Host-image passthrough (box-dind): bind-mount the HOST docker socket so the
++    // bot container's NESTED dockerd is seeded from the host instead of pulling
++    // the multi-GB image on the first isolated `--isolation docker` task. The
++    // allowlist scopes the copy to our images. Requires the host to already have
++    // these images with a registry digest (the deploy pulls konard/hive-mind-dind
++    // above, so it does). Without this mount box passthrough is a silent no-op and
++    // the nested daemon re-pulls 30+ GB on the first task.
++    // See link-assistant/hive-mind#1914 and link-foundation/box#102.
++    passthroughFlags:
++      '-v /var/run/docker.sock:/var/run/host-docker.sock:ro ' +
++      '-e DIND_HOST_PASSTHROUGH_IMAGES="konard/hive-mind konard/hive-mind-dind"',
+     needsDockerd: true,
+   },
+   plain: {
+@@ -93,6 +104,8 @@
+     finalUserFlag: '--user box',
+     execUserFlag: '',
+     entrypointFlag: '',
++    // plain variant runs no nested dockerd, so there is nothing to seed.
++    passthroughFlags: '',
+     needsDockerd: false,
+   },
+ };
+@@ -339,7 +352,7 @@
+ ].join(' ');
+ // dind variant: --privileged for nested dockerd; entrypoint drops to box.
+ // plain variant: pass --user box explicitly.
+-await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.finalUserFlag} ${VARIANT.entrypointFlag} --name ${CONTAINER} --restart unless-stopped ${MOUNTS} ${CONTAINER}-configured bash -l -c 'bash /home/box/start-bot.sh'`);
++await run(`docker run -dit ${VARIANT.runFlags} ${VARIANT.finalEnvFlags} ${VARIANT.passthroughFlags} ${VARIANT.finalUserFlag} ${VARIANT.entrypointFlag} --name ${CONTAINER} --restart unless-stopped ${MOUNTS} ${CONTAINER}-configured bash -l -c 'bash /home/box/start-bot.sh'`);
+ 
+ nextStep('Verifying final container is running');
+ const finalStatus = await getContainerStatus();

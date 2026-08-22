@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://github.com/link-foundation/link-cli/pull/80/commits/7c78b6bf3b559e9fc11f42eea996d1c91aff8ec1 - here AI removed .gitkeep file as per user requirements.\n\nhttps://github.com/link-foundation/link-cli/pull/80/commits/a5beebbbd8efcc436956f041b22bde514090e6c4 - here it was readded automatically by our algorithm, which interferes with user requirements. That is critical bug and must be fixed.\n\nIf not fixed it would be impossible to delete .gitkeep file from the repository by asking AI to do so. So we must detect if .gitkeep was changed in the pull request after https://github.com/link-foundation/link-cli/pull/80/commits/75b25bcaec30ed34fd9e9e78017a8e81ebb7bb22, and if it was the case do not touch it anymore on working session completion.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\n",
+  "comments": [],
+  "createdAt": "2026-05-12T16:05:17Z",
+  "number": 1791,
+  "state": "OPEN",
+  "title": "If pull request's changes removed .gitkeep file, we should not readd it at the end",
+  "updatedAt": "2026-05-12T16:05:17Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1791"
+}

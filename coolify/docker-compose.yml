@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  hive-mind:
+    build:
+      context: .
+      dockerfile: coolify/Dockerfile
+    image: hive-mind:production
+    container_name: hive-mind-prod
+
+    # Environment variables for the application
+    environment:
+      # GitHub Configuration
+      - GITHUB_TOKEN
+      - GITHUB_ORGANIZATION
+      - GH_TOKEN
+
+      # Claude/AI Configuration
+      - CLAUDE_API_KEY
+      - ANTHROPIC_API_KEY
+
+      # YouTrack Configuration
+      - YOUTRACK_URL
+      - YOUTRACK_API_KEY
+      - YOUTRACK_PROJECT_CODE
+      - YOUTRACK_STAGE
+      - YOUTRACK_NEXT_STAGE
+
+      # Application Settings
+      - NODE_ENV=production
+      - MONITOR_TAG
+      - CONCURRENCY
+      - INTERVAL
+      - MODEL
+      - ALL_ISSUES
+      - SKIP_ISSUES_WITH_PRS
+      - FORK
+      - MAX_ISSUES
+      - PULL_REQUESTS_PER_ISSUE
+      - ATTACH_LOGS
+      - VERBOSE
+      - TARGET_BRANCH
+
+      # Coolify/Container Settings
+      - PORT
+      - TZ
+
+    # Command override - pass the GitHub URL and any additional args
+    # Removed variable substitution to avoid Coolify parsing issues
+    # command: Will be set by Coolify or use default ENTRYPOINT
+
+    # Volumes for persistent data
+    volumes:
+      # Output directory for generated files
+      - ./output:/app/output
+      # Logs directory
+      - ./logs:/app/claude-logs
+      # Sessions directory
+      - ./sessions:/app/claude-sessions
+
+      # Claude Code persistent storage - IMPORTANT for Max plan users
+      - ./claude-config:/home/box/.claude
+      - ./codex-config:/home/box/.codex
+      - ./config:/home/box/.config
+
+      # GitHub CLI config persistence
+      - ./gh-config:/home/box/.config/gh
+
+    # Resource limits (adjust based on your server)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Logging configuration
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    # Network mode - using bridge for isolation
+    network_mode: bridge
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "hive.mjs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+# Optional: Add a network if you need to connect to other services
+networks:
+  default:
+    driver: bridge

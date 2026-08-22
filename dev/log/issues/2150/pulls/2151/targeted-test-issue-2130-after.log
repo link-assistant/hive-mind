@@ -1,0 +1,34 @@
+✔ buildAuthRemedyLines keeps the vendor remedy for a vendor model (2.886812ms)
+✔ buildAuthRemedyLines replaces the vendor remedy for a Formal AI model (0.446653ms)
+✔ every tool adapter routes its vendor login advice through buildAuthRemedyLines (15.934755ms)
+✔ codexRunAlreadyFailed recognises the signals a failed run leaves behind (2.498147ms)
+✔ describeCodexLastMessageOutcome does not warn when a failed run wrote no final message (1.171865ms)
+✔ describeCodexLastMessageOutcome still warns when a successful run wrote no final message (0.211444ms)
+✔ describeCodexLastMessageOutcome keeps warning about a read error that is not a missing file (0.248213ms)
+✔ describeCodexLastMessageOutcome reports a captured final message (0.271245ms)
+✔ buildCodexRunDiagnostics does not warn about missing usage when the turn never completed (0.971691ms)
+✔ buildCodexRunDiagnostics still warns about missing usage after a clean run (0.413089ms)
+✔ buildCodexRunDiagnostics reports the usage totals it does find (34.90637ms)
+✔ setupGitCredentialHelper uses the global gitconfig when gh can write it (0.820098ms)
+✔ setupGitCredentialHelper falls back to the clone-local config when the global one is read-only (0.496667ms)
+✔ setupGitCredentialHelper warns only when no credential helper could be configured at all (0.438147ms)
+✔ checkFileInBranch runs its existence probe silently (9.630313ms)
+✔ QUIET_PROBE captures the output it refuses to mirror (0.374498ms)
+✔ quietProbe binds the quiet options to an option-callable $ (0.305218ms)
+✔ quietProbe memoizes per $ so a probe in a loop binds once (0.216004ms)
+✔ quietProbe returns a plain tagged template unchanged instead of crashing (0.209741ms)
+✔ quietProbe swallows the promise a non-configurable $ returns for the options call (2.809667ms)
+✔ quietProbe passes a non-function through untouched (0.396769ms)
+✔ the probes evidenced in the attached logs are all quiet now (11.825415ms)
+✔ callers do not defeat the quiet terminal-state probes (issue #2144) (9.078864ms)
+✔ no source file mirrors a bare `gh api user --jq .login` (502.737239ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 969.859345
+Checking formatting...
+All matched files use Prettier code style!

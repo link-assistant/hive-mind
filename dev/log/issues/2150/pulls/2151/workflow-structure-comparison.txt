@@ -1,0 +1,514 @@
+.github/workflows/cleanup-test-repos.yml:3:on:
+.github/workflows/cleanup-test-repos.yml:4:  workflow_dispatch:
+.github/workflows/cleanup-test-repos.yml:12:jobs:
+.github/workflows/cleanup-test-repos.yml:13:  cleanup:
+.github/workflows/cleanup-test-repos.yml:14:    runs-on: ubuntu-latest
+.github/workflows/cleanup-test-repos.yml:15:    timeout-minutes: 15
+.github/workflows/cleanup-test-repos.yml:21:      uses: actions/checkout@v5
+.github/workflows/cleanup-test-repos.yml:24:      uses: actions/setup-node@v5
+.github/workflows/cleanup-test-repos.yml:50:      if: always()
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:3:on:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:4:  push:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:7:  pull_request:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:12:  workflow_dispatch:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:37:permissions:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:42:env:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:47:jobs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:49:  detect-changes:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:51:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:54:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:55:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:56:      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:57:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:58:    if: github.event_name != 'workflow_dispatch'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:64:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:76:  test-compilation:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:78:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:80:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:81:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:82:      group: check-${{ github.workflow }}-${{ github.ref }}-test-compilation
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:83:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:84:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:85:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:88:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:94:  check-file-line-limits:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:96:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:98:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:99:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:100:      group: check-${{ github.workflow }}-${{ github.ref }}-check-file-line-limits
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:101:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:102:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:103:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:107:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:112:        if: github.event_name == 'pull_request'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:125:  version-check:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:127:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:129:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:130:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:131:      group: check-${{ github.workflow }}-${{ github.ref }}-version-check
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:132:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:133:    if: github.event_name == 'pull_request'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:135:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:147:  changeset-check:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:149:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:151:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:152:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:153:      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:154:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:155:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:156:    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:158:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:163:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:194:  lint:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:196:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:199:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:200:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:201:      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:202:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:203:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:204:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:212:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:218:        if: github.event_name == 'pull_request'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:224:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:247:  test:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:249:    runs-on: ${{ matrix.os }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:253:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:254:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:255:      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.runtime }}-${{ matrix.os }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:256:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:257:    needs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:269:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:288:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:294:        if: github.event_name == 'pull_request'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:301:        if: matrix.runtime == 'node'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:302:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:307:        if: matrix.runtime == 'node'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:311:        if: matrix.runtime == 'node'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:315:        if: matrix.runtime == 'bun'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:316:        uses: oven-sh/setup-bun@v2
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:321:        if: matrix.runtime == 'bun'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:325:        if: matrix.runtime == 'bun'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:331:        if: matrix.runtime == 'deno'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:332:        uses: denoland/setup-deno@v2
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:337:        if: matrix.runtime == 'deno'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:345:  docker-build:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:347:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:350:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:351:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:352:      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:353:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:354:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:355:    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:362:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:369:        if: steps.docker_config.outputs.enabled == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:370:        uses: ./.github/actions/setup-buildx-resilient
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:373:        if: steps.docker_config.outputs.enabled == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:374:        uses: docker/build-push-action@v7
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:386:  validate-docs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:388:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:390:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:391:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:392:      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:393:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:394:    needs: [detect-changes]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:395:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:398:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:432:  release:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:434:    needs: [lint, test]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:437:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:438:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:439:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:440:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:443:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:449:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:459:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:464:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:489:        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:495:        if: steps.check_changesets.outputs.has_changesets == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:502:        if: >-
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:519:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:523:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:529:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:537:  instant-release:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:540:    needs: [lint, test]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:541:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:547:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:549:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:550:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:551:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:552:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:562:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:567:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:590:        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:599:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:603:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:609:        if: steps.publish.outputs.published == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:617:  docker-publish:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:619:    needs: [release, instant-release]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:620:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:621:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:622:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:623:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:624:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:630:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:641:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:648:        if: steps.docker_config.outputs.enabled == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:652:        if: steps.docker_config.outputs.enabled == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:653:        uses: ./.github/actions/publish-dockerhub
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:663:  changeset-pr:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:666:    needs: [lint]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:667:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:672:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:674:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:675:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:676:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:677:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:682:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:687:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:708:        uses: peter-evans/create-pull-request@v8
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:734:  pipeline-status:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:736:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:737:    timeout-minutes: 5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:738:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:739:      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:740:      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:741:    if: always()
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:742:    needs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:757:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/release.yml:760:        uses: actions/setup-node@v6
+.github/workflows/release.yml:3:on:
+.github/workflows/release.yml:4:  push:
+.github/workflows/release.yml:7:  pull_request:
+.github/workflows/release.yml:15:  workflow_dispatch:
+.github/workflows/release.yml:48:# IMPORTANT: jobs must use !cancelled() rather than always() in `if:`, or they keep
+.github/workflows/release.yml:51:concurrency:
+.github/workflows/release.yml:52:  group: ${{ github.workflow }}-${{ github.ref }}
+.github/workflows/release.yml:53:  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+.github/workflows/release.yml:58:jobs:
+.github/workflows/release.yml:60:  detect-changes:
+.github/workflows/release.yml:61:    runs-on: ubuntu-latest
+.github/workflows/release.yml:62:    timeout-minutes: 10
+.github/workflows/release.yml:73:      - uses: actions/checkout@v5
+.github/workflows/release.yml:91:  version-check:
+.github/workflows/release.yml:93:    runs-on: ubuntu-latest
+.github/workflows/release.yml:94:    timeout-minutes: 10
+.github/workflows/release.yml:95:    needs: [detect-changes]
+.github/workflows/release.yml:96:    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
+.github/workflows/release.yml:98:      - uses: actions/checkout@v5
+.github/workflows/release.yml:110:  changeset-check:
+.github/workflows/release.yml:112:    runs-on: ubuntu-latest
+.github/workflows/release.yml:113:    timeout-minutes: 10
+.github/workflows/release.yml:114:    needs: [detect-changes]
+.github/workflows/release.yml:115:    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+.github/workflows/release.yml:117:      - uses: actions/checkout@v5
+.github/workflows/release.yml:122:        uses: actions/setup-node@v5
+.github/workflows/release.yml:151:  test-compilation:
+.github/workflows/release.yml:152:    runs-on: ubuntu-latest
+.github/workflows/release.yml:153:    timeout-minutes: 15
+.github/workflows/release.yml:154:    needs: [detect-changes, changeset-check]
+.github/workflows/release.yml:155:    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+.github/workflows/release.yml:156:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:160:        uses: actions/checkout@v5
+.github/workflows/release.yml:163:        uses: actions/setup-node@v5
+.github/workflows/release.yml:187:  lint:
+.github/workflows/release.yml:188:    runs-on: ubuntu-latest
+.github/workflows/release.yml:189:    timeout-minutes: 15
+.github/workflows/release.yml:190:    needs: [detect-changes]
+.github/workflows/release.yml:191:    if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+.github/workflows/release.yml:195:        uses: actions/checkout@v5
+.github/workflows/release.yml:201:        if: github.event_name == 'pull_request'
+.github/workflows/release.yml:207:        uses: actions/setup-node@v5
+.github/workflows/release.yml:235:  check-file-line-limits:
+.github/workflows/release.yml:236:    runs-on: ubuntu-latest
+.github/workflows/release.yml:237:    timeout-minutes: 10
+.github/workflows/release.yml:238:    needs: [detect-changes, changeset-check]
+.github/workflows/release.yml:239:    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+.github/workflows/release.yml:240:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:244:        uses: actions/checkout@v5
+.github/workflows/release.yml:250:        if: github.event_name == 'pull_request'
+.github/workflows/release.yml:262:  test-suites:
+.github/workflows/release.yml:263:    runs-on: ubuntu-latest
+.github/workflows/release.yml:264:    timeout-minutes: 30
+.github/workflows/release.yml:265:    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+.github/workflows/release.yml:266:    if: |
+.github/workflows/release.yml:276:      - uses: actions/checkout@v5
+.github/workflows/release.yml:279:        uses: actions/setup-node@v5
+.github/workflows/release.yml:300:  test-execution:
+.github/workflows/release.yml:301:    runs-on: ubuntu-latest
+.github/workflows/release.yml:302:    timeout-minutes: 20
+.github/workflows/release.yml:303:    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+.github/workflows/release.yml:304:    if: |
+.github/workflows/release.yml:314:      - uses: actions/checkout@v5
+.github/workflows/release.yml:317:        uses: actions/setup-node@v5
+.github/workflows/release.yml:388:  memory-check-linux:
+.github/workflows/release.yml:389:    runs-on: ubuntu-latest
+.github/workflows/release.yml:390:    timeout-minutes: 20
+.github/workflows/release.yml:391:    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+.github/workflows/release.yml:392:    if: |
+.github/workflows/release.yml:402:      - uses: actions/checkout@v5
+.github/workflows/release.yml:405:        uses: actions/setup-node@v5
+.github/workflows/release.yml:464:  validate-docs:
+.github/workflows/release.yml:465:    runs-on: ubuntu-latest
+.github/workflows/release.yml:466:    timeout-minutes: 15
+.github/workflows/release.yml:467:    needs: [detect-changes, changeset-check]
+.github/workflows/release.yml:468:    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
+.github/workflows/release.yml:469:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
+.github/workflows/release.yml:472:      - uses: actions/checkout@v5
+.github/workflows/release.yml:477:        uses: actions/setup-node@v5
+.github/workflows/release.yml:492:  docker-pr-check:
+.github/workflows/release.yml:493:    runs-on: ubuntu-latest
+.github/workflows/release.yml:494:    timeout-minutes: 30
+.github/workflows/release.yml:495:    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
+.github/workflows/release.yml:496:    # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
+.github/workflows/release.yml:497:    if: |
+.github/workflows/release.yml:514:        uses: actions/checkout@v5
+.github/workflows/release.yml:517:        uses: actions/setup-node@v5
+.github/workflows/release.yml:545:  helm-pr-check:
+.github/workflows/release.yml:546:    runs-on: ubuntu-latest
+.github/workflows/release.yml:547:    timeout-minutes: 20
+.github/workflows/release.yml:548:    needs: [detect-changes, changeset-check]
+.github/workflows/release.yml:550:    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:554:        uses: actions/checkout@v5
+.github/workflows/release.yml:559:        uses: azure/setup-helm@v5
+.github/workflows/release.yml:580:  release:
+.github/workflows/release.yml:582:    needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
+.github/workflows/release.yml:583:    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:584:    runs-on: ubuntu-latest
+.github/workflows/release.yml:585:    timeout-minutes: 30
+.github/workflows/release.yml:595:      - uses: actions/checkout@v5
+.github/workflows/release.yml:600:        uses: actions/setup-node@v5
+.github/workflows/release.yml:626:        if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+.github/workflows/release.yml:632:        if: steps.check_changesets.outputs.has_changesets == 'true'
+.github/workflows/release.yml:638:        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+.github/workflows/release.yml:646:        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+.github/workflows/release.yml:653:        if: steps.publish.outputs.published == 'true'
+.github/workflows/release.yml:659:        if: steps.publish.outputs.published == 'true'
+.github/workflows/release.yml:665:        if: steps.publish.outputs.published == 'true'
+.github/workflows/release.yml:677:  docker-publish:
+.github/workflows/release.yml:679:    needs: [release]
+.github/workflows/release.yml:681:    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:683:    timeout-minutes: 60
+.github/workflows/release.yml:694:    runs-on: ${{ matrix.runner }}
+.github/workflows/release.yml:709:        uses: actions/checkout@v5
+.github/workflows/release.yml:718:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:721:        uses: docker/login-action@v4
+.github/workflows/release.yml:728:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:737:        uses: docker/build-push-action@v7
+.github/workflows/release.yml:758:        uses: actions/upload-artifact@v7
+.github/workflows/release.yml:766:  docker-publish-merge:
+.github/workflows/release.yml:768:    needs: [release, docker-publish]
+.github/workflows/release.yml:771:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:772:    runs-on: ubuntu-latest
+.github/workflows/release.yml:773:    timeout-minutes: 30
+.github/workflows/release.yml:783:        uses: actions/download-artifact@v8
+.github/workflows/release.yml:790:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:793:        uses: docker/login-action@v4
+.github/workflows/release.yml:800:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:831:  docker-publish-dind:
+.github/workflows/release.yml:833:    needs: [release]
+.github/workflows/release.yml:834:    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:835:    timeout-minutes: 60
+.github/workflows/release.yml:846:    runs-on: ${{ matrix.runner }}
+.github/workflows/release.yml:857:        uses: actions/checkout@v5
+.github/workflows/release.yml:866:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:869:        uses: docker/login-action@v4
+.github/workflows/release.yml:876:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:884:        uses: docker/build-push-action@v7
+.github/workflows/release.yml:904:        uses: actions/upload-artifact@v7
+.github/workflows/release.yml:911:  docker-publish-dind-merge:
+.github/workflows/release.yml:913:    needs: [release, docker-publish-dind]
+.github/workflows/release.yml:914:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:915:    runs-on: ubuntu-latest
+.github/workflows/release.yml:916:    timeout-minutes: 30
+.github/workflows/release.yml:926:        uses: actions/download-artifact@v8
+.github/workflows/release.yml:933:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:936:        uses: docker/login-action@v4
+.github/workflows/release.yml:943:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:972:  helm-release:
+.github/workflows/release.yml:974:    needs: [release, docker-publish-merge, docker-publish-dind-merge]
+.github/workflows/release.yml:977:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:978:    runs-on: ubuntu-latest
+.github/workflows/release.yml:979:    timeout-minutes: 20
+.github/workflows/release.yml:988:        uses: actions/checkout@v5
+.github/workflows/release.yml:993:        uses: azure/setup-helm@v5
+.github/workflows/release.yml:1001:        uses: softprops/action-gh-release@v2
+.github/workflows/release.yml:1007:  instant-release:
+.github/workflows/release.yml:1009:    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+.github/workflows/release.yml:1010:    runs-on: ubuntu-latest
+.github/workflows/release.yml:1011:    timeout-minutes: 30
+.github/workflows/release.yml:1020:      - uses: actions/checkout@v5
+.github/workflows/release.yml:1025:        uses: actions/setup-node@v5
+.github/workflows/release.yml:1046:        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+.github/workflows/release.yml:1053:        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
+.github/workflows/release.yml:1060:        if: steps.publish.outputs.published == 'true'
+.github/workflows/release.yml:1066:        if: steps.publish.outputs.published == 'true'
+.github/workflows/release.yml:1074:  docker-publish-instant:
+.github/workflows/release.yml:1076:    needs: [instant-release]
+.github/workflows/release.yml:1079:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1081:    timeout-minutes: 60
+.github/workflows/release.yml:1092:    runs-on: ${{ matrix.runner }}
+.github/workflows/release.yml:1103:        uses: actions/checkout@v5
+.github/workflows/release.yml:1112:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:1115:        uses: docker/login-action@v4
+.github/workflows/release.yml:1122:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:1131:        uses: docker/build-push-action@v7
+.github/workflows/release.yml:1152:        uses: actions/upload-artifact@v7
+.github/workflows/release.yml:1160:  docker-publish-instant-merge:
+.github/workflows/release.yml:1162:    needs: [instant-release, docker-publish-instant]
+.github/workflows/release.yml:1165:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1166:    runs-on: ubuntu-latest
+.github/workflows/release.yml:1167:    timeout-minutes: 30
+.github/workflows/release.yml:1177:        uses: actions/download-artifact@v8
+.github/workflows/release.yml:1184:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:1187:        uses: docker/login-action@v4
+.github/workflows/release.yml:1194:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:1225:  docker-publish-dind-instant:
+.github/workflows/release.yml:1227:    needs: [instant-release]
+.github/workflows/release.yml:1228:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1229:    timeout-minutes: 60
+.github/workflows/release.yml:1240:    runs-on: ${{ matrix.runner }}
+.github/workflows/release.yml:1251:        uses: actions/checkout@v5
+.github/workflows/release.yml:1260:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:1263:        uses: docker/login-action@v4
+.github/workflows/release.yml:1270:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:1278:        uses: docker/build-push-action@v7
+.github/workflows/release.yml:1298:        uses: actions/upload-artifact@v7
+.github/workflows/release.yml:1305:  docker-publish-dind-instant-merge:
+.github/workflows/release.yml:1307:    needs: [instant-release, docker-publish-dind-instant]
+.github/workflows/release.yml:1308:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1309:    runs-on: ubuntu-latest
+.github/workflows/release.yml:1310:    timeout-minutes: 30
+.github/workflows/release.yml:1320:        uses: actions/download-artifact@v8
+.github/workflows/release.yml:1327:        uses: docker/setup-buildx-action@v4
+.github/workflows/release.yml:1330:        uses: docker/login-action@v4
+.github/workflows/release.yml:1337:        uses: docker/metadata-action@v6
+.github/workflows/release.yml:1366:  helm-release-instant:
+.github/workflows/release.yml:1368:    needs: [instant-release, docker-publish-instant-merge, docker-publish-dind-instant-merge]
+.github/workflows/release.yml:1371:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1372:    runs-on: ubuntu-latest
+.github/workflows/release.yml:1373:    timeout-minutes: 20
+.github/workflows/release.yml:1382:        uses: actions/checkout@v5
+.github/workflows/release.yml:1387:        uses: azure/setup-helm@v5
+.github/workflows/release.yml:1395:        uses: softprops/action-gh-release@v2
+.github/workflows/release.yml:1401:  changeset-pr:
+.github/workflows/release.yml:1403:    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+.github/workflows/release.yml:1404:    runs-on: ubuntu-latest
+.github/workflows/release.yml:1405:    timeout-minutes: 15
+.github/workflows/release.yml:1410:      - uses: actions/checkout@v5
+.github/workflows/release.yml:1415:        uses: actions/setup-node@v5
+.github/workflows/release.yml:1431:        uses: peter-evans/create-pull-request@v8
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:3:on:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:4:  push:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:11:  pull_request:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:17:  workflow_dispatch:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:20:permissions:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:25:env:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:30:jobs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:31:  link-checker:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:33:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:36:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:37:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:38:      group: check-${{ github.workflow }}-${{ github.ref }}-link-checker
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:39:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:43:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:47:        uses: lycheeverse/lychee-action@v2
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:76:        if: steps.lychee.outputs.exit_code != 0
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/links.yml:83:        if: steps.lychee.outputs.exit_code != 0 && steps.webarchive.outputs.all_archived != 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:3:on:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:4:  push:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:6:  pull_request:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:8:  schedule:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:10:  workflow_dispatch:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:13:permissions:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:18:env:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:23:jobs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:24:  codeql:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:26:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:27:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:28:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:29:      group: check-${{ github.workflow }}-${{ github.ref }}-codeql-${{ matrix.language }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:30:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:40:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:43:        uses: github/codeql-action/init@v4
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:48:        uses: github/codeql-action/autobuild@v4
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:51:        uses: github/codeql-action/analyze@v4
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:53:  dependency-review:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:55:    if: github.event_name == 'pull_request'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:56:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:57:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:58:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:59:      group: check-${{ github.workflow }}-${{ github.ref }}-dependency-review
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:60:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:65:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/security.yml:68:        uses: actions/dependency-review-action@v5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:3:on:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:4:  pull_request:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:13:  push:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:23:  workflow_dispatch:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:25:permissions:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:30:env:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:35:jobs:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:36:  web-build:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:38:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:39:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:40:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:41:      group: check-${{ github.workflow }}-${{ github.ref }}-web-build
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:42:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:44:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:47:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:54:        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:55:        uses: actions/configure-pages@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:67:        uses: actions/upload-artifact@v7
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:74:        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:75:        uses: actions/upload-pages-artifact@v5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:82:  pages-deploy:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:84:    needs: [web-build]
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:85:    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:86:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:87:    timeout-minutes: 10
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:88:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:89:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:90:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:100:        uses: actions/deploy-pages@v5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:102:  desktop-package:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:104:    runs-on: ${{ matrix.os }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:105:    timeout-minutes: 20
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:106:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:107:      group: check-${{ github.workflow }}-${{ github.ref }}-desktop-package-${{ matrix.os }}
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:108:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:114:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:117:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:147:        uses: actions/upload-artifact@v7
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:153:  android-build:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:155:    if: github.event_name == 'workflow_dispatch' && vars.EXAMPLE_APP_ENABLE_ANDROID_BUILD == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:156:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:157:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:158:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:159:      group: check-${{ github.workflow }}-${{ github.ref }}-android-build
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:160:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:162:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:165:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:172:        uses: actions/setup-java@v5
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:178:        uses: android-actions/setup-android@v3
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:190:        uses: actions/upload-artifact@v7
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:198:  ios-build:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:200:    if: github.event_name == 'workflow_dispatch' && vars.EXAMPLE_APP_ENABLE_IOS_BUILD == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:201:    runs-on: macos-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:202:    timeout-minutes: 30
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:203:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:204:      group: check-${{ github.workflow }}-${{ github.ref }}-ios-build
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:205:      cancel-in-progress: true
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:207:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:210:        uses: actions/setup-node@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:228:  preview-regen:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:230:    runs-on: ubuntu-latest
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:234:    timeout-minutes: 20
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:235:    concurrency:
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:236:      group: main-writer-${{ github.repository }}-main
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:237:      cancel-in-progress: false
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:238:    if: |
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:246:      - uses: actions/checkout@v6
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:278:        if: steps.drift.outputs.drift == 'true'
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:297:        if: failure()
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:298:        uses: actions/upload-artifact@v7
+/tmp/js-ai-driven-development-pipeline-template-2150-a/.github/workflows/example-app.yml:309:        if: always()

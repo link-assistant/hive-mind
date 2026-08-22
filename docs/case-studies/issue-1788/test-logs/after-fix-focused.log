@@ -1,0 +1,257 @@
+
+🧪 Test Suite 1: Root cause - /solve_queue underscore in Markdown
+────────────────────────────────────────────────────────────
+  ✅ PASS: OLD message with /solve_queue has Markdown parsing issue
+  ✅ PASS: NEW message with /solve\_queue passes Markdown parsing
+  ✅ PASS: Message with underscore URL + /solve_queue fails Markdown
+  ✅ PASS: Fixed message with underscore URL + escaped /solve\_queue passes
+
+🧪 Test Suite 2: Dynamic error messages with special characters
+────────────────────────────────────────────────────────────
+  ✅ PASS: Model error underscores are escaped
+  ✅ PASS: Escaped branch error with underscores passes Markdown
+  ✅ PASS: Escaped yargs error with underscores passes Markdown
+  ✅ PASS: Reject reason underscore is escaped
+  ✅ PASS: Queue waiting reason passes Markdown
+
+🧪 Test Suite 3: Full message construction safety
+────────────────────────────────────────────────────────────
+  ✅ PASS: Full starting message with underscore username/URL passes Markdown
+  ✅ PASS: Message with underscore display name passes Markdown
+  ✅ PASS: Session name with underscores in backticks is safe
+  ✅ PASS: Error output in code block is safe
+
+🧪 Test Suite 4: safeReply plain text fallback stripping
+────────────────────────────────────────────────────────────
+  ✅ PASS: Links are converted to text + URL
+  ✅ PASS: Escaped underscores are restored in plain text
+  ✅ PASS: Bold markers are stripped
+  ✅ PASS: Inline code backticks are stripped
+  ✅ PASS: All escaped underscores restored in complex message
+  ✅ PASS: All links converted in complex message
+[telegram-bot] safeReply: formatted Telegram message failed: 400: Bad Request: can't parse entities: Can't find end of the entity
+  ✅ PASS: safeReply retries once as plain text
+  ✅ PASS: First attempt uses Markdown
+  ✅ PASS: Fallback removes parse mode
+  ✅ PASS: Fallback warns in user locale
+  ✅ PASS: Fallback includes original message content as plain text
+[telegram-bot] sendMessage: formatted Telegram message failed: 400: Bad Request: can't parse entities
+[telegram-bot] sendMessage: Failing message (12 bytes): *Broken send
+[telegram-bot] editMessageText: formatted Telegram message failed: 400: Bad Request: can't parse entities
+[telegram-bot] editMessageText: Failing message (12 bytes): *Broken edit
+  ✅ PASS: send and edit each retry once
+  ✅ PASS: send fallback removes parse mode
+  ✅ PASS: edit fallback removes parse mode
+  ✅ PASS: send fallback warns
+  ✅ PASS: edit fallback warns
+
+🧪 Test Suite 5: Regression - issue #1460 scenarios
+────────────────────────────────────────────────────────────
+  ✅ PASS: Issue #1460 scenario (underscore username + underscore URL) passes
+
+════════════════════════════════════════════════════════════
+Results: 30 passed, 0 failed, 30 total
+════════════════════════════════════════════════════════════
+
+📋 getVersionInfo Tests
+
+✅ getVersionInfo returns success object
+✅ getVersionInfo includes gatherTimeMs metric
+   (actual time: 3461ms)
+✅ getVersionInfo completes within the reasonable CI bound
+✅ getVersionInfo includes hiveMind version
+✅ getVersionInfo includes Node.js version from process
+✅ getVersionInfo includes platform info
+✅ getVersionInfo includes AI agent version fields
+✅ getVersionInfo with processVersion tracks restart warning
+
+📋 formatVersionMessage Tests
+
+✅ formatVersionMessage returns string
+✅ formatVersionMessage includes Hive-Mind header
+✅ formatVersionMessage shows restart warning when needsRestart is true
+✅ formatVersionMessage does not show restart warning when needsRestart is false
+✅ formatVersionMessage groups JavaScript tools under JavaScript/Node.js section
+✅ formatVersionMessage groups Python tools under Python section
+✅ formatVersionMessage groups Rust tools under Rust section
+✅ formatVersionMessage groups AI agents under AI Agents section
+✅ formatVersionMessage shows mixed Playwright MCP connection state for Claude and Codex
+✅ formatVersionMessage groups C/C++ tools under C/C++ section
+✅ formatVersionMessage does not include empty sections
+✅ formatVersionMessage includes platform at the end
+✅ formatVersionMessage localizes Russian UI labels
+
+============================================================
+Results: 21 passed, 0 failed, 21 total
+============================================================
+
+📋 Progress Bar Tests
+
+✅ getProgressBar returns correct length
+✅ getProgressBar at 0% shows all empty
+✅ getProgressBar at 100% shows all filled
+✅ getProgressBar at 50% shows half filled
+✅ getProgressBar handles edge values
+
+📋 Progress Bar Threshold Marker Tests (Issue #1242)
+
+✅ getProgressBar with threshold returns correct length
+✅ getProgressBar with threshold includes marker character
+✅ getProgressBar with threshold at 65% places marker correctly
+✅ getProgressBar with threshold at 90% places marker correctly
+✅ getProgressBar with threshold at 97% places marker correctly
+✅ getProgressBar with null threshold returns original format
+✅ getProgressBar threshold marker replaces one block
+✅ DISPLAY_THRESHOLDS constants are defined
+✅ formatCodexLimitsSection renders 5 hour and weekly sections
+✅ formatCodexLimitsSection renders error state
+
+📋 Math.floor Percentage Tests (Issue #1133)
+
+✅ formatUsageMessage uses Math.floor for session percentage
+✅ formatUsageMessage shows 100% only when exactly 100
+✅ formatUsageMessage floors various percentages correctly
+✅ Math.floor ensures 100% means exactly full
+
+📋 Time Passed Percentage Tests
+
+✅ calculateTimePassedPercentage returns null for null input
+✅ calculateTimePassedPercentage returns valid percentage for future date
+✅ calculateTimePassedPercentage handles 5-hour period
+✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+
+📋 formatUsageMessage Comprehensive Tests
+
+✅ formatUsageMessage includes all required sections
+✅ formatUsageMessage handles null percentages
+✅ formatUsageMessage includes optional system info
+✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+✅ formatUsageMessage localizes Russian reset times and queue labels
+
+📋 Edge Cases for Display
+
+✅ formatUsageMessage handles 0% correctly
+✅ formatUsageMessage handles extreme values
+
+📋 Warning Emoji Tests (Issue #1242)
+
+✅ formatUsageMessage shows warning emoji when session exceeds threshold
+✅ formatUsageMessage does not show warning emoji when below threshold
+✅ formatUsageMessage shows warning for system resources when exceeded
+✅ formatUsageMessage shows threshold markers in progress bars
+
+📋 Claude Error Display Tests (Issue #1343)
+
+✅ formatUsageMessage with claudeError shows error once in Claude limits section
+✅ formatUsageMessage with claudeError still shows system resource sections
+✅ formatUsageMessage with null claudeError shows normal Claude data
+
+📋 Sections Array / Extra Sections Tests (Issue #1387)
+
+✅ formatUsageMessage wraps all content in a single code block
+✅ formatUsageMessage with extraSections includes extra content inside code block
+✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+✅ formatUsageMessage with empty extraSections works as before
+✅ formatUsageMessage sections are separated by blank lines
+
+📋 formatRetryAfterMessage Tests (Issue #1446)
+
+✅ formatRetryAfterMessage returns "Try again later." for null
+✅ formatRetryAfterMessage returns "Try again later." for undefined
+✅ formatRetryAfterMessage returns "Try again later." for "0"
+✅ formatRetryAfterMessage returns "Try again later." for negative value
+✅ formatRetryAfterMessage formats seconds correctly for small values
+✅ formatRetryAfterMessage formats seconds correctly for minutes
+✅ formatRetryAfterMessage formats seconds correctly for hours
+✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+✅ formatRetryAfterMessage handles HTTP-date format
+✅ formatRetryAfterMessage handles HTTP-date in the past
+✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+✅ formatUsageMessage localizes core labels for Russian
+✅ formatUsageMessage localizes core labels for Chinese and Hindi
+✅ formatCodexLimitsSection localizes additional Codex labels
+
+📊 Test Results
+
+Tests passed: 57
+Tests failed: 0
+Total tests: 57
+
+✅ All tests passed!
+================================================================================
+Tests: Issue #1267 - Queue Display & Progress Bar Fixes
+================================================================================
+
+📋 formatDuration Tests
+
+✅ formatDuration formats seconds correctly
+✅ formatDuration formats minutes and seconds
+✅ formatDuration formats hours, minutes, and seconds
+✅ formatDuration formats days
+✅ formatDuration handles negative values gracefully
+✅ formatDuration localizes Russian compact units
+✅ formatWaitingReason localizes Russian threshold messages
+
+📋 Queue Display Tests
+
+✅ formatStatus shows all queues even when empty
+✅ formatStatus localizes Russian queue labels
+✅ formatDetailedStatus groups items by tool queue
+✅ formatDetailedStatus shows max 5 items per queue
+
+📋 Used Label Tests
+
+✅ formatUsageMessage shows used label on progress bars below threshold
+✅ formatUsageMessage shows warning emoji on progress bars at/above threshold
+
+================================================================================
+Test Results for Issue #1267:
+  ✅ Passed: 13
+  ❌ Failed: 0
+  Total: 13
+================================================================================
+================================================================================
+Unit Tests: /solve_queue Command (Issue #1232)
+================================================================================
+
+📋 Registration Tests
+
+✅ registerSolveQueueCommand registers a command handler
+✅ registerSolveQueueCommand returns handleSolveQueueCommand function
+✅ Command regex matches solve_queue
+✅ Command regex matches solvequeue
+✅ Command regex matches solve-queue
+✅ Command regex matches SOLVE_QUEUE (case insensitive)
+✅ Command regex does not match solve
+✅ Command regex does not match queue
+
+📋 Permission Tests
+
+✅ Rejects non-group chat
+✅ Rejects unauthorized chat
+✅ Ignores old messages
+✅ Ignores forwarded messages
+
+📋 Queue Status Output Tests
+
+✅ Shows queue status for empty queue
+✅ Shows processing count in per-queue breakdown
+✅ Shows queue with pending items
+
+📋 Hint Text Regression Tests
+
+✅ locales/en.lino uses /solve_queue in hint text (not /solve-queue)
+✅ help message includes /solve_queue using backtick code block
+✅ telegram-bot.mjs includes solve_queue in text fallback handlers
+✅ telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)
+✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+✅ help message includes /accept_invites using backtick code block
+✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+
+================================================================================
+Test Results for /solve_queue command:
+  ✅ Passed: 22
+  ❌ Failed: 0
+  Total: 22
+================================================================================

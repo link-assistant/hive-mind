@@ -1,0 +1,13 @@
+
+Issue #1981 default safety checks
+
+PASS queue disk threshold defaults to 80% used and display stays in sync
+PASS queue disk strategy defaults to enqueue/wait instead of reject
+PASS absolute free disk default is 10240 MB in shared config and solve definitions
+PASS solve parser exposes --min-disk-space default as 10240 MB
+PASS hive parser inherits --min-disk-space default as 10240 MB
+PASS task parser defaults --isolation to docker
+PASS telegram bot dry-run defaults to docker isolation
+PASS telegram bot still allows explicit empty isolation opt-out
+
+Results: 8 passed, 0 failed

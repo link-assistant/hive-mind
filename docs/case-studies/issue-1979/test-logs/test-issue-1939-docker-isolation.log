@@ -1,0 +1,39 @@
+
+--- Git identity is mounted for every tool (issue #1939, problem 3) ---
+  PASS: claude tasks receive gh, git identity, and Claude credentials
+  PASS: codex tasks receive gh, git identity, and Codex credentials
+
+--- Git identity mounts honor git/XDG env overrides ---
+  PASS: GIT_CONFIG_GLOBAL and XDG_CONFIG_HOME are used when the host exposes git config outside the default paths
+
+--- Missing host git identity is skipped, not invented ---
+  PASS: a host without a git identity gets no phantom git mount (the symptom the deploy must fix)
+
+--- Host git-identity preflight is self-healing (issue #1939, problem 3) ---
+  PASS: an existing host git identity is detected and mounted (no repair attempted)
+  PASS: no repair runs when the host already has a git identity
+  PASS: the repair probe is not invoked when an identity already exists
+  PASS: a missing host git identity is derived from the gh account so it becomes mountable
+  PASS: the preflight records that it repaired the identity
+  PASS: a successful self-heal emits no warning
+  PASS: an unrepairable missing identity is reported absent
+  PASS: an unrepairable missing identity emits exactly one warning
+  PASS: the warning names the exact downstream failure
+  PASS: hostHasMountableGitIdentity sees the XDG ~/.config/git directory
+  PASS: hostHasMountableGitIdentity is false when no git identity exists
+
+--- Unknown docker exit code detection (issue #1939, problem 1) ---
+  PASS: the -1 sentinel is treated as an unknown exit code
+  PASS: a missing exit code is treated as unknown
+  PASS: an undefined exit code is treated as unknown
+  PASS: a real success exit code (0) is a known result
+  PASS: a real failure exit code (127) is a known result
+
+--- session-monitor cross-checks a live container on an ambiguous docker status (problem 1) ---
+  PASS: a docker "executed"/-1 status whose container is still running is reported running (no premature completion)
+  PASS: a docker "executed"/-1 status whose container has exited is reported finished
+  PASS: a docker terminal status with a real exit code is trusted without cross-checking the container
+  PASS: the real captured exit code is preserved
+  PASS: a screen terminal status is still trusted directly (docker cross-check does not apply)
+
+Result: 25 passed, 0 failed

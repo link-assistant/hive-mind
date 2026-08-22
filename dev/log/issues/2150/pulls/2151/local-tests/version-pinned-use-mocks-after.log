@@ -1,0 +1,55 @@
+✅ Issue #1901: Playwright MCP availability rejects pending list rows
+✅ Issue #1901: Playwright MCP availability accepts connected list rows
+✅ Issue #1901: Playwright MCP availability ignores timeout-action command arguments
+✅ Issue #1901: interactive status detection ignores timeout-action command arguments
+✅ Issue #1901: pending/connecting is a transient (not failed) status
+✅ Issue #1901: failed/error statuses are terminal failures
+✅ Issue #1901: Claude stream handling does NOT abort pending Playwright MCP sessions
+✅ Issue #1901: pending Playwright with Tool Search produces no failure diagnostic
+✅ Issue #1901: failed Playwright without tools produces a failure diagnostic
+✅ Issue #1901: connected Playwright with deferred Tool Search tools produces no diagnostic
+✅ Issue #1901: Codex-style enabled rows still count as available
+✅ Issue #1901: Playwright rows without connected/enabled status are not available
+✅ Issue #1901: version output rejects pending Playwright MCP rows
+✅ Issue #1901: system.init comment shows pending Playwright as connecting, with no failure warning
+✅ Issue #1901: system.init comment warns when Playwright MCP failed to connect
+✅ Issue #1901: missing MCP registration is repaired with default command
+✅ Issue #1901: pending MCP registration is not overwritten by repair
+✅ Issue #1901: solve preflight repairs missing Claude Playwright MCP before work starts
+✅ Issue #1901: solve preflight fails immediately when enabled Playwright MCP is unavailable
+✅ Issue #1901: solve preflight honors --no-playwright-mcp
+✅ Issue #1901: solve runs Playwright MCP preflight before starting a working session
+✅ Issue #1901: skip-tool-connection-check does not skip local Playwright MCP preflight
+✅ Issue #1901: Docker image verification rejects unavailable Playwright MCP rows
+
+============================================================
+Results: 23 passed, 0 failed, 23 total
+============================================================
+✅ Issue #1943: probe timeout default is generous and overridable
+✅ Issue #1943: a timed-out mcp list probe does NOT abort the solve when @playwright/mcp is installed
+✅ Issue #1943: a null (rejected) mcp list probe also falls back to the package check
+✅ Issue #1943: a timed-out probe still fails when @playwright/mcp is genuinely missing
+✅ Issue #1943: the inconclusive-probe fallback receives the log so package diagnostics surface
+✅ Issue #1943: a connected probe is unaffected by the fallback (regression guard)
+✅ Issue #1943: a pending registration is still left untouched (issue #1901 regression guard)
+✅ Issue #1943: solve.mjs still wires the local Playwright MCP preflight before the working session
+
+============================================================
+Results: 8 passed, 0 failed, 8 total
+============================================================
+PASS: Qwen model registry maps defaults and aliases
+PASS: Qwen stream-json parser extracts session, result, and error events
+PASS: Qwen stream-json parser extracts issue #1741 context-fill usage when emitted
+PASS: executeQwenCommand invokes qwen with stream-json and prompt files
+PASS: executeQwenCommand passes resume session to qwen
+PASS: executeQwenCommand retries retryable errors and preserves session id
+
+Total: 6 tests
+Passed: 6
+Failed: 0
+PASS: missing terminal result after Exit code 144 is retryable
+PASS: Claude stream missing result resumes the captured session
+
+Total: 2 tests
+Passed: 2
+Failed: 0

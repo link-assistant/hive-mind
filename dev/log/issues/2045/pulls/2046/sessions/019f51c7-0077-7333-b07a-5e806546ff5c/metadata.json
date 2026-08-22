@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "collectedAt": "2026-07-11T15:28:13.497Z",
+  "issueNumber": 2045,
+  "prNumber": "2046",
+  "branchName": "issue-2045-32e4d954173a",
+  "tool": "codex",
+  "sessionId": "019f51c7-0077-7333-b07a-5e806546ff5c",
+  "rawCommand": "/home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/link-assistant/hive-mind/issues/2045 --model gpt-5.6-terra --development-log --tool codex --attach-logs --verbose --no-tool-check --disable-report-issue --language en",
+  "developmentLogDirectory": "./dev/log/issues/2045/pulls/2046",
+  "caseStudyDirectory": "./docs/case-studies/issue-2045",
+  "artifacts": {
+    "solveLog": "./dev/log/issues/2045/pulls/2046/sessions/019f51c7-0077-7333-b07a-5e806546ff5c/solve.log",
+    "sessionFiles": ["./dev/log/issues/2045/pulls/2046/sessions/019f51c7-0077-7333-b07a-5e806546ff5c/codex-019f51c7-0077-7333-b07a-5e806546ff5c.jsonl"]
+  }
+}

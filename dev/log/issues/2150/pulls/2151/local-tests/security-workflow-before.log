@@ -1,0 +1,32 @@
+node:fs:484
+    return binding.readFileUtf8(path, stringToFlags(options.flag));
+                   ^
+
+Error: ENOENT: no such file or directory, open '.github/workflows/security.yml'
+    at readFileSync (node:fs:484:20)
+    at file:///tmp/gh-issue-solver-1786457752545/tests/ci-integrity-2150.test.mjs:14:26
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '.github/workflows/security.yml'
+}
+
+Node.js v24.19.0
+✖ tests/ci-integrity-2150.test.mjs (109.506073ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 139.28765
+
+✖ failing tests:
+
+test at tests/ci-integrity-2150.test.mjs:1:1
+✖ tests/ci-integrity-2150.test.mjs (109.506073ms)
+  'test failed'

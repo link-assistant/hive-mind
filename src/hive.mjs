@@ -1,0 +1,1465 @@
+#!/usr/bin/env node
+// Import Sentry instrumentation first (must be before other imports)
+import './instrument.mjs';
+import { ensureUseM, fetchUseMCodeFromCdn } from './use-m-bootstrap.lib.mjs';
+import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry, execGhWithRetry } from './github-rate-limit.lib.mjs'; // rate-limit marker (#1726): gh API calls flow through $ wrapped by caller. execGhWithRetry adds transient-network retry (#1756).
+const earlyArgs = process.argv.slice(2);
+if (earlyArgs.includes('--version')) {
+  const { getVersion } = await import('./version.lib.mjs');
+  try {
+    const version = await getVersion();
+    console.log(version);
+  } catch {
+    console.error('Error: Unable to determine version');
+    process.exit(1);
+  }
+  process.exit(0);
+}
+if (earlyArgs.includes('--help') || earlyArgs.includes('-h')) {
+  try {
+    // Load minimal modules needed for help
+    const { getLinoYargsFactory, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
+    const yargs = getLinoYargsFactory();
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
+    // Reuse createYargsConfig from shared module to avoid duplication
+    const { createYargsConfig } = await import('./hive.config.lib.mjs');
+    const helpYargs = createYargsConfig(yargs(rawArgs)).version(false);
+    helpYargs.showHelp();
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Error: Failed to load help information');
+    console.error(`   ${error.message}`);
+    console.error('   This might be due to network issues or missing dependencies.');
+    console.error('   Please check your internet connection and try again.');
+    process.exit(1);
+  }
+}
+export { createYargsConfig } from './hive.config.lib.mjs';
+import { attachChildExitHandlers } from './child-exit.lib.mjs';
+import { SUBSCRIPTION_BLOCKED_MARKER } from './subscription-error.lib.mjs'; // Issue #2161
+import { isDirectExecution, withTimeout } from './hive.bootstrap.lib.mjs';
+import { createShutdownManager } from './hive.shutdown.lib.mjs';
+// Issue #2160: keep dequeuing safe when the host disk fills up mid-run.
+import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSolverWorkspacePaths } from './disk-guard.lib.mjs';
+const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
+if (isRunningDirectly) {
+  console.log('🐝 Hive Mind - AI-powered issue solver');
+  console.log('   Initializing...');
+  try {
+    console.log('   Loading dependencies (this may take a moment)...');
+    if (typeof globalThis.use === 'undefined') {
+      try {
+        await ensureUseM({
+          fetchUseMCode: () => withTimeout(fetchUseMCodeFromCdn(), 10000, 'fetching use-m library'),
+          log: message => console.log(message),
+        });
+      } catch (error) {
+        console.error('❌ Fatal error: Failed to load dependencies');
+        console.error(`   ${error.message}`);
+        console.error('   This might be due to network issues or missing dependencies.');
+        console.error('   Please check your internet connection and try again.');
+        process.exit(1);
+      }
+    }
+    const { $ } = await withTimeout(
+      use('command-stream'),
+      30000, // 30 second timeout
+      'loading command-stream'
+    );
+    const { parseCliArgumentsWithLino, hideBin, normalizeCliArgs } = await import('./cli-arguments.lib.mjs');
+    const path = (await withTimeout(use('path'), 30000, 'loading path')).default;
+    const fs = (await withTimeout(use('fs'), 30000, 'loading fs')).promises;
+    // Import shared library functions
+    const lib = await import('./lib.mjs');
+    const { log, setLogFile, getAbsoluteLogPath, formatTimestamp, cleanErrorMessage, cleanupTempDirectories, setupVerboseLogInterceptor, setupStdioLogInterceptor } = lib;
+    const yargsConfigLib = await import('./hive.config.lib.mjs');
+    const { createYargsConfig } = yargsConfigLib;
+    const claudeLib = await import('./claude.lib.mjs');
+    const { validateClaudeConnection } = claudeLib;
+    // Import model validation library
+    const modelValidation = await import('./models/index.mjs');
+    const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel, defaultModels, resolveRuntimeDefaultModel } = modelValidation;
+    const githubLib = await import('./github.lib.mjs');
+    const { checkGitHubPermissions, fetchAllIssuesWithPagination, fetchProjectIssues, isRateLimitError, batchCheckPullRequestsForIssues, parseGitHubUrl, batchCheckArchivedRepositories } = githubLib;
+    // Import YouTrack-related functions
+    const youTrackLib = await import('./youtrack/youtrack.lib.mjs');
+    const { validateYouTrackConfig, testYouTrackConnection, createYouTrackConfigFromEnv } = youTrackLib;
+    const youTrackSync = await import('./youtrack/youtrack-sync.mjs');
+    const { syncYouTrackToGitHub, formatIssuesForHive } = youTrackSync;
+    const memCheck = await import('./memory-check.mjs');
+    const { checkSystem } = memCheck;
+    const exitHandler = await import('./exit-handler.lib.mjs');
+    const { initializeExitHandler, installGlobalExitHandlers, safeExit, delegateSignalHandling } = exitHandler;
+    const sentryLib = await import('./sentry.lib.mjs');
+    const { initializeSentry, withSentry, addBreadcrumb, reportError } = sentryLib;
+    const graphqlLib = await import('./github.graphql.lib.mjs');
+    const { tryFetchIssuesWithGraphQL } = graphqlLib;
+    const solutionDraftsLib = await import('./list-solution-drafts.lib.mjs');
+    const { listSolutionDrafts } = solutionDraftsLib;
+    const recheckLib = await import('./hive.recheck.lib.mjs');
+    const { recheckIssueConditions } = recheckLib;
+    const toolConnectionValidationLib = await import('./tool-connection-validation.lib.mjs');
+    const { validateToolConnection } = toolConnectionValidationLib;
+    const commandName = process.argv[1] ? process.argv[1].split('/').pop() : '';
+    const isLocalScript = commandName.endsWith('.mjs');
+    const solveCommand = isLocalScript ? './solve.mjs' : 'solve';
+    /**
+     * Fallback function to fetch issues from organization/user repositories
+     * when search API hits rate limits
+     * @param {string} owner - Organization or user name
+     * @param {string} scope - 'organization' or 'user'
+     * @param {string} monitorTag - Label to filter by (optional)
+     * @param {boolean} allIssues - Whether to fetch all issues or only labeled ones
+     * @returns {Promise<Array>} Array of issues
+     */
+    async function fetchIssuesFromRepositories(owner, scope, monitorTag, fetchAllIssues = false) {
+      try {
+        await log(`   🔄 Using repository-by-repository fallback for ${scope}: ${owner}`);
+        // Strategy 1: Try GraphQL approach first (faster but has limitations)
+        // Only try GraphQL for "all issues" mode, not for labeled issues
+        if (fetchAllIssues) {
+          const graphqlResult = await tryFetchIssuesWithGraphQL(owner, scope, log, cleanErrorMessage);
+          if (graphqlResult.success) {
+            await log(`   ✅ GraphQL approach successful: ${graphqlResult.issues.length} issues from ${graphqlResult.repoCount} repositories`);
+            return graphqlResult.issues;
+          }
+        }
+        // Strategy 2: Fallback to gh api --paginate approach (comprehensive but slower)
+        await log('   📋 Using gh api --paginate approach for comprehensive coverage...', { verbose: true });
+
+        // Get list of ALL repositories using gh api with --paginate (includes isArchived for filtering)
+        let repoListCmd;
+        if (scope === 'organization') {
+          repoListCmd = `gh api orgs/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
+        } else {
+          repoListCmd = `gh api users/${owner}/repos --paginate --jq '.[] | {name: .name, owner: .owner.login, isArchived: .archived}'`;
+        }
+        await log('   📋 Fetching repository list (using --paginate for unlimited pagination)...', { verbose: true });
+        await log(`   🔎 Command: ${repoListCmd}`, { verbose: true });
+        // Add delay for rate limiting
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // #1756: route through execGhWithRetry for transient 5xx + rate-limit
+        const { stdout: repoOutput } = await execGhWithRetry(repoListCmd, {
+          execOptions: { encoding: 'utf8', env: process.env },
+          label: `gh api ${scope} repos (paginated)`,
+        });
+        // Parse the output line by line, as gh api with --jq outputs one JSON object per line
+        const repoLines = repoOutput
+          .trim()
+          .split('\n')
+          .filter(line => line.trim());
+        const allRepositories = repoLines.map(line => JSON.parse(line));
+        await log(`   📊 Found ${allRepositories.length} repositories`);
+        // Filter repositories to only include those owned by the target user/org
+        const ownedRepositories = allRepositories.filter(repo => {
+          const repoOwner = repo.owner?.login || repo.owner;
+          return repoOwner === owner;
+        });
+        const unownedCount = allRepositories.length - ownedRepositories.length;
+        if (unownedCount > 0) {
+          await log(`   ⏭️  Skipping ${unownedCount} repository(ies) not owned by ${owner}`);
+        }
+        // Filter out archived repositories from owned repositories
+        const repositories = ownedRepositories.filter(repo => !repo.isArchived);
+        const archivedCount = ownedRepositories.length - repositories.length;
+        if (archivedCount > 0) {
+          await log(`   ⏭️  Skipping ${archivedCount} archived repository(ies)`);
+        }
+        await log(`   ✅ Processing ${repositories.length} non-archived repositories owned by ${owner}`);
+        let collectedIssues = [];
+        let processedRepos = 0;
+        // Process repositories in batches to avoid overwhelming the API
+        for (const repo of repositories) {
+          try {
+            const repoName = repo.name;
+            const ownerName = repo.owner?.login || owner;
+            await log(`   🔍 Fetching issues from ${ownerName}/${repoName}...`, { verbose: true });
+            // Build the appropriate issue list command
+            let issueCmd;
+            if (fetchAllIssues) {
+              issueCmd = `gh issue list --repo ${ownerName}/${repoName} --state open --json url,title,number,createdAt`;
+            } else {
+              issueCmd = `gh issue list --repo ${ownerName}/${repoName} --state open --label "${monitorTag}" --json url,title,number,createdAt`;
+            }
+            // Add delay between repository requests
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const repoIssues = await fetchAllIssuesWithPagination(issueCmd);
+            // Add repository information to each issue
+            const issuesWithRepo = repoIssues.map(issue => ({
+              ...issue,
+              repository: {
+                name: repoName,
+                owner: { login: ownerName },
+              },
+            }));
+            collectedIssues.push(...issuesWithRepo);
+            processedRepos++;
+            if (issuesWithRepo.length > 0) {
+              await log(`   ✅ Found ${issuesWithRepo.length} issues in ${ownerName}/${repoName}`, { verbose: true });
+            }
+          } catch (repoError) {
+            reportError(repoError, {
+              context: 'fetchIssuesFromRepositories',
+              repo: repo.name,
+              operation: 'fetch_repo_issues',
+            });
+            await log(`   ⚠️  Failed to fetch issues from ${repo.name}: ${cleanErrorMessage(repoError)}`, {
+              verbose: true,
+            });
+            // Continue with other repositories
+          }
+        }
+        await log(`   ✅ Repository fallback complete: ${collectedIssues.length} issues from ${processedRepos}/${repositories.length} repositories`);
+        return collectedIssues;
+      } catch (error) {
+        reportError(error, {
+          context: 'fetchIssuesFromRepositories',
+          owner,
+          scope,
+          operation: 'repository_fallback',
+        });
+        await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(error)}`, { level: 'error' });
+        return [];
+      }
+    }
+    // Configure command line arguments - GitHub URL as positional argument
+    const rawArgs = normalizeCliArgs(hideBin(process.argv));
+    // Use .parse() instead of .argv to ensure .strict() mode works correctly
+    // When you use .argv, strict mode doesn't trigger properly
+    // See: https://github.com/yargs/yargs/issues - .strict() only works with .parse()
+    let argv;
+    // Temporarily suppress stderr to prevent yargs from printing error messages
+    // We'll handle error reporting ourselves
+    const originalStderrWrite = process.stderr.write;
+    let stderrBuffer = '';
+    process.stderr.write = function (chunk, encoding, callback) {
+      // Capture stderr output instead of writing it
+      stderrBuffer += chunk.toString();
+      if (typeof encoding === 'function') {
+        encoding();
+      } else if (callback) {
+        callback();
+      }
+      return true;
+    };
+    try {
+      argv = parseCliArgumentsWithLino({
+        argv: ['node', 'hive', ...rawArgs],
+        commandName: 'hive',
+        createYargsConfig,
+        positionalAliases: ['github-url'],
+      });
+      // Restore stderr if parsing succeeded
+      process.stderr.write = originalStderrWrite;
+    } catch (error) {
+      // Restore stderr before handling the error
+      process.stderr.write = originalStderrWrite;
+      // If .strict() mode catches an unknown argument, yargs will throw an error
+      // We should fail fast for truly invalid arguments
+      if (error.message && error.message.includes('Unknown argument')) {
+        console.error('Error:', error.message);
+        process.exit(1);
+      }
+      // Yargs sometimes throws "Not enough arguments" errors even when arguments are present
+      // This is a quirk with optional positional arguments [github-url]
+      // The error.argv object still contains the parsed arguments, so we can safely continue
+      if (error.argv) {
+        argv = error.argv;
+      } else {
+        // If there's no argv object, it's a real error - show the captured stderr
+        if (stderrBuffer) {
+          process.stderr.write(stderrBuffer);
+        }
+        throw error;
+      }
+      // Normalize deprecated flags to new names
+      if (argv && (argv.skipToolCheck || argv.skipClaudeCheck)) argv.skipToolConnectionCheck = true;
+      if (argv && argv.toolCheck === false) argv.toolConnectionCheck = false;
+    }
+    let githubUrl = argv['github-url'];
+    // Set global verbose mode
+    global.verboseMode = argv.verbose;
+    const { initI18n } = await import('./i18n.lib.mjs');
+    await initI18n({ language: argv.language, uiLanguage: argv.uiLanguage, workLanguage: argv.workLanguage });
+    setupVerboseLogInterceptor(); // Issue #1466: capture [VERBOSE] output in log files
+    setupStdioLogInterceptor(); // Issue #1549: capture ALL terminal output in log file
+    // Use the universal GitHub URL parser
+    if (githubUrl) {
+      const parsedUrl = parseGitHubUrl(githubUrl);
+      if (!parsedUrl.valid) {
+        console.error('Error: Invalid GitHub URL format');
+        if (parsedUrl.error) console.error(`  ${parsedUrl.error}`);
+        if (parsedUrl.suggestion) console.error(`\n💡 Did you mean: ${parsedUrl.suggestion}`);
+        console.error('\nExpected: https://github.com/owner or https://github.com/owner/repo');
+        console.error('You can use any of these formats:');
+        console.error('  - https://github.com/owner');
+        console.error('  - https://github.com/owner/repo');
+        console.error('  - http://github.com/owner (will be converted to https)');
+        console.error('  - github.com/owner (will add https://)');
+        console.error('  - owner (will be converted to https://github.com/owner)');
+        console.error('  - owner/repo (will be converted to https://github.com/owner/repo)');
+        await safeExit(1, 'Error occurred');
+      }
+      // Check if it's a valid type for hive (user or repo)
+      if (parsedUrl.type !== 'user' && parsedUrl.type !== 'repo') {
+        console.error('Error: Invalid GitHub URL for monitoring');
+        console.error(`  URL type '${parsedUrl.type}' is not supported`);
+        console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
+        await safeExit(1, 'Error occurred');
+      }
+      // Use the normalized URL
+      githubUrl = parsedUrl.normalized;
+    }
+    // Validate GitHub URL format ONCE AND FOR ALL at the beginning
+    // Parse URL format: https://github.com/owner or https://github.com/owner/repo
+    let urlMatch = null;
+    // Only validate if we have a URL
+    const needsUrlValidation = githubUrl;
+    if (needsUrlValidation) {
+      // Do the regex matching ONCE - this result will be used everywhere
+      urlMatch = githubUrl.match(/^https:\/\/github\.com\/([^/]+)(\/([^/]+))?$/);
+      if (!urlMatch) {
+        console.error('Error: Invalid GitHub URL format');
+        console.error('Expected: https://github.com/owner or https://github.com/owner/repo');
+        console.error('You can use any of these formats:');
+        console.error('  - https://github.com/owner');
+        console.error('  - https://github.com/owner/repo');
+        console.error('  - http://github.com/owner (will be converted to https)');
+        console.error('  - github.com/owner (will add https://)');
+        console.error('  - owner (will be converted to https://github.com/owner)');
+        console.error('  - owner/repo (will be converted to https://github.com/owner/repo)');
+        await safeExit(1, 'Error occurred');
+      }
+    }
+    // Create log file with timestamp
+    // Use log-dir option if provided, otherwise use current working directory
+    let targetDir = argv.logDir || process.cwd();
+    // Verify the directory exists, create if necessary
+    try {
+      await fs.access(targetDir);
+    } catch (error) {
+      reportError(error, {
+        context: 'log_directory_access',
+        targetDir,
+        operation: 'check_directory_exists',
+      });
+      // If directory doesn't exist, try to create it
+      try {
+        await fs.mkdir(targetDir, { recursive: true });
+      } catch (mkdirError) {
+        reportError(mkdirError, {
+          context: 'log_directory_creation',
+          targetDir,
+          operation: 'create_directory',
+        });
+        console.error(`⚠️  Unable to create log directory: ${targetDir}`);
+        console.error('   Falling back to current working directory');
+        // Fall back to current working directory
+        targetDir = process.cwd();
+      }
+    }
+    const timestamp = formatTimestamp();
+    const logFile = path.join(targetDir, `hive-${timestamp}.log`);
+    // Set the log file for the lib.mjs logging system
+    setLogFile(logFile);
+    // Create the log file immediately
+    await fs.writeFile(logFile, `# Hive.mjs Log - ${new Date().toISOString()}\n\n`);
+    // Always use absolute path for log file display
+    const absoluteLogPath = path.resolve(logFile);
+    await log(`📁 Log file: ${absoluteLogPath}`);
+    await log('   (All output will be logged here)');
+    // Initialize Sentry integration (unless disabled)
+    if (argv.sentry) {
+      await initializeSentry({
+        noSentry: !argv.sentry,
+        debug: argv.verbose,
+        version: process.env.npm_package_version || '0.12.0',
+      });
+      // Add breadcrumb for monitoring configuration
+      addBreadcrumb({
+        category: 'hive',
+        message: 'Started monitoring',
+        level: 'info',
+        data: {
+          mode: argv.projectMode ? 'project' : argv.allIssues ? 'all' : 'label',
+          concurrency: argv.concurrency,
+          model: argv.model,
+        },
+      });
+    }
+    // Initialize the exit handler with getAbsoluteLogPath function and Sentry cleanup
+    initializeExitHandler(getAbsoluteLogPath, log);
+    installGlobalExitHandlers();
+    // Validate GitHub URL requirement
+    if (!githubUrl) {
+      await log('❌ GitHub URL is required', { level: 'error' });
+      await log('   Usage: hive <github-url> [options]', { level: 'error' });
+      await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+      await safeExit(1, 'Error occurred');
+    }
+    // Validate project mode arguments
+    if (argv.projectMode) {
+      if (!argv.projectNumber) {
+        await log('❌ Project mode requires --project-number', { level: 'error' });
+        await log('   Usage: hive <github-url> --project-mode --project-number NUMBER --project-owner OWNER', {
+          level: 'error',
+        });
+        await safeExit(1, 'Error occurred');
+      }
+      if (!argv.projectOwner) {
+        await log('❌ Project mode requires --project-owner', { level: 'error' });
+        await log('   Usage: hive <github-url> --project-mode --project-number NUMBER --project-owner OWNER', {
+          level: 'error',
+        });
+        await safeExit(1, 'Error occurred');
+      }
+      if (typeof argv.projectNumber !== 'number' || argv.projectNumber <= 0) {
+        await log('❌ Project number must be a positive integer', { level: 'error' });
+        await safeExit(1, 'Error occurred');
+      }
+    }
+    // --plan flag expansion: shortcut for --plan-model opus --worker-model sonnet (Issue #1223)
+    if (argv.plan) {
+      if (!rawArgs.includes('--plan-model')) argv.planModel = 'opus';
+      if (!rawArgs.includes('--model') && !rawArgs.includes('-m') && !rawArgs.includes('--worker-model')) argv.model = 'sonnet';
+    }
+    const modelExplicitlyProvided = rawArgs.includes('--model') || rawArgs.includes('-m') || rawArgs.includes('--worker-model');
+    if (argv.tool && !modelExplicitlyProvided && defaultModels[argv.tool]) {
+      argv.model = await resolveRuntimeDefaultModel(argv.tool);
+    }
+    // Validate model names EARLY (simple string check, always runs)
+    const tool = argv.tool || 'claude';
+    await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    if (argv.fallbackModel) {
+      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+    }
+    if (argv.planModel) {
+      if (tool !== 'claude') {
+        await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
+        await safeExit(1, '--plan-model requires --tool claude');
+      }
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+    }
+    if (argv.subAgentModel) {
+      await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
+    }
+    // Handle -s (--skip-issues-with-prs) and --auto-continue interaction
+    const hasExplicitAutoContinue = rawArgs.includes('--auto-continue');
+    const hasExplicitNoAutoContinue = rawArgs.includes('--no-auto-continue');
+    if (argv.skipIssuesWithPrs) {
+      if (hasExplicitAutoContinue) {
+        await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', {
+          level: 'error',
+        });
+        await log('   --skip-issues-with-prs: Skips issues that have any open PRs', { level: 'error' });
+        await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
+        await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+        await safeExit(1, 'Error occurred');
+      }
+      // -s implies disabling auto-continue unless explicitly set
+      if (!hasExplicitNoAutoContinue) {
+        argv.autoContinue = false;
+      }
+    }
+    // Helper function to check GitHub permissions - moved to github.lib.mjs
+    // Check GitHub permissions early in the process (skip in dry-run mode or when explicitly requested)
+    if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+      await log('⏩ Skipping GitHub permissions check (dry-run mode or skip-tool-connection-check enabled)', {
+        verbose: true,
+      });
+    } else {
+      const hasValidAuth = await checkGitHubPermissions();
+      if (!hasValidAuth) {
+        await log('\n❌ Cannot proceed without valid GitHub authentication', { level: 'error' });
+        await safeExit(1, 'Error occurred');
+      }
+    }
+    // YouTrack configuration and validation
+    let youTrackConfig = null;
+    if (argv.youtrackMode) {
+      // Create YouTrack config from environment variables and CLI overrides
+      youTrackConfig = createYouTrackConfigFromEnv();
+      if (!youTrackConfig) {
+        await log('❌ YouTrack mode requires environment variables to be set', { level: 'error' });
+        await log('   Required: YOUTRACK_URL, YOUTRACK_API_KEY, YOUTRACK_PROJECT_CODE, YOUTRACK_STAGE', {
+          level: 'error',
+        });
+        await log('   Example: YOUTRACK_URL=https://mycompany.youtrack.cloud', { level: 'error' });
+        process.exit(1);
+      }
+      // Apply CLI overrides
+      if (argv.youtrackStage) {
+        youTrackConfig.stage = argv.youtrackStage;
+      }
+      if (argv.youtrackProject) {
+        youTrackConfig.projectCode = argv.youtrackProject;
+      }
+      // Validate configuration
+      try {
+        validateYouTrackConfig(youTrackConfig);
+      } catch (error) {
+        await log(`❌ YouTrack configuration error: ${error.message}`, { level: 'error' });
+        process.exit(1);
+      }
+      // Test YouTrack connection
+      const youTrackConnected = await testYouTrackConnection(youTrackConfig);
+      if (!youTrackConnected) {
+        await log('\n❌ Cannot proceed without valid YouTrack connection', { level: 'error' });
+        process.exit(1);
+      }
+    }
+    // Parse GitHub URL to determine organization, repository, or user
+    let scope = 'repository';
+    let owner = null;
+    let repo = null;
+    // NO DUPLICATE VALIDATION! URL was already validated at the beginning.
+    // If we have a URL but no validation results, that's a logic error.
+    if (githubUrl && urlMatch === null) {
+      // This should never happen - it means our early validation was skipped incorrectly
+      await log('Internal error: URL validation was not performed correctly', { level: 'error' });
+      await log('This is a bug in the script logic', { level: 'error' });
+      await safeExit(1, 'Error occurred');
+    }
+    if (urlMatch) {
+      owner = urlMatch[1];
+      repo = urlMatch[3] || null;
+    }
+    // Determine scope
+    if (!repo) {
+      // Check if it's an organization or user (skip in dry-run mode to avoid hanging)
+      if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+        // In dry-run mode, default to user to avoid GitHub API calls
+        scope = 'user';
+        await log('   ℹ️  Assuming user scope (dry-run mode, skipping API detection)', { verbose: true });
+      } else {
+        try {
+          const typeResult = await $`gh api users/${owner} --jq .type`;
+          const accountType = typeResult.stdout.toString().trim();
+          scope = accountType === 'Organization' ? 'organization' : 'user';
+        } catch (e) {
+          reportError(e, {
+            context: 'detect_scope',
+            owner,
+            operation: 'detect_account_type',
+          });
+          // Default to user if API call fails
+          scope = 'user';
+        }
+      }
+    } else {
+      scope = 'repository';
+    }
+    await log('🎯 Monitoring Configuration:');
+    if (argv.youtrackMode) {
+      await log(`   📍 Source: YouTrack - ${youTrackConfig.url}`);
+      await log(`   📋 Project: ${youTrackConfig.projectCode}`);
+      await log(`   📌 Stage: "${youTrackConfig.stage}"`);
+      await log(`   📍 GitHub Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`);
+    } else {
+      await log(`   📍 Target: ${scope.charAt(0).toUpperCase() + scope.slice(1)} - ${owner}${repo ? `/${repo}` : ''}`);
+      if (argv.projectMode) {
+        await log(`   📋 Mode: PROJECT #${argv.projectNumber} (owner: ${argv.projectOwner})`);
+        await log(`   📌 Status: "${argv.projectStatus}"`);
+      } else if (argv.allIssues) {
+        await log('   🏷️  Mode: ALL ISSUES (no label filter)');
+      } else {
+        await log(`   🏷️  Tag: "${argv.monitorTag}"`);
+      }
+    }
+    if (argv.skipIssuesWithPrs) {
+      await log('   🚫 Skipping: Issues with open PRs');
+    }
+    await log(`   🔄 Concurrency: ${argv.concurrency} parallel workers`);
+    await log(`   📊 Pull Requests per Issue: ${argv.pullRequestsPerIssue}`);
+    await log(`   🤖 Model: ${argv.model}`);
+    if (argv.fork) {
+      await log('   🍴 Fork: ENABLED (will fork repos if no write access)');
+    }
+    if (argv.autoFork) {
+      await log('   🍴 Auto-Fork: ENABLED (will auto-fork public repos without write access)');
+    }
+    if (argv.autoContinue) {
+      await log('   🔄 Auto-Continue: ENABLED (will work on issues with existing PRs)');
+    }
+    if (argv.watch) {
+      await log('   👁️  Watch Mode: ENABLED (will monitor continuously for feedback)');
+    }
+    if (argv.targetBranch) {
+      await log(`   🎯 Target Branch: ${argv.targetBranch}`);
+    }
+    if (!argv.once) {
+      await log(`   ⏱️  Polling Interval: ${argv.interval} seconds`);
+    }
+    await log(`   ${argv.once ? '🚀 Mode: Single run' : '♾️  Mode: Continuous monitoring'}`);
+    if (argv.maxIssues > 0) {
+      await log(`   🔢 Max Issues: ${argv.maxIssues}`);
+    }
+    if (argv.dryRun) await log('   🧪 DRY RUN MODE - No actual processing');
+    if (argv.autoCleanup) await log('   🧹 Auto-cleanup: ENABLED (will clean /tmp/* /var/tmp/* on success)');
+    if (argv.interactiveMode) await log('   🔌 Interactive Mode: ENABLED');
+    await log('');
+    // Producer/Consumer Queue implementation
+    class IssueQueue {
+      constructor() {
+        this.queue = [];
+        this.processing = new Set();
+        this.completed = new Set();
+        this.failed = new Set();
+        this.deferrals = new Map(); // Issue #2160: issueUrl -> environment deferral count
+        this.workers = [];
+        this.isRunning = true;
+      }
+      // Add issue to queue if not already processed or in queue
+      enqueue(issueUrl) {
+        if (this.completed.has(issueUrl) || this.processing.has(issueUrl) || this.queue.includes(issueUrl)) {
+          return false;
+        }
+        this.queue.push(issueUrl);
+        return true;
+      }
+      // Get next issue from queue
+      dequeue() {
+        if (this.queue.length === 0) {
+          return null;
+        }
+        const issue = this.queue.shift();
+        this.processing.add(issue);
+        return issue;
+      }
+      // Mark issue as completed
+      markCompleted(issueUrl) {
+        this.processing.delete(issueUrl);
+        this.completed.add(issueUrl);
+      }
+      // Mark issue as failed
+      markFailed(issueUrl) {
+        this.processing.delete(issueUrl);
+        this.failed.add(issueUrl);
+      }
+      // Issue #2160: put an issue back at the head of the queue after an *environment* block (a
+      // full host disk). It is neither completed nor failed — the task was never attempted.
+      // Returns how many times this issue has been deferred so the caller can stop looping.
+      requeue(issueUrl) {
+        this.processing.delete(issueUrl);
+        const deferrals = (this.deferrals.get(issueUrl) || 0) + 1;
+        this.deferrals.set(issueUrl, deferrals);
+        if (!this.completed.has(issueUrl) && !this.queue.includes(issueUrl)) {
+          this.queue.unshift(issueUrl);
+        }
+        return deferrals;
+      }
+      // Get queue statistics
+      getStats() {
+        return {
+          queued: this.queue.length,
+          processing: this.processing.size,
+          completed: this.completed.size,
+          failed: this.failed.size,
+          processingIssues: Array.from(this.processing),
+        };
+      }
+      // Stop all workers
+      stop() {
+        this.isRunning = false;
+      }
+    }
+    // Create global queue instance
+    const issueQueue = new IssueQueue();
+    // Issue #1823: Track in-flight solve child processes. A *first* interrupt forwards a
+    // controlled SIGTERM to each (they run in their own detached process group, so the
+    // terminal's SIGINT never reaches them); a *second* interrupt force-kills the groups.
+    const activeSolveChildren = new Set();
+    // Issue #2160: workspaces owned by in-flight workers, learned from the solver's own output.
+    // The disk guard must never reclaim these — they hold work in progress.
+    const workerWorkspaces = new Map(); // workerId -> Set<workspace path>
+    const getProtectedWorkspacePaths = () => new Set(Array.from(workerWorkspaces.values()).flatMap(paths => Array.from(paths)));
+    // How long a worker waits for in-flight work to release disk space before deferring its task,
+    // and how many deferrals of one task are tolerated before hive stops: with nothing else
+    // running, no amount of waiting will free space.
+    const DISK_SPACE_WAIT_MS = 10 * 60 * 1000;
+    const MAX_DISK_SPACE_DEFERRALS = 3;
+    let diskSpaceHalt = null;
+    // Issue #2161: an account/subscription block is hive-wide, not per-issue. The
+    // credentials every worker shares have been refused, so each remaining issue
+    // would spin up a full solve run only to die the same way — burning clones,
+    // containers and PR comments while the queue drains into "failed". The first
+    // worker to see the marker in its child's output records it here and stops the
+    // queue; the rest exit as soon as their current child returns.
+    let subscriptionBlock = null;
+    const noteSubscriptionBlock = (workerId, line) => {
+      if (subscriptionBlock) return;
+      subscriptionBlock = { workerId, line: line.trim() };
+      log(`\n${SUBSCRIPTION_BLOCKED_MARKER} — worker ${workerId} reported that the account can no longer use the tool:`, { level: 'error' }).catch(() => {});
+      log(`   ${subscriptionBlock.line}`, { level: 'error' }).catch(() => {});
+      log('   Stopping the hive: every remaining issue would fail the same way until access is restored.', { level: 'error' }).catch(() => {});
+      log('   In-flight workers finish (and auto-commit their work) before the run ends.', { level: 'error' }).catch(() => {});
+      issueQueue.stop();
+    };
+    // Worker function to process issues from queue
+    async function worker(workerId) {
+      await log(`🔧 Worker ${workerId} started`, { verbose: true });
+      while (issueQueue.isRunning) {
+        const issueUrl = issueQueue.dequeue();
+        if (!issueUrl) {
+          // No work available, wait a bit
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          continue;
+        }
+        await log(`\n👷 Worker ${workerId} processing: ${issueUrl}`);
+        // Recheck conditions before processing to avoid wasted work
+        const recheckResult = await recheckIssueConditions(issueUrl, argv);
+        if (!recheckResult.shouldProcess) {
+          await log(`   ⏭️  Skipping issue: ${recheckResult.reason}`);
+          issueQueue.markCompleted(issueUrl);
+          const stats = issueQueue.getStats();
+          await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+          continue;
+        }
+        // Issue #2160: re-check free disk space before every task. hive used to check it once at
+        // startup, so a run whose kept workspaces filled the disk kept spawning solvers that died
+        // in their own pre-flight check — and each of those was counted as a *task* failure
+        // (`❌ 4 task(s) failed (completed: 6)`). Reclaim idle workspaces, wait for in-flight ones,
+        // and defer the task rather than burn it.
+        if (!argv.dryRun) {
+          const requiredDiskSpaceMB = argv.minDiskSpace || 10240;
+          const otherWorkInFlight = issueQueue.getStats().processing > 1;
+          const diskGuard = await ensureDiskSpaceForWorker({
+            requiredMB: requiredDiskSpaceMB,
+            protectedPaths: getProtectedWorkspacePaths(),
+            maxWaitMs: otherWorkInFlight ? DISK_SPACE_WAIT_MS : 0,
+            log,
+          });
+          if (!diskGuard.ok) {
+            const deferrals = issueQueue.requeue(issueUrl);
+            await log(`   ⏸️  Worker ${workerId} deferred ${issueUrl}: ${diskGuard.freeMB}MB free, ${requiredDiskSpaceMB}MB required (deferral ${deferrals}/${MAX_DISK_SPACE_DEFERRALS}, not a task failure)`, { level: 'warning' });
+            if (deferrals >= MAX_DISK_SPACE_DEFERRALS && issueQueue.getStats().processing === 0) {
+              diskSpaceHalt = `Insufficient disk space: ${diskGuard.freeMB}MB free, ${requiredDiskSpaceMB}MB required`;
+              await log('   🛑 Stopping: no in-flight work can release disk space. Free space on this host (or enable --auto-cleanup) and rerun.', { level: 'error' });
+              issueQueue.stop();
+            }
+            continue;
+          }
+        }
+        // Track if this issue failed
+        let issueFailed = false;
+        // Issue #2160: an environment block (full disk) reported by solve itself — requeue, don't fail.
+        let environmentDeferral = false;
+        // Issue #1823: Track a graceful shutdown stop so it is neither failed nor completed.
+        let gracefulStop = false;
+        // Process the issue multiple times if needed
+        for (let prNum = 1; prNum <= argv.pullRequestsPerIssue; prNum++) {
+          if (argv.pullRequestsPerIssue > 1) {
+            await log(`   📝 Creating PR ${prNum}/${argv.pullRequestsPerIssue} for issue`);
+          }
+          try {
+            // Execute solve command using spawn to enable real-time streaming while avoiding command-stream quoting issues
+            if (argv.dryRun) {
+              await log(`   🧪 [DRY RUN] Executing ${solveCommand} in dry-run mode for ${issueUrl}...`);
+            } else {
+              await log(`   🚀 Executing ${solveCommand} for ${issueUrl}...`);
+            }
+            const startTime = Date.now();
+            // Use spawn to get real-time streaming output while avoiding command-stream's automatic quote addition
+            const { spawn } = await import('child_process');
+            // Auto-forward all solve-passthrough options from hive argv to solve.
+            // New options added to SOLVE_OPTION_DEFINITIONS are automatically forwarded.
+            // See: https://github.com/link-assistant/hive-mind/issues/1209
+            const { getSolvePassthroughOptionNames } = await import('./hive.config.lib.mjs');
+            const { SOLVE_OPTION_DEFINITIONS } = await import('./solve.config.lib.mjs');
+            const kebabToCamel = str => str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+            const args = [issueUrl, '--model', argv.model];
+            // Special handling for options with different semantics in hive vs solve
+            // Validate branch name before forwarding (issue #1482: reject URLs used as branch names)
+            const branchValue = argv.baseBranch || argv.targetBranch;
+            if (branchValue) {
+              const { validateBranchName } = await import('./solve.branch.lib.mjs');
+              const branchValidation = validateBranchName(branchValue);
+              if (!branchValidation.valid) {
+                throw new Error(`Invalid branch name for --base-branch/--target-branch: ${branchValidation.reason}`);
+              }
+              args.push('--base-branch', branchValue);
+            }
+            if (argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) args.push('--skip-tool-connection-check');
+            if (argv.dryRun) args.push('--dry-run');
+            if (argv.autoCleanup) args.push('--auto-cleanup');
+            const SKIP_AUTO_FORWARD = new Set(['model', 'worker-model', 'base-branch', 'skip-tool-connection-check', 'tool-connection-check', 'skip-tool-check', 'skip-claude-check', 'tool-check', 'dry-run', 'auto-cleanup']);
+            for (const optionName of getSolvePassthroughOptionNames()) {
+              if (SKIP_AUTO_FORWARD.has(optionName)) continue;
+              const camelName = kebabToCamel(optionName);
+              const value = argv[camelName];
+              const def = SOLVE_OPTION_DEFINITIONS[optionName];
+              if (!def) continue;
+              if (def.type === 'boolean') {
+                if (value === undefined) continue;
+                // For booleans with default true or undefined, forward both --flag and --no-flag
+                if (def.default === true || def.default === undefined) {
+                  args.push(value ? `--${optionName}` : `--no-${optionName}`);
+                } else if (value) {
+                  args.push(`--${optionName}`); // Default false: only forward when truthy
+                }
+              } else if (def.type === 'array' && Array.isArray(value) && value.length > 0) {
+                for (const entry of value) {
+                  args.push(`--${optionName}`, String(entry));
+                }
+              } else if ((def.type === 'string' || def.type === 'number') && value !== undefined && value !== false) {
+                args.push(`--${optionName}`, String(value)); // Issue #1718: skip false (some string options have default:false)
+              }
+            }
+            // Log the actual command being executed so users can investigate/reproduce
+            await log(`   📋 Command: ${solveCommand} ${args.join(' ')}`);
+            let exitCode = 0;
+            // Create promise to handle async spawn process
+            await new Promise(resolve => {
+              const child = spawn(solveCommand, args, {
+                stdio: ['pipe', 'pipe', 'pipe'],
+                env: process.env,
+                // Issue #1823: run solve in its own process group so a terminal SIGINT (or the
+                // \003 `$ --stop`/screen injects) hits only hive, not solve+codex. hive instead
+                // forwards a controlled SIGTERM (see gracefulShutdown). stdio stays piped and we
+                // must NOT unref() — hive keeps waiting. See docs/case-studies/issue-1823.
+                detached: true,
+              });
+              // Issue #1823: register the in-flight child for optional force-kill on a 2nd signal
+              activeSolveChildren.add(child);
+              // Issue #2160: start collecting the workspaces this worker owns so the disk guard
+              // (running in the other workers) never reclaims a directory that is still in use.
+              const ownedWorkspaces = new Set();
+              workerWorkspaces.set(workerId, ownedWorkspaces);
+              log(`   🧒 Spawned ${solveCommand} worker-${workerId} (pid ${child.pid}, detached process group)`, { verbose: true }).catch(() => {});
+              // Handle stdout data - stream output in real-time
+              child.stdout.on('data', data => {
+                const lines = data.toString().split('\n');
+                for (const line of lines) {
+                  if (line.trim()) {
+                    for (const workspacePath of extractSolverWorkspacePaths(line)) ownedWorkspaces.add(workspacePath);
+                    // Issue #2161: solve prints SUBSCRIPTION_BLOCKED_MARKER on a terminal
+                    // account block. Seen here, it stops the whole hive (see noteSubscriptionBlock).
+                    if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line);
+                    log(`   [${solveCommand} worker-${workerId}] ${line}`).catch(logError => {
+                      reportError(logError, {
+                        context: 'worker_stdout_log',
+                        workerId,
+                        operation: 'log_output',
+                      });
+                    });
+                  }
+                }
+              });
+              // Handle stderr data - stream output in real-time.
+              // Issue #1823: Do NOT blanket-tag stderr as ERROR — solve relays non-error
+              // diagnostics there (codex DEBUG/INFO traces, git branch messages, etc.), which
+              // produced hundreds of false errors. The authoritative failure signal is the
+              // child's non-zero exit code (below), so log stderr at default level.
+              child.stderr.on('data', data => {
+                const lines = data.toString().split('\n');
+                for (const line of lines) {
+                  if (line.trim()) {
+                    if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line); // Issue #2161
+                    log(`   [${solveCommand} worker-${workerId} stderr] ${line}`).catch(logError => {
+                      reportError(logError, {
+                        context: 'worker_stderr_log',
+                        workerId,
+                        operation: 'log_stderr',
+                      });
+                    });
+                  }
+                }
+              });
+              // Handle process completion and spawn failure. Issue #2135: a signalled
+              // child reports `code === null`, which `code || 0` read as success.
+              attachChildExitHandlers({
+                child,
+                command: solveCommand,
+                label: `   [${solveCommand} worker-${workerId}]`,
+                errorLabel: `   [${solveCommand} worker-${workerId} ERROR]`,
+                log,
+                onLogError: (logError, operation) => reportError(logError, { context: 'worker_child_exit_log', workerId, operation }),
+                onExit: result => {
+                  activeSolveChildren.delete(child); // Issue #1823: no longer in-flight
+                  // Issue #2160: the worker released its workspaces — they become reclaimable.
+                  workerWorkspaces.delete(workerId);
+                  exitCode = result.exitCode;
+                  resolve();
+                },
+              });
+            });
+            const duration = Math.round((Date.now() - startTime) / 1000);
+            if (exitCode === 0) {
+              await log(`   ✅ Worker ${workerId} completed ${issueUrl} (${duration}s)`);
+            } else if (!issueQueue.isRunning && (exitCode === 130 || exitCode === 143)) {
+              // Issue #1823: during shutdown, solve auto-commits and exits 130/143 — a graceful
+              // stop, NOT a failure. Don't throw/post an error; leave the issue in "processing"
+              // (neither completed nor failed) since work was cut short. See case-study issue-1823.
+              await log(`   🛑 Worker ${workerId} stopped gracefully during shutdown on ${issueUrl} (exit ${exitCode}, ${duration}s)`);
+              gracefulStop = true;
+              break; // stop processing more PRs for this issue
+            } else if (exitCode === EXIT_CODE_INSUFFICIENT_DISK_SPACE) {
+              // Issue #2160: solve refused to start because this host is out of disk space. The
+              // issue was never attempted, so it must not be counted as a task failure.
+              await log(`   ⏸️  Worker ${workerId} could not start ${issueUrl}: the host is out of disk space (exit ${exitCode}, ${duration}s) — requeued, not a task failure`, { level: 'warning' });
+              environmentDeferral = true;
+              break;
+            } else if (subscriptionBlock) {
+              // Issue #2161: the run did not fail because of this issue — the account
+              // lost access mid-flight. Report the real reason and stop; solve has
+              // already auto-committed whatever work existed.
+              await log(`   ${SUBSCRIPTION_BLOCKED_MARKER} Worker ${workerId} stopped on ${issueUrl} after ${duration}s: the tool account can no longer be used (exit ${exitCode}).`, { level: 'error' });
+              await log(`   Restore access, then re-run the hive — this issue stays queued, not failed.`, { level: 'error' });
+              gracefulStop = true;
+              break;
+            } else {
+              throw new Error(`${solveCommand} exited with code ${exitCode}`);
+            }
+            // Small delay between multiple PRs for same issue
+            if (prNum < argv.pullRequestsPerIssue) {
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+          } catch (error) {
+            reportError(error, {
+              context: 'worker_process_issue',
+              workerId,
+              issueUrl,
+              operation: 'spawn_solve_worker',
+            });
+            await log(`   ❌ Worker ${workerId} failed on ${issueUrl}: ${cleanErrorMessage(error)}`, {
+              level: 'error',
+            });
+            issueQueue.markFailed(issueUrl);
+            issueFailed = true;
+            break; // Stop trying more PRs for this issue
+          }
+        }
+        // Only mark as completed if it didn't fail and wasn't gracefully stopped mid-shutdown.
+        // Issue #1823: a graceful stop is neither a success nor a failure — leave it in
+        // "processing" so it is not miscounted as completed (which would also trigger cleanup).
+        if (environmentDeferral) {
+          // Issue #2160: back to the queue (neither completed nor failed). Stop the run when
+          // nothing else is in flight, since no other worker can release disk space.
+          const deferrals = issueQueue.requeue(issueUrl);
+          if (deferrals >= MAX_DISK_SPACE_DEFERRALS && issueQueue.getStats().processing === 0) {
+            diskSpaceHalt = 'Insufficient disk space reported by the solver pre-flight check';
+            await log('   🛑 Stopping: no in-flight work can release disk space. Free space on this host (or enable --auto-cleanup) and rerun.', { level: 'error' });
+            issueQueue.stop();
+          }
+        } else if (!issueFailed && !gracefulStop) {
+          issueQueue.markCompleted(issueUrl);
+        }
+        // Show queue stats
+        const stats = issueQueue.getStats();
+        await log(`   📊 Queue: ${stats.queued} waiting, ${stats.processing} processing, ${stats.completed} completed, ${stats.failed} failed`);
+        await log(`   📁 Hive log file: ${absoluteLogPath}`);
+        // Show which issues are currently being processed
+        if (stats.processingIssues && stats.processingIssues.length > 0) {
+          await log('   🔧 Currently processing solve commands:');
+          for (const issueUrl of stats.processingIssues) {
+            await log(`      - ${issueUrl}`);
+          }
+        }
+      }
+      await log(`🔧 Worker ${workerId} stopped`, { verbose: true });
+    }
+    // Function to check if an issue has open pull requests
+    // Note: hasOpenPullRequests function has been replaced by batchCheckPullRequestsForIssues
+    // in github.lib.mjs for better performance and reduced API calls
+    // Function to fetch issues from GitHub
+    async function fetchIssues() {
+      if (argv.youtrackMode) {
+        await log(`\n🔍 Fetching issues from YouTrack project ${youTrackConfig.projectCode} (stage: "${youTrackConfig.stage}")...`);
+      } else if (argv.projectMode) {
+        await log(`\n🔍 Fetching issues from GitHub Project #${argv.projectNumber} (status: "${argv.projectStatus}")...`);
+      } else if (argv.allIssues) {
+        await log('\n🔍 Fetching ALL open issues...');
+      } else {
+        await log(`\n🔍 Fetching issues with label "${argv.monitorTag}"...`);
+      }
+      // In dry-run mode, skip actual API calls and return empty list immediately
+      if (argv.dryRun) {
+        await log('   🧪 Dry-run mode: Skipping actual issue fetching');
+        return [];
+      }
+      try {
+        let issues = [];
+        if (argv.youtrackMode) {
+          // Sync YouTrack issues to GitHub
+          if (!owner || !repo) {
+            throw new Error('YouTrack mode requires a specific repository URL (not organization/user)');
+          }
+          const githubIssues = await syncYouTrackToGitHub(youTrackConfig, owner, repo, $, log);
+          // Convert to format expected by hive
+          issues = formatIssuesForHive(githubIssues).map(issue => ({
+            url: issue.html_url,
+            title: issue.title,
+            number: issue.number,
+          }));
+        } else if (argv.projectMode) {
+          // Use GitHub Projects v2 mode
+          if (!argv.projectNumber || !argv.projectOwner) {
+            throw new Error('Project mode requires --project-number and --project-owner');
+          }
+          issues = await fetchProjectIssues(argv.projectNumber, argv.projectOwner, argv.projectStatus);
+        } else if (argv.allIssues) {
+          // Fetch all open issues without label filter using pagination
+          let searchCmd;
+          if (scope === 'repository') {
+            searchCmd = `gh issue list --repo ${owner}/${repo} --state open --json url,title,number,createdAt`;
+          } else if (scope === 'organization') {
+            searchCmd = `gh search issues org:${owner} is:open --json url,title,number,createdAt,repository`;
+          } else {
+            // User scope
+            searchCmd = `gh search issues user:${owner} is:open --json url,title,number,createdAt,repository`;
+          }
+          await log('   🔎 Fetching all issues with pagination and rate limiting...');
+          await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
+          try {
+            issues = await fetchAllIssuesWithPagination(searchCmd);
+          } catch (searchError) {
+            reportError(searchError, {
+              context: 'github_all_issues_search',
+              scope,
+              owner,
+              operation: 'search_all_issues',
+            });
+            await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
+            // Check if the error is due to rate limiting or search API limit and we're not in repository scope
+            const errorMsg = searchError.message || searchError.toString();
+            const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
+            if ((isRateLimitError(searchError) || isSearchLimitError) && scope !== 'repository') {
+              await log('   🔍 Search limit detected - attempting repository fallback...');
+              try {
+                issues = await fetchIssuesFromRepositories(owner, scope, null, true);
+              } catch (fallbackError) {
+                reportError(fallbackError, {
+                  context: 'github_all_issues_fallback',
+                  scope,
+                  owner,
+                  operation: 'fallback_all_fetch',
+                });
+                await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
+                issues = [];
+              }
+            } else {
+              issues = [];
+            }
+          }
+        } else {
+          // Use label filter
+          // execSync is used within fetchAllIssuesWithPagination
+          // For repositories, use gh issue list which works better with new repos
+          if (scope === 'repository') {
+            const listCmd = `gh issue list --repo ${owner}/${repo} --state open --label "${argv.monitorTag}" --json url,title,number,createdAt`;
+            await log('   🔎 Fetching labeled issues with pagination and rate limiting...');
+            await log(`   🔎 Command: ${listCmd}`, { verbose: true });
+            try {
+              issues = await fetchAllIssuesWithPagination(listCmd);
+            } catch (listError) {
+              reportError(listError, {
+                context: 'github_list_issues',
+                scope,
+                owner,
+                monitorTag: argv.monitorTag,
+                operation: 'list_repository_issues',
+              });
+              await log(`   ⚠️  List failed: ${cleanErrorMessage(listError)}`, { verbose: true });
+              issues = [];
+            }
+          } else {
+            // For organizations and users, use search (may not work with new repos)
+            let baseQuery;
+            if (scope === 'organization') {
+              baseQuery = `org:${owner} is:issue is:open`;
+            } else {
+              baseQuery = `user:${owner} is:issue is:open`;
+            }
+            // Handle label with potential spaces
+            let searchQuery;
+            let searchCmd;
+            if (argv.monitorTag.includes(' ')) {
+              searchQuery = `${baseQuery} label:"${argv.monitorTag}"`;
+              searchCmd = `gh search issues '${searchQuery}' --json url,title,number,createdAt,repository`;
+            } else {
+              searchQuery = `${baseQuery} label:${argv.monitorTag}`;
+              searchCmd = `gh search issues '${searchQuery}' --json url,title,number,createdAt,repository`;
+            }
+            await log('   🔎 Fetching labeled issues with pagination and rate limiting...');
+            await log(`   🔎 Search query: ${searchQuery}`, { verbose: true });
+            await log(`   🔎 Command: ${searchCmd}`, { verbose: true });
+            try {
+              issues = await fetchAllIssuesWithPagination(searchCmd);
+            } catch (searchError) {
+              reportError(searchError, {
+                context: 'github_labeled_issues_search',
+                scope,
+                owner,
+                monitorTag: argv.monitorTag,
+                operation: 'search_labeled_issues',
+              });
+              await log(`   ⚠️  Search failed: ${cleanErrorMessage(searchError)}`, { verbose: true });
+              // Check if the error is due to rate limiting or search API limit
+              const errorMsg = searchError.message || searchError.toString();
+              const isSearchLimitError = errorMsg.includes('Hit search API limit') || errorMsg.includes('repository-by-repository fallback');
+              if (isRateLimitError(searchError) || isSearchLimitError) {
+                await log('   🔍 Search limit detected - attempting repository fallback...');
+                try {
+                  issues = await fetchIssuesFromRepositories(owner, scope, argv.monitorTag, false);
+                } catch (fallbackError) {
+                  reportError(fallbackError, {
+                    context: 'github_labeled_issues_fallback',
+                    scope,
+                    owner,
+                    monitorTag: argv.monitorTag,
+                    operation: 'fallback_labeled_fetch',
+                  });
+                  await log(`   ❌ Repository fallback failed: ${cleanErrorMessage(fallbackError)}`, { verbose: true });
+                  issues = [];
+                }
+              } else {
+                issues = [];
+              }
+            }
+          }
+        }
+        if (issues.length === 0) {
+          if (argv.youtrackMode) {
+            await log(`   ℹ️  No issues found in YouTrack with stage "${youTrackConfig.stage}"`);
+          } else if (argv.projectMode) {
+            await log(`   ℹ️  No issues found in project with status "${argv.projectStatus}"`);
+          } else if (argv.allIssues) {
+            await log('   ℹ️  No open issues found');
+          } else {
+            await log(`   ℹ️  No issues found with label "${argv.monitorTag}"`);
+          }
+          return [];
+        }
+        if (argv.youtrackMode) {
+          await log(`   📋 Found ${issues.length} YouTrack issue(s) with stage "${youTrackConfig.stage}"`);
+        } else if (argv.projectMode) {
+          await log(`   📋 Found ${issues.length} issue(s) with status "${argv.projectStatus}"`);
+        } else if (argv.allIssues) {
+          await log(`   📋 Found ${issues.length} open issue(s)`);
+        } else {
+          await log(`   📋 Found ${issues.length} issue(s) with label "${argv.monitorTag}"`);
+        }
+        // Sort issues by publication date (createdAt) based on issue-order option
+        if (issues.length > 0 && issues[0].createdAt) {
+          await log(`   🔄 Sorting issues by publication date (${argv.issueOrder === 'asc' ? 'oldest first' : 'newest first'})...`);
+          issues.sort((a, b) => {
+            const dateA = new Date(a.createdAt);
+            const dateB = new Date(b.createdAt);
+            return argv.issueOrder === 'asc' ? dateA - dateB : dateB - dateA;
+          });
+          await log('   ✅ Issues sorted by publication date');
+        }
+        // Filter out issues from archived repositories
+        // This is critical because we cannot do write operations on archived repositories
+        let issuesToProcess = issues;
+        // Helper function to extract repository info from issue (API response or URL)
+        const getRepoInfo = issue => {
+          let repoName = issue.repository?.name;
+          let repoOwner = issue.repository?.owner?.login || issue.repository?.nameWithOwner?.split('/')[0];
+          // If repository info is not available, extract it from the issue URL
+          if (!repoName || !repoOwner) {
+            const urlMatch = issue.url?.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/\d+/);
+            if (urlMatch) {
+              repoOwner = urlMatch[1];
+              repoName = urlMatch[2];
+            }
+          }
+          return { repoOwner, repoName };
+        };
+        // Only filter for organization/user scopes
+        // For repository scope, we're already working on a specific repo
+        if (scope !== 'repository' && issues.length > 0) {
+          await log('   🔍 Checking for archived repositories...');
+          // Extract unique repositories from issues
+          const uniqueRepos = new Map();
+          for (const issue of issues) {
+            const { repoOwner, repoName } = getRepoInfo(issue);
+            if (repoOwner && repoName) {
+              const repoKey = `${repoOwner}/${repoName}`;
+              if (!uniqueRepos.has(repoKey)) {
+                uniqueRepos.set(repoKey, { owner: repoOwner, name: repoName });
+              }
+            }
+          }
+          // Batch check archived status for all repositories
+          const archivedStatusMap = await batchCheckArchivedRepositories(Array.from(uniqueRepos.values()));
+          // Filter out issues from archived repositories
+          const filteredIssues = [];
+          let archivedIssuesCount = 0;
+          for (const issue of issues) {
+            const { repoOwner, repoName } = getRepoInfo(issue);
+            if (repoOwner && repoName) {
+              const repoKey = `${repoOwner}/${repoName}`;
+              if (archivedStatusMap[repoKey] === true) {
+                await log(`      ⏭️  Skipping (archived repository): ${issue.title || 'Untitled'} (${issue.url})`, {
+                  verbose: true,
+                });
+                archivedIssuesCount++;
+              } else {
+                filteredIssues.push(issue);
+              }
+            } else {
+              // If we can't determine repository, include the issue to be safe
+              await log(`      ⚠️  Could not determine repository for issue: ${issue.url}`, { verbose: true });
+              filteredIssues.push(issue);
+            }
+          }
+          if (archivedIssuesCount > 0) {
+            await log(`   ⏭️  Skipped ${archivedIssuesCount} issue(s) from archived repositories`);
+          }
+          issuesToProcess = filteredIssues;
+        }
+        // Filter out issues with open PRs if option is enabled
+        if (argv.skipIssuesWithPrs) {
+          await log('   🔍 Checking for existing pull requests using batch GraphQL query...');
+          // Extract issue numbers and repository info from URLs
+          const issuesByRepo = {};
+          for (const issue of issuesToProcess) {
+            const urlMatch = issue.url.match(/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)/);
+            if (urlMatch) {
+              const [, issueOwner, issueRepo, issueNumber] = urlMatch;
+              const repoKey = `${issueOwner}/${issueRepo}`;
+              if (!issuesByRepo[repoKey]) {
+                issuesByRepo[repoKey] = {
+                  owner: issueOwner,
+                  repo: issueRepo,
+                  issues: [],
+                };
+              }
+              issuesByRepo[repoKey].issues.push({
+                number: parseInt(issueNumber),
+                issue: issue,
+              });
+            }
+          }
+          // Batch check PRs for each repository
+          const filteredIssues = [];
+          let totalSkipped = 0;
+          for (const repoData of Object.values(issuesByRepo)) {
+            const issueNumbers = repoData.issues.map(i => i.number);
+            const prResults = await batchCheckPullRequestsForIssues(repoData.owner, repoData.repo, issueNumbers);
+            // Process results
+            for (const issueData of repoData.issues) {
+              const prInfo = prResults[issueData.number];
+              if (prInfo && prInfo.openPRCount > 0) {
+                await log(`      ⏭️  Skipping (has ${prInfo.openPRCount} PR${prInfo.openPRCount > 1 ? 's' : ''}): ${issueData.issue.title || 'Untitled'} (${issueData.issue.url})`, { verbose: true });
+                totalSkipped++;
+              } else {
+                filteredIssues.push(issueData.issue);
+              }
+            }
+          }
+          if (totalSkipped > 0) {
+            await log(`   ⏭️  Skipped ${totalSkipped} issue(s) with existing pull requests`);
+          }
+          issuesToProcess = filteredIssues;
+        }
+        // Apply max issues limit if set (after filtering to exclude skipped issues from count)
+        if (argv.maxIssues > 0 && issuesToProcess.length > argv.maxIssues) {
+          issuesToProcess = issuesToProcess.slice(0, argv.maxIssues);
+          await log(`   🔢 Limiting to first ${argv.maxIssues} issues (after filtering)`);
+        }
+        // In dry-run mode, show the issues that would be processed
+        if (argv.dryRun && issuesToProcess.length > 0) {
+          await log('\n   📝 Issues that would be processed:');
+          for (const issue of issuesToProcess) {
+            await log(`      - ${issue.title || 'Untitled'} (${issue.url})`);
+          }
+        }
+        return issuesToProcess.map(issue => issue.url);
+      } catch (error) {
+        reportError(error, {
+          context: 'fetchIssues',
+          projectMode: argv.projectMode,
+          allIssues: argv.allIssues,
+          monitorTag: argv.monitorTag,
+          operation: 'fetch_issues',
+        });
+        await log(`   ❌ Error fetching issues: ${cleanErrorMessage(error)}`, { level: 'error' });
+        return [];
+      }
+    }
+    // Main monitoring loop
+    async function monitor() {
+      await log('\n🚀 Starting Hive Mind monitoring system...');
+      // Start workers
+      await log(`\n👷 Starting ${argv.concurrency} workers...`);
+      for (let i = 1; i <= argv.concurrency; i++) {
+        issueQueue.workers.push(worker(i));
+      }
+      // Main monitoring loop
+      let iteration = 0;
+      while (true) {
+        iteration++;
+        await log(`\n🔄 Monitoring iteration ${iteration} at ${new Date().toISOString()}`);
+        // Fetch issues
+        const issueUrls = await fetchIssues();
+        // Add new issues to queue
+        let newIssues = 0;
+        for (const url of issueUrls) {
+          if (issueQueue.enqueue(url)) {
+            newIssues++;
+            await log(`   ➕ Added to queue: ${url}`);
+          }
+        }
+        if (newIssues > 0) {
+          await log(`   📥 Added ${newIssues} new issue(s) to queue`);
+        } else {
+          await log('   ℹ️  No new issues to add (all already processed or in queue)');
+        }
+        // Show current stats
+        const stats = issueQueue.getStats();
+        await log('\n📊 Current Status:');
+        await log(`   📋 Queued: ${stats.queued}`);
+        await log(`   ⚙️  Processing: ${stats.processing}`);
+        await log(`   ✅ Completed: ${stats.completed}`);
+        await log(`   ❌ Failed: ${stats.failed}`);
+        await log(`   📁 Hive log file: ${absoluteLogPath}`);
+        // Show which issues are currently being processed
+        if (stats.processingIssues && stats.processingIssues.length > 0) {
+          await log('   🔧 Currently processing solve commands:');
+          for (const issueUrl of stats.processingIssues) {
+            await log(`      - ${issueUrl}`);
+          }
+        }
+        // If running once, wait for queue to empty then exit
+        if (argv.once) {
+          await log('\n🏁 Single run mode - waiting for queue to empty...');
+          while (stats.queued > 0 || stats.processing > 0) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            const currentStats = issueQueue.getStats();
+            if (currentStats.queued !== stats.queued || currentStats.processing !== stats.processing) {
+              await log(`   ⏳ Waiting... Queue: ${currentStats.queued}, Processing: ${currentStats.processing}`);
+            }
+            Object.assign(stats, currentStats);
+          }
+          // List completed issues with their solution draft PRs
+          if (stats.completed > 0) {
+            await listSolutionDrafts(issueQueue, log, batchCheckPullRequestsForIssues);
+          }
+          await log('\n✅ All issues processed!');
+          await log(`   Completed: ${stats.completed}`);
+          await log(`   Failed: ${stats.failed}`);
+          await log(`   📁 Full log file: ${absoluteLogPath}`);
+          // Perform cleanup if enabled and there were successful completions
+          if (stats.completed > 0) {
+            await cleanupTempDirectories(argv);
+          }
+          // Stop workers before breaking to avoid hanging
+          issueQueue.stop();
+          break;
+        }
+        // Wait for next iteration
+        await log(`\n⏰ Next check in ${argv.interval} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, argv.interval * 1000));
+      }
+      // Stop workers
+      issueQueue.stop();
+      await Promise.all(issueQueue.workers);
+      // Perform cleanup if enabled and there were successful completions
+      const finalStats = issueQueue.getStats();
+      if (finalStats.completed > 0) {
+        // Issue #2160: argv must be forwarded — cleanupTempDirectories returns immediately
+        // without it, so this branch used to be a silent no-op even with --auto-cleanup.
+        await cleanupTempDirectories(argv);
+      }
+      await log('\n👋 Hive Mind monitoring stopped');
+      await log(`   📁 Full log file: ${absoluteLogPath}`);
+      // Issue #2161: the hive did not simply "finish" — it was cut short because the
+      // account lost access. Say so last (that is what a human scrolls to) and exit
+      // non-zero so supervisors and the Telegram monitor report a failure, not a
+      // clean completion.
+      if (subscriptionBlock) {
+        await log(`\n${SUBSCRIPTION_BLOCKED_MARKER} Hive stopped early: the tool account can no longer be used.`, { level: 'error' });
+        await log(`   Reported by worker ${subscriptionBlock.workerId}: ${subscriptionBlock.line}`, { level: 'error' });
+        await log('   Restore subscription/account access, then start the hive again.', { level: 'error' });
+        await safeExit(1, 'Subscription/account access blocked');
+      }
+    }
+    // Issue #1823: Graceful-shutdown + force-kill logic lives in hive.shutdown.lib.mjs.
+    // gracefulShutdown waits (uncapped) for in-flight solve workers to finish on the first
+    // interrupt; on a second interrupt it force-kills their detached process groups.
+    const { gracefulShutdown } = createShutdownManager({
+      log,
+      safeExit,
+      reportError,
+      cleanErrorMessage,
+      cleanupTempDirectories,
+      issueQueue,
+      argv,
+      absoluteLogPath,
+      activeSolveChildren,
+    });
+    // Handle graceful shutdown.
+    // Issue #1823: Tell the global exit handler (installed earlier via installGlobalExitHandlers)
+    // to stand down on SIGINT/SIGTERM so it does not call process.exit() and race us. From here
+    // on, gracefulShutdown is the SOLE owner of these signals: it waits for in-progress solve
+    // worker(s) to finish and then exits via safeExit().
+    delegateSignalHandling(true);
+    process.on('SIGINT', () => gracefulShutdown('interrupt'));
+    process.on('SIGTERM', () => gracefulShutdown('termination'));
+    // Check system resources (disk space and RAM) before starting monitoring (skip in dry-run mode)
+    if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
+      await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', {
+        verbose: true,
+      });
+      await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', {
+        verbose: true,
+      });
+    } else {
+      // Issue #2160: reclaim idle solver workspaces left behind by earlier runs before refusing to
+      // start, and report an exhausted disk as the environment condition it is (exit 75) instead of
+      // a generic error. `exitOnFailure` is deliberately not used: it calls process.exit(1)
+      // directly, which skips the log-flushing safeExit path and printed no actionable reason.
+      const startupRequiredDiskSpaceMB = argv.minDiskSpace || 10240;
+      const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, log });
+      if (!startupDiskGuard.ok) {
+        await log(`❌ Insufficient disk space to start: ${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required`, { level: 'error' });
+        await log('   Free space on this host, or run with --auto-cleanup so workspaces are removed after each task.', { level: 'error' });
+        await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space (${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required)`);
+      }
+      const systemCheck = await checkSystem({ minDiskSpaceMB: startupRequiredDiskSpaceMB, minMemoryMB: 256 }, { log });
+      if (!systemCheck.success) {
+        await safeExit(1, 'System resource check failed');
+      }
+      // Validate the selected AI tool connection before starting monitoring with the same model that will be used
+      const isToolConnected = await validateToolConnection({ tool: argv.tool, model: argv.model, verbose: argv.verbose, validateClaudeConnection });
+      if (!isToolConnected) {
+        await log(`❌ Cannot start monitoring without ${argv.tool || 'claude'} connection`, { level: 'error' });
+        await safeExit(1, 'Error occurred');
+      }
+    }
+    // Wrap monitor function with Sentry error tracking
+    const monitorWithSentry = !argv.sentry ? monitor : withSentry(monitor, 'hive.monitor', 'command');
+    // Start monitoring
+    try {
+      await monitorWithSentry();
+    } catch (error) {
+      reportError(error, {
+        context: 'hive_main',
+        operation: 'monitor_with_sentry',
+      });
+      await log(`\n❌ Fatal error: ${cleanErrorMessage(error)}`, { level: 'error' });
+      await log(`   📁 Full log file: ${absoluteLogPath}`, { level: 'error' });
+      await safeExit(1, 'Error occurred');
+    }
+    const finalStats = issueQueue.getStats(); // Issue #1718: surface worker failures via exit code
+    if (finalStats.failed > 0) await safeExit(1, `${finalStats.failed} task(s) failed (completed: ${finalStats.completed})`);
+    // Issue #2160: report an exhausted host disk as the environment problem it is, with its own
+    // exit code, instead of letting it be counted as "N task(s) failed". Genuine task failures are
+    // reported first above, because they say more about the run than the environment condition.
+    if (diskSpaceHalt) {
+      await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `${diskSpaceHalt} — ${finalStats.completed} task(s) completed, ${finalStats.queued} left queued (no task failures)`);
+    }
+  } catch (fatalError) {
+    // Handle fatal errors during initialization or execution
+    console.error('\n❌ Fatal error occurred during hive initialization or execution');
+    console.error(`   ${fatalError.message || fatalError}`);
+    if (fatalError.stack) {
+      console.error('\nStack trace:');
+      console.error(fatalError.stack);
+    }
+    console.error('\nPlease report this issue at: https://github.com/link-assistant/hive-mind/issues');
+    process.exit(1);
+  }
+}

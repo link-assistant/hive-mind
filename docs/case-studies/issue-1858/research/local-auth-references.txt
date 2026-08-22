@@ -1,0 +1,64 @@
+docs/UBUNTU-SERVER.md:42:   **Note:** The installation does NOT run `gh auth login` automatically. This is intentional to support Docker builds without timeouts. Authentication is performed in the next steps.
+docs/UBUNTU-SERVER.md:75:     TELEGRAM_ALLOWED_CHATS:
+docs/UBUNTU-SERVER.md:138:codex login --device-auth
+docs/UBUNTU-SERVER.md:155:- `~/.codex/auth.json`
+docs/CONFIGURATION.md:200:| `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                            |
+docs/CONFIGURATION.md:223:| `CLAUDE_PATH`        | claude   | Path to Claude CLI executable   |
+docs/CONFIGURATION.md:224:| `OPENCODE_PATH`      | opencode | Path to OpenCode CLI executable |
+docs/CONFIGURATION.md:225:| `CODEX_PATH`         | codex    | Path to Codex CLI executable    |
+README.md:207:# Mount the full Codex directory so auth.json, config.toml, and sessions survive restarts.
+README.md:419:   echo "TELEGRAM_ALLOWED_CHATS=123456789,987654321" >> .env
+README.md:557:- Chat ID (needed for TELEGRAM_ALLOWED_CHATS)
+README.md:586:- Optional chat ID restrictions via `TELEGRAM_ALLOWED_CHATS`
+README.md:588:- Ensure proper authentication (`gh auth login`, `claude-profiles`)
+README.md:802:- `gh auth login` - GitHub CLI authentication
+README.md:803:- `claude-profiles` - Claude authentication profile migration to server
+coolify/README.md:194:- `/home/box/.codex/auth.json`
+coolify/README.md:202:codex login --device-auth
+src/telegram-solve-command.lib.mjs:11:export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
+src/telegram-solve-command.lib.mjs:20:export const SOLVE_COMMAND_NAMES = Object.freeze(['solve', 'do', 'continue', ...Object.keys(TOOL_SOLVE_COMMAND_ALIASES)]);
+src/telegram-solve-command.lib.mjs:134:  return command ? TOOL_SOLVE_COMMAND_ALIASES[command] || null : null;
+src/claude.lib.mjs:167:          await log('   💡 Please run: claude login', { level: 'error' });
+src/claude.lib.mjs:188:          await log('   💡 Please run: claude login', { level: 'error' });
+src/limits-subscription.lib.mjs:7: *   - Codex:  decoded id_token from ~/.codex/auth.json
+src/limits-subscription.lib.mjs:38: * Reads `~/.claude/.credentials.json` and queries Anthropic's
+src/limits-subscription.lib.mjs:122: * Decodes the OIDC `id_token` persisted in `~/.codex/auth.json`. The token's
+src/solve.mjs:255:const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
+src/solve.mjs:762:      opencode: { lib: './opencode.lib.mjs', execFn: 'executeOpenCode', envVar: 'OPENCODE_PATH', defaultBin: 'opencode', pathKey: 'opencodePath' },
+src/solve.mjs:763:      codex: { lib: './codex.lib.mjs', execFn: 'executeCodex', envVar: 'CODEX_PATH', defaultBin: 'codex', pathKey: 'codexPath' },
+src/solve.mjs:765:      gemini: { lib: './gemini.lib.mjs', execFn: 'executeGemini', envVar: 'GEMINI_PATH', defaultBin: 'gemini', pathKey: 'geminiPath' },
+src/solve.mjs:766:      qwen: { lib: './qwen.lib.mjs', execFn: 'executeQwen', envVar: 'QWEN_PATH', defaultBin: 'qwen', pathKey: 'qwenPath' },
+src/agent-commander.lib.mjs:16:export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
+src/agent-commander.lib.mjs:19:  claude: { argvKey: 'claudePath', envKey: 'CLAUDE_PATH' },
+src/agent-commander.lib.mjs:20:  codex: { argvKey: 'codexPath', envKey: 'CODEX_PATH' },
+src/agent-commander.lib.mjs:21:  opencode: { argvKey: 'opencodePath', envKey: 'OPENCODE_PATH' },
+src/agent-commander.lib.mjs:23:  qwen: { argvKey: 'qwenPath', envKey: 'QWEN_PATH' },
+src/agent-commander.lib.mjs:24:  gemini: { argvKey: 'geminiPath', envKey: 'GEMINI_PATH' },
+src/agent-commander.lib.mjs:140:    if (!AGENT_COMMANDER_TOOLS.has(toolName) || !isToolSupported({ toolName })) {
+src/agent-commander.lib.mjs:319:  if (!AGENT_COMMANDER_TOOLS.has(tool) || !module.isToolSupported({ toolName: tool })) {
+src/review.mjs:175:const claudePath = argv.executeToolWithBun ? 'bunx claude' : process.env.CLAUDE_PATH || 'claude';
+src/telegram-bot.mjs:68:    default: getenv('TELEGRAM_ALLOWED_CHATS', ''),
+src/telegram-bot.mjs:74:    default: getenv('TELEGRAM_ALLOWED_TOPICS', ''),
+src/telegram-bot.mjs:143:const resolvedAllowedChats = config.allowedChats || getenv('TELEGRAM_ALLOWED_CHATS', '');
+src/telegram-bot.mjs:147:const resolvedAllowedTopics = config.allowedTopics || getenv('TELEGRAM_ALLOWED_TOPICS', '');
+src/telegram-bot.mjs:328:function isTopicAuthorized(ctx) {
+src/telegram-bot.mjs:515:    allowTopicHint: topicId ? `TELEGRAM_ALLOWED_TOPICS="(${chatId} ${topicId})"` : '',
+src/limits.lib.mjs:36:export const DEFAULT_CREDENTIALS_PATH = join(homedir(), '.claude', '.credentials.json');
+src/limits.lib.mjs:37:export const DEFAULT_CODEX_AUTH_PATH = join(homedir(), '.codex', 'auth.json');
+src/limits.lib.mjs:777: * @param {string} authPath - Optional path to Codex auth.json
+src/agent.lib.mjs:291:          await log('   💡 Note: Agent uses OpenCode models. For premium models, you may need: opencode auth', {
+src/gemini.lib.mjs:265:  const geminiPath = process.env.GEMINI_PATH || 'gemini';
+src/gemini.lib.mjs:290:        await log('   💡 Please authenticate or configure Gemini CLI credentials.', { level: 'error' });
+src/github.lib.mjs:75:      await log('   To fix this, run: gh auth login', { level: 'error' });
+src/github.lib.mjs:956:      throw new Error('GitHub CLI authentication failed. Please run: gh auth login');
+src/github.lib.mjs:1012:      await log('   💡 To fix this, run: gh auth login', { level: 'info' });
+src/opencode.lib.mjs:76:          await log('   💡 Please run: opencode auth', { level: 'error' });
+src/solve.repository.lib.mjs:646:            await log('            • Login if needed: gh auth login');
+src/solve.repository.lib.mjs:1021:        await log('     2. Login if needed: gh auth login');
+src/codex.lib.mjs:542:          await log('   💡 Please run: codex login', { level: 'error' });
+src/codex.lib.mjs:898:            await log('   💡 Please run: codex login', { level: 'error' });
+src/codex.lib.mjs:1001:        const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
+src/qwen.lib.mjs:351:export const validateQwenConnection = async (model = defaultModels.qwen, qwenPath = process.env.QWEN_PATH || 'qwen') => {
+src/qwen.lib.mjs:373:        await log('   💡 Run: qwen auth', { level: 'error' });
+src/qwen.lib.mjs:385:      await log('   💡 Run: qwen auth', { level: 'error' });
+src/qwen.lib.mjs:593:          await log('   💡 Run: qwen auth', { level: 'error' });

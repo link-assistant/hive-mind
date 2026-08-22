@@ -1,0 +1,95 @@
+{
+  "name": "@link-assistant/hive-mind",
+  "version": "2.13.1",
+  "description": "AI-powered issue solver and hive mind for collaborative problem solving",
+  "main": "src/hive.mjs",
+  "type": "module",
+  "bin": {
+    "hive": "./src/hive.mjs",
+    "solve": "./src/solve.mjs",
+    "task": "./src/task.mjs",
+    "fix": "./src/fix.mjs",
+    "hive-cleanup": "./src/cleanup.mjs",
+    "review": "./src/review.mjs",
+    "configure-claude": "./src/configure-claude.mjs",
+    "start-screen": "./src/start-screen.mjs",
+    "hive-screens": "./src/hive-screens.mjs",
+    "hive-telegram-bot": "./src/telegram-bot.mjs"
+  },
+  "scripts": {
+    "test": "node scripts/run-tests.mjs --suite default",
+    "test:queue": "node tests/solve-queue.test.mjs",
+    "test:limits-display": "node tests/limits-display.test.mjs",
+    "test:usage-limit": "node tests/test-usage-limit.mjs",
+    "lint": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'",
+    "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' --fix",
+    "check:duplication": "jscpd .",
+    "format": "prettier --write \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
+    "format:check": "prettier --check \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "changeset:publish": "npm run build:pre && changeset publish",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
+    "prepare": "husky"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-assistant/hive-mind.git"
+  },
+  "keywords": [
+    "ai",
+    "automation",
+    "issue-solver",
+    "cli",
+    "hive-mind",
+    "collaborative"
+  ],
+  "author": "link-assistant",
+  "license": "Unlicense",
+  "bugs": {
+    "url": "https://github.com/link-assistant/hive-mind/issues"
+  },
+  "homepage": "https://github.com/link-assistant/hive-mind#readme",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "files": [
+    "src",
+    "*.md"
+  ],
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.8.5",
+    "test-anywhere": "^0.9.1"
+  },
+  "dependencies": {
+    "@secretlint/core": "^13.0.2",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
+    "@sentry/node": "^10.62.0",
+    "@sentry/profiling-node": "^10.62.0",
+    "agent-commander": "^0.8.0",
+    "dayjs": "^1.11.21",
+    "decimal.js-light": "^2.5.1",
+    "lino-arguments": "^0.3.0",
+    "lino-i18n": "^0.1.1",
+    "lino-objects-codec": "^0.4.0",
+    "secretlint": "^13.0.2",
+    "semver": "^7.8.5",
+    "tinyld": "^1.3.4"
+  },
+  "lint-staged": {
+    "*.{js,mjs,json,md}": [
+      "prettier --write"
+    ]
+  },
+  "allowScripts": {
+    "@sentry/node-cpu-profiler@2.4.2": true
+  }
+}

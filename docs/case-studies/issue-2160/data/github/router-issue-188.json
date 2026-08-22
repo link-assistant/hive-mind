@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nThe v0.77.0 client-management commands exist, but a normal macOS workstation cannot use them as shipped:\n\n- release assets contain only `linux-amd64` and `linux-arm64`; there is no Darwin binary;\n- running the Linux binary in Docker cannot launch host-installed TUI/CLI programs for `with`, and mounting user configuration into Docker is not an acceptable substitute for a native isolated launcher;\n- `clients setup --token` has no `--token-stdin` or documented token environment variable, so configuring an existing remote-router JWT requires putting it in argv/shell history/process listings;\n- the command has no explicit config-root/home option, which makes isolated automation and acceptance tests awkward and encourages mounting a real home directory.\n\n## Expected behavior\n\n- Publish signed/checksummed native binaries for Darwin arm64 and amd64 alongside Linux assets (and document a supported install/update path).\n- `clients setup`, `show`, `doctor`, `remove`, and `with` work natively on macOS for every supported client.\n- Add `--token-stdin` and a documented environment variable for existing router tokens; redact secrets from diagnostics.\n- Add an explicit isolated config/home option so automation can prove setup → doctor → launch → remove without touching real user settings.\n- Add release tests on macOS that run the actual host CLI integration lifecycle against a remote Router URL through an SSH-forwarded localhost port.\n\nThis is required for the client configuration feature to be usable where Codex, Claude Code, Gemini, Qwen, Grok, OpenCode, Cursor, and Agent are commonly installed.",
+  "closedAt": "2026-08-16T19:00:02Z",
+  "createdAt": "2026-08-15T15:38:05Z",
+  "labels": [],
+  "number": 188,
+  "state": "CLOSED",
+  "title": "Make client setup usable on macOS and secret-safe for remote routers",
+  "updatedAt": "2026-08-16T19:00:02Z",
+  "url": "https://github.com/link-assistant/router/issues/188"
+}

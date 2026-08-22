@@ -1,0 +1,38 @@
+# Git and version control
+.git
+.gitignore
+
+# Docker files themselves (to avoid recursive copies)
+Dockerfile
+experiments/solve-dockerize/
+docker-compose.yml
+.dockerignore
+
+# Output and temporary files
+output/
+*.log
+*.tmp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node modules (if any exist locally)
+node_modules/
+
+# Runtime directories that shouldn't be in image
+claude-logs/
+claude-pipe/
+claude-sessions/
+command-stream-issues/
+
+# Test and temporary repositories
+test-*/
+temp-*/

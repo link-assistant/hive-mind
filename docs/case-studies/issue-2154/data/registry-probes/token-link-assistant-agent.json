@@ -1,0 +1,16 @@
+{
+  "name": "token-link-assistant-agent",
+  "repository": "link-assistant/agent",
+  "expectation": "control: another package in the same org",
+  "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/agent:pull",
+  "status": 403,
+  "verdict": "absent or invisible — no such package for an anonymous caller",
+  "body": {
+    "errors": [
+      {
+        "code": "DENIED",
+        "message": "requested access to the resource is denied"
+      }
+    ]
+  }
+}

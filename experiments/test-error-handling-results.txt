@@ -1,0 +1,21 @@
+=== Testing Error Handling for Git Commands ===
+
+Test 1: Version command in non-git directory
+----------------------------------------------
+Output: 0.10.2
+✅ PASS: No error messages in output
+
+Test 2: Version command in git directory
+----------------------------------------------
+Output: 0.10.2
+✅ PASS: No error messages in output
+
+Test 3: Help command in non-git directory
+----------------------------------------------
+Output (first 5 lines): Usage: solve.mjs <issue-url> [options]
+
+Positionals:
+  issue-url  The GitHub issue URL to solve                              [string]
+✅ PASS: No git error messages in help output
+
+=== All Tests Passed! ===

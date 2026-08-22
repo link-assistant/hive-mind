@@ -1,0 +1,111 @@
+      "service_tier": null,
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "inference_geo": null,
+      "iterations": null,
+      "speed": null
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "You've hit your session limit · resets 4pm (UTC)"
+      }
+    ],
+    "context_management": null
+  },
+  "parent_tool_use_id": null,
+  "session_id": "9b304f64-1a56-4edf-b387-82107a8db066",
+  "uuid": "0f0c4c2b-ab67-44a7-ab6e-ceac3f66d2a7",
+  "error": "rate_limit",
+  "request_id": "req_011Cc77CZAG1pGMUmDPC7DKx"
+}
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "api_error_status": 429,
+  "duration_ms": 11453354,
+  "duration_api_ms": 11456404,
+  "num_turns": 588,
+  "result": "You've hit your session limit · resets 4pm (UTC)",
+  "stop_reason": "stop_sequence",
+  "session_id": "9b304f64-1a56-4edf-b387-82107a8db066",
+  "total_cost_usd": 70.62222094999997,
+  "usage": {
+    "input_tokens": 231289,
+    "cache_creation_input_tokens": 2567848,
+    "cache_read_input_tokens": 33994312,
+    "output_tokens": 457810,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 2567848,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 13378,
+        "cache_read_input_tokens": 74506,
+        "cache_creation_input_tokens": 13659,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 13659
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-4-8": {
+      "inputTokens": 237153,
+      "outputTokens": 853785,
+      "cacheReadInputTokens": 37131721,
+      "cacheCreationInputTokens": 2904538,
+      "webSearchRequests": 0,
+      "costUSD": 69.57952799999998,
+      "contextWindow": 200000,
+      "maxOutputTokens": 64000
+    },
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 14686,
+      "outputTokens": 57037,
+      "cacheReadInputTokens": 2511807,
+      "cacheCreationInputTokens": 393313,
+      "webSearchRequests": 0,
+      "costUSD": 1.04269295,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "uuid": "3f4263e2-db24-42a3-8275-85c5263d5331"
+}
+📌 Result event received, starting 30s stream close timeout (Issue #1280)
+💰 Anthropic official cost captured from success result: $70.622221
+📝 Captured result summary from Claude output
+📊 Session num_turns: 588
+⚠️ Detected error from Claude CLI (subtype: success)
+⚠️ Detected server-side rate limiting (429) from Claude CLI (will retry with --resume). request_id=unknown
+✅ Stream closed normally after result event
+
+⚠️ Server rate limited (429) detected. Retry 1/10 in 2 min (session preserved)...
+   Error: You've hit your session limit · resets 4pm (UTC)
+⏳ 1 min remaining...
+
+🔄 Retrying now...
+
+🔄 Retry attempt:            1/10
+   Model: opus
+   Working directory: /tmp/gh-issue-solver-1781609140009
+   Branch: issue-388-7ed6b7316045
+   Prompt length: 251 chars

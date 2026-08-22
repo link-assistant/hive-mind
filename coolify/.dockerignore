@@ -1,0 +1,109 @@
+# Git
+.git
+.gitignore
+.github
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Development files
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+.settings
+.project
+.classpath
+
+# Logs
+logs
+*.log
+claude-logs
+claude-sessions
+
+# Test files
+tests
+test
+*.test.js
+*.spec.js
+coverage
+.nyc_output
+
+# Documentation
+docs
+*.md
+!README.md
+LICENSE
+
+# Docker files (from main directory)
+Dockerfile
+docker-compose.yml
+.dockerignore
+docker-*.sh
+.gitpod.Dockerfile
+
+# Coolify deployment files (don't need these in the image)
+coolify/
+deploy/
+
+# Output directories (will be mounted as volumes)
+output
+dist
+build
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Temporary files
+tmp
+temp
+.tmp
+*.tmp
+
+# Cache
+.cache
+.parcel-cache
+
+# OS files
+.Trash-*
+.nfs*
+
+# Backup files
+*.backup
+*.bak
+*.old
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+
+# Rust
+target/
+Cargo.lock
+
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.rar

@@ -1,0 +1,36 @@
+==================================================================
+RUN 2026-05-30T17:12:55Z  repo=link-assistant/hive-mind
+==================================================================
+--- repo visibility ---
+{"default_branch":"main","private":false,"visibility":"public"}
+--- 1) create blob ---
+blob sha = 097ca541a3f7d512873141c12dab0a7edc13493d
+--- 2) create tree ---
+tree sha = fb57624b7227e25a7395b6bf94e74044d365b3c0
+--- 3) create parentless commit ---
+commit sha = 0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1
+--- 4A) tag ref ---
+{"ref":"refs/tags/hive-mind-media-probe","node_id":"REF_kwDOPUU0qb9yZWZzL3RhZ3MvaGl2ZS1taW5kLW1lZGlhLXByb2Jl","url":"https://api.github.com/repos/link-assistant/hive-mind/git/refs/tags/hive-mind-media-probe","object":{"sha":"0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1","type":"commit","url":"https://api.github.com/repos/link-assistant/hive-mind/git/commits/0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1"}}>>> tag blob?raw=true
+    URL: https://github.com/link-assistant/hive-mind/blob/hive-mind-media-probe/media/probe/onepx.png?raw=true
+    HTTP 200  content-type=image/png  bytes=70
+    file: 
+>>> tag raw.githubusercontent
+    URL: https://raw.githubusercontent.com/link-assistant/hive-mind/hive-mind-media-probe/media/probe/onepx.png
+    HTTP 200  content-type=image/png  bytes=70
+    file: 
+--- 4B) custom ref (refs/hive-mind-media/probe) ---
+{"ref":"refs/hive-mind-media/probe","node_id":"REF_kwDOPUU0qbpyZWZzL2hpdmUtbWluZC1tZWRpYS9wcm9iZQ","url":"https://api.github.com/repos/link-assistant/hive-mind/git/refs/hive-mind-media/probe","object":{"sha":"0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1","type":"commit","url":"https://api.github.com/repos/link-assistant/hive-mind/git/commits/0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1"}}>>> custom-ref via commit-SHA blob?raw=true
+    URL: https://github.com/link-assistant/hive-mind/blob/0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1/media/probe/onepx.png?raw=true
+    HTTP 200  content-type=image/png  bytes=70
+    file: 
+>>> custom-ref via commit-SHA raw.githubusercontent
+    URL: https://raw.githubusercontent.com/link-assistant/hive-mind/0e0d2f92e5c2c6f99938b34a25d0daecf76b08e1/media/probe/onepx.png
+    HTTP 200  content-type=image/png  bytes=70
+    file: 
+--- 5) cleanup: delete probe refs ---
+tag delete done (0)
+custom-ref delete done (0)
+--- 6) verify cleanup ---
+tag still exists?    {"message":"Not Found","documentation_url":"https://docs.github.com/rest/git/refs#get-a-reference","status":"404"}gh: Not Found (HTTP 404)
+custom still exists? {"message":"Not Found","documentation_url":"https://docs.github.com/rest/git/refs#get-all-references-in-a-namespace","status":"404"}gh: Not Found (HTTP 404)
+=== DONE 2026-05-30T17:12:55Z ===

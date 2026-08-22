@@ -1,0 +1,55 @@
+diff --git a/deploy-docker.mjs b/deploy-docker.mjs
+index a50fe49..844dd33 100644
+--- a/deploy-docker.mjs
++++ b/deploy-docker.mjs
+@@ -87,9 +87,10 @@ const VARIANTS = {
+     // bot container's NESTED dockerd is seeded from the host instead of pulling
+     // the multi-GB image on the first isolated `--isolation docker` task. The
+     // allowlist scopes the copy to our images. Requires the host to already have
+-    // these images with a registry digest (the deploy pulls konard/hive-mind-dind
+-    // above, so it does). Without this mount box passthrough is a silent no-op and
+-    // the nested daemon re-pulls 30+ GB on the first task.
++    // the exact child tag with a registry digest; the deploy pulls that tag after
++    // reading HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG from the release image. Without
++    // this mount box passthrough is a silent no-op and the nested daemon re-pulls
++    // 30+ GB on the first task.
+     // See link-assistant/hive-mind#1914 and link-foundation/box#102.
+     passthroughFlags:
+       '-v /var/run/docker.sock:/var/run/host-docker.sock:ro ' +
+@@ -117,7 +118,12 @@ console.log(`>>> Image variant: ${config.imageVariant} (image: ${IMAGE})`);
+ // Repository names (without tag) for each variant, used for inactive-variant
+ // cleanup so all tags of the *other* variant get removed when we switch.
+ const stripTag = (ref) => ref.replace(/:[^/:]+$/, '');
++const getTag = (ref) => {
++  const match = ref.match(/:([^/:]+)$/);
++  return match ? match[1] : 'latest';
++};
+ const ACTIVE_REPO = stripTag(IMAGE);
++const ACTIVE_TAG = getTag(IMAGE);
+ const INACTIVE_REPOS = Object.entries(VARIANTS)
+   .filter(([name]) => name !== config.imageVariant)
+   .map(([, v]) => stripTag(v.image))
+@@ -250,6 +256,23 @@ if (imageUpToDate) {
+ // Show local image details for confirmation
+ await run(`docker images --digests ${IMAGE}`);
+ 
++if (VARIANT.needsDockerd) {
++  nextStep('Ensuring exact child isolation image tag is present on host');
++  const childTagResult = await run(
++    `docker image inspect ${IMAGE} --format '{{range .Config.Env}}{{println .}}{{end}}' | sed -n 's/^HIVE_MIND_DOCKER_ISOLATION_IMAGE_TAG=//p' | tail -1`,
++    { silent: true }
++  );
++  const childTag = childTagResult.stdout.trim() || ACTIVE_TAG;
++  const childImage = `${ACTIVE_REPO}:${childTag}`;
++  console.log(`>>> Docker isolation child image: ${childImage}`);
++  if (childImage !== IMAGE) {
++    await run(`docker pull ${childImage}`);
++  } else {
++    console.log('>>> Child image tag matches deployment image');
++  }
++  await run(`docker images --digests ${childImage}`);
++}
++
+ // Clean up old/dangling images and reclaim disk space
+ await run(`docker image prune -f`, { ignoreErrors: true });
+ await run(`docker system prune -f`, { ignoreErrors: true });

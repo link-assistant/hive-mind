@@ -1,0 +1,4 @@
+formal-ai: started a temporary server in agent mode (tool and shell execution enabled)
+formal-ai: session files for debugging:
+  claude: /tmp/formal-ai-claude-home-config-36798-1785689182166310517/projects/-tmp-gh-issue-solver-1785688606123-experiments-issue-2130/5aef286e-236d-4ac1-b0ff-cbe76e127118.jsonl   (resume: claude --resume 5aef286e-236d-4ac1-b0ff-cbe76e127118)
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-36798-8080.log

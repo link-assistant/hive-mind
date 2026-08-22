@@ -1,0 +1,30 @@
+== 1. start a detached docker command whose OUTPUT contains 'Exit Code: 1' ==
+   uuid=323763d7-30f1-4f48-ad88-1ceeb6ea566d
+   log=/tmp/start-command/logs/isolation/docker/323763d7-30f1-4f48-ad88-1ceeb6ea566d.log
+
+== 2. simulate the window in which the container is gone but the host-side ==
+==    watcher has not appended the real footer yet                        ==
+   log tail:
+     View logs: docker logs issue-2117-repro-125067
+     Live log: /tmp/start-command/logs/isolation/docker/323763d7-30f1-4f48-ad88-1ceeb6ea566d.log
+     Exit Code: 1
+
+== 3. what `$ --status` reports ==
+     323763d7-30f1-4f48-ad88-1ceeb6ea566d
+       uuid 323763d7-30f1-4f48-ad88-1ceeb6ea566d
+       pid 125070
+       processIds
+           wrapperPid 125070
+           containerId 1e0d474f018218ad7544549ea64c8a2653e3b8ebcf0237b25be21c50e0b7bdba
+       status executed
+       exitCode 1
+       command 'sh -c echo "Exit Code: 1"; sleep 300'
+       logPath /tmp/start-command/logs/isolation/docker/323763d7-30f1-4f48-ad88-1ceeb6ea566d.log
+       startTime "2026-07-30T23:52:50.314Z"
+       endTime "2026-07-30T23:52:59.049Z"
+
+== result ==
+   status   = executed
+   exitCode = 1   (expected: 137 from SIGKILL, or the -1 sentinel; NOT 1)
+
+REPRODUCED: the exit code was fabricated from the command's own stdout.

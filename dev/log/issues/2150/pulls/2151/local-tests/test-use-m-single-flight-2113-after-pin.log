@@ -1,0 +1,23 @@
+✅ aliasForSpecifier matches use-m alias naming
+✅ non-npm specifiers have no alias
+✅ parseSpecifier defaults the version to latest
+✅ built-ins are recognised as install-free
+✅ concurrent identical loads collapse into one install
+✅ the unguarded loader fails the same race (control)
+✅ different specifiers of one alias are serialised
+✅ different aliases still install in parallel
+✅ failed loads are not memoised
+✅ built-ins skip the lock but still dedupe
+✅ relative specifiers are passed straight through
+✅ extra arguments bypass the memo but keep the lock
+✅ wrapping is idempotent and composes with the retry wrapper
+✅ retry recovery runs inside the alias lock
+✅ a second holder waits for the lock and then acquires it
+✅ a stale lock is stolen instead of blocking forever
+✅ waiting for a lock gives up instead of hanging
+✅ an unusable lock root degrades instead of failing the load
+✅ withAliasLock releases the lock when the body throws
+✅ ensureUseM installs the single-flight guard
+
+📊 20 test(s): ✅ 20 passed, ❌ 0 failed
+

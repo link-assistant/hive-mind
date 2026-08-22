@@ -1,0 +1,31 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nHive Mind 2.5.2 rejects the Formal AI provider before Agent CLI starts:\n\n```text\nsolve ISSUE_URL --tool agent --model formal-ai\nUnrecognized model: \"formal-ai\"\nAvailable models for agent: ...\n```\n\nThe Agent CLI itself supports `formal-ai` / `formalai/formal-ai`, and `src/agent.lib.mjs` already passes unknown model IDs through (`agentModels[model] || model`), but model validation in `src/models/index.mjs` rejects this provider alias first.\n\n## Requested change\n\n- Add `formal-ai` to `agentModels` (mapping to `formalai/formal-ai`) and the agent validation model map.\n- Add a test proving `solve ... --tool agent --model formal-ai --only-prepare-command` reaches command preparation.\n\n## Context\n\nDiscovered while implementing link-assistant/formal-ai#655, whose required outer loop is exactly Hive Mind → Agent CLI → `formal-ai serve --agent-mode`.",
+  "closedAt": "2026-07-26T19:35:26Z",
+  "createdAt": "2026-07-13T04:22:20Z",
+  "labels": [
+    {
+      "id": "LA_kwDOPUU0qc8AAAACGYm6jw",
+      "name": "documentation",
+      "description": "Improvements or additions to documentation",
+      "color": "0075ca"
+    },
+    {
+      "id": "LA_kwDOPUU0qc8AAAACGYm6mA",
+      "name": "enhancement",
+      "description": "New feature or request",
+      "color": "a2eeef"
+    }
+  ],
+  "number": 2059,
+  "state": "CLOSED",
+  "title": "Allow --tool agent --model formal-ai dispatch and for all other tools also",
+  "updatedAt": "2026-07-26T19:35:26Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2059"
+}

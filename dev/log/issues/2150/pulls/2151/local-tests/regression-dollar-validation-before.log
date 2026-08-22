@@ -1,0 +1,51 @@
+
+📋 isRateLimitError
+
+✅ detects "API rate limit exceeded"
+✅ detects secondary rate limit message
+✅ detects abuse-detection message
+✅ reads rate-limit text from stderr
+✅ reads rate-limit text from cause chain
+✅ returns false for ordinary network error
+✅ returns false for 404
+✅ returns false for null/undefined
+
+📋 parseRateLimitReset
+
+✅ parses X-RateLimit-Reset header (Unix epoch)
+✅ parses Retry-After header
+✅ returns null when no headers present
+
+📋 computeRateLimitWait
+
+✅ wait = (reset - now) + bufferMs + jitter when reset is future
+✅ wait = bufferMs + jitter when reset is null
+✅ wait does not go negative when reset is in the past
+✅ jitter falls within configured range over many samples
+
+📋 ghWithRateLimitRetry
+
+✅ returns immediately when fn succeeds
+✅ rethrows non-rate-limit errors without retrying
+✅ retries rate-limit error and succeeds without sleeping past test budget
+✅ throws after maxAttempts of persistent rate-limit errors
+
+📋 GitHub rate-limit usage logging
+
+✅ is disabled by default and does not probe usage
+✅ logs actual usage after a successful wrapped gh call when enabled
+✅ logs usage after a failed wrapped gh attempt without replacing the original error
+✅ does not break wrapped gh calls when usage logging fails
+
+📋 wrapDollarWithGhRetry
+
+❌ rejects a missing command-stream export at wrapper construction
+   AssertionError [ERR_ASSERTION]: Missing expected exception.
+    at file:///tmp/gh-issue-solver-1786457752545/tests/github-rate-limit.test.mjs:359:10
+    at test (file:///tmp/gh-issue-solver-1786457752545/tests/github-rate-limit.test.mjs:21:20)
+    at file:///tmp/gh-issue-solver-1786457752545/tests/github-rate-limit.test.mjs:358:7
+✅ passes non-gh commands through to the underlying $ unchanged
+✅ retries gh commands on rate-limit error
+✅ does not retry gh commands on non-rate-limit errors
+
+📊 26 passed, 1 failed

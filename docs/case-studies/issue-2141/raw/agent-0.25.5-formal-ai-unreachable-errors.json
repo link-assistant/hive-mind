@@ -1,0 +1,79 @@
+{
+  "note": "Distinct error records from `echo \"say hi\" | agent --model formal-ai` with agent CLI 0.25.5 and no Formal AI server listening on 127.0.0.1:8080. Long fields (messages, tools, config) elided. Full run: 812 KB, retried until killed (config retryTimeout: 604800 seconds = 7 days).",
+  "totalRecords": 113,
+  "recordTypes": {
+    "config": 1,
+    "status": 1,
+    "log": 84,
+    "session.created": 1,
+    "session.updated": 3,
+    "*": 2,
+    "input": 1,
+    "message.updated": 4,
+    "message.part.updated": 1,
+    "session.status": 14,
+    "session.diff": 1
+  },
+  "errorRecords": [
+    {
+      "type": "log",
+      "level": "error",
+      "timestamp": "2026-08-05T06:59:48.603Z",
+      "service": "session.prompt",
+      "error": {
+        "error": {
+          "name": "AI_APICallError",
+          "cause": {
+            "code": "ConnectionRefused",
+            "path": "http://127.0.0.1:8080/api/openai/v1/chat/completions",
+            "errno": 0
+          },
+          "url": "http://127.0.0.1:8080/api/openai/v1/chat/completions",
+          "requestBodyValues": {
+            "model": "formal-ai",
+            "max_tokens": 8192,
+            "temperature": 0,
+            "messages": "<messages elided>",
+            "tools": "<tools elided>",
+            "tool_choice": "auto",
+            "stream": true,
+            "stream_options": {
+              "include_usage": true
+            }
+          },
+          "isRetryable": true
+        }
+      },
+      "message": "stream error"
+    },
+    {
+      "type": "log",
+      "level": "error",
+      "timestamp": "2026-08-05T06:59:48.619Z",
+      "service": "session.processor",
+      "error": {
+        "name": "AI_APICallError",
+        "cause": {
+          "code": "ConnectionRefused",
+          "path": "http://127.0.0.1:8080/api/openai/v1/chat/completions",
+          "errno": 0
+        },
+        "url": "http://127.0.0.1:8080/api/openai/v1/chat/completions",
+        "requestBodyValues": {
+          "model": "formal-ai",
+          "max_tokens": 8192,
+          "temperature": 0,
+          "messages": "<messages elided>",
+          "tools": "<tools elided>",
+          "tool_choice": "auto",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          }
+        },
+        "isRetryable": true
+      },
+      "message": "process"
+    }
+  ]
+}

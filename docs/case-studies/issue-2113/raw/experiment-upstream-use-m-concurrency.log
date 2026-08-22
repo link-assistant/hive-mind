@@ -1,0 +1,21 @@
+use-m: https://unpkg.com/use-m@8.14.4/use.js
+node: v20.20.2
+prefix: /tmp/use-m-concurrency-eRm06v
+
+2/8 concurrent use('command-stream') calls failed in 16499ms
+
+Failed to install command-stream@latest globally into '/tmp/use-m-concurrency-eRm06v/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/gifenc'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/node-pty'
+
+Failed to install command-stream@latest globally into '/tmp/use-m-concurrency-eRm06v/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/node-addon-api'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/gifenc'
+npm warn tar ENOENT: Cannot cd into '/tmp/use-m-concurrency-eRm06v/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless'
+
+exit code: 1 — reproduced

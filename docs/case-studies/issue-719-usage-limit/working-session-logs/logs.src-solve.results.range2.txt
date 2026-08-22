@@ -1,0 +1,33 @@
+   520	      } catch (attachError) {
+   521	        reportError(attachError, {
+   522	          context: 'attach_success_log',
+   523	          prNumber: global.createdPR?.number,
+   524	          operation: 'attach_log_to_pr'
+   525	        });
+   526	        await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
+   527	      }
+   528	    }
+   529	  }
+   530	
+   531	  // If --auto-close-pull-request-on-fail is enabled, close the PR
+   532	  if (argv.autoClosePullRequestOnFail && global.createdPR && global.createdPR.number) {
+   533	    await log('\n🔒 Auto-closing pull request due to failure...');
+   534	    try {
+   535	      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+   536	      if (result.exitCode === 0) {
+   537	        await log('✅ Pull request closed successfully');
+   538	      } else {
+   539	        await log(`⚠️  Could not close pull request: ${result.stderr}`, { level: 'warning' });
+   540	      }
+   541	    } catch (closeError) {
+   542	      reportError(closeError, {
+   543	        context: 'close_success_pr',
+   544	        prNumber: global.createdPR?.number,
+   545	        operation: 'close_pull_request'
+   546	      });
+   547	      await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
+   548	    }
+   549	  }
+   550	
+   551	  await safeExit(1, 'Execution error');
+   552	};

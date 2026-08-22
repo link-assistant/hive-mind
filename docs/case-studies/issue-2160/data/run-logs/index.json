@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-08-17T09:19:54.290Z",
+  "count": 1,
+  "logs": [
+    {
+      "description": "Full `/hive` run log attached to issue 2160 (verbose mode, 2 workers, 10 issues)",
+      "issueUrl": "https://github.com/link-assistant/hive-mind/issues/2160",
+      "sourceUrl": "https://gist.githubusercontent.com/konard/b2ecad7f7eb5bf43ac726254943afc8c/raw/e9a04a390eef2b10f379a3a49316f3cbd3487554/tmp-start-command-logs-isolation-docker-4c1dedd8-a645-479c-84ce-72a0f8d7d179.log.txt",
+      "gistId": "b2ecad7f7eb5bf43ac726254943afc8c",
+      "gistRevision": "e9a04a390eef2b10f379a3a49316f3cbd3487554",
+      "gistFile": "tmp-start-command-logs-isolation-docker-4c1dedd8-a645-479c-84ce-72a0f8d7d179.log.txt",
+      "executionId": "4c1dedd8-a645-479c-84ce-72a0f8d7d179",
+      "startedAt": "2026-08-16T17:27:00Z",
+      "finishedAt": "2026-08-16T21:17:42Z",
+      "path": "run-logs/hive-run-4c1dedd8-a645-479c-84ce-72a0f8d7d179.log.gz",
+      "lines": 259311,
+      "sourceRawBytes": 23537621,
+      "sourceRawSha256": "1a255f31a9613a26a743730950d733ce95950373b172f774e204c0a1aafcbe9d",
+      "rawBytes": 23527316,
+      "rawSha256": "632f8eb9040d058d9a7296c4785dc4be810844e293953f865f835ba3e758c9d2",
+      "gzipBytes": 3124866,
+      "gzipSha256": "f2be879c17334fd51cafb0efa407caa00aead43ffa08242dbd87eda770bd738e"
+    }
+  ]
+}

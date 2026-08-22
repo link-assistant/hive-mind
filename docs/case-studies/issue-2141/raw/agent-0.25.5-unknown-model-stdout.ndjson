@@ -1,0 +1,577 @@
+{
+  "type": "config",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.840Z",
+  "service": "default",
+  "source": "lino-arguments (CLI args > env vars > .lenv > defaults)",
+  "config": {
+    "verbose": false,
+    "dryRun": false,
+    "generateTitle": false,
+    "outputResponseModel": true,
+    "summarizeSession": true,
+    "retryOnRateLimits": true,
+    "compactJson": false,
+    "disableAutoupdate": false,
+    "disablePrune": false,
+    "enableExperimentalModels": false,
+    "disableAutocompact": false,
+    "experimental": false,
+    "experimentalWatcher": false,
+    "retryTimeout": 604800,
+    "maxRetryDelay": 1200,
+    "minRetryInterval": 30,
+    "streamChunkTimeoutMs": 120000,
+    "streamStepTimeoutMs": 600000,
+    "mcpDefaultToolCallTimeout": 120000,
+    "mcpMaxToolCallTimeout": 600000,
+    "verifyImagesAtReadTool": true,
+    "readOnly": false,
+    "permissionMode": "auto"
+  },
+  "message": "Agent configuration resolved"
+}
+
+{
+  "type": "status",
+  "mode": "stdin-stream",
+  "message": "Agent CLI in continuous listening mode. Accepts JSON and plain text input.",
+  "hint": "Press CTRL+C to exit. Use --help for options.",
+  "acceptedFormats": [
+    "JSON object with \"message\" field",
+    "Plain text"
+  ],
+  "options": {
+    "inputFormat": "text",
+    "interactive": true,
+    "autoMergeQueuedMessages": true,
+    "alwaysAcceptStdin": true,
+    "compactJson": false
+  }
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.842Z",
+  "service": "default",
+  "version": "0.25.5",
+  "command": "/home/box/.bun/bin/bun /home/box/.bun/install/global/node_modules/@link-assistant/agent/src/index.js --model nonexistent-provider/nope",
+  "workingDirectory": "/tmp",
+  "scriptPath": "/home/box/.bun/install/global/node_modules/@link-assistant/agent/src/index.js",
+  "message": "Agent started (continuous mode)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.846Z",
+  "service": "default",
+  "directory": "/tmp",
+  "message": "creating instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.850Z",
+  "service": "project",
+  "directory": "/tmp",
+  "message": "fromDirectory"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.984Z",
+  "service": "default",
+  "processArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.bun/install/global/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "nonexistent-provider/nope"
+  ],
+  "bunArgv": [
+    "/home/box/.bun/bin/bun",
+    "/home/box/.bun/install/global/node_modules/@link-assistant/agent/src/index.js",
+    "--model",
+    "nonexistent-provider/nope"
+  ],
+  "cliModelArg": "nonexistent-provider/nope",
+  "yargsModel": "nonexistent-provider/nope",
+  "message": "model resolution: argv sources"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.984Z",
+  "service": "default",
+  "rawModel": "nonexistent-provider/nope",
+  "providerID": "nonexistent-provider",
+  "modelID": "nope",
+  "message": "using explicit provider/model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.987Z",
+  "service": "provider",
+  "status": "started",
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.990Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/config.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.991Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.json",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:12.992Z",
+  "service": "config",
+  "path": "/home/box/.config/link-assistant-agent/opencode.jsonc",
+  "message": "loading"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.021Z",
+  "service": "models.dev",
+  "path": "/home/box/.cache/link-assistant-agent/models.json",
+  "age": 146214,
+  "message": "cache is fresh, triggering background refresh"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.022Z",
+  "service": "models.dev",
+  "file": {},
+  "message": "refreshing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.099Z",
+  "service": "provider",
+  "message": "init"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.145Z",
+  "service": "claude-oauth",
+  "subscriptionType": "max",
+  "scopes": [
+    "user:file_upload",
+    "user:inference",
+    "user:mcp_servers",
+    "user:profile",
+    "user:sessions:claude_code"
+  ],
+  "message": "loaded oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.146Z",
+  "service": "provider",
+  "source": "credentials file (max)",
+  "message": "using claude oauth credentials"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "formal-ai",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "formalai",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "@link-assistant",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "opencode",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "kilo",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.147Z",
+  "service": "provider",
+  "providerID": "claude-oauth",
+  "message": "found"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.148Z",
+  "service": "provider",
+  "status": "completed",
+  "duration": 161,
+  "message": "state"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.150Z",
+  "service": "provider",
+  "modelID": "big-pickle",
+  "providerID": "opencode",
+  "message": "resolved short model name (single match)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.150Z",
+  "service": "provider",
+  "modelID": "minimax-m2.5-free",
+  "providerID": "kilo",
+  "message": "resolved short model name (single match)"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.151Z",
+  "service": "default",
+  "models": [
+    "opencode/big-pickle",
+    "kilo/minimax-m2.5-free",
+    "same"
+  ],
+  "source": "default",
+  "message": "compaction models cascade configured"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.167Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.167Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.173Z",
+  "service": "session",
+  "id": "ses_02f452a4affeYUPr6ndbIwdbdf",
+  "version": "0.25.5",
+  "projectID": "global",
+  "directory": "/tmp",
+  "title": "New session - 2026-08-05T07:02:13.173Z",
+  "time": {
+    "created": 1785913333173,
+    "updated": 1785913333173
+  },
+  "message": "created"
+}
+
+{
+  "type": "session.created",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.174Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.174Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.175Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 8,
+  "method": "POST",
+  "path": "/session",
+  "message": "request"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.176Z",
+  "service": "bus",
+  "message": "subscribing"
+}
+
+{
+  "type": "input",
+  "timestamp": "2026-08-05T07:02:13.192Z",
+  "raw": "say hi",
+  "parsed": {
+    "message": "say hi"
+  },
+  "format": "text",
+  "kind": "message"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.192Z",
+  "service": "bus",
+  "message": "subscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.195Z",
+  "service": "server",
+  "method": "POST",
+  "path": "/session/ses_02f452a4affeYUPr6ndbIwdbdf/message",
+  "message": "request"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.196Z",
+  "service": "server",
+  "status": "started",
+  "method": "POST",
+  "path": "/session/ses_02f452a4affeYUPr6ndbIwdbdf/message",
+  "message": "request"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.220Z",
+  "service": "server",
+  "status": "completed",
+  "duration": 24,
+  "method": "POST",
+  "path": "/session/ses_02f452a4affeYUPr6ndbIwdbdf/message",
+  "message": "request"
+}
+{
+  "type": "message.updated",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.270Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "message.part.updated",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.279Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.updated",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.284Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.292Z",
+  "service": "session.prompt",
+  "step": 0,
+  "sessionID": "ses_02f452a4affeYUPr6ndbIwdbdf",
+  "message": "loop"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.301Z",
+  "service": "session.prompt",
+  "hint": "Enable with --generate-title flag or AGENT_GENERATE_TITLE=true",
+  "message": "title generation disabled"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.301Z",
+  "service": "session.prompt",
+  "providerID": "nonexistent-provider",
+  "modelID": "nope",
+  "sessionID": "ses_02f452a4affeYUPr6ndbIwdbdf",
+  "step": 1,
+  "message": "resolving model"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.302Z",
+  "service": "provider",
+  "providerID": "nonexistent-provider",
+  "modelID": "nope",
+  "message": "getModel"
+}
+
+{
+  "type": "log",
+  "level": "error",
+  "timestamp": "2026-08-05T07:02:13.305Z",
+  "service": "session.prompt",
+  "providerID": "nonexistent-provider",
+  "modelID": "nope",
+  "error": "ProviderModelNotFoundError",
+  "stack": "ProviderModelNotFoundError: ProviderModelNotFoundError\n    at getModel (/home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts:1737:17)\n    at processTicksAndRejections (native:7:39)",
+  "hint": "Check that the model exists in the provider. Use --verbose for more details.",
+  "message": "Failed to initialize specified model - NOT falling back to default (explicit provider specified)"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.305Z",
+  "service": "session.prompt",
+  "sessionID": "ses_02f452a4affeYUPr6ndbIwdbdf",
+  "message": "cancel"
+}
+
+{
+  "type": "session.status",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.306Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session.idle",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.306Z",
+  "service": "bus",
+  "message": "publishing"
+}
+
+{
+  "type": "session_idle",
+  "timestamp": 1785913333306,
+  "sessionID": "ses_02f452a4affeYUPr6ndbIwdbdf"
+}
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.306Z",
+  "service": "bus",
+  "message": "unsubscribing"
+}
+
+{
+  "type": "*",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.387Z",
+  "service": "bus",
+  "message": "unsubscribing"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.388Z",
+  "service": "default",
+  "directory": "/tmp",
+  "message": "disposing instance"
+}
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.389Z",
+  "service": "state",
+  "key": "/tmp",
+  "message": "waiting for state disposal to complete"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.389Z",
+  "service": "state",
+  "key": "/tmp",
+  "message": "state disposal completed"
+}
+
+{
+  "type": "log",
+  "level": "info",
+  "timestamp": "2026-08-05T07:02:13.390Z",
+  "service": "default",
+  "hasError": false,
+  "uptimeSeconds": 2,
+  "message": "Agent exiting"
+}
+

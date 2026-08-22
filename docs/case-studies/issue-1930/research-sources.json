@@ -1,0 +1,12 @@
+[
+  {
+    "title": "Node.js Readline documentation",
+    "url": "https://nodejs.org/api/readline.html",
+    "used_for": "Confirmed that Node's readline interface is the built-in line-input API for stdin/stdout prompts and that readline tracks terminal input state."
+  },
+  {
+    "title": "GNU Bash Reference Manual",
+    "url": "https://www.gnu.org/software/bash/manual/bash.html",
+    "used_for": "Confirmed Bash read behavior and GNU Readline terminal-editing concepts, including line editing and escape-sequence handling."
+  }
+]

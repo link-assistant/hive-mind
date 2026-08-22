@@ -1,0 +1,34 @@
+📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-26-45-064Z.log
+   (All output will be logged here)
+
+🚀 solve v2.12.0
+🔧 Raw command executed:
+   /home/box/.npm/_npx/387698761821791d/node_modules/node/bin/node /tmp/gh-issue-solver-1786457752545/src/solve.mjs https://example.com/not-a-github-repository --dry-run --skip-tool-check --skip-claude-check
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 1.66 4.76 4.26 (6 CPUs)
+   Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+   Process RSS: 111 MB, heap 25 MB
+   Disk (/): 141.2 GB available / 192.7 GB total (26.7% used)
+📈 [RESOURCES] phase=solve_start ts=2026-08-11T16%3A26%3A45.512Z load1=1.66 load5=4.76 load15=4.26 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10565582848 memUsedBytes=1975910400 processRssBytes=116490240 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=151569543168 diskUsedBytes=55313960960 diskUsedPercent=26.734599199521135 mem=9.8%20GB%20available%20%2F%2011.7%20GB%20total disk=141.2%20GB%20available%20%2F%20192.7%20GB%20total
+Error: Invalid GitHub URL format
+  Not a GitHub URL
+
+  Please provide a valid GitHub issue or pull request URL
+  Examples:
+    https://github.com/owner/repo/issues/123 (issue)
+    https://github.com/owner/repo/pull/456 (pull request)
+  You can also use:
+    http://github.com/owner/repo/issues/123 (will be converted to https)
+    github.com/owner/repo/issues/123 (will add https://)
+    owner/repo/issues/123 (will be converted to full URL)
+📈 Resource usage (solve exit 1):
+   CPU load: 1.66 4.76 4.26 (6 CPUs)
+   Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+   Process RSS: 111 MB, heap 26 MB
+   Disk (/): 141.2 GB available / 192.7 GB total (26.7% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-08-11T16%3A26%3A45.523Z load1=1.66 load5=4.76 load15=4.26 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10565582848 memUsedBytes=1975910400 processRssBytes=116490240 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=151569543168 diskUsedBytes=55313960960 diskUsedPercent=26.734599199521135 mem=9.8%20GB%20available%20%2F%2011.7%20GB%20total disk=141.2%20GB%20available%20%2F%20192.7%20GB%20total
+
+❌ Invalid GitHub URL
+📁 Full log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-26-45-064Z.log

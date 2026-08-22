@@ -1,0 +1,5 @@
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+    - command: chmod +x ./gitpod-restore-auth.sh && ./gitpod-restore-auth.sh

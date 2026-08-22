@@ -20,8 +20,11 @@ echo "=== Synchronizing PR with latest $BASE_REF ==="
 echo "This prevents stale merge preview issues (see issue #1141)"
 echo ""
 
-# Configure git for merge
-git config user.email "github-actions[bot]@users.noreply.github.com"
+# Configure git for merge. The 41898282+ prefix is what attributes the commit to
+# the github-actions[bot] account; without it the commit is "unattributed" and
+# the Main ruleset's require_extra_approval_for_unattributed_changes demands a
+# human approval before the pull request can merge (issue #2175).
+git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git config user.name "github-actions[bot]"
 
 # Fetch the latest base branch

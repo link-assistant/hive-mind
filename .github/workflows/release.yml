@@ -538,14 +538,12 @@ jobs:
         # warns about on every command (issue #2028).
         run: node scripts/sanitize-npm-userconfig.mjs
 
-      - name: Check for changesets
+      - name: Check whether a release is needed
         id: check_changesets
-        run: |
-          # Count changeset files (excluding README.md and config.json)
-          CHANGESET_COUNT=$(find .changeset -name "*.md" ! -name "README.md" | wc -l)
-          echo "Found $CHANGESET_COUNT changeset file(s)"
-          echo "has_changesets=$([[ $CHANGESET_COUNT -gt 0 ]] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
-          echo "changeset_count=$CHANGESET_COUNT" >> $GITHUB_OUTPUT
+        # Also detects the self-healing case: no changesets, but package.json's
+        # version is not on npm yet (a previous run bumped and failed to
+        # publish). See scripts/check-release-needed.lib.mjs, issue #2175.
+        run: node scripts/check-release-needed.mjs
       - name: Harmonize changeset bump types
         if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
         run: |
@@ -554,10 +552,15 @@ jobs:
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
+        # GH_TOKEN is required for the pull-request fallback used when a
+        # repository ruleset blocks the direct push to main (issue #2175).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
-        # Run if version was committed OR if a previous attempt already committed (for re-runs)
-        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+        # Run if version was committed, OR a previous attempt already committed
+        # (re-runs), OR package.json's version is missing from npm (issue #2175).
+        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true' || steps.check_changesets.outputs.skip_bump == 'true'
         id: publish_npm
         run: node scripts/publish-to-npm.mjs --should-pull
       - name: Set publish outputs
@@ -879,10 +882,11 @@ jobs:
       - name: Release Helm chart
         run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
       - name: Upload chart to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.release.outputs.published_version }}
-          files: .helm-packages/*.tgz
+        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
+        # Node 20 action and makes every run emit a deprecation warning (#2175).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
   # === MANUAL INSTANT RELEASE ===
   instant-release:
     name: Instant Release
@@ -916,6 +920,10 @@ jobs:
         run: node scripts/sanitize-npm-userconfig.mjs
       - name: Version packages and commit to main
         id: version
+        # GH_TOKEN is required for the pull-request fallback used when a
+        # repository ruleset blocks the direct push to main (issue #2175).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
@@ -1227,10 +1235,11 @@ jobs:
       - name: Release Helm chart
         run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
       - name: Upload chart to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.instant-release.outputs.published_version }}
-          files: .helm-packages/*.tgz
+        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
+        # Node 20 action and makes every run emit a deprecation warning (#2175).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/upload-release-assets.sh "v${{ needs.instant-release.outputs.published_version }}" .helm-packages/*.tgz
 
   # === MANUAL CHANGESET PR ===
   changeset-pr:

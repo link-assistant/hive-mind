@@ -103,7 +103,11 @@ export const collectErrorText = (error, depth = 0) => {
   push(error.stderr);
   push(error.stdout);
   if (error.cause) parts.push(collectErrorText(error.cause, depth + 1));
-  if (parts.length === 0 && typeof error.toString === 'function') push(error);
+  // Last resort: an error-ish object whose text only lives in a custom
+  // `toString`. Raw byte payloads are deliberately excluded — issue #1829 pins
+  // that a bare Buffer carries no classifiable text (its bytes may be an
+  // arbitrary command payload rather than a failure description).
+  if (parts.length === 0 && !ArrayBuffer.isView(error) && typeof error.toString === 'function') push(error);
   return parts.join('\n');
 };
 

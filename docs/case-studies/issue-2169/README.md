@@ -211,6 +211,13 @@ Every tool that owns a transient-retry loop now shares the same budget object:
 | `src/opencode.lib.mjs`          | idem                                                                                                                                               |
 | `src/claude.connection.lib.mjs` | replaced a local `maxRetries = 3` / `baseDelay` pair with the shared budget via one `retryAfterOverload()` helper used by all three overload sites |
 
+RC2 was verified to be **claude-specific**: `agent`, `gemini`, `qwen`, `codex` and
+`opencode` already enter their retry blocks only behind an explicit failure condition
+(`exitCode !== 0`, a detected error event, or zero emitted events), so a successful run
+could never reach their classifier. RC1 and RC3, in contrast, were shared by all of them
+— they all call `classifyRetryableError` and all used the attempt-capped delays — which is
+why the budget and the status-context matcher are applied everywhere.
+
 ## Verification
 
 `tests/transient-retry-budget-2169.test.mjs` (24 assertions) covers:

@@ -9,9 +9,16 @@
 # scoped `Authorization: Bearer <task token>` header attached to the router URL
 # only, and the rewrite is the documented `insteadOf`.
 #
-# # The client image is the real task image, so git is the one a task actually runs.
-# The force and delete attempts target the PR branch on purpose: if the router
-# refuses them the remote is untouched, which is exactly what is being measured.
+# The client image is the real task image, so git is the one a task actually runs.
+#
+# ⚠️  Point BRANCH at a throwaway branch, never at a branch that carries a pull
+# request. The deletion is refused, but the force update is *not* (router#272),
+# so it really does rewrite the branch — and GitHub closes any pull request whose
+# head branch is force-pushed, permanently: reopening then fails with "state
+# cannot be changed. The <branch> branch was force-pushed or recreated". That is
+# how pull request #2165 for this very issue was lost. Create the branch first:
+#
+#   git push origin origin/main:refs/heads/probe-2164-git-transport
 #
 # Redacts `la_sk_…` from all output; safe to commit the log.
 set -u
@@ -21,7 +28,7 @@ NET=probe-2164-git-net
 ROUTER=probe-2164-git-router
 CLIENT=probe-2164-git-client
 CLIENT_IMAGE=${CLIENT_IMAGE:-konard/box:2.3.5}
-BRANCH=${BRANCH:-issue-2164-90464ce530a2}
+BRANCH=${BRANCH:-probe-2164-git-transport}
 WORK=$(mktemp -d)
 redact() { sed -E 's/la_sk_[A-Za-z0-9._-]*/la_sk_REDACTED/g'; }
 

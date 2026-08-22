@@ -13,10 +13,10 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
-import { acquireRouterSidecar, buildRouterSidecarRunArgs, decodeRouterTokenId, getRouterCredentialMounts, isRouterSidecarEnabled, releaseRouterSidecar, resolveRouterSidecarImage, resolveRouterTokenSecret } from '../src/router-sidecar.lib.mjs';
+import { acquireRouterSidecar, buildRouterSidecarRunArgs, decodeRouterTokenId, getRouterCredentialMounts, issueRouterTaskToken, isRouterSidecarEnabled, readRouterCaCertificate, readRouterNetworkIp, releaseRouterSidecar, resolveRouterSidecarImage, resolveRouterTokenSecret, wireRouterTaskContainer } from '../src/router-sidecar.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, releaseRouterForTask } from '../src/router-task-isolation.lib.mjs';
 import { runRouterMaintenanceTick, startRouterMaintenance, stopIdleRouterSidecar } from '../src/router-maintenance.lib.mjs';
-import { ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME } from '../src/router-isolation.lib.mjs';
+import { getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -49,7 +49,8 @@ const credentialMounts = [
   { home: '.claude', target: '/data/claude', envVar: 'CLAUDE_CODE_HOME', source: '/home/box/.claude' },
   { home: '.codex', target: '/data/codex', envVar: 'CODEX_HOME', source: '/home/box/.codex' },
 ];
-const runArgs = buildRouterSidecarRunArgs({ image: 'ghcr.io/link-assistant/router:latest', tokenSecret: 'deadbeef', credentialMounts, env: {} });
+credentialMounts.push({ home: '.config/gh', target: '/data/gh', envVar: 'GH_CONFIG_DIR', source: '/home/box/.config/gh', readOnly: true });
+const runArgs = buildRouterSidecarRunArgs({ image: ROUTER_SIDECAR_IMAGE, tokenSecret: 'deadbeef', credentialMounts, env: {} });
 
 const flagValue = (args, flag, prefix) => args.filter((value, index) => args[index - 1] === flag && value.startsWith(prefix)).map(value => value.slice(prefix.length));
 
@@ -72,15 +73,31 @@ assertEqual(
 // expire, so a :ro mount would discard every rotation and leave the operator
 // with credentials that stop working.
 const credentialVolumes = runArgs.filter((value, index) => runArgs[index - 1] === '--volume' && value.startsWith('/home/box/'));
-assertEqual(credentialVolumes.length, 2, 'every discovered credential directory is mounted into the sidecar (R3)');
+assertEqual(credentialVolumes.length, 3, 'every discovered credential directory is mounted into the sidecar (R3)');
 assertEqual(
-  credentialVolumes.every(volume => !volume.endsWith(':ro')),
+  credentialVolumes.filter(volume => !volume.startsWith('/home/box/.config/gh')).every(volume => !volume.endsWith(':ro')),
   true,
   'credential mounts are writable, so refreshed tokens survive a restart'
 );
+// The router only ever reads the gh credential to present it upstream; nothing
+// in it needs rewriting, and a read-only mount keeps a proxied call from
+// editing the operator's own hosts.yml.
+assertEqual(
+  credentialVolumes.some(volume => volume === '/home/box/.config/gh:/data/gh:ro'),
+  true,
+  'the GitHub credential the router presents upstream is mounted read-only (R12)'
+);
+assertEqual(flagValue(runArgs, '--env', 'GH_CONFIG_DIR=').join(''), '/data/gh', 'and named through GH_CONFIG_DIR, which is where the router looks for it');
 assertEqual(flagValue(runArgs, '--env', 'CLAUDE_CODE_HOME=').join(''), '/data/claude', 'the router is told where each credential home landed');
 assertEqual(flagValue(runArgs, '--env', 'CODEX_HOME=').join(''), '/data/codex', 'the codex credential home is wired too');
-assertEqual(runArgs.slice(-5).join(' '), 'serve --host 0.0.0.0 --port 8080', 'the router is started in serve mode, listening on every interface of the internal network');
+assertEqual(runArgs.slice(-5).join(' '), 'serve --host 0.0.0.0 --port 443', 'the router is started in serve mode on 443, the only port an unmodified gh will build an api.github.com endpoint for');
+
+// Without TLS there is no interception: gh, git and codex all speak https to
+// api.github.com, and a plaintext router can only be reached by rewriting every
+// client's configuration.
+assertEqual(flagValue(runArgs, '--env', 'TLS_SELF_SIGNED=').join(''), '1', 'the router terminates TLS with a certificate of its own');
+assertEqual(flagValue(runArgs, '--env', 'TLS_SELF_SIGNED_DNS=').join(''), ROUTER_TLS_DNS_NAMES, 'whose names cover both the internal alias and api.github.com');
+assertEqual(ROUTER_TLS_DNS_NAMES.includes('api.github.com'), true, 'which is what lets an unmodified gh verify the interception');
 
 console.log('\n=== issue #2164: credential discovery ===');
 
@@ -106,7 +123,10 @@ console.log('\n=== issue #2164: sidecar toggles ===');
 
 assertEqual(isRouterSidecarEnabled({}), true, 'Hive Mind manages the router container by default');
 assertEqual(isRouterSidecarEnabled({ HIVE_MIND_ROUTER_SIDECAR: '0' }), false, 'an operator can opt out of container management');
-assertEqual(resolveRouterSidecarImage({}), 'ghcr.io/link-assistant/router:latest', 'the published image is the default');
+// A floating :latest would change the router under running tasks; the tag is
+// bumped deliberately, with the behaviour re-measured (experiments/issue-2164).
+assertEqual(resolveRouterSidecarImage({}), ROUTER_SIDECAR_IMAGE, 'the published image is the default');
+assertEqual(/:\d+\.\d+\.\d+$/.test(resolveRouterSidecarImage({})), true, 'pinned to an exact version rather than :latest');
 assertEqual(resolveRouterSidecarImage({ HIVE_MIND_ROUTER_IMAGE: 'local/router:dev' }), 'local/router:dev', 'the image can be pinned or replaced');
 
 console.log('\n=== issue #2164: acquire and release against a fake docker ===');
@@ -167,7 +187,13 @@ const acquired = await acquireRouterSidecar({
 });
 
 assertEqual(acquired.error, null, 'the sidecar comes up against a healthy fake docker');
-assertEqual(acquired.baseUrl, `http://${ROUTER_SIDECAR_NETWORK_ALIAS}:8080`, 'the task is pointed at the internal alias');
+assertEqual(acquired.baseUrl, getInternalRouterBaseUrl(), 'the task is pointed at the internal alias over HTTPS');
+assertEqual(acquired.baseUrl, `https://${ROUTER_SIDECAR_NETWORK_ALIAS}`, 'on the default port, so the URL carries no port for gh to disagree about');
+assertEqual(
+  docker.calls.some(call => call.includes('bun') && call.includes('https://127.0.0.1:443/health')),
+  true,
+  'health is probed over the same TLS endpoint a task will use, not a plaintext one that no longer exists'
+);
 assertEqual(acquired.tokenId, 'aaaaaaaa-0000-4000-8000-00000000000a', 'the lease records the id of the token it minted');
 assertEqual(acquired.leaseCount, 1, 'the acquiring task holds the only lease');
 assertEqual(
@@ -203,6 +229,77 @@ assertEqual(
 
 const { rmSync } = await import('node:fs');
 rmSync(stateDir, { recursive: true, force: true });
+
+console.log('\n=== issue #2164: the token is confined to one repository ===');
+
+const scopeCalls = [];
+await issueRouterTaskToken({
+  sessionId: 'session-scoped',
+  githubRepo: 'link-assistant/hive-mind',
+  run: async (binary, args) => {
+    scopeCalls.push(args);
+    return { stdout: `la_sk_h.${Buffer.from(JSON.stringify({ sub: 'id' })).toString('base64url')}.s\n` };
+  },
+});
+// The router enforces this on both surfaces: a call about another repository is
+// refused with "outside this token's repositories" on REST and at
+// GET /info/refs for git, so a leaked task token is worth one repository.
+assertEqual(scopeCalls[0].join(' ').includes('--github-repo link-assistant/hive-mind'), true, "the task's token names the repository it may touch, so it cannot be replayed against another (R13)");
+assertEqual((await issueRouterTaskToken({ sessionId: 's', run: async () => ({ stdout: 'ghp_a_real_github_token\n' }) })).token, null, 'and anything that is not a router token is refused rather than handed to a task');
+
+console.log('\n=== issue #2164: the task container is finished off from the host ===');
+
+const CA_PEM = '-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----';
+const makeWiringDocker = ({ ca = CA_PEM, ip = '172.31.0.2' } = {}) => {
+  const calls = [];
+  const run = async (binary, args) => {
+    calls.push(args);
+    if (args[0] === 'inspect') return { stdout: `${ip}\n` };
+    if (args.includes('tls')) return { stdout: ca ? `${ca}\n` : '\n' };
+    return { stdout: '' };
+  };
+  return { calls, run };
+};
+
+const wiringDocker = makeWiringDocker();
+const wired = await wireRouterTaskContainer({ sessionId: 'sess-2164', tool: 'claude', run: wiringDocker.run });
+assertEqual(wired.wired, true, 'a healthy router wires the task container');
+const execCall = wiringDocker.calls.find(args => args[0] === 'exec' && args.includes('sh'));
+assertEqual(execCall.slice(0, 3).join(' '), 'exec --user 0', 'as root, because /etc/hosts and the CA store belong to root while the agent does not');
+assertEqual(execCall[3], 'sess-2164', 'inside the task container, not the sidecar');
+assertEqual(execCall.at(-1).includes(CA_PEM), true, 'and the CA the router just printed is what gets installed');
+assertEqual(execCall.at(-1).includes('172.31.0.2'), true, "with api.github.com pointed at the router's address on the internal network");
+
+// Every failure here is returned, not thrown: the caller tears the container
+// down on a non-null error, and a task that reached this point holds no
+// credential of its own — launching it unwired would simply strand it.
+assertEqual((await wireRouterTaskContainer({ sessionId: 's', run: makeWiringDocker({ ca: null }).run })).error?.includes('router tls ca'), true, 'a router that prints no CA is reported rather than leaving the task unable to verify it');
+assertEqual((await wireRouterTaskContainer({ sessionId: 's', run: makeWiringDocker({ ip: 'not-an-address' }).run })).error?.includes('api.github.com'), true, 'and so is a router with no address to intercept GitHub through');
+assertEqual((await wireRouterTaskContainer({ sessionId: '', run: makeWiringDocker().run })).wired, false, 'a missing container name is refused outright');
+assertEqual(await readRouterCaCertificate({ run: async () => ({ stdout: 'not a certificate\n' }) }), null, 'a CA read that returns something other than PEM yields null rather than a broken trust file');
+assertEqual(
+  await readRouterNetworkIp({
+    run: async () => {
+      throw new Error('No such object');
+    },
+  }),
+  null,
+  'and an address read against a missing container yields null rather than throwing into the launch path'
+);
+
+const attachedThenWired = [];
+const attachOk = await attachRouterTaskContainer({
+  router: { token: 't', tool: 'codex', githubMode: 'transparent', baseUrl: 'https://link-assistant-router' },
+  sessionId: 'sess-2164',
+  attach: async () => ({ attached: true }),
+  wire: async options => {
+    attachedThenWired.push(options);
+    return { wired: true };
+  },
+});
+assertEqual(attachOk, null, 'attach and wire together report success as no error');
+assertEqual(attachedThenWired[0].tool, 'codex', 'the tool travels with the lease, so the wiring step writes the right provider config');
+assertEqual(await attachRouterTaskContainer({ router: { token: 't' }, sessionId: 's', attach: async () => ({ attached: true }), wire: async () => ({ wired: false, error: 'exec refused' }) }), 'exec refused', 'and a container that could not be wired fails the launch instead of running with a partly-configured trust store');
 
 console.log('\n=== issue #2164: launch policy fails closed ===');
 

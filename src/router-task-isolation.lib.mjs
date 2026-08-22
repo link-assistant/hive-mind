@@ -16,8 +16,8 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
-import { describeRouterCoverageGaps, isRouterEnabled, resolveRouterGhHost } from './router-isolation.lib.mjs';
-import { acquireRouterSidecar, attachTaskToRouterNetwork, releaseRouterSidecar } from './router-sidecar.lib.mjs';
+import { describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
+import { acquireRouterSidecar, attachTaskToRouterNetwork, releaseRouterSidecar, wireRouterTaskContainer } from './router-sidecar.lib.mjs';
 
 const logToConsole = message => console.log(message);
 
@@ -28,12 +28,12 @@ const logToConsole = message => console.log(message);
  *   with `error` null when routing was not requested; a non-null `error` means
  *   the caller must abort the launch.
  */
-export const acquireRouterForTask = async ({ backend, useRouter = false, model = null, sessionId, env = process.env, verbose = false, log = logToConsole, acquire = acquireRouterSidecar } = {}) => {
+export const acquireRouterForTask = async ({ backend, useRouter = false, model = null, tool = 'claude', githubRepo = null, sessionId, env = process.env, verbose = false, log = logToConsole, acquire = acquireRouterSidecar } = {}) => {
   if (backend !== 'docker' || !isRouterEnabled({ useRouter, env })) return { router: null, error: null };
 
   let acquired;
   try {
-    acquired = await acquire({ sessionId, env, verbose, log });
+    acquired = await acquire({ sessionId, githubRepo, env, verbose, log });
   } catch (error) {
     acquired = { error: error?.message || String(error) };
   }
@@ -43,28 +43,37 @@ export const acquireRouterForTask = async ({ backend, useRouter = false, model =
     return { router: null, error: message };
   }
 
+  const { mode: githubMode } = resolveRouterGitHubRouting({ env, external: Boolean(acquired.external) });
   if (log) {
     await log(`🔀 [EXPERIMENTAL] Task '${sessionId}' routed through the router; vendor credentials stay in the sidecar (issue #2164)`);
-    for (const gap of describeRouterCoverageGaps({ model, ghRouted: Boolean(resolveRouterGhHost({ env })) })) {
+    for (const gap of describeRouterCoverageGaps({ model, tool, githubMode })) {
       await log(`⚠️ ${gap}`);
     }
   }
-  return { router: acquired, error: null };
+  // The mode and tool travel with the lease so the attach step, which runs
+  // later and elsewhere, does not have to re-derive them from the environment.
+  return { router: { ...acquired, githubMode, tool }, error: null };
 };
 
 /**
- * Put the freshly-created task container on the router's internal network.
+ * Put the freshly-created task container on the router's internal network and
+ * finish wiring it up.
  *
+ * Both halves happen here because both are only possible in the same window:
+ * after the container exists and before the start gate releases its command.
  * An external router is reached over the default bridge and has no network of
- * ours to join, so there is nothing to attach.
+ * ours to join, so there is nothing to attach — and no container of ours to
+ * write an /etc/hosts entry into either.
  *
  * @returns {Promise<string|null>} An error message, or null when there is
  *   nothing to do or the attach succeeded.
  */
-export const attachRouterTaskContainer = async ({ router, sessionId, verbose = false, log = logToConsole, attach = attachTaskToRouterNetwork } = {}) => {
+export const attachRouterTaskContainer = async ({ router, sessionId, env = process.env, verbose = false, log = logToConsole, attach = attachTaskToRouterNetwork, wire = wireRouterTaskContainer } = {}) => {
   if (!router || router.external) return null;
   const result = await attach({ sessionId, verbose, log });
-  return result?.attached ? null : result?.error || 'unknown error';
+  if (!result?.attached) return result?.error || 'unknown error';
+  const wired = await wire({ sessionId, tool: router.tool ?? 'claude', baseUrl: router.baseUrl || resolveRouterBaseUrl({ env }).baseUrl, githubMode: router.githubMode ?? 'transparent', verbose, log });
+  return wired?.wired ? null : wired?.error || 'unknown error';
 };
 
 /** Revoke the task's token and release its lease. Never throws: a failed release must not mask a launch error. */

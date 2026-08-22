@@ -14,9 +14,18 @@
  *      and unbypassable, but only covers branches somebody protected.
  *   2. This `pre-push` hook — covers every branch and every remote in the task
  *      container, costs nothing, and is defeated by `git push --no-verify`.
- *   3. A router-mediated git transport, which would be unbypassable for the same
- *      reason the model traffic is: the task holds no other credential. That
- *      needs upstream support (link-assistant/router#261) and is NOT in place.
+ *   3. The router's git transport (`/git/…`), which routed tasks now push
+ *      through. It is unbypassable for the same reason the model traffic is —
+ *      the task holds no other credential — and it refuses branch deletions
+ *      outright (measured: `git push origin :refs/heads/x` → HTTP 403).
+ *
+ * Layer 3 covers deletions but not force pushes: the router decides by looking
+ * for a `force-ref-updates` capability that git never sends, so a
+ * non-fast-forward push is relayed unchanged (measured in
+ * `experiments/issue-2164/probe-git-transport.sh`, reported upstream as
+ * link-assistant/router#272). Until that lands, this hook is the only thing
+ * standing between an agent and a rewritten branch — and `--no-verify` gets past
+ * it — so branch protection remains the control that cannot be talked around.
  *
  * So this is a speed bump, not a cage, and the docs say so. It still removes the
  * accident case entirely — an agent that decides to "clean up" a branch with a
@@ -159,16 +168,40 @@ export function installGitPushGuard({ env = process.env, homeDir = os.homedir(),
 }
 
 /**
+ * Turn `[key, value]` pairs into git's `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`
+ * environment form (git >= 2.31).
+ *
+ * A routed task needs several such settings — the hook path here, plus the URL
+ * rewrite and CA that send git through the router (issue #2164) — and they share
+ * one counter, so building them separately would have each overwrite the other.
+ * The order is preserved because git applies these last-to-win, which is what
+ * lets `credential.helper=` clear an inherited helper list.
+ *
+ * @param {Array<[string, string]>} entries
+ * @returns {Record<string,string>}
+ */
+export function buildGitConfigEnv(entries = []) {
+  const usable = entries.filter(entry => Array.isArray(entry) && entry[0]);
+  if (usable.length === 0) return {};
+  const taskEnv = { GIT_CONFIG_COUNT: String(usable.length) };
+  usable.forEach(([key, value], index) => {
+    taskEnv[`GIT_CONFIG_KEY_${index}`] = key;
+    taskEnv[`GIT_CONFIG_VALUE_${index}`] = value ?? '';
+  });
+  return taskEnv;
+}
+
+/**
  * Environment that points git at the mounted hook for every repository in the
  * container, without writing to the bind-mounted `~/.gitconfig`.
+ *
+ * `extraConfig` carries any other settings the same task needs, so all of them
+ * end up under one `GIT_CONFIG_COUNT`.
  */
-export function buildGitPushGuardEnv({ hooksPath = GIT_PUSH_GUARD_CONTAINER_DIR, allowDestructive = false } = {}) {
-  if (!hooksPath) return {};
-  const taskEnv = {
-    GIT_CONFIG_COUNT: '1',
-    GIT_CONFIG_KEY_0: 'core.hooksPath',
-    GIT_CONFIG_VALUE_0: hooksPath,
-  };
+export function buildGitPushGuardEnv({ hooksPath = GIT_PUSH_GUARD_CONTAINER_DIR, allowDestructive = false, extraConfig = [] } = {}) {
+  const entries = [...(hooksPath ? [['core.hooksPath', hooksPath]] : []), ...extraConfig];
+  const taskEnv = buildGitConfigEnv(entries);
+  if (Object.keys(taskEnv).length === 0) return {};
   if (allowDestructive) taskEnv[GIT_PUSH_GUARD_ESCAPE_ENV] = '1';
   return taskEnv;
 }
@@ -191,4 +224,4 @@ export function hasForcePushOptIn(args) {
   });
 }
 
-export default { buildGitPushGuardEnv, hasForcePushOptIn, installGitPushGuard, resolveGitPushGuardHostDir, GIT_PUSH_GUARD_CONTAINER_DIR, PRE_PUSH_GUARD_SCRIPT };
+export default { buildGitConfigEnv, buildGitPushGuardEnv, hasForcePushOptIn, installGitPushGuard, resolveGitPushGuardHostDir, GIT_PUSH_GUARD_CONTAINER_DIR, PRE_PUSH_GUARD_SCRIPT };

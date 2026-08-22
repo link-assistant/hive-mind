@@ -13,18 +13,58 @@
  * token, and every request lands in that token's own redacted JSONL log inside
  * a preserved data volume.
  *
+ * Three decisions here are worth stating, because they are what makes the
+ * isolation hold rather than merely look tidy (all three were measured first —
+ * see `experiments/issue-2164/`):
+ *
+ * 1. **The router serves TLS on 443.** Router 0.109.0 terminates TLS itself
+ *    (`TLS_SELF_SIGNED=1`) and prints its CA with `router tls ca`. Plain HTTP
+ *    would rule out `gh` entirely, which refuses non-HTTPS hosts.
+ * 2. **GitHub is intercepted by name, not by reconfiguring `gh`.** The
+ *    certificate carries `api.github.com` as a SAN and the *task* container gets
+ *    `<router-ip> api.github.com` in its `/etc/hosts`. Every form an agent might
+ *    use — `gh api`, `gh pr view <url>`, a bare `curl` — lands on the router
+ *    without the agent being asked to cooperate. The alias is deliberately NOT
+ *    added to the router's own network attachment: the router has to resolve
+ *    `api.github.com` to the real GitHub, and an alias would make it resolve to
+ *    itself (measured: 502 on every proxied call).
+ * 3. **`github.com` itself stays untouched**, so git is pointed at the router's
+ *    smart-HTTP proxy explicitly with `url.<router>/git/.insteadOf`.
+ *
  * This module is deliberately pure: it decides *what a routed task should see*
  * and nothing else, so the policy is testable without Docker. Container
  * lifecycle lives in `router-sidecar.lib.mjs`.
+ *
+ * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
 export const ROUTER_SIDECAR_CONTAINER_NAME = 'hive-mind-router';
 export const ROUTER_SIDECAR_NETWORK_NAME = 'hive-mind-router';
 // Tasks reach the sidecar by alias, so the endpoint stays stable across restarts.
 export const ROUTER_SIDECAR_NETWORK_ALIAS = 'link-assistant-router';
-export const ROUTER_SIDECAR_PORT = 8080;
+// 443, because `gh` builds every endpoint as `https://<host>/…` with no port and
+// no plaintext option. Serving the default HTTPS port is what lets the same
+// listener answer both the agent CLIs and an unmodified `gh`.
+export const ROUTER_SIDECAR_PORT = 443;
 export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
-export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:latest';
+// Pinned: an experimental feature that depends on `router tls ca`, the git proxy
+// and per-token request logs must not silently change underneath a running fleet.
+// Override with HIVE_MIND_ROUTER_IMAGE.
+export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.109.0';
+
+/** The one GitHub name the router impersonates; see the module header. */
+export const ROUTER_GITHUB_API_HOST = 'api.github.com';
+/** SANs the sidecar's self-signed certificate must carry. */
+export const ROUTER_TLS_DNS_NAMES = `${ROUTER_SIDECAR_NETWORK_ALIAS},${ROUTER_GITHUB_API_HOST}`;
+
+// Where the task container is given the router's CA. Two files, because clients
+// disagree about what the variable means: NODE_EXTRA_CA_CERTS *adds* to the
+// system store, while SSL_CERT_FILE *replaces* it — so the latter must be handed
+// a bundle that still contains the public roots, or the task loses the ability
+// to verify every other site on the internet.
+export const ROUTER_CA_CONTAINER_PATH = '/etc/hive-mind-router-ca.pem';
+export const ROUTER_CA_BUNDLE_CONTAINER_PATH = '/etc/hive-mind-router-ca-bundle.pem';
+export const CONTAINER_SYSTEM_CA_BUNDLE = '/etc/ssl/certs/ca-certificates.crt';
 
 // Named volume, never removed by any Hive Mind code path: it holds the audit
 // trail the whole feature exists to produce (issue #2164, R8).
@@ -33,8 +73,13 @@ export const ROUTER_DATA_MOUNT = '/data/router';
 
 // Vendor credential homes inside the sidecar. The router reads each from its
 // matching `*_HOME` variable; mounting them here is what makes the sidecar the
-// only point of contact with the subscription (R3).
+// only point of contact with the subscription (R3). `~/.config/gh` is mounted
+// read-only: the router only ever reads the token out of `hosts.yml`, and a
+// writable mount would let a proxied call rewrite the operator's own gh state.
 export const ROUTER_CREDENTIAL_MOUNTS = Object.freeze([Object.freeze({ home: '.claude', target: '/data/claude', envVar: 'CLAUDE_CODE_HOME' }), Object.freeze({ home: '.codex', target: '/data/codex', envVar: 'CODEX_HOME' }), Object.freeze({ home: '.gemini', target: '/data/gemini', envVar: 'GEMINI_HOME' }), Object.freeze({ home: '.qwen', target: '/data/qwen', envVar: 'QWEN_HOME' })]);
+
+/** The gh credential the router presents upstream, mounted read-only (R12). */
+export const ROUTER_GH_CONFIG_MOUNT = Object.freeze({ home: '.config/gh', target: '/data/gh', envVar: 'GH_CONFIG_DIR', readOnly: true });
 
 /**
  * Tools whose CLI speaks the Anthropic Messages API. The router serves
@@ -42,7 +87,17 @@ export const ROUTER_CREDENTIAL_MOUNTS = Object.freeze([Object.freeze({ home: '.c
  */
 const ANTHROPIC_TOOLS = new Set(['claude', 'agent']);
 
+/** Provider id written into a routed task's `config.toml` (codex). */
+const CODEX_PROVIDER_ID = 'hive-mind-router';
+
 const normalizeTool = tool => String(tool || 'claude').toLowerCase();
+
+const isFalsey = value =>
+  ['0', 'false', 'no'].includes(
+    String(value || '')
+      .trim()
+      .toLowerCase()
+  );
 
 /**
  * Is router isolation requested for this run?
@@ -104,9 +159,14 @@ export function normalizeRouterBaseUrl(value) {
   return `${parsed.protocol}//${parsed.host}`;
 }
 
-/** Endpoint of the sidecar Hive Mind starts itself, reachable only on the internal network. */
+/**
+ * Endpoint of the sidecar Hive Mind starts itself, reachable only on the
+ * internal network. The port is omitted when it is 443 so the authority matches
+ * the certificate the way every client expects.
+ */
 export function getInternalRouterBaseUrl() {
-  return `http://${ROUTER_SIDECAR_NETWORK_ALIAS}:${ROUTER_SIDECAR_PORT}`;
+  const port = ROUTER_SIDECAR_PORT === 443 ? '' : `:${ROUTER_SIDECAR_PORT}`;
+  return `https://${ROUTER_SIDECAR_NETWORK_ALIAS}${port}`;
 }
 
 /**
@@ -135,14 +195,14 @@ export function resolveRouterBaseUrl({ env = process.env } = {}) {
 }
 
 /**
- * Resolve the host `gh` should treat as its GitHub endpoint.
+ * Resolve an explicit host for `gh`, for the external-router case only.
  *
- * `gh` builds a custom host's REST base as `https://<host>/api/v3/` and offers
- * no plaintext option, while the router listens on plain HTTP and ships no TLS
- * listener of its own (reported upstream as link-assistant/router#263). So GitHub
- * routing is only wired when the operator supplies an HTTPS-terminated endpoint
- * via `HIVE_MIND_ROUTER_GH_HOST`; otherwise the task keeps its own gh credential
- * and the caller warns that GitHub traffic is not router-mediated.
+ * The sidecar Hive Mind starts needs none of this: it answers to
+ * `api.github.com` directly (see the module header). An operator-run router,
+ * though, is on someone else's network with a certificate Hive Mind cannot
+ * inspect, so GitHub routing there has to be declared — and `gh` builds a custom
+ * host's REST base as `https://<host>/api/v3/` with no plaintext option, so the
+ * value must be HTTPS.
  *
  * @returns {string|null} bare hostname (no scheme, no path), or null when unset
  */
@@ -163,7 +223,53 @@ export function resolveRouterGhHost({ env = process.env } = {}) {
 }
 
 /**
- * Environment a routed task needs so its AI CLI and `gh` reach the router
+ * How GitHub traffic reaches the router for this task.
+ *
+ * - `transparent`: our own sidecar answers to `api.github.com` (the default).
+ * - `host`: an operator-supplied HTTPS endpoint, wired through `GH_HOST`.
+ * - `off`: not routed — the task keeps its own gh credential and the caller
+ *   warns about it.
+ *
+ * @returns {{mode: 'transparent'|'host'|'off', ghHost: string|null}}
+ */
+export function resolveRouterGitHubRouting({ env = process.env, external = false } = {}) {
+  if (isFalsey(env?.HIVE_MIND_ROUTER_GITHUB)) return { mode: 'off', ghHost: null };
+  const explicit = resolveRouterGhHost({ env });
+  if (explicit) return { mode: 'host', ghHost: explicit };
+  // An external router is not on a network we control, so there is no container
+  // whose /etc/hosts we could point at it.
+  if (external) return { mode: 'off', ghHost: null };
+  return { mode: 'transparent', ghHost: null };
+}
+
+/**
+ * Git configuration a routed task needs, as `key=value` pairs.
+ *
+ * `github.com` is not intercepted — only `api.github.com` is — so git is sent to
+ * the router's smart-HTTP proxy by rewriting the URL. The token rides in a
+ * scoped `http.<url>.extraHeader` rather than in the URL itself, so it never
+ * lands in a remote URL, a reflog or an error message.
+ *
+ * `credential.helper` is reset to empty on purpose: the operator's `~/.gitconfig`
+ * is mounted into every task and may name a helper holding a real GitHub token.
+ * An empty value clears the inherited list, so the only credential the task can
+ * present is the router's.
+ *
+ * @returns {Array<[string, string]>}
+ */
+export function buildRouterGitConfigEntries({ baseUrl, token, githubMode = 'transparent' } = {}) {
+  if (!baseUrl || !token || githubMode === 'off') return [];
+  const routerUrl = `${String(baseUrl).replace(/\/+$/, '')}/`;
+  return [
+    ['credential.helper', ''],
+    ['url.' + `${routerUrl}git/` + '.insteadOf', 'https://github.com/'],
+    [`http.${routerUrl}.sslCAInfo`, ROUTER_CA_CONTAINER_PATH],
+    [`http.${routerUrl}.extraHeader`, `Authorization: Bearer ${token}`],
+  ];
+}
+
+/**
+ * Environment a routed task needs so its AI CLI, `gh` and `git` reach the router
  * instead of the vendor directly.
  *
  * `ANTHROPIC_BASE_URL` is the important one: Claude Code sends *every* request
@@ -172,15 +278,27 @@ export function resolveRouterGhHost({ env = process.env } = {}) {
  * `Authorization: Bearer` or `x-api-key`, so both variables are set and the CLI
  * may use whichever it prefers.
  *
+ * The CA variables are not interchangeable and each client honours a different
+ * one (measured in `experiments/issue-2164/probe-clients-tls.sh`): Node and
+ * Claude Code read `NODE_EXTRA_CA_CERTS`, Rust/`gh`/`codex` read `SSL_CERT_FILE`,
+ * curl reads `CURL_CA_BUNDLE`.
+ *
  * @returns {Record<string,string>}
  */
-export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, ghHost = null } = {}) {
+export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode = 'transparent', ghHost = null, homeDir = '/home/box' } = {}) {
   if (!baseUrl || !token) return {};
   const normalizedTool = normalizeTool(tool);
   const taskEnv = {
     HIVE_MIND_USE_ROUTER: '1',
     HIVE_MIND_ROUTER_URL: baseUrl,
     HIVE_MIND_ROUTER_TOKEN: token,
+    // Trust the router's CA without losing the public roots.
+    NODE_EXTRA_CA_CERTS: ROUTER_CA_CONTAINER_PATH,
+    SSL_CERT_FILE: ROUTER_CA_BUNDLE_CONTAINER_PATH,
+    CURL_CA_BUNDLE: ROUTER_CA_BUNDLE_CONTAINER_PATH,
+    REQUESTS_CA_BUNDLE: ROUTER_CA_BUNDLE_CONTAINER_PATH,
+    // A routed task holds no interactive credential; prompting would hang it.
+    GIT_TERMINAL_PROMPT: '0',
   };
   if (ANTHROPIC_TOOLS.has(normalizedTool)) {
     taskEnv.ANTHROPIC_BASE_URL = baseUrl;
@@ -188,15 +306,72 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, ghHost = n
     taskEnv.ANTHROPIC_API_KEY = token;
   } else {
     // codex, opencode, gemini and qwen all speak the OpenAI-compatible surface,
-    // which the router serves under /v1.
+    // which the router serves under /v1. Codex additionally ignores
+    // OPENAI_BASE_URL and needs the generated provider entry written by
+    // buildRouterTaskWiringScript().
     taskEnv.OPENAI_BASE_URL = `${baseUrl}/v1`;
     taskEnv.OPENAI_API_KEY = token;
+    if (normalizedTool === 'codex') taskEnv.CODEX_HOME = `${homeDir}/.codex`;
   }
-  if (ghHost) {
+  if (githubMode === 'transparent') {
+    // The host stays github.com: gh resolves api.github.com to the router
+    // through /etc/hosts, so no gh reconfiguration is needed and every command
+    // form — including `gh pr view <url>` — is covered.
+    taskEnv.GH_TOKEN = token;
+    taskEnv.GITHUB_TOKEN = token;
+  } else if (githubMode === 'host' && ghHost) {
     taskEnv.GH_HOST = ghHost;
     taskEnv.GH_ENTERPRISE_TOKEN = token;
   }
   return taskEnv;
+}
+
+/**
+ * The codex provider entry that points it at the router.
+ *
+ * Codex 0.147 ignores `OPENAI_BASE_URL` (measured: it kept calling
+ * api.openai.com and returned 401), so the endpoint has to be declared as a
+ * provider in `CODEX_HOME/config.toml`. `wire_api = "responses"` matches the
+ * router's `/v1/responses`.
+ */
+export function buildRouterCodexConfig({ baseUrl } = {}) {
+  return `model_provider = "${CODEX_PROVIDER_ID}"\n\n[model_providers.${CODEX_PROVIDER_ID}]\nname = "Hive Mind Router"\nbase_url = "${baseUrl}/v1"\nenv_key = "OPENAI_API_KEY"\nwire_api = "responses"\n`;
+}
+
+/**
+ * The one-shot script that finishes wiring a task container from the host.
+ *
+ * It runs as root through `docker exec` while the start gate still holds the
+ * task command, because start-command's Docker backend forwards only
+ * `--privileged`, `-e`, `-v`, `--mount`, `--network` and `--network-alias` —
+ * there is no `--add-host` to pass through, and the CA is not known until the
+ * router has generated it.
+ *
+ * Every step is idempotent: an acquire that reuses a running sidecar re-runs
+ * this without duplicating a hosts entry or a certificate.
+ *
+ * @returns {string} a `sh -c` script
+ */
+export function buildRouterTaskWiringScript({ routerIp = null, caCertificate = null, homeDir = '/home/box', tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent' } = {}) {
+  const lines = ['set -e'];
+  if (caCertificate) {
+    lines.push(`cat > ${ROUTER_CA_CONTAINER_PATH} <<'HIVE_MIND_ROUTER_CA_PEM'`, String(caCertificate).trim(), 'HIVE_MIND_ROUTER_CA_PEM', `chmod 0644 ${ROUTER_CA_CONTAINER_PATH}`);
+    // SSL_CERT_FILE replaces the system store rather than adding to it, so the
+    // bundle has to carry the public roots too. A missing system bundle is not
+    // fatal: the task still trusts the router, which is what it cannot do without.
+    lines.push(`: > ${ROUTER_CA_BUNDLE_CONTAINER_PATH}`, `if [ -f ${CONTAINER_SYSTEM_CA_BUNDLE} ]; then cat ${CONTAINER_SYSTEM_CA_BUNDLE} >> ${ROUTER_CA_BUNDLE_CONTAINER_PATH}; fi`, `cat ${ROUTER_CA_CONTAINER_PATH} >> ${ROUTER_CA_BUNDLE_CONTAINER_PATH}`, `chmod 0644 ${ROUTER_CA_BUNDLE_CONTAINER_PATH}`);
+  }
+  if (routerIp && githubMode === 'transparent') {
+    lines.push(`if ! grep -q ' ${ROUTER_GITHUB_API_HOST}$' /etc/hosts; then printf '%s %s\\n' '${routerIp}' '${ROUTER_GITHUB_API_HOST}' >> /etc/hosts; fi`);
+  }
+  if (normalizeTool(tool) === 'codex') {
+    const codexHome = `${homeDir}/.codex`;
+    lines.push(`mkdir -p ${codexHome}`, `cat > ${codexHome}/config.toml <<'HIVE_MIND_ROUTER_CODEX_TOML'`, buildRouterCodexConfig({ baseUrl }).trimEnd(), 'HIVE_MIND_ROUTER_CODEX_TOML');
+    // The exec runs as root; the task does not, and codex rewrites its own
+    // config. Hand the directory to whoever owns the home directory.
+    lines.push(`owner=$(stat -c '%u:%g' ${homeDir} 2>/dev/null || echo '')`, `if [ -n "$owner" ]; then chown -R "$owner" ${codexHome}; fi`);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -215,7 +390,7 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
     suppressed.push('.claude', '.claude.json');
   }
   // gh config is only withheld when gh actually has somewhere else to go;
-  // otherwise the task would lose GitHub access entirely (see resolveRouterGhHost).
+  // otherwise the task would lose GitHub access entirely (see resolveRouterGitHubRouting).
   if (ghRouted) suppressed.push('.config/gh');
   return suppressed;
 }
@@ -224,14 +399,26 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
  * Human-readable warnings for the parts of issue #2164 that are not yet covered,
  * so an experimental run states its own limits instead of implying full coverage.
  */
-export function describeRouterCoverageGaps({ model = null, ghRouted = false } = {}) {
+export function describeRouterCoverageGaps({ model = null, tool = 'claude', githubMode = 'transparent' } = {}) {
   const gaps = [];
-  if (!ghRouted) {
-    gaps.push('GitHub traffic is NOT routed: set HIVE_MIND_ROUTER_GH_HOST to an HTTPS-terminated router endpoint to enable it (gh refuses plaintext custom hosts; upstream link-assistant/router#263).');
+  if (githubMode === 'off') {
+    gaps.push('GitHub traffic is NOT routed: the task keeps its own gh credential, and destructive API calls are not mediated. Unset HIVE_MIND_ROUTER_GITHUB, or set HIVE_MIND_ROUTER_GH_HOST for an external router.');
   }
-  if (String(model || '').toLowerCase() === 'formal-ai') {
-    gaps.push('Formal AI model traffic is NOT routed: it still goes straight to the Formal AI sidecar, because automatic routing ignores stored OpenAI-compatible providers (upstream link-assistant/router#260).');
+  // Measured in experiments/issue-2164/probe-git-transport.sh: the router
+  // refuses `git push :ref` with 403, but a non-fast-forward push succeeds,
+  // because git never announces the `force-ref-updates` capability the router
+  // looks for. The in-task pre-push hook is what catches the rest, and
+  // `--no-verify` gets past that, so branch protection remains the only
+  // unbypassable control for force pushes.
+  gaps.push('Branch deletions are refused by the router, but a force push is not: git announces no force capability, so the router cannot see one (upstream link-assistant/router#272). The in-task pre-push hook covers it unless the agent passes `--no-verify`; enable branch protection for a control neither can bypass.');
+  if (!ANTHROPIC_TOOLS.has(normalizeTool(tool))) {
+    gaps.push(`Routing for '${normalizeTool(tool)}' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/.`);
   }
-  gaps.push('Destructive git operations are blocked by a pre-push hook inside the task, which `git push --no-verify` can bypass; branch protection is the only unbypassable control until the router gains a git transport (upstream link-assistant/router#261).');
+  const requested = String(model || '').trim();
+  if (requested === 'formal-ai') {
+    gaps.push('Formal AI is reached through the router as a stored OpenAI-compatible provider; register it with `router providers add` on the sidecar if the model is not advertised.');
+  } else if (requested && !/\d/.test(requested)) {
+    gaps.push(`The router resolves exact model ids only, as advertised by GET /v1/models — an alias like '${requested}' is rejected. Use the dated id (for example claude-sonnet-4-5-20250929).`);
+  }
   return gaps;
 }

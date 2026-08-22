@@ -1,0 +1,19 @@
+32589574378	warning	./src/claude.lib.mjs	0		File has 1401 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/isolation-runner.lib.mjs	0		File has 1357 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/hive.mjs	0		File has 1465 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/telegram-solve-queue.lib.mjs	0		File has 1374 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/solve.mjs	0		File has 1398 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/solve.auto-pr.lib.mjs	0		File has 1361 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/session-monitor.lib.mjs	0		File has 1416 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	warning	./src/codex.lib.mjs	0		File has 1367 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32589574378	failure	.github	71		Process completed with exit code 1.
+32589574378	failure	.github	124		Process completed with exit code 1.
+32589574378	failure	.github	123		Pipeline failed. Failing jobs: release
+32586592059	warning	./src/claude.lib.mjs	0		File has 1401 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/isolation-runner.lib.mjs	0		File has 1357 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/hive.mjs	0		File has 1465 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/telegram-solve-queue.lib.mjs	0		File has 1374 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/solve.mjs	0		File has 1398 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/session-monitor.lib.mjs	0		File has 1416 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	./src/codex.lib.mjs	0		File has 1363 lines (approaching limit of 1500). Consider extracting code to keep under 1350 lines to prevent concurrent PR merge issues (see issue #1593).
+32586592059	warning	.github	2		Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: softprops/action-gh-release@v2. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

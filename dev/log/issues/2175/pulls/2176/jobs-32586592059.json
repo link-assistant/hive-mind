@@ -1,0 +1,28 @@
+{"conclusion":"success","id":97063768518,"name":"detect-changes"}
+{"conclusion":"skipped","id":97063769106,"name":"Instant Release"}
+{"conclusion":"skipped","id":97063769189,"name":"Create Changeset PR"}
+{"conclusion":"skipped","id":97063769242,"name":"Docker Publish Instant (${{ matrix.platform }})"}
+{"conclusion":"skipped","id":97063769430,"name":"Helm Release (Instant)"}
+{"conclusion":"skipped","id":97063769438,"name":"Docker Publish DinD Instant (${{ matrix.platform }})"}
+{"conclusion":"skipped","id":97063769509,"name":"Docker Publish Instant (Merge)"}
+{"conclusion":"skipped","id":97063769525,"name":"Docker Publish DinD Instant (Merge)"}
+{"conclusion":"success","id":97063815377,"name":"lint"}
+{"conclusion":"success","id":97063815445,"name":"check-file-line-limits"}
+{"conclusion":"success","id":97063815450,"name":"test-compilation"}
+{"conclusion":"success","id":97063815476,"name":"validate-docs"}
+{"conclusion":"skipped","id":97063815950,"name":"helm-pr-check"}
+{"conclusion":"skipped","id":97063815973,"name":"Check for Manual Version Changes"}
+{"conclusion":"skipped","id":97063816220,"name":"Check for Changesets"}
+{"conclusion":"success","id":97064029589,"name":"test-execution"}
+{"conclusion":"success","id":97064029615,"name":"memory-check-linux"}
+{"conclusion":"success","id":97064029621,"name":"test-suites"}
+{"conclusion":"skipped","id":97064030344,"name":"docker-pr-check"}
+{"conclusion":"success","id":97064715821,"name":"Release"}
+{"conclusion":"success","id":97064908016,"name":"Docker Publish (linux/arm64)"}
+{"conclusion":"success","id":97064908032,"name":"Docker Publish DinD (linux/amd64)"}
+{"conclusion":"success","id":97064908040,"name":"Docker Publish (linux/amd64)"}
+{"conclusion":"success","id":97064908042,"name":"Docker Publish DinD (linux/arm64)"}
+{"conclusion":"success","id":97065815873,"name":"Docker Publish (Merge)"}
+{"conclusion":"success","id":97066200860,"name":"Docker Publish DinD (Merge)"}
+{"conclusion":"success","id":97066236756,"name":"Helm Release"}
+{"conclusion":"success","id":97066301820,"name":"Pipeline Status"}

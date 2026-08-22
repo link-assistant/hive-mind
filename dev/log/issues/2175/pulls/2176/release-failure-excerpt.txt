@@ -1,0 +1,12 @@
+Excerpt from CI run 32589574378, job "Release", step "Version packages and commit to main"
+(full log: ci-logs/checks-and-release-32589574378.log)
+
+2026-08-22T18:11:34.7741977Z New version: 2.13.5
+2026-08-22T18:11:37.4035981Z [main 35c7cf52] 2.13.5
+2026-08-22T18:11:38.6044007Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+2026-08-22T18:11:38.6045579Z remote: Review all repository rules at https://github.com/link-assistant/hive-mind/rules?ref=refs%2Fheads%2Fmain
+2026-08-22T18:11:38.6047839Z remote: - Changes must be made through a pull request.
+2026-08-22T18:11:38.6069021Z  ! [remote rejected]   main -> main (push declined due to repository rule violations)
+2026-08-22T18:11:38.6070615Z error: failed to push some refs to 'https://github.com/link-assistant/hive-mind'
+2026-08-22T18:11:38.6076995Z Error: Command failed with exit code 1: git push origin main
+2026-08-22T18:11:38.6157538Z ##[error]Process completed with exit code 1.

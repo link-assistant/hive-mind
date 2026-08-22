@@ -1,0 +1,72 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/2169",
+  "captured_at": "2026-08-22",
+  "primary_evidence": [
+    {
+      "kind": "run-log",
+      "path": "logs/run.log.txt",
+      "description": "Full 30,806-line start-command log of execution bb1c1a05-5394-4845-a88c-d4ddf9f2361c downloaded from the gist referenced in the issue body."
+    },
+    {
+      "kind": "excerpts",
+      "path": "data/failure-excerpts.txt",
+      "description": "The 11 result events, their costs/turn counts, the 10 retry announcements and the final failure line."
+    },
+    {
+      "kind": "issue",
+      "path": "data/issue-2169.json",
+      "description": "Issue title/body/labels/timestamps (gh issue view --json)."
+    },
+    {
+      "kind": "issue-comments",
+      "path": "data/issue-2169-comments.json",
+      "description": "Issue comments at capture time (empty array)."
+    },
+    {
+      "kind": "reproduction",
+      "path": "../../../experiments/issue-2169-replay-log-classification.mjs",
+      "description": "Replays all 11 captured result payloads through the pre-fix gateway predicate and the fixed classifier: 11/11 retryable before, 0/11 after."
+    }
+  ],
+  "external_sources": [
+    {
+      "title": "Anthropic API errors — 529 overloaded_error",
+      "url": "https://docs.anthropic.com/en/api/errors",
+      "note": "529 is a capacity signal; Anthropic recommends retrying with exponential backoff and honouring retry-after."
+    },
+    {
+      "title": "Exponential Backoff And Jitter (AWS Architecture Blog)",
+      "url": "https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/",
+      "note": "Synchronised retries across clients amplify an outage; jitter spreads them."
+    },
+    {
+      "title": "anthropics/claude-code#60577 — Transient 529 Overloaded API errors abort long-running tasks with no auto-recovery",
+      "url": "https://github.com/anthropics/claude-code/issues/60577",
+      "note": "Confirms that upstream capacity errors can surface to CLI consumers and that callers are expected to own the retry policy."
+    },
+    {
+      "title": "anthropics/claude-code#4146 — Anthropic API 529 Overloaded Error with Exponential Backoff Retry",
+      "url": "https://github.com/anthropics/claude-code/issues/4146"
+    },
+    {
+      "title": "p-retry (v8) — maxRetryTime option",
+      "url": "https://github.com/sindresorhus/p-retry",
+      "note": "`maxRetryTime`: 'The maximum time (in milliseconds) that the retried operation is allowed to run. Measured with a monotonic clock.' Same semantics as our transient retry budget."
+    },
+    {
+      "title": "cockatiel — retry/backoff/circuit-breaker policies",
+      "url": "https://github.com/connor4312/cockatiel",
+      "note": "ExponentialBackoff + retry policies; no wall-clock budget primitive, attempts-based."
+    },
+    {
+      "title": "exponential-backoff (npm)",
+      "url": "https://github.com/coveo/exponential-backoff",
+      "note": "numOfAttempts (default 10) and maxDelay (default Infinity); attempt-based only."
+    },
+    {
+      "title": "node-retry",
+      "url": "https://github.com/tim-kos/node-retry",
+      "note": "Provides `maxRetryTime`, the wall-clock analogue p-retry re-exports."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "- https://gist.githubusercontent.com/konard/9d43d2c1d21ccf80b6ade04da78a76e6/raw/1f18305436c17b963dd0f23079c3e8170b71e82e/tmp-start-command-logs-isolation-docker-bb1c1a05-5394-4845-a88c-d4ddf9f2361c.log.txt\n\nIn rare cases AI provider's API can have issues for a long time, so we need to apply exponential backoff here, with up to 12 hours of retries in total (must be configurable), with minimum of 3 minutes.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-08-22T15:16:23Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 2169,
+  "state": "OPEN",
+  "title": "`❌ Transient API error persisted after 10 retries`",
+  "updatedAt": "2026-08-22T15:16:23Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2169"
+}

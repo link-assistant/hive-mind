@@ -349,7 +349,7 @@ console.log('\n=== issue #2164 R11: --model formal-ai is served by the same rout
 // Compared before printing: the argv carries `--api-key`, and a CI failure must
 // print the label rather than the command line (CodeQL js/clear-text-logging).
 assertEqual(holds(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }).join(' '), `providers add --name ${ROUTER_FORMAL_AI_PROVIDER_NAME} --base-url http://link-assistant-formal-ai:8080/v1 --model ${ROUTER_FORMAL_AI_MODEL} --models ${ROUTER_FORMAL_AI_MODEL} --api-key unused`), true, 'the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for');
-assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080/v1/' }).includes('http://link-assistant-formal-ai:8080/v1'), true, 'a base URL that already names the API version is not versioned twice');
+assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080/v1/' })?.includes('http://link-assistant-formal-ai:8080/v1') === true, true, 'a base URL that already names the API version is not versioned twice');
 assertEqual(buildRouterFormalAiProviderArgs({}), null, 'and no endpoint yields no command rather than a half-formed one');
 
 const providerCalls = [];
@@ -360,7 +360,7 @@ const providerDocker = {
   },
 };
 assertEqual((await registerRouterProvider({ providerArgs: buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }), run: providerDocker.run })).registered, true, 'registering a provider succeeds when the router accepts it');
-assertEqual(providerCalls[0].slice(0, 4).join(' '), `exec ${ROUTER_SIDECAR_CONTAINER_NAME} router providers`, 'the CLI is invoked inside the sidecar, naming the binary because docker exec bypasses the entrypoint');
+assertEqual(holds(providerCalls[0].slice(0, 4).join(' '), `exec ${ROUTER_SIDECAR_CONTAINER_NAME} router providers`), true, 'the CLI is invoked inside the sidecar, naming the binary because docker exec bypasses the entrypoint');
 assertEqual(
   (
     await registerRouterProvider({
@@ -393,7 +393,7 @@ assertEqual(
   null,
   'with both sidecars up the router is taught to serve formal-ai itself'
 );
-assertEqual(wiredProvider[0], FORMAL_AI_SIDECAR_NETWORK_NAME, 'the network is joined first, because the provider is useless until the alias resolves');
+assertEqual(holds(wiredProvider[0], FORMAL_AI_SIDECAR_NETWORK_NAME), true, 'the network is joined first, because the provider is useless until the alias resolves');
 assertEqual(carries(wiredProvider[1], 'http://link-assistant-formal-ai:8080/v1'), true, 'the DNS endpoint is stored rather than an address that changes on every restart');
 
 assertEqual(typeof (await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: false, error: 'network not found' }) })), 'string', 'a router that cannot reach Formal AI fails the launch');

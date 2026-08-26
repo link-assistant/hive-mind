@@ -40,6 +40,7 @@ import { buildAuthRemedyLines, buildFormalAiEnvExports, isPrepareOnly, logPrepar
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
+import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
@@ -708,9 +709,15 @@ export const executeCodexCommand = async params => {
     for (const arg of subSessionSizeArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
+    const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
+    for (const arg of memoryDisableArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
     if (argv.verbose) {
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
+      if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });
     }
     // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.

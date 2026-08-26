@@ -603,6 +603,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Disable Claude Code built-in tools and MCP servers that have no value (and may be harmful) in autonomous headless runs: AskUserQuestion, CronCreate/Delete/List, EnterPlanMode/ExitPlanMode, EnterWorktree/ExitWorktree, Monitor, NotebookEdit, PushNotification, RemoteTrigger, ScheduleWakeup, and the claude.ai Gmail/Drive/Calendar OAuth connectors. Default: true. Use --no-useless-tools-disabled to keep them enabled. Supported for --tool claude (issue #1627).',
     default: true,
   },
+  'agent-memory-disabled': {
+    type: 'boolean',
+    description: "Disable every AI tool's own cross-task memory and permission classifier, so the repository stays the only memory a task keeps. For --tool codex: -c features.memories=false and -c features.external_agent_memory_import=false. For --tool gemini and --tool qwen: tools.exclude=[save_memory] and experimental.autoMemory=false. --tool opencode and --tool agent have no cross-session memory feature. Default: true; --no-agent-memory-disabled lets those tools keep their own memory. For --tool claude the same switches (CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_ORG_MEMORY, autoMemoryEnabled=false, permissions.disableAutoMode=disable) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag (issue #2178).",
+    default: true,
+  },
   'auto-gh-configuration-repair': {
     type: 'boolean',
     description: 'Automatically repair git configuration using gh-setup-git-identity --repair when git identity is not configured. Requires gh-setup-git-identity to be installed.',

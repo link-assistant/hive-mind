@@ -14,6 +14,7 @@ import { detectUsageLimit } from './usage-limit.lib.mjs';
 import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // Issue #2119
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -57,6 +58,12 @@ const buildClaudeToolOptions = (argv = {}) => {
   if (argv.showThinkingContent) extraEnv.CLAUDE_CODE_SHOW_THINKING = '1';
   if (argv.planModel) extraEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = argv.planModel;
   if (argv.subAgentModel) extraEnv.CLAUDE_CODE_SUBAGENT_MODEL = mapClaudeSubAgentModelToEnvValue(argv.subAgentModel);
+  // Issue #2178: agent-commander spawns `claude` itself, so it needs the memory
+  // opt-out in its own env rather than relying on the settings file alone. Not
+  // gated on --agent-memory-disabled: for claude these switches are part of the
+  // quiet configuration baked into the image, and the flag governs the tools
+  // whose memory is applied per run (codex, gemini, qwen).
+  Object.assign(extraEnv, CLAUDE_MEMORY_DISABLE_ENV);
   appendExtraEnv(options, extraEnv);
 
   return options;
@@ -73,6 +80,7 @@ const buildCodexToolOptions = (argv = {}) => {
   appendExtraArgs(options, reasoningArgs);
 
   appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
+  appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
   try {
     appendExtraArgs(options, buildCodexSubSessionSizeConfigArgs(parseSubSessionSize(argv.subSessionSize)));
   } catch {

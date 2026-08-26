@@ -31,6 +31,7 @@ import { getCumulativeContextInputTokens, toTokenCount } from './context-fill.li
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
+import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -421,6 +422,10 @@ export const executeGeminiCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.gemini);
+    // Issue #2178: the repository is the only memory a hive-mind task keeps, so
+    // `save_memory` and the background auto-memory extractor are switched off
+    // before the CLI reads its settings.
+    if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'gemini', log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const geminiEnv = { ...process.env, ...toolInvocation.env };

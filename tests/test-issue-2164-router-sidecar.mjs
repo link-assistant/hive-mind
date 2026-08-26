@@ -310,7 +310,7 @@ const attachOk = await attachRouterTaskContainer({
 });
 assertEqual(attachOk, null, 'attach and wire together report success as no error');
 assertEqual(attachedThenWired[0].tool, 'codex', 'the tool travels with the lease, so the wiring step writes the right provider config');
-assertEqual(await attachRouterTaskContainer({ router: { token: 't' }, sessionId: 's', attach: async () => ({ attached: true }), wire: async () => ({ wired: false, error: 'exec refused' }) }), 'exec refused', 'and a container that could not be wired fails the launch instead of running with a partly-configured trust store');
+assertEqual(holds(await attachRouterTaskContainer({ router: { token: 't' }, sessionId: 's', attach: async () => ({ attached: true }), wire: async () => ({ wired: false, error: 'exec refused' }) }), 'exec refused'), true, 'and a container that could not be wired fails the launch instead of running with a partly-configured trust store');
 
 console.log('\n=== issue #2164: launch policy fails closed ===');
 
@@ -350,7 +350,7 @@ console.log('\n=== issue #2164 R11: --model formal-ai is served by the same rout
 // print the label rather than the command line (CodeQL js/clear-text-logging).
 assertEqual(holds(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }).join(' '), `providers add --name ${ROUTER_FORMAL_AI_PROVIDER_NAME} --base-url http://link-assistant-formal-ai:8080/v1 --model ${ROUTER_FORMAL_AI_MODEL} --models ${ROUTER_FORMAL_AI_MODEL} --api-key unused`), true, 'the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for');
 assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080/v1/' })?.includes('http://link-assistant-formal-ai:8080/v1') === true, true, 'a base URL that already names the API version is not versioned twice');
-assertEqual(buildRouterFormalAiProviderArgs({}), null, 'and no endpoint yields no command rather than a half-formed one');
+assertEqual(holds(buildRouterFormalAiProviderArgs({}), null), true, 'and no endpoint yields no command rather than a half-formed one');
 
 const providerCalls = [];
 const providerDocker = {
@@ -378,19 +378,22 @@ const networkCalls = [];
 assertEqual((await attachRouterToNetwork({ network: FORMAL_AI_SIDECAR_NETWORK_NAME, run: async (binary, args) => (networkCalls.push(args), { stdout: '', stderr: '' }) })).attached, true, 'the router joins the Formal AI network so it can resolve the alias');
 assertEqual(networkCalls[0].join(' '), `network connect ${FORMAL_AI_SIDECAR_NETWORK_NAME} ${ROUTER_SIDECAR_CONTAINER_NAME}`, 'no alias is requested: nothing on that network calls the router by name');
 
-assertEqual(await registerFormalAiWithRouter({ router: null, sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080' } }), null, 'a Formal AI task without routing is left alone');
-assertEqual(await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: null }), null, 'and a routed task that is not a Formal AI task registers nothing');
+assertEqual(holds(await registerFormalAiWithRouter({ router: null, sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080' } }), null), true, 'a Formal AI task without routing is left alone');
+assertEqual(holds(await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: null }), null), true, 'and a routed task that is not a Formal AI task registers nothing');
 
 const wiredProvider = [];
 assertEqual(
-  await registerFormalAiWithRouter({
-    router: { token: 't' },
-    sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080', baseUrl: 'http://172.20.0.3:8080' },
-    log: async () => {},
-    attach: async options => (wiredProvider.push(options.network), { attached: true }),
-    register: async options => (wiredProvider.push(options.providerArgs.join(' ')), { registered: true }),
-  }),
-  null,
+  holds(
+    await registerFormalAiWithRouter({
+      router: { token: 't' },
+      sidecar: { dnsBaseUrl: 'http://link-assistant-formal-ai:8080', baseUrl: 'http://172.20.0.3:8080' },
+      log: async () => {},
+      attach: async options => (wiredProvider.push(options.network), { attached: true }),
+      register: async options => (wiredProvider.push(options.providerArgs.join(' ')), { registered: true }),
+    }),
+    null
+  ),
+  true,
   'with both sidecars up the router is taught to serve formal-ai itself'
 );
 assertEqual(holds(wiredProvider[0], FORMAL_AI_SIDECAR_NETWORK_NAME), true, 'the network is joined first, because the provider is useless until the alias resolves');
@@ -398,9 +401,9 @@ assertEqual(carries(wiredProvider[1], 'http://link-assistant-formal-ai:8080/v1')
 
 assertEqual(typeof (await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: false, error: 'network not found' }) })), 'string', 'a router that cannot reach Formal AI fails the launch');
 assertEqual((await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: true }), register: async () => ({ registered: false, error: 'store is read-only' }) }))?.includes('store is read-only'), true, 'and so does a provider the router refuses to store, rather than running unmediated');
-assertEqual(await registerFormalAiWithRouter({ router: { token: 't', external: true }, sidecar: { dnsBaseUrl: 'http://x:8080' }, attach: async () => ({ attached: false, error: 'should not be called' }) }), null, "an external router is somebody else's to configure");
-assertEqual(await attachRouterTaskContainer({ router: { token: 't', external: true }, sessionId: 's' }), null, 'an external router has no network of ours to join');
-assertEqual(await releaseRouterForTask({ router: null, sessionId: 's' }), null, 'releasing a run that never routed does nothing');
+assertEqual(holds(await registerFormalAiWithRouter({ router: { token: 't', external: true }, sidecar: { dnsBaseUrl: 'http://x:8080' }, attach: async () => ({ attached: false, error: 'should not be called' }) }), null), true, "an external router is somebody else's to configure");
+assertEqual(holds(await attachRouterTaskContainer({ router: { token: 't', external: true }, sessionId: 's' }), null), true, 'an external router has no network of ours to join');
+assertEqual(holds(await releaseRouterForTask({ router: null, sessionId: 's' }), null), true, 'releasing a run that never routed does nothing');
 
 console.log('\n=== issue #2164: idle maintenance stops a sidecar nothing is using (R5) ===');
 

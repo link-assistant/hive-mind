@@ -9,6 +9,7 @@ import { stdout } from 'node:process';
 import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
 import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
 import { AGENT_COMMANDER_TOOLS, buildAgentCommanderControllerOptions, buildAgentCommanderToolOptions, executeWithAgentCommander, summarizeAgentCommanderResult, validateAgentCommanderConnection } from '../src/agent-commander.lib.mjs';
+import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs } from '../src/agent-memory-policy.lib.mjs';
 import { buildAgentBudgetStats, buildBudgetStatsString } from '../src/claude.budget-stats.lib.mjs';
 
 const logs = [];
@@ -32,21 +33,37 @@ assert.ok(getSolvePassthroughOptionNames().includes('use-agent-commander'), 'hiv
 const claudeToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'claude');
 assert.equal(claudeToolOptions.verbose, true);
 assert.equal(claudeToolOptions.fallbackModel, 'opus');
+// Issue #2178: agent-commander spawns the CLI itself, so the memory opt-out has
+// to travel in its env rather than relying on ~/.claude/settings.json alone. For
+// claude these switches are part of the image's quiet configuration, so they are
+// not gated on --agent-memory-disabled.
+for (const [key, value] of Object.entries(CLAUDE_MEMORY_DISABLE_ENV)) {
+  assert.equal(claudeToolOptions.extraEnv[key], value, `agent-commander should export ${key}=${value} to claude`);
+  assert.equal(buildAgentCommanderToolOptions({ agentMemoryDisabled: false }, 'claude').extraEnv[key], value, `${key} stays set for claude even with --no-agent-memory-disabled`);
+}
+
+// Issue #2178: every codex invocation carries the memory opt-out, so each
+// expectation below is "the reasoning args, then the memory args".
+const memoryArgs = buildCodexMemoryDisableConfigArgs(true);
+assert.deepEqual(memoryArgs, ['-c', 'features.memories=false', '-c', 'features.external_agent_memory_import=false']);
 
 const codexToolOptions = buildAgentCommanderToolOptions({ verbose: true, fallbackModel: 'opus' }, 'codex');
-assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto']);
+assert.deepEqual(codexToolOptions.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto', ...memoryArgs]);
 
 const codexXHighToolOptions = buildAgentCommanderToolOptions({ think: 'xhigh' }, 'codex');
-assert.deepEqual(codexXHighToolOptions.extraArgs, ['-c', 'model_reasoning_effort=xhigh', '-c', 'model_reasoning_summary=auto']);
+assert.deepEqual(codexXHighToolOptions.extraArgs, ['-c', 'model_reasoning_effort=xhigh', '-c', 'model_reasoning_summary=auto', ...memoryArgs]);
 
 const codexMaxToolOptions = buildAgentCommanderToolOptions({ think: 'max' }, 'codex');
-assert.deepEqual(codexMaxToolOptions.extraArgs, ['-c', 'model_reasoning_effort=max', '-c', 'model_reasoning_summary=auto']);
+assert.deepEqual(codexMaxToolOptions.extraArgs, ['-c', 'model_reasoning_effort=max', '-c', 'model_reasoning_summary=auto', ...memoryArgs]);
 
 const codexUltraToolOptions = buildAgentCommanderToolOptions({ think: 'ultra' }, 'codex');
-assert.deepEqual(codexUltraToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=500000'], 'ultra reasoning effort must be paired with a rollout token budget cap');
+assert.deepEqual(codexUltraToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=500000', ...memoryArgs], 'ultra reasoning effort must be paired with a rollout token budget cap');
 
 const codexUltraCustomBudgetToolOptions = buildAgentCommanderToolOptions({ think: 'ultra', rolloutTokenBudget: 250000 }, 'codex');
-assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000']);
+assert.deepEqual(codexUltraCustomBudgetToolOptions.extraArgs, ['-c', 'model_reasoning_effort=ultra', '-c', 'model_reasoning_summary=auto', '-c', 'rollout_token_budget=250000', ...memoryArgs]);
+
+const codexMemoryOptOut = buildAgentCommanderToolOptions({ agentMemoryDisabled: false }, 'codex');
+assert.deepEqual(codexMemoryOptOut.extraArgs, ['-c', 'model_reasoning_effort=none', '-c', 'model_reasoning_summary=auto'], '--no-agent-memory-disabled should leave the codex command line alone');
 
 const geminiToolOptions = buildAgentCommanderToolOptions({ verbose: true }, 'gemini');
 assert.deepEqual(geminiToolOptions, { debug: true });

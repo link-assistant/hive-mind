@@ -32,6 +32,7 @@ import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
+import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
 
 export const mapModelToId = model => qwenModels[model] || model;
 
@@ -524,6 +525,9 @@ export const executeQwenCommand = async params => {
     await log(`   Load: ${resourcesBefore.load}`, { verbose: true });
 
     const mappedModel = mapModelToId(argv.model || defaultModels.qwen);
+    // Issue #2178: Qwen Code still ships the `save_memory` tool it inherited from
+    // Gemini CLI. Exclude it so nothing this task learns outlives the container.
+    if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'qwen', log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'qwen', model: argv.model || defaultModels.qwen, toolPath: qwenPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const qwenEnv = { ...process.env, ...toolInvocation.env };

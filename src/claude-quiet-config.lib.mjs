@@ -4,8 +4,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+// Issue #2178: memory and auto mode are governed by one cross-tool policy module
+// so `solve` cannot disagree with the Docker image baseline about what "off" means.
+import { CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS, CLAUDE_MEMORY_DISABLE_ENV, CLAUDE_MEMORY_DISABLE_SETTINGS } from './agent-memory-policy.lib.mjs';
+
 export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
-  CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+  ...CLAUDE_MEMORY_DISABLE_ENV,
   CLAUDE_CODE_DISABLE_CRON: '1',
   CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',
@@ -20,7 +24,7 @@ export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
 });
 
 export const REQUIRED_CLAUDE_QUIET_SETTINGS = Object.freeze({
-  autoMemoryEnabled: false,
+  ...CLAUDE_MEMORY_DISABLE_SETTINGS,
   spinnerTipsEnabled: false,
   awaySummaryEnabled: false,
   feedbackSurveyRate: 0,
@@ -38,6 +42,7 @@ export const REQUIRED_CLAUDE_QUIET_ATTRIBUTION = Object.freeze({
 });
 
 export const REQUIRED_CLAUDE_QUIET_PERMISSIONS = Object.freeze({
+  ...CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS,
   defaultMode: 'bypassPermissions',
 });
 

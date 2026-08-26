@@ -93,7 +93,10 @@ ENV PERLBREW_ROOT="/home/box/.perl5"
 ENV RBENV_ROOT="/home/box/.rbenv"
 
 # Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
+# The two memory switches are policy, not cosmetics: a hive-mind task keeps no
+# memory a reviewer cannot see, so the repository stays the only memory (issue #2178)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \

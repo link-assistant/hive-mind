@@ -507,6 +507,17 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: '[EXPERIMENTAL] When --accept-incomming-comments-as-input is enabled, queue new PR/issue comments and only flush them once the AI signals it is idle (waiting for input). This is the default mode implied by --auto-input-until-mergeable so the AI completes the current step before being interrupted with new instructions. Mutually exclusive with --stream-comments-to-input; queue mode wins if both are set. Only supported for --tool claude and --tool agent.',
     default: false,
   },
+  // Issue #2164: route the task's model traffic through a `hive-mind-router`
+  //   sidecar instead of bind-mounting the operator's vendor credentials into
+  //   the task container. The task then holds a token scoped to itself alone,
+  //   every request lands in that token's own audit log, and the subscription
+  //   never leaves the sidecar. Experimental: GitHub traffic and `--model
+  //   formal-ai` are not routed yet (see docs/ROUTER.md).
+  'use-router': {
+    type: 'boolean',
+    description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting Claude/Codex credentials into the task container. Each task receives its own scoped, short-lived token and its own request log, and the AI subscription stays in the router. Requires --isolation docker (or the Telegram bot in docker isolation mode).',
+    default: false,
+  },
   'prompt-explore-sub-agent': {
     type: 'boolean',
     description: 'Encourage AI to use Explore-style sub-agent workflow for codebase exploration. Supported for --tool claude and --tool codex.',

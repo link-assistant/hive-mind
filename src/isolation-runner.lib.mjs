@@ -26,6 +26,9 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseForm
 // importing this runner and creating a cycle. Re-exported here because callers
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
+import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
+import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from './router-task-isolation.lib.mjs';
+import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 let commandStreamDollarPromise = null;
 async function getCommandStreamDollar() {
@@ -114,21 +117,31 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
  * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
  * sessions do not receive Claude files and Claude sessions do not receive Codex
  * files.
+ *
+ * Issue #2164 (EXPERIMENTAL): with `useRouter` the vendor credential mounts are
+ * withheld entirely, so the task never holds the subscription — it reaches the
+ * `hive-mind-router` sidecar with its own scoped token instead. Git identity is
+ * still mounted, because it carries no secret and `solve` aborts without it
+ * (issue #1939). The gh config is only withheld when `ghRouted` says gh has
+ * somewhere else to go; otherwise the task would lose GitHub access entirely.
  */
-export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = {}) {
+export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, ghRouted = false } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
-  maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  const suppressed = useRouter ? new Set(getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted })) : new Set();
+  if (!suppressed.has('.config/gh')) {
+    maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
+  }
   // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
   maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
   maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
   if (normalizedTool === 'codex') {
-    maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    if (!suppressed.has('.codex')) maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
     // Issue #2074: Codex also discovers persistent user Agent Skills from ~/.agents/skills. Propagate that standard location alongside .codex so direct and Docker-isolated solver sessions expose the same capabilities.
-    maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
+    if (!suppressed.has('.agents')) maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
   } else if (normalizedTool === 'claude') {
-    maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
-    maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
+    if (!suppressed.has('.claude')) maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
+    if (!suppressed.has('.claude.json')) maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
   }
   return mounts;
 }
@@ -191,7 +204,18 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
+  // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
+  // with a scoped token pointing at the `hive-mind-router` sidecar. It only
+  // engages when a token was actually issued; without one the task would have
+  // neither credentials nor a route, so we fail open to the default mounts
+  // rather than launching an agent that cannot reach any model.
+  const routerActive = isRouterEnabled({ useRouter, env }) && Boolean(routerToken);
+  const routerEndpoint = routerActive ? resolveRouterBaseUrl({ env }) : { baseUrl: null, external: false };
+  const routerBaseUrl = routerEndpoint.baseUrl;
+  const routerGitHub = routerActive ? resolveRouterGitHubRouting({ env, external: Boolean(routerEndpoint.external) }) : { mode: 'off', ghHost: null };
+  const routerEnv = routerActive && routerBaseUrl ? buildRouterTaskEnv({ tool, baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode, ghHost: routerGitHub.ghHost, homeDir: DOCKER_CONTAINER_HOME }) : {};
+  const routerWired = Object.keys(routerEnv).length > 0;
   const image = getDockerIsolationImage({ env });
   const startArgs = ['--isolated', 'docker', '--image', image];
   if (shouldRunPrivilegedDockerIsolation(image, env)) {
@@ -205,8 +229,33 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
   }
-  for (const mount of getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync })) {
-    startArgs.push('--volume', `${mount.source}:${mount.target}`);
+  for (const [name, value] of Object.entries(routerEnv)) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
+  const mounts = getDockerIsolationAuthMounts({ tool, env, homeDir, existsSync, useRouter: routerWired, ghRouted: routerWired && routerGitHub.mode !== 'off' });
+  // Issue #2164 (R13): a routed task also loses the ability to destroy remote
+  // history by accident. The hook lives on the host and is mounted read-only, so
+  // the task cannot edit the rule it is being held to; git is pointed at it with
+  // GIT_CONFIG_* rather than `git config --global`, because the container's
+  // ~/.gitconfig is the operator's own file. This is one layer of three (see
+  // git-push-guard.lib.mjs) and `--no-verify` still gets past it.
+  if (routerWired) {
+    // One `GIT_CONFIG_COUNT` covers both the hook and the router's git
+    // transport: git shares the counter across all of them, so they have to be
+    // built together or the second would silently replace the first.
+    const gitConfigEntries = buildRouterGitConfigEntries({ baseUrl: routerBaseUrl, token: routerToken, githubMode: routerGitHub.mode });
+    const guard = installGuard({ env, homeDir });
+    if (guard.installed) {
+      mounts.push({ source: guard.dir, target: GIT_PUSH_GUARD_CONTAINER_DIR, readOnly: true });
+      gitConfigEntries.unshift(['core.hooksPath', GIT_PUSH_GUARD_CONTAINER_DIR]);
+      if (hasForcePushOptIn(args)) startArgs.push('-e', `${GIT_PUSH_GUARD_ESCAPE_ENV}=1`);
+    }
+    for (const [name, value] of Object.entries(buildGitConfigEnv(gitConfigEntries))) {
+      startArgs.push('-e', `${name}=${value}`);
+    }
+  }
+  for (const mount of mounts) {
+    startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
   const taskCommand = buildShellCommand(command, args);
   startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));
@@ -354,6 +403,25 @@ export async function executeWithIsolation(command, args, options = {}) {
   const hostEnv = options.env || process.env;
   const { sidecar, error: sidecarError } = await acquireFormalAiSidecarForTask({ backend, args, model: options.model ?? null, tool: options.tool ?? null, sessionId, env: hostEnv, verbose });
   if (sidecarError) return failLaunch(sidecarError);
+  // Issue #2164 (EXPERIMENTAL): --use-router replaces the task's credential
+  // mounts with a token scoped to it alone. Like the Formal AI lease this is
+  // taken before the container exists, because the token is part of the
+  // environment the container is created with — and like it, it fails closed.
+  const { router, error: routerError } = await acquireRouterForTask({ backend, useRouter: options.useRouter === true || hasUseRouterFlag(args), model: options.model ?? null, tool: options.tool ?? 'claude', githubRepo: options.githubRepo ?? null, sessionId, env: hostEnv, verbose });
+  if (routerError) {
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(routerError);
+  }
+  // R11: when both sidecars are up, the router is taught to serve `formal-ai`
+  // itself, so that model is mediated and audited like every other one. Done
+  // before the container is created because the provider has to exist by the
+  // time the task issues its first request.
+  const formalAiRoutingError = await registerFormalAiWithRouter({ router, sidecar, verbose });
+  if (formalAiRoutingError) {
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
+    await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(formalAiRoutingError);
+  }
   const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
   const effectiveOptions =
     backend === 'docker'
@@ -362,7 +430,7 @@ export async function executeWithIsolation(command, args, options = {}) {
           env: await resolveFormalAiIsolationEnv(taskEnv),
         }
       : options;
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId });
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null });
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
@@ -386,6 +454,7 @@ export async function executeWithIsolation(command, args, options = {}) {
   }
   let containerFilesystemStartBytes = null;
   let formalAiAttachError = null;
+  let routerAttachError = null;
   if (result.success && backend === 'docker') {
     try {
       containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
@@ -398,9 +467,16 @@ export async function executeWithIsolation(command, args, options = {}) {
       // start sequence, and doing it here keeps the attach fail-closed on any
       // installed version instead of silently one-network on older parsers.
       formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
+      routerAttachError = await attachRouterTaskContainer({ router, sessionId, env: hostEnv, verbose });
     } finally {
       await releaseDockerContainerStartGate(sessionId, verbose);
     }
+  }
+  if (router && (!result.success || formalAiAttachError || routerAttachError)) {
+    // Fail closed for the same reason the acquire does: a task that cannot
+    // reach the router must not be left running with no route to a model.
+    if (routerAttachError) await removeDockerContainer(sessionId, verbose);
+    await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
   }
   if (sidecar && (!result.success || formalAiAttachError)) {
     // Fail closed: without the internal network the task cannot reach Formal
@@ -410,6 +486,10 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (formalAiAttachError) {
       return failLaunch(`Formal AI task container could not be attached to the internal Formal AI network, so the task was stopped instead of falling back to another model (issue #2146): ${formalAiAttachError}`, { output: result.output });
     }
+  }
+  if (routerAttachError) {
+    if (sidecar) await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
+    return failLaunch(`The task container could not be joined to the router (internal network, CA trust or api.github.com interception), so it was stopped rather than run without a route to any model (issue #2164): ${routerAttachError}`, { output: result.output });
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to

@@ -419,6 +419,16 @@ docker build -t hive-mind:local .
    docker build -t hive-mind:local --progress=plain .
    ```
 
+## 路由器隔离（实验性）
+
+把凭据挂载进容器，等于把凭据本身交给里面的智能体。`--use-router` 提供了另一条路：订阅留在内部 Docker 网络上唯一的 `hive-mind-router` sidecar 中，每个任务容器只拿到仅限自身的短期令牌，以及属于自己的请求日志。
+
+```bash
+solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
+```
+
+不加该选项则一切照旧。设计、配置以及实验阶段的边界见[路由器隔离](./ROUTER.zh.md)；如何读取由此产生的审计轨迹见[收集日志](./COLLECTING-LOGS.zh.md)。
+
 ## 发布到 Docker Hub 的 CI/CD 配置
 
 如果您正在维护一个 fork 或想要发布到自己的 Docker Hub 账户，请按照以下步骤配置 GitHub Actions：

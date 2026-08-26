@@ -368,6 +368,16 @@ This approach allows:
 - ✅ Each container has its own isolated authentication
 - ✅ Successful Docker builds without interactive authentication
 
+## Router isolation (experimental)
+
+Mounting credentials into a container gives the agent inside the credential itself. `--use-router` is the alternative: the subscription stays in a single `hive-mind-router` sidecar on an internal Docker network, and each task container is given only a short-lived token scoped to itself, plus a request log of its own.
+
+```bash
+solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
+```
+
+Nothing changes without the flag. See [Router isolation](./ROUTER.md) for the design, the configuration, and the limits of the experimental state, and [Collecting logs](./COLLECTING-LOGS.md) for reading the resulting audit trail.
+
 ## Playwright MCP State in Docker
 
 The image build now registers Playwright MCP for both Claude and Codex:

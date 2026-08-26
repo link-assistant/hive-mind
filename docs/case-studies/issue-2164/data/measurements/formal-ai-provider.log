@@ -1,0 +1,61 @@
+== 1. router with UPSTREAM_PROVIDER=auto (default) ==
+[2m2026-08-22T17:10:27.052533Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T17:10:27.198999Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+-- providers add --
+[2m2026-08-22T17:10:28.033914Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+{
+  "name": "hive-mind-formal-ai",
+  "kind": "open-a-i-compatible",
+  "base_url": "http://link-assistant-formal-ai:8080/v1",
+  "default_model": "formal-ai",
+  "models": [
+    "formal-ai"
+  ],
+  "has_encrypted_api_key": true,
+  "enabled": true
+}
+[2m2026-08-22T17:10:28.206047Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+name                  kind                base_url                          enabled     default_model
+hive-mind-formal-ai   openai-compatible   http://link-assistant-formal-ai:8080/v1  true        formal-ai
+-- /v1/models as the task sees it --
+{"data":[{"id":"formal-ai","object":"model","owned_by":"hive-mind-formal-ai"}],"degraded_providers":[],"healthy_providers":[],"object":"list","using_fallback":false}
+-- chat completion for model 'formal-ai' --
+{"id":"stub-1","object":"chat.completion","model":"formal-ai","choices":[{"index":0,"message":{"role":"assistant","content":"FORMAL-AI-STUB"},"finish_reason":"stop"}]}
+[http 200]
+
+== 2. same router pinned to the stored provider ==
+[2m2026-08-22T17:10:53.666764Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T17:10:53.879292Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T17:10:54.587621Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+name                  kind                base_url                          enabled     default_model
+hive-mind-formal-ai   openai-compatible   http://link-assistant-formal-ai:8080/v1  true        formal-ai
+{"id":"stub-1","object":"chat.completion","model":"formal-ai","choices":[{"index":0,"message":{"role":"assistant","content":"FORMAL-AI-STUB"},"finish_reason":"stop"}]}
+[http 200]
+
+== 3. is the exchange in the router's own logs? ==
+total 65564
+drwxr-xr-x 4 root root     4096 Aug 22 17:11 .
+drwxr-xr-x 4 root root     4096 Aug 22 17:10 ..
+-rw------- 1 root root      463 Aug 22 17:11 audit.jsonl
+-rw------- 1 root root      367 Aug 22 17:10 providers.lenv
+-rw------- 1 root root        0 Aug 22 17:10 providers.lock
+drwx------ 4 root root     4096 Aug 22 17:11 requests
+drwxr-xr-x 2 root root     4096 Aug 22 17:10 tls
+-rw------- 1 root root 67108864 Aug 22 17:11 tokens.bin
+-rw------- 1 root root     1777 Aug 22 17:11 tokens.lino
+-rw------- 1 root root        0 Aug 22 17:10 tokens.lock
+-rw------- 1 root root        0 Aug 22 17:10 tokens.transaction.lock
+41bed9eef870064425701c367b0ec76b
+64069e3b9778c006d75b9a5469705a2f
+{"time":"2026-08-22T17:10:46.470433902+00:00","token_id":"e0172106-4125-4436-9b08-d0f756e2a070","label":"probe-formal-ai","provider":"openai-compatible","surface":"openai_chat","path":"/v1/chat/completions","model":"formal-ai"}
+{"time":"2026-08-22T17:11:03.750565476+00:00","token_id":"907fabc6-4da9-4a22-8ff2-1aa35d0decd2","label":"probe-formal-ai-pinned","provider":"openai-compatible","surface":"openai_chat","path":"/v1/chat/completions","model":"formal-ai"}
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tokens.lino': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tokens.bin': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/requests': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/providers.lenv': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tls/cert.pem': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tls/key.pem': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tokens.lock': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/tokens.transaction.lock': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/providers.lock': Permission denied
+rm: cannot remove '/tmp/tmp.iyhBQCpWoO/router-data/audit.jsonl': Permission denied

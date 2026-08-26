@@ -42,6 +42,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --tool             AI tool for agent-commander read-only mode (claude, codex, opencode, agent, qwen, gemini) [default: claude]');
   console.log('  --model, -m        Model to use');
   console.log('  --isolation        agent-commander isolation mode [default: docker]');
+  console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar (issue #2164)');
   console.log('  --dry-run          Print split output without creating GitHub issues');
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');

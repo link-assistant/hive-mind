@@ -1,0 +1,24 @@
+## router container
+ghcr.io/link-assistant/router:0.109.0
+env=ROUTER_PORT=8080
+DATA_DIR=/data/router
+GH_CONFIG_DIR=/root/.config/gh
+TLS_SELF_SIGNED=1
+TLS_SELF_SIGNED_DNS=localhost
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CLAUDE_CODE_HOME=/data/claude
+
+## gh version
+gh version 2.95.0 (2026-06-17)
+
+## 1. gh WITHOUT SSL_CERT_FILE
+Get "https://localhost:8443/api/v3/rate_limit": tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+## 2. gh WITH SSL_CERT_FILE=/tmp/tmp.zWTRMzgpqz/ca.pem
+5000
+
+## 3. gh WITH SSL_CERT_FILE, a real REST call
+`--use-router` option
+
+## 4. gh GraphQL WITH SSL_CERT_FILE
+{"data":{"viewer":{"login":"konard"}}}

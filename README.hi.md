@@ -88,6 +88,8 @@ Hive Mind में औसत प्रोग्रामर से अलग �
 
 Hive Mind अपने प्रबंधित terminal, log, telemetry, upload और GitHub publication paths में पहचाने गए credentials को sanitize करता है। Scanner विफल होने पर publication रोक दिया जाता है, लेकिन यह किसी autonomous tool को किसी असंबंधित exfiltration path का उपयोग करने से नहीं रोकता। Masking contract, supported formats, maintenance process और incident-response guidance के लिए [Credential sanitization](./docs/CREDENTIAL-SANITIZATION.hi.md) देखें।
 
+डिफ़ॉल्ट रूप से Docker में आइसोलेट किए गए कार्यों को ऑपरेटर के Claude/Codex क्रेडेंशियल मिल जाते हैं। `--use-router` उन्हें रोक देता है और मॉडल ट्रैफ़िक को `hive-mind-router` sidecar से भेजता है, जिससे हर कार्य को अपना सीमित दायरे वाला टोकन और अपना request लॉग मिलता है — देखें [राउटर आइसोलेशन](./docs/ROUTER.hi.md) (प्रयोगात्मक) और [लॉग एकत्र करना](./docs/COLLECTING-LOGS.hi.md)।
+
 `hive.mjs` चलाने के लिए न्यूनतम सिस्टम आवश्यकताएँ:
 
 ```

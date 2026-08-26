@@ -63,6 +63,11 @@ export const createYargsConfig = yargsInstance =>
       choices: ['screen', 'none', 'docker'],
       default: 'docker',
     })
+    .option('use-router', {
+      type: 'boolean',
+      description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting AI credentials into the task container (issue #2164)',
+      default: false,
+    })
     .option('screen-name', {
       type: 'string',
       description: 'Screen session name when --isolation screen is used',

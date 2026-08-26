@@ -1,0 +1,26 @@
+[2m2026-08-22T16:44:57.497974Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T16:44:57.701361Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+== generated CODEX_HOME/config.toml ==
+model_provider = "hive-mind-router"
+
+[model_providers.hive-mind-router]
+name = "Hive Mind Router"
+base_url = "https://link-assistant-router/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"
+
+== codex exec through the router ==
+reasoning summaries: none
+session id: 01a02a5c-a182-7083-98d3-9709991d0407
+--------
+user
+Reply with exactly: ROUTED
+ERROR: Reconnecting... 1/5
+ERROR: Reconnecting... 2/5
+ERROR: Reconnecting... 3/5
+ERROR: Reconnecting... 4/5
+ERROR: Reconnecting... 5/5
+ERROR: unexpected status 404 Not Found: model 'gpt-5.6-sol' is not advertised by any subscription: no codex credential has been read yet, url: https://link-assistant-router/v1/responses, request id: 3b1304b2-b957-4340-8ffa-ccf90a674078
+ERROR: unexpected status 404 Not Found: model 'gpt-5.6-sol' is not advertised by any subscription: no codex credential has been read yet, url: https://link-assistant-router/v1/responses, request id: 3b1304b2-b957-4340-8ffa-ccf90a674078
+
+== router request log (which upstream did it use?) ==

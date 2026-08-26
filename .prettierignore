@@ -46,6 +46,7 @@ docs/case-studies/issue-2170/data/
 docs/case-studies/issue-1724/data/use-m-source.js
 docs/case-studies/issue-731-unable-to-solve-space-compiler/commits-response.json
 docs/case-studies/issue-789-unrecognized-model-error/full-log.json
+docs/case-studies/issue-2164/data/
 
 # Changesets use YAML frontmatter that generic markdown formatting breaks
 .changeset/*.md

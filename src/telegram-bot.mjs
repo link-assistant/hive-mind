@@ -255,6 +255,7 @@ const { createHeartbeat, resumeSessionsOnLaunch, createShutdownHandler } = await
 const { formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage } = await import('./work-session-formatting.lib.mjs');
 const { buildTelegramHelpMessage, buildTelegramInfoBlock, buildSolveQueuedMessage } = await import('./telegram-ui-messages.lib.mjs');
 const { startFormalAiMaintenance } = await import('./formal-ai-maintenance.lib.mjs');
+const { startRouterMaintenance } = await import('./router-maintenance.lib.mjs');
 // Initialize Sentry for error tracking
 await initializeSentry({
   debug: VERBOSE,
@@ -1198,6 +1199,7 @@ if (VERBOSE) {
 const launchAbortController = new AbortController();
 let sessionMonitoringTimer = null;
 let formalAiMaintenance = null;
+let routerMaintenance = null;
 let launchAnnouncementShown = false;
 
 function startSessionMonitoringOnce() {
@@ -1213,6 +1215,20 @@ function startSessionMonitoringOnce() {
 function startFormalAiMaintenanceOnce() {
   if (formalAiMaintenance) return;
   formalAiMaintenance = startFormalAiMaintenance({
+    verbose: VERBOSE,
+    log: async message => {
+      console.log(message);
+    },
+  });
+}
+
+// Issue #2164 (R5): the router sidecar must only run while at least one task
+// uses it. A task that finishes releases its own lease, but a killed task or a
+// host reboot leaves one behind — this tick reconciles those against Docker and
+// stops an idle router. The audit data volume is never removed.
+function startRouterMaintenanceOnce() {
+  if (routerMaintenance) return;
+  routerMaintenance = startRouterMaintenance({
     verbose: VERBOSE,
     log: async message => {
       console.log(message);
@@ -1240,6 +1256,7 @@ async function onBotLaunched() {
 
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();
+  startRouterMaintenanceOnce();
   heartbeat.start();
   if (VERBOSE) {
     console.log('[VERBOSE] Bot launched successfully');
@@ -1334,6 +1351,7 @@ const handleShutdownSignal = createShutdownHandler({
     launchAbortController.abort();
     if (sessionMonitoringTimer) clearInterval(sessionMonitoringTimer);
     formalAiMaintenance?.stop();
+    routerMaintenance?.stop();
     heartbeat.stop();
     stopSolveQueue();
   },

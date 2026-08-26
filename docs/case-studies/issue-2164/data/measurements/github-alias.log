@@ -1,0 +1,36 @@
+== 1. router on 443, TLS for the alias names ==
+[2m2026-08-22T16:24:20.826718Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+github credential: configured from the environment
+
+== 2. certificate and token ==
+[2m2026-08-22T16:24:20.968685Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+            X509v3 Subject Alternative Name: 
+                DNS:link-assistant-router, DNS:api.github.com, DNS:localhost, IP Address:127.0.0.1
+[2m2026-08-22T16:24:21.233056Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+token issued: la_sk_REDACTED… (215 chars)
+
+== 3. gh from a task container, no GH_HOST, no gh credential ==
+--- URL form (what the prompts tell the agent to use)
+Unable to find image 'debian:trixie-slim' locally
+trixie-slim: Pulling from library/debian
+26c307b5e35a: Already exists
+Digest: sha256:3a39a0592364683e6bab97937b72cad5a8fa6dcbbee90edb3bb48c7f8e94f258
+Status: Downloaded newer image for debian:trixie-slim
+--- repo form
+HTTP 502: GitHub upstream request failed: error sending request for url (https://api.github.com/graphql) (https://api.github.com/graphql)
+--- pr view by URL
+HTTP 502: GitHub upstream request failed: error sending request for url (https://api.github.com/graphql) (https://api.github.com/graphql)
+--- gh api path form
+{"message":"GitHub upstream request failed: error sending request for url (https://api.github.com/repos/link-assistant/hive-mind)"}gh: GitHub upstream request failed: error sending request for url (https://api.github.com/repos/link-assistant/hive-mind) (HTTP 502)
+--- gh api graphql
+{"message":"GitHub upstream request failed: error sending request for url (https://api.github.com/graphql)"}gh: GitHub upstream request failed: error sending request for url (https://api.github.com/graphql) (HTTP 502)
+--- destructive: DELETE a label
+{"message":"Blocked by Link.Assistant.Router GitHub policy"}gh: Blocked by Link.Assistant.Router GitHub policy (HTTP 403)
+
+== 4. control: same container without the CA ==
+Get "https://api.github.com/repos/link-assistant/hive-mind": tls: failed to verify certificate: x509: certificate signed by unknown authority
+
+== 5. router request log (per token) ==
+{"body":"","correlation_id":"90427749-4acf-4c8c-8ad6-35f3e9f3097c","headers":{"accept":"*/*","accept-encoding":"gzip","authorization":"tok******************************************************************************************************
+{"correlation_id":"90427749-4acf-4c8c-8ad6-35f3e9f3097c","headers":{"content-type":"application/json","x-link-assistant-policy":"blocked","x-request-id":"90427749-4acf-4c8c-8ad6-35f3e9f3097c"},"latency_ms":1004,"phase":"client_response","st
+{"body":{"message":"Blocked by Link.Assistant.Router GitHub policy"},"correlation_id":"90427749-4acf-4c8c-8ad6-35f3e9f3097c","phase":"client_response_body","time":"2026-08-22T16:24:37.647193396+00:00","token_hash":"70b1fd9cc664719155f420ac4

@@ -88,6 +88,8 @@ We strongly recommend:
 
 Hive Mind sanitizes recognized credentials in its maintained terminal, log, telemetry, upload, and GitHub publication paths. Publication is blocked if the scanner fails, but this does not prevent an autonomous tool from using an unrelated exfiltration path. See [Credential sanitization](./docs/CREDENTIAL-SANITIZATION.md) for the masking contract, supported formats, maintenance process, and incident-response guidance.
 
+Docker-isolated tasks receive the operator's Claude/Codex credentials by default. `--use-router` withholds them and routes model traffic through a `hive-mind-router` sidecar instead, giving each task its own scoped token and its own request log — see [Router isolation](./docs/ROUTER.md) (experimental) and [Collecting logs](./docs/COLLECTING-LOGS.md).
+
 Minimum system requirements to run `hive.mjs`:
 
 ```

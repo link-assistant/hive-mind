@@ -43,17 +43,22 @@
 
 import { execFile } from 'node:child_process';
 import fs from 'node:fs';
-import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
 import { ensureFormalAiSidecarImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
-import { resolveBotStateDir } from './session-store.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerContainerAddress, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 
 const execFileAsync = promisify(execFile);
+
+// Re-exported because callers of this module have always imported them from
+// here; the implementations now live in the shared sidecar module.
+export { inspectDockerContainer, readDockerImageDigest };
+
+const LOG_PREFIX = 'formal-ai-sidecar';
 
 /** Container, network, volume and alias names. Stable so reconciliation works across restarts. */
 export const FORMAL_AI_SIDECAR_CONTAINER_NAME = 'hive-mind-formal-ai';
@@ -92,16 +97,12 @@ export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
 
 const STATE_FILE_NAME = 'formal-ai-sidecar.json';
 const SIDECAR_LOCK_NAME = 'formal-ai-sidecar';
-const DEFAULT_DOCKER_TIMEOUT_MS = 120_000;
 // Pulling a sidecar image is the one Docker call that legitimately takes many
 // minutes, so it gets its own budget instead of the general command timeout.
-const DEFAULT_IMAGE_TIMEOUT_MS = 600_000;
 const DEFAULT_HEALTH_ATTEMPTS = 60;
 const DEFAULT_HEALTH_DELAY_MS = 1000;
 
 const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null });
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * True when a task will be driven by Formal AI.
@@ -149,27 +150,13 @@ export const isFormalAiSidecarEnabled = (env = process.env) => {
   return !['0', 'false', 'no', 'off'].includes(raw);
 };
 
-export const resolveFormalAiSidecarStatePath = (env = process.env) => path.join(resolveBotStateDir(env), STATE_FILE_NAME);
+export const resolveFormalAiSidecarStatePath = (env = process.env) => resolveSidecarStatePath(STATE_FILE_NAME, env);
 
 /** Read the durable sidecar record. A missing or corrupt file is an empty record, never a throw. */
-export const readFormalAiSidecarState = ({ env = process.env, fsImpl = fs } = {}) => {
-  try {
-    const parsed = JSON.parse(fsImpl.readFileSync(resolveFormalAiSidecarStatePath(env), 'utf8'));
-    return { ...EMPTY_STATE, ...parsed, leases: Array.isArray(parsed?.leases) ? parsed.leases : [] };
-  } catch {
-    return { ...EMPTY_STATE, leases: [] };
-  }
-};
+export const readFormalAiSidecarState = ({ env = process.env, fsImpl = fs } = {}) => readSidecarState({ fileName: STATE_FILE_NAME, emptyState: EMPTY_STATE, env, fsImpl });
 
 /** Persist the sidecar record atomically so a crash mid-write cannot corrupt it. */
-export const writeFormalAiSidecarState = (state, { env = process.env, fsImpl = fs } = {}) => {
-  const target = resolveFormalAiSidecarStatePath(env);
-  fsImpl.mkdirSync(path.dirname(target), { recursive: true });
-  const temporary = `${target}.tmp`;
-  fsImpl.writeFileSync(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
-  fsImpl.renameSync(temporary, target);
-  return state;
-};
+export const writeFormalAiSidecarState = (state, { env = process.env, fsImpl = fs } = {}) => writeSidecarState(state, { fileName: STATE_FILE_NAME, env, fsImpl });
 
 /**
  * Serialize every sidecar mutation — task launches, task releases and image
@@ -180,35 +167,6 @@ export const writeFormalAiSidecarState = (state, { env = process.env, fsImpl = f
  */
 export const withFormalAiSidecarLock = (fn, options = {}) => withStateLock(SIDECAR_LOCK_NAME, fn, options);
 
-const dockerText = async (run, args, { timeoutMs = DEFAULT_DOCKER_TIMEOUT_MS } = {}) => {
-  const result = await run('docker', args, { encoding: 'utf8', timeout: timeoutMs });
-  return String(result?.stdout ?? '').trim();
-};
-
-const dockerOk = async (run, args, options) => {
-  try {
-    await dockerText(run, args, options);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-/**
- * Inspect a container without treating "absent" as an error.
- *
- * @returns {Promise<{exists: boolean, running: boolean, image: string|null, imageDigest: string|null}>}
- */
-export const inspectDockerContainer = async (name, { run = execFileAsync, timeoutMs } = {}) => {
-  try {
-    const raw = await dockerText(run, ['inspect', name, '--format', '{{.State.Running}}|{{.Config.Image}}|{{.Image}}'], { timeoutMs });
-    const [running, image, imageDigest] = raw.split('|');
-    return { exists: true, running: running === 'true', image: image || null, imageDigest: imageDigest || null };
-  } catch {
-    return { exists: false, running: false, image: null, imageDigest: null };
-  }
-};
-
 /**
  * The sidecar's IPv4 address on the internal network.
  *
@@ -218,22 +176,7 @@ export const inspectDockerContainer = async (name, { run = execFileAsync, timeou
  * post-attachment would be a needless gamble; the address cannot change during
  * a lease, because an image replacement requires zero leases.
  */
-export const readFormalAiSidecarAddress = async ({ containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME, network = FORMAL_AI_SIDECAR_NETWORK_NAME, run = execFileAsync, timeoutMs } = {}) => {
-  try {
-    return (await dockerText(run, ['inspect', containerName, '--format', `{{with index .NetworkSettings.Networks "${network}"}}{{.IPAddress}}{{end}}`], { timeoutMs })) || null;
-  } catch {
-    return null;
-  }
-};
-
-/** Resolve the local content digest of an image reference, or null when it is absent. */
-export const readDockerImageDigest = async (image, { run = execFileAsync, timeoutMs } = {}) => {
-  try {
-    return (await dockerText(run, ['image', 'inspect', image, '--format', '{{.Id}}'], { timeoutMs })) || null;
-  } catch {
-    return null;
-  }
-};
+export const readFormalAiSidecarAddress = async ({ containerName = FORMAL_AI_SIDECAR_CONTAINER_NAME, network = FORMAL_AI_SIDECAR_NETWORK_NAME, run = execFileAsync, timeoutMs } = {}) => readDockerContainerAddress(containerName, network, { run, timeoutMs });
 
 /**
  * Create the private network the sidecar and its tasks share.
@@ -244,34 +187,7 @@ export const readDockerImageDigest = async (image, { run = execFileAsync, timeou
  * artifact from the Compose deployment and is replaced when nothing is
  * attached to it.
  */
-export const ensureFormalAiNetwork = async ({ run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
-  // `null` means "absent", which is different from "present but not internal".
-  let internal = null;
-  let containers = 0;
-  try {
-    const raw = await dockerText(run, ['network', 'inspect', FORMAL_AI_SIDECAR_NETWORK_NAME, '--format', '{{.Internal}}|{{len .Containers}}'], { timeoutMs });
-    const [internalFlag, containerCount] = raw.split('|');
-    internal = internalFlag === 'true';
-    containers = Number(containerCount) || 0;
-  } catch {
-    // Absent; fall through to creation.
-  }
-
-  if (internal === true) return { created: false, internal: true };
-
-  if (internal === false) {
-    if (containers > 0) {
-      if (log) await log(`⚠️ Formal AI network '${FORMAL_AI_SIDECAR_NETWORK_NAME}' is not internal but still has ${containers} attached container(s); leaving it in place`);
-      return { created: false, internal: false };
-    }
-    if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: replacing non-internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
-    await dockerOk(run, ['network', 'rm', FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
-  }
-
-  await dockerText(run, ['network', 'create', '--internal', '--label', `${FORMAL_AI_SIDECAR_LABEL}=network`, FORMAL_AI_SIDECAR_NETWORK_NAME], { timeoutMs });
-  if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: created internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
-  return { created: true, internal: true };
-};
+export const ensureFormalAiNetwork = async ({ run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => ensureInternalDockerNetwork({ name: FORMAL_AI_SIDECAR_NETWORK_NAME, label: FORMAL_AI_SIDECAR_LABEL, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
 
 /**
  * Create the persisted-memory volume if it is missing and hand it to the
@@ -281,16 +197,12 @@ export const ensureFormalAiNetwork = async ({ run = execFileAsync, timeoutMs, lo
  * task boundaries, sidecar stops, image replacement and rollback.
  */
 export const ensureFormalAiMemoryVolume = async ({ image, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
-  if (await dockerOk(run, ['volume', 'inspect', FORMAL_AI_MEMORY_VOLUME_NAME], { timeoutMs })) {
-    return { created: false };
-  }
-
-  await dockerText(run, ['volume', 'create', '--label', `${FORMAL_AI_SIDECAR_LABEL}=memory`, FORMAL_AI_MEMORY_VOLUME_NAME], { timeoutMs });
+  const result = await ensureDockerVolume({ name: FORMAL_AI_MEMORY_VOLUME_NAME, label: FORMAL_AI_SIDECAR_LABEL, role: 'memory', run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
+  if (!result.created) return result;
   // A fresh named volume is root-owned; the image runs application commands as
   // `box`, so seed the ownership exactly as upstream's own upgrade fixture does.
   await dockerOk(run, ['run', '--rm', '--volume', `${FORMAL_AI_MEMORY_VOLUME_NAME}:${FORMAL_AI_MEMORY_MOUNT}`, '--entrypoint', 'chown', image, '-R', 'box:box', FORMAL_AI_MEMORY_MOUNT], { timeoutMs });
-  if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: created memory volume '${FORMAL_AI_MEMORY_VOLUME_NAME}'`);
-  return { created: true };
+  return result;
 };
 
 /** Build the `docker run` argv for the sidecar. Exported so tests can assert the contract. */
@@ -369,29 +281,7 @@ export const waitForFormalAiSidecarHealth = async ({ containerName = FORMAL_AI_S
  * `LEASE_START_GRACE_MS` elapses; afterwards, and always once the container has
  * been observed, liveness is Docker's answer alone.
  */
-const LEASE_START_GRACE_MS = 60 * 60 * 1000;
-
-const reconcileLeases = async (leases, { run, timeoutMs, log, verbose, now = () => Date.now() }) => {
-  const live = [];
-  for (const lease of leases) {
-    if (!lease?.sessionId) continue;
-    const container = await inspectDockerContainer(lease.sessionId, { run, timeoutMs });
-    if (container.exists && container.running) {
-      live.push(lease.containerSeen ? lease : { ...lease, containerSeen: true });
-      continue;
-    }
-    if (!lease.containerSeen) {
-      const age = now() - (Date.parse(lease.acquiredAt ?? '') || 0);
-      if (age < LEASE_START_GRACE_MS) {
-        if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: keeping lease '${lease.sessionId}' whose container has not appeared yet (${Math.round(age / 1000)}s into the ${Math.round(LEASE_START_GRACE_MS / 1000)}s launch grace)`);
-        live.push(lease);
-        continue;
-      }
-    }
-    if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: dropping stale lease '${lease.sessionId}' (container exists=${container.exists} running=${container.running})`);
-  }
-  return live;
-};
+const reconcileLeases = async (leases, options) => reconcileSidecarLeases(leases, { ...options, logPrefix: LOG_PREFIX });
 
 /**
  * Re-derive the sidecar record from Docker.
@@ -522,17 +412,7 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
  */
 export const attachTaskToFormalAiNetwork = async ({ sessionId, run = execFileAsync, timeoutMs, log = null, verbose = false } = {}) => {
   if (!sessionId) return { attached: false, error: 'no sessionId' };
-  try {
-    await dockerText(run, ['network', 'connect', FORMAL_AI_SIDECAR_NETWORK_NAME, sessionId], { timeoutMs });
-    if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: attached task container '${sessionId}' to '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
-    return { attached: true, error: null };
-  } catch (error) {
-    const message = error?.stderr?.toString?.().trim() || error?.message || String(error);
-    // Docker reports an already-attached container as an error; that is success.
-    if (/already exists in network/i.test(message)) return { attached: true, error: null };
-    if (log) await log(`⚠️ Could not attach task container '${sessionId}' to the Formal AI network: ${message}`);
-    return { attached: false, error: message };
-  }
+  return attachDockerNetwork({ network: FORMAL_AI_SIDECAR_NETWORK_NAME, container: sessionId, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
 };
 
 /**

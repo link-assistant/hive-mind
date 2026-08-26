@@ -12,7 +12,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
-import { buildRouterCodexConfig, buildRouterGitConfigEntries, buildRouterTaskEnv, buildRouterTaskWiringScript, describeRouterCoverageGaps, getInternalRouterBaseUrl, getRouterSuppressedCredentialPaths, isRouterEnabled, normalizeRouterBaseUrl, resolveRouterBaseUrl, resolveRouterGhHost, resolveRouterGitHubRouting, ROUTER_CA_BUNDLE_CONTAINER_PATH, ROUTER_CA_CONTAINER_PATH, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
+import { buildRouterCodexConfig, buildRouterGitConfigEntries, buildRouterTaskEnv, buildRouterTaskWiringScript, describeRouterCoverageGaps, getInternalRouterBaseUrl, getRouterSuppressedCredentialPaths, isRouterEnabled, normalizeRouterBaseUrl, resolveRouterBaseUrl, resolveRouterGhHost, resolveRouterGitHubRouting, ROUTER_CA_BUNDLE_CONTAINER_PATH, ROUTER_CA_CONTAINER_PATH, ROUTER_GITHUB_API_HOST, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 import { buildDockerIsolationStartArgs, getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
 let passed = 0;
@@ -51,6 +51,10 @@ const HOME = '/home/box';
 const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex`, `${HOME}/.agents`, `${HOME}/.claude`, `${HOME}/.claude.json`]);
 const existsAll = candidate => hostPaths.has(candidate);
 const mountPairs = mounts => mounts.map(mount => `${mount.source}:${mount.target}`);
+// Matched as a whole hostname rather than with `includes`: a substring test on a
+// URL-shaped value is what CodeQL flags as js/incomplete-url-substring-sanitization,
+// and asserting the /etc/hosts line is the more precise check anyway.
+const HOSTS_ENTRY = /^\s*\S+\s+api\.github\.com\s*$/m;
 const envValues = (args, name) => args.filter((value, index) => args[index - 1] === '-e' && value.startsWith(`${name}=`)).map(value => value.slice(name.length + 1));
 
 console.log('\n--- The flag is off by default and readable from the environment ---');
@@ -78,7 +82,7 @@ console.log('\n--- The sidecar is a pinned, TLS-terminating router on 443 ---');
 assertEqual(ROUTER_SIDECAR_PORT, 443, 'the router listens on 443, the only port gh will build an endpoint for');
 assertEqual(getInternalRouterBaseUrl(), 'https://link-assistant-router', 'so the internal endpoint is https with no port, matching the certificate authority name');
 assertEqual(/:\d+\.\d+\.\d+$/.test(ROUTER_SIDECAR_IMAGE), true, 'the image is pinned to an exact version rather than :latest');
-assertEqual(ROUTER_TLS_DNS_NAMES.split(',').includes('api.github.com'), true, 'the certificate claims api.github.com, which is what lets an unmodified gh verify the interception');
+assertDeepEqual(ROUTER_TLS_DNS_NAMES.split(','), ['link-assistant-router', ROUTER_GITHUB_API_HOST], 'the certificate claims exactly the internal alias and api.github.com — the second is what lets an unmodified gh verify the interception, and the list is asserted whole so an extra SAN cannot slip in unnoticed');
 
 console.log('\n--- GitHub routing: transparent for our own sidecar, declared for an external one ---');
 
@@ -136,7 +140,7 @@ assertEqual(wiring.includes("if ! grep -q ' api.github.com$' /etc/hosts"), true,
 assertEqual(wiring.includes('/etc/ssl/certs/ca-certificates.crt'), true, 'the replacement bundle starts from the system roots');
 assertEqual(wiring.includes('config.toml'), false, 'a claude task gets no codex provider entry');
 assertEqual(buildRouterTaskWiringScript({ routerIp: '172.31.0.2', caCertificate: CA_PEM, homeDir: HOME, tool: 'codex' }).includes(`${HOME}/.codex/config.toml`), true, 'a codex task does');
-assertEqual(buildRouterTaskWiringScript({ routerIp: '172.31.0.2', caCertificate: CA_PEM, githubMode: 'host' }).includes('api.github.com'), false, 'an externally-hosted gh endpoint needs no hosts entry');
+assertEqual(HOSTS_ENTRY.test(buildRouterTaskWiringScript({ routerIp: '172.31.0.2', caCertificate: CA_PEM, githubMode: 'host' })), false, 'an externally-hosted gh endpoint needs no hosts entry');
 
 console.log('\n--- Vendor credentials are withheld from routed tasks (R2, R9) ---');
 

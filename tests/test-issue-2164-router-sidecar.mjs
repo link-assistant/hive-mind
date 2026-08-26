@@ -43,6 +43,12 @@ function assertEqual(actual, expected, label) {
 // first and report a boolean: a failing test in CI prints its label, never the
 // secret it was checking (CodeQL js/clear-text-logging).
 const holds = (actual, expected) => actual === expected;
+// Same reasoning for containment: comparing first keeps a command line that
+// carries `--api-key` out of the failure printer. Whole-hostname regexes rather
+// than `includes` on URL-shaped values, which CodeQL flags as
+// js/incomplete-url-substring-sanitization.
+const carries = (actual, expected) => String(actual ?? '').includes(expected);
+const GITHUB_API_HOST = /\bapi\.github\.com\b/;
 
 console.log('\n=== issue #2164: router sidecar run arguments ===');
 
@@ -102,7 +108,7 @@ assertEqual(runArgs.slice(-5).join(' '), 'serve --host 0.0.0.0 --port 443', 'the
 // client's configuration.
 assertEqual(flagValue(runArgs, '--env', 'TLS_SELF_SIGNED=').join(''), '1', 'the router terminates TLS with a certificate of its own');
 assertEqual(flagValue(runArgs, '--env', 'TLS_SELF_SIGNED_DNS=').join(''), ROUTER_TLS_DNS_NAMES, 'whose names cover both the internal alias and api.github.com');
-assertEqual(ROUTER_TLS_DNS_NAMES.includes('api.github.com'), true, 'which is what lets an unmodified gh verify the interception');
+assertEqual(GITHUB_API_HOST.test(ROUTER_TLS_DNS_NAMES), true, 'which is what lets an unmodified gh verify the interception');
 
 console.log('\n=== issue #2164: credential discovery ===');
 
@@ -279,7 +285,7 @@ assertEqual(execCall.at(-1).includes('172.31.0.2'), true, "with api.github.com p
 // down on a non-null error, and a task that reached this point holds no
 // credential of its own — launching it unwired would simply strand it.
 assertEqual((await wireRouterTaskContainer({ sessionId: 's', run: makeWiringDocker({ ca: null }).run })).error?.includes('router tls ca'), true, 'a router that prints no CA is reported rather than leaving the task unable to verify it');
-assertEqual((await wireRouterTaskContainer({ sessionId: 's', run: makeWiringDocker({ ip: 'not-an-address' }).run })).error?.includes('api.github.com'), true, 'and so is a router with no address to intercept GitHub through');
+assertEqual(GITHUB_API_HOST.test((await wireRouterTaskContainer({ sessionId: 's', run: makeWiringDocker({ ip: 'not-an-address' }).run })).error ?? ''), true, 'and so is a router with no address to intercept GitHub through');
 assertEqual((await wireRouterTaskContainer({ sessionId: '', run: makeWiringDocker().run })).wired, false, 'a missing container name is refused outright');
 assertEqual(await readRouterCaCertificate({ run: async () => ({ stdout: 'not a certificate\n' }) }), null, 'a CA read that returns something other than PEM yields null rather than a broken trust file');
 assertEqual(
@@ -340,7 +346,9 @@ console.log('\n=== issue #2164 R11: --model formal-ai is served by the same rout
 // 0.109.0: a provider stored this way is advertised on GET /v1/models as
 // {"id":"formal-ai","owned_by":"hive-mind-formal-ai"} and answers a chat
 // completion for that id with HTTP 200, recorded in /data/router/audit.jsonl.
-assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }).join(' '), `providers add --name ${ROUTER_FORMAL_AI_PROVIDER_NAME} --base-url http://link-assistant-formal-ai:8080/v1 --model ${ROUTER_FORMAL_AI_MODEL} --models ${ROUTER_FORMAL_AI_MODEL} --api-key unused`, 'the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for');
+// Compared before printing: the argv carries `--api-key`, and a CI failure must
+// print the label rather than the command line (CodeQL js/clear-text-logging).
+assertEqual(holds(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080' }).join(' '), `providers add --name ${ROUTER_FORMAL_AI_PROVIDER_NAME} --base-url http://link-assistant-formal-ai:8080/v1 --model ${ROUTER_FORMAL_AI_MODEL} --models ${ROUTER_FORMAL_AI_MODEL} --api-key unused`), true, 'the Formal AI sidecar is stored as an OpenAI-compatible provider under the model id a task asks for');
 assertEqual(buildRouterFormalAiProviderArgs({ baseUrl: 'http://link-assistant-formal-ai:8080/v1/' }).includes('http://link-assistant-formal-ai:8080/v1'), true, 'a base URL that already names the API version is not versioned twice');
 assertEqual(buildRouterFormalAiProviderArgs({}), null, 'and no endpoint yields no command rather than a half-formed one');
 
@@ -386,7 +394,7 @@ assertEqual(
   'with both sidecars up the router is taught to serve formal-ai itself'
 );
 assertEqual(wiredProvider[0], FORMAL_AI_SIDECAR_NETWORK_NAME, 'the network is joined first, because the provider is useless until the alias resolves');
-assertEqual(wiredProvider[1].includes('http://link-assistant-formal-ai:8080/v1'), true, 'the DNS endpoint is stored rather than an address that changes on every restart');
+assertEqual(carries(wiredProvider[1], 'http://link-assistant-formal-ai:8080/v1'), true, 'the DNS endpoint is stored rather than an address that changes on every restart');
 
 assertEqual(typeof (await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: false, error: 'network not found' }) })), 'string', 'a router that cannot reach Formal AI fails the launch');
 assertEqual((await registerFormalAiWithRouter({ router: { token: 't' }, sidecar: { dnsBaseUrl: 'http://x:8080' }, log: async () => {}, attach: async () => ({ attached: true }), register: async () => ({ registered: false, error: 'store is read-only' }) }))?.includes('store is read-only'), true, 'and so does a provider the router refuses to store, rather than running unmediated');

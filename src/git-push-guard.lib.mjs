@@ -19,17 +19,20 @@
  *      the task holds no other credential — and it refuses branch deletions
  *      outright (measured: `git push origin :refs/heads/x` → HTTP 403).
  *
- * Layer 3 covers deletions but not force pushes: the router decides by looking
- * for a `force-ref-updates` capability that git never sends, so a
- * non-fast-forward push is relayed unchanged (measured in
+ * Layer 3 originally covered deletions but not force pushes: the router decided
+ * by looking for a `force-ref-updates` capability that git never sends, so a
+ * non-fast-forward push was relayed unchanged (measured in
  * `experiments/issue-2164/probe-git-transport.sh`, reported upstream as
- * link-assistant/router#272). Until that lands, this hook is the only thing
- * standing between an agent and a rewritten branch — and `--no-verify` gets past
- * it — so branch protection remains the control that cannot be talked around.
+ * link-assistant/router#272). That was fixed in link-assistant/router#273 and
+ * ships from 0.110.0, which is at or below the pin — the router now asks
+ * GitHub's compare API whether the proposed tip is ahead of the current one and
+ * fails closed when it cannot tell.
  *
- * So this is a speed bump, not a cage, and the docs say so. It still removes the
- * accident case entirely — an agent that decides to "clean up" a branch with a
- * force push is stopped — which is the failure mode that actually happens.
+ * So this hook is no longer the only thing standing between an agent and a
+ * rewritten branch. It is still worth keeping: it is the layer that applies to
+ * every remote rather than only the routed one, it costs nothing, and it stops
+ * the push locally instead of after a round trip. It remains defeated by
+ * `--no-verify`, so it is a speed bump and the docs say so.
  *
  * The hook is delivered by mounting a host directory read-only into the task
  * container and pointing git at it with `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`

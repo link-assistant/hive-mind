@@ -17,7 +17,7 @@
  * isolation hold rather than merely look tidy (all three were measured first —
  * see `experiments/issue-2164/`):
  *
- * 1. **The router serves TLS on 443.** Router 0.109.0 terminates TLS itself
+ * 1. **The router serves TLS on 443.** Router 0.119.0 terminates TLS itself
  *    (`TLS_SELF_SIGNED=1`) and prints its CA with `router tls ca`. Plain HTTP
  *    would rule out `gh` entirely, which refuses non-HTTPS hosts.
  * 2. **GitHub is intercepted by name, not by reconfiguring `gh`.** The
@@ -49,8 +49,10 @@ export const ROUTER_SIDECAR_PORT = 443;
 export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
 // Pinned: an experimental feature that depends on `router tls ca`, the git proxy
 // and per-token request logs must not silently change underneath a running fleet.
+// 0.110.0 is the floor: it carries the compare-based force-push mediation
+// (upstream router#273), without which a routed task can still rewrite history.
 // Override with HIVE_MIND_ROUTER_IMAGE.
-export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.109.0';
+export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.119.0';
 
 /** The one GitHub name the router impersonates; see the module header. */
 export const ROUTER_GITHUB_API_HOST = 'api.github.com';
@@ -378,7 +380,10 @@ export function buildRouterProviderArgs({ name, baseUrl, model, models = null, a
  * the call, GET /v1/models advertises `{"id":"formal-ai","owned_by":
  * "hive-mind-formal-ai"}` and a chat completion for that id is answered by the
  * sidecar (HTTP 200), with `"provider":"openai-compatible","model":"formal-ai"`
- * recorded in /data/router/audit.jsonl.
+ * recorded in /data/router/audit.jsonl. The pin has since moved to 0.119.0; the
+ * `providers add` surface and the automatic-routing behaviour this relies on
+ * (upstream router#260) are unchanged there, but the probe has not been re-run
+ * against it — re-run it before treating the measurement as current.
  *
  * @param {string} baseUrl origin of the Formal AI sidecar, e.g.
  *   `http://link-assistant-formal-ai:8080`
@@ -460,13 +465,20 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
   if (githubMode === 'off') {
     gaps.push('GitHub traffic is NOT routed: the task keeps its own gh credential, and destructive API calls are not mediated. Unset HIVE_MIND_ROUTER_GITHUB, or set HIVE_MIND_ROUTER_GH_HOST for an external router.');
   }
-  // Measured in experiments/issue-2164/probe-git-transport.sh: the router
-  // refuses `git push :ref` with 403, but a non-fast-forward push succeeds,
-  // because git never announces the `force-ref-updates` capability the router
-  // looks for. The in-task pre-push hook is what catches the rest, and
-  // `--no-verify` gets past that, so branch protection remains the only
-  // unbypassable control for force pushes.
-  gaps.push('Branch deletions are refused by the router, but a force push is not: git announces no force capability, so the router cannot see one (upstream link-assistant/router#272). The in-task pre-push hook covers it unless the agent passes `--no-verify`; enable branch protection for a control neither can bypass.');
+  // Measured in experiments/issue-2164/probe-git-transport.sh against router
+  // 0.109.0: the router refused `git push :ref` with 403, but a non-fast-forward
+  // push succeeded, because git never announces the `force-ref-updates`
+  // capability the router looked for. Reported as router#272 and fixed upstream
+  // in router#273: from 0.110.0 the router asks GitHub's compare API whether the
+  // proposed tip is ahead of the current one and forwards the packfile only if it
+  // is, failing closed on any answer it cannot read. The pin is now 0.119.0, so
+  // that layer is live and this is no longer warned about.
+  //
+  // What remains uncovered is the other half of R13. The router's built-in
+  // GitHub policy keys on the HTTP method — any DELETE, a forced REST ref
+  // update, a destructive GraphQL mutation — so destructive operations spelled
+  // as PUT/PATCH/POST are still forwarded. Reported as router#329.
+  gaps.push('Destructive GitHub API calls are blocked by method, not by effect: DELETE, forced ref updates and destructive GraphQL are refused, but `PUT /repos/{o}/{r}/branches/{b}/protection`, `PUT .../rulesets/{id}`, `POST .../transfer` and `PATCH /repos/{o}/{r}` with visibility/archived/default_branch are not (upstream link-assistant/router#329). Branch protection is reachable this way, so it is not a control the task cannot touch — keep the repository owner outside the token scope for anything that must not change.');
   if (!ANTHROPIC_TOOLS.has(normalizeTool(tool))) {
     gaps.push(`Routing for '${normalizeTool(tool)}' is less exercised than Claude Code: it is wired through the router's OpenAI-compatible surface and a generated provider entry, and only Claude Code has an end-to-end proof in experiments/issue-2164/.`);
   }
@@ -474,7 +486,11 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
   if (requested === 'formal-ai') {
     gaps.push("Formal AI is registered on the router as an OpenAI-compatible provider, so `--model formal-ai` is served through it and appears in the audit log. The Formal AI sidecar's own upstream calls are not routed yet: when it is run in agent mode against a vendor API, that leg still leaves the sidecar directly.");
   } else if (requested && !/\d/.test(requested)) {
-    gaps.push(`The router resolves exact model ids only, as advertised by GET /v1/models — an alias like '${requested}' is rejected. Use the dated id (for example claude-sonnet-4-5-20250929).`);
+    // The router ships no alias table by design (upstream router#192), and
+    // declined to add tier resolution when it was raised (router#323). From
+    // 0.115.0 the refusal at least names the ids the deployment does advertise,
+    // so a wrong name is one run away from the right one instead of a dead end.
+    gaps.push(`The router resolves exact model ids only, as advertised by GET /v1/models — an alias like '${requested}' is rejected, and the refusal lists the ids it would have accepted. Use one of those (for example claude-sonnet-4-5-20250929).`);
   }
   return gaps;
 }

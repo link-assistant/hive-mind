@@ -171,7 +171,18 @@ assertEqual(
 
 console.log('\n--- The launcher wires it end to end ---');
 
-const launchOptions = { sessionId: 'sess-2164', tool: 'claude', env: {}, homeDir: HOME, existsSync: existsAll };
+// The guard installer writes the hook to the host, so it is stubbed here rather
+// than let loose on the machine running the tests. Without this the suite passes
+// only where `HOME` above happens to be creatable — on a Linux runner it is, on a
+// developer's macOS box `/home/box` is not — and a silent install failure showed
+// up as a confusing GIT_CONFIG_COUNT mismatch rather than as what it was. The
+// real installer has its own coverage against a real directory in
+// tests/test-issue-2164-git-push-guard.mjs.
+const GUARD_DIR = '/host/hive-mind/git-hooks';
+const installedGuard = () => ({ installed: true, dir: GUARD_DIR, hookPath: `${GUARD_DIR}/pre-push`, error: null });
+const failedGuard = () => ({ installed: false, dir: GUARD_DIR, hookPath: `${GUARD_DIR}/pre-push`, error: 'EACCES' });
+
+const launchOptions = { sessionId: 'sess-2164', tool: 'claude', env: {}, homeDir: HOME, existsSync: existsAll, installGuard: installedGuard };
 const defaultArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], launchOptions);
 const routedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task' });
 
@@ -196,14 +207,36 @@ assertEqual(
 );
 assertDeepEqual(buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true }), defaultArgs, 'without an issued token the launch falls back to the default mounts rather than stranding the agent with no model access');
 
+// A guard that cannot be written to the host is not fatal — the remaining R13
+// layers still apply — but it must drop cleanly out of the git config rather
+// than leaving a hooksPath pointing at a mount that was never made.
+const unguardedArgs = buildDockerIsolationStartArgs('solve', ['https://github.com/o/r/issues/1'], { ...launchOptions, useRouter: true, routerToken: 'la_sk_task', installGuard: failedGuard });
+assertDeepEqual(envValues(unguardedArgs, 'GIT_CONFIG_COUNT'), ['4'], 'a guard that could not be installed leaves only the router git settings');
+assertEqual(
+  unguardedArgs.some(value => value.startsWith('GIT_CONFIG_VALUE_') && value.includes(GUARD_DIR)),
+  false,
+  'and no hooksPath is set for a hook the task was never given'
+);
+assertEqual(
+  unguardedArgs.some(value => value.includes(GUARD_DIR)),
+  false,
+  'nor is the hook directory mounted'
+);
+
 console.log('\n--- An experimental run states its own limits (R10, R16) ---');
 
 const gaps = describeRouterCoverageGaps({});
 assertEqual(
-  gaps.some(gap => gap.includes('router#272')),
+  gaps.some(gap => gap.includes('router#329')),
   true,
-  'every routed run says that the router refuses deletions but not force pushes, and cites the upstream issue (R13)'
+  'every routed run names the destructive-API gap the router still forwards, and cites the upstream issue (R13)'
 );
+assertEqual(
+  gaps.some(gap => gap.includes('router#272') || gap.toLowerCase().includes('force push is not')),
+  false,
+  'and no longer claims force pushes are unblocked — router#273 closed that from 0.110.0, and the pin is past it'
+);
+assertEqual(ROUTER_SIDECAR_IMAGE.endsWith(':0.119.0'), true, 'the pinned image carries the compare-based force-push mediation the warning above stopped claiming was missing');
 assertEqual(
   gaps.some(gap => gap.includes('GitHub traffic is NOT routed')),
   false,

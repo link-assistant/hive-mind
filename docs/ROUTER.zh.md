@@ -27,7 +27,7 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## 工作原理
 
-1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.109.0`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`。网络是内部的，因此 sidecar 除 Docker 给它的通路外没有对外出口，宿主机上的任何进程也无法访问它。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
+1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.119.0`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`。网络是内部的，因此 sidecar 除 Docker 给它的通路外没有对外出口，宿主机上的任何进程也无法访问它。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
 2. **令牌。** Hive Mind 通过 `router tokens issue` 为每个任务签发一个令牌，以会话 id 标注，并用 `--github-repo` 将其限定在该任务所要处理的那一个仓库上。令牌绝不在任务之间共享——正是这一点让每个任务的日志只属于它自己（R6）。
 3. **任务。** 任务容器在自身网络之外再接入路由器网络，并获得指向 sidecar 的 `ANTHROPIC_BASE_URL`（OpenAI 兼容工具则是一条生成的 provider 记录）以及令牌。Claude Code 的*每一次*请求都经由 `ANTHROPIC_BASE_URL` 发出，包括智能体的子循环，因此没有任何路径能悄悄绕开代理。
 4. **信任与拦截。** 在启动闸门仍扣住任务命令的这段时间里，Hive Mind 会把路由器的 CA 写进容器，在 `/etc/hosts` 中把 `api.github.com` 指向路由器，并把 git 配置成经由 `https://link-assistant-router/git/…` 推送。每个客户端都按它自己期待的方式被告知该 CA：Node 用 `NODE_EXTRA_CA_CERTS`，`gh` 和 Rust 客户端用 `SSL_CERT_FILE`——后者会*替换*系统信任库，因此交给它们的是公共根证书加上路由器 CA 的合集——curl 用 `CURL_CA_BUNDLE`，git 用 `http.<url>.sslCAInfo`。因此未经改动的 `gh` 会在毫不知情的情况下访问到路由器，而任务本身不持有任何 GitHub 令牌（R12）。
@@ -83,34 +83,36 @@ node examples/collect-logs.mjs --out ./audit
 
 issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三层共同覆盖它；三层合起来之后，只剩下带 `--no-verify` 的强制推送还能抵达远端。
 
-| 层级                                               | 覆盖范围                                                                                              | 如何被绕过                                                                              |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 远端的[分支保护](./BRANCH_PROTECTION_POLICY.zh.md) | 对受保护分支的强制推送与删除                                                                          | 在任务内部无法绕过                                                                      |
-| 每个启用路由器的任务中的 `pre-push` 钩子           | 删除任何远端 ref，以及任何会丢弃远端已有提交的推送——也就是 `git reset --hard` + `push --force` 的形态 | `git push --no-verify`                                                                  |
-| 经路由器中转的 git 传输                            | ref **删除**，由路由器自己以 HTTP 403 拒绝——在任务内部无法绕过                                        | 强制推送仍会被转发（[router#272](https://github.com/link-assistant/router/issues/272)） |
+| 层级                                               | 覆盖范围                                                                                              | 如何被绕过                                |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 远端的[分支保护](./BRANCH_PROTECTION_POLICY.zh.md) | 对受保护分支的强制推送与删除                                                                          | 在任务内部无法绕过                        |
+| 每个启用路由器的任务中的 `pre-push` 钩子           | 删除任何远端 ref，以及任何会丢弃远端已有提交的推送——也就是 `git reset --hard` + `push --force` 的形态 | `git push --no-verify`                    |
+| 经路由器中转的 git 传输                            | ref **删除**与**非快进**更新，由路由器自己以 HTTP 403 拒绝——在任务内部无法绕过                        | 操作者在路由器上为具名 ref 设置的放行规则 |
 
 钩子在宿主机的 `~/.hive-mind/git-hooks`（`HIVE_MIND_GIT_HOOKS_DIR`）中生成，并以**只读**方式挂载进任务，因此任务无法修改约束自己的那条规则。指向它的方式是 `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0=core.hooksPath` 而非 `git config --global`，因为容器里的 `~/.gitconfig` 是从宿主机挂载进来的、属于操作者本人的文件。
 
 普通推送、新分支和新标签都不受影响，而且该守卫只存在于启用路由器的任务中。`--allow-fork-divergence-resolution-using-force-push-with-lease` 会把操作者已经给出的强制推送授权带进容器；`HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` 则是手动做同一件事。
 
-第三层已经就位：启用路由器的任务经由 `https://link-assistant-router/git/<owner>/<repo>` 推送，自身不持有任何 GitHub 凭据，`git push origin :branch` 会从路由器得到 `HTTP 403`。非快进推送目前还抓不到，因为路由器查找的是 git 从不宣告的 `force-ref-updates` 能力（[router#272](https://github.com/link-assistant/router/issues/272)）。
+第三层已经就位：启用路由器的任务经由 `https://link-assistant-router/git/<owner>/<repo>` 推送，自身不持有任何 GitHub 凭据，`git push origin :branch` 会从路由器得到 `HTTP 403`。自路由器 `0.110.0` 起，强制推送同样会被拒绝：路由器会询问 GitHub 的 compare API，判断待推送的提交是否领先于当前提交，只有领先时才转发 packfile；当它得不到可信的答复时则直接拒绝（[router#272](https://github.com/link-assistant/router/issues/272)，已在 [router#273](https://github.com/link-assistant/router/pull/273) 中修复）。本仓库固定为 `0.119.0`，因此这一层是生效的。
 
-第二层是减速带，不是牢笼：读过本页的智能体就能绕过它。它消除的是意外，而非蓄意——因此就强制推送而言，分支保护仍是唯一无法绕过的控制手段。
+上述测量是在修复之前针对 `0.109.0` 做的，此后固定版本已两次变更而探针未重跑——如果你需要当前的结果而非记录中的结果，见 `experiments/issue-2164/probe-git-transport.sh`。
+
+第二层是减速带，不是牢笼：读过本页的智能体可以绕过它。它消除的是意外，而非对手。第一层和第三层才是任务无法绕开的——但要注意下一节的说明：第一层本身可以通过 GitHub API 触及。
 
 ## 尚未覆盖的范围
 
 每次启用路由器的运行都会在开始前打印这些内容。它们是实验阶段如实的边界：
 
-- **强制推送不由路由器拦截**（[router#272](https://github.com/link-assistant/router/issues/272)）。删除分支会被拒绝，但路由器判断强制推送依据的是 git 从不发送的一个能力。任务内部的 `pre-push` 钩子能覆盖这一点，除非智能体加上 `--no-verify`，因此[分支保护](./BRANCH_PROTECTION_POLICY.zh.md)仍是两者都绕不过的控制手段。
+- **对 GitHub API 的破坏性调用是按方法拦截的，而不是按后果**（[router#329](https://github.com/link-assistant/router/issues/329)）。路由器会拒绝所有 `DELETE`、REST 的强制 ref 更新以及破坏性的 GraphQL mutation，但不会拒绝换一种写法达成的同样后果：`PUT /repos/{o}/{r}/branches/{b}/protection` 会整体替换保护对象，`PUT .../rulesets/{id}` 可放宽 ruleset，`POST .../transfer` 会转移仓库，`PATCH /repos/{o}/{r}` 则能改动 `visibility`、`archived` 或 `default_branch`。分支保护可经由此路径触及，因此应把它视为稳妥的默认设置，而不是任务碰不到的控制手段；凡是不允许被改动的东西，都应放在该令牌 `--github-repo` 范围之外。实际影响的边界，取决于路由器向上游出示的那个 `gh` 凭据的权限。
 - **Formal AI sidecar 自身的上游调用不经过路由器。** `--model formal-ai` 会经由路由器抵达 Formal AI，但如果该服务器本身去调用厂商 API，那一段会直接从 sidecar 出去。
 - **非 Claude 工具的验证较少。** codex、gemini 和 qwen 通过路由器的 OpenAI 兼容接口和一条生成的 provider 记录接入；只有 Claude Code 在 `experiments/issue-2164/` 中有端到端的证据。
-- **不接受模型别名。** 路由器只解析 `GET /v1/models` 所宣告的精确模型 id，因此 `--model sonnet` 会失败，而 `--model claude-sonnet-4-5-20250929` 可用。
+- **不接受模型别名。** 路由器按设计不内置别名表（[router#192](https://github.com/link-assistant/router/issues/192)），并且在这一点被提出时明确不打算加入层级解析（[router#323](https://github.com/link-assistant/router/issues/323)），因此 `--model sonnet` 会失败，而 `--model claude-sonnet-4-5-20250929` 可用。自 `0.115.0` 起，拒绝信息会列出该部署确实宣告的 id，因此写错名字时也能看到正确的那个。这影响的是整个以层级命名的接口——`--plan`、`--escalate` 以及内置的回退链都使用层级名——所以在启用路由器的运行中请固定使用带日期的 id。
 - **`HIVE_MIND_ROUTER_GITHUB=0` 会关闭 GitHub 路由**；而外部路由器（`HIVE_MIND_ROUTER_URL`）没有我们的容器网络可供拦截，因此需要 `HIVE_MIND_ROUTER_GH_HOST`。这两种情况下任务都保留自己的 `gh` 凭据，其 GitHub 调用不受中介。
 
 ## 前置条件
 
 - `--isolation docker`。没有要隔离的容器，路由器隔离便无从谈起。
-- Docker 能够拉取 `ghcr.io/link-assistant/router:0.109.0`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。
+- Docker 能够拉取 `ghcr.io/link-assistant/router:0.119.0`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送。
 - 如果无法连上路由器，任务**不会启动**。退回直接使用凭据会悄悄取消掉该选项本要提供的隔离。
 
 ## 另见

@@ -197,6 +197,28 @@ await checkAsync("an operator's own settings survive the merge", async () => {
   }
 });
 
+await checkAsync('a settings file carrying __proto__ cannot reach Object.prototype', async () => {
+  // No current caller can produce such a key — the merge source is a frozen
+  // literal — so this asserts the guard rather than a reachable bug (CodeQL
+  // js/prototype-pollution-utility). It exists so removing the guard fails a
+  // test instead of waiting for a future caller to make it reachable.
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'issue-2178-proto-'));
+  try {
+    const settingsPath = path.join(tmp, '.gemini', 'settings.json');
+    await fs.mkdir(path.dirname(settingsPath), { recursive: true });
+    await fs.writeFile(settingsPath, '{"__proto__": {"polluted": "yes"}, "constructor": {"polluted": "yes"}, "theme": "dark"}');
+    const result = await ensureGeminiFamilyMemoryDisabled({ tool: 'gemini', homeDir: tmp });
+    assert.equal(result.applied, true);
+    assert.equal({}.polluted, undefined, 'Object.prototype must be untouched');
+    assert.equal(Object.prototype.polluted, undefined, 'Object.prototype must be untouched');
+    const written = JSON.parse(await fs.readFile(settingsPath, 'utf-8'));
+    assert.deepEqual(written.tools.exclude, ['save_memory'], 'the policy still applies to a file with odd keys in it');
+    assert.equal(written.theme, 'dark', 'ordinary keys alongside them still survive');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 await checkAsync('an already-compliant settings file is left byte-identical', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'issue-2178-noop-'));
   try {

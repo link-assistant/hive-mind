@@ -162,10 +162,20 @@ const isPlainObject = value => !!value && typeof value === 'object' && !Array.is
  * Arrays are unioned rather than replaced so an operator's own `tools.exclude`
  * entries survive; scalars are overwritten, because the whole point is that the
  * policy wins.
+ *
+ * `__proto__`, `constructor` and `prototype` are skipped outright. Today this
+ * function is only ever handed {@link GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS}, a
+ * frozen literal whose keys are all ordinary, so none of them can occur — but
+ * that is a fact about the caller, not about the function, and callers change
+ * (CodeQL `js/prototype-pollution-utility`). The guard is written as explicit
+ * comparisons rather than a lookup in a shared set because that is the shape the
+ * query recognises as a barrier, and a guard a scanner cannot see is one that
+ * gets reported again every time someone touches the file.
  */
 const mergeSettings = (target, desired, prefix = '') => {
   const changed = [];
   for (const [key, value] of Object.entries(desired)) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
     const dotted = prefix ? `${prefix}.${key}` : key;
     if (isPlainObject(value)) {
       if (!isPlainObject(target[key])) target[key] = {};

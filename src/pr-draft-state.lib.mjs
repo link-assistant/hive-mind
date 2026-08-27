@@ -21,6 +21,7 @@
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
+ * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
 // rate-limit marker (#1726): callers pass in a `$` already wrapped by wrapDollarWithGhRetry.

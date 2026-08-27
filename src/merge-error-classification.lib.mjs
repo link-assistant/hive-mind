@@ -23,6 +23,7 @@
  * so every merge call site can share the same answer.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2182
+ * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
 /**

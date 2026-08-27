@@ -159,12 +159,21 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
 }
 
 export async function endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached = false }) {
-  // Post end work session comment and convert PR back to ready if in continue mode.
+  // Post end work session comment and convert PR back to ready for review.
+  //
   // Issue #2123: the ready conversion mirrors startWorkSession's draft conversion, so it must
   // run for every continue-mode session, not only for --watch/--auto-continue ones.
-  if (isContinueMode && prNumber) {
+  //
+  // Issue #2182: the `isContinueMode` gate is deliberately gone from the ready conversion.
+  // A session that created the pull request itself (isContinueMode === false) can still leave
+  // it in draft — either because the AI opened it as a draft, or because an auto-restart
+  // iteration converted it — and hive-mind, not the AI, owns putting it back. In the reported
+  // run isContinueMode was false for the whole process, so this function did nothing and the
+  // PR stayed a draft while --auto-merge retried the merge 2692 times over 4d 12h.
+  // Session *comments* stay gated: they are about --watch/--auto-continue reporting, not state.
+  if (prNumber) {
     const workEndTime = new Date();
-    const shouldPostSessionComment = argv.watch || argv.autoContinue;
+    const shouldPostSessionComment = isContinueMode && (argv.watch || argv.autoContinue);
     await log(`\n${formatAligned('🏁', 'Ending work session:', workEndTime.toISOString())}`);
 
     // Only post end comment if logs were NOT already attached
@@ -194,7 +203,9 @@ export async function endWorkSession({ isContinueMode, prNumber, argv, log, form
       await log(formatAligned('ℹ️', 'Skipping:', 'End comment (logs already attached with session end message)', 2));
     }
 
-    // Convert PR back to ready for review (issue #2123: shared implementation)
+    // Convert PR back to ready for review (issue #2123: shared implementation).
+    // This is the invariant of the whole draft/ready state machine: a finished working
+    // session never leaves a pull request in draft (issue #2182).
     const { reportError } = await import('./sentry.lib.mjs');
     await ensurePullRequestIsReady({
       owner: global.owner,

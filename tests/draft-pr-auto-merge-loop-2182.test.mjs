@@ -166,6 +166,9 @@ console.log('\nWiring: every merge path must handle the draft state (Issue #2182
 const githubMergeSrc = readSrc('github-merge.lib.mjs');
 const restartSrc = readSrc('solve.restart-shared.lib.mjs');
 const autoMergeSrc = readSrc('solve.auto-merge.lib.mjs');
+// Issue #1593: the guard rails live in their own module so solve.auto-merge.lib.mjs
+// stays under the 1350-line advisory threshold.
+const guardsSrc = readSrc('solve.auto-merge-guards.lib.mjs');
 const attemptSrc = readSrc('solve.auto-merge-attempt.lib.mjs');
 const helpersSrc = readSrc('solve.auto-merge-helpers.lib.mjs');
 const queueSrc = readSrc('telegram-merge-queue.lib.mjs');
@@ -191,15 +194,17 @@ await test('RC-C: mergePullRequest classifies its failures', () => {
 });
 
 await test('the auto-merge watch loop stops instead of only logging "Will continue monitoring"', () => {
-  assert(autoMergeSrc.includes('MAX_CONSECUTIVE_MERGE_FAILURES'), 'the watch loop must bound consecutive merge failures');
-  assert(autoMergeSrc.includes("reason: 'merge_failed'"), 'exhausted merge failures must be reported and stop the loop');
+  assert(guardsSrc.includes('MAX_CONSECUTIVE_MERGE_FAILURES'), 'the watch loop must bound consecutive merge failures');
+  assert(guardsSrc.includes("action: 'stop', reason: 'merge_failed'"), 'exhausted merge failures must be reported and stop the loop');
+  assert(autoMergeSrc.includes("decision.action === 'stop'"), 'the watch loop must honour the guard decision instead of only logging');
   assert(autoMergeSrc.includes("reason: 'watch_timeout'"), 'the wall-clock timeout must be reported');
 });
 
 await test('the auto-merge watch loop self-heals a draft PR', () => {
   assert(autoMergeSrc.includes("blockers.find(b => b.type === 'draft')"), 'the watch loop must react to the draft blocker');
-  assert(autoMergeSrc.includes('ensurePullRequestIsReady('), 'the watch loop must mark the PR ready again');
-  assert(autoMergeSrc.includes('MAX_DRAFT_SELF_HEALS'), 'the self-heal must be bounded');
+  assert(autoMergeSrc.includes('resolveDraftBlocker('), 'the watch loop must delegate to the draft guard');
+  assert(guardsSrc.includes('ensurePullRequestIsReady('), 'the guard must mark the PR ready again');
+  assert(guardsSrc.includes('MAX_DRAFT_SELF_HEALS'), 'the self-heal must be bounded');
 });
 
 await test('getMergeBlockers emits a dedicated draft blocker on every path', () => {

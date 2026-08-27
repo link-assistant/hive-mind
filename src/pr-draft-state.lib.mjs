@@ -11,13 +11,91 @@
  * keep-working, auto-ensure, PR-placeholder restart) kept the PR marked as
  * "ready for review" while the AI was actively working on it.
  *
+ * Issue #2182: the draft transition was code-driven and unconditional while the
+ * matching ready transition was delegated to the AI tool (the prompt asks it to run
+ * `gh pr ready <n>`) and to `endWorkSession()`, which only runs in continue mode and
+ * only after the auto-merge watch loop returns. When the AI simply did not run the
+ * command, the pull request stayed a draft forever. This module therefore *tracks*
+ * every draft it hands out, so the matching ready transition can be guaranteed by
+ * code — including on the interrupt and fatal-error exit paths.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
+ * @see https://github.com/link-assistant/hive-mind/issues/2182
  */
 
 // rate-limit marker (#1726): callers pass in a `$` already wrapped by wrapDollarWithGhRetry.
 import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-limit.lib.mjs';
 
 const noopLog = async () => {};
+
+/**
+ * Issue #2182: pull requests this process put into draft for a working session that
+ * has not been converted back to "ready for review" yet.
+ *
+ * Keyed by `owner/repo#number`, module-level on purpose: like working-session.lib.mjs
+ * this is a per-process singleton, and the safety nets that drain it (interrupt
+ * handler, fatal-error handler) have no access to the call site that drafted the PR.
+ *
+ * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), since: string}>}
+ */
+const outstandingWorkingSessionDrafts = new Map();
+
+const draftKey = (owner, repo, prNumber) => `${owner}/${repo}#${prNumber}`;
+
+/**
+ * Record that a working session of this process is holding `prNumber` in draft.
+ * Also called when the pull request already was a draft: what matters for the
+ * invariant is that a session is now responsible for converting it back.
+ */
+const trackWorkingSessionDraft = ({ owner, repo, prNumber, reason }) => {
+  outstandingWorkingSessionDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason: reason || null, since: new Date().toISOString() });
+};
+
+/** Record that `prNumber` is no longer held in draft by this process. */
+const untrackWorkingSessionDraft = ({ owner, repo, prNumber }) => {
+  outstandingWorkingSessionDrafts.delete(draftKey(owner, repo, prNumber));
+};
+
+/**
+ * Pull requests currently held in draft by this process on behalf of a working session.
+ * @returns {Array<{owner: string, repo: string, prNumber: (number|string), reason: (string|null), since: string}>}
+ */
+export const getOutstandingWorkingSessionDrafts = () => Array.from(outstandingWorkingSessionDrafts.values());
+
+/** Forget every tracked draft (used by tests and by a clean process restart). */
+export const resetWorkingSessionDrafts = () => {
+  outstandingWorkingSessionDrafts.clear();
+};
+
+/**
+ * Issue #2182 safety net: convert back to "ready for review" every pull request this
+ * process left in draft for a working session that is now over.
+ *
+ * Called from the interrupt handler and the fatal-error handler, so an aborted session
+ * cannot leave a pull request permanently unmergeable. A no-op when nothing is
+ * outstanding, so it is safe to call on every exit path.
+ *
+ * @param {Object} options
+ * @param {Function} options.$ - command-stream style tagged template executor
+ * @param {Function} [options.log]
+ * @param {Function} [options.formatAligned]
+ * @param {string} [options.reason]
+ * @param {Function} [options.reportError]
+ * @returns {Promise<Array<Object>>} one result per restored pull request
+ */
+export const restorePullRequestsLeftInDraft = async ({ $, log = noopLog, formatAligned = null, reason = 'working session ended', reportError = null } = {}) => {
+  const pending = getOutstandingWorkingSessionDrafts();
+  if (pending.length === 0) {
+    return [];
+  }
+
+  await log(`🩹 Restoring ${pending.length} pull request(s) left in draft by this working session...`);
+  const results = [];
+  for (const entry of pending) {
+    results.push(await ensurePullRequestIsReady({ owner: entry.owner, repo: entry.repo, prNumber: entry.prNumber, $, log, formatAligned, reason, reportError }));
+  }
+  return results;
+};
 
 /**
  * Fetch the draft/open state of a pull request.
@@ -83,11 +161,20 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
 
     // A merged or closed pull request cannot change its draft state; GitHub rejects it.
     if (status.state && status.state !== 'OPEN') {
+      // A merged/closed PR can no longer block anything, so stop tracking it (#2182).
+      untrackWorkingSessionDraft({ owner, repo, prNumber });
       await write('ℹ️', 'PR status:', `${status.state.toLowerCase()} - skipping ${label} conversion`);
       return { ok: true, changed: false, skipped: true, reason: `pr_${status.state.toLowerCase()}`, error: null };
     }
 
     if (status.isDraft === wantDraft) {
+      // Issue #2182: even when the PR already is a draft, this session now owns the
+      // obligation to convert it back, so it must be tracked like any other draft.
+      if (wantDraft) {
+        trackWorkingSessionDraft({ owner, repo, prNumber, reason });
+      } else {
+        untrackWorkingSessionDraft({ owner, repo, prNumber });
+      }
       await write('✅', 'PR status:', `Already in ${label}`);
       return { ok: true, changed: false, skipped: true, reason: 'already_in_target_state', error: null };
     }
@@ -96,6 +183,11 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
     const convertResult = wantDraft ? await $`gh pr ready ${prNumber} --repo ${owner}/${repo} --undo` : await $`gh pr ready ${prNumber} --repo ${owner}/${repo}`;
 
     if (convertResult.code === 0) {
+      if (wantDraft) {
+        trackWorkingSessionDraft({ owner, repo, prNumber, reason });
+      } else {
+        untrackWorkingSessionDraft({ owner, repo, prNumber });
+      }
       await write('✅', 'PR converted:', `Now in ${label}`);
       return { ok: true, changed: true, skipped: false, reason: null, error: null };
     }
@@ -134,4 +226,7 @@ export default {
   getPullRequestDraftState,
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,
+  getOutstandingWorkingSessionDrafts,
+  restorePullRequestsLeftInDraft,
+  resetWorkingSessionDrafts,
 };

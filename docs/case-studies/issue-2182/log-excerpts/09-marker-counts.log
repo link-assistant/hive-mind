@@ -1,0 +1,13 @@
+# Source: full run log — marker counts over the whole 102244-line file
+# (produced with: grep -c "<marker>" full.log)
+
+      1  Converting PR
+      1  PR converted
+      1  is converted to "draft"
+      0  is marked as "ready for review"
+      1  RESTART TRIGGERED
+      0  Starting work session
+      0  Ending work session
+   2692  PR IS MERGEABLE
+   5384  still a draft
+   2692  Will continue monitoring

@@ -1,7 +1,8 @@
 /**
  * Interrupt wrapper factory for CTRL+C handling in solve sessions.
  *
- * On SIGINT, auto-commits uncommitted changes and uploads session logs if --attach-logs is enabled.
+ * On SIGINT, auto-commits uncommitted changes, restores the pull request draft state and
+ * uploads session logs if --attach-logs is enabled.
  */
 
 /**
@@ -57,6 +58,22 @@ export const createInterruptWrapper = ({ cleanupContext, checkForUncommittedChan
           level: 'warning',
         });
       }
+    }
+
+    // Issue #2182: CTRL+C ends the working session, so the pull request must go back to
+    // "ready for review" exactly like a normal session end. This runs before the log upload
+    // on purpose: it is two fast gh calls, while attaching a multi-MB log can be cut off by
+    // the isolation backend's SIGKILL (#2052). A pull request left in draft can never be
+    // merged by --auto-merge, so restoring it is the more important of the two.
+    try {
+      const { restorePullRequestsLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+      await trace('draft-restore: start');
+      await restorePullRequestsLeftInDraft({ $, log, reason: 'session interrupted (CTRL+C)' });
+      await trace('draft-restore: done');
+    } catch (restoreError) {
+      await log(`⚠️  Could not restore pull request draft state on interrupt: ${restoreError.message}`, {
+        level: 'warning',
+      });
     }
 
     // Upload logs if --attach-logs is enabled and we have a PR

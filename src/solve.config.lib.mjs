@@ -230,6 +230,14 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Maximum number of auto-restart iterations before stopping (default: 5, 0 = unlimited)',
     default: 5,
   },
+  // Issue #2182: the auto-restart-until-mergeable watch loop had no wall-clock
+  // ceiling, so a pull request that could never merge kept a task "processing"
+  // for 4d 12h 13m.
+  'auto-restart-until-mergeable-timeout-hours': {
+    type: 'number',
+    description: 'Maximum wall-clock hours the --auto-restart-until-mergeable/--auto-merge monitoring loop may run before stopping and reporting (default: 24, 0 = unlimited)',
+    default: 24,
+  },
   'resume-on-auto-restart': {
     type: 'boolean',
     description: '[EXPERIMENTAL] Resume the previous Claude session on uncommitted-change auto-restart and send only a minimal restart prompt. Disabled by default.',

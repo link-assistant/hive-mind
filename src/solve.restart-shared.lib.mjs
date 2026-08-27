@@ -39,7 +39,7 @@ const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await impo
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
-const { ensurePullRequestIsDraft } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsDraft, ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -525,6 +525,25 @@ export const executeToolIteration = async params => {
   // this iteration's part of the log.
   const { finalizeActiveDevelopmentLog } = await import('./development-log.finalize.lib.mjs');
   await (toolResult?.sessionId ? finalizeActiveDevelopmentLog({ sessionId: toolResult.sessionId }) : finalizeActiveDevelopmentLog({ force: true }));
+
+  // Issue #2182: the iteration drafted the pull request above, so it must also
+  // undo that when the AI session finishes — exactly like endWorkSession() does
+  // for the primary session. Without this the pull request stayed a draft after
+  // the last restart iteration and --auto-merge retried `gh pr merge` every
+  // 120 seconds for 4d 12h ("Pull Request is still a draft"), because a draft
+  // PR still reports mergeable=MERGEABLE / mergeStateStatus=CLEAN.
+  if (prNumber) {
+    await ensurePullRequestIsReady({
+      owner,
+      repo,
+      prNumber,
+      $,
+      log,
+      formatAligned,
+      reason: 'restart iteration finished',
+      reportError,
+    });
+  }
 
   return toolResult;
 };

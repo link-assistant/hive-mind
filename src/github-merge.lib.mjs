@@ -21,6 +21,9 @@ import { githubLimits } from './config.lib.mjs';
 import { ghWithRateLimitRetry } from './github-rate-limit.lib.mjs';
 import { getTerminalGitHubEntityErrorMessage, isTerminalGitHubEntityError } from './github-terminal-state.lib.mjs';
 import { cancellableSleep } from './interruptible-sleep.lib.mjs';
+// Issue #2182: draft detection and merge-failure classification live in one
+// pure module shared by every merge call site.
+import { classifyMergeError, evaluatePullRequestMergeability } from './merge-error-classification.lib.mjs';
 
 // Issue #1722: gh api `--paginate --slurp` responses for repos with many
 // historical workflow runs can easily exceed Node's default 1 MB exec buffer
@@ -466,7 +469,12 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false, o
   for (let attempt = 0; attempt < MAX_UNKNOWN_RETRIES; attempt++) {
     if (isCancelled?.()) return { mergeable: false, reason: 'Operation was cancelled', cancelled: true };
     try {
-      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json mergeable,mergeStateStatus`);
+      // Issue #2182: `isDraft` MUST be part of this query. GitHub answers
+      // mergeable=MERGEABLE / mergeStateStatus=CLEAN for a draft pull request
+      // with no other blockers, so without this field a draft PR was declared
+      // mergeable and `gh pr merge` failed forever with
+      // "Pull Request is still a draft".
+      const { stdout } = await exec(`gh pr view ${prNumber} --repo ${owner}/${repo} --json isDraft,mergeable,mergeStateStatus`);
       const pr = JSON.parse(stdout.trim());
 
       // Issue #1339: If mergeStateStatus is 'UNKNOWN', GitHub is still computing.
@@ -486,36 +494,16 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false, o
         return { mergeable: false, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
 
-      const mergeable = pr.mergeable === 'MERGEABLE';
-      let reason = null;
-
-      if (!mergeable) {
-        switch (pr.mergeStateStatus) {
-          case 'BLOCKED':
-            reason = 'PR is blocked (possibly by branch protection rules)';
-            break;
-          case 'BEHIND':
-            reason = 'PR branch is behind the base branch';
-            break;
-          case 'DIRTY':
-            reason = 'PR has merge conflicts';
-            break;
-          case 'UNSTABLE':
-            reason = 'PR has failing required status checks';
-            break;
-          case 'DRAFT':
-            reason = 'PR is a draft';
-            break;
-          default:
-            reason = `Merge state: ${pr.mergeStateStatus || 'unknown'}`;
-        }
-      }
+      const evaluation = evaluatePullRequestMergeability(pr);
 
       if (verbose) {
-        console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${mergeable}, state: ${pr.mergeStateStatus}`);
+        // Issue #2182: isDraft is logged explicitly. In the reported 4.5-day run
+        // the log only ever showed "mergeable: true, state: CLEAN", which hid the
+        // actual blocker.
+        console.log(`[VERBOSE] /merge: PR #${prNumber} mergeable: ${evaluation.mergeable}, state: ${pr.mergeStateStatus}, isDraft: ${pr.isDraft === true}`);
       }
 
-      return { mergeable, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason };
+      return { mergeable: evaluation.mergeable, isDraft: evaluation.isDraft, mergeableState: evaluation.mergeableState, mergeStateStatus: evaluation.mergeStateStatus, reason: evaluation.reason };
     } catch (error) {
       if (isTerminalGitHubEntityError(error)) {
         const terminalError = getTerminalGitHubEntityErrorMessage(error);
@@ -607,12 +595,20 @@ export async function mergePullRequest(owner, repo, prNumber, options = {}, verb
 
     return { success: true, error: null };
   } catch (error) {
+    // Issue #2182: classify the failure so watch loops can stop (or self-heal)
+    // instead of retrying an impossible merge every 120 seconds forever.
+    const classification = classifyMergeError(error.message);
     if (verbose) {
       console.log(`[VERBOSE] /merge: Failed to merge PR #${prNumber}: ${error.message}`);
+      console.log(`[VERBOSE] /merge: Failure category: ${classification.category} (terminal=${classification.terminal}, recoverable=${classification.recoverable})`);
     }
-    return { success: false, error: error.message };
+    return { success: false, error: error.message, category: classification.category, terminal: classification.terminal, recoverable: classification.recoverable, resolution: classification.resolution };
   }
 }
+
+// Issue #2182: re-exported so merge call sites can import classification from
+// the same module they already use for merging.
+export { classifyMergeError, evaluatePullRequestMergeability, MERGE_ERROR_CATEGORIES, MAX_CONSECUTIVE_MERGE_FAILURES } from './merge-error-classification.lib.mjs';
 
 /**
  * Parse and validate a repository URL for the merge command

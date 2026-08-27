@@ -460,7 +460,9 @@ export class MergeQueueProcessor {
         }
         const waitForReadyResult = await this.waitForPRReady(item, mergeableCheck);
         if (!waitForReadyResult.success) {
-          if (waitForReadyResult.status === 'cancelled' || waitForReadyResult.status === 'conflict') {
+          // Issue #2182: 'draft' joins cancel/conflict as a skip, not a failure —
+          // the pull request author has to mark it ready for review first.
+          if (waitForReadyResult.status === 'cancelled' || waitForReadyResult.status === 'conflict' || waitForReadyResult.status === 'draft') {
             item.status = MergeItemStatus.SKIPPED;
             item.error = waitForReadyResult.error;
             this.stats.skipped++;

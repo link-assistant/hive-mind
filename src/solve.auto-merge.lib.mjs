@@ -31,6 +31,11 @@ const { reportError } = sentryLib;
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
 const { checkMergePermissions, mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+// Issue #2182: merge-failure classification + the draft/ready state machine.
+// A draft pull request reports mergeable=MERGEABLE/CLEAN, so this loop needs an
+// explicit draft check and a bounded, classified merge-retry policy.
+const { classifyMergeError, MAX_CONSECUTIVE_MERGE_FAILURES } = await import('./merge-error-classification.lib.mjs');
+const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
 // Import GitHub functions for log attachment
 const githubLib = await import('./github.lib.mjs');
 const { sanitizeLogContent, attachLogToGitHub } = githubLib;
@@ -97,6 +102,35 @@ const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
+ * Issue #2182: how long to wait after restoring "ready for review" before the
+ * next mergeability check. Short on purpose: nothing is running, we only need
+ * GitHub to reflect the new state.
+ */
+const DRAFT_RECHECK_DELAY_MS = 5000;
+
+/** Issue #2182: default wall-clock ceiling for the auto-restart-until-mergeable loop. */
+export const DEFAULT_WATCH_TIMEOUT_HOURS = 24;
+
+/**
+ * Issue #2182: normalize the `--auto-restart-until-mergeable-timeout-hours`
+ * value. `0` (and any negative/NaN input) means "no wall-clock limit"; when the
+ * flag is absent the default keeps a run from silently occupying a queue slot
+ * for days, as happened in the reported 4d 12h run.
+ *
+ * @param {number|string|null|undefined} raw
+ * @returns {number} hours, 0 = unlimited
+ */
+export const normalizeWatchTimeoutHours = raw => {
+  if (raw === undefined || raw === null || raw === '') return DEFAULT_WATCH_TIMEOUT_HOURS;
+  const parsed = Number(raw);
+  // A non-numeric value is a typo, not a request for an unlimited run: fall back
+  // to the default instead of silently disabling the timeout again (issue #2182).
+  if (!Number.isFinite(parsed)) return DEFAULT_WATCH_TIMEOUT_HOURS;
+  if (parsed <= 0) return 0;
+  return parsed;
+};
+
+/**
  * Main function: Watch and restart until PR becomes mergeable
  * This implements --auto-restart-until-mergeable functionality
  */
@@ -128,6 +162,17 @@ export const watchUntilMergeable = async params => {
   let lastKnownHeadSha = null;
   // Issue #1567: Initial cooldown to let CI register and solution logs post
   const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
+  // Issue #2182: this loop used to be `while (true)` with no wall-clock ceiling
+  // at all, so a permanently failing merge kept a single task "processing" for
+  // 4d 12h 13m. The timeout is the last-resort backstop below the specific
+  // fixes (draft detection, merge-failure classification).
+  const watchTimeoutHours = normalizeWatchTimeoutHours(argv.autoRestartUntilMergeableTimeoutHours ?? argv['auto-restart-until-mergeable-timeout-hours']);
+  const watchStartedAt = Date.now();
+  // Issue #2182: consecutive failed `gh pr merge` attempts, and how many times
+  // we silently restored "ready for review" on a pull request left as a draft.
+  let consecutiveMergeFailures = 0;
+  let draftSelfHealCount = 0;
+  const MAX_DRAFT_SELF_HEALS = 3;
 
   await log('');
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
@@ -137,6 +182,7 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
   await log(formatAligned('', 'Max restart iterations:', formatAutoRestartLimit(), 2));
   await log(formatAligned('', 'Max limit resumes:', formatAutoIterationLimit(maxAutoResumeIterations), 2));
+  await log(formatAligned('', 'Watch timeout:', watchTimeoutHours > 0 ? `${watchTimeoutHours} hour(s)` : 'unlimited', 2));
   await log(formatAligned('', 'Wait for all repo actions:', waitForAllRepoActionsFlag ? 'Yes (strict repo-wide safety)' : 'No (PR-scoped CI only)', 2));
   await log(formatAligned('', 'Stop conditions:', 'PR merged, PR closed, or becomes mergeable', 2));
   await log(formatAligned('', 'Restart triggers:', 'New non-bot comments, issue title/description edits, CI failures, merge conflicts', 2));
@@ -163,6 +209,16 @@ export const watchUntilMergeable = async params => {
   while (true) {
     iteration++;
     const currentTime = new Date();
+    // Issue #2182: hard wall-clock ceiling for the whole monitoring loop.
+    const elapsedHours = (Date.now() - watchStartedAt) / 3600000;
+    if (watchTimeoutHours > 0 && elapsedHours >= watchTimeoutHours) {
+      const timeoutMessage = `Auto-restart-until-mergeable stopped after ${elapsedHours.toFixed(1)}h (limit: ${watchTimeoutHours}h, ${iteration - 1} checks). The pull request never became mergeable.`;
+      await log('');
+      await log(formatAligned('⏱️', 'WATCH TIMEOUT REACHED:', timeoutMessage, 2), { level: 'error' });
+      await log('');
+      await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'watch_timeout', mode: 'auto-restart-until-mergeable', message: timeoutMessage, details: [`Raise or disable the limit with --auto-restart-until-mergeable-timeout-hours (0 = unlimited).`], verbose: argv.verbose, log });
+      return { success: false, reason: 'watch_timeout', latestSessionId, latestAnthropicCost };
+    }
     const terminalState = await checkGitHubTerminalState({
       owner,
       repo,
@@ -217,6 +273,8 @@ export const watchUntilMergeable = async params => {
         }
         lastKnownHeadSha = currentHeadSha;
         consecutiveNoRunsChecks = 0;
+        // Issue #2182: a new commit is a genuinely new merge attempt.
+        consecutiveMergeFailures = 0;
         // Issue #1503: Also reset the readyToMergeCommentPosted flag when SHA changes,
         // so a new "Ready to merge" comment can be posted for the new commit's CI results.
         readyToMergeCommentPosted = false;
@@ -236,6 +294,31 @@ export const watchUntilMergeable = async params => {
         await log('');
         await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'terminal_github_entity_error', mode: 'auto-restart-until-mergeable', message: terminalGitHubBlocker.message, details: terminalGitHubBlocker.details, verbose: argv.verbose, log });
         return { success: false, reason: 'terminal_github_entity_error', latestSessionId, latestAnthropicCost };
+      }
+      // Issue #2182: a pull request that is still a draft while no AI session is
+      // running is a leftover from a restart iteration (executeToolIteration
+      // drafts the PR on entry). GitHub answers mergeable=MERGEABLE/CLEAN for it,
+      // so nothing else in this loop notices — the merge then fails with
+      // "Pull Request is still a draft" on every single check. Restore
+      // "ready for review" here instead of burning an AI restart iteration.
+      const draftBlocker = blockers.find(b => b.type === 'draft');
+      if (draftBlocker) {
+        await log(formatAligned('📝', 'PR is a draft:', 'no AI session is running - restoring "ready for review"', 2), { level: 'warning' });
+        if (draftSelfHealCount >= MAX_DRAFT_SELF_HEALS) {
+          const message = `Pull request #${prNumber} keeps returning to draft state (${draftSelfHealCount} restore attempts). A draft pull request cannot be merged.`;
+          await log(formatAligned('❌', 'DRAFT STATE UNRECOVERABLE:', message, 2), { level: 'error' });
+          await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'draft_pull_request', mode: 'auto-restart-until-mergeable', message, details: ['Mark the pull request as ready for review manually (gh pr ready), then rerun.'], verbose: argv.verbose, log });
+          return { success: false, reason: 'draft_pull_request', latestSessionId, latestAnthropicCost };
+        }
+        draftSelfHealCount++;
+        const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'auto-restart-until-mergeable: draft blocks the merge', reportError });
+        if (readyResult?.ok) {
+          await log(formatAligned('✅', 'Draft restored:', `PR #${prNumber} is ready for review again (attempt ${draftSelfHealCount}/${MAX_DRAFT_SELF_HEALS})`, 2));
+          lastCheckTime = currentTime;
+          await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
+          continue;
+        }
+        await log(formatAligned('⚠️', 'Draft restore failed:', readyResult?.error || 'unknown error', 2), { level: 'warning' });
       }
       // Issue #1503/#1918: Reset counter when CI checks exist (safety valve only for
       // consecutive "no runs"). Issue #1918: do NOT reset while getMergeBlockers is still
@@ -384,7 +467,37 @@ export const watchUntilMergeable = async params => {
             }
             return { success: true, reason: 'auto-merged', latestSessionId, latestAnthropicCost };
           } else {
-            await log(formatAligned('⚠️', 'Auto-merge failed:', mergeResult.error || 'Unknown error', 2));
+            // Issue #2182: an unclassified merge failure used to be logged as
+            // "Will continue monitoring..." and retried every 120 seconds
+            // forever (5384 identical failures in the reported run). Classify
+            // it: self-heal what we can, stop on terminal causes, and cap the
+            // number of consecutive failures for everything else.
+            consecutiveMergeFailures++;
+            const classification = classifyMergeError(mergeResult.error);
+            await log(formatAligned('⚠️', 'Auto-merge failed:', mergeResult.error || 'Unknown error', 2), { level: 'warning' });
+            await log(formatAligned('', 'Failure category:', `${classification.category} (attempt ${consecutiveMergeFailures}/${MAX_CONSECUTIVE_MERGE_FAILURES})`, 2), { level: 'warning' });
+            if (classification.resolution) {
+              await log(formatAligned('', 'Resolution:', classification.resolution, 2), { level: 'warning' });
+            }
+
+            if (classification.recoverable && classification.category === 'draft' && draftSelfHealCount < MAX_DRAFT_SELF_HEALS) {
+              draftSelfHealCount++;
+              await log(formatAligned('🔧', 'Self-healing:', `marking PR #${prNumber} as ready for review (attempt ${draftSelfHealCount}/${MAX_DRAFT_SELF_HEALS})`, 2));
+              const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'auto-merge: GitHub rejected the merge because the PR is a draft', reportError });
+              if (readyResult?.ok) {
+                lastCheckTime = currentTime;
+                await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
+                continue;
+              }
+            }
+
+            if (classification.terminal || consecutiveMergeFailures >= MAX_CONSECUTIVE_MERGE_FAILURES) {
+              const message = `GitHub refused to merge pull request #${prNumber}: ${mergeResult.error || 'Unknown error'}`;
+              await log(formatAligned('❌', 'AUTO-MERGE STOPPED:', classification.terminal ? 'the failure is terminal - retrying cannot succeed' : `${consecutiveMergeFailures} consecutive merge failures`, 2), { level: 'error' });
+              await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'merge_failed', mode: 'auto-merge', message, details: [classification.resolution || 'Merge the pull request manually after resolving the cause.', `Failure category: ${classification.category}`], verbose: argv.verbose, log });
+              return { success: false, reason: 'merge_failed', error: mergeResult.error, latestSessionId, latestAnthropicCost };
+            }
+
             await log(formatAligned('', 'Will continue monitoring...', '', 2));
           }
         } else {

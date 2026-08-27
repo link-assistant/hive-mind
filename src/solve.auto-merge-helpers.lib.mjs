@@ -504,6 +504,19 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     // then no CI is required and we should not block indefinitely.
     // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
     const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+    // Issue #2182: a draft pull request reports mergeable=false now, which would
+    // otherwise fall into the "checks have not started yet" race-condition branch
+    // below and hide the real reason behind a ci_pending blocker forever. The
+    // `no_checks` branch owns several early returns, so the draft blocker has to
+    // be emitted here to reach the caller through every one of them.
+    if (earlyMergeStatus.isDraft) {
+      blockers.push({
+        type: 'draft',
+        message: earlyMergeStatus.reason || 'PR is a draft',
+        details: [],
+      });
+      return { blockers, ciStatus, noCiConfigured: false, noCiTriggered: false, noWorkflowRunsForCommit };
+    }
     if (earlyMergeStatus.mergeable) {
       // Issue #1363: Before concluding "no CI configured", verify the repo actually
       // has no active GitHub Actions workflows. If workflows exist but no checks have
@@ -972,8 +985,14 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
   }
 
   if (!mergeStatus.mergeable) {
+    // Issue #2182: a draft pull request gets its own blocker type. GitHub keeps
+    // reporting mergeable=MERGEABLE/CLEAN for drafts, so before this the loop
+    // saw no blocker at all, declared "PR IS MERGEABLE!" and then failed the
+    // actual merge with "Pull Request is still a draft" on every check for
+    // 4d 12h. The dedicated type also lets the caller self-heal (mark ready)
+    // instead of burning an AI restart iteration on it.
     blockers.push({
-      type: 'not_mergeable',
+      type: mergeStatus.isDraft ? 'draft' : 'not_mergeable',
       message: mergeStatus.reason || 'PR is not mergeable',
       details: [],
     });

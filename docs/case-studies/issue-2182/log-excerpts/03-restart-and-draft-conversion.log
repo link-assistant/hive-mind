@@ -1,0 +1,13 @@
+ * branch            issue-141-71671ce6c096 -> FETCH_HEAD
+Already up to date.
+🔄 Synced:                   Local branch issue-141-71671ce6c096 updated from remote
+🔄 RESTART TRIGGERED:        CI failures detected
+   Restart iteration:      1/5
+
+...
+{"isDraft":false,"state":"OPEN"}
+   🔍 PR #142 draft state: isDraft=false, state=OPEN
+  📝 Converting PR:          To draft mode (restart iteration)...
+✓ Pull request link-foundation/js-ai-driven-development-pipeline-template#142 is converted to "draft"
+  ✅ PR converted:           Now in draft mode
+Checking MCP server health…

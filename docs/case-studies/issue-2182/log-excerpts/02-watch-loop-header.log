@@ -1,0 +1,21 @@
+   Watch mode not enabled - exiting startWatchMode
+[VERBOSE] /merge: Merge permissions for link-foundation/js-ai-driven-development-pipeline-template: push=true, admin=true, maintain=true
+[VERBOSE] /merge: Can merge: true
+
+🔄 AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE 
+   Monitoring PR:          #142
+   Mode:                   Auto-merge (will merge when ready)
+   Checking interval:      120 seconds (minimum: 120s)
+   Initial cooldown:       120 seconds
+   Max restart iterations: 5
+   Max limit resumes:      5
+   Wait for all repo actions: No (PR-scoped CI only)
+   Stop conditions:        PR merged, PR closed, or becomes mergeable
+   Restart triggers:       New non-bot comments, issue title/description edits, CI failures, merge conflicts
+
+Press Ctrl+C to stop watching manually
+
+⏳ Initial cooldown:         Waiting 120s before first check...
+✅ Cooldown complete:        Starting monitoring loop
+
+🔍 Check #1:                 7:02:29 PM

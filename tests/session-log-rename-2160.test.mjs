@@ -132,7 +132,10 @@ await test('every tool executor call in a restart iteration forwards both access
   const iterationStart = restartSrc.indexOf('export const executeToolIteration');
   assert(iterationStart !== -1, 'executeToolIteration should exist');
   const body = restartSrc.slice(iterationStart);
-  const calls = [...body.matchAll(/await execute(Claude|OpenCode|Codex|Agent|Gemini|Qwen)\(\{([\s\S]*?)\n {4}\}\);/g)];
+  // Issue #2182 wrapped the tool-execution body in a try/finally, so the calls
+  // are no longer at a fixed indentation. Match the closing brace at whatever
+  // indentation it sits at instead of hard-coding four spaces.
+  const calls = [...body.matchAll(/await execute(Claude|OpenCode|Codex|Agent|Gemini|Qwen)\(\{([\s\S]*?)\n[ \t]*\}\);/g)];
   assert(calls.length >= 6, `expected all six tool executor calls, found ${calls.length}`);
   for (const [, tool, args] of calls) {
     assert(/\n\s+setLogFile,/.test(args), `execute${tool} must forward setLogFile`);

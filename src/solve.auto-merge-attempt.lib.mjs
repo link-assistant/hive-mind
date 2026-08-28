@@ -48,6 +48,23 @@ const { AUTO_MERGE_BLOCKED_MARKER, buildAutoMergeBlockedComment, reportAutomatio
 
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
 
+// Issue #2182: a pull request left in draft state by a restart iteration reports
+// mergeable=MERGEABLE/CLEAN, but `gh pr merge` refuses it with "Pull Request is
+// still a draft". Restore "ready for review" once and retry instead of failing
+// (or, in the watch loop, retrying forever).
+const { classifyMergeError, MERGE_ERROR_CATEGORIES } = await import('./merge-error-classification.lib.mjs');
+const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+const { reportError } = await import('./sentry.lib.mjs');
+
+/**
+ * Mark the pull request ready for review because its draft state is what blocks
+ * the merge. Returns true when the state was restored (or already correct).
+ */
+const restoreReadyForReview = async ({ owner, repo, prNumber, reason }) => {
+  const result = await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason, reportError });
+  return result?.ok === true;
+};
+
 const shouldDeleteBranchAfterMerge = argv => argv.autoDeleteBranchOnMerge || argv.deleteBranchAfterMerge || false;
 
 /**
@@ -161,7 +178,7 @@ export const attemptAutoMerge = async params => {
   await log(formatAligned('✅', 'CI checks passed:', 'Checking mergeability...', 2));
 
   // Check if PR is mergeable
-  const mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
+  let mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
   if (mergeStatus.terminal) {
     await log(formatAligned('❌', 'GITHUB TARGET UNAVAILABLE:', mergeStatus.reason || 'GitHub repository, pull request, issue, or branch is no longer accessible', 2), { level: 'error' });
     await reportAutomationStop({
@@ -176,6 +193,15 @@ export const attemptAutoMerge = async params => {
       log,
     });
     return { success: false, reason: 'terminal_github_entity_error', error: mergeStatus.reason };
+  }
+
+  if (!mergeStatus.mergeable && mergeStatus.isDraft) {
+    // Issue #2182: the only blocker is the draft state this tool set itself.
+    await log(formatAligned('📝', 'PR is a draft:', 'restoring "ready for review" before merging', 2), { level: 'warning' });
+    const restored = await restoreReadyForReview({ owner, repo, prNumber, reason: 'auto-merge: draft blocks the merge' });
+    if (restored) {
+      mergeStatus = await checkPRMergeable(owner, repo, prNumber, argv.verbose);
+    }
   }
 
   if (!mergeStatus.mergeable) {
@@ -198,7 +224,17 @@ export const attemptAutoMerge = async params => {
   if (deleteAfterMerge) {
     await log(formatAligned('', 'Branch cleanup:', 'will delete branch after successful merge', 2));
   }
-  const mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+  let mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+
+  // Issue #2182: GitHub can still refuse the merge because of the draft state
+  // even when `gh pr view` already answered CLEAN/MERGEABLE (stale read).
+  // Restore "ready for review" once and retry the merge exactly once.
+  if (!mergeResult.success && classifyMergeError(mergeResult.error).category === MERGE_ERROR_CATEGORIES.DRAFT) {
+    await log(formatAligned('🔧', 'Self-healing:', 'GitHub refused the merge because the PR is a draft - marking it ready', 2), { level: 'warning' });
+    if (await restoreReadyForReview({ owner, repo, prNumber, reason: 'auto-merge: GitHub rejected the merge because the PR is a draft' })) {
+      mergeResult = await mergePullRequest(owner, repo, prNumber, { squash: argv.squash || false, deleteAfter: deleteAfterMerge }, argv.verbose);
+    }
+  }
 
   if (mergeResult.success) {
     await log(formatAligned('🎉', 'PR MERGED SUCCESSFULLY!', ''));
@@ -223,7 +259,9 @@ export const attemptAutoMerge = async params => {
 
     return { success: true, reason: 'merged' };
   } else {
-    await log(formatAligned('⚠️', 'Merge failed:', mergeResult.error || 'Unknown error', 2));
+    const classification = classifyMergeError(mergeResult.error);
+    await log(formatAligned('⚠️', 'Merge failed:', mergeResult.error || 'Unknown error', 2), { level: 'warning' });
+    await log(formatAligned('', 'Failure category:', classification.category, 2), { level: 'warning' });
     await reportAutomationStop({
       $,
       owner,
@@ -232,6 +270,7 @@ export const attemptAutoMerge = async params => {
       reason: 'merge_failed',
       mode: 'auto-merge',
       message: mergeResult.error || 'GitHub rejected the merge request.',
+      details: [classification.resolution, `Failure category: ${classification.category}`].filter(Boolean),
       verbose: argv.verbose,
       log,
     });

@@ -45,6 +45,13 @@ export async function waitForPRReady(processor, item, initialCheck, options) {
       return { success: true, status: 'ready', error: null };
     }
 
+    // Issue #2182: a draft pull request never becomes mergeable on its own —
+    // waiting for the full CI timeout only delays the queue. Skip it right away
+    // with the real reason instead of a generic "did not become mergeable".
+    if (latestCheck?.isDraft) {
+      return { success: false, status: 'draft', error: `PR #${item.pr.number} is a draft — mark it ready for review before merging` };
+    }
+
     if (latestCheck?.reason === conflictSkipReason) {
       return { success: false, status: 'conflict', error: conflictSkipReason };
     }

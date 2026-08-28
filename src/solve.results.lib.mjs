@@ -802,18 +802,12 @@ Fixes ${issueRef}
               await log(`  ⚠️  Error updating PR description: ${descError.message}`);
             }
           }
-          // Check if PR is ready for review (convert from draft if necessary)
-          if (pr.isDraft) {
-            await log('  🔄 Converting PR from draft to ready for review...');
-            const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
-            if (readyResult.code === 0) {
-              await log('  ✅ PR converted to ready for review');
-            } else {
-              await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
-            }
-          } else {
-            await log('  ✅ PR is already ready for review', { verbose: true });
-          }
+          // Check if PR is ready for review (convert from draft if necessary).
+          // Issue #2182: this used to be an inline `gh pr ready` that bypassed
+          // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
+          // session draft registry that guarantees the ready transition on every exit path.
+          const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+          await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified' });
         }
 
         // Upload log file to PR if requested

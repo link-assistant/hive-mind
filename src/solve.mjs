@@ -1185,6 +1185,17 @@ try {
       logsAttached = true;
     }
   }
+  // Issue #2182: the AI working session is over at this point — everything below is
+  // monitoring and merging, not working. The pull request must therefore be back in
+  // "ready for review" BEFORE the auto-merge watch loop starts, because that loop can
+  // run for days and endWorkSession() (further down) is unreachable until it returns.
+  // In the reported run the PR was left in draft by an auto-restart iteration and
+  // `gh pr merge` answered "Pull Request is still a draft" 2692 times over 4d 12h.
+  if (prNumber) {
+    const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+    await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'AI working session finished', reportError });
+  }
+
   // Start auto-restart-until-mergeable mode if enabled This runs after the normal watch mode completes (if any) --auto-merge implies --auto-restart-until-mergeable
   if (argv.autoMerge || argv.autoRestartUntilMergeable) {
     const autoMergeResult = await startAutoRestartUntilMergeable({
@@ -1220,6 +1231,14 @@ try {
   await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {
   await finalizeDevelopmentLog(); // Preserve failed/interrupted sessions too.
+  // Issue #2182: a failed session is still a finished session. Restore every pull request
+  // this process put into draft, otherwise the failure leaves it permanently unmergeable.
+  try {
+    const { restorePullRequestsLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+    await restorePullRequestsLeftInDraft({ $, log, formatAligned, reason: 'working session failed', reportError });
+  } catch (restoreError) {
+    await log(`Warning: Could not restore pull request draft state: ${restoreError.message}`, { level: 'warning' });
+  }
   // Don't report authentication errors to Sentry as they are user configuration issues
   if (!error.isAuthError) {
     reportError(error, {

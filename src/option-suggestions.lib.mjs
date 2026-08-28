@@ -227,6 +227,7 @@ const KNOWN_OPTION_NAMES = [
   'allow-to-push-to-contributors-pull-requests-as-maintainer',
   'prefix-fork-name-with-owner-name',
   'auto-restart-max-iterations',
+  'auto-restart-until-mergeable-timeout-hours',
   'auto-resume-max-iterations',
   'auto-continue-only-on-new-comments',
   'auto-restart-on-limit-reset',

@@ -1,0 +1,23 @@
+📝 Raw command:              
+(cd "/tmp/gh-issue-solver-1781112847295" && claude --output-format stream-json --verbose --dangerously-skip-permissions --model claude-opus-4-8 --strict-mcp-config --mcp-config "/tmp/claude-mcp-no-useless-1781115598752-1595447.json" --disallowedTools AskUserQuestion CronCreate CronDelete CronList EnterPlanMode EnterWorktree ExitPlanMode ExitWorktree Monitor NotebookEdit PushNotification RemoteTrigger ScheduleWakeup mcp__claude_ai_Gmail__* mcp__claude_ai_Google_Drive__* mcp__claude_ai_Google_Calendar__* -p "Issue to solve: https://github.com/lefinepro/kefine/issues/166
+Your prepared branch: issue-166-3ff80d37f99b
+Your prepared working directory: /tmp/gh-issue-solver-1781112847295
+Your prepared Pull Request: https://github.com/lefinepro/kefine/pull/170
+
+❌ CI/CD checks are failing:
+  - E2E Tests
+
+Please fix the failing CI checks.
+
+============================================================
+🎯 AUTO-RESTART MODE INSTRUCTIONS:
+============================================================
+
+Ensure to get latest version of default branch to make all conflicts resolved if present.
+Ensure you comply with all CI/CD check requirements, and they pass.
+Ensure all changes are correct, consistent and fully meet all discussed requirements
+(check issue description and all comments in issue and in pull request).
+
+
+Continue.
+" --append-system-prompt "You are an AI issue solver. When you investigate issues, prefer root-cause analysis. When you communicate, prefer facts you have checked yourself or cite sources that provide evidence, such as quoted code or references to documents or web pages. When you are unsure or working from assumptions, test them yourself or ask clarifying questions.

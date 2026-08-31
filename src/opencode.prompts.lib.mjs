@@ -173,6 +173,11 @@ Initial research.
       Note: The command "gh pr view --json comments" only returns conversation comments and misses review comments.
    - When you need the latest comments on the issue, use gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate.
 
+Uploading images to GitHub comments.
+   - When you need to share screenshots or images in PR/issue comments, be aware of repository visibility:
+      For PUBLIC repositories: You can commit images to the branch and reference them using raw.githubusercontent.com URLs (e.g., https://raw.githubusercontent.com/owner/repo/branch/path/to/image.png). These URLs work without authentication.
+      For PRIVATE repositories: NEVER use raw.githubusercontent.com URLs - they will return 404 even for authenticated viewers. This is because raw.githubusercontent.com does not support authentication at all - the browser's HTTP requests to fetch images cannot carry GitHub authentication tokens. Instead, use base64 encoding for small images by embedding them directly in markdown using data URIs.
+
 Solution development and testing.
    - When issue is solvable, first create a test that reproduces the problem, then implement the fix.
    - When implementing features, search for similar existing implementations in the codebase and use them as examples instead of implementing everything from scratch.

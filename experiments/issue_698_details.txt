@@ -1,0 +1,11 @@
+title:	Make detailed case study on how our installation script performed and fix php check or installation
+state:	CLOSED
+author:	konard
+labels:	bug, enhancement
+comments:	0
+assignees:	
+projects:	
+milestone:	
+number:	698
+--
+https://gist.github.com/konard/f96cd3b08e13531a39744eec65c6efc0

@@ -746,6 +746,38 @@ export const watchForFeedback = async params => {
           } else {
             await log(formatAligned('✅', `${argv.tool.toUpperCase()} execution completed:`, 'Resuming watch mode...'));
           }
+
+          // Auto-commit any uncommitted changes after successful tool execution
+          // This prevents infinite restart loops when tools make changes but don't commit them
+          try {
+            const gitStatusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
+            if (gitStatusResult.code === 0) {
+              const statusOutput = gitStatusResult.stdout.toString().trim();
+              if (statusOutput) {
+                await log(formatAligned('💾', 'Auto-committing changes:', 'Found uncommitted changes after tool execution'));
+                const addResult = await $({ cwd: tempDir })`git add -A`;
+                if (addResult.code === 0) {
+                  const commitMessage = `Auto-commit: Changes made by ${argv.tool.toUpperCase()} during problem-solving session`;
+                  const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
+                  if (commitResult.code === 0) {
+                    await log(formatAligned('✅', 'Changes committed successfully', '', 2));
+                  } else {
+                    await log(formatAligned('⚠️', 'Failed to commit changes:', commitResult.stderr?.toString().trim(), 2));
+                  }
+                } else {
+                  await log(formatAligned('⚠️', 'Failed to stage changes:', addResult.stderr?.toString().trim(), 2));
+                }
+              }
+            }
+          } catch (commitError) {
+            reportError(commitError, {
+              context: 'auto_commit_after_tool_execution',
+              tempDir,
+              tool: argv.tool,
+              operation: 'auto_commit_changes'
+            });
+            await log(formatAligned('⚠️', 'Error during auto-commit:', commitError.message, 2));
+          }
         }
 
         // Clear the first iteration flag after handling initial uncommitted changes

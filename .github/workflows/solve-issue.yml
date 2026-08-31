@@ -1,0 +1,210 @@
+name: Solve Issue
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_url:
+        description: 'GitHub issue URL to solve (e.g., https://github.com/owner/repo/issues/123)'
+        required: true
+        type: string
+      model:
+        description: 'AI model to use (free models, no auth required)'
+        required: false
+        default: 'kimi-k2.5-free'
+        type: choice
+        options:
+          - kimi-k2.5-free
+          - minimax-m2.1-free
+          - gpt-5-nano
+          - glm-4.7-free
+          - big-pickle
+      auto_pull_request:
+        description: 'Automatically create a draft PR before solving'
+        required: false
+        default: true
+        type: boolean
+      auto_fork:
+        description: 'Automatically fork if no write access (for public repos)'
+        required: false
+        default: false
+        type: boolean
+      verbose:
+        description: 'Enable verbose logging'
+        required: false
+        default: false
+        type: boolean
+      pat_secret_name:
+        description: 'Secret name containing PAT for cross-repo access (leave empty to use GITHUB_TOKEN)'
+        required: false
+        default: ''
+        type: string
+
+# Default permissions for GITHUB_TOKEN
+# These are required for solve command to:
+# - Read and push code (contents: write)
+# - Create and comment on PRs (pull-requests: write)
+# - Read and comment on issues (issues: write)
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  solve:
+    name: Solve GitHub Issue
+    runs-on: ubuntu-latest
+    container:
+      image: konard/hive-mind:latest
+      options: --user root
+
+    steps:
+      - name: Validate Input
+        run: |
+          echo "Validating issue URL: ${{ inputs.issue_url }}"
+
+          # Basic URL validation
+          if [[ ! "${{ inputs.issue_url }}" =~ ^https://github\.com/[^/]+/[^/]+/(issues|pull)/[0-9]+$ ]]; then
+            echo "::error::Invalid GitHub issue/PR URL format"
+            echo "Expected format: https://github.com/owner/repo/issues/123"
+            exit 1
+          fi
+
+          echo "URL validation passed"
+
+      - name: Setup GitHub CLI Authentication
+        env:
+          # Use PAT if provided, otherwise use default GITHUB_TOKEN
+          GH_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+        run: |
+          echo "Setting up GitHub CLI authentication..."
+
+          # Verify gh CLI is available
+          gh --version
+
+          # Check authentication status
+          echo "Checking authentication status..."
+          gh auth status || true
+
+          # Test authentication by getting current user
+          echo "Testing authentication..."
+          if gh api user --jq '.login' 2>/dev/null; then
+            echo "Authenticated successfully"
+          else
+            echo "Using GITHUB_TOKEN (may have limited scope for API user endpoint)"
+            echo "This is expected behavior for GITHUB_TOKEN"
+          fi
+
+      - name: Extract Issue Information
+        id: issue-info
+        env:
+          GH_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+        run: |
+          # Extract owner/repo from URL
+          URL="${{ inputs.issue_url }}"
+          OWNER_REPO=$(echo "$URL" | sed -E 's|https://github.com/([^/]+/[^/]+)/.*|\1|')
+          OWNER=$(echo "$OWNER_REPO" | cut -d'/' -f1)
+          REPO=$(echo "$OWNER_REPO" | cut -d'/' -f2)
+          NUMBER=$(echo "$URL" | sed -E 's|.*/([0-9]+)$|\1|')
+
+          echo "owner=$OWNER" >> $GITHUB_OUTPUT
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+          echo "number=$NUMBER" >> $GITHUB_OUTPUT
+          echo "owner_repo=$OWNER_REPO" >> $GITHUB_OUTPUT
+
+          echo "Extracted information:"
+          echo "  Owner: $OWNER"
+          echo "  Repo: $REPO"
+          echo "  Number: $NUMBER"
+
+          # Try to get issue title (may fail for cross-repo without PAT)
+          if TITLE=$(gh issue view "$NUMBER" --repo "$OWNER_REPO" --json title --jq '.title' 2>/dev/null); then
+            echo "  Title: $TITLE"
+          else
+            echo "  Title: (could not fetch - may need PAT for cross-repo access)"
+          fi
+
+      - name: Check Repository Access
+        id: access-check
+        env:
+          GH_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+        run: |
+          OWNER_REPO="${{ steps.issue-info.outputs.owner_repo }}"
+
+          echo "Checking access to repository: $OWNER_REPO"
+
+          # Check if we have write access
+          PERMISSIONS=$(gh api "repos/$OWNER_REPO" --jq '.permissions // {}' 2>/dev/null || echo '{}')
+          PUSH_ACCESS=$(echo "$PERMISSIONS" | jq -r '.push // false')
+          ADMIN_ACCESS=$(echo "$PERMISSIONS" | jq -r '.admin // false')
+
+          echo "  Push access: $PUSH_ACCESS"
+          echo "  Admin access: $ADMIN_ACCESS"
+
+          if [[ "$PUSH_ACCESS" == "true" || "$ADMIN_ACCESS" == "true" ]]; then
+            echo "has_write_access=true" >> $GITHUB_OUTPUT
+            echo "Write access confirmed"
+          else
+            echo "has_write_access=false" >> $GITHUB_OUTPUT
+            echo "No write access - may need --auto-fork or PAT"
+          fi
+
+      - name: Run Solve Command
+        env:
+          GH_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+          GITHUB_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+        run: |
+          echo "Starting solve command..."
+          echo "Issue URL: ${{ inputs.issue_url }}"
+          echo "Model: ${{ inputs.model }}"
+          echo "Auto PR: ${{ inputs.auto_pull_request }}"
+          echo "Auto Fork: ${{ inputs.auto_fork }}"
+          echo "Verbose: ${{ inputs.verbose }}"
+
+          # Build command arguments
+          ARGS="--tool agent --model ${{ inputs.model }}"
+
+          if [[ "${{ inputs.auto_pull_request }}" == "true" ]]; then
+            ARGS="$ARGS --auto-pull-request-creation"
+          fi
+
+          if [[ "${{ inputs.auto_fork }}" == "true" ]]; then
+            ARGS="$ARGS --auto-fork"
+          fi
+
+          if [[ "${{ inputs.verbose }}" == "true" ]]; then
+            ARGS="$ARGS --verbose"
+          fi
+
+          # Run solve command
+          echo "Running: solve \"${{ inputs.issue_url }}\" $ARGS"
+          solve "${{ inputs.issue_url }}" $ARGS
+
+      - name: Summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ inputs.pat_secret_name != '' && secrets[inputs.pat_secret_name] || github.token }}
+        run: |
+          echo "## Solve Issue Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parameter | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Issue URL | ${{ inputs.issue_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model | ${{ inputs.model }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto PR | ${{ inputs.auto_pull_request }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto Fork | ${{ inputs.auto_fork }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Verbose | ${{ inputs.verbose }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auth Method | ${{ inputs.pat_secret_name != '' && 'PAT (custom secret)' || 'GITHUB_TOKEN (default)' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Try to find created PR
+          OWNER_REPO="${{ steps.issue-info.outputs.owner_repo }}"
+          NUMBER="${{ steps.issue-info.outputs.number }}"
+
+          echo "### Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # List recent PRs that might be related
+          echo "Recent PRs in repository:" >> $GITHUB_STEP_SUMMARY
+          gh pr list --repo "$OWNER_REPO" --state open --limit 5 --json number,title,url \
+            --template '{{range .}}- [#{{.number}}]({{.url}}): {{.title}}{{"\n"}}{{end}}' \
+            >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "Could not fetch PRs" >> $GITHUB_STEP_SUMMARY

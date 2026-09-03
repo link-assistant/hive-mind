@@ -430,6 +430,16 @@ For comprehensive configuration options, troubleshooting, and advanced use cases
 
 ---
 
+### 18. Git Transport Authentication
+
+Issue #2192: a git credential helper is only consulted after the server answers `401`, and github.com answers `200` for public repositories — so a public `git clone` (including the one `gh repo clone` runs) is sent **anonymously** even when a token is available, and GitHub can refuse it with _"temporarily limiting some unauthenticated downloads"_. Hive Mind therefore sends the token preemptively via `http.https://github.com/.extraheader`, injected through `GIT_CONFIG_*` environment variables so it is never written to a config file or a command line.
+
+| Environment Variable                   | Default        | Description                                                                                  |
+| -------------------------------------- | -------------- | -------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_DISABLE_GIT_AUTH_TRANSPORT` | false          | Set to `1`/`true`/`yes` to keep git downloads anonymous (disables preemptive authentication) |
+| `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (set by solve) | Diagnostic breadcrumb listing the hosts whose git traffic is authenticated                   |
+| `GH_TOKEN` / `GITHUB_TOKEN`            | (unset)        | Token used for git transport when set; otherwise `gh auth token` is used                     |
+
 ## Command-Line Options
 
 ### solve Options

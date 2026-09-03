@@ -1,0 +1,5 @@
+Repository: link-assistant/hive-mind
+Token source: gh auth token
+
+1. credential helper only (baseline): Authorization headers sent = 0
+2. GIT_CONFIG_* extraheader (the fix): Authorization headers sent = 3

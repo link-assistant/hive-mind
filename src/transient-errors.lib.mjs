@@ -76,10 +76,24 @@ export const GITHUB_SERVER_TRANSIENT_PATTERNS = Object.freeze([
 export const GIT_TRANSIENT_PATTERNS = Object.freeze(['unexpected disconnect', 'sideband', 'early eof', 'the remote end hung up', 'remote end hung up unexpectedly', 'rpc failed', 'fetch-pack', 'index-pack failed', 'transfer closed', 'unable to access', 'could not read from remote repository', 'failed to connect to github.com', 'operation timed out after', 'gnutls_handshake() failed', 'the requested url returned error: 5']);
 
 /**
+ * GitHub throttling *anonymous* git downloads (issue #2192):
+ *
+ *   fatal: remote error: GitHub is temporarily limiting some unauthenticated
+ *   downloads to protect the stability of the platform. Please retry later or
+ *   authenticate.
+ *
+ * Retryable — GitHub itself says "retry later" — but the *real* fix is to
+ * authenticate, which `src/git-auth-transport.lib.mjs` does before retrying.
+ * Kept as its own category so a run that hits this is never diagnosed as a
+ * generic network fault (the failing run reported "Unknown error" three times).
+ */
+export const ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS = Object.freeze(['temporarily limiting some unauthenticated downloads', 'limiting some unauthenticated downloads', 'please retry later or authenticate', 'retry later or authenticate']);
+
+/**
  * Union used by the general-purpose `isTransientNetworkError` helpers. Kept as
  * a single flat list so a caller cannot accidentally miss a category.
  */
-export const ALL_TRANSIENT_PATTERNS = Object.freeze([...NETWORK_TRANSIENT_PATTERNS, ...GITHUB_SERVER_TRANSIENT_PATTERNS, ...GIT_TRANSIENT_PATTERNS]);
+export const ALL_TRANSIENT_PATTERNS = Object.freeze([...NETWORK_TRANSIENT_PATTERNS, ...GITHUB_SERVER_TRANSIENT_PATTERNS, ...GIT_TRANSIENT_PATTERNS, ...ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS]);
 
 /**
  * Pull every plausible string out of an error-ish value so pattern matches
@@ -125,6 +139,15 @@ const matchPattern = (error, patterns) => {
  * @returns {boolean}
  */
 export const isTransientNetworkError = error => matchPattern(error, ALL_TRANSIENT_PATTERNS) !== null;
+
+/**
+ * True when `error` is GitHub refusing an *unauthenticated* git download.
+ * The remedy is to authenticate the transport, not merely to wait.
+ *
+ * @param {unknown} error
+ * @returns {boolean}
+ */
+export const isAnonymousDownloadLimit = error => matchPattern(error, ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS) !== null;
 
 /**
  * True when `error` is a GitHub server-side fault (5xx or GraphQL internal).
@@ -174,7 +197,7 @@ export const parseGitHubRequestId = error => {
  * Full classification of a failure, for retry decisions *and* for diagnostics.
  *
  * @param {unknown} error
- * @returns {{transient: boolean, category: 'network'|'github-server'|'git-transport'|null, matchedPattern: string|null, requestId: string|null, text: string}}
+ * @returns {{transient: boolean, category: 'network'|'github-server'|'git-transport'|'github-anonymous-rate-limit'|null, matchedPattern: string|null, requestId: string|null, text: string}}
  */
 export const describeTransientError = error => {
   const text = collectErrorText(error);
@@ -184,10 +207,16 @@ export const describeTransientError = error => {
   const networkPattern = find(NETWORK_TRANSIENT_PATTERNS);
   const serverPattern = find(GITHUB_SERVER_TRANSIENT_PATTERNS);
   const gitPattern = find(GIT_TRANSIENT_PATTERNS);
+  const anonymousPattern = find(ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS);
 
   let category = null;
   let matchedPattern = null;
-  if (networkPattern) {
+  if (anonymousPattern) {
+    // Checked first: this failure has a specific remedy (authenticate) and its
+    // text also mentions timeouts/retries that the other lists could match.
+    category = 'github-anonymous-rate-limit';
+    matchedPattern = anonymousPattern;
+  } else if (networkPattern) {
     category = 'network';
     matchedPattern = networkPattern;
   } else if (serverPattern) {
@@ -224,11 +253,13 @@ export const formatTransientDiagnostics = description => {
 };
 
 export default {
+  ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS,
   NETWORK_TRANSIENT_PATTERNS,
   GITHUB_SERVER_TRANSIENT_PATTERNS,
   GIT_TRANSIENT_PATTERNS,
   ALL_TRANSIENT_PATTERNS,
   collectErrorText,
+  isAnonymousDownloadLimit,
   isTransientNetworkError,
   isGitHubServerError,
   matchTransientPattern,

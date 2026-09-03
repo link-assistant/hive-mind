@@ -172,5 +172,7 @@ Reproduction/evidence: `experiments/issue-2192-anonymous-clone-auth.mjs`.
   auth either — both were tested and rejected while investigating.
 - Upstream: `gh repo clone` of a public repository sends no `Authorization`
   header even though `gh` holds a token, which silently pushes authenticated
-  users into the anonymous budget. Reported to `cli/cli` with the reproduction
-  above (see the PR description for the link).
+  users into the anonymous budget. Reported upstream as
+  <https://github.com/cli/cli/issues/14329>, with the reproduction above, the
+  `GIT_CONFIG_*` workaround, and a code-level fix suggestion for
+  `pkg/cmd/repo/clone`.

@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
-import { sanitizeLogFileToFile } from './log-sanitize-stream.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -161,9 +161,15 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
     // transcript reliably killed the run with "Reached heap limit". The streaming
     // sanitizer holds one block (1 MiB) at a time, so cost no longer scales with
     // log size. This is now the ONLY place `--attach-logs` sanitizes the log.
-    const sanitizeStats = await sanitizeLogFileToFile({ sourcePath: logFile, destPath: privateLogFile });
+    // Large logs additionally run in a heap-capped worker, so a residual blow-up
+    // costs one thread and one failed upload instead of the whole session.
+    const sanitizeStats = await sanitizeLogFileToFileBounded({
+      sourcePath: logFile,
+      destPath: privateLogFile,
+      onWorkerFallback: ({ error }) => log(`  ⚠️  Sanitize worker unavailable (${error?.message || error}); sanitizing in-process`, { verbose: true }),
+    });
     if (verbose) {
-      await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}`, { verbose: true });
+      await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}${sanitizeStats.worker ? ' (bounded worker)' : ''}`, { verbose: true });
     }
 
     const commandArgs = buildGhUploadLogArgs({

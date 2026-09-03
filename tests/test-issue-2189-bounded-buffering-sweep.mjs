@@ -272,7 +272,7 @@ const readSource = async name => fs.readFile(path.join(repoRoot, 'src', name), '
 
 const logCommandSrc = await readSource('telegram-log-command.lib.mjs');
 assert(!/fs\.readFile\(logPath/.test(logCommandSrc), '/log no longer reads the session log into a string');
-assert(/sanitizeLogFileToFile\(\{ sourcePath: logPath, destPath: sanitizedPath \}\)/.test(logCommandSrc), '/log streams the sanitized upload artifact');
+assert(/sanitizeLogFileToFileBounded\(\{ sourcePath: logPath, destPath: sanitizedPath \}\)/.test(logCommandSrc), '/log streams the sanitized upload artifact');
 
 const watchSrc = await readSource('telegram-terminal-watch-command.lib.mjs');
 assert(!/fs\.readFile\(logPath/.test(watchSrc), '/terminal_watch no longer re-reads the whole log every tick');

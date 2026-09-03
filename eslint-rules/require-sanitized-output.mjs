@@ -185,6 +185,9 @@ export const _testing = {
  */
 const FILE_WRITER_NAMES = new Set(['writeFile', 'writeFileSync', 'outputFile']);
 
+/** Streaming sanitizers whose `destPath` holds sanitized content (issue #2189). */
+const STREAM_SANITIZE_NAMES = new Set(['sanitizeLogFileToFile', 'sanitizeLogFileToFileBounded']);
+
 /**
  * Unwrap `await`/`Promise.all(...)` down to the array whose elements line up
  * positionally with an array destructuring pattern.
@@ -259,7 +262,9 @@ export default {
         // same fail-closed publication scan as writeSanitizedPublicationFile, but
         // block by block so a multi-hundred-megabyte log never becomes a string.
         // Its destination therefore holds sanitized content too.
-        if (callee === 'sanitizeLogFileToFile') {
+        // `sanitizeLogFileToFileBounded` is the same call routed through a
+        // heap-capped worker for large inputs, with identical guarantees.
+        if (STREAM_SANITIZE_NAMES.has(callee)) {
           const destination = findOptionExpression(node.arguments, new Set(['destPath']));
           if (destination?.type === 'Identifier') sanitizedIdentifiers.add(destination.name);
         }

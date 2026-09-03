@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
-import { findResidualCredentialBlock, sanitizeLogFileToFile } from './log-sanitize-stream.lib.mjs';
+import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -95,13 +96,13 @@ const writePrivatePublicationFile = async (destinationPath, content) => {
   await fs.chmod(destinationPath, 0o600);
 };
 
-// Issue #2189: `sanitizeLogFileToFile` creates its destination exclusively
+// Issue #2189: `sanitizeLogFileToFileBounded` creates its destination exclusively
 // (`wx`) so a pre-planted symlink cannot be followed. Collection may run more
 // than once for the same session directory, so drop a previous artifact first —
 // unlink-then-O_EXCL keeps the symlink guarantee that a plain truncate loses.
 const sanitizeIntoPublicationFile = async ({ sourcePath, destinationPath, startByte = 0, endByte = null }) => {
   await fs.rm(destinationPath, { force: true });
-  return sanitizeLogFileToFile({ sourcePath, destPath: destinationPath, startByte, endByte });
+  return sanitizeLogFileToFileBounded({ sourcePath, destPath: destinationPath, startByte, endByte });
 };
 
 const copyIfExists = async ({ sourcePath, destinationPath }) => {

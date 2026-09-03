@@ -9,7 +9,7 @@ import { createInterface } from 'readline';
 import { log, cleanErrorMessage, getAbsoluteLogPath } from './lib.mjs';
 import { reportError, isSentryEnabled } from './sentry.lib.mjs';
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
-import { sanitizeLogFileToFile } from './log-sanitize-stream.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 import { readLogTailText } from './log-bounded-read.lib.mjs';
 
 if (typeof globalThis.use === 'undefined') {
@@ -124,7 +124,7 @@ const createSecretGist = async (logContent, filename) => {
 const createSecretGistFromFile = async (logFilePath, filename) => {
   const tempFile = `/tmp/${filename}`;
   try {
-    await sanitizeLogFileToFile({ sourcePath: logFilePath, destPath: tempFile });
+    await sanitizeLogFileToFileBounded({ sourcePath: logFilePath, destPath: tempFile });
     const result = await $`gh gist create ${tempFile} --secret --desc "Error log for hive-mind"`;
     if (result.exitCode === 0) {
       return result.stdout.toString().trim();

@@ -25,7 +25,7 @@ import os from 'os';
 import fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
-import { sanitizeLogFileToFile } from './log-sanitize-stream.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 import { safeReply, safeReplyWithDocument, safeSendDocument } from './telegram-safe-reply.lib.mjs';
 
 const UUID_RE = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
@@ -48,7 +48,7 @@ async function prepareSanitizedLogUpload(logPath, caption) {
     // and this used to hold the log twice (raw string + sanitized string) plus a
     // third copy inside the sanitizer. The streaming sanitizer writes the same
     // artifact one block at a time, so a 50 MB log costs the same as a 50 kB one.
-    const [, safeCaption] = await Promise.all([sanitizeLogFileToFile({ sourcePath: logPath, destPath: sanitizedPath }), sanitizeForPublication(caption)]);
+    const [, safeCaption] = await Promise.all([sanitizeLogFileToFileBounded({ sourcePath: logPath, destPath: sanitizedPath }), sanitizeForPublication(caption)]);
     return {
       path: sanitizedPath,
       caption: safeCaption,

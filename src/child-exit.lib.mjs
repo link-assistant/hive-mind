@@ -75,6 +75,58 @@ export const describeChildExit = ({ command, code = null, signal = null }) => {
 export const isLikelyOutOfMemoryExit = ({ code = null, signal = null }) => signal === 'SIGABRT' || signal === 'SIGKILL' || (signal === null && code === 134);
 
 /**
+ * Fatal lines a runtime prints when it exhausts its *own* heap.
+ *
+ * Issue #2189: a session died of `FATAL ERROR: Reached heap limit Allocation
+ * failed - JavaScript heap out of memory` and was reported to the user as a
+ * "forced kill … memory (10.3 GB of 11.7 GB RAM available)". Both statements
+ * were individually true: V8 stopped at its own ~2 GB old-space cap long before
+ * the machine or the container cgroup felt any pressure, so `docker inspect`
+ * said `OOMKilled=false` and `/sys/fs/cgroup/memory.events` said `oom_kill=0`.
+ * Nothing outside the process can observe a runtime self-abort — the only
+ * evidence is the text the runtime printed on its way out, which was sitting in
+ * the log the diagnostics were already reading.
+ *
+ * The patterns are deliberately specific (a bare "out of memory" also appears in
+ * Hive Mind's own diagnostic wording, which ends up in the same logs). Hive Mind
+ * spawns more than Node, so the other runtimes it drives are covered too.
+ */
+export const FATAL_MEMORY_PATTERNS = [
+  { id: 'v8-heap-limit', runtime: 'Node.js/V8', pattern: /FATAL ERROR:[^\n]*Reached heap limit/ },
+  { id: 'v8-ineffective-mark-compacts', runtime: 'Node.js/V8', pattern: /FATAL ERROR:[^\n]*Ineffective mark-compacts near heap limit/ },
+  { id: 'v8-heap-out-of-memory', runtime: 'Node.js/V8', pattern: /JavaScript heap out of memory/ },
+  { id: 'v8-last-few-gcs', runtime: 'Node.js/V8', pattern: /<--- Last few GCs --->/ },
+  { id: 'v8-array-buffer-allocation', runtime: 'Node.js/V8', pattern: /Array buffer allocation failed/ },
+  { id: 'rust-allocation-failed', runtime: 'Rust', pattern: /memory allocation of \d+ bytes failed/ },
+  { id: 'go-runtime-out-of-memory', runtime: 'Go', pattern: /fatal error: runtime: out of memory/ },
+  { id: 'cpp-bad-alloc', runtime: 'C/C++', pattern: /std::bad_alloc/ },
+];
+
+/**
+ * Find the first runtime self-abort marker in a piece of log text.
+ *
+ * Callers must only treat a hit as a cause when the process actually ended
+ * abnormally — the marker upgrades an existing kill to "out of memory", it never
+ * invents one, so an unrelated log that merely quotes the string cannot turn a
+ * healthy run into a reported crash.
+ *
+ * @param {string|null} text - Log text (a tail is enough; the marker is printed last)
+ * @returns {{id: string, runtime: string, line: string}|null}
+ */
+export const findFatalMemoryMarker = text => {
+  if (!text || typeof text !== 'string') return null;
+  for (const { id, runtime, pattern } of FATAL_MEMORY_PATTERNS) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const lineStart = text.lastIndexOf('\n', match.index) + 1;
+    const lineEndIndex = text.indexOf('\n', match.index);
+    const line = text.slice(lineStart, lineEndIndex < 0 ? undefined : lineEndIndex).trim();
+    return { id, runtime, line: line.length > 300 ? `${line.slice(0, 300)}…` : line };
+  }
+  return null;
+};
+
+/**
  * Wire `close`/`error` handlers that never lose a signal.
  *
  * The exit code handed to `onExit` is 1 for a signalled child: `code || 0`
@@ -104,4 +156,4 @@ export const attachChildExitHandlers = ({ child, command, label, errorLabel = la
   });
 };
 
-export default { describeChildExit, isLikelyOutOfMemoryExit, attachChildExitHandlers };
+export default { describeChildExit, isLikelyOutOfMemoryExit, findFatalMemoryMarker, attachChildExitHandlers };

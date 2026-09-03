@@ -27,6 +27,8 @@ import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
 import { t } from './i18n.lib.mjs';
 import { formatBytes, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
+import { findFatalMemoryMarker } from './child-exit.lib.mjs';
+import { readLogTextBounded } from './log-bounded-read.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -37,6 +39,12 @@ export const KILL_CAUSE_UNKNOWN = 'unknown';
 
 /** Memory is considered exhausted below this share of total RAM still available. */
 export const MEMORY_EXHAUSTED_AVAILABLE_RATIO = 0.1;
+/**
+ * How much of a session log the kill diagnosis is allowed to read (issue #2189).
+ * Split head/tail by {@link readLogTextBounded}: 512 KiB of the beginning and
+ * 512 KiB of the end, which covers both the resource markers and the fatal exit.
+ */
+export const KILL_DIAGNOSTICS_LOG_BYTES = 1024 * 1024;
 /** Disk is considered full at or above this used percentage… */
 export const DISK_FULL_USED_PERCENT = 95;
 /** …or below this much free space, whichever triggers first. */
@@ -260,6 +268,16 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     evidence.push(`kernel OOM killer terminated \`${victim.comm || 'unknown'}\` (pid ${victim.pid ?? '?'})`);
   }
 
+  // Issue #2189: the ground truth for a runtime that exhausted its OWN heap is
+  // the fatal line it printed, not the cgroup counters — those legitimately read
+  // zero for a V8 self-abort. Only an abnormal ending is allowed to be upgraded,
+  // so a log that merely mentions the phrase cannot manufacture a diagnosis.
+  const abnormalExit = exitCode === null || exitCode !== 0;
+  const fatalMemoryMarker = abnormalExit ? findFatalMemoryMarker(logText) : null;
+  if (fatalMemoryMarker) {
+    evidence.push(`the ${fatalMemoryMarker.runtime} runtime aborted on its own heap limit: \`${fatalMemoryMarker.line}\` (a self-abort is invisible to \`docker inspect\` and to cgroup OOM counters)`);
+  }
+
   const ratio = memoryRatio(memory);
   const memoryExhausted = ratio !== null && ratio <= MEMORY_EXHAUSTED_AVAILABLE_RATIO;
   const diskUsedPercent = finite(disk?.usedPercent);
@@ -269,7 +287,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   let cause = KILL_CAUSE_UNKNOWN;
   if (stopRequestedByUser) {
     cause = KILL_CAUSE_FORCED_KILL;
-  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted) {
+  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
   } else if (diskFull) {
     cause = KILL_CAUSE_DISK_FULL;
@@ -278,7 +296,12 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   }
 
   let summary;
-  if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
+  if (cause === KILL_CAUSE_OUT_OF_MEMORY && fatalMemoryMarker && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0)) {
+    // Issue #2189: appending "10.3 GB of 11.7 GB RAM available" to "out of
+    // memory" reads as a contradiction. For a runtime self-abort the host being
+    // healthy is the whole point, so say which limit was actually hit.
+    summary = `out of memory — the ${fatalMemoryMarker.runtime} runtime hit its own heap limit, not the machine's: \`${fatalMemoryMarker.line}\`${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
   } else if (cause === KILL_CAUSE_DISK_FULL) {
@@ -290,7 +313,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, disk, victims };
+  return { cause, summary, evidence, memory, disk, victims, fatalMemoryMarker };
 }
 
 /**
@@ -367,15 +390,16 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics } = {}) {
   try {
     let logText = '';
     if (logPath) {
-      try {
-        logText = await readFile(logPath, 'utf8');
-      } catch (readError) {
-        if (verbose) console.log(`[VERBOSE] kill-diagnostics: could not read session log ${logPath}: ${readError?.message || readError}`);
-      }
+      // Issue #2189: this used to be `readFile(logPath, 'utf8')`. The bot ran it
+      // once per monitor tick for a session it never marked handled, so a 134 MB
+      // transcript was pulled into the bot's own heap over and over. Everything
+      // this function needs — the `📈 [RESOURCES]` markers and the runtime's
+      // dying `FATAL ERROR` line — lives at the two ends of the transcript.
+      logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, verbose });
     }
     const system = await collectSystem({ verbose });
     const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser });

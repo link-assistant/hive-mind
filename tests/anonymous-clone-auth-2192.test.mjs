@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { ANONYMOUS_DOWNLOAD_LIMIT_PATTERNS, describeTransientError, isAnonymousDownloadLimit, isTransientNetworkError } from '../src/transient-errors.lib.mjs';
 import { GIT_AUTH_TRANSPORT_DISABLE, GIT_AUTH_TRANSPORT_MARKER, buildAuthorizationHeader, buildGitAuthConfigEnv, ensureAuthenticatedGitTransport, gitAuthConfigKey, hasGitAuthConfig, isGitAuthTransportDisabled, readGitConfigCount, resolveGitHubToken } from '../src/git-auth-transport.lib.mjs';
 import { classifyCloneError } from '../src/solve.repository.lib.mjs';
+import { sanitizeCredentialText } from '../src/credential-sanitization-core.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -172,4 +173,37 @@ test('the retry paths recover instead of merely waiting', async () => {
 
   const lib = await readFile(join(repoRoot, 'src/lib.mjs'), 'utf8');
   assert.ok(lib.includes("description.category === 'github-anonymous-rate-limit'"), 'gitCmdRetry recovers the same way');
+});
+
+// --- the header must never reach a log ---------------------------------------
+
+test('the preemptive Authorization header is sanitized in every representation', () => {
+  // Issue #2192 sends the token on every git request; issue #2156 established
+  // that an encoded credential in a log is still a leaked credential.
+  const token = 'ghp_0123456789abcdefghijklmnopqrstuvwxyzAB';
+  const header = buildAuthorizationHeader(token);
+  const encoded = header.split(' ').pop();
+  const envDump = Object.entries(buildGitAuthConfigEnv({ token }))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n');
+
+  for (const [label, text] of [
+    ['header', header],
+    ['environment dump', envDump],
+    ['bare base64', encoded],
+  ]) {
+    // `includeEnvironmentCredentials: false` proves the masking comes from the
+    // text itself, not from the token happening to sit in the test's own env.
+    const sanitized = sanitizeCredentialText(text, { includeEnvironmentCredentials: false });
+    assert.ok(!sanitized.includes(token), `${label}: plaintext token must not survive`);
+    assert.ok(!sanitized.includes(encoded), `${label}: base64 credential must not survive`);
+  }
+});
+
+test('the already-configured path reports the transport state', async () => {
+  const lines = [];
+  const env = buildGitAuthConfigEnv({ token: 'ghs_state' });
+  const result = await ensureAuthenticatedGitTransport({ env, log: async message => lines.push(message), reason: 'diagnostics' });
+  assert.equal(result.status, 'already-configured');
+  assert.match(lines.join('\n'), /already configured for github\.com - diagnostics/);
 });

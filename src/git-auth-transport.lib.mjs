@@ -226,7 +226,12 @@ export const ensureAuthenticatedGitTransport = async ({ $, log = async () => {},
     return { status: 'disabled', hosts };
   }
 
-  if (hasGitAuthConfig(env, hosts)) return { status: 'already-configured', hosts };
+  if (hasGitAuthConfig(env, hosts)) {
+    // Issue #2192 asks for enough diagnostics to reconstruct the transport state
+    // from a log. Verbose-only: on the happy path this fires before every clone.
+    await log(`🔐 Authenticated git transport already configured for ${hosts.join(', ')}${reason ? ` - ${reason}` : ''}`, { verbose: true });
+    return { status: 'already-configured', hosts };
+  }
 
   let { token, source, error } = await resolveGitHubToken({ $, env });
 

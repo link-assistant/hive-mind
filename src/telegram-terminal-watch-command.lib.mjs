@@ -7,6 +7,7 @@
 
 import fs from 'fs/promises';
 import { extractSessionIdFromText, decideLogDestination, resolveLogPath } from './telegram-log-command.lib.mjs';
+import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { parseSessionExitFooter } from './isolation-runner.lib.mjs';
 import { safeReply, safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, isFailureSessionStatus } from './session-status.lib.mjs';
@@ -15,6 +16,11 @@ const DEFAULT_WIDTH = 120;
 const DEFAULT_HEIGHT = 25;
 const DEFAULT_INTERVAL_MS = 2500;
 const DEFAULT_MAX_CHARS = 3400;
+// Issue #2189: the watch loop re-reads the log every `intervalMs`, but it only
+// ever renders the last `height` lines and looks for the exit footer, both of
+// which live at the very end. Reading the whole file made a poll tick cost
+// O(log size) — a 134 MB session log allocated 134 MB of string per tick.
+const TERMINAL_WATCH_TAIL_BYTES = 256 * 1024;
 const GITHUB_URL_RE = /https:\/\/github\.com\/[^\s"'`<>]+/i;
 const activeWatches = new Map();
 
@@ -141,7 +147,9 @@ export function formatTerminalWatchMessage({ sessionId, statusResult = null, log
 
 async function readLogFile(logPath) {
   try {
-    return await fs.readFile(logPath, 'utf8');
+    const { size } = await fs.stat(logPath);
+    if (!size) return '';
+    return await readLogTailText(logPath, { maxBytes: TERMINAL_WATCH_TAIL_BYTES });
   } catch (error) {
     if (error?.code === 'ENOENT') return '';
     throw error;

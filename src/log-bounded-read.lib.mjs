@@ -22,6 +22,9 @@
  *   - {@link scanLogChunks} streams the file forward in overlapping chunks and
  *     stops at the first chunk that answers the caller's question, so a scan
  *     that must cover the *whole* log still holds only one chunk at a time.
+ *   - {@link forEachLogLine} streams a record-per-line file (JSONL transcripts)
+ *     one line at a time, so peak residency is one line instead of the file plus
+ *     the array of its lines.
  *
  * All readers are non-throwing: a missing or unreadable log yields the caller's
  * empty value, exactly like the `readFile`-based code they replace.
@@ -30,6 +33,8 @@
  */
 
 import fsPromises from 'node:fs/promises';
+import { createReadStream as fsCreateReadStream } from 'node:fs';
+import readline from 'node:readline';
 
 /** Default ceiling for "read the log as text" helpers (head + tail combined). */
 export const DEFAULT_BOUNDED_LOG_BYTES = 4 * 1024 * 1024;
@@ -342,5 +347,65 @@ export async function readLogMarkerLines(logPath, pattern, { fsImpl = fsPromises
   } catch (error) {
     if (verbose) console.log(`[VERBOSE] log-bounded-read: could not read ${logPath}: ${error?.message || error}`);
     return '';
+  }
+}
+
+/**
+ * Stream a record-per-line file, one line at a time.
+ *
+ * `fs.readFile(file, 'utf8').split('\n')` costs *two* full copies of the file
+ * (the string and the array of its lines) before the first record is looked at.
+ * Claude/Codex session transcripts are JSONL that grows with the session, so
+ * that shape scales with how long the AI ran — the exact class of unbounded
+ * buffering issue #2189 removes.
+ *
+ * The line terminator is stripped, as with `split('\n')`; `\r\n` is treated as
+ * one terminator. `onLine` may return `false` to stop early. Missing/unreadable
+ * files rethrow, so callers keep their existing error handling.
+ *
+ * @param {string} logPath
+ * @param {Function} onLine - `(line, index) => void|false|Promise<void|false>`
+ * @param {object} [options]
+ * @param {Function} [options.createReadStream=fs.createReadStream]
+ * @param {number} [options.highWaterMark=DEFAULT_LOG_CHUNK_BYTES]
+ * @returns {Promise<number>} Number of lines visited
+ */
+export async function forEachLogLine(logPath, onLine, { createReadStream = fsCreateReadStream, highWaterMark = DEFAULT_LOG_CHUNK_BYTES } = {}) {
+  const stream = createReadStream(logPath, { highWaterMark });
+  const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  let index = 0;
+  try {
+    for await (const line of reader) {
+      const proceed = await onLine(line, index);
+      index += 1;
+      if (proceed === false) break;
+    }
+  } finally {
+    reader.close();
+    stream.destroy();
+  }
+  return index;
+}
+
+/**
+ * True when `filePath` ends with a newline.
+ *
+ * A rewriter that streams lines has to restore the file's original trailing
+ * newline explicitly: unlike `split('\n')`, a line reader does not report the
+ * empty final element that a trailing terminator produces.
+ *
+ * @param {string} filePath
+ * @param {object} [options]
+ * @param {object} [options.fsImpl=fsPromises]
+ * @returns {Promise<boolean>}
+ */
+export async function fileEndsWithNewline(filePath, { fsImpl = fsPromises } = {}) {
+  try {
+    const { size } = await fsImpl.stat(filePath);
+    if (!size) return false;
+    const text = await readRangeText(fsImpl, filePath, size - 1, 1);
+    return text === '\n' || text === '\r';
+  } catch {
+    return false;
   }
 }

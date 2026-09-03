@@ -255,6 +255,14 @@ export default {
         if (callee === 'writeSanitizedPublicationFile' && node.arguments?.[0]?.type === 'Identifier') {
           sanitizedIdentifiers.add(node.arguments[0].name);
         }
+        // Issue #2189: `sanitizeLogFileToFile({ sourcePath, destPath })` runs the
+        // same fail-closed publication scan as writeSanitizedPublicationFile, but
+        // block by block so a multi-hundred-megabyte log never becomes a string.
+        // Its destination therefore holds sanitized content too.
+        if (callee === 'sanitizeLogFileToFile') {
+          const destination = findOptionExpression(node.arguments, new Set(['destPath']));
+          if (destination?.type === 'Identifier') sanitizedIdentifiers.add(destination.name);
+        }
         if (FILE_WRITER_NAMES.has(callee) && node.arguments?.[0]?.type === 'Identifier') {
           if (expressionIsSanitized(node.arguments[1], sanitizedIdentifiers)) sanitizedIdentifiers.add(node.arguments[0].name);
           else sanitizedIdentifiers.delete(node.arguments[0].name);

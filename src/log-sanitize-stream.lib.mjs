@@ -91,64 +91,58 @@ export function computeReleaseBoundary(pending) {
 }
 
 /**
- * Sanitize `sourcePath` into `destPath` without ever holding the whole file.
+ * Walk `sourcePath` in hold-back-safe blocks without ever holding the file.
  *
- * The destination is created exclusively (`wx`, mode 0600) exactly like
- * {@link writeSanitizedPublicationFile}, so a pre-planted symlink in a shared
- * temporary directory cannot be followed. If any block fails the fail-closed
- * publication scan the partial destination is removed and the error rethrown —
- * a partially-sanitized file is never left behind for a caller to upload.
+ * Every consumer in this module (write a sanitized copy, re-scan a published
+ * artifact) needs the same loop: read a chunk, decide how much of the buffer can
+ * be released without cutting a credential in half, hand that slice over, keep
+ * the rest. Only the per-block action differs, so the loop lives here once.
  *
- * @param {object} options
- * @param {string} options.sourcePath - Log to sanitize
- * @param {string} options.destPath - File to create
+ * `onBlock` may return `false` to stop the walk early (used by the verifier,
+ * which has its answer as soon as one block comes back changed).
+ *
+ * @param {string} sourcePath - File to walk
+ * @param {Function} onBlock - `(text) => Promise<void|false>`
+ * @param {object} [options]
  * @param {number} [options.chunkBytes=DEFAULT_SANITIZE_CHUNK_BYTES]
  * @param {number} [options.maxHoldBytes=DEFAULT_MAX_HOLD_BYTES]
- * @param {Function} [options.sanitize=sanitizeForPublication] - `(text) => Promise<string>`
- * @param {Function} [options.transform] - Optional per-block post-transform (e.g. markdown escaping)
+ * @param {number} [options.startByte=0] - First byte to read (for slice copies)
+ * @param {number|null} [options.endByte=null] - Byte to stop at; defaults to EOF
  * @param {object} [options.fsImpl=fsPromises]
  * @param {Function} [options.onProgress] - `({bytesRead, sourceSize, blocks}) => void`
- * @returns {Promise<{sourceSize: number, bytesRead: number, charsWritten: number, blocks: number, forcedReleases: number}>}
+ * @returns {Promise<{sourceSize: number, bytesRead: number, blocks: number, forcedReleases: number}>}
  */
-export async function sanitizeLogFileToFile(options = {}) {
-  const { sourcePath, destPath, chunkBytes = DEFAULT_SANITIZE_CHUNK_BYTES, maxHoldBytes = DEFAULT_MAX_HOLD_BYTES, sanitize = sanitizeForPublication, transform = null, fsImpl = fsPromises, onProgress = null } = options;
-  if (!sourcePath) throw new TypeError('sanitizeLogFileToFile requires a sourcePath');
-  if (!destPath) throw new TypeError('sanitizeLogFileToFile requires a destPath');
+export async function forEachLogBlock(sourcePath, onBlock, options = {}) {
+  const { chunkBytes = DEFAULT_SANITIZE_CHUNK_BYTES, maxHoldBytes = DEFAULT_MAX_HOLD_BYTES, startByte = 0, endByte = null, fsImpl = fsPromises, onProgress = null } = options;
+  if (!sourcePath) throw new TypeError('forEachLogBlock requires a sourcePath');
 
   const step = Number.isFinite(chunkBytes) && chunkBytes > 0 ? Math.floor(chunkBytes) : DEFAULT_SANITIZE_CHUNK_BYTES;
   const holdCap = Number.isFinite(maxHoldBytes) && maxHoldBytes > 0 ? Math.floor(maxHoldBytes) : DEFAULT_MAX_HOLD_BYTES;
+  const stats = { sourceSize: 0, bytesRead: 0, blocks: 0, forcedReleases: 0 };
 
-  const stats = { sourceSize: 0, bytesRead: 0, charsWritten: 0, blocks: 0, forcedReleases: 0 };
-  let source = null;
-  let dest = null;
-  let destCreated = false;
-
+  const source = await fsImpl.open(sourcePath, 'r');
   try {
-    source = await fsImpl.open(sourcePath, 'r');
     stats.sourceSize = (await source.stat()).size;
-    dest = await fsImpl.open(destPath, 'wx', 0o600);
-    destCreated = true;
+    const limit = endByte === null || !Number.isFinite(endByte) ? stats.sourceSize : Math.max(0, Math.min(Math.floor(endByte), stats.sourceSize));
+    const first = Number.isFinite(startByte) && startByte > 0 ? Math.min(Math.floor(startByte), limit) : 0;
 
     const buffer = Buffer.alloc(step);
     const decoder = new StringDecoder('utf8');
     let pending = '';
-    let position = 0;
+    let position = first;
+    let stopped = false;
 
     const emit = async text => {
-      if (!text) return;
-      const sanitized = String(await sanitize(text));
-      const out = transform ? String(transform(sanitized)) : sanitized;
-      if (!out) return;
-      await dest.write(out, null, 'utf8');
-      stats.charsWritten += out.length;
+      if (!text || stopped) return;
       stats.blocks += 1;
+      if ((await onBlock(text)) === false) stopped = true;
     };
 
-    for (;;) {
-      const { bytesRead } = await source.read(buffer, 0, step, position);
+    while (position < limit && !stopped) {
+      const { bytesRead } = await source.read(buffer, 0, Math.min(step, limit - position), position);
       if (!bytesRead) break;
       position += bytesRead;
-      stats.bytesRead = position;
+      stats.bytesRead = position - first;
       pending += decoder.write(buffer.subarray(0, bytesRead));
 
       let boundary = computeReleaseBoundary(pending);
@@ -163,13 +157,66 @@ export async function sanitizeLogFileToFile(options = {}) {
         await emit(pending.slice(0, boundary));
         pending = pending.slice(boundary);
       }
-      if (onProgress) onProgress({ bytesRead: position, sourceSize: stats.sourceSize, blocks: stats.blocks });
+      if (onProgress) onProgress({ bytesRead: stats.bytesRead, sourceSize: stats.sourceSize, blocks: stats.blocks });
     }
 
     pending += decoder.end();
     await emit(pending);
-    await dest.chmod(0o600);
     return stats;
+  } finally {
+    await source.close().catch(() => {});
+  }
+}
+
+/**
+ * Sanitize `sourcePath` into `destPath` without ever holding the whole file.
+ *
+ * The destination is created exclusively (`wx`, mode 0600) exactly like
+ * {@link writeSanitizedPublicationFile}, so a pre-planted symlink in a shared
+ * temporary directory cannot be followed. If any block fails the fail-closed
+ * publication scan the partial destination is removed and the error rethrown —
+ * a partially-sanitized file is never left behind for a caller to upload.
+ *
+ * @param {object} options
+ * @param {string} options.sourcePath - Log to sanitize
+ * @param {string} options.destPath - File to create
+ * @param {number} [options.chunkBytes=DEFAULT_SANITIZE_CHUNK_BYTES]
+ * @param {number} [options.maxHoldBytes=DEFAULT_MAX_HOLD_BYTES]
+ * @param {number} [options.startByte=0] - First source byte to copy
+ * @param {number|null} [options.endByte=null] - Source byte to stop at; defaults to EOF
+ * @param {Function} [options.sanitize=sanitizeForPublication] - `(text) => Promise<string>`
+ * @param {Function} [options.transform] - Optional per-block post-transform (e.g. markdown escaping)
+ * @param {object} [options.fsImpl=fsPromises]
+ * @param {Function} [options.onProgress] - `({bytesRead, sourceSize, blocks}) => void`
+ * @returns {Promise<{sourceSize: number, bytesRead: number, charsWritten: number, blocks: number, forcedReleases: number}>}
+ */
+export async function sanitizeLogFileToFile(options = {}) {
+  const { sourcePath, destPath, chunkBytes = DEFAULT_SANITIZE_CHUNK_BYTES, maxHoldBytes = DEFAULT_MAX_HOLD_BYTES, startByte = 0, endByte = null, sanitize = sanitizeForPublication, transform = null, fsImpl = fsPromises, onProgress = null } = options;
+  if (!sourcePath) throw new TypeError('sanitizeLogFileToFile requires a sourcePath');
+  if (!destPath) throw new TypeError('sanitizeLogFileToFile requires a destPath');
+
+  let dest = null;
+  let destCreated = false;
+  let charsWritten = 0;
+
+  try {
+    dest = await fsImpl.open(destPath, 'wx', 0o600);
+    destCreated = true;
+
+    const stats = await forEachLogBlock(
+      sourcePath,
+      async text => {
+        const sanitized = String(await sanitize(text));
+        const out = transform ? String(transform(sanitized)) : sanitized;
+        if (!out) return;
+        await dest.write(out, null, 'utf8');
+        charsWritten += out.length;
+      },
+      { chunkBytes, maxHoldBytes, startByte, endByte, fsImpl, onProgress }
+    );
+
+    await dest.chmod(0o600);
+    return { ...stats, charsWritten };
   } catch (error) {
     if (destCreated) {
       try {
@@ -182,7 +229,39 @@ export async function sanitizeLogFileToFile(options = {}) {
     }
     throw error;
   } finally {
-    if (source) await source.close().catch(() => {});
     if (dest) await dest.close().catch(() => {});
   }
+}
+
+/**
+ * Re-scan an already-published file for residual credential material.
+ *
+ * This is the streaming form of the development-log rescan, which used to read
+ * every artifact back into a single string (`fs.readFile(filePath, 'utf8')`) and
+ * sanitize that string a second time — the exact double-buffering issue #2189
+ * removes. The guarantee is unchanged: every byte of the file is passed through
+ * the fail-closed publication sanitizer, and any block the sanitizer would still
+ * change is reported.
+ *
+ * @param {string} filePath
+ * @param {object} [options] - Also accepts every {@link forEachLogBlock} option
+ * @param {Function} [options.sanitize=sanitizeForPublication]
+ * @returns {Promise<{blockIndex: number, length: number}|null>} `null` when clean
+ */
+export async function findResidualCredentialBlock(filePath, options = {}) {
+  const { sanitize = sanitizeForPublication, ...walkOptions } = options;
+  let residual = null;
+  let blockIndex = 0;
+  await forEachLogBlock(
+    filePath,
+    async text => {
+      blockIndex += 1;
+      const sanitized = String(await sanitize(text));
+      if (sanitized === text) return;
+      residual = { blockIndex, length: text.length };
+      return false;
+    },
+    walkOptions
+  );
+  return residual;
 }

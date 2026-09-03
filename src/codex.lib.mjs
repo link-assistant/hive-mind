@@ -49,10 +49,15 @@ import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CODEX_CACHE_READ_USAGE_PATHS, CODEX_CACHE_WRITE_USAGE_PATHS, CODEX_MODEL_DIAGNOSTIC_PATHS, CODEX_REASONING_USAGE_PATHS, CODEX_USAGE_FIELD_NAMES, createCodexTokenFieldAvailability, getFirstObservedNumber, hasAnyObservedPath, hasOwnPath } from './codex.usage-fields.lib.mjs';
 const CODEX_LONG_CONTEXT_PRICE_THRESHOLD = 272000;
+// Issue #2189: ceiling for reading Codex's `--output-last-message` artifact. A
+// final assistant message is a few hundred kilobytes at most; anything larger is
+// a malfunction and must not be turned into an unbounded string.
+const CODEX_LAST_MESSAGE_MAX_BYTES = 1024 * 1024;
 const getCodexExecEnv = (verbose = false) => (verbose ? { ...process.env, RUST_LOG: 'debug' } : { ...process.env });
 // Issue #2175: diagnostic-line parsing lives in its own module to keep this file
 // under the 1350-line warning threshold.
 import { parseCodexDiagnosticLine, rebuildCodexSubSessionsFromCompactifications } from './codex.diagnostics.lib.mjs';
+import { readLogHeadText } from './log-bounded-read.lib.mjs'; // Issue #2189
 export const createCodexTokenUsage = requestedModelId => ({
   inputTokens: 0,
   outputTokens: 0,
@@ -891,7 +896,12 @@ export const executeCodexCommand = async params => {
       let lastMessageFromFile = null;
       let lastMessageReadError = null;
       try {
-        lastMessageFromFile = (await fs.readFile(lastMessageFile, 'utf8')).trim();
+        // Issue #2189: this file holds Codex's final assistant message, but its
+        // size is decided by the tool, not by us. Size it first so a runaway or
+        // corrupted artifact cannot become an unbounded string in a process that
+        // has just finished a long run.
+        const { size } = await fs.stat(lastMessageFile);
+        lastMessageFromFile = size > CODEX_LAST_MESSAGE_MAX_BYTES ? `${(await readLogHeadText(lastMessageFile, { maxBytes: CODEX_LAST_MESSAGE_MAX_BYTES })).trim()}\n…[last message truncated: ${size} bytes on disk, see ${lastMessageFile}]` : (await fs.readFile(lastMessageFile, 'utf8')).trim();
       } catch (readError) {
         lastMessageReadError = readError;
       }

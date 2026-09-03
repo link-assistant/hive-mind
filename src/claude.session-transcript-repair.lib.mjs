@@ -25,6 +25,8 @@ import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 
+import { fileEndsWithNewline, forEachLogLine } from './log-bounded-read.lib.mjs';
+
 /**
  * Resolve the on-disk session transcript path for a Claude Code session. Claude Code stores each
  * session as `~/.claude/projects/<cwd-with-slashes-as-dashes>/<sessionId>.jsonl` (mirrors the
@@ -53,6 +55,36 @@ const isCorruptedThinkingBlock = block => {
 };
 
 /**
+ * Repair one transcript record.
+ *
+ * Returns the line to write back (unchanged unless a corrupted block was
+ * dropped), how many corrupted blocks it dropped, and whether the line counted
+ * as a scanned message line. Keeping the decision in one pure function lets the
+ * repair stream the file twice — count, then rewrite — with identical results.
+ *
+ * @param {string} line - One raw JSONL record
+ * @returns {{text: string, removed: number, scanned: number}}
+ */
+const repairTranscriptLine = line => {
+  if (!line.trim()) return { text: line, removed: 0, scanned: 0 };
+  let entry;
+  try {
+    entry = JSON.parse(line);
+  } catch {
+    return { text: line, removed: 0, scanned: 1 }; // preserve anything we can't parse verbatim
+  }
+  const content = entry?.message?.content;
+  if (!Array.isArray(content)) return { text: line, removed: 0, scanned: 1 };
+  const corrupted = content.filter(isCorruptedThinkingBlock).length;
+  if (corrupted === 0) return { text: line, removed: 0, scanned: 1 };
+  const cleaned = content.filter(b => !isCorruptedThinkingBlock(b));
+  // Never leave an assistant message with an empty content array (invalid for the API).
+  if (cleaned.length === 0) return { text: line, removed: 0, scanned: 1 };
+  entry.message.content = cleaned;
+  return { text: JSON.stringify(entry), removed: corrupted, scanned: 1 };
+};
+
+/**
  * Strip corrupted (empty-text) thinking blocks from a Claude Code session transcript so the session
  * can be resumed. Conservative and side-effect-safe:
  *   - never throws (returns a result object describing what happened);
@@ -75,48 +107,27 @@ export const repairCorruptedThinkingBlocks = async ({ tempDir, sessionId, homeDi
   }
   const sessionFile = resolveSessionTranscriptPath(tempDir, sessionId, homeDir);
   result.sessionFile = sessionFile;
-  let fileContent;
+  let sessionStat;
   try {
-    fileContent = await fs.readFile(sessionFile, 'utf8');
+    sessionStat = await fs.stat(sessionFile);
   } catch {
     // No transcript on disk (e.g. fresh run never persisted, or path mismatch) — nothing to repair.
     return { ...result, reason: 'session transcript not found' };
   }
 
   try {
-    const lines = fileContent.split('\n');
-    const out = [];
+    // Issue #2189: a session transcript grows with the session — the captured
+    // incident's was 134 MB — so this is done in two streaming passes instead of
+    // holding the file, its array of lines and the rebuilt output in the heap at
+    // once. Pass 1 only counts: a transcript with nothing to repair (the common
+    // case) is never rewritten and never copied.
     let removedBlocks = 0;
     let scannedLines = 0;
-    for (const line of lines) {
-      if (!line.trim()) {
-        out.push(line);
-        continue;
-      }
-      scannedLines++;
-      let entry;
-      try {
-        entry = JSON.parse(line);
-      } catch {
-        out.push(line); // preserve anything we can't parse verbatim
-        continue;
-      }
-      const content = entry?.message?.content;
-      if (Array.isArray(content)) {
-        const corrupted = content.filter(isCorruptedThinkingBlock).length;
-        if (corrupted > 0) {
-          const cleaned = content.filter(b => !isCorruptedThinkingBlock(b));
-          // Never leave an assistant message with an empty content array (invalid for the API).
-          if (cleaned.length > 0) {
-            entry.message.content = cleaned;
-            removedBlocks += corrupted;
-            out.push(JSON.stringify(entry));
-            continue;
-          }
-        }
-      }
-      out.push(line);
-    }
+    await forEachLogLine(sessionFile, line => {
+      const repaired = repairTranscriptLine(line);
+      scannedLines += repaired.scanned;
+      removedBlocks += repaired.removed;
+    });
 
     result.scannedLines = scannedLines;
     if (removedBlocks === 0) {
@@ -135,7 +146,27 @@ export const repairCorruptedThinkingBlocks = async ({ tempDir, sessionId, homeDi
       }
     }
 
-    await fs.writeFile(sessionFile, out.join('\n'), 'utf8');
+    // Pass 2: rewrite through a sibling temp file and rename over the original,
+    // so an interrupted repair can never leave a half-written transcript (which
+    // would be worse than the corruption being repaired).
+    const keepTrailingNewline = await fileEndsWithNewline(sessionFile);
+    const tempFile = `${sessionFile}.repair-${process.pid}`;
+    await fs.rm(tempFile, { force: true });
+    const handle = await fs.open(tempFile, 'wx', sessionStat.mode & 0o777);
+    try {
+      let pendingSeparator = '';
+      await forEachLogLine(sessionFile, line => {
+        const repaired = repairTranscriptLine(line);
+        return handle.write(`${pendingSeparator}${repaired.text}`, null, 'utf8').then(() => {
+          pendingSeparator = '\n';
+        });
+      });
+      if (keepTrailingNewline) await handle.write('\n', null, 'utf8');
+    } finally {
+      await handle.close();
+    }
+    await fs.rename(tempFile, sessionFile);
+
     result.repaired = true;
     result.removedBlocks = removedBlocks;
     await log(`🩹 Repaired session transcript: stripped ${removedBlocks} corrupted thinking block(s) from ${scannedLines} message line(s) (Issue #1834). Backup: ${backupFile}`, { verbose: true });

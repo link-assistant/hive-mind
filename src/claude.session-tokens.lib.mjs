@@ -22,6 +22,7 @@ import Decimal from 'decimal.js-light';
 import { accumulateModelUsage, createEmptySubSessionUsage, getRawRequestInputTokens, mergeResultModelUsage } from './claude.budget-stats.lib.mjs';
 import { calculateModelCost } from './claude.cost.lib.mjs';
 import { fetchModelInfo } from './model-info.lib.mjs';
+import { forEachLogLine } from './log-bounded-read.lib.mjs';
 
 export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsage = null, options = {}) => {
   const homeDir = options.homeDir || os.homedir();
@@ -43,10 +44,12 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
   let currentSubSession = createEmptySubSessionUsage();
   const compactifications = [];
   try {
-    const fileContent = await fs.readFile(sessionFile, 'utf8');
-    const lines = fileContent.trim().split('\n');
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    // Issue #2189: read the transcript one record at a time. A long Claude
+    // session produces a JSONL of unbounded size, and `readFile(...).split('\n')`
+    // held the whole file *and* the array of its lines before the first entry
+    // was priced — a full-file allocation just to sum token counters.
+    await forEachLogLine(sessionFile, line => {
+      if (!line.trim()) return;
       try {
         const entry = JSON.parse(line);
         if (entry.type === 'system' && entry.subtype === 'compact_boundary') {
@@ -59,7 +62,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
             trigger: entry.compactMetadata?.trigger || 'unknown',
           });
           currentSubSession = createEmptySubSessionUsage();
-          continue;
+          return;
         }
         if (entry.message && entry.message.usage && entry.message.model) {
           // Issue #1501: Skip duplicate JSONL entries (same message ID = same API response)
@@ -67,7 +70,7 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
           if (msgId) {
             if (seenMessageIds.has(msgId)) {
               duplicateCount++;
-              continue;
+              return;
             }
             seenMessageIds.add(msgId);
           }
@@ -100,9 +103,8 @@ export const calculateSessionTokens = async (sessionId, tempDir, resultModelUsag
         }
       } catch {
         // Skip lines that aren't valid JSON
-        continue;
       }
-    }
+    });
     if (currentSubSession.messageCount > 0) {
       subSessions.push(currentSubSession);
     }

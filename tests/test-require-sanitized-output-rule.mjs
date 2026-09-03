@@ -23,6 +23,13 @@ ruleTester.run('require-sanitized-output', requireSanitizedOutput, {
     {
       code: String.raw`await postTrackedComment({ $, owner, repo, targetNumber: 1, body });`,
     },
+    // Issue #2189: the streaming sanitizer is an accepted publication boundary.
+    {
+      code: String.raw`await sanitizeLogFileToFile({ sourcePath: logFile, destPath: bodyFile }); await $` + '`gh pr comment 1 --body-file ${bodyFile}`' + ';',
+    },
+    {
+      code: String.raw`await sanitizeLogFileToFile({ sourcePath: logFile, destPath: bodyFile }); await runCommand('gh', ['issue', 'create', '--body-file', bodyFile]);`,
+    },
     {
       code: String.raw`await exec(` + '`gh api repos/${owner}/${repo}/issues/${n}/comments -X POST --input -`' + `, { input: JSON.stringify({ body: await sanitizeForPublication(body) }) });`,
     },
@@ -52,6 +59,11 @@ ruleTester.run('require-sanitized-output', requireSanitizedOutput, {
     },
   ],
   invalid: [
+    // Issue #2189: sanitizing a *different* file does not launder this one.
+    {
+      code: String.raw`await sanitizeLogFileToFile({ sourcePath: logFile, destPath: otherFile }); await runCommand('gh', ['issue', 'create', '--body-file', bodyFile]);`,
+      errors: [{ messageId: 'unsanitizedOutput' }],
+    },
     {
       code: String.raw`await $` + '`gh pr comment 1 --body ${body}`' + ';',
       errors: [{ messageId: 'unsanitizedOutput' }],

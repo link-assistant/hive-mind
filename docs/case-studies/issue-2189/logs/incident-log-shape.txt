@@ -1,0 +1,18 @@
+# Shape of the incident log (issue #2189)
+
+source bytes:            140181172
+source megabytes:        133.7 MB
+lines:                   429902
+blank lines:             116896
+longest line (chars):    65767
+lines containing CR:     0
+standalone 40-hex hits:  798 on 453 lines
+
+"Sanitized N secrets" notices (one per full sanitize pass over the log):
+  429855: 🔒 Sanitized 591 secrets using dual approach:
+  429864: 🔒 Sanitized 591 secrets using dual approach:
+
+resource markers found:  3
+  106: 📈 [RESOURCES] phase=solve_start ts=2026-09-01T08%3A34%3A18.335Z load1=5.26 load5=3.68 load15=2.41 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11449655296 memUsedBytes=1091837952 proce
+  286: 📈 [RESOURCES] phase=after_clone ts=2026-09-01T08%3A35%3A20.974Z load1=9.56 load5=5.13 load15=2.98 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11335913472 memUsedBytes=1205579776 proce
+  429738: 📈 [RESOURCES] phase=after_agent ts=2026-09-02T13%3A57%3A07.311Z load1=0.52 load5=0.74 load15=0.94 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11005980672 memUsedBytes=1535512576 pr

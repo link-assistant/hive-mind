@@ -1,0 +1,3 @@
+size=32.1MB chunk=1MB blocks=33 elapsed=38.5s throughput=0.8MB/s peakHeapDelta=36.1MB peakRss=143MB
+size=64.2MB chunk=1MB blocks=65 elapsed=76.0s throughput=0.8MB/s peakHeapDelta=36.5MB peakRss=141MB
+size=134.2MB chunk=1MB blocks=135 elapsed=154.5s throughput=0.9MB/s peakHeapDelta=78.6MB peakRss=179MB

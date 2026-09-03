@@ -1,5 +1,24 @@
 # @link-assistant/hive-mind
 
+## 2.16.0
+
+### Minor Changes
+
+- 7fe1b88: Stop Hive Mind from running itself out of memory while reporting a finished session, classify a runtime self-abort as what it is, and resume the session instead of offering to (issue #2189).
+
+  A `solve` run finished successfully, pushed its work and converted its pull request to ready — then died ten minutes later inside Hive Mind's own `--attach-logs` step with `FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory`, on a machine with 10.3 GB of RAM free. It was reported to the operator as a "forced kill", six hours late, and was never continued. Six changes close that path:
+
+  - **The sanitizer streams.** `--attach-logs` read a 134 MB log into one JS string, sanitized it (full copy), escaped it (full copy), built a comment it was never going to post, then sanitized the raw content again for the upload. `src/log-sanitize-stream.lib.mjs` sanitizes a log file into a destination file 1 MiB at a time, holding back only what could still be part of a token — a partial line, an unterminated PEM block, a trailing wrapped-base64 run — with a hard cap on the hold. `attachLogToGitHub` now picks the publication route from `logStats.size` **before** reading anything, and the content is sanitized exactly once.
+  - **A heap-capped worker behind it.** `sanitizeLogFileToFileBounded` routes logs at or above 16 MiB into a `worker_threads` worker with `resourceLimits.maxOldGenerationSizeMb = 512`, so a residual unbounded allocation costs one thread and one failed log upload rather than the working session. All four whole-file sanitize sites use it: the `--attach-logs` upload, the `/log` Telegram command, the GitHub error reporter and development-log collection.
+  - **A V8 self-abort is out of memory.** `docker inspect` said `OOMKilled=false` and cgroup `memory.events` said `oom_kill 0` — both correct, and both blind to a process that stops at its own ~2.1 GB heap cap. `FATAL_MEMORY_PATTERNS` / `findFatalMemoryMarker` recognise the fatal lines Node/V8, Rust, Go and C++ print on their way out, and an abnormal exit whose log carries one is `KILL_CAUSE_OUT_OF_MEMORY` regardless of cgroup counters. A clean exit is never upgraded, so a log that merely quotes the phrase cannot manufacture a diagnosis.
+  - **`--on-session-kill` defaults to `resume`.** A killed session with a recoverable tool session id now continues on its own instead of waiting for a human to paste a command; `report` and `HIVE_MIND_ON_SESSION_KILL` still opt out, and `--session-kill-resume-attempts` bounds it.
+  - **A killed session reaches a handled state.** The same dead session was re-detected on every poll — re-resolving the pull request, re-scanning the 134 MB log and re-sending the notification each cycle, with bot RSS climbing 1.78 → 1.84 GB against a ~2 GB cap. `src/session-completion-state.lib.mjs` adds a persisted handled latch and caches the recovered tool session id on the session record, so the log is scanned at most once and per-cycle work is no longer O(log size).
+  - **No unbounded log read is left.** Every artifact whose size is decided by how long an AI ran — `/log`, `/terminal_watch`, development-log collection, the error reporter, Claude session accounting and transcript repair, Codex's last-message artifact, and every session-monitor read — is streamed or reads a bounded head/tail. The `require-sanitized-output` ESLint rule learns the streaming sanitizers so a streamed artifact still counts as provably sanitized.
+
+  Telemetry was extended so the next incident is diagnosable: resource snapshots now carry the V8 heap used, total, external and `heap_size_limit` with the used share of it, warn at 85%, and `attachLogToGitHub` brackets itself with `log_upload_start` / `log_upload_end` samples. `describeKillCause` classifies an abnormal exit with a heap at or above 90% of its limit as out of memory even when the fatal line was lost with the truncated tail.
+
+  Full analysis — timeline, root causes, and the requirement-by-requirement plan — is in `docs/case-studies/issue-2189/`. Two upstream issues were filed from it: `link-foundation/start#165` (a V8 self-abort is reported as `oomKilled=false` with no memory signal in `--status`) and `link-foundation/start#164` (command argv is flattened with `join(' ')`, so quoted arguments are re-parsed by the inner shell).
+
 ## 2.15.2
 
 ### Patch Changes

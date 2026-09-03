@@ -159,9 +159,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
   // solve honour the exact same value, so the report never differs by surface.
   'on-session-kill': {
     type: 'string',
-    description: 'What to do when a working session is killed (out of memory, disk full, forced kill): "report" describes exactly what happened in the pull request and in Telegram, "resume" additionally starts a new working session to recover and says so in both places. Can also be set with HIVE_MIND_ON_SESSION_KILL.',
+    description: 'What to do when a working session is killed (out of memory, disk full, forced kill): "resume" (default) starts a new working session from the killed one\'s last tool session id and says so in the pull request and in Telegram, "report" only describes exactly what happened without restarting anything. Can also be set with HIVE_MIND_ON_SESSION_KILL.',
     choices: ['report', 'resume'],
-    default: 'report',
+    // Issue #2189: a kill that is only ever *offered* for resume is a kill
+    // nobody recovers from — the offer in the captured incident reached its
+    // operator six hours late. Bounded by --session-kill-resume-attempts.
+    default: 'resume',
   },
   'session-kill-resume-attempts': {
     type: 'number',

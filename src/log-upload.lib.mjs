@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 // Log upload module for hive-mind
 // Uses gh-upload-log for uploading log files to GitHub
@@ -151,14 +152,25 @@ export const uploadLogWithGhUploadLog = async ({ logFile, isPublic, description,
   let privateTempDirectory = null;
 
   try {
-    const exactSourceBytes = await fs.readFile(logFile, 'utf8');
-    const sanitizedLog = await sanitizeForPublication(exactSourceBytes);
     const sanitizedDescription = description ? await sanitizeForPublication(description) : description;
     privateTempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'hive-mind-log-upload-'));
     await fs.chmod(privateTempDirectory, 0o700);
     const privateLogFile = path.join(privateTempDirectory, 'sanitized.log');
-    await fs.writeFile(privateLogFile, sanitizedLog, { encoding: 'utf8', mode: 0o600 });
-    await fs.chmod(privateLogFile, 0o600);
+    // Issue #2189: this used to be readFile → sanitizeForPublication → writeFile,
+    // i.e. three full-size copies of the log in the heap at once. A 134 MB
+    // transcript reliably killed the run with "Reached heap limit". The streaming
+    // sanitizer holds one block (1 MiB) at a time, so cost no longer scales with
+    // log size. This is now the ONLY place `--attach-logs` sanitizes the log.
+    // Large logs additionally run in a heap-capped worker, so a residual blow-up
+    // costs one thread and one failed upload instead of the whole session.
+    const sanitizeStats = await sanitizeLogFileToFileBounded({
+      sourcePath: logFile,
+      destPath: privateLogFile,
+      onWorkerFallback: ({ error }) => log(`  ⚠️  Sanitize worker unavailable (${error?.message || error}); sanitizing in-process`, { verbose: true }),
+    });
+    if (verbose) {
+      await log(`  🧼 Streamed sanitize: ${sanitizeStats.sourceSize} bytes in ${sanitizeStats.blocks} block(s)${sanitizeStats.forcedReleases > 0 ? `, ${sanitizeStats.forcedReleases} forced release(s)` : ''}${sanitizeStats.worker ? ' (bounded worker)' : ''}`, { verbose: true });
+    }
 
     const commandArgs = buildGhUploadLogArgs({
       logFile: privateLogFile,

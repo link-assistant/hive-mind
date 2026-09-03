@@ -5,25 +5,36 @@
  * identically — the Telegram completion message and the pull-request notice must
  * never disagree about what happened:
  *
- *   - `report` (default, today's behaviour): the kill is terminal. The Telegram
- *     message says the session was killed, with the diagnosed cause, and offers
- *     the resume command. The pull request gets the same notice.
- *   - `resume`: the kill is treated as recoverable. A new working session is
- *     started from the last tool session id, and BOTH surfaces say so
- *     ("recovered from out of memory" / "a new working session was started").
+ *   - `report`: the kill is terminal. The Telegram message says the session was
+ *     killed, with the diagnosed cause, and offers the resume command. The pull
+ *     request gets the same notice.
+ *   - `resume` (default since issue #2189): the kill is treated as recoverable.
+ *     A new working session is started from the last tool session id, and BOTH
+ *     surfaces say so ("recovered from out of memory" / "a new working session
+ *     was started").
  *
  * Selected by `--on-session-kill=<policy>` or `HIVE_MIND_ON_SESSION_KILL`, with
  * the CLI flag winning over the environment. Nothing is removed by choosing one
  * over the other: `resume` still reports the kill and its cause, it just adds
  * the recovery, and log uploads stay gated on `--attach-logs` in both modes.
  *
+ * Why `resume` is the default (issue #2189): under `report` the bot only ever
+ * *offered* a resume command that a human had to notice and paste. In the
+ * captured incident the offer reached the operator six hours after the crash,
+ * and the work sat abandoned in between. "The bot should initiate the resume
+ * itself with context preserved" — so it does, bounded by
+ * `--session-kill-resume-attempts` (default 1) so a job that reliably dies still
+ * cannot storm. `--on-session-kill=report` restores the announce-only
+ * behaviour verbatim for anyone who wants it.
+ *
  * @see https://github.com/link-assistant/hive-mind/issues/2134
+ * @see https://github.com/link-assistant/hive-mind/issues/2189
  */
 
 export const ON_SESSION_KILL_REPORT = 'report';
 export const ON_SESSION_KILL_RESUME = 'resume';
 export const ON_SESSION_KILL_POLICIES = [ON_SESSION_KILL_REPORT, ON_SESSION_KILL_RESUME];
-export const DEFAULT_ON_SESSION_KILL_POLICY = ON_SESSION_KILL_REPORT;
+export const DEFAULT_ON_SESSION_KILL_POLICY = ON_SESSION_KILL_RESUME;
 
 export const ON_SESSION_KILL_ENV_VAR = 'HIVE_MIND_ON_SESSION_KILL';
 

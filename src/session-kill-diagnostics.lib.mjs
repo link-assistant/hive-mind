@@ -26,7 +26,7 @@ import fsPromises from 'fs/promises';
 import { exec as execCallback } from 'child_process';
 import { promisify } from 'util';
 import { t } from './i18n.lib.mjs';
-import { formatBytes, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
+import { formatBytes, formatHeapUsage, parseResourceMarkers } from './solve.resource-diagnostics.lib.mjs';
 import { findFatalMemoryMarker } from './child-exit.lib.mjs';
 import { readLogTextBounded } from './log-bounded-read.lib.mjs';
 
@@ -45,6 +45,15 @@ export const MEMORY_EXHAUSTED_AVAILABLE_RATIO = 0.1;
  * 512 KiB of the end, which covers both the resource markers and the fatal exit.
  */
 export const KILL_DIAGNOSTICS_LOG_BYTES = 1024 * 1024;
+/**
+ * A V8 heap this far into its own limit counts as memory exhaustion on its own
+ * (issue #2189). The runtime aborts with "Reached heap limit" while the machine
+ * still reports gigabytes free, so the host-memory ratio above never fires; the
+ * heap markers are the only in-band signal, and the last one written before the
+ * abort is typically already deep in the red.
+ */
+export const HEAP_EXHAUSTED_PERCENT = 90;
+
 /** Disk is considered full at or above this used percentage… */
 export const DISK_FULL_USED_PERCENT = 95;
 /** …or below this much free space, whichever triggers first. */
@@ -70,6 +79,22 @@ export function selectLastMemoryResourceMarker(parsed) {
   const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
   for (let i = markers.length - 1; i >= 0; i--) {
     if (finite(markers[i]?.memory?.availableBytes) !== null) return markers[i];
+  }
+  return null;
+}
+
+/**
+ * The most recent marker that carries a V8 heap reading (issue #2189). Older
+ * logs have none — the heap fields were added with this fix — so every caller
+ * must tolerate `null`.
+ *
+ * @param {{markers: Array}|null} parsed
+ * @returns {Object|null}
+ */
+export function selectLastHeapResourceMarker(parsed) {
+  const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
+  for (let i = markers.length - 1; i >= 0; i--) {
+    if (finite(markers[i]?.memory?.processHeapUsedBytes) !== null) return markers[i];
   }
   return null;
 }
@@ -248,6 +273,7 @@ function describeDisk(disk, timestamp) {
 export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
+  const heapMarker = selectLastHeapResourceMarker(parsed);
   const diskMarker = selectLastDiskResourceMarker(parsed);
   const memory = memoryMarker?.memory || null;
   const disk = diskMarker?.disk || null;
@@ -257,6 +283,12 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   const evidence = [];
   const memoryLine = describeMemory(memory, memoryMarker?.timestamp || null);
   if (memoryLine) evidence.push(`last session memory reading — ${memoryLine} (phase \`${memoryMarker.phase}\`)`);
+  // Issue #2189: report the heap against its own limit, which is the number that
+  // decides a "JavaScript heap out of memory" abort — host RAM does not.
+  const heapMemory = heapMarker?.memory || null;
+  const heapUsedPercent = finite(heapMemory?.processHeapUsedPercent);
+  const heapLine = heapMemory ? `${formatHeapUsage(heapMemory)}${heapMarker?.timestamp ? ` at ${heapMarker.timestamp}` : ''}` : null;
+  if (heapLine) evidence.push(`last session V8 heap reading — ${heapLine} (phase \`${heapMarker.phase}\`)`);
   const diskLine = describeDisk(disk, diskMarker?.timestamp || null);
   if (diskLine) evidence.push(`last session ${diskLine} (phase \`${diskMarker.phase}\`)`);
   if (oomKilled) evidence.push('container reports `State.OOMKilled = true` (an OOM event hit the container cgroup)');
@@ -280,6 +312,9 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
 
   const ratio = memoryRatio(memory);
   const memoryExhausted = ratio !== null && ratio <= MEMORY_EXHAUSTED_AVAILABLE_RATIO;
+  // A heap already at the limit is only evidence of a kill when the session
+  // actually ended abnormally — a healthy run may legitimately end near its cap.
+  const heapExhausted = abnormalExit && heapUsedPercent !== null && heapUsedPercent >= HEAP_EXHAUSTED_PERCENT;
   const diskUsedPercent = finite(disk?.usedPercent);
   const diskAvailable = finite(disk?.availableBytes);
   const diskFull = (diskUsedPercent !== null && diskUsedPercent >= DISK_FULL_USED_PERCENT) || (diskAvailable !== null && diskAvailable <= DISK_FULL_AVAILABLE_BYTES);
@@ -287,7 +322,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   let cause = KILL_CAUSE_UNKNOWN;
   if (stopRequestedByUser) {
     cause = KILL_CAUSE_FORCED_KILL;
-  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker) {
+  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker || heapExhausted) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
   } else if (diskFull) {
     cause = KILL_CAUSE_DISK_FULL;
@@ -301,6 +336,10 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     // memory" reads as a contradiction. For a runtime self-abort the host being
     // healthy is the whole point, so say which limit was actually hit.
     summary = `out of memory — the ${fatalMemoryMarker.runtime} runtime hit its own heap limit, not the machine's: \`${fatalMemoryMarker.line}\`${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && heapExhausted && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0) && !memoryExhausted) {
+    // Same shape as the fatal-marker case, but reconstructed from telemetry when
+    // the fatal line itself was lost (truncated tail, killed before flushing).
+    summary = `out of memory — the runtime's own heap was exhausted: ${heapLine}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
@@ -313,7 +352,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, disk, victims, fatalMemoryMarker };
+  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker };
 }
 
 /**

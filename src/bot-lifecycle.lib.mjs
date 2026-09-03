@@ -12,7 +12,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/1927
  */
 
-import { RESOURCE_PHASE_BOT_HEARTBEAT, captureResourceSnapshot, summarizeResourceSnapshot } from './solve.resource-diagnostics.lib.mjs';
+import { RESOURCE_PHASE_BOT_HEARTBEAT, captureResourceSnapshot, formatHeapUsage, isHeapUnderPressure, summarizeResourceSnapshot } from './solve.resource-diagnostics.lib.mjs';
 
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
 
@@ -51,6 +51,13 @@ export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DE
         uptimeSec: Math.floor(processImpl.uptime()),
         resources,
       });
+      // Issue #2189: the bot walked from 1.78 GB to 1.84 GB of RSS against its
+      // own ~2 GB heap cap while re-reporting one dead session, and nothing in
+      // the log said so until it died (#733). The heartbeat is the one place
+      // that samples the bot itself, so it is where the warning belongs.
+      if (isHeapUnderPressure(resources?.memory) && typeof logger.warn === 'function') {
+        logger.warn(`Bot V8 heap is under pressure: ${formatHeapUsage(resources.memory)} — the process will abort with "JavaScript heap out of memory" if it keeps growing`, { heap: resources.memory });
+      }
     } catch {
       /* heartbeat must never crash the bot */
     }

@@ -10,6 +10,10 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+// Issue #2189: bracket the log-upload phase with resource samples. The incident
+// log's last sample was `after_agent`, ten minutes before the heap OOM, so the
+// phase that actually died left no telemetry at all.
+import { recordResourceSnapshot, RESOURCE_PHASE_LOG_UPLOAD_START, RESOURCE_PHASE_LOG_UPLOAD_END } from './solve.resource-diagnostics.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
@@ -502,9 +506,11 @@ export async function attachLogToGitHub(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
+    recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
   } = options;
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
+  let uploadPhaseEntered = false;
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -523,6 +529,12 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
+    // Issue #2189: sample resources on the way in and on the way out of the
+    // upload, tagged with the log size, so a future post-mortem can see the V8
+    // heap climbing against its own limit instead of guessing from a machine
+    // that still had 10 GB of RAM free.
+    uploadPhaseEntered = true;
+    await recordResources({ phase: RESOURCE_PHASE_LOG_UPLOAD_START, log, label: `log upload start, ${formatLogSizeForHumans(logStats.size)} log` });
     // Issue #1173: gh-upload-log handles large files; skip inline comment for files > fileMaxSize
     const useLargeFileMode = logStats.size > githubLimits.fileMaxSize;
     if (useLargeFileMode && verbose) {
@@ -826,6 +838,17 @@ ${sessionNote}
     const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
     await log(`  ❌ ${msg}`);
     return false;
+  } finally {
+    // Issue #2189: the closing sample must run on every exit path, including the
+    // failure ones — an upload that died half way through is exactly the case
+    // whose memory profile we need.
+    if (uploadPhaseEntered) {
+      try {
+        await recordResources({ phase: RESOURCE_PHASE_LOG_UPLOAD_END, log, label: 'log upload end' });
+      } catch {
+        /* telemetry must never change the outcome of the upload */
+      }
+    }
   }
 }
 /**

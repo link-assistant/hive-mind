@@ -710,6 +710,13 @@ export const gitCmdRetry = async (cmdFn, options = {}) => {
     const description = describeTransientError({ message: combinedOutput });
 
     if (description.transient && attempt < maxAttempts) {
+      // Issue #2192: GitHub rejected the request because it arrived
+      // *unauthenticated*. Waiting does not change that, so authenticate the
+      // transport (repairing the gh state if needed) before the next attempt.
+      if (description.category === 'github-anonymous-rate-limit') {
+        const { ensureAuthenticatedGitTransport } = await import('./git-auth-transport.lib.mjs');
+        await ensureAuthenticatedGitTransport({ log: logFn, repair: true, reason: `${label} rejected as unauthenticated` });
+      }
       const waitTime = delay * Math.pow(backoff, attempt - 1);
       await logFn(`⚠️ ${label}: transient git error (attempt ${attempt}/${maxAttempts}), retrying in ${Math.round(waitTime / 1000)}s... [${formatTransientDiagnostics(description)}]`, { level: 'warn' });
       await sleep(waitTime);

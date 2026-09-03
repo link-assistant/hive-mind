@@ -31,6 +31,9 @@ import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
+// Issue #2192: GitHub throttles *anonymous* git downloads; a token must be sent
+// preemptively (a credential helper is never consulted for a public repository).
+import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport, isAnonymousDownloadLimit } from './git-auth-transport.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -949,6 +952,14 @@ export const classifyCloneError = errorOutput => {
     return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue (interrupted transfer)' };
   }
 
+  // Issue #2192: GitHub refusing an *unauthenticated* download. Retryable, but
+  // waiting is not the remedy — the clone has to be authenticated. Checked
+  // before PERMISSION/NOT_FOUND/RATE_LIMIT because GitHub's wording ("limiting",
+  // "retry later or authenticate") overlaps all three.
+  if (isAnonymousDownloadLimit(errorOutput)) {
+    return { type: 'ANONYMOUS_RATE_LIMIT', retryable: true, description: 'GitHub is limiting unauthenticated downloads (this clone was not authenticated)' };
+  }
+
   // Authentication/permission errors - not retryable
   if (output.includes('error: 401') || output.includes('error: 403') || output.includes('authentication failed') || output.includes('permission denied')) {
     return { type: 'PERMISSION', retryable: false, description: 'Authentication or permission error' };
@@ -1075,6 +1086,9 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         await log('     • Network connectivity issues');
         if (errorClassification.type === 'TRANSIENT') await log('     • GitHub server issues (temporary)');
         if (errorClassification.type === 'RATE_LIMIT') await log('     • API rate limiting exceeded');
+        // Issue #2192: the request never carried an Authorization header, so
+        // GitHub counted it against the anonymous budget regardless of `gh auth status`.
+        if (errorClassification.type === 'ANONYMOUS_RATE_LIMIT') await log('     • The clone was sent anonymously — GitHub throttles unauthenticated downloads');
         // Issue #1957: the transfer started but was interrupted (e.g. the connection
         // dropped while reading the pack). The retries above were already exhausted.
         if (errorClassification.type === 'NETWORK') await log('     • Connection dropped mid-transfer (the clone was interrupted before completing)');
@@ -1087,6 +1101,11 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
         if (argv.fork) await log(`     4. Check fork: gh repo view ${repoToClone}`);
         if (errorClassification.type === 'TRANSIENT') await log('     5. Wait and retry / check: https://www.githubstatus.com');
         if (errorClassification.type === 'RATE_LIMIT') await log('     5. Wait for rate limit to reset or use --token with different token');
+        if (errorClassification.type === 'ANONYMOUS_RATE_LIMIT') {
+          await log('     5. Make sure a token is available to git: gh auth token (or set GH_TOKEN)');
+          await log('     6. Repair the git/gh state non-interactively: gh-setup-git-identity --repair');
+          await log(`     7. Hive Mind normally authenticates git itself; if that was turned off, unset ${GIT_AUTH_TRANSPORT_DISABLE}`);
+        }
         if (errorClassification.type === 'NETWORK') {
           await log('     5. Check your network connection / VPN / proxy, then re-run the command');
           await log('     6. On slow or unstable links, a shallower history transfers faster and is less');
@@ -1100,6 +1119,13 @@ export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) =
     // Retryable error and we have attempts left
     const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
     await log(`${formatAligned('⚠️', 'Clone failed:', errorClassification.description)}`);
+    // Issue #2192: auto-recovery. GitHub rejected the download as anonymous, so a
+    // plain retry would be rejected the same way. Authenticate the transport (and,
+    // if no token is reachable, let `gh-setup-git-identity --repair` restore the
+    // gh state non-interactively) before spending the next attempt.
+    if (errorClassification.type === 'ANONYMOUS_RATE_LIMIT') {
+      await ensureAuthenticatedGitTransport({ $, log, repair: true, reason: 'GitHub rejected the clone as unauthenticated' });
+    }
     await log(`${formatAligned('⏳', 'Retrying:', `Waiting ${delay / 1000}s before attempt ${attempt + 1}/${maxRetries}...`)}`);
     if (errorClassification.type === 'RATE_LIMIT') {
       await log('     💡 Tip: Rate limiting detected - using longer delay');

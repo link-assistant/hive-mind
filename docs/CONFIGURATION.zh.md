@@ -404,6 +404,16 @@ PLAYWRIGHT_MCP_PREFLIGHT_TIMEOUT_SECONDS=90 solve <issue-url>
 
 ---
 
+### 18. Git 传输认证
+
+Issue #2192：git 只有在服务器返回 `401` 之后才会询问凭据助手，而 github.com 对公共仓库返回 `200` —— 因此公共仓库的 `git clone`（包括 `gh repo clone` 内部执行的那次）即使持有令牌也会以**匿名方式**发送，GitHub 可能以 _"temporarily limiting some unauthenticated downloads"_ 拒绝它。因此 Hive Mind 通过 `http.https://github.com/.extraheader` 预先发送令牌，并使用 `GIT_CONFIG_*` 环境变量注入，令牌不会写入任何配置文件或命令行。
+
+| Environment Variable                   | Default         | Description                                           |
+| -------------------------------------- | --------------- | ----------------------------------------------------- |
+| `HIVE_MIND_DISABLE_GIT_AUTH_TRANSPORT` | false           | 设为 `1`/`true`/`yes` 可保持匿名下载（关闭预先认证）  |
+| `HIVE_MIND_GIT_AUTH_TRANSPORT`         | (由 solve 设置) | 诊断标记：git 流量已认证的主机                        |
+| `GH_TOKEN` / `GITHUB_TOKEN`            | (未设置)        | 已设置时用于 git 传输的令牌；否则使用 `gh auth token` |
+
 ## 命令行选项
 
 ### solve 选项

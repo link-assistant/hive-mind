@@ -324,6 +324,43 @@ assert(/uploadLogWithGhUploadLog\(\{\s*\n?\s*logFile,/.test(githubSrc), 'the raw
 assert(uploadSrc.includes('sanitizeLogFileToFile({'), 'uploadLogWithGhUploadLog sanitizes by streaming');
 assert(!/const\s+\w*[Ll]ogContent\s*=\s*await\s+fs\.readFile/.test(uploadSrc), 'uploadLogWithGhUploadLog no longer reads the log into a string');
 
+// ---------------------------------------------------------------------------
+// 8. Session monitor: completion-time reporting reads a log without holding it
+// ---------------------------------------------------------------------------
+console.log('\n8. Session monitor completion helpers\n');
+
+const monitorLogPath = tmp('monitor-session.log');
+const monitorLines = ['🚀 Starting solve for https://github.com/link-assistant/hive-mind/issues/2189', '📊 [DISK] phase=after_clone bytes=12884901888 path=/tmp/work size=12.0 GB', '✅ Created pull request: https://github.com/link-assistant/hive-mind/pull/2191'];
+for (let i = 0; i < 60000; i++) monitorLines.push(`[worker] step ${i} — a long line of transcript output that pads the log well past any bounded budget`);
+monitorLines.push('📊 [DISK] phase=after_agent bytes=13312000000 deltaBytes=524288000 path=/tmp/work size=12.4 GB delta=+500.0 MB');
+monitorLines.push('');
+monitorLines.push('🚫 SUBSCRIPTION/ACCESS BLOCKED — CLAUDE: Organization subscription disabled');
+monitorLines.push('   Provider said: Your organization has disabled Claude subscription access for Claude Code');
+monitorLines.push('   Error code: oauth_org_not_allowed (HTTP 403)');
+monitorLines.push('   Why this stops the run: the account cannot call the model at all');
+monitorLines.push('');
+await fs.writeFile(monitorLogPath, `${monitorLines.join('\n')}\n`, 'utf8');
+const monitorLogSize = (await fs.stat(monitorLogPath)).size;
+assert(monitorLogSize > 4 * 1024 * 1024, `the session fixture is bigger than any bounded budget (${Math.round(monitorLogSize / 1024 / 1024)}MB)`);
+
+let monitorWholeReads = 0;
+const refusingReadFile = async () => {
+  monitorWholeReads += 1;
+  return '';
+};
+
+const monitorModule = await import('../src/session-monitor.lib.mjs');
+const diskSection = await monitorModule.buildDiskDiagnosticsExtraSection(monitorLogPath, { readFile: refusingReadFile });
+assert(diskSection.includes('12.0 GB') && diskSection.includes('12.4 GB'), `disk markers at both ends of a huge log are still reported: ${JSON.stringify(diskSection)}`);
+
+const blockedSection = await monitorModule.buildSubscriptionBlockedExtraSection(monitorLogPath, { readFile: refusingReadFile });
+assert(blockedSection.includes('oauth_org_not_allowed'), `the subscription block at the end of a huge log is still reported: ${JSON.stringify(blockedSection)}`);
+
+assert(monitorWholeReads === 0, `no completion helper reads a large session log whole (whole-file reads=${monitorWholeReads})`);
+
+const monitorSrc = await fs.readFile(path.join(repoRoot, 'src', 'session-monitor.lib.mjs'), 'utf8');
+assert(!/await readFile\(logPath, 'utf8'\)/.test(monitorSrc), 'the session monitor no longer slurps a session log anywhere');
+
 await fs.rm(workDir, { recursive: true, force: true });
 
 printSummary('Issue #2189 — bounded-memory log handling');

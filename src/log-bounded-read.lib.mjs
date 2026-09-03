@@ -260,3 +260,87 @@ export async function collectLogLinesMatching(logPath, pattern, { fsImpl = fsPro
   }
   return collected.join('\n');
 }
+
+/**
+ * Whole-log scan that keeps an injectable whole-file reader working.
+ *
+ * Several call sites accept a `readFile` for tests that hand them a synthetic
+ * transcript for a path that does not exist on disk. This helper preserves that
+ * contract — the injected reader is used when the path cannot be stat'ed or is
+ * small enough to be harmless — while a real, large log is streamed chunk by
+ * chunk and never materialised.
+ *
+ * @param {string} logPath
+ * @param {Function} onText - `(text, {isFirst, isLast, offset}) => any`; first non-nullish result wins
+ * @param {object} [options]
+ * @param {object} [options.fsImpl=fsPromises]
+ * @param {Function} [options.readFile] - Injectable whole-file reader for small/synthetic logs
+ * @param {number} [options.chunkBytes=DEFAULT_LOG_CHUNK_BYTES]
+ * @param {number} [options.overlapBytes=LOG_CHUNK_OVERLAP_BYTES]
+ * @param {boolean} [options.verbose=false]
+ * @returns {Promise<any|null>}
+ */
+export async function scanLogTextChunks(logPath, onText, { fsImpl = fsPromises, readFile = null, chunkBytes = DEFAULT_LOG_CHUNK_BYTES, overlapBytes = LOG_CHUNK_OVERLAP_BYTES, verbose = false } = {}) {
+  if (!logPath || typeof onText !== 'function') return null;
+  const step = toPositiveInt(chunkBytes, DEFAULT_LOG_CHUNK_BYTES);
+  let size = null;
+  try {
+    size = (await fsImpl.stat(logPath)).size;
+  } catch {
+    // Not on disk (or not readable): fall through to the injected reader.
+  }
+  if (size === null || size <= step) {
+    const read = readFile || fsImpl.readFile.bind(fsImpl);
+    try {
+      const text = String(await read(logPath, 'utf8'));
+      const result = onText(text, { offset: 0, isFirst: true, isLast: true });
+      return result === undefined ? null : result;
+    } catch (error) {
+      if (verbose) console.log(`[VERBOSE] log-bounded-read: could not read ${logPath}: ${error?.message || error}`);
+      return null;
+    }
+  }
+  return scanLogChunks(logPath, onText, { fsImpl, chunkBytes: step, overlapBytes, verbose });
+}
+
+/**
+ * Marker-line collection that keeps an injectable whole-file reader working.
+ *
+ * Same contract as {@link scanLogTextChunks}, for the `📊 [DISK]`-style parsers
+ * that only ever look at individual matching lines: a real log is scanned in
+ * chunks and only the matching lines are kept, so a 134 MB transcript costs one
+ * chunk plus a few kilobytes of results.
+ *
+ * @param {string} logPath
+ * @param {RegExp} pattern
+ * @param {object} [options] - As {@link collectLogLinesMatching}, plus `readFile`
+ * @returns {Promise<string>}
+ */
+export async function readLogMarkerLines(logPath, pattern, { fsImpl = fsPromises, readFile = null, maxBytes = 65536, chunkBytes = DEFAULT_LOG_CHUNK_BYTES, verbose = false } = {}) {
+  if (!logPath || !(pattern instanceof RegExp)) return '';
+  let statable = true;
+  try {
+    await fsImpl.stat(logPath);
+  } catch {
+    statable = false;
+  }
+  if (statable) return collectLogLinesMatching(logPath, pattern, { fsImpl, maxBytes, chunkBytes, verbose });
+  const read = readFile || fsImpl.readFile.bind(fsImpl);
+  try {
+    const text = String(await read(logPath, 'utf8'));
+    const limit = toPositiveInt(maxBytes, 65536);
+    const collected = [];
+    let collectedBytes = 0;
+    for (const line of text.split('\n')) {
+      pattern.lastIndex = 0;
+      if (!pattern.test(line)) continue;
+      if (collectedBytes + line.length > limit) continue;
+      collected.push(line);
+      collectedBytes += line.length + 1;
+    }
+    return collected.join('\n');
+  } catch (error) {
+    if (verbose) console.log(`[VERBOSE] log-bounded-read: could not read ${logPath}: ${error?.message || error}`);
+    return '';
+  }
+}

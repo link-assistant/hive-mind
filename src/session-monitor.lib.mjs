@@ -26,6 +26,7 @@ import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.li
 import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
 import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log-bounded-read.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 // Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
 import { clearUnverifiedDockerTerminalMarker as clearUnverifiedDockerTerminalMarkerImpl, shouldDeferUnverifiedDockerTerminal as shouldDeferUnverifiedDockerTerminalImpl } from './session-monitor.docker-terminal.lib.mjs';
@@ -326,6 +327,8 @@ function normalizeSessionUrl(url) {
   return url.replace(/#.*$/, '').replace(/\/+$/, '').toLowerCase();
 }
 const GITHUB_PULL_REQUEST_URL_RE = /https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)\/pull\/([0-9]+)/g;
+/** Marker prefix parsed by `parseDiskMarkers` (issue #1945/#1988), used to collect just those lines. */
+const DISK_MARKER_LINE_RE = /📊 \[DISK\] /;
 export function extractPullRequestUrlFromText(text, { owner = null, repo = null } = {}) {
   if (!text) return null;
   const expectedOwner = owner ? String(owner).toLowerCase() : null;
@@ -344,8 +347,12 @@ export function extractPullRequestUrlFromText(text, { owner = null, repo = null 
 async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = false, readFile = fs.readFile } = {}) {
   if (!logPath) return null;
   try {
-    const logText = await readFile(logPath, 'utf8');
-    const pullRequestUrl = extractPullRequestUrlFromText(logText, { owner: ctx.owner, repo: ctx.repo });
+    // Issue #2189: this used to be `readFile(logPath, 'utf8')`, run once per
+    // monitor tick for a session the bot never marked handled — a 134 MB
+    // transcript pulled into the bot's own heap over and over. The chunked scan
+    // still covers the whole log, one chunk at a time, and stops at the first
+    // matching URL (which is printed early, when the PR is created).
+    const pullRequestUrl = await scanLogTextChunks(logPath, text => extractPullRequestUrlFromText(text, { owner: ctx.owner, repo: ctx.repo }), { readFile, verbose });
     if (pullRequestUrl && verbose) {
       console.log(`[VERBOSE] Found PR ${pullRequestUrl} in completed session log ${logPath}`);
     }
@@ -370,7 +377,10 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
     let logText = '';
     if (logPath) {
       try {
-        logText = await readFile(logPath, 'utf8');
+        // Issue #2189: `parseDiskMarkers` only ever looks at `📊 [DISK]` lines,
+        // so collect those lines instead of the whole transcript. Cost is one
+        // chunk plus a few kilobytes of markers, whatever the log's size.
+        logText = await readLogMarkerLines(logPath, DISK_MARKER_LINE_RE, { readFile, verbose });
       } catch (readError) {
         if (verbose) {
           console.log(`[VERBOSE] Could not read session log ${logPath} for disk diagnostics: ${readError?.message || readError}`);
@@ -402,7 +412,10 @@ export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = 
   try {
     let logText = '';
     try {
-      logText = await readFile(logPath, 'utf8');
+      // Issue #2189: the blocked report is printed as the run stops, so the
+      // bounded head+tail excerpt always contains it; the middle of a multi-
+      // gigabyte transcript never has to be resident to find it.
+      logText = await readLogTextBounded(logPath, { readFile, verbose });
     } catch (readError) {
       if (verbose) {
         console.log(`[VERBOSE] Could not read session log ${logPath} for subscription block: ${readError?.message || readError}`);

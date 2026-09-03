@@ -25,7 +25,7 @@ import { formatSessionCompletionMessage, getSessionCompletionExitCode, classifyS
 import { notifySubscribers, getSubscriberCount } from './telegram-subscribers.lib.mjs';
 import { safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, normalizeExitCode } from './session-status.lib.mjs';
-import { readLastSessionIdFromLog, buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
+import { buildResumeCommand, formatResumeSection } from './session-resume.lib.mjs';
 import { readLogMarkerLines, readLogTextBounded, scanLogTextChunks } from './log-bounded-read.lib.mjs';
 import { resolveFailedSessionPullRequestState } from './github-pr-state.lib.mjs';
 // Issue #2117: a docker terminal failure that no anchored log footer corroborates may be an exit code start-command fabricated from the command's own output.
@@ -34,6 +34,8 @@ import { isDockerIsolation, sessionStartMs, resolveOomKilledState, resolveStaleE
 // Issue #2134: kill-cause diagnostics + the matching pull-request notice.
 import { buildKillCompletionSections, announceKillOnPullRequest } from './session-monitor.kill-sections.lib.mjs';
 import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
+// Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
+import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
@@ -452,6 +454,35 @@ async function getDockerContainerFilesystemSizeForSession(sessionName, sessionIn
     return null;
   }
 }
+/**
+ * How long a docker writable-layer measurement stays good enough while the
+ * session is still running (issue #2189).
+ *
+ * `docker ps --size` walks the container's whole writable layer. On the 27 GB
+ * layer in the captured incident that is expensive, and the monitor was paying
+ * it once per session per 30-second poll for no gain: the number is only ever
+ * *reported* at completion. The completion measurement is never throttled, so
+ * the number in the report is still fresh.
+ */
+export const DOCKER_FILESYSTEM_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+/**
+ * Whether the writable-layer size should be measured on this poll.
+ *
+ * @param {Object} sessionInfo
+ * @param {Object} [options]
+ * @param {boolean} [options.stillRunning] - The session is still executing
+ * @param {number} [options.now] - Epoch ms (injectable for tests)
+ * @param {number} [options.intervalMs]
+ * @returns {boolean}
+ */
+export function shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning = true, now = Date.now(), intervalMs = DOCKER_FILESYSTEM_REFRESH_INTERVAL_MS } = {}) {
+  if (sessionInfo?.isolationBackend !== 'docker') return false;
+  // The completion report quotes this number, so it is always measured fresh.
+  if (!stillRunning) return true;
+  const observedAt = Date.parse(sessionInfo?.containerFilesystemLastObservedAt || '');
+  if (!Number.isFinite(observedAt)) return true;
+  return now - observedAt >= intervalMs;
+}
 async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });
   if (!Number.isFinite(bytes)) return null;
@@ -678,6 +709,20 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     console.log(`[VERBOSE] Checking ${sessions.length} active session(s)...`);
   }
   for (const { sessionName, sessionInfo } of sessions) {
+    // Issue #2189: a session whose completion notification was already
+    // delivered is terminal. Without this latch the monitor re-entered the whole
+    // completion pipeline on every poll — re-resolving the linked pull request,
+    // re-scanning a 134 MB log, re-walking a 27 GB writable layer and re-sending
+    // a notification the user already had — because a late failure in that
+    // pipeline (or a bot restart) left the session tracked. Finalize it here,
+    // before any status probe, and do none of that work again.
+    if (isCompletionHandled(sessionInfo)) {
+      if (verbose) {
+        console.log(`[VERBOSE] Session ${sessionName} was already reported at ${sessionInfo.completionNotifiedAt}; finalizing without repeating the completion work (issue #2189)`);
+      }
+      completeSession(sessionName, sessionInfo.completionExitCode ?? 0, verbose, sessionInfo.completionStatus ?? null);
+      continue;
+    }
     let stillRunning;
     let exitCode = null;
     let statusResult = null;
@@ -740,11 +785,13 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         }
       }
     }
-    if (sessionInfo?.isolationBackend === 'docker') {
+    if (shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning })) {
       observedContainerFilesystemBytes = await refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, {
         verbose,
         sizeProvider: options.dockerContainerSizeProvider,
       });
+    } else if (sessionInfo?.isolationBackend === 'docker' && verbose) {
+      console.log(`[VERBOSE] Session ${sessionName}: reusing the writable-layer size observed at ${sessionInfo.containerFilesystemLastObservedAt} (issue #2189: not re-walking the layer every poll)`);
     }
     if (!stillRunning) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
@@ -769,6 +816,10 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             statusResult,
             readFile: options.readFile,
           });
+          if (pullRequestUrl && sessionInfo.resolvedPullRequestUrl !== pullRequestUrl) {
+            sessionInfo.resolvedPullRequestUrl = pullRequestUrl;
+            persistSessionSnapshot(sessionName, sessionInfo);
+          }
         } catch (lookupError) {
           if (verbose) {
             console.log(`[VERBOSE] Pull request lookup failed for ${sessionName}: ${lookupError?.message || lookupError}`);
@@ -819,8 +870,20 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             }
           }
         }
+        // Issue #2189: the last tool session id is read through the session
+        // record's cache, so the working-session log is scanned once per session
+        // instead of once per poll per consumer (the resume section below and the
+        // automatic recovery further down both need it, and both used to scan).
+        const resolveLastToolSessionId = logPath => {
+          const resolution = resolveCachedLastToolSessionId({ sessionInfo, logPath, verbose });
+          if (resolution.scanned) persistSessionSnapshot(sessionName, sessionInfo);
+          return resolution.id;
+        };
         // Issue #1927: for a killed /solve, offer a command using the last tool
-        // session ID in the log. Do not auto-relaunch work that may reliably OOM.
+        // session ID in the log. Issue #2189 additionally *starts* that command
+        // by default (`--on-session-kill=resume`), bounded by
+        // `--session-kill-resume-attempts`, so the work is not left for a human
+        // to notice hours later.
         const resumeExtraSections = [];
         let killResumeCommand = null;
         try {
@@ -834,7 +897,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             //   `Session ID:` marker. Do not guess from neighboring UUID-named
             //   logs: start-command stores unrelated tasks in the same backend
             //   directory, which caused issue #2109's invalid resume id.
-            const lastSessionId = readLastSessionIdFromLog(logPath, { verbose });
+            const lastSessionId = resolveLastToolSessionId(logPath);
             const resumeCommand = buildResumeCommand({ sessionInfo, lastSessionId });
             const resumeSection = formatResumeSection({ lastSessionId, command: resumeCommand });
             killResumeCommand = resumeCommand || null;
@@ -913,10 +976,21 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             runner: options.isolationRunner || null,
             trackSession: options.trackSession || trackSession,
             persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+            // Issue #2189: reuse the id already read above instead of scanning
+            // the same (possibly multi-gigabyte) log a second time.
+            readLastSessionId: logPath => resolveLastToolSessionId(logPath),
             locale: sessionInfo?.locale || null,
             verbose,
           });
           killRecovery = recovered.recovery;
+          if (killRecovery.resumed && killRecovery.sessionId) {
+            // Issue #2189: remember which session took over, so the durable
+            // history says what happened to this work and a restart cannot start
+            // a second recovery for the same kill.
+            sessionInfo.killRecoverySessionId = killRecovery.sessionId;
+            persistSessionSnapshot(sessionName, sessionInfo);
+            logEvent('session_kill_recovered', { sessionName, recoverySessionId: killRecovery.sessionId, attempt: killRecovery.attempt, maxAttempts: killRecovery.maxAttempts, policy: killRecovery.policy || null });
+          }
           if (recovered.section) killReport.sections.push(recovered.section);
         }
         const message = formatSessionCompletionMessage({
@@ -964,6 +1038,16 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, { verbose });
           notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
           notifyMessageId = sent?.message_id || null;
+        }
+        // Issue #2189: the user has now been told. Latch that fact durably
+        // BEFORE the remaining best-effort work (subscriber fan-out, container
+        // cleanup), because any failure after this point used to send the whole
+        // completion pipeline — and this notification — round again on the next
+        // poll. The snapshot write means even a bot restart in this window
+        // finalizes the session silently instead of re-notifying.
+        if (markCompletionHandled(sessionInfo, { exitCode: finalExitCode, status: resolvedStatus })) {
+          persistSessionSnapshot(sessionName, sessionInfo);
+          logEvent('session_completion_notified', { sessionName, exitCode: finalExitCode ?? null, status: resolvedStatus || null, notifiedAt: sessionInfo.completionNotifiedAt });
         }
         // Issue #1688: forward the same completion message to every /subscribe-d user
         //   in their private chat with the bot. Failures are logged but don't block
@@ -1037,6 +1121,13 @@ async function resolvePullRequestUrlForSession(sessionInfo, { verbose = false, l
   if (!ctx || ctx.type !== 'issue' || !ctx.owner || !ctx.repo || !ctx.number) {
     return null;
   }
+  // Issue #2189: a completion that has to be retried must not re-run the linked-PR
+  // lookup (an API round trip, then a scan of the session log). The answer cannot
+  // change for a session that has already finished, so remember it.
+  if (typeof sessionInfo.resolvedPullRequestUrl === 'string' && sessionInfo.resolvedPullRequestUrl) {
+    if (verbose) console.log(`[VERBOSE] Reusing resolved pull request ${sessionInfo.resolvedPullRequestUrl} for this session (not looked up again)`);
+    return sessionInfo.resolvedPullRequestUrl;
+  }
   if (typeof lookupLinkedPullRequest === 'function') {
     const linkedPullRequestUrl = await lookupLinkedPullRequest(ctx);
     if (linkedPullRequestUrl) return linkedPullRequestUrl;
@@ -1102,6 +1193,22 @@ export function startSessionMonitoring(bot, verbose = false, intervalMs = 30000,
  * record whose startTime is after the current bot start (it cannot belong to a
  * previous run), satisfying requirement #2's "started before bot start time".
  *
+ * Issue #2189 asks for the other half of that sentence — "on startup resume all
+ * still-running / interrupted commands". Both cases are handled here plus the
+ * first monitor tick, which runs synchronously after this function:
+ *
+ *   - a session that is **still running** keeps running; re-registering it is
+ *     exactly what resumes it, and the bot reports it when it ends;
+ *   - a session that was **interrupted** (its backend is gone, or its log footer
+ *     records a kill) is detected as finished on that first tick and, under the
+ *     now-default `--on-session-kill=resume`, a recovery working session is
+ *     started from its last tool session id — bounded by
+ *     `--session-kill-resume-attempts`, whose counter is persisted, so a job
+ *     that dies every time cannot be relaunched once per bot restart forever;
+ *   - a session that was already **reported** before the previous process died
+ *     carries the persisted `completionNotifiedAt` latch and is finalized
+ *     silently, so a restart never re-notifies.
+ *
  * @param {object} [options]
  * @param {object} [options.store] - Session store to load from (default: the store set via setSessionStore).
  * @param {number} [options.botStartTime] - Epoch seconds; only sessions started strictly before this are resumed. Defaults to now.
@@ -1150,7 +1257,10 @@ export async function resumeTrackedSessions(options = {}) {
     }
   }
   if (resumed.length > 0) {
-    console.log(`♻️  Resumed monitoring of ${resumed.length} session(s) from durable store after restart`);
+    // Issue #2189: say how many of these are already-reported leftovers, so the
+    // startup line is not read as "N sessions are still working".
+    const alreadyReported = resumed.filter(({ sessionInfo }) => isCompletionHandled(sessionInfo)).length;
+    console.log(`♻️  Resumed monitoring of ${resumed.length} session(s) from durable store after restart${alreadyReported > 0 ? ` (${alreadyReported} already reported, will be finalized silently)` : ''}`);
   } else if (verbose) {
     console.log('[VERBOSE] resumeTrackedSessions: no eligible sessions to resume');
   }

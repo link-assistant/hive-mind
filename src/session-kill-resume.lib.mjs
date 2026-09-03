@@ -11,10 +11,13 @@
  * The restart is bounded by `--session-kill-resume-attempts` (default 1), so a
  * job that reliably runs the host out of memory cannot storm the queue.
  *
- * Nothing here runs under the default `report` policy — behaviour is unchanged
- * unless the operator opts in.
+ * Issue #2189 made `resume` the default: a killed session that is only ever
+ * *offered* for resume is a session nobody resumes. `--on-session-kill=report`
+ * turns everything below back off, and `planKillRecovery` still returns
+ * `reason: 'policy-report'` in that case.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2134
+ * @see https://github.com/link-assistant/hive-mind/issues/2189
  */
 
 import { readLastSessionIdFromLog, planKilledSessionResume } from './session-resume.lib.mjs';

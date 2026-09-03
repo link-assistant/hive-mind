@@ -253,11 +253,14 @@ assert(failedPost.posted === false && /no auth/.test(failedPost.error), 'a faile
 // ---------------------------------------------------------------------------
 console.log('\n-- on-kill policy --');
 
-assert(resolveOnSessionKillPolicy({ argv: {}, env: {} }) === ON_SESSION_KILL_REPORT, 'report is the default on-kill policy');
+// Issue #2189 flipped the default: a kill that is only ever *offered* for
+// resume is a kill nobody recovers from. `report` is still selectable.
+assert(resolveOnSessionKillPolicy({ argv: {}, env: {} }) === ON_SESSION_KILL_RESUME, 'resume is the default on-kill policy (issue #2189)');
+assert(resolveOnSessionKillPolicy({ argv: { 'on-session-kill': 'report' }, env: {} }) === ON_SESSION_KILL_REPORT, '--on-session-kill=report still turns automatic recovery off');
 assert(resolveOnSessionKillPolicy({ argv: { 'on-session-kill': 'resume' }, env: {} }) === ON_SESSION_KILL_RESUME, '--on-session-kill selects the policy');
 assert(resolveOnSessionKillPolicy({ argv: {}, env: { HIVE_MIND_ON_SESSION_KILL: 'resume' } }) === ON_SESSION_KILL_RESUME, 'HIVE_MIND_ON_SESSION_KILL selects the policy');
 assert(resolveOnSessionKillPolicy({ argv: { onSessionKill: 'report' }, env: { HIVE_MIND_ON_SESSION_KILL: 'resume' } }) === ON_SESSION_KILL_REPORT, 'the flag wins over the environment');
-assert(resolveOnSessionKillPolicy({ argv: { onSessionKill: 'nonsense' }, env: {} }) === ON_SESSION_KILL_REPORT, 'an invalid policy falls back to the default');
+assert(resolveOnSessionKillPolicy({ argv: { onSessionKill: 'nonsense' }, env: {} }) === ON_SESSION_KILL_RESUME, 'an invalid policy falls back to the default');
 assert(resolveSessionKillResumeAttempts({ argv: {}, env: {} }) === 1, 'one automatic resume attempt by default');
 assert(resolveSessionKillResumeAttempts({ argv: {}, env: { HIVE_MIND_SESSION_KILL_RESUME_ATTEMPTS: '3' } }) === 3, 'the resume attempt cap is configurable');
 assert(shouldResumeKilledSession({ policy: ON_SESSION_KILL_RESUME, killed: true }) === true, 'resume policy resumes a killed session');
@@ -275,7 +278,7 @@ assert(
   killSections.sections.some(section => /Kill diagnostics/.test(section)),
   'a killed session reports its diagnosis'
 );
-assert(killSections.policy === ON_SESSION_KILL_REPORT, 'the completion carries the resolved on-kill policy');
+assert(killSections.policy === ON_SESSION_KILL_RESUME, 'the completion carries the resolved on-kill policy');
 
 const cleanSections = await buildKillCompletionSections({ sessionName: SESSION, sessionInfo: { locale: 'en' }, exitCode: 0, status: 'executed' });
 assert(cleanSections.sections.length === 0, 'an ordinary successful session gains no kill sections');
@@ -313,7 +316,7 @@ const resumableInfo = () => ({
 const readTool = () => TOOL_SESSION;
 
 const reportPlan = planKillRecovery({ sessionInfo: { ...resumableInfo(), args: ['--on-session-kill', 'report'] }, killed: true, env: {}, readLastSessionId: readTool });
-assert(reportPlan.shouldResume === false && reportPlan.reason === 'policy-report', 'the default report policy never starts a recovery session');
+assert(reportPlan.shouldResume === false && reportPlan.reason === 'policy-report', 'an explicit report policy never starts a recovery session');
 
 const resumePlan = planKillRecovery({ sessionInfo: resumableInfo(), killed: true, env: {}, readLastSessionId: readTool });
 assert(resumePlan.shouldResume === true && resumePlan.attempt === 1, '--on-session-kill=resume plans exactly one recovery session');

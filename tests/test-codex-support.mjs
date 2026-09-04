@@ -9,7 +9,7 @@ const { defaultModels, primaryModelNames, resolveDefaultFallbackModel, resolveMo
 const { resolveCodexReasoningEffort } = await import('../src/codex.options.lib.mjs');
 const { parseCodexExecJsonOutput, getCodexErrorEventSummary, executeCodexCommand, buildCodexResultModelUsage, calculateCodexPricingFromModelInfo } = await import('../src/codex.lib.mjs');
 const { executeOpenCodeCommand } = await import('../src/opencode.lib.mjs');
-const { executeAgentCommand, agentCliFailsClosedOnModelMismatch, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
+const { executeAgentCommand, agentCliFailsClosedOnModelMismatch, agentCliSupportsLiveInput, getAgentCliVersion, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 const { classifyRetryableError } = await import('../src/tool-retry.lib.mjs');
 const { retryLimits } = await import('../src/config.lib.mjs');
 const { buildCostInfoString } = await import('../src/github-cost-info.lib.mjs');
@@ -228,8 +228,11 @@ await asyncTest('A Formal AI task refuses to start on an Agent CLI that can fall
   });
 });
 
+// The accepted version has to clear *every* floor, not just the fail-closed one:
+// issue #2186 added MIN_AGENT_SNAPSHOT_HYGIENE_VERSION on top, and it is currently
+// the highest of the three.
 await asyncTest('The same Formal AI task starts once the Agent CLI fails closed', async () => {
-  await withFakeAgentCli(MIN_AGENT_FORMAL_AI_VERSION, async ({ requested }) => {
+  await withFakeAgentCli(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, async ({ requested }) => {
     assert.equal(await validateAgentConnection('formal-ai'), true);
     assert.equal(requested(), true);
   });

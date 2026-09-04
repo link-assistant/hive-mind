@@ -65,6 +65,14 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `actions: read` on top of the workflow-wide `contents: read`: the detector
+    # asks the Actions API whether the previous head of this PR ever finished a
+    # successful run of this workflow before it trusts an incremental diff
+    # (issue #2198). Without the scope the lookup answers 403 and the detector
+    # falls back to the full PR diff -- safe, but needlessly expensive.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       mjs-changed: ${{ steps.changes.outputs.mjs }}
       package-changed: ${{ steps.changes.outputs.package }}
@@ -87,6 +95,11 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_AFTER_SHA: ${{ github.event.after }}
+          # Issue #2198: the two variables the run lookup needs. The ref names
+          # the workflow file to ask about, so the check stays correct if this
+          # file is ever renamed.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: node scripts/detect-code-changes.mjs
   # === VERSION CHANGE CHECK ===
   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD

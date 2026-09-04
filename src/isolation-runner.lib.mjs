@@ -665,6 +665,37 @@ export async function checkDockerContainerRunning(containerName, verbose = false
     return false;
   }
 }
+/**
+ * Check whether the Docker container backing a session still exists at all —
+ * running or stopped.
+ *
+ * Issue #2189 requirement R2: a killed session should be re-entered rather than
+ * restarted from scratch, and `$ --resume` can only do that while the container
+ * is still there. `checkDockerContainerRunning` answers a different question (a
+ * stopped container is "not running" but is exactly the one worth resuming), so
+ * the state is read instead of the running flag.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} True when `docker inspect` finds the container
+ */
+export async function checkDockerContainerExists(containerName, verbose = false) {
+  if (!containerName) return false;
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
+    const code = Number.isFinite(result.code) ? result.code : 0;
+    const state = (result.stdout?.toString() || '').trim();
+    const exists = code === 0 && state !== '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
+    }
+    return exists;
+  } catch {
+    // `docker inspect` exits non-zero when no such container exists.
+    return false;
+  }
+}
 export function parseDockerContainerWritableLayerSizeOutput(output) {
   const text = String(output || '').trim();
   if (!text) return null;

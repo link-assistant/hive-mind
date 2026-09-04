@@ -43,7 +43,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2202
  */
 
-import { buildRouterGitUrlPrefix, buildRouterToolServiceUrl, resolveRouterRouteDialect } from './router-routes.lib.mjs';
+import { buildRouterGitUrlPrefix, buildRouterToolServiceUrl, resolveRouterRouteDialect, ROUTER_TOOL_SERVICE } from './router-routes.lib.mjs';
 
 export const ROUTER_SIDECAR_CONTAINER_NAME = 'hive-mind-router';
 export const ROUTER_SIDECAR_NETWORK_NAME = 'hive-mind-router';
@@ -536,6 +536,15 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
   // the canonical dialect has to say what it lost rather than 404 in the task.
   if (githubMode !== 'off' && routes && routes.ghReachable === false) {
     gaps.push(`This router serves the GitHub proxy under ${routes.github.rest} and ${routes.github.graphql}, but gh has no path-prefix setting and always calls /api/v3/ — so \`gh api\` and GraphQL are NOT mediated on this dialect. git still is. Pin HIVE_MIND_ROUTER_IMAGE to a 0.x router to keep gh routed (upstream link-assistant/router#415).`);
+  }
+  // buildRouterTaskEnv wires no base URL when the dialect serves nothing for
+  // this tool (Gemini on the legacy dialect is the live case). The CLI then
+  // keeps its own credential and calls the vendor directly, which is the
+  // opposite of what `--use-router` was asked for — so the run has to say it
+  // rather than look routed.
+  const service = ROUTER_TOOL_SERVICE[normalizeTool(tool)];
+  if (!service || routes?.services?.[service] === null || routes?.services?.[service] === undefined) {
+    gaps.push(`This router (${routes?.description ?? 'unknown dialect'}) serves no endpoint for '${normalizeTool(tool)}', so its model traffic is NOT routed: the CLI keeps its own credential and calls the vendor directly. Pin HIVE_MIND_ROUTER_IMAGE to a router that serves this tool, or run it without --use-router rather than assuming it is mediated.`);
   }
   if (githubMode === 'off') {
     gaps.push('GitHub traffic is NOT routed: the task keeps its own gh credential, and destructive API calls are not mediated. Unset HIVE_MIND_ROUTER_GITHUB, or set HIVE_MIND_ROUTER_GH_HOST for an external router.');

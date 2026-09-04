@@ -152,6 +152,14 @@ assertEqual(geminiCanonical.GEMINI_API_KEY, TASK_TOKEN, 'and authenticates with 
 const geminiLegacy = buildRouterTaskEnv({ tool: 'gemini', baseUrl: ORIGIN, token: TASK_TOKEN, dialect: legacy });
 assertEqual('GOOGLE_GEMINI_BASE_URL' in geminiLegacy, false, 'a dialect that does not serve Gemini wires nothing rather than a 404');
 
+// And an unserved tool must not merely wire nothing — it must say so, or a run
+// asked to be mediated quietly leaves the sidecar with its own credential.
+const unrouted = gaps => gaps.some(gap => gap.includes('is NOT routed: the CLI keeps its own credential'));
+assertEqual(unrouted(describeRouterCoverageGaps({ tool: 'gemini', dialect: legacy })), true, 'a gemini run on the legacy pin is told its model traffic is not routed');
+assertEqual(unrouted(describeRouterCoverageGaps({ tool: 'gemini', dialect: canonical })), false, 'and is not warned when the dialect does serve it');
+assertEqual(unrouted(describeRouterCoverageGaps({ tool: 'claude', dialect: legacy })), false, 'the legacy anthropic service is the origin itself, which is served, not missing');
+assertEqual(unrouted(describeRouterCoverageGaps({ tool: 'codex', dialect: legacy })), false, 'codex is served on both dialects');
+
 console.log('\n--- Git rewriting follows the dialect too ---');
 
 const gitKeys = dialect => buildRouterGitConfigEntries({ baseUrl: ORIGIN, token: TASK_TOKEN, dialect }).map(([key]) => key);

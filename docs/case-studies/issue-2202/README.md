@@ -728,6 +728,16 @@ its own error text. The regression test asserts the token is absent both from
 the thrown error and from the `error` field that reaches the footer, and that
 the useful part of the failure ("No such container") survives the redaction.
 
+The same read turned up a quieter one. Wiring Gemini through
+`GOOGLE_GEMINI_BASE_URL` fixed a real hole — before this change a routed Gemini
+task was handed `OPENAI_BASE_URL`, ignored it, and called Google directly — but
+only the canonical dialect serves Gemini at all, and the default pin is legacy.
+On that pin `buildRouterTaskEnv` correctly wires nothing rather than a 404,
+which leaves the CLI calling Google with its own credential: the same hole,
+now silent instead of wrong. `describeRouterCoverageGaps` now states it, for any
+tool the resolved dialect does not serve, in the same list that already reports
+the `gh` trade-off.
+
 ### Evidence the hot-load path works against the real world
 
 Two runs captured on 2026-09-04, both from inside this repository:

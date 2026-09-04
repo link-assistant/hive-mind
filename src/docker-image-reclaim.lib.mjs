@@ -107,9 +107,17 @@ export function parseDockerJsonLines(output) {
 const parseDockerDate = value => {
   const text = String(value ?? '').trim();
   if (!text) return null;
-  // "2026-08-30 10:00:00 +0000 UTC" — Date cannot parse the trailing zone name.
-  const normalized = text.replace(/\s+[A-Z]{2,5}$/, '').replace(' ', 'T');
-  const parsed = Date.parse(normalized);
+  // Docker prints "2026-08-30 10:00:00 +0000 UTC". Date.parse rejects both the
+  // trailing zone name and the unpunctuated offset ("+0000"), and a null date
+  // here would silently make an older tag look like the newest one, so the
+  // parts are rebuilt into an ISO-8601 string instead of patched up.
+  const match = text.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?(?:\s*(Z|[+-]\d{2}:?\d{2}))?/);
+  if (match) {
+    const zone = match[3] === 'Z' || !match[3] ? 'Z' : match[3].length === 5 ? `${match[3].slice(0, 3)}:${match[3].slice(3)}` : match[3];
+    const parsed = Date.parse(`${match[1]}T${match[2]}${zone}`);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  const parsed = Date.parse(text);
   return Number.isFinite(parsed) ? parsed : null;
 };
 

@@ -66,6 +66,21 @@ check(parsedImages[0].reference === 'konard/hive-mind:latest', 'parseDockerImage
 check(parsedImages[7].dangling === true, 'parseDockerImageJsonLines: `<none>:<none>` is recognised as dangling');
 check(parsedImages[2].sizeBytes > 11 * 1000 ** 3, 'parseDockerImageJsonLines: the human-readable size is parsed into bytes');
 check(parseDockerImageJsonLines('not json\n\n').length === 0, 'parseDockerImageJsonLines: junk lines are ignored, not thrown on');
+check(parsedImages[0].createdAt === Date.parse('2026-08-30T10:00:00Z'), `parseDockerImageJsonLines: docker's "+0000 UTC" timestamp is parsed, not dropped (got ${parsedImages[0].createdAt})`);
+
+// A build date that does not agree with tag ordering decides the winner: with a
+// null date every comparison fell back to the tag string, which made an older
+// image look like the newest one and quietly disabled reclaiming.
+const datedPlan = planDockerImageReclaim({
+  images: parseDockerImageJsonLines(
+    toJsonLines([
+      { ID: 'sha256:new', Repository: 'konard/hive-mind', Tag: 'latest', CreatedAt: '2026-08-30 10:00:00 +0000 UTC', Size: '12GB' },
+      { ID: 'sha256:old', Repository: 'konard/hive-mind', Tag: 'v2.16.0', CreatedAt: '2026-08-20 10:00:00 +0000 UTC', Size: '8GB' },
+    ])
+  ),
+  protectedReferences: [],
+});
+check(datedPlan.remove.length === 1 && datedPlan.remove[0].reference === 'konard/hive-mind:v2.16.0', 'the older build is superseded by `latest` even though its tag sorts higher');
 
 // --- what gets removed ------------------------------------------------------
 check(removed.has('konard/hive-mind:v2.16.0'), 'removes a strictly older Hive Mind tag');

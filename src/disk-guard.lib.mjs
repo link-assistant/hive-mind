@@ -218,6 +218,26 @@ export const reclaimSolverWorkspaces = async ({ requiredMB = 0, tmpRoot = DEFAUL
 };
 
 /**
+ * The reclaimable-space report, imported lazily so the disk guard (used by
+ * every worker) does not pull docker and toolchain scanning into its module
+ * graph until a run is actually short on space.
+ */
+const defaultCollectReclaimableSpace = async options => {
+  const { collectReclaimableSpace } = await import('./reclaimable-space.lib.mjs');
+  return collectReclaimableSpace(options);
+};
+
+/** Never let the diagnostic break the decision it is only annotating. */
+const measureReclaimableSpace = async ({ collectReclaimable, ...options }) => {
+  if (!collectReclaimable) return null;
+  try {
+    return await collectReclaimable(options);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Make sure `requiredMB` is free before a worker starts a task.
  *
  * Returns `{ ok: true }` when there is (or there now is) enough space, and
@@ -231,7 +251,7 @@ export const reclaimSolverWorkspaces = async ({ requiredMB = 0, tmpRoot = DEFAUL
  * `@link-assistant/agent` snapshot stores in the home directory, which no `/tmp`-scoped check
  * could see. Pass `agentDataHome: null` to opt out.
  */
-export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS } = {}) => {
+export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, collectReclaimable = defaultCollectReclaimableSpace } = {}) => {
   const startedAt = now();
   const reclaimed = [];
   let freeMB = await getFreeMB(tmpRoot);
@@ -268,7 +288,13 @@ export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = D
     }
     const elapsedMs = now() - startedAt;
     if (elapsedMs + pollIntervalMs > maxWaitMs) {
-      return { ok: false, freeMB, reason: 'insufficient_disk_space', reclaimed, waitedMs: elapsedMs, skipped: result.skipped };
+      // Issue #2187: everything reclaimable here has already been reclaimed, so
+      // the caller is about to say "no in-flight work can release disk space".
+      // Measure what is left elsewhere — docker, toolchains, stores this run may
+      // not touch on its own — so the operator is told where the space is
+      // instead of just that there is none.
+      const reclaimable = await measureReclaimableSpace({ collectReclaimable, tmpRoot, protectedPaths, minIdleMs, agentDataHome, agentSnapshotMinIdleMs, now, fileSystem, procRoot });
+      return { ok: false, freeMB, reason: 'insufficient_disk_space', reclaimed, waitedMs: elapsedMs, skipped: result.skipped, reclaimable };
     }
     await log(`   ⏳ Still ${freeMB}MB free of the ${requiredMB}MB required — waiting ${Math.round(pollIntervalMs / 1000)}s for in-flight work to release disk space`);
     await sleep(pollIntervalMs);

@@ -32,6 +32,9 @@ import { assertTokenFreeSource, assertTokenFreeUrl, BILLABLE_PATH_PATTERNS, isBi
 import { fetchCodexCliCatalogue, fetchJsonCatalogue, fetchModelsDevMetadata, fetchRouterCatalogue, fetchRouterCatalogueViaExec, normalizeCataloguePayload } from '../src/model-catalogue-fetch.lib.mjs';
 import { getMergedModelCatalogue, isModelCatalogueEntryFresh, isModelHotLoadEnabled, isRouterCatalogueEnabled, listBundledModelIds, loadModelCatalogue, mergeModelCatalogue, modelCatalogueCacheKey, readModelCatalogueCache } from '../src/model-catalogue.lib.mjs';
 import { ROUTER_ROUTE_DIALECTS } from '../src/router-routes.lib.mjs';
+import { dockerErrorMessage } from '../src/docker-sidecar.lib.mjs';
+import { registerRouterProvider } from '../src/router-sidecar.lib.mjs';
+import { buildRouterProviderArgs } from '../src/router-isolation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -135,6 +138,35 @@ await checkAsync('a failed router read never repeats the leased token back at th
   const result = await fetchRouterCatalogue({ baseUrl: 'https://link-assistant-router', dialect: ROUTER_ROUTE_DIALECTS.legacy, token, tool: 'claude', transport: 'exec', run });
   assert.equal(result.status, 'error');
   assert.equal(String(result.error).includes(token), false, `the token leaked into the source footer: ${result.error}`);
+});
+
+await checkAsync('a failed docker command never reports the secrets its argv carried', async () => {
+  // The other half of the same hazard: the router container is started with
+  // `--env TOKEN_SECRET=…` and its providers are registered with `--api-key …`.
+  // stderr normally describes a docker failure without the command line, but a
+  // process killed on a timeout leaves stderr empty — and then Node's
+  // "Command failed: <argv…>" message is the only description there is. Those
+  // strings reach `/models`' source footer through the router lease.
+  const timedOut = async (file, args) => {
+    const error = new Error(`Command failed: ${file} ${args.join(' ')}`);
+    error.stderr = '';
+    error.killed = true;
+    throw error;
+  };
+
+  const tokenSecret = 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4';
+  const startFailure = dockerErrorMessage(Object.assign(new Error(`Command failed: docker run --env ROUTER_PORT=443 --env TOKEN_SECRET=${tokenSecret} ghcr.io/link-assistant/router:0.125.4`), { stderr: '' }));
+  assert.equal(startFailure.includes(tokenSecret), false, `the signing secret leaked: ${startFailure}`);
+  assert.match(startFailure, /TOKEN_SECRET=\*\*\*/, 'the variable is still named, only its value is dropped');
+  assert.match(startFailure, /router:0\.125\.4/, 'the useful part of the command survives');
+
+  const apiKey = 'sk-ant-vendor-key-abcdef123456';
+  const registered = await registerRouterProvider({ providerArgs: buildRouterProviderArgs({ name: 'anthropic', baseUrl: 'https://api.anthropic.com', model: 'claude-opus-5', apiKey }), run: timedOut, timeoutMs: 1000 });
+  assert.equal(registered.registered, false);
+  assert.equal(String(registered.error).includes(apiKey), false, `the vendor key leaked: ${registered.error}`);
+
+  // stderr is still preferred, and is reported as the daemon wrote it.
+  assert.equal(dockerErrorMessage(Object.assign(new Error('Command failed: docker exec nope'), { stderr: 'Error response from daemon: No such container' })), 'Error response from daemon: No such container');
 });
 
 check('the TUI extraction methods are recorded as rejected, with a reason', () => {

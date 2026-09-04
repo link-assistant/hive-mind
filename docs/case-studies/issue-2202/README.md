@@ -738,6 +738,23 @@ now silent instead of wrong. `describeRouterCoverageGaps` now states it, for any
 tool the resolved dialect does not serve, in the same list that already reports
 the `gh` trade-off.
 
+The token redaction above was a fix at one call site, which raised the obvious
+question: which other command line in this repository carries a secret? Two do.
+`buildRouterSidecarRunArgs` starts the container with
+`--env TOKEN_SECRET=<the value that signs every task token>`, and
+`buildRouterProviderArgs` registers an upstream with `--api-key <the vendor
+key>`. Both are run through `dockerText`, and both failure paths reported
+`error.stderr || error.message` — stderr first, which is why this had never been
+seen: the daemon writes a useful stderr for the ordinary failures. It is empty
+for the one that matters, a process killed on a timeout, and then the
+`Command failed: <argv…>` message is the whole report. Those strings are logged,
+and since this pull request the router lease's error is also printed in
+`/models`' source footer. `dockerErrorMessage` — the shared helper the four
+router call sites now use instead of repeating the expression — masks
+`--env NAME=value` and `--api-key`/`--token`/`--secret`/`--password` values,
+keeping the variable's name and the rest of the command line so the message
+still says what failed.
+
 ### Evidence the hot-load path works against the real world
 
 Two runs captured on 2026-09-04, both from inside this repository:

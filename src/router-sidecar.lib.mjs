@@ -30,7 +30,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 import { drainTaskSessionData } from './router-session-drain.lib.mjs';
 import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
@@ -240,7 +240,7 @@ export const issueRouterTaskToken = async ({ sessionId, containerName = ROUTER_S
     if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: issued token ${tokenId || '(id unknown)'} for '${sessionId}'`);
     return { token, tokenId, error: null };
   } catch (error) {
-    return { token: null, tokenId: null, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { token: null, tokenId: null, error: dockerErrorMessage(error) };
   }
 };
 
@@ -375,7 +375,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
       try {
         await dockerText(run, buildRouterSidecarRunArgs({ image, tokenSecret, credentialMounts, env }), { timeoutMs });
       } catch (error) {
-        return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+        return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: dockerErrorMessage(error) };
       }
       startedAt = now().toISOString();
       if (log) await log(`🔀 Router sidecar started with ${credentialMounts.length} credential mount(s); tasks will not receive vendor credentials directly`);
@@ -452,7 +452,7 @@ export const registerRouterProvider = async ({ providerArgs, containerName = ROU
     // `docker exec` bypasses the image entrypoint, so the binary is named again.
     await dockerText(run, ['exec', containerName, 'router', ...providerArgs], { timeoutMs });
   } catch (error) {
-    return { registered: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { registered: false, error: dockerErrorMessage(error) };
   }
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: registered provider '${providerArgs[providerArgs.indexOf('--name') + 1]}'`);
   return { registered: true, error: null };
@@ -499,7 +499,7 @@ export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', base
   try {
     await dockerText(run, ['exec', '--user', '0', sessionId, 'sh', '-c', script], { timeoutMs });
   } catch (error) {
-    return { wired: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { wired: false, error: dockerErrorMessage(error) };
   }
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: wired '${sessionId}' (CA installed, github=${githubMode}${routerIp ? ` via ${routerIp}` : ''})`);
   return { wired: true, error: null };

@@ -678,3 +678,57 @@ Each step is committable on its own and leaves the tree green.
   as rejected, so a future contributor does not re-derive it.
 - **Not a goal: replacing the bundled table.** It is the offline floor and the
   spelling authority. The live catalogue annotates it; it does not supersede it.
+
+---
+
+## Part 8 — What shipped, and where it differs from the plan
+
+Parts 1–7 were written before the implementation. This part records the outcome,
+including the places where the plan turned out to be wrong. Anything not
+mentioned here shipped as Part 5 described it.
+
+### Deviations
+
+| Plan                                           | What shipped                                                                                                                                                                                                                                                       | Why                                                                                                                                                                                                                                          |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One `src/model-catalogue.lib.mjs`              | Four modules: `model-catalogue-sources.lib.mjs` (the source table and both token-free guards), `model-catalogue-fetch.lib.mjs` (one reader per source), `model-catalogue.lib.mjs` (cache, merge, router lease), `model-catalogue-render.lib.mjs` (pure formatting) | A single module would have crossed the 1350-line early warning in `scripts/check-file-line-limits.sh`. Splitting on the seam that already existed — declare / fetch / merge / render — also let the renderer be tested with no I/O at all.   |
+| Router pin stays at `0.125.4`                  | Same, and `src/router-routes.lib.mjs` teaches `--use-router` **both** dialects                                                                                                                                                                                     | G4 is unresolved upstream, so `1.x` cannot be the default. Dialect awareness means the pin can move the day it is resolved without touching any call site.                                                                                   |
+| `/models` and `hive-models` take `--no-update` | Both take `--no-update` **and** `--no-tool-update`; `/solve`, `/hive`, `/task` take `--no-tool-update`                                                                                                                                                             | `--tool-update` is the only spelling that fits solve's existing `tool-*` option namespace. Rather than make operators remember two names, the listing commands accept both.                                                                  |
+| `/fix` calls the freshness check               | `/fix` needed no change at all                                                                                                                                                                                                                                     | `partitionFixArgs` already forwards unrecognised flags into the `/solve` child it starts, so `/fix` inherits the check and the opt-out. Verified by test rather than assumed: the passthrough for `--no-tool-update` is asserted end to end. |
+
+### The detail that was easy to get wrong
+
+`ensureAgenticCliFreshness` defers while other tasks are running, and
+`getActiveTasks` finds those tasks by scanning process command lines for issue
+URLs. A `/solve` run that asks for an update therefore **finds itself**, and
+would defer forever. Every caller passes `ignoreTasks` with its own task
+reference, which removes exactly one process — its own — from the gate and
+leaves every genuinely concurrent task blocking the swap. In a `/hive` fan-out
+of _N_ children each child excludes only itself, sees the other *N*−1, and
+defers. That is the correct outcome: a CLI must never be replaced underneath a
+running task.
+
+### Evidence the hot-load path works against the real world
+
+Two runs captured on 2026-09-04, both from inside this repository:
+
+- `HIVE_MIND_MODELS_HOT_LOAD=0 hive-models --tool claude` printed 17 models
+  under **Bundled (17) — shipped with this installation; live sources were not
+  consulted**, with `router: not read — hot load is disabled`. The offline floor
+  holds and does not lie about what it checked.
+- `HIVE_MIND_MODELS_ROUTER=0 hive-models --tool claude --details --refresh`
+  attached real R8 specifications from models.dev — for example
+  `claude-fable-5-1 (fable, fable-5-1) [1M ctx · 128K out · $10/$50 per Mtok · reasoning · text+image+pdf · 2026-09-01]`
+  — and reported `models.dev: ok — specifications for 3570 model(s)`.
+
+Both runs also printed `Skipped the CLI update check: other tasks are running.`,
+which is correct: they were executed inside a live `/solve`.
+
+### User-facing documentation
+
+[`docs/MODELS.md`](../../MODELS.md) and its `.zh` / `.hi` / `.ru` siblings
+document the command, the six sources and their precedence, both token-free
+guards, the four rejected extraction methods and why each was rejected, the
+cache floor, and the five properties that keep the update check timid. The
+`--tool-update` option is listed in `docs/CONFIGURATION.md` in all four
+languages, and the README points at `docs/MODELS.md` from the model section.

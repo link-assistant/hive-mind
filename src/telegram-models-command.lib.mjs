@@ -55,7 +55,7 @@ export const parseModelsCommandArgs = (text = '') => {
       result.details = true;
       continue;
     }
-    if (lower === '--no-update') {
+    if (lower === '--no-update' || lower === '--no-tool-update') {
       result.update = false;
       continue;
     }

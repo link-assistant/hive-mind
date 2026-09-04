@@ -40,6 +40,7 @@ Options:
       --details        Show context window, pricing, and which source had it
       --json           Print machine-readable JSON instead of text
       --no-update      Do not check the agentic CLIs for a newer version first
+                       (also spelled --no-tool-update, as in /solve and /task)
   -v, --verbose        Print diagnostics to stderr
   -h, --help           Show this help and exit
 
@@ -53,14 +54,19 @@ Examples:
   hive-models                      # every tool, cached answers
   hive-models --tool codex         # just codex
   hive-models --tool claude --details --refresh
-  hive-models --json | jq '.claude.liveOnly'
+  hive-models --json | jq '.tools.claude.liveOnly'
 
 Reference:
   https://github.com/link-assistant/hive-mind/issues/2202
 `;
 
 const VALUE_FLAGS = new Set(['--tool', '-t']);
-const BOOLEAN_FLAGS = new Set(['--refresh', '--details', '--json', '--no-update', '--verbose', '-v', '--help', '-h']);
+const BOOLEAN_FLAGS = new Set(['--refresh', '--details', '--json', '--no-update', '--no-tool-update', '--verbose', '-v', '--help', '-h']);
+
+// `/solve`, `/hive` and `/task` spell the opt-out `--no-tool-update` (it lives in
+// their `tool-*` namespace). Accept that spelling here too, so the flag an
+// operator already knows works everywhere it makes sense (issue #2202, R6).
+const normaliseUpdateFlag = arg => (arg === '--no-tool-update' ? '--no-update' : arg);
 
 const createHiveModelsYargsConfig = yargsInstance => yargsInstance.usage('Usage: hive-models [--tool <name>...] [--refresh] [--details] [--json] [--no-update] [--verbose]').option('tool', { type: 'array', alias: 't', default: [] }).option('refresh', { type: 'boolean', default: false }).option('details', { type: 'boolean', default: false }).option('json', { type: 'boolean', default: false }).option('update', { type: 'boolean', default: true }).option('verbose', { type: 'boolean', alias: 'v', default: false }).option('help', { type: 'boolean', alias: 'h', default: false }).help(false).version(false).strict(false);
 
@@ -88,7 +94,7 @@ export const parseHiveModelsArgs = argv => {
   let parsed;
   try {
     parsed = parseCliArgumentsWithLino({
-      argv: argv.filter(arg => arg !== '--help' && arg !== '-h'),
+      argv: argv.filter(arg => arg !== '--help' && arg !== '-h').map(normaliseUpdateFlag),
       commandName: 'hive-models',
       createYargsConfig: createHiveModelsYargsConfig,
       lenv: { enabled: false },

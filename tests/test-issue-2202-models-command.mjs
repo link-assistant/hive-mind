@@ -187,6 +187,7 @@ check('the flags that change what is printed are parsed', () => {
   assert.equal(args.update, false, 'R6: --no-update opts out of the version check');
   assert.equal(args.verbose, true);
   assert.equal(parseHiveModelsArgs([]).update, true, 'R6: the check is on by default');
+  assert.equal(parseHiveModelsArgs(['--no-tool-update']).update, false, 'R6: the spelling /solve and /task use works here too');
 });
 
 console.log('\n--- R5: hive-models end to end, with the catalogue injected ---');
@@ -276,6 +277,7 @@ check('the chat argument forms all mean the same thing', () => {
   assert.equal(parseModelsCommandArgs('/models --details --refresh').details, true);
   assert.equal(parseModelsCommandArgs('/models --details --refresh').refresh, true);
   assert.equal(parseModelsCommandArgs('/models --no-update').update, false);
+  assert.equal(parseModelsCommandArgs('/models --no-tool-update').update, false, 'the opt-out is spelled the same way everywhere');
   assert.match(parseModelsCommandArgs('/models --tool gpt').error, /Unknown tool: gpt/);
   assert.match(parseModelsCommandArgs('/models --wat').error, /Unknown option: --wat/);
 });

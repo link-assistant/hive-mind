@@ -1252,7 +1252,17 @@ async function onBotLaunched() {
   // the monitor resumes watching — and finally reports any that were killed while
   // the bot was down. Done before starting the monitor so the first tick already
   // sees the resumed sessions.
-  await resumeSessionsOnLaunch({ resumeTrackedSessions, botStartTime: BOT_START_TIME, verbose: VERBOSE, logger: botLogger });
+  // Issue #2189: before replaying the durable store, let `$ --resume-all`
+  // settle the isolation backend's own record — a restart orphans the detached
+  // completion watchers, so an execution that ended while the bot was down has
+  // nobody left to write its exit.
+  await resumeSessionsOnLaunch({
+    resumeTrackedSessions,
+    reconcileIsolationSessions: typeof isolationRunner?.resumeAllIsolationSessions === 'function' ? ({ verbose }) => isolationRunner.resumeAllIsolationSessions({ verbose }) : null,
+    botStartTime: BOT_START_TIME,
+    verbose: VERBOSE,
+    logger: botLogger,
+  });
 
   startSessionMonitoringOnce();
   startFormalAiMaintenanceOnce();

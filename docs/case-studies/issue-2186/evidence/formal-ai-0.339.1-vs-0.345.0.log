@@ -1,0 +1,11 @@
+== 1. openssl-sys in the locked graph ==
+0.339.1: openssl-sys entries=0, rust-version = "1.96"
+0.345.0: openssl-sys entries=0, rust-version = "1.96"
+
+== 2. memory-contract sources ==
+src/cli_memory.rs: identical
+src/server.rs: identical
+src/shared_memory.rs: identical
+src/memory/upgrade.rs: identical
+
+Working copy kept in: <workdir>

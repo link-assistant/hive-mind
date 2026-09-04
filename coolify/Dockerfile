@@ -18,9 +18,9 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.339.1
+ARG FORMAL_AI_VERSION=0.345.0
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.96-slim-bookworm AS formal-ai-builder
+FROM rust:1.98-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
@@ -39,7 +39,7 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-FROM konard/box:2.3.5
+FROM konard/box:2.4.0
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs

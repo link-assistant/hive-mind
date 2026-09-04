@@ -29,13 +29,17 @@ export const FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION = '0.336.0';
  * PR #2147 this is the *initial* pin only: once the container is running,
  * `src/formal-ai-updater.lib.mjs` replaces it with the newest published image
  * while no Formal AI task holds a lease. 0.339.0 restored `cargo install
- * formal-ai --locked` on stock Rust images (formal-ai#988) and 0.339.1 routes
- * command execution through the published command-stream component; the
- * memory-contract sources (`src/cli_memory.rs`, `src/server.rs`,
- * `src/shared_memory.rs`) are byte-identical to 0.337.0 and
- * `src/memory/upgrade.rs` only adds an explicit advisory-lock release.
+ * formal-ai --locked` on stock Rust images (formal-ai#988) and 0.339.1 routed
+ * command execution through the published command-stream component. 0.345.0 is
+ * the current release and is a safe bootstrap for the same reason 0.339.1 was:
+ * its Cargo.lock still carries no `openssl-sys`, so the builder stage keeps
+ * building on a stock `rust:slim` image, and the four memory-contract sources
+ * (`src/cli_memory.rs`, `src/server.rs`, `src/shared_memory.rs`,
+ * `src/memory/upgrade.rs`) are byte-identical to 0.339.1 — 0.340.0-0.345.0 only
+ * change reasoning data, benchmarks and unrelated handlers. Verified by
+ * diffing the published crates; see docs/case-studies/issue-2186.
  */
-export const FORMAL_AI_BOOTSTRAP_VERSION = '0.339.1';
+export const FORMAL_AI_BOOTSTRAP_VERSION = '0.345.0';
 
 export const parseFormalAiVersion = stdout => {
   const line = String(stdout || '')

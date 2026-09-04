@@ -21,7 +21,9 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  assertIncludes(content, 'FROM konard/box:2.3.5', filePath);
+  // Bumped with the base image itself: 2.4.0 adds first-class
+  // Docker-outside-of-Docker support (box#110 / box PR #111).
+  assertIncludes(content, 'FROM konard/box:2.4.0', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);
   assertIncludes(content, 'WORKDIR /home/box', filePath);

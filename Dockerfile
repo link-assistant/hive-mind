@@ -18,9 +18,9 @@
 #
 # Build: docker build -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.339.1
+ARG FORMAL_AI_VERSION=0.345.0
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
-FROM rust:1.96-slim-bookworm AS formal-ai-builder
+FROM rust:1.98-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
 # Formal AI 0.333.0-0.338.0 reached OpenSSL (formal-ai -> web-search ->
 # web-capture -> reqwest with default features -> native-tls -> openssl-sys), so
@@ -39,7 +39,7 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-FROM konard/box:2.3.5
+FROM konard/box:2.4.0
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs
@@ -182,13 +182,24 @@ RUN bun install -g @openai/codex && \
 # three and keeps its own log-marker kill classification and streaming sanitizer
 # as defense in depth, so behaviour degrades gracefully on an older `$` binary
 # (see docs/case-studies/issue-2189, issue #2189).
+# `@link-assistant/agent` is pinned to 0.26.1, the release that stopped the
+# unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
+# standalone git object store per project — keyed on the worktree's root commit,
+# with no `objects/info/alternates` and no garbage collection — so a harness that
+# runs the agent in throwaway `git init` checkouts left one full ~270 MB copy of
+# the repository behind per invocation: 115 orphaned stores / 31 GB in a single
+# task, growing at ~5 GB/h, in `~/.local/share/link-assistant-agent/snapshot/`
+# where none of Hive Mind's `/tmp`-scoped disk checks could see it.
+# link-assistant/agent#298 (PR #300) shares the repository's objects and prunes
+# projects whose recorded worktree is gone. `src/agent.lib.mjs` enforces the same
+# floor at runtime, so the pin and the guard cannot drift apart.
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent && \
+    bun install -g @link-assistant/agent@0.26.1 && \
     bun install -g start-command@0.33.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \

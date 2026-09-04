@@ -75,7 +75,7 @@ jobs:
       helm-changed: ${{ steps.changes.outputs.helm }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect changes
@@ -98,7 +98,7 @@ jobs:
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Check for version changes in package.json
@@ -115,11 +115,11 @@ jobs:
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
 
@@ -155,10 +155,10 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Test solve.mjs compilation
@@ -185,7 +185,7 @@ jobs:
     if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
@@ -196,7 +196,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: bash scripts/simulate-fresh-merge.sh
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       # Issue #2198: a lockfile for another package manager at the root makes
@@ -243,7 +243,7 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           # For PRs, fetch enough history to merge with base branch
           fetch-depth: 0
@@ -271,9 +271,9 @@ jobs:
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Install dependencies
@@ -303,9 +303,9 @@ jobs:
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Install dependencies
@@ -374,9 +374,9 @@ jobs:
       (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
       (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Install dependencies
@@ -397,11 +397,11 @@ jobs:
     if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Use Node.js 24.x
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Validate documentation files
@@ -435,9 +435,9 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: 24.x
       - name: Verify Docker release-order contract
@@ -468,7 +468,7 @@ jobs:
     if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install Helm
@@ -505,11 +505,11 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
@@ -609,7 +609,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -676,7 +676,7 @@ jobs:
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -740,7 +740,7 @@ jobs:
       IMAGE_NAME: konard/hive-mind-dind
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -803,7 +803,7 @@ jobs:
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -855,7 +855,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -885,11 +885,11 @@ jobs:
       pull-requests: write
       id-token: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
@@ -967,7 +967,7 @@ jobs:
       IMAGE_NAME: konard/hive-mind
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1035,7 +1035,7 @@ jobs:
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -1099,7 +1099,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Free up disk space
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
@@ -1162,7 +1162,7 @@ jobs:
       # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
       # -- a local composite action has to be on disk before it is referenced.
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -1214,7 +1214,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Install Helm
@@ -1240,11 +1240,11 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
       - name: Install dependencies
@@ -1318,9 +1318,9 @@ jobs:
       - helm-release-instant
       - changeset-pr
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24.x'
       - name: Fail the run when a required job was cancelled or failed

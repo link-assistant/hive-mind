@@ -24,7 +24,7 @@
  */
 
 import { assert as check, printSummary, getFailCount } from './test-helpers.mjs';
-import { DEFAULT_DOCKER_IMAGE_RECLAIM_MODE, describeDockerImageReclaimReason, formatDockerImageReclaimSummary, normalizeDockerImageReclaimMode, parseDockerImageJsonLines, parseDockerJsonLines, planDockerImageReclaim, reclaimDockerImages } from '../src/docker-image-reclaim.lib.mjs';
+import { DEFAULT_DOCKER_IMAGE_RECLAIM_MODE, describeDockerImageReclaimReason, formatDockerImageReclaimSummary, normalizeDockerImageReclaimMode, parseDockerImageJsonLines, parseDockerJsonLines, planDockerImageReclaim, reclaimDockerImages, resolveDockerImageReclaimMode } from '../src/docker-image-reclaim.lib.mjs';
 
 const IMAGES = [
   { ID: 'sha256:latest1', Repository: 'konard/hive-mind', Tag: 'latest', CreatedAt: '2026-08-30 10:00:00 +0000 UTC', Size: '12.3GB' },
@@ -110,6 +110,12 @@ check(
 const noneMode = planDockerImageReclaim({ images: parseDockerImageJsonLines(toJsonLines(IMAGES)), mode: 'none' });
 check(noneMode.remove.length === 0, 'mode=none removes nothing');
 check(planDockerImageReclaim({}).remove.length === 0, 'an empty image list plans nothing (docker unavailable)');
+
+// --- how a solve run picks its mode ---------------------------------------
+check(resolveDockerImageReclaimMode({}) === 'none', 'without --auto-cleanup, a solve run reclaims no images');
+check(resolveDockerImageReclaimMode({ autoCleanup: true }) === 'superseded', 'with --auto-cleanup, superseded images are reclaimed on the same success path');
+check(resolveDockerImageReclaimMode({ dockerImageReclaim: 'dangling' }) === 'dangling', '--docker-image-reclaim=dangling applies without --auto-cleanup');
+check(resolveDockerImageReclaimMode({ autoCleanup: true, dockerImageReclaim: 'none' }) === 'none', '--docker-image-reclaim=none opts out even with --auto-cleanup');
 
 // --- execution --------------------------------------------------------------
 const executed = [];

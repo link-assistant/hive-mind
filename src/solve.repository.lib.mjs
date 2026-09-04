@@ -29,6 +29,8 @@ const { log, formatAligned } = lib;
 import { safeExit } from './exit-handler.lib.mjs';
 import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
+import { collectDockerImageReclaimPlan, formatDockerImageReclaimSummary, reclaimDockerImages, resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
+import { formatBytes } from './cleanup.lib.mjs';
 import { parseForkFullNameFromGhOutput } from './github-repository-names.lib.mjs';
 import { checkReplacementRepositoryBranchSafety } from './solve.repository-safety.lib.mjs';
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
@@ -1308,6 +1310,42 @@ export const cleanupAgentSnapshotStores = async () => {
   }
 };
 
+/**
+ * Reclaim superseded Docker images (issue #2187).
+ *
+ * Runs on the same success path that reclaims the workspace: `--auto-cleanup`
+ * used to free the checkout while every rebuilt image stayed on disk, so the
+ * host accumulated superseded konard/hive-mind tags until `docker system df`
+ * reported tens of gigabytes reclaimable and the disk gate stopped taking work.
+ *
+ * The plan keeps the newest tag of every repository, `latest`, the resolved
+ * isolation tag and anything a container references, so the host always keeps a
+ * usable image. Never fatal: the task is already finished when this runs.
+ */
+export const cleanupSupersededDockerImages = async argv => {
+  const mode = resolveDockerImageReclaimMode(argv);
+  if (mode === 'none') return;
+
+  try {
+    const plan = await collectDockerImageReclaimPlan({ mode });
+    // No docker, or nothing superseded — stay silent.
+    if (!plan || plan.remove.length === 0) return;
+
+    await log(`\n🧹 Reclaiming ${plan.remove.length} superseded docker image(s) (${formatBytes(plan.reclaimableBytes)})`);
+    const result = await reclaimDockerImages({ plan, log: async message => await log(message) });
+    for (const failure of result.failed) {
+      await log(`   ⚠️  Kept ${formatDockerImageReclaimSummary(failure)}: ${failure.error}`, { level: 'warning' });
+    }
+    if (result.removed.length > 0) await log(`   ✅ Reclaimed ${formatBytes(result.reclaimedBytes)} of image storage`);
+  } catch (cleanupError) {
+    reportError(cleanupError, {
+      context: 'cleanup_superseded_docker_images',
+      operation: 'reclaim_docker_images',
+    });
+    await log(`⚠️  Could not reclaim superseded docker images: ${cleanupError.message}`, { level: 'warning' });
+  }
+};
+
 // Cleanup temporary directory
 export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   // Determine if we should skip cleanup
@@ -1343,4 +1381,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
   // whose worktree is already gone is reclaimed. The store belonging to
   // `tempDir` is untouched while `tempDir` still exists.
   await cleanupAgentSnapshotStores();
+
+  // Issue #2187: images superseded by a rebuild are reclaimed on the same path.
+  await cleanupSupersededDockerImages(argv);
 };

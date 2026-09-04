@@ -74,6 +74,19 @@ export function normalizeDockerImageReclaimMode(value, fallback = DEFAULT_DOCKER
   return DOCKER_IMAGE_RECLAIM_MODES.includes(normalized) ? normalized : fallback;
 }
 
+/**
+ * Which reclaim mode a solve run should use.
+ *
+ * Unset follows `--auto-cleanup`: image reclaim happens on exactly the success
+ * path that already reclaims the workspace, so nobody loses an image because a
+ * default changed under them. An explicit `--docker-image-reclaim=<mode>` wins
+ * either way.
+ */
+export function resolveDockerImageReclaimMode(argv = {}) {
+  const requested = argv?.dockerImageReclaim ?? argv?.['docker-image-reclaim'];
+  return normalizeDockerImageReclaimMode(requested, argv?.autoCleanup ? DEFAULT_DOCKER_IMAGE_RECLAIM_MODE : 'none');
+}
+
 /** Every parseable `--format '{{json .}}'` line; malformed lines are skipped. */
 export function parseDockerJsonLines(output) {
   const records = [];
@@ -287,7 +300,7 @@ export async function reclaimDockerImages({ plan, exec = execFileAsync, dryRun =
     try {
       await exec('docker', ['image', 'rm', image.target ?? image.reference], { timeout: DOCKER_COMMAND_TIMEOUT_MS });
       removed.push(image);
-      if (log) log(`   🧹 Removed image ${formatDockerImageReclaimSummary(image)}`);
+      if (log) await log(`   🧹 Removed image ${formatDockerImageReclaimSummary(image)}`);
     } catch (error) {
       // `conflict: unable to delete` is routine (a child image or a container we
       // could not see holds it) and must not fail a finished task.
@@ -353,4 +366,5 @@ export default {
   parseDockerJsonLines,
   planDockerImageReclaim,
   reclaimDockerImages,
+  resolveDockerImageReclaimMode,
 };

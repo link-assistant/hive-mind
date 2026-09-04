@@ -614,8 +614,8 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -672,6 +672,11 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -679,8 +684,8 @@ jobs:
           pattern: hive-mind-digests-*
           merge-multiple: true
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -697,9 +702,6 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
-      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
-      - name: Checkout repository
-        uses: actions/checkout@v6
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests
@@ -744,8 +746,8 @@ jobs:
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -797,14 +799,19 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind-dind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-dind-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -821,9 +828,6 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
-      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
-      - name: Checkout repository
-        uses: actions/checkout@v6
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests
@@ -969,8 +973,8 @@ jobs:
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1027,14 +1031,19 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-instant-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1052,9 +1061,6 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
-      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
-      - name: Checkout repository
-        uses: actions/checkout@v6
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests
@@ -1098,8 +1104,8 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1152,14 +1158,19 @@ jobs:
       IMAGE_NAME: konard/hive-mind-dind
 
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-dind-instant-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1175,9 +1186,6 @@ jobs:
             type=raw,value=latest
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
-      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
-      - name: Checkout repository
-        uses: actions/checkout@v6
       - name: Create manifest list and push
         env:
           DIGESTS_DIR: /tmp/digests

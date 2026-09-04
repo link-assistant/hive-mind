@@ -23,3 +23,9 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   an offline relative-link test now cover documentation links. They catch the
   `docs/FREE_MODELS.md` case-study link that had pointed at a file which never
   existed in any commit, in all four translations.
+- All eight Docker jobs booted buildx through a bare
+  `docker/setup-buildx-action`, so a transient registry outage failed the
+  publish; they now go through a `setup-buildx-resilient` composite action that
+  pre-pulls the pinned BuildKit image with backoff and falls back to a
+  pull-through mirror.
+- actionlint is pinned to 1.7.12 instead of 1.7.7.

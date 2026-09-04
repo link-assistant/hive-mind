@@ -1,0 +1,113 @@
+name: 'Set up Docker Buildx (resilient)'
+description: >
+  Wrapper around docker/setup-buildx-action that first pre-pulls the pinned
+  BuildKit image with retries and exponential backoff, and — when Docker Hub
+  itself is unreachable — falls back to a pull-through registry mirror
+  (mirror.gcr.io by default) before re-tagging the image to its canonical
+  reference. Booting the docker-container driver otherwise pulls moby/buildkit
+  straight from Docker Hub, and a transient registry timeout there fails the
+  whole publish job. Ported from the pipeline template, where it was written
+  for link-foundation/js-ai-driven-development-pipeline-template#75 and the
+  upstream investigations in link-foundation/box#97 and #100; this repository
+  publishes eight Docker images per release from the same bare
+  docker/setup-buildx-action, so it had eight copies of that failure mode.
+  Seeding the image locally first
+  means the boot reuses the cached image instead of hitting the registry, and
+  the mirror fallback keeps the seed working even during a full Docker Hub
+  registry outage.
+inputs:
+  buildkit-image:
+    description: 'Pinned BuildKit image used by the docker-container driver.'
+    required: false
+    default: 'moby/buildkit:buildx-stable-1'
+  registry-mirror:
+    description: >
+      Pull-through Docker Hub mirror host used as a fallback when the canonical
+      registry (registry-1.docker.io) is unreachable. mirror.gcr.io is Google's
+      public pull-through cache of Docker Hub and is served from independent
+      infrastructure, so it typically stays reachable during Docker Hub
+      registry outages. Set to an empty string to disable the mirror fallback.
+    required: false
+    default: 'mirror.gcr.io'
+  verbose:
+    description: >
+      Set to "true" to enable shell tracing (set -x) in the pre-pull step for
+      debugging. Tracing is also enabled automatically when the workflow is run
+      with step debug logging (RUNNER_DEBUG=1).
+    required: false
+    default: 'false'
+runs:
+  using: 'composite'
+  steps:
+    - name: Pre-pull BuildKit image (retry + registry-mirror fallback)
+      shell: bash
+      env:
+        BUILDKIT_IMAGE: ${{ inputs.buildkit-image }}
+        REGISTRY_MIRROR: ${{ inputs.registry-mirror }}
+        VERBOSE: ${{ inputs.verbose }}
+      run: |
+        set -u
+        # Verbose/debug tracing: opt-in via input, or automatic when the run is
+        # started with "Enable debug logging" (RUNNER_DEBUG=1). Kept off by
+        # default so normal logs stay readable.
+        if [ "${VERBOSE}" = "true" ] || [ "${RUNNER_DEBUG:-}" = "1" ]; then
+          echo "==> Verbose tracing enabled"
+          set -x
+        fi
+
+        # Pull a reference with bounded retries and exponential backoff.
+        # Returns 0 on the first successful pull, non-zero if all attempts fail.
+        pull_with_retries() {
+          ref="$1"
+          # Attempts/backoff are overridable via env so the unit test can run
+          # fast; the CI defaults stay at 5 attempts / 5s exponential backoff.
+          attempts="${PREPULL_ATTEMPTS:-5}"
+          delay="${PREPULL_DELAY:-5}"
+          for attempt in $(seq 1 "$attempts"); do
+            echo "==> Pulling ${ref} (attempt ${attempt}/${attempts})..."
+            if docker pull "${ref}"; then
+              return 0
+            fi
+            if [ "$attempt" -lt "$attempts" ]; then
+              echo "==> Pull failed, waiting ${delay}s before next attempt..."
+              sleep "$delay"
+              delay=$((delay * 2))
+            fi
+          done
+          return 1
+        }
+
+        # 1) Canonical Docker Hub. The common transient-blip case recovers here.
+        if pull_with_retries "${BUILDKIT_IMAGE}"; then
+          echo "==> BuildKit image cached locally from canonical registry; boot will not need a registry pull"
+          exit 0
+        fi
+
+        # 2) Registry-mirror fallback. When Docker Hub's registry endpoint is
+        #    fully unreachable (box#100: registry-1.docker.io timed out for
+        #    ~2.5 minutes), the canonical pull above cannot recover no
+        #    matter how many times it retries. mirror.gcr.io is a pull-through
+        #    cache of Docker Hub on independent infrastructure, so it usually
+        #    still serves the image. We pull from there and re-tag to the
+        #    canonical reference so the docker-container driver boot finds it
+        #    locally and never touches the failing registry.
+        if [ -n "${REGISTRY_MIRROR}" ]; then
+          mirror_ref="${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}"
+          echo "==> Canonical pull failed; trying registry mirror ${mirror_ref}"
+          if pull_with_retries "${mirror_ref}"; then
+            docker tag "${mirror_ref}" "${BUILDKIT_IMAGE}"
+            echo "==> BuildKit image cached locally via mirror and tagged as ${BUILDKIT_IMAGE}; boot will reuse it"
+            exit 0
+          fi
+          echo "==> Mirror pull from ${REGISTRY_MIRROR} also failed"
+        fi
+
+        # Non-fatal: fall through to setup-buildx, which will attempt its own
+        # pull during boot. This preserves the previous behaviour in the worst
+        # case while making the common transient-failure case recover.
+        echo "==> WARNING: could not pre-pull ${BUILDKIT_IMAGE} from canonical registry or mirror; letting setup-buildx try its own boot pull"
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+      with:
+        driver-opts: image=${{ inputs.buildkit-image }}

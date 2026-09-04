@@ -2,7 +2,7 @@
   "threshold": 11,
   "minTokens": 30,
   "minLines": 5,
-  "skipComments": true,
+  "mode": "weak",
   "ignore": ["**/node_modules/**", "**/build/**", "**/dist/**", "**/*.min.js", "**/coverage/**", "**/.changeset/**", "**/package-lock.json", "**/pnpm-lock.yaml", "**/yarn.lock", "**/experiments/**", "**/data/**", "**/docs/case-studies/**", "**/dev/log/**", "**/docs/dependencies-research/**"],
   "format": ["javascript"],
   "reporters": ["console", "html"],

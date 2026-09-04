@@ -50,6 +50,7 @@ const fs = (await use('fs')).promises;
 import { parseCliArgumentsWithLino } from './cli-arguments.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
+import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs'; // issue #2192
 import * as memoryCheck from './memory-check.mjs';
 
 // Import Claude execution functions
@@ -244,6 +245,11 @@ try {
   await log(`📝 Files changed: ${prDetails.files.length}`);
 
   // Clone the repository using gh tool with authentication
+  // Issue #2192: authenticate the git transport first. `gh repo clone` of a
+  // public repository sends no Authorization header (the credential helper is
+  // only consulted after a 401, and github.com answers 200), so without this the
+  // clone is anonymous and can be refused by GitHub's unauthenticated-download limiter.
+  await ensureAuthenticatedGitTransport({ $, log, reason: 'review clone' });
   await log(`\nCloning repository ${owner}/${repo} using gh tool...\n`);
   const cloneResult = await $`gh repo clone ${owner}/${repo} ${tempDir}`;
 

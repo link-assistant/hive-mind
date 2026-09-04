@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import v8 from 'node:v8';
 
 export const RESOURCE_MARKER_PREFIX = '📈 [RESOURCES]';
 
@@ -10,8 +11,19 @@ export const RESOURCE_PHASE_SOLVE_EXIT = 'solve_exit';
 export const RESOURCE_PHASE_RESTART_BEFORE = 'restart_before';
 export const RESOURCE_PHASE_RESTART_AFTER = 'restart_after';
 export const RESOURCE_PHASE_BOT_HEARTBEAT = 'bot_heartbeat';
+// Issue #2189: the run that died of a V8 heap OOM inside the log sanitizer had
+// its last resource sample at `after_agent` (RSS 373 MB), ten minutes before the
+// fatal error — the whole log-upload phase was untelemetered, so the post-mortem
+// could not tell a heap blow-up from an external kill. These phases bracket it.
+export const RESOURCE_PHASE_LOG_UPLOAD_START = 'log_upload_start';
+export const RESOURCE_PHASE_LOG_UPLOAD_END = 'log_upload_end';
 
-const RESOURCE_PHASES_BY_PREFERENCE = [RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_START, RESOURCE_PHASE_RESTART_BEFORE];
+// A V8 heap this close to its own limit is the shape of an imminent
+// "FATAL ERROR: Reached heap limit" abort; surface it while the process is
+// still alive to print it.
+export const HEAP_PRESSURE_WARN_PERCENT = 85;
+
+const RESOURCE_PHASES_BY_PREFERENCE = [RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_LOG_UPLOAD_END, RESOURCE_PHASE_LOG_UPLOAD_START, RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_START, RESOURCE_PHASE_RESTART_BEFORE];
 
 function finiteNumber(value) {
   return Number.isFinite(value) ? value : null;
@@ -139,7 +151,7 @@ export function formatExecutionContextForLog(context) {
 }
 
 export function captureResourceSnapshot(options = {}) {
-  const { phase = 'snapshot', diskPath = '/', now = () => new Date(), osImpl = os, fsImpl = fs, processImpl = process } = options;
+  const { phase = 'snapshot', diskPath = '/', now = () => new Date(), osImpl = os, fsImpl = fs, processImpl = process, v8Impl = v8 } = options;
 
   const timestamp = (() => {
     try {
@@ -196,11 +208,26 @@ export function captureResourceSnapshot(options = {}) {
       return {
         rssBytes: finiteNumber(usage.rss),
         heapUsedBytes: finiteNumber(usage.heapUsed),
+        heapTotalBytes: finiteNumber(usage.heapTotal),
+        externalBytes: finiteNumber(usage.external),
       };
     } catch {
-      return { rssBytes: null, heapUsedBytes: null };
+      return { rssBytes: null, heapUsedBytes: null, heapTotalBytes: null, externalBytes: null };
     }
   })();
+
+  // Issue #2189: the heap *limit* is the number that was missing. A process can
+  // die of "JavaScript heap out of memory" with 10 GB of the machine still free,
+  // so RSS against total RAM says nothing; used heap against `heap_size_limit`
+  // says everything.
+  const heapLimitBytes = (() => {
+    try {
+      return finiteNumber(v8Impl.getHeapStatistics().heap_size_limit);
+    } catch {
+      return null;
+    }
+  })();
+  const heapUsedPercent = Number.isFinite(processMemory.heapUsedBytes) && Number.isFinite(heapLimitBytes) && heapLimitBytes > 0 ? clampPercent((processMemory.heapUsedBytes / heapLimitBytes) * 100) : null;
 
   const disk = (() => {
     const path = String(diskPath || '/');
@@ -243,6 +270,10 @@ export function captureResourceSnapshot(options = {}) {
       usedBytes: usedMemoryBytes,
       processRssBytes: processMemory.rssBytes,
       processHeapUsedBytes: processMemory.heapUsedBytes,
+      processHeapTotalBytes: processMemory.heapTotalBytes,
+      processExternalBytes: processMemory.externalBytes,
+      processHeapLimitBytes: heapLimitBytes,
+      processHeapUsedPercent: heapUsedPercent,
     },
     disk,
   };
@@ -270,6 +301,27 @@ function numberField(name, value) {
   return Number.isFinite(value) ? `${name}=${value}` : `${name}=null`;
 }
 
+/**
+ * Human-readable "used heap of the heap limit" summary. Issue #2189: this is the
+ * single line that would have made the incident self-diagnosing.
+ */
+export function formatHeapUsage(memory) {
+  const m = memory || {};
+  if (!Number.isFinite(m.processHeapUsedBytes)) return 'unknown';
+  const limit = Number.isFinite(m.processHeapLimitBytes) ? ` of ${formatBytes(m.processHeapLimitBytes)} limit` : '';
+  const percent = Number.isFinite(m.processHeapUsedPercent) ? ` (${m.processHeapUsedPercent.toFixed(1)}%)` : '';
+  return `${formatBytes(m.processHeapUsedBytes)} used${limit}${percent}`;
+}
+
+/**
+ * True when the V8 heap is close enough to its own limit that the next big
+ * allocation can abort the process (issue #2189).
+ */
+export function isHeapUnderPressure(memory, warnPercent = HEAP_PRESSURE_WARN_PERCENT) {
+  const percent = memory?.processHeapUsedPercent;
+  return Number.isFinite(percent) && percent >= warnPercent;
+}
+
 export function buildResourceMarker(snapshot) {
   const s = snapshot || {};
   const cpu = s.cpu || {};
@@ -287,6 +339,11 @@ export function buildResourceMarker(snapshot) {
     numberField('memAvailableBytes', memory.availableBytes),
     numberField('memUsedBytes', memory.usedBytes),
     numberField('processRssBytes', memory.processRssBytes),
+    numberField('processHeapUsedBytes', memory.processHeapUsedBytes),
+    numberField('processHeapTotalBytes', memory.processHeapTotalBytes),
+    numberField('processExternalBytes', memory.processExternalBytes),
+    numberField('processHeapLimitBytes', memory.processHeapLimitBytes),
+    numberField('processHeapUsedPercent', memory.processHeapUsedPercent),
     `diskPath=${encodeValue(disk.path || '/')}`,
     numberField('diskTotalBytes', disk.totalBytes),
     numberField('diskAvailableBytes', disk.availableBytes),
@@ -294,6 +351,7 @@ export function buildResourceMarker(snapshot) {
     numberField('diskUsedPercent', disk.usedPercent),
     disk.error ? `error=${encodeValue(disk.error)}` : null,
     `mem=${encodeValue(`${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total`)}`,
+    `heap=${encodeValue(formatHeapUsage(memory))}`,
     `disk=${encodeValue(`${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total`)}`,
   ]
     .filter(Boolean)
@@ -332,6 +390,11 @@ function parseMarkerLine(line) {
       availableBytes: parseNumber(fields.memAvailableBytes),
       usedBytes: parseNumber(fields.memUsedBytes),
       processRssBytes: parseNumber(fields.processRssBytes),
+      processHeapUsedBytes: parseNumber(fields.processHeapUsedBytes),
+      processHeapTotalBytes: parseNumber(fields.processHeapTotalBytes),
+      processExternalBytes: parseNumber(fields.processExternalBytes),
+      processHeapLimitBytes: parseNumber(fields.processHeapLimitBytes),
+      processHeapUsedPercent: parseNumber(fields.processHeapUsedPercent),
     },
     disk: {
       path: decodeURIComponent(fields.diskPath || '/'),
@@ -376,7 +439,8 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
   const cpu = s.cpu || {};
   const memory = s.memory || {};
   const disk = s.disk || {};
-  const lines = [`📈 Resource usage (${phaseLabel}):`, `   CPU load: ${formatNumber(cpu.load1)} ${formatNumber(cpu.load5)} ${formatNumber(cpu.load15)}${Number.isFinite(cpu.cpuCount) ? ` (${cpu.cpuCount} CPUs)` : ''}`, `   Memory: ${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total (${formatBytes(memory.usedBytes)} used)`, `   Process RSS: ${formatBytes(memory.processRssBytes)}${Number.isFinite(memory.processHeapUsedBytes) ? `, heap ${formatBytes(memory.processHeapUsedBytes)}` : ''}`, `   Disk (${disk.path || '/'}): ${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total${Number.isFinite(disk.usedPercent) ? ` (${disk.usedPercent.toFixed(1)}% used)` : ''}`];
+  const lines = [`📈 Resource usage (${phaseLabel}):`, `   CPU load: ${formatNumber(cpu.load1)} ${formatNumber(cpu.load5)} ${formatNumber(cpu.load15)}${Number.isFinite(cpu.cpuCount) ? ` (${cpu.cpuCount} CPUs)` : ''}`, `   Memory: ${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total (${formatBytes(memory.usedBytes)} used)`, `   Process RSS: ${formatBytes(memory.processRssBytes)}, V8 heap: ${formatHeapUsage(memory)}`, `   Disk (${disk.path || '/'}): ${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total${Number.isFinite(disk.usedPercent) ? ` (${disk.usedPercent.toFixed(1)}% used)` : ''}`];
+  if (isHeapUnderPressure(memory)) lines.push(`   ⚠️  V8 heap is at ${memory.processHeapUsedPercent.toFixed(1)}% of its limit — a further allocation can abort the process with "JavaScript heap out of memory"`);
   if (disk.error) lines.push(`   Disk probe error: ${disk.error}`);
   lines.push(buildResourceMarker(snapshot));
   return lines.join('\n');
@@ -422,6 +486,9 @@ export function summarizeResourceSnapshot(snapshot) {
       availableBytes: memory.availableBytes,
       usedBytes: memory.usedBytes,
       processRssBytes: memory.processRssBytes,
+      processHeapUsedBytes: memory.processHeapUsedBytes,
+      processHeapLimitBytes: memory.processHeapLimitBytes,
+      processHeapUsedPercent: memory.processHeapUsedPercent,
     },
     disk: {
       path: disk.path,

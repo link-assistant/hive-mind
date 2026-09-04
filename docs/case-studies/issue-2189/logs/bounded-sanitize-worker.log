@@ -1,0 +1,17 @@
+source: /tmp/issue-2189-worker-DEYrYf/session.log (24.03 MB)
+
+--- part 1: bounded worker sanitize ---
+stats: {
+  sourceSize: 25197775,
+  bytesRead: 25197775,
+  blocks: 25,
+  forcedReleases: 0,
+  charsWritten: 25182463,
+  worker: true
+}
+worker output identical to in-process output: true
+
+--- part 2: containment ---
+worker failed as designed: ERR_WORKER_OUT_OF_MEMORY - Worker terminated due to reaching memory limit: JS heap out of memory
+worker had started: true
+parent survived: rss 313 MB -> 314 MB, pid 201549 still running

@@ -93,11 +93,12 @@ const fileName = 'solution-draft-log.txt';
 **Note:** While investigating, we discovered that GitHub Gist API has a 1MB limit per file. Files larger than 1MB will have `truncated: true` in API responses. However, the raw URL can access the full content.
 
 **API Limits:**
-| Limit Type | Size |
-|------------|------|
-| API content per file | 1 MB (1,048,576 bytes) |
-| Raw URL access | Up to 10 MB |
-| Files requiring git clone | Over 10 MB |
+
+| Limit Type                | Size                   |
+| ------------------------- | ---------------------- |
+| API content per file      | 1 MB (1,048,576 bytes) |
+| Raw URL access            | Up to 10 MB            |
+| Files requiring git clone | Over 10 MB             |
 
 ## Affected Gists
 

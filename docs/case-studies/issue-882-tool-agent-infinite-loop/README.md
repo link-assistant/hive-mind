@@ -64,20 +64,21 @@ The solve command with `--tool agent` flag got stuck in an infinite loop:
 14. **06:12:29** - Check #2 at 7:12:29 AM
 
 **Subsequent Rapid Checks:**
-| Check # | Time | Interval |
-|---------|------|----------|
-| Check #2 | 06:12:29 | - |
-| Check #3 | 06:12:37 | ~8s |
-| Check #4 | 06:12:46 | ~9s |
-| Check #5 | 06:12:55 | ~9s |
-| Check #6 | 06:13:03 | ~8s |
-| Check #7 | 06:13:12 | ~9s |
-| Check #8 | 06:13:20 | ~8s |
-| Check #9 | 06:13:28 | ~8s |
-| Check #10 | 06:13:29 | ~1s |
-| Check #11 | 06:13:31 | ~2s |
-| Check #12 | 06:13:33 | ~2s |
-| Check #13 | 06:13:34 | ~1s |
+
+| Check #   | Time     | Interval |
+| --------- | -------- | -------- |
+| Check #2  | 06:12:29 | -        |
+| Check #3  | 06:12:37 | ~8s      |
+| Check #4  | 06:12:46 | ~9s      |
+| Check #5  | 06:12:55 | ~9s      |
+| Check #6  | 06:13:03 | ~8s      |
+| Check #7  | 06:13:12 | ~9s      |
+| Check #8  | 06:13:20 | ~8s      |
+| Check #9  | 06:13:28 | ~8s      |
+| Check #10 | 06:13:29 | ~1s      |
+| Check #11 | 06:13:31 | ~2s      |
+| Check #12 | 06:13:33 | ~2s      |
+| Check #13 | 06:13:34 | ~1s      |
 
 15. **06:13:36** - Feedback detected (1 new PR comment)
 16. **06:13:37** - Another retry cycle began

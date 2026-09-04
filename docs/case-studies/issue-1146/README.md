@@ -124,13 +124,14 @@ Replace the `--think` option with `--thinking-budget` that maps to `MAX_THINKING
 ```
 
 **Mapping from old levels:**
-| Old Level | New Budget | Notes |
-|-----------|------------|-------|
-| `low` | 8000 | Minimal reasoning |
-| `medium` | 16000 | Moderate reasoning |
-| `high` | 24000 | Deep reasoning |
-| `max` | 31999 | Maximum (default) |
-| `extended` | 63999 | Double budget (64K output models only) |
+
+| Old Level  | New Budget | Notes                                  |
+| ---------- | ---------- | -------------------------------------- |
+| `low`      | 8000       | Minimal reasoning                      |
+| `medium`   | 16000      | Moderate reasoning                     |
+| `high`     | 24000      | Deep reasoning                         |
+| `max`      | 31999      | Maximum (default)                      |
+| `extended` | 63999      | Double budget (64K output models only) |
 
 **Implementation:**
 

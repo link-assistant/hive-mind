@@ -168,6 +168,22 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
     }
     await strict('node', args);
   } else {
+    // @changesets/cli 3.0 made `changeset version` exit 1 when there are no
+    // unreleased changesets; 2.x warned and exited 0. The count checked above
+    // was read before the rebase, and the rebase can consume the very
+    // changesets the release decision was made on (another run versioned them
+    // first). Reading it again here keeps that case a quiet self-healing
+    // release instead of a red release job.
+    if (countChangesets() === 0) {
+      const versionOnDisk = readVersion();
+      logger.log('No changesets left after synchronizing with the remote (another run versioned them).');
+      logger.log(`Nothing to bump; treating ${versionOnDisk} as the version to publish.`);
+      output('version_committed', 'false');
+      output('already_released', 'true');
+      output('new_version', versionOnDisk);
+      return { versionCommitted: false, alreadyReleased: true, newVersion: versionOnDisk };
+    }
+
     logger.log('Running changeset version...');
     await strict('npm', ['run', 'changeset:version']);
 

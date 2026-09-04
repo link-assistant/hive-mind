@@ -18,14 +18,14 @@ The warnings fall into two categories:
 
 In JavaScript regex character classes `[...]`, certain characters don't need to be escaped because they have no special meaning inside character classes:
 
-| File                                  | Line | Pattern                                                         | Issue                                                                        |
+| File | Line | Pattern | Issue |
 | ------------------------------------- | ---- | --------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `src/reviewers-hive.mjs`              | 160  | `/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/`              | `\/` inside `[^\/]` - the forward slash doesn't need escaping                |
-| `src/reviewers-hive.mjs`              | 370  | `/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/`                | Same issue - `\/` inside `[^\/]`                                             |
-| `src/review.mjs`                      | 122  | `/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/`          | Same issue - `\/` inside `[^\/]`                                             |
-| `src/contributing-guidelines.lib.mjs` | 88   | `/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi`                   | `\)` inside `[^\s\)]` - parenthesis doesn't need escaping in character class |
-| `src/buildUserMention.lib.mjs`        | 57   | `/([_*\[\]()~`>#+\-=                                            | {}.!])/g`                                                                    | `\[` inside character class - only `]` and `\` need escaping |
-| `src/usage-limit.lib.mjs`             | 109  | `/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i` | `\:` - colon never needs escaping                                            |
+| `src/reviewers-hive.mjs` | 160 | `/^https:\/\/github\.com\/([^\/]+)(\/([^\/]+))?$/` | `\/` inside `[^\/]` - the forward slash doesn't need escaping |
+| `src/reviewers-hive.mjs` | 370 | `/github\.com\/([^\/]+)\/([^\/]+)\/pull\/(\d+)/` | Same issue - `\/` inside `[^\/]` |
+| `src/review.mjs` | 122 | `/^https:\/\/github\.com\/[^\/]+\/[^\/]+\/pull\/\d+$/` | Same issue - `\/` inside `[^\/]` |
+| `src/contributing-guidelines.lib.mjs` | 88 | `/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi` | `\)` inside `[^\s\)]` - parenthesis doesn't need escaping in character class |
+| `src/buildUserMention.lib.mjs` | 57 | ``/([_*\[\]()~`>#+\-=\|{}.!])/g`` | `\[` inside character class - only `]` and `\` need escaping |
+| `src/usage-limit.lib.mjs` | 109 | `/resets(?:\s+at)?\s*([0-9]{1,2})(?:\:([0-9]{2}))?\s*([ap]m)/i` | `\:` - colon never needs escaping |
 
 ### 2. Unexpected Lexical Declarations in Case Blocks (`no-case-declarations`)
 

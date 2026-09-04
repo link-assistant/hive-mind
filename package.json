@@ -1,6 +1,6 @@
 {
   "name": "@link-assistant/hive-mind",
-  "version": "2.15.1",
+  "version": "2.16.0",
   "description": "AI-powered issue solver and hive mind for collaborative problem solving",
   "main": "src/hive.mjs",
   "type": "module",
@@ -58,29 +58,29 @@
     "*.md"
   ],
   "devDependencies": {
-    "@changesets/cli": "^2.31.0",
+    "@changesets/cli": "^3.0.1",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.5.0",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
-    "jscpd": "^4.0.5",
-    "lint-staged": "^17.0.8",
-    "prettier": "^3.8.5",
+    "jscpd": "^5.1.2",
+    "lint-staged": "^17.4.1",
+    "prettier": "^3.9.6",
     "test-anywhere": "^0.9.1"
   },
   "dependencies": {
-    "@secretlint/core": "^13.0.2",
-    "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
-    "@sentry/node": "^10.62.0",
-    "@sentry/profiling-node": "^10.62.0",
-    "agent-commander": "^0.8.0",
-    "dayjs": "^1.11.21",
+    "@secretlint/core": "^13.0.5",
+    "@secretlint/secretlint-rule-preset-recommend": "^13.0.5",
+    "@sentry/node": "^10.73.0",
+    "@sentry/profiling-node": "^10.73.0",
+    "agent-commander": "^0.10.1",
+    "dayjs": "^1.11.23",
     "decimal.js-light": "^2.5.1",
     "lino-arguments": "^0.3.0",
-    "lino-i18n": "^0.1.1",
-    "lino-objects-codec": "^0.4.0",
-    "secretlint": "^13.0.2",
+    "lino-i18n": "^0.2.0",
+    "lino-objects-codec": "^0.8.0",
+    "secretlint": "^13.0.5",
     "semver": "^7.8.5",
     "tinyld": "^1.3.4"
   },
@@ -90,6 +90,7 @@
     ]
   },
   "allowScripts": {
-    "@sentry/node-cpu-profiler@2.4.2": true
+    "@sentry/node-cpu-profiler@2.4.3": true,
+    "node-pty@1.2.0-beta.15": false
   }
 }

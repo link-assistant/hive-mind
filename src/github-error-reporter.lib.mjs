@@ -9,6 +9,8 @@ import { createInterface } from 'readline';
 import { log, cleanErrorMessage, getAbsoluteLogPath } from './lib.mjs';
 import { reportError, isSentryEnabled } from './sentry.lib.mjs';
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
+import { readLogTailText } from './log-bounded-read.lib.mjs';
 
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -108,7 +110,86 @@ const createSecretGist = async (logContent, filename) => {
 };
 
 /**
+ * Upload a log FILE as a secret gist without ever holding it in memory.
+ *
+ * Issue #2189: the error reporter runs when the process is already in trouble —
+ * frequently because it just exhausted its heap. Reading the log to sanitize it
+ * (`readFile` + `sanitizeForPublication` + write = three full copies) is the one
+ * thing that must not happen there.
+ *
+ * @param {string} logFilePath - Log to upload
+ * @param {string} filename - Name for the gist file
+ * @returns {Promise<string|null>} Gist URL, or null when the upload failed
+ */
+const createSecretGistFromFile = async (logFilePath, filename) => {
+  const tempFile = `/tmp/${filename}`;
+  try {
+    await sanitizeLogFileToFileBounded({ sourcePath: logFilePath, destPath: tempFile });
+    const result = await $`gh gist create ${tempFile} --secret --desc "Error log for hive-mind"`;
+    if (result.exitCode === 0) {
+      return result.stdout.toString().trim();
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'create_secret_gist',
+      operation: 'gh_gist_create',
+    });
+  } finally {
+    await fs.unlink(tempFile).catch(() => {});
+  }
+  return null;
+};
+
+/**
+ * Format a log FILE for an issue body, choosing the attachment method from the
+ * file's size before reading any of it (issue #2189).
+ *
+ * Only the inline branch — by definition below GitHub's 60 kB issue-body limit —
+ * ever reads log content, and the truncated fallback reads a bounded tail.
+ *
+ * @param {string} logFilePath - Path to the log file
+ * @returns {Promise<{method: string, content: string}>}
+ */
+export const formatLogFileForIssue = async logFilePath => {
+  const { size } = await fs.stat(logFilePath);
+
+  if (size < GITHUB_ISSUE_BODY_MAX_SIZE) {
+    const logContent = await fs.readFile(logFilePath, 'utf8');
+    return {
+      method: 'inline',
+      content: `\`\`\`\n${logContent}\n\`\`\``,
+    };
+  }
+
+  if (size < GITHUB_FILE_MAX_SIZE) {
+    return {
+      method: 'file',
+      content: `Log file is too large to include inline. Please see the attached log file.\n\nLog file path: \`${logFilePath}\``,
+    };
+  }
+
+  const gistUrl = await createSecretGistFromFile(logFilePath, `hive-mind-error-${Date.now()}.log`);
+  if (gistUrl) {
+    return {
+      method: 'gist',
+      content: `Log file is too large for inline attachment.\n\n📄 View full log: ${gistUrl}`,
+    };
+  }
+
+  const tail = await readLogTailText(logFilePath, { maxBytes: 5000 });
+  return {
+    method: 'truncated',
+    content: `Log file is too large. Showing last 5000 characters:\n\n\`\`\`\n${tail}\n\`\`\``,
+  };
+};
+
+/**
  * Format log content for issue body
+ *
+ * Prefer {@link formatLogFileForIssue} when the log is a file on disk: this
+ * variant needs the whole log as a string, which is exactly what issue #2189
+ * removed from the publication path.
+ *
  * @param {string} logContent - Log file content
  * @param {string} logFilePath - Path to log file
  * @returns {Promise<Object>} Object with formatted content and attachment method
@@ -202,8 +283,9 @@ export const createIssueForError = async options => {
 
     if (logFile) {
       try {
-        const logContent = await fs.readFile(logFile, 'utf8');
-        const { method, content } = await formatLogForIssue(logContent, logFile);
+        // Issue #2189: pick the attachment method from the file size first; a
+        // log too large for the issue body is never read into memory here.
+        const { method, content } = await formatLogFileForIssue(logFile);
 
         issueBody += `### Log File\n\n${content}\n\n`;
         await log(`📄 Log attached via: ${method}`);

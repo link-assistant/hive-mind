@@ -10,6 +10,10 @@ import { batchCheckPullRequestsForIssues as batchCheckPRs, batchCheckArchivedRep
 import { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 export { isSafeToken, isHexInSafeContext, getGitHubTokensFromFiles, getGitHubTokensFromCommand, sanitizeOutput, sanitizeLogContent, sanitizeForPublication, writeSanitizedPublicationFile }; // Re-export for backward compatibility
 import { uploadLogWithGhUploadLog } from './log-upload.lib.mjs';
+// Issue #2189: bracket the log-upload phase with resource samples. The incident
+// log's last sample was `after_agent`, ten minutes before the heap OOM, so the
+// phase that actually died left no telemetry at all.
+import { recordResourceSnapshot, RESOURCE_PHASE_LOG_UPLOAD_START, RESOURCE_PHASE_LOG_UPLOAD_END } from './solve.resource-diagnostics.lib.mjs';
 import { formatResetTimeWithRelative } from './usage-limit.lib.mjs'; // See: https://github.com/link-assistant/hive-mind/issues/1236
 // Import model info helpers (Issue #1225)
 import { getToolDisplayName, getModelInfoForComment } from './models/index.mjs';
@@ -26,6 +30,13 @@ export { buildGitHubPullRequestUrl, buildGitHubPullRequestUrlOrNull, isGitHubUrl
 import { SOLUTION_DRAFT_LOG_MARKER, SOLUTION_DRAFT_FAILED_MARKER, SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER, USAGE_LIMIT_REACHED_MARKER, NOW_WORKING_SESSION_IS_ENDED_MARKER, postTrackedComment, postTrackedCommentFromFile } from './tool-comments.lib.mjs';
 export const maskGitHubToken = maskToken; // Alias for backward compatibility
 export const escapeCodeBlocksInLog = logContent => logContent.replace(/```/g, '\\`\\`\\`'); // Escape ``` in logs
+// Issue #2189: the old "too large" message always rendered megabytes, so a 200 KB
+// log that still could not be inlined was reported as "0MB". Report the unit that
+// actually carries information.
+export const formatLogSizeForHumans = bytes => {
+  const size = Number(bytes) || 0;
+  return size >= 1024 * 1024 ? `${Math.round(size / 1024 / 1024)}MB` : `${Math.round(size / 1024)}KB`;
+};
 const buildIssueFailureActionSection = targetType => {
   if (targetType !== 'issue') return '';
   return `
@@ -317,6 +328,150 @@ const getLogUploadTerminalStatus = ({ errorMessage, errorDuringExecution, isUsag
   if (isUsageLimit) return { emoji: '📎', label: 'Usage-limit execution log' };
   return { emoji: '✅', label: 'Solution draft log' };
 };
+/**
+ * Build the inline `--attach-logs` comment body — the variant that embeds the
+ * whole transcript inside a `<details>` block.
+ *
+ * Issue #2189: extracted from attachLogToGitHub so that it is only ever called
+ * for a log small enough to inline. Previously the body was assembled
+ * unconditionally — including reading, sanitizing and escaping the log — and
+ * then discarded when the size check downstream routed the log to gh-upload-log
+ * anyway. On a 134 MB transcript that discarded pre-work alone exhausted V8's
+ * old space and killed the run.
+ *
+ * @param {object} params - Everything the four comment shapes interpolate
+ * @param {string} params.logContent - Already sanitized and markdown-escaped log
+ * @param {number} params.logSizeBytes - Size of the log on disk, for the summary line
+ * @returns {string} Markdown comment body
+ */
+function buildInlineLogComment({ logContent, logSizeBytes, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction }) {
+  let logComment;
+  // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
+  if (isUsageLimit) {
+    // Usage limit error format - separate from general failures
+    logComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
+
+The automated solution draft was interrupted because the ${toolName} usage limit was reached.
+
+### 📊 Limit Information
+- **Tool**: ${toolName}
+- **Limit Type**: Usage limit exceeded`;
+    if (limitResetTime) {
+      // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
+      const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
+      logComment += `\n- **Reset Time**: ${formattedResetTime}`;
+    }
+    if (sessionId) {
+      logComment += `\n- **Session ID**: ${sessionId}`;
+    }
+    logComment += '\n\n### 🔄 How to Continue\n';
+    // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
+    if (isAutoResumeEnabled) {
+      const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
+      const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
+      logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
+    } else {
+      // Manual resume mode - show CLI commands
+      if (limitResetTime) {
+        logComment += `Once the limit resets at **${limitResetTime}**, `;
+      } else {
+        logComment += 'Once the limit resets, ';
+      }
+      if (resumeCommand) {
+        logComment += `you can resume this session by running:
+\`\`\`bash
+${resumeCommand}
+\`\`\``;
+      } else if (sessionId) {
+        logComment += `you can resume this session using session ID: \`${sessionId}\``;
+      } else {
+        logComment += 'you can retry the operation.';
+      }
+    }
+    const footerNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
+    logComment += `${modelInfoString}
+
+<details>
+<summary>Click to expand execution log (${Math.round(logSizeBytes / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+${footerNote}`;
+  } else if (errorMessage) {
+    // Failure log format (non-usage-limit errors)
+    logComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
+The automated solution draft encountered an error:
+\`\`\`
+${errorMessage}
+\`\`\`${failureAction}${modelInfoString}
+
+<details>
+<summary>Click to expand failure log (${Math.round(logSizeBytes / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+  } else if (errorDuringExecution) {
+    // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
+    const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
+    logComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
+
+> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
+
+<details>
+<summary>Click to expand solution draft log (${Math.round(logSizeBytes / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+  } else {
+    const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
+    // Determine title based on session type (Issue #1152) Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so the filter in checkForAiCreatedComments matches every variant with a single substring check against the centralized marker constant.
+    let title = customTitle;
+    let sessionNote = '';
+    if (sessionType === 'auto-resume') {
+      title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto resume on limit reset)`;
+      sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
+    } else if (sessionType === 'auto-restart') {
+      title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto restart on limit reset)`;
+      sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
+    } else if (sessionType === 'resume') {
+      title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (Resumed)`;
+      sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
+    }
+    logComment = `## ${title}
+This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}${sessionNote}
+
+<details>
+<summary>Click to expand solution draft log (${Math.round(logSizeBytes / 1024)}KB)</summary>
+
+\`\`\`
+${logContent}
+\`\`\`
+
+</details>
+
+---
+*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+  }
+  return logComment;
+}
 /** Attaches a log file to a GitHub PR or issue as a comment. Returns true if upload succeeded. */
 export async function attachLogToGitHub(options) {
   const fs = (await use('fs')).promises;
@@ -351,9 +506,11 @@ export async function attachLogToGitHub(options) {
     resultModelUsage = null, // Issue #1454
     budgetStatsData = null, // Issue #1491: budget stats for comment
     failureActionSection = null,
+    recordResources = recordResourceSnapshot, // Issue #2189: injectable for tests
   } = options;
   const budgetStats = budgetStatsData ? buildBudgetStatsString(budgetStatsData.tokenUsage, budgetStatsData.subAgentCalls) : '';
   const targetName = targetType === 'pr' ? 'Pull Request' : 'Issue';
+  let uploadPhaseEntered = false;
   try {
     // Issue #1212: Check disk space before attempting log upload (100MB minimum)
     try {
@@ -372,6 +529,12 @@ export async function attachLogToGitHub(options) {
       await log('  ⚠️  Log file is empty, skipping upload');
       return false;
     }
+    // Issue #2189: sample resources on the way in and on the way out of the
+    // upload, tagged with the log size, so a future post-mortem can see the V8
+    // heap climbing against its own limit instead of guessing from a machine
+    // that still had 10 GB of RAM free.
+    uploadPhaseEntered = true;
+    await recordResources({ phase: RESOURCE_PHASE_LOG_UPLOAD_START, log, label: `log upload start, ${formatLogSizeForHumans(logStats.size)} log` });
     // Issue #1173: gh-upload-log handles large files; skip inline comment for files > fileMaxSize
     const useLargeFileMode = logStats.size > githubLimits.fileMaxSize;
     if (useLargeFileMode && verbose) {
@@ -436,148 +599,37 @@ export async function attachLogToGitHub(options) {
         }
       }
     }
-    // Read and sanitize log content
-    const rawLogContent = await fs.readFile(logFile, 'utf8');
-    if (verbose) {
-      await log('  🔍 Sanitizing log content to mask GitHub tokens...', { verbose: true });
-    }
-    let logContent = await sanitizeForPublication(rawLogContent);
-    // Escape code blocks in the log content to prevent them from breaking markdown formatting
-    if (verbose) {
-      await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
-    }
-    logContent = escapeCodeBlocksInLog(logContent);
     const failureAction = normalizeFailureActionSection(failureActionSection ?? buildIssueFailureActionSection(targetType));
-    // Create formatted comment
-    let logComment;
-    // Usage limit comments should be shown whenever isUsageLimit is true, regardless of whether a generic errorMessage is provided.
-    if (isUsageLimit) {
-      // Usage limit error format - separate from general failures
-      logComment = `## ⏳ ${USAGE_LIMIT_REACHED_MARKER}
-
-The automated solution draft was interrupted because the ${toolName} usage limit was reached.
-
-### 📊 Limit Information
-- **Tool**: ${toolName}
-- **Limit Type**: Usage limit exceeded`;
-      if (limitResetTime) {
-        // Format reset time with relative time and UTC for better user understanding Shows "in 14m (Feb 6, 3:00 PM UTC)" instead of just "4:00 PM" See: https://github.com/link-assistant/hive-mind/issues/1236
-        const formattedResetTime = formatResetTimeWithRelative(limitResetTime, global.limitTimezone || null) || limitResetTime;
-        logComment += `\n- **Reset Time**: ${formattedResetTime}`;
+    // Issue #2189: choose the publication route from the file size BEFORE touching
+    // the bytes. The old order read the log, sanitized it and escaped it — three
+    // full-size strings — and only then discovered the comment was far over
+    // GitHub's limit and had to be uploaded instead. On a 134 MB transcript that
+    // wasted pre-work alone exhausted V8's ~2 GB old space and killed the run
+    // ("FATAL ERROR: Reached heap limit"). A log that cannot possibly fit in a
+    // comment is now never read into memory at all: it streams straight to
+    // gh-upload-log, which sanitizes it block by block.
+    const canBuildInlineComment = !useLargeFileMode && logStats.size <= githubLimits.commentMaxSize;
+    let logComment = '';
+    if (canBuildInlineComment) {
+      // Read and sanitize log content
+      const rawLogContent = await fs.readFile(logFile, 'utf8');
+      if (verbose) {
+        await log('  🔍 Sanitizing log content to mask GitHub tokens...', { verbose: true });
       }
-      if (sessionId) {
-        logComment += `\n- **Session ID**: ${sessionId}`;
+      let logContent = await sanitizeForPublication(rawLogContent);
+      // Escape code blocks in the log content to prevent them from breaking markdown formatting
+      if (verbose) {
+        await log('  🔧 Escaping code blocks in log content for safe embedding...', { verbose: true });
       }
-      logComment += '\n\n### 🔄 How to Continue\n';
-      // If auto-resume/auto-restart is enabled, show automatic continuation message instead of CLI commands See: https://github.com/link-assistant/hive-mind/issues/1152
-      if (isAutoResumeEnabled) {
-        const modeName = autoResumeMode === 'restart' ? 'restart' : 'resume';
-        const modeDescription = autoResumeMode === 'restart' ? 'The session will automatically restart (fresh start) when the limit resets.' : 'The session will automatically resume (with context preserved) when the limit resets.';
-        logComment += `**Auto-${modeName} is enabled.** ${modeDescription}`;
-      } else {
-        // Manual resume mode - show CLI commands
-        if (limitResetTime) {
-          logComment += `Once the limit resets at **${limitResetTime}**, `;
-        } else {
-          logComment += 'Once the limit resets, ';
-        }
-        if (resumeCommand) {
-          logComment += `you can resume this session by running:
-\`\`\`bash
-${resumeCommand}
-\`\`\``;
-        } else if (sessionId) {
-          logComment += `you can resume this session using session ID: \`${sessionId}\``;
-        } else {
-          logComment += 'you can retry the operation.';
-        }
-      }
-      const footerNote = isAutoResumeEnabled ? (autoResumeMode === 'restart' ? '*This session was interrupted due to usage limits. The session will automatically restart when the limit resets.*' : '*This session was interrupted due to usage limits. The session will automatically resume when the limit resets.*') : '*This session was interrupted due to usage limits. You can resume once the limit resets.*';
-      logComment += `${modelInfoString}
-
-<details>
-<summary>Click to expand execution log (${Math.round(logStats.size / 1024)}KB)</summary>
-
-\`\`\`
-${logContent}
-\`\`\`
-
-</details>
-
----
-${footerNote}`;
-    } else if (errorMessage) {
-      // Failure log format (non-usage-limit errors)
-      logComment = `## 🚨 ${SOLUTION_DRAFT_FAILED_MARKER}
-The automated solution draft encountered an error:
-\`\`\`
-${errorMessage}
-\`\`\`${failureAction}${modelInfoString}
-
-<details>
-<summary>Click to expand failure log (${Math.round(logStats.size / 1024)}KB)</summary>
-
-\`\`\`
-${logContent}
-\`\`\`
-
-</details>
-
----
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
-    } else if (errorDuringExecution) {
-      // Issue #1088: "Finished with errors" format - work may have been completed but errors occurred
-      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
-      logComment = `## ⚠️ ${SOLUTION_DRAFT_FINISHED_WITH_ERRORS_MARKER}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}
-
-> **Note**: The session encountered errors during execution, but some work may have been completed. Please review the changes carefully.
-
-<details>
-<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
-
-\`\`\`
-${logContent}
-\`\`\`
-
-</details>
-
----
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
-    } else {
-      const costInfo = buildCostInfoString(totalCostUSD, anthropicTotalCostUSD, pricingInfo, { includeTokenUsage: !budgetStats });
-      // Determine title based on session type (Issue #1152) Issue #1625: Every title variant embeds SOLUTION_DRAFT_LOG_MARKER so the filter in checkForAiCreatedComments matches every variant with a single substring check against the centralized marker constant.
-      let title = customTitle;
-      let sessionNote = '';
-      if (sessionType === 'auto-resume') {
-        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto resume on limit reset)`;
-        sessionNote = '\n\n**Note**: This session was automatically resumed after a usage limit reset, with the previous context preserved.';
-      } else if (sessionType === 'auto-restart') {
-        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (auto restart on limit reset)`;
-        sessionNote = '\n\n**Note**: This session was automatically restarted after a usage limit reset (fresh start).';
-      } else if (sessionType === 'resume') {
-        title = `🔄 ${SOLUTION_DRAFT_LOG_MARKER} (Resumed)`;
-        sessionNote = '\n\n**Note**: This session was manually resumed using the --resume flag.';
-      }
-      logComment = `## ${title}
-This log file contains the complete execution trace of the AI ${targetType === 'pr' ? 'solution draft' : 'analysis'} process.${costInfo}${budgetStats}${modelInfoString}${sessionNote}
-
-<details>
-<summary>Click to expand solution draft log (${Math.round(logStats.size / 1024)}KB)</summary>
-
-\`\`\`
-${logContent}
-\`\`\`
-
-</details>
-
----
-*${NOW_WORKING_SESSION_IS_ENDED_MARKER}, feel free to review and add any feedback on the solution draft.*`;
+      logContent = escapeCodeBlocksInLog(logContent);
+      logComment = buildInlineLogComment({ logContent, logSizeBytes: logStats.size, targetType, customTitle, sessionType, sessionId, errorMessage, errorDuringExecution, isUsageLimit, limitResetTime, toolName, resumeCommand, isAutoResumeEnabled, autoResumeMode, modelInfoString, budgetStats, totalCostUSD, anthropicTotalCostUSD, pricingInfo, failureAction });
+    } else if (verbose) {
+      await log(`  ⏭️  Log is ${formatLogSizeForHumans(logStats.size)} — skipping inline comment construction, the log goes straight to gh-upload-log`, { verbose: true });
     }
     // Check GitHub comment size limit or large file mode Issue #1173: Also use gh-upload-log for large files, not just long comments
-    if (useLargeFileMode || logComment.length > githubLimits.commentMaxSize) {
-      if (useLargeFileMode) {
-        await log(`  📁 Log file too large for inline comment (${Math.round(logStats.size / 1024 / 1024)}MB), using gh-upload-log`);
+    if (!canBuildInlineComment || logComment.length > githubLimits.commentMaxSize) {
+      if (!canBuildInlineComment) {
+        await log(`  📁 Log file too large for inline comment (${formatLogSizeForHumans(logStats.size)}), using gh-upload-log`);
       } else {
         // Issue #2160: this is the expected route for a long log, not a problem — the upload
         // below handles it. Reporting it as a warning made every normal run look degraded.
@@ -607,23 +659,20 @@ ${logContent}
           isPublicRepo = false;
           await log('  ⚠️  Could not determine repository visibility, defaulting to private for safety');
         }
-        // Create temp log file with sanitized content (no compression, just gh-upload-log)
-        const tempLogFile = `/tmp/solution-draft-log-${targetType}-${Date.now()}.txt`;
-        // Use the original sanitized content for upload since it's a plain text file
-        await writeSanitizedPublicationFile(tempLogFile, rawLogContent);
+        // Issue #2189: hand the raw log path to the uploader and let it stream the
+        // sanitize into its own private temp file. This used to read the whole log
+        // a second time and write a sanitized copy here, after which
+        // uploadLogWithGhUploadLog read and sanitized that copy a *third* time —
+        // which is why the incident log shows "🔒 Sanitized 591 secrets" twice.
+        // There is now exactly one sanitize pass, and it never buffers the file.
         // Use gh-upload-log default auto mode and shared repository fallback.
         const uploadDescription = `Solution draft log for https://github.com/${owner}/${repo}/${targetType === 'pr' ? 'pull' : 'issues'}/${targetNumber}`;
-        let uploadResult;
-        try {
-          uploadResult = await uploadLogWithGhUploadLog({
-            logFile: tempLogFile,
-            isPublic: isPublicRepo,
-            description: uploadDescription,
-            verbose,
-          });
-        } finally {
-          await fs.unlink(tempLogFile).catch(() => {});
-        }
+        const uploadResult = await uploadLogWithGhUploadLog({
+          logFile,
+          isPublic: isPublicRepo,
+          description: uploadDescription,
+          verbose,
+        });
         if (uploadResult.success) {
           // Use rawUrl for direct file access (single chunk) or url for repository (multiple chunks) Requirements: 1 chunk = direct raw link, >1 chunks = repo link Private repository raw URLs can contain short-lived tokens, so keep private uploads on the stable repository/tree page URL.
           const logUrl = selectLogUploadUrl({ uploadResult, isPublicRepo });
@@ -789,6 +838,17 @@ ${sessionNote}
     const msg = isENOSPC(uploadError) ? 'ENOSPC: No space left on device during log upload. Free disk space and retry.' : `Error uploading log file: ${uploadError.message}`;
     await log(`  ❌ ${msg}`);
     return false;
+  } finally {
+    // Issue #2189: the closing sample must run on every exit path, including the
+    // failure ones — an upload that died half way through is exactly the case
+    // whose memory profile we need.
+    if (uploadPhaseEntered) {
+      try {
+        await recordResources({ phase: RESOURCE_PHASE_LOG_UPLOAD_END, log, label: 'log upload end' });
+      } catch {
+        /* telemetry must never change the outcome of the upload */
+      }
+    }
   }
 }
 /**

@@ -192,7 +192,11 @@ test('docker container summary includes session and cleanup context', () => {
 });
 
 test('findStartCommandBinary suppresses command-stream stdout mirroring', () => {
-  const source = readFileSync(new URL('../src/isolation-runner.lib.mjs', import.meta.url), 'utf8');
+  // The function moved to src/start-command-cli.lib.mjs in issue #2189 (the
+  // resume wrappers need the `$` loader without importing the runner and
+  // creating a cycle); isolation-runner.lib.mjs re-exports it. The guarantee
+  // being pinned is unchanged: the probe must not mirror `which $` to stdout.
+  const source = readFileSync(new URL('../src/start-command-cli.lib.mjs', import.meta.url), 'utf8');
   assert.match(source, /await\s+\$\(\{\s*mirror:\s*false\s*\}\)`which \$`/);
 });
 

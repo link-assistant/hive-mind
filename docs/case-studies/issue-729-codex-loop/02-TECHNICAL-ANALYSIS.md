@@ -120,9 +120,7 @@ const temporaryWatchMode = shouldRestart && !argv.watch;
 // Simplified version of the watch loop
 while (keepWatching) {
   // Check for feedback
-  const { feedbackDetected } = await detectAndCountFeedback({
-    /* ... */
-  });
+  const { feedbackDetected } = await detectAndCountFeedback({/* ... */});
 
   if (feedbackDetected) {
     await log('📢 FEEDBACK DETECTED!');
@@ -130,9 +128,7 @@ while (keepWatching) {
     await log('🔄 Restarting: Re-running CODEX to handle feedback...');
 
     // RESTART THE TOOL
-    toolResult = await executeCodex({
-      /* ... */
-    });
+    toolResult = await executeCodex({/* ... */});
 
     // Check if it succeeded
     if (toolResult.limitReached) {

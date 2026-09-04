@@ -4,6 +4,9 @@
 // same corrupt/incomplete-alias recovery as the rest of the codebase instead of
 // crashing on a partially installed global package.
 import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
+// Issue #2192: send the token preemptively so clones/pushes are never counted
+// against GitHub's anonymous-download budget.
+import { ensureAuthenticatedGitTransport } from './src/git-auth-transport.lib.mjs';
 
 const use = await ensureUseM();
 
@@ -76,6 +79,7 @@ try {
     }
 
     // Try to clone, if it fails (empty repo), initialize git
+    await ensureAuthenticatedGitTransport({ $, log: async message => console.log(message), reason: 'test repository setup' });
     const cloneResult = await $`git clone ${repoUrl} ${tempDir} 2>&1`;
     if (cloneResult.code !== 0) {
       // Clone failed (probably empty repo), initialize git locally

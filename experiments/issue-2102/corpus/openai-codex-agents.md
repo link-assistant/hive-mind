@@ -141,7 +141,7 @@ See `codex-rs/tui/styles.md`.
   - Styled spans: use "text".red(), "text".green(), "text".magenta(), "text".dim(), etc.
   - Prefer these over constructing styles with `Span::styled` and `Style` directly.
   - Example: patch summary file lines
-    - Desired: vec!["  └ ".into(), "M".red(), " ".dim(), "tui/src/app.rs".dim()]
+    - Desired: vec![" └ ".into(), "M".red(), " ".dim(), "tui/src/app.rs".dim()]
 
 ### TUI Styling (ratatui)
 

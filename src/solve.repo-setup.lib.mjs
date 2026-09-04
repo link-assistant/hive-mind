@@ -7,8 +7,18 @@
 // issue comment so it's excluded from --auto-attach-solution-summary's check.
 import { REPOSITORY_INITIALIZATION_REQUIRED_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { QUIET_PROBE } from './quiet-probe.lib.mjs'; // issue #2130: keep read-only probe payloads out of the attached log
+// Issue #2192: a credential helper is never consulted for a *public* clone
+// (github.com answers 200, so git never asks), which is why an authenticated
+// container still got throttled as anonymous. The token has to be sent
+// preemptively, before the first git network call.
+import { ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
 
 export async function setupRepositoryAndClone({ argv, owner, repo, forkOwner, forkRepoName, tempDir, isContinueMode, issueUrl, log, $, needsClone = true }) {
+  // Issue #2192: authenticate git *before* the first clone/fetch. Doing this
+  // afterwards (as setupGitCredentialHelper does) is too late — the clone is the
+  // call GitHub rejected with "temporarily limiting some unauthenticated downloads".
+  await ensureAuthenticatedGitTransport({ $, log, reason: 'repository setup' });
+
   // Set up repository and handle forking
   const { repoToClone, forkedRepo, upstreamRemote, prForkOwner } = await setupRepository(argv, owner, repo, forkOwner, issueUrl, forkRepoName);
 

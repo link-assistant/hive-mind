@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { sanitizeForPublication } from './token-sanitization.lib.mjs';
+import { findResidualCredentialBlock } from './log-sanitize-stream.lib.mjs';
+import { sanitizeLogFileToFileBounded } from './log-sanitize-worker.lib.mjs';
 
 const sanitizePathSegment = (value, fallback) => {
   const raw = value === null || value === undefined || value === '' ? fallback : String(value);
@@ -94,13 +96,25 @@ const writePrivatePublicationFile = async (destinationPath, content) => {
   await fs.chmod(destinationPath, 0o600);
 };
 
+// Issue #2189: `sanitizeLogFileToFileBounded` creates its destination exclusively
+// (`wx`) so a pre-planted symlink cannot be followed. Collection may run more
+// than once for the same session directory, so drop a previous artifact first —
+// unlink-then-O_EXCL keeps the symlink guarantee that a plain truncate loses.
+const sanitizeIntoPublicationFile = async ({ sourcePath, destinationPath, startByte = 0, endByte = null }) => {
+  await fs.rm(destinationPath, { force: true });
+  return sanitizeLogFileToFileBounded({ sourcePath, destPath: destinationPath, startByte, endByte });
+};
+
 const copyIfExists = async ({ sourcePath, destinationPath }) => {
   if (!(await fileExists(sourcePath))) return false;
   // Raw local audit sources remain available to the operator but must not be
   // group/world-readable. Only the sanitized copy enters the repository.
   await fs.chmod(sourcePath, 0o600);
-  const content = await fs.readFile(sourcePath, 'utf8');
-  await writePrivatePublicationFile(destinationPath, content);
+  // Issue #2189: transcripts are as large as the run that produced them (the
+  // captured incident had a 134 MB one). Sanitize source → destination block by
+  // block instead of holding the file, its sanitized twin and the sanitizer's
+  // own working copy in the heap at once.
+  await sanitizeIntoPublicationFile({ sourcePath, destinationPath });
   return true;
 };
 
@@ -140,8 +154,7 @@ const copyLogSlice = async ({ logFile, destinationPath, logStartByte = 0 }) => {
     await writePrivatePublicationFile(destinationPath, '');
     return { logStartByte: start, logEndByte: stat.size };
   }
-  const bytes = await fs.readFile(logFile);
-  await writePrivatePublicationFile(destinationPath, bytes.subarray(start, stat.size).toString('utf8'));
+  await sanitizeIntoPublicationFile({ sourcePath: logFile, destinationPath, startByte: start, endByte: stat.size });
   return { logStartByte: start, logEndByte: stat.size };
 };
 
@@ -279,9 +292,11 @@ const verifyDevelopmentLogDirectory = async directoryPath => {
     if (!entry.isFile()) continue;
     const parentPath = entry.parentPath || entry.path;
     const filePath = path.join(parentPath, entry.name);
-    const exactBytes = await fs.readFile(filePath, 'utf8');
-    const rescanned = await sanitizeForPublication(exactBytes);
-    if (rescanned !== exactBytes) {
+    // Issue #2189: rescan block by block. Reading each artifact back whole made
+    // the verification cost as much heap as the artifact — on top of the copy
+    // that had just been written.
+    const residual = await findResidualCredentialBlock(filePath);
+    if (residual) {
       throw new Error('Development-log publication rescan found residual credential material.');
     }
     await fs.chmod(filePath, 0o600);

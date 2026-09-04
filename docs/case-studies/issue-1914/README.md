@@ -227,8 +227,8 @@ The nested daemon's image store is reset by the driver switch, so re-seed it
   quickly and the block disappears; making the pull itself asynchronous in the
   bot is a possible follow-up but is out of scope for the disk root cause.
 - _"$ does not provide the full log."_ The `$`-captured isolation log truncates
-  the daemon's pull progress; the full error is only visible interactively. A DX
-  suggestion for `start-command`, not a Hive Mind bug — noted in
+the daemon's pull progress; the full error is only visible interactively. A DX
+suggestion for `start-command`, not a Hive Mind bug — noted in
   [Upstream Report](#upstream-report).
 
 ---

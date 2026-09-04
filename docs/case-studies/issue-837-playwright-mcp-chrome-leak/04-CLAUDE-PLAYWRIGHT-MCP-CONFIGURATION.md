@@ -33,11 +33,12 @@ claude mcp add playwright --scope user -- npx @playwright/mcp@latest --isolated 
 ```
 
 **Scope Options:**
-| Scope | Description | Config Location |
-|-------|-------------|-----------------|
-| `local` | Current directory only | `~/.claude.json` (project-specific) |
-| `project` | Team-shared via version control | `.mcp.json` (project root) |
-| `user` | Available globally | `~/.claude.json` (user section) |
+
+| Scope     | Description                     | Config Location                     |
+| --------- | ------------------------------- | ----------------------------------- |
+| `local`   | Current directory only          | `~/.claude.json` (project-specific) |
+| `project` | Team-shared via version control | `.mcp.json` (project root)          |
+| `user`    | Available globally              | `~/.claude.json` (user section)     |
 
 ### Method 2: Direct JSON Configuration
 

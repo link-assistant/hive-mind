@@ -38,7 +38,21 @@ import path from 'node:path';
 // `executionUuid` (#2154) is start-command's own identifier for the execution —
 // the one `$ --list` prints. It differs from `sessionId`, so persisting it is
 // what lets a restarted bot still correlate its sessions with the session list.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args'];
+// Issue #2189 adds the fields that keep a completed session terminal and its
+// per-poll cost constant:
+//   - `completionNotifiedAt`/`completionExitCode`/`completionStatus` latch the
+//     one delivered notification, so a restart between "notified" and
+//     "untracked" finalizes silently instead of re-running the whole completion
+//     pipeline and notifying the user again.
+//   - `lastToolSessionId` caches the marker found by scanning the working
+//     session log, so that scan is never O(log size) per poll.
+//   - `killRecoveryAttempts`/`killRecoverySessionId`/`killRecoveryOfSession`
+//     bound and record automatic recovery across restarts — without them a
+//     reliably-crashing job could restart once per bot launch forever.
+//   - `stopRequestedByUser`/`stopRequestedBy` must survive a restart too: with
+//     `--on-session-kill=resume` now the default, forgetting that an operator
+//     asked for the stop would relaunch the very work they cancelled.
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors

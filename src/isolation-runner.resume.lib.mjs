@@ -54,7 +54,10 @@ export const RESUME_ALL_ACTIONS = Object.freeze({
  */
 export function isUnsupportedStartCommandVerb(message) {
   const text = String(message || '').toLowerCase();
-  return /unknown (option|argument|flag)|unrecognized option|invalid option|no such option/.test(text);
+  // 0.32.1 answers `$ --resume-all` with `Error: Unknown wrapper option:
+  // --resume-all` (verified against the pinned pre-0.33.0 binary), and other
+  // argument parsers word it differently; match the family, not one string.
+  return /unknown (\w+ )?(option|argument|flag)|unrecognized option|invalid option|no such option/.test(text);
 }
 
 /**
@@ -87,15 +90,17 @@ export function parseExecutionResumeOutput(output) {
   } catch {
     // Links notation — fall through.
   }
+  // Links notation indents `key value`; `--output-format text` prints
+  // `Label:   value`. The optional colon covers both with one expression.
   const readField = name => {
-    const match = raw.match(new RegExp(`^\\s*${name}\\s+"?([^"\\n]+)"?\\s*$`, 'm'));
+    const match = raw.match(new RegExp(`^\\s*${name}\\s*:?\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
     return str(match?.[1]);
   };
   return {
     uuid: readField('uuid'),
-    mode: readField('mode'),
+    mode: readField('mode') || readField('Resume Mode'),
     backend: readField('backend'),
-    sessionName: readField('sessionName'),
+    sessionName: readField('sessionName') || readField('Session Name'),
     previousSessionName: readField('previousSessionName'),
     snapshotImage: readField('snapshotImage'),
     command: readField('command'),
@@ -139,11 +144,27 @@ export function parseExecutionResumeAllOutput(output) {
     .filter(Boolean);
 }
 
-function describeFailure(error) {
-  const stderr = error?.stderr?.toString?.() || '';
-  const stdout = error?.stdout?.toString?.() || '';
-  const message = stderr.trim() || error?.message || String(error);
-  return { message, stdout, unsupported: isUnsupportedStartCommandVerb(`${message}\n${stdout}`) };
+/**
+ * Normalize what `command-stream`'s `$` hands back for one invocation.
+ *
+ * `$` does *not* throw on a non-zero exit — it resolves with `code` set (checked
+ * against command-stream in experiments/issue-2189-start-command-resume.mjs).
+ * Reading only the resolved value would therefore report every refusal
+ * ("session is still running", "no execution found", "unknown wrapper option")
+ * as a successful resume. Both shapes are folded into one verdict here.
+ *
+ * @param {object|null} result - Resolved value from `$`
+ * @param {*} [error] - Rejection from `$`, when it threw instead
+ * @returns {{ok: boolean, stdout: string, message: string|null, unsupported: boolean}}
+ */
+function interpretStartCommandResult(result, error = null) {
+  const source = error || result || {};
+  const stdout = source.stdout?.toString?.().trim() || '';
+  const stderr = source.stderr?.toString?.().trim() || '';
+  const code = error ? (Number.isFinite(source.code) ? source.code : 1) : Number.isFinite(source.code) ? source.code : 0;
+  if (!error && code === 0) return { ok: true, stdout, message: null, unsupported: false };
+  const message = stderr || source.message || `start-command exited with code ${code}`;
+  return { ok: false, stdout, message, unsupported: isUnsupportedStartCommandVerb(`${message}\n${stdout}`) };
 }
 
 /**
@@ -176,15 +197,19 @@ export async function resumeIsolatedSession(identifier, { command = null, verbos
 
   try {
     const $ = await getCommandStreamDollar();
-    const result = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
-    const stdout = result.stdout?.toString().trim() || '';
+    const raw = command ? await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json -- ${command}` : await $({ mirror: false })`${binPath} --resume ${identifier} --output-format json`;
+    const { ok, stdout, message, unsupported } = interpretStartCommandResult(raw);
+    if (!ok) {
+      if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} refused${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
+      return { ...base, unsupported, output: stdout, error: message };
+    }
     const parsed = parseExecutionResumeOutput(stdout);
     if (verbose) {
       console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} → mode=${parsed.mode || '(unknown)'} session=${parsed.sessionName || '(unknown)'} uuid=${parsed.uuid || '(unknown)'}`);
     }
     return { ...base, ...parsed, success: true, output: stdout };
   } catch (error) {
-    const { message, stdout, unsupported } = describeFailure(error);
+    const { stdout, message, unsupported } = interpretStartCommandResult(null, error);
     if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume ${identifier} failed${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
     return { ...base, unsupported, output: stdout, error: message };
   }
@@ -214,8 +239,12 @@ export async function resumeAllIsolationSessions({ verbose = false } = {}) {
 
   try {
     const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`${binPath} --resume-all --output-format json`;
-    const stdout = result.stdout?.toString().trim() || '';
+    const raw = await $({ mirror: false })`${binPath} --resume-all --output-format json`;
+    const { ok, stdout, message, unsupported } = interpretStartCommandResult(raw);
+    if (!ok) {
+      if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume-all refused${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
+      return { ...base, unsupported, output: stdout, error: message };
+    }
     const executions = parseExecutionResumeAllOutput(stdout);
     if (verbose) {
       const summary = executions.map(entry => `${entry.action}:${entry.sessionName || entry.uuid}`).join(', ') || '(none)';
@@ -223,7 +252,7 @@ export async function resumeAllIsolationSessions({ verbose = false } = {}) {
     }
     return { ...base, success: true, executions, output: stdout };
   } catch (error) {
-    const { message, stdout, unsupported } = describeFailure(error);
+    const { stdout, message, unsupported } = interpretStartCommandResult(null, error);
     if (verbose) console.log(`[VERBOSE] isolation-runner: $ --resume-all failed${unsupported ? ' (verb not supported by this $ build)' : ''}: ${message}`);
     return { ...base, unsupported, output: stdout, error: message };
   }

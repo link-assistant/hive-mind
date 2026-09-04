@@ -588,6 +588,15 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
         console.log(`[VERBOSE] isolation-runner: $ --stop ${sessionId} stderr: ${stderr.substring(0, 300)}`);
       }
     }
+    // Issue #2189: `command-stream`'s `$` resolves — it does not throw — when the
+    // child exits non-zero, so the catch below never sees a refusal. `$ --stop`
+    // answers `Error: No execution found with UUID or session name: …` on stderr
+    // with exit code 1; without this check every such refusal was reported to the
+    // operator as a successful stop, and a session nobody stopped looked handled.
+    const code = Number.isFinite(result.code) ? result.code : 0;
+    if (code !== 0) {
+      return { success: false, output: stdout, error: stderr.trim() || `\`$ --stop\` exited with code ${code}` };
+    }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {
     const stderr = error?.stderr?.toString?.() || '';

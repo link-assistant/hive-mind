@@ -1,5 +1,5 @@
 
-> @link-assistant/hive-mind@2.15.1 lint
+> @link-assistant/hive-mind@2.16.0 lint
 > eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'
 
 LINT EXIT=0

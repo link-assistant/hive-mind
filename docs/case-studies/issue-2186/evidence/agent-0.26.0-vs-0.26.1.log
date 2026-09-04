@@ -1,0 +1,58 @@
+== 1. objects/info/alternates ==
+0.26.0: <absent: the snapshot store is a full standalone object database>
+0.26.1: 0.26.1/package/src/snapshot/index.ts:42:        path.join(info, 'alternates'),
+
+== 2. Project.prune() ==
+0.26.0:
+0.26.0/package/src/session/compaction.ts:228:  export async function prune(input: { sessionID: string }) {
+0.26.0/package/src/session/compaction.ts:233:    let pruned = 0;
+0.26.0/package/src/session/compaction.ts:250:              pruned += estimate;
+0.26.0/package/src/session/compaction.ts:256:    log.info(() => ({ message: 'found', pruned, total }));
+0.26.0/package/src/session/compaction.ts:257:    if (pruned > PRUNE_MINIMUM) {
+0.26.0/package/src/session/compaction.ts:264:      log.info(() => ({ message: 'pruned', count: toPrune.length }));
+0.26.0/package/src/session/prompt.ts:1033:    SessionCompaction.prune({ sessionID });
+0.26.1:
+0.26.1/package/src/project/project.ts:30:    await prune();
+0.26.1/package/src/project/project.ts:109:  export async function prune() {
+0.26.1/package/src/project/project.ts:144:          message: 'failed to prune snapshot',
+0.26.1/package/src/project/project.ts:168:    log.info(() => ({ message: 'pruned snapshot', projectID: snapshot.id }));
+0.26.1/package/src/project/instance.ts:61:    await Project.prune();
+0.26.1/package/src/session/compaction.ts:228:  export async function prune(input: { sessionID: string }) {
+0.26.1/package/src/session/compaction.ts:233:    let pruned = 0;
+0.26.1/package/src/session/compaction.ts:250:              pruned += estimate;
+0.26.1/package/src/session/compaction.ts:256:    log.info(() => ({ message: 'found', pruned, total }));
+0.26.1/package/src/session/compaction.ts:257:    if (pruned > PRUNE_MINIMUM) {
+0.26.1/package/src/session/compaction.ts:264:      log.info(() => ({ message: 'pruned', count: toPrune.length }));
+0.26.1/package/src/session/prompt.ts:1033:    SessionCompaction.prune({ sessionID });
+
+== 3. Snapshot.track() diff ==
+--- 0.26.0/package/src/snapshot/index.ts	1985-10-26 08:15:00.000000000 +0000
++++ 0.26.1/package/src/snapshot/index.ts	1985-10-26 08:15:00.000000000 +0000
+@@ -30,6 +30,25 @@
+         .nothrow();
+       log.info(() => ({ message: 'initialized' }));
+     }
++    const objects =
++      await $`git rev-parse --path-format=absolute --git-path objects`
++        .quiet()
++        .cwd(Instance.worktree)
++        .nothrow();
++    if (objects.exitCode === 0) {
++      const info = path.join(git, 'objects', 'info');
++      await fs.mkdir(info, { recursive: true });
++      await fs.writeFile(
++        path.join(info, 'alternates'),
++        `${objects.text().trim()}\n`
++      );
++    } else {
++      log.warn(() => ({
++        message: 'failed to resolve repository objects',
++        exitCode: objects.exitCode,
++        stderr: objects.stderr.toString(),
++      }));
++    }
+     await $`git --git-dir ${git} --work-tree ${Instance.worktree} add .`
+       .quiet()
+       .cwd(Instance.directory)
+
+Working copy kept in: <workdir>

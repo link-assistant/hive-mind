@@ -1,4 +1,3 @@
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Isolation Runner for Telegram bot
  *
@@ -30,30 +29,22 @@ import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCre
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
-let commandStreamDollarPromise = null;
-async function getCommandStreamDollar() {
-  if (!commandStreamDollarPromise) {
-    commandStreamDollarPromise = (async () => {
-      if (typeof globalThis.use === 'undefined') {
-        await ensureUseM();
-      }
-      const { $ } = await globalThis.use('command-stream');
-      return $;
-    })();
-  }
-  try {
-    return await commandStreamDollarPromise;
-  } catch (error) {
-    commandStreamDollarPromise = null;
-    throw error;
-  }
-}
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 // Issue #2175: the `$` output parsers live in their own module to keep this file
 // under the 1350-line warning threshold. Re-exported so importers are unaffected.
 import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus } from './isolation-runner.parsers.lib.mjs';
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
+// Issue #2189: the `$` loader and PATH lookup live in their own module so the
+// resume/attach wrappers can use them without importing this runner (a cycle).
+import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
+export { findStartCommandBinary };
+// Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
+// (link-foundation/start#162). Re-exported so callers keep reaching every
+// isolation verb through this module.
+import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
+export { resumeAllIsolationSessions, resumeIsolatedSession };
+export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const DOCKER_CONTAINER_HOME = '/home/box';
@@ -310,20 +301,6 @@ async function runStartCommand(binPath, startCommandArgs) {
  */
 export function generateSessionId() {
   return crypto.randomUUID();
-}
-/**
- * Find the `$` CLI binary path
- * @returns {Promise<string|null>} Path to `$` binary or null
- */
-async function findStartCommandBinary() {
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`which $`;
-    const path = result.stdout?.toString().trim() || '';
-    return path || null;
-  } catch {
-    return null;
-  }
 }
 /**
  * Verbose post-launch diagnostics for a native docker-isolated session.

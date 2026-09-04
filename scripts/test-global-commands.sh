@@ -12,7 +12,20 @@
 set -euo pipefail
 
 echo "Testing npm global command installation from local folder..."
-npm link
+# --ignore-scripts is deliberate (issue #2198). On npm >= 11.17 a bare
+# `npm link` re-runs this package's own `prepare: husky` and then warns
+#   npm warn allow-scripts 1 package has install scripts not yet covered by
+#   allowScripts: @link-assistant/hive-mind@<version> (prepare: husky)
+# which cannot be reviewed away: `npm approve-scripts --allow-scripts-pending`
+# answers "No packages with unreviewed install scripts", and neither the
+# allowScripts field in package.json nor --allow-scripts=<name> suppresses it,
+# because `linkPkg()` in npm's lib/commands/link.js never resolves an
+# allowScripts policy at all (its sibling `linkInstall()` does). Reported
+# upstream as npm/cli#9951; --ignore-scripts is the only lever that works.
+# Nothing is lost: husky installs Git hooks, the install step of this job has
+# already run it, and hooks have no bearing on whether the global bin commands
+# below resolve and run.
+npm link --ignore-scripts
 echo "npm link completed successfully"
 
 echo ""

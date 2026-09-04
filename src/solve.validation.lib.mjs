@@ -35,6 +35,9 @@ const {
 } = githubLib;
 
 // Import git-related functions for identity validation and repair
+// Issue #2194: recovery diagnostics for URLs that had to be repaired before parsing.
+const { formatUrlRepairs, hasNotableRepair, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs');
+
 const gitLib = await import('./git.lib.mjs');
 const { checkGitIdentity, repairGitIdentity } = gitLib;
 
@@ -83,6 +86,16 @@ export const validateGitHubUrl = issueUrl => {
     return { isValid: false, isIssueUrl: null, isPrUrl: null };
   }
 
+  // Issue #2194: the URL needed repair before it could be understood. Say so up
+  // front, so a wrong guess is visible before a whole session runs against the
+  // wrong entity.
+  if (hasNotableRepair(parsedUrl.repairs)) {
+    console.error('ℹ️  Repaired the GitHub URL before solving:');
+    console.error(`     You typed: ${revealHiddenCharacters(issueUrl)}`);
+    console.error(`     Using:     ${parsedUrl.canonical || parsedUrl.normalized}`);
+    console.error(`     Repaired:  ${formatUrlRepairs(parsedUrl.repairs, { notableOnly: true })}`);
+  }
+
   // Check if it's an issue or pull request
   const isIssueUrl = parsedUrl.type === 'issue';
   const isPrUrl = parsedUrl.type === 'pull';
@@ -102,9 +115,12 @@ export const validateGitHubUrl = issueUrl => {
     isIssueUrl,
     isPrUrl,
     normalizedUrl: parsedUrl.normalized,
+    canonicalUrl: parsedUrl.canonical || parsedUrl.normalized,
     owner: parsedUrl.owner,
     repo: parsedUrl.repo,
     number: parsedUrl.number,
+    repairs: parsedUrl.repairs || [],
+    recovered: Boolean(parsedUrl.recovered),
   };
 };
 

@@ -508,6 +508,13 @@ zh
       must
         be
           type "URL 必须是 GitHub {{allowedTypes}}（不是 {{type}}）"
+      recovered """
+        ℹ️ 开始前已修复链接。
+
+        您发送的：{{original}}
+        实际使用：{{used}}
+        修复内容：{{repairs}}
+      """
     language
       invalid """
         ❌ 语言无效。支持的语言：{{supported}}。

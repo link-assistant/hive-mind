@@ -508,6 +508,13 @@ hi
       must
         be
           type "URL GitHub {{allowedTypes}} होना चाहिए ({{type}} नहीं)"
+      recovered """
+        ℹ️ शुरू करने से पहले लिंक ठीक की गई।
+
+        आपने भेजा: {{original}}
+        उपयोग किया जा रहा है: {{used}}
+        ठीक किया गया: {{repairs}}
+      """
     language
       invalid """
         ❌ अमान्य भाषा। समर्थित: {{supported}}।

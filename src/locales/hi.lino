@@ -590,6 +590,7 @@ hi
         usage "उपयोग: `/hive <github-url> [options]`"
         example "उदाहरण: `/hive https://github.com/owner/repo`"
         disabled "*/hive* - ❌ अक्षम"
+      models "*/models* - उपलब्ध models दिखाएँ, जो इस installation और सभी live sources से मिलाकर बनाई गई हैं। उपयोग: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - उपयोग सीमाएँ दिखाएँ"
       version "*/version* - bot और runtime versions दिखाएँ"
       language "*/language* `[en|ru|zh|hi]` - अपनी पसंदीदा reply language सेट या दिखाएँ (in-memory, per-user)"
@@ -611,7 +612,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model

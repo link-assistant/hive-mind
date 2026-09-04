@@ -81,10 +81,14 @@ const parseIdList = value =>
  * `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY` is an allow-list and
  * `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` a deny-list, both by target id.
  */
-export const listAgenticCliUpdateTargets = (env = process.env) => {
+export const listAgenticCliUpdateTargets = (env = process.env, { only: requested = [] } = {}) => {
   const only = parseIdList(env.HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY);
   const excluded = new Set(parseIdList(env.HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE));
-  return AGENTIC_CLI_TARGETS.filter(target => (only.length === 0 || only.includes(target.id)) && !excluded.has(target.id));
+  // A caller-supplied narrowing (issue #2202, R6: refresh the CLIs a command is
+  // about to drive) intersects with the operator's allow-list rather than
+  // overriding it — an operator who excluded a CLI still gets it excluded.
+  const caller = parseIdList(Array.isArray(requested) ? requested.join(',') : requested);
+  return AGENTIC_CLI_TARGETS.filter(target => (only.length === 0 || only.includes(target.id)) && (caller.length === 0 || caller.includes(target.id)) && !excluded.has(target.id));
 };
 
 /** First semantic version in a CLI's `--version` output, which is rarely bare. */
@@ -147,7 +151,7 @@ export const installAgenticCli = async (target, { run = execFileAsync, timeoutMs
  *
  * @returns {Promise<{status: 'disabled'|'busy'|'throttled'|'checked', updated: object[], upToDate: object[], failed: object[]}>}
  */
-export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs, run = execFileAsync, log = null, verbose = false, getActiveTasksImpl = null, now = () => new Date(), minIntervalMs = DEFAULT_CLI_UPDATE_INTERVAL_MS, force = false, lockOptions = {} } = {}) => {
+export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs, run = execFileAsync, log = null, verbose = false, getActiveTasksImpl = null, now = () => new Date(), minIntervalMs = DEFAULT_CLI_UPDATE_INTERVAL_MS, force = false, only = [], lockOptions = {} } = {}) => {
   if (!isAgenticCliAutoUpdateEnabled(env)) {
     if (verbose && log) await log('[VERBOSE] agentic-cli-updater: disabled by HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE');
     return { status: 'disabled', updated: [], upToDate: [], failed: [] };
@@ -176,7 +180,7 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
       const failed = [];
       const tools = { ...state.tools };
 
-      for (const target of listAgenticCliUpdateTargets(env)) {
+      for (const target of listAgenticCliUpdateTargets(env, { only })) {
         const installed = await readInstalledCliVersion(target, { run });
         if (!installed) {
           // Not installed on this host (image variants differ); nothing to refresh.

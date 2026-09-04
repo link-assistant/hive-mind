@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "source": "codex debug models",
+    "cli": "codex-cli 0.150.1",
+    "capturedAt": "2026-09-04",
+    "note": "Token-free: the Codex CLI serves this catalogue from its local model definitions; no inference request is made."
+  },
+  "modelCount": 10,
+  "models": [
+    {
+      "slug": "codex-auto-review",
+      "display_name": "Codex Auto Review",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 43
+    },
+    {
+      "slug": "gpt-5.2",
+      "display_name": "GPT-5.2",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 29
+    },
+    {
+      "slug": "gpt-5.4",
+      "display_name": "GPT-5.4",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 16
+    },
+    {
+      "slug": "gpt-5.4-mini",
+      "display_name": "GPT-5.4-Mini",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 23
+    },
+    {
+      "slug": "gpt-5.5",
+      "display_name": "GPT-5.5",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 7
+    },
+    {
+      "slug": "gpt-5.6-luna",
+      "display_name": "GPT-5.6-Luna",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 3
+    },
+    {
+      "slug": "gpt-5.6-sol",
+      "display_name": "GPT-5.6-Sol",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1
+    },
+    {
+      "slug": "gpt-5.6-terra",
+      "display_name": "GPT-5.6-Terra",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 2
+    },
+    {
+      "slug": "gpt-daybreak-blue-latest",
+      "display_name": "Daybreak Blue",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 3
+    },
+    {
+      "slug": "gpt-daybreak-red-latest",
+      "display_name": "Daybreak Red",
+      "visibility": "hide",
+      "supported_in_api": true,
+      "priority": 3
+    }
+  ]
+}

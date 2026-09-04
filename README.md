@@ -533,6 +533,8 @@ See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defau
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
 
+> **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
+
 #### `/hive` - Run Hive Orchestration
 
 ```

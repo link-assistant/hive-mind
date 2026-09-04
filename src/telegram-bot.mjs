@@ -471,6 +471,9 @@ const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs'
 registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
+// Issue #2202 (R5): /models lists the merged model catalogue per tool.
+const { registerModelsCommand } = await import('./telegram-models-command.lib.mjs');
+const { handleModelsCommand } = registerModelsCommand(bot, { ...sharedCommandOpts, safeReply });
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
@@ -1027,7 +1030,7 @@ bot.on('message', async (ctx, next) => {
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, queue: handleSolveQueueCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, queue: handleSolveQueueCommand, models: handleModelsCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

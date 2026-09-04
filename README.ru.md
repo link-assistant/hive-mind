@@ -516,6 +516,8 @@ Free Models via Kilo Gateway (with --tool agent):
 
 > **📖 Руководство по бесплатным моделям**: см. [docs/FREE_MODELS.ru.md](./docs/FREE_MODELS.ru.md) для получения полной информации обо всех бесплатных моделях, включая провайдеры OpenCode Zen и Kilo Gateway.
 
+> **📖 Живой список моделей**: запустите `hive-models` (или `/models` в Telegram), чтобы увидеть, какие модели доступны прямо сейчас, включая вышедшие уже после публикации этой установки. См. [docs/MODELS.ru.md](./docs/MODELS.ru.md).
+
 #### `/hive` — Запуск оркестрации Hive
 
 ```

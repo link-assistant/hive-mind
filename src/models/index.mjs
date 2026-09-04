@@ -23,7 +23,7 @@ if (typeof globalThis.use === 'undefined') {
 }
 
 import { log } from '../lib.mjs';
-import { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from '../formal-ai-model.lib.mjs';
+import { FORMAL_AI_MODEL_ALIAS, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -34,366 +34,12 @@ const execFileAsync = promisify(execFile);
 // and its `use-m` bootstrap. Re-exported here so the public surface is unchanged.
 export { FORMAL_AI_MODEL_ALIAS, FORMAL_AI_PROVIDER_MODEL_ID, isFormalAiModel } from '../formal-ai-model.lib.mjs';
 
-const formalAiNativeModelAliases = {
-  [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_MODEL_ALIAS,
-  [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_MODEL_ALIAS,
-};
-
-const formalAiProviderModelAliases = {
-  [FORMAL_AI_MODEL_ALIAS]: FORMAL_AI_PROVIDER_MODEL_ID,
-  [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_PROVIDER_MODEL_ID,
-};
-// Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5 / Mythos 5 support
-// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096)
-export const claudeModels = {
-  ...formalAiNativeModelAliases,
-  sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
-  opus: 'claude-opus-5', // Opus 5 (default, Issue #2096)
-  haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
-  'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
-  'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
-  opusplan: 'opusplan', // Special mode: Opus for planning, Sonnet for execution (Issue #1223)
-  // Claude Fable 5 — Anthropic's most capable widely released (Mythos-class) model, GA 2026-06-09 (Issue #1875)
-  fable: 'claude-fable-5', // Fable 5 alias
-  'fable-5': 'claude-fable-5', // Fable 5 short alias
-  'claude-fable-5': 'claude-fable-5', // Fable 5 full ID
-  // Claude Mythos 5 — shares Fable 5's capabilities without safety classifiers; limited availability (Project Glasswing) (Issue #1875)
-  'mythos-5': 'claude-mythos-5', // Mythos 5 short alias
-  'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID
-  // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
-  'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
-  'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
-  'opus-5': 'claude-opus-5', // Opus 5 short alias (Issue #2096)
-  'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
-  'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
-  'opus-4-6': 'claude-opus-4-6', // Opus 4.6 short alias (backward compatibility)
-  'opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5 short alias
-  'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
-  'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
-  // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832, Issue #2096)
-  'claude-opus-5': 'claude-opus-5', // Opus 5 (Issue #2096)
-  'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
-  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
-  'claude-sonnet-5': 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
-  'claude-sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
-  'claude-opus-4-6': 'claude-opus-4-6', // Opus 4.6 (backward compatibility)
-  'claude-opus-4-5': 'claude-opus-4-5-20251101', // Opus 4.5
-  'claude-sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 (backward compatibility)
-  'claude-haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5
-};
-
-// Agent models (OpenCode API and Kilo Gateway via agent CLI)
-// Issue #1300: Updated free models to match agent PR #191
-// Issue #1543: Added qwen3.6-plus-free (former default) and nemotron-3-super-free per agent PR #234
-// Issue #1563: qwen3.6-plus-free free promotion ended (April 2026), nemotron-3-super-free is now default per agent PR #243
-export const agentModels = {
-  ...formalAiProviderModelAliases,
-  // OpenCode Zen free models (current)
-  grok: 'opencode/grok-code',
-  'grok-code': 'opencode/grok-code',
-  'grok-code-fast-1': 'opencode/grok-code',
-  'big-pickle': 'opencode/big-pickle',
-  'gpt-5-nano': 'opencode/gpt-5-nano',
-  'minimax-m2.5-free': 'opencode/minimax-m2.5-free', // Upgraded from M2.1 (Issue #1391)
-  'nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Default: NVIDIA hybrid Mamba-Transformer (Issue #1563)
-  // Kilo Gateway free models (Issue #1282, updated in #1300)
-  // Short names for Kilo-exclusive models (Issue #1300)
-  'glm-5-free': 'kilo/glm-5-free', // Kilo-exclusive
-  'glm-4.5-air-free': 'kilo/glm-4.5-air-free', // Kilo-exclusive: agent-centric model
-  'deepseek-r1-free': 'kilo/deepseek-r1-free', // Kilo-exclusive: reasoning model
-  'giga-potato-free': 'kilo/giga-potato-free', // Kilo-exclusive
-  'trinity-large-preview': 'kilo/trinity-large-preview', // Kilo-exclusive
-  // Full names with kilo/ prefix
-  'kilo/glm-5-free': 'kilo/glm-5-free',
-  'kilo/glm-4.5-air-free': 'kilo/glm-4.5-air-free',
-  'kilo/minimax-m2.5-free': 'kilo/minimax-m2.5-free', // Also on OpenCode Zen
-  'kilo/deepseek-r1-free': 'kilo/deepseek-r1-free',
-  'kilo/giga-potato-free': 'kilo/giga-potato-free',
-  'kilo/trinity-large-preview': 'kilo/trinity-large-preview',
-  // Deprecated free models (kept for backward compatibility)
-  'qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended April 2026 (Issue #1563)
-  'kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated: not supported (Issue #1391)
-  'glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated: no longer free
-  'minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated: replaced by m2.5
-  'kilo/glm-4.7-free': 'kilo/glm-4.7-free', // Deprecated: replaced by glm-4.5-air-free
-  'kilo/kimi-k2.5-free': 'kilo/kimi-k2.5-free', // Deprecated: not recommended
-  'kilo/minimax-m2.1-free': 'kilo/minimax-m2.1-free', // Deprecated: replaced by m2.5
-  // Premium models
-  sonnet: 'anthropic/claude-3-5-sonnet',
-  haiku: 'anthropic/claude-3-5-haiku',
-  opus: 'anthropic/claude-3-opus',
-  'gemini-3-pro': 'google/gemini-3-pro',
-};
-
-// OpenCode models (OpenCode API)
-export const opencodeModels = {
-  ...formalAiProviderModelAliases,
-  gpt4: 'openai/gpt-4',
-  gpt4o: 'openai/gpt-4o',
-  claude: 'anthropic/claude-3-5-sonnet',
-  sonnet: 'anthropic/claude-3-5-sonnet',
-  opus: 'anthropic/claude-3-opus',
-  gemini: 'google/gemini-pro',
-  grok: 'opencode/grok-code',
-  'grok-code': 'opencode/grok-code',
-  'grok-code-fast-1': 'opencode/grok-code',
-};
-
-// Codex models (OpenAI API)
-export const codexModels = {
-  ...formalAiNativeModelAliases,
-  gpt5: 'gpt-5',
-  'gpt-5': 'gpt-5',
-  'gpt-5.5': 'gpt-5.5',
-  'gpt-5.5-mini': 'gpt-5.5-mini',
-  'gpt-5.5-nano': 'gpt-5.5-nano',
-  'gpt-5.6-sol': 'gpt-5.6-sol',
-  'gpt-5.6-terra': 'gpt-5.6-terra',
-  'gpt-5.6-luna': 'gpt-5.6-luna',
-  'gpt-5.4': 'gpt-5.4',
-  'gpt-5.4-mini': 'gpt-5.4-mini',
-  'gpt-5.4-nano': 'gpt-5.4-nano',
-  'gpt-5.2': 'gpt-5.2',
-  'gpt-5.2-codex': 'gpt-5.2-codex',
-  'gpt-5.3-codex': 'gpt-5.3-codex',
-  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
-  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
-  'openai.gpt-5.5': 'openai.gpt-5.5',
-  'openai.gpt-5.4': 'openai.gpt-5.4',
-  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
-  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
-  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
-  'codex-auto-review': 'codex-auto-review',
-  'o3-mini': 'o3-mini',
-  gpt4: 'gpt-4',
-  'gpt-4': 'gpt-4',
-  gpt4o: 'gpt-4o',
-  'gpt-4o': 'gpt-4o',
-};
-
-const CODEX_GENERATION_ALIAS_PATTERN = /^gpt-(\d+(?:\.\d+)?)-(sol|terra|luna)$/;
-const OPENAI_MODEL_PREFIX_PATTERN = /^openai([/.])/;
-
-/**
- * Resolve sol/terra/luna to the newest generation that contains the complete
- * alias family. A complete family prevents a partially rolled-out catalog from
- * moving only some aliases to a newer generation.
- */
-export const getLatestCodexGenerationAliases = (models = codexModels) => {
-  const generations = new Map();
-
-  for (const modelId of Object.values(models)) {
-    const bareModelId = modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '');
-    const match = bareModelId.match(CODEX_GENERATION_ALIAS_PATTERN);
-    if (!match) continue;
-
-    const [, generation, alias] = match;
-    if (!generations.has(generation)) generations.set(generation, {});
-    generations.get(generation)[alias] = bareModelId;
-  }
-
-  const latestCompleteGeneration = [...generations.entries()].filter(([, aliases]) => ['sol', 'terra', 'luna'].every(alias => aliases[alias])).sort(([left], [right]) => right.localeCompare(left, undefined, { numeric: true }))[0];
-
-  return latestCompleteGeneration?.[1] || {};
-};
-const getCodexModelVariants = () => {
-  const bareModels = [...new Set(Object.values(codexModels).map(modelId => modelId.replace(OPENAI_MODEL_PREFIX_PATTERN, '')))];
-  const aliases = getLatestCodexGenerationAliases();
-  const variants = { ...codexModels, ...aliases };
-
-  for (const [name, modelId] of Object.entries({ ...Object.fromEntries(bareModels.map(modelId => [modelId, modelId])), ...aliases })) {
-    variants[`openai/${name}`] = `openai/${modelId}`;
-    variants[`openai.${name}`] = `openai.${modelId}`;
-  }
-
-  return variants;
-};
-
-export const CODEX_MODEL_VARIANTS = getCodexModelVariants();
-
-// Qwen Code models
-export const qwenModels = {
-  ...formalAiNativeModelAliases,
-  qwen: 'qwen3-coder-plus',
-  'qwen-coder': 'qwen3-coder-plus',
-  qwen3: 'qwen3-coder-plus',
-  'qwen3-coder': 'qwen3-coder',
-  'qwen3-coder-plus': 'qwen3-coder-plus',
-  'qwen3-coder-flash': 'qwen3-coder-flash',
-  'qwen3.6-plus': 'qwen3.6-plus',
-  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
-};
-
-// Gemini models (Google Gemini CLI)
-// Keep aliases aligned with the Gemini CLI model aliases documented in
-// docs/cli/cli-reference.md: auto, pro, flash, and flash-lite.
-export const geminiModels = {
-  ...formalAiNativeModelAliases,
-  auto: 'auto',
-  gemini: 'gemini-2.5-flash',
-  flash: 'gemini-2.5-flash',
-  '2.5-flash': 'gemini-2.5-flash',
-  pro: 'gemini-2.5-pro',
-  '2.5-pro': 'gemini-2.5-pro',
-  lite: 'gemini-2.5-flash-lite',
-  '2.5-lite': 'gemini-2.5-flash-lite',
-  'flash-lite': 'gemini-2.5-flash-lite',
-  '3-flash': 'gemini-3-flash-preview',
-  '3-pro': 'gemini-3-pro-preview',
-  'gemini-flash': 'gemini-2.5-flash',
-  'gemini-pro': 'gemini-2.5-pro',
-  'gemini-2.5-flash': 'gemini-2.5-flash',
-  'gemini-2.5-pro': 'gemini-2.5-pro',
-  'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
-  'gemini-3-flash-preview': 'gemini-3-flash-preview',
-  'gemini-3-pro-preview': 'gemini-3-pro-preview',
-};
-
-// Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
-export const defaultModels = {
-  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly. Opus now maps to Opus 5 (Issue #2096)
-  agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
-  opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
-  qwen: 'qwen3-coder-plus',
-  gemini: 'flash',
-};
-
-// Models that support 1M token context window via [1m] suffix (Issue #1221, Issue #1238, Issue #1329, Issue #1832)
-// See: https://code.claude.com/docs/en/model-config
-export const MODELS_SUPPORTING_1M_CONTEXT = [
-  'claude-fable-5', // Fable 5 — 1M context by default (Issue #1875)
-  'claude-mythos-5', // Mythos 5 — 1M context by default (Issue #1875)
-  'fable', // Fable 5 alias (Issue #1875)
-  'fable-5', // Fable 5 short alias (Issue #1875)
-  'mythos-5', // Mythos 5 short alias (Issue #1875)
-  'claude-opus-4-8', // Opus 4.8 (Issue #1832)
-  'claude-opus-4-7', // Opus 4.7 (Issue #1620)
-  'claude-opus-4-6',
-  'claude-opus-4-5-20251101',
-  'claude-sonnet-5', // Sonnet 5 — 1M context (Issue #2003)
-  'claude-sonnet-4-6', // Sonnet 4.6 (Issue #1329)
-  'claude-sonnet-4-5-20250929',
-  'claude-sonnet-4-5',
-  'claude-opus-5', // Opus 5 — 1M context (Issue #2096)
-  'sonnet', // Now maps to Sonnet 5 (Issue #2003)
-  'sonnet-5', // Short alias (Issue #2003)
-  'sonnet-4-6', // Short alias (Issue #1329)
-  'opus', // Now maps to Opus 5 (Issue #2096)
-  'opus-5', // Short alias (Issue #2096)
-  'opus-4-8', // Short alias (Issue #1832)
-  'opus-4-7', // Short alias (Issue #1620)
-  'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
-  'opus-4-5', // Short alias (Issue #1238)
-  'sonnet-4-5', // Short alias (Issue #1221 - PR comment feedback)
-];
-
-// Free model to base model mapping for pricing lookup (Issue #1250, Issue #1473)
-// Free models like "kimi-k2.5-free" should use pricing from base model "kimi-k2.5"
-export const freeToBaseModelMap = {
-  'kimi-k2.5-free': 'kimi-k2.5',
-  'glm-4.7-free': 'glm-4.7',
-  'minimax-m2.1-free': 'minimax-m2.1',
-  'minimax-m2.5-free': 'minimax-m2.5',
-  'qwen3.6-plus-free': 'qwen3.6-plus', // Issue #1543
-  'nemotron-3-super-free': 'nemotron-3-super', // Issue #1543
-  'glm-5-free': 'glm-5',
-  'glm-4.5-air-free': 'glm-4.5-air',
-  'deepseek-r1-free': 'deepseek-r1',
-  'giga-potato-free': 'giga-potato',
-  'trinity-large-preview-free': 'trinity-large-preview',
-};
-
-// ─── VALIDATION-EXTENDED MODEL MAPS ──────────────────────────────────────────
-// These extend the base maps with full model ID identity entries for validation
-// (e.g., 'claude-sonnet-4-5-20250929' → 'claude-sonnet-4-5-20250929')
-// so that full model IDs are also accepted as valid inputs
-export const CLAUDE_MODELS = {
-  ...claudeModels,
-  'claude-fable-5': 'claude-fable-5', // Fable 5 full ID (Issue #1875)
-  'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID (Issue #1875)
-  'claude-opus-5': 'claude-opus-5', // Opus 5 full ID (Issue #2096)
-  'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 full ID (Issue #1832)
-  'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
-  'claude-sonnet-4-5-20250929': 'claude-sonnet-4-5-20250929',
-  'claude-opus-4-5-20251101': 'claude-opus-4-5-20251101',
-  'claude-haiku-4-5-20251001': 'claude-haiku-4-5-20251001',
-  'claude-3-5-haiku-20241022': 'claude-3-5-haiku-20241022',
-  'claude-3-haiku-20240307': 'claude-3-haiku-20240307',
-};
-
-export const OPENCODE_MODELS = {
-  ...opencodeModels,
-  'openai/gpt-4': 'openai/gpt-4',
-  'openai/gpt-4o': 'openai/gpt-4o',
-  'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
-  'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
-  'google/gemini-pro': 'google/gemini-pro',
-  'opencode/grok-code': 'opencode/grok-code',
-};
-
-export const CODEX_MODELS = {
-  ...CODEX_MODEL_VARIANTS,
-  'gpt-5': 'gpt-5',
-  'gpt-5.5': 'gpt-5.5',
-  'gpt-5.5-mini': 'gpt-5.5-mini',
-  'gpt-5.5-nano': 'gpt-5.5-nano',
-  'gpt-5.6-sol': 'gpt-5.6-sol',
-  'gpt-5.6-terra': 'gpt-5.6-terra',
-  'gpt-5.6-luna': 'gpt-5.6-luna',
-  'gpt-5.4': 'gpt-5.4',
-  'gpt-5.4-mini': 'gpt-5.4-mini',
-  'gpt-5.4-nano': 'gpt-5.4-nano',
-  'gpt-5.2': 'gpt-5.2',
-  'gpt-5.2-codex': 'gpt-5.2-codex',
-  'gpt-5.3-codex': 'gpt-5.3-codex',
-  'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
-  'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
-  'openai.gpt-5.5': 'openai.gpt-5.5',
-  'openai.gpt-5.4': 'openai.gpt-5.4',
-  'openai.gpt-5.6-sol': 'openai.gpt-5.6-sol',
-  'openai.gpt-5.6-terra': 'openai.gpt-5.6-terra',
-  'openai.gpt-5.6-luna': 'openai.gpt-5.6-luna',
-  'codex-auto-review': 'codex-auto-review',
-  'gpt-4': 'gpt-4',
-  'gpt-4o': 'gpt-4o',
-};
-
-export const QWEN_MODELS = {
-  ...qwenModels,
-  'qwen3-coder': 'qwen3-coder',
-  'qwen3-coder-plus': 'qwen3-coder-plus',
-  'qwen3-coder-flash': 'qwen3-coder-flash',
-  'qwen3.6-plus': 'qwen3.6-plus',
-  'qwen3.6-coder-plus': 'qwen3.6-coder-plus',
-};
-
-export const GEMINI_MODELS = {
-  ...geminiModels,
-  'gemini-2.5-flash': 'gemini-2.5-flash',
-  'gemini-2.5-pro': 'gemini-2.5-pro',
-  'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
-  'gemini-3-flash-preview': 'gemini-3-flash-preview',
-  'gemini-3-pro-preview': 'gemini-3-pro-preview',
-};
-
-export const AGENT_MODELS = {
-  ...agentModels,
-  'opencode/grok-code': 'opencode/grok-code',
-  'opencode/big-pickle': 'opencode/big-pickle',
-  'opencode/gpt-5-nano': 'opencode/gpt-5-nano',
-  'opencode/minimax-m2.5-free': 'opencode/minimax-m2.5-free',
-  'opencode/nemotron-3-super-free': 'opencode/nemotron-3-super-free', // Issue #1563: now default
-  'opencode/qwen3.6-plus-free': 'opencode/qwen3.6-plus-free', // Deprecated: free promotion ended (Issue #1563)
-  'opencode/kimi-k2.5-free': 'opencode/kimi-k2.5-free', // Deprecated
-  'opencode/glm-4.7-free': 'opencode/glm-4.7-free', // Deprecated
-  'opencode/minimax-m2.1-free': 'opencode/minimax-m2.1-free', // Deprecated
-  'anthropic/claude-3-5-sonnet': 'anthropic/claude-3-5-sonnet',
-  'anthropic/claude-3-5-haiku': 'anthropic/claude-3-5-haiku',
-  'anthropic/claude-3-opus': 'anthropic/claude-3-opus',
-  'google/gemini-3-pro': 'google/gemini-3-pro',
-};
+// The bundled catalogue itself lives in ./catalog.mjs (issue #2202); everything
+// it exports is re-exported here, so `src/models/index.mjs` remains the single
+// import site for callers. The named import is what the functions below read —
+// `export *` re-exports without binding the names locally.
+export * from './catalog.mjs';
+import { AGENT_MODELS, agentModels, CLAUDE_MODELS, claudeModels, CODEX_MODEL_VARIANTS, CODEX_MODELS, defaultModels, GEMINI_MODELS, geminiModels, MODELS_SUPPORTING_1M_CONTEXT, OPENCODE_MODELS, opencodeModels, QWEN_MODELS, qwenModels } from './catalog.mjs';
 
 // ─── MODEL MAPPING FUNCTIONS ─────────────────────────────────────────────────
 
@@ -562,7 +208,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', FORMAL_AI_MODEL_ALIAS],
   opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
-  codex: ['gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', FORMAL_AI_MODEL_ALIAS],
+  codex: ['gpt-5.6-sol', 'gpt-6-astra', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', FORMAL_AI_MODEL_ALIAS],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash', FORMAL_AI_MODEL_ALIAS],
   gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
@@ -1251,9 +897,16 @@ export const defaultFallbackModels = {
     // off to Claude Opus; mirror that documented fallback here (Issue #1875).
     // See: https://platform.claude.com/docs/en/about-claude/models/introducing-claude-fable-5-and-claude-mythos-5
     'claude-fable-5': 'opus',
+    // Claude Fable 5.1 steps down to the previous Fable generation before leaving
+    // the Mythos class entirely, so a capacity failure keeps the same model family
+    // (Issue #2202).
+    'claude-fable-5-1': 'fable-5',
     // Claude Mythos 5 (limited availability) falls back to the generally available
     // Mythos-class model, Claude Fable 5 (Issue #1875).
     'claude-mythos-5': 'fable',
+    // Claude Mythos 5.1 (invite only) falls back to the generally available
+    // Mythos-class model, which the `fable` alias now resolves to (Issue #2202).
+    'claude-mythos-5-1': 'fable',
     // Claude Opus 5 falls back to the prior Opus generation (Issue #2096).
     'claude-opus-5': 'opus-4-8',
     'claude-opus-4-8': 'opus-4-7',
@@ -1271,9 +924,17 @@ export const defaultFallbackModels = {
     // on. So the flagship chain walks sol -> terra -> gpt-5.5 -> gpt-5.4 -> gpt-5.2
     // and never detours through the smaller `luna` tier. The smaller `luna` variant,
     // if requested directly, steps down to the previous full generation as well.
+    // GPT-6 Astra is preview-gated, so a fallback is the difference between a
+    // degraded run and a failed one; it steps down to the GPT-5.6 flagship
+    // (Issue #2202).
+    'gpt-6-astra': 'gpt-5.6-sol',
+    'openai.gpt-6-astra': 'openai.gpt-5.6-sol',
     'gpt-5.6-sol': 'gpt-5.6-terra',
     'gpt-5.6-terra': 'gpt-5.5',
     'gpt-5.6-luna': 'gpt-5.5',
+    // GPT-5.6 Cyber is gated on the Daybreak program (Issue #2202).
+    'gpt-5.6-cyber': 'gpt-5.6-sol',
+    'openai.gpt-5.6-cyber': 'openai.gpt-5.6-sol',
     'openai.gpt-5.6-sol': 'openai.gpt-5.6-terra',
     'openai.gpt-5.6-terra': 'openai.gpt-5.5',
     'openai.gpt-5.6-luna': 'openai.gpt-5.5',

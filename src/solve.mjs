@@ -220,6 +220,18 @@ if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.s
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+// Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
+// version the task needs — a stale binary is the usual reason a brand-new model
+// name is rejected. Best effort by design: `ensureAgenticCliFreshness` never
+// throws, and the updater underneath refuses to swap a binary while other tasks
+// are running. This run's own issue is excluded, because the idle gate detects
+// tasks by scanning process command lines and would otherwise find us.
+if (!prepareOnly && argv.toolUpdate !== false) {
+  const { describeFreshnessResult, ensureAgenticCliFreshness } = await import('./agentic-cli-freshness.lib.mjs');
+  const freshness = await ensureAgenticCliFreshness({ tools: [tool], verbose: argv.verbose, log: message => log(message, { verbose: true }), ignoreTasks: [issueUrl] });
+  const freshnessLine = describeFreshnessResult(freshness);
+  if (freshnessLine) await log(`🔄 ${freshnessLine}`);
+}
 const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
 await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCheck, argv.model, argv))) {

@@ -65,6 +65,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     default: false,
     hidden: true,
   },
+  'tool-update': {
+    type: 'boolean',
+    description: 'Check for a newer version of the agentic CLI before starting the task (issue #2202). Use --no-tool-update to skip.',
+    default: true,
+  },
   'tool-connection-check': {
     type: 'boolean',
     description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',

@@ -34,9 +34,11 @@ date":
    "models extraction should never trigger any tokens expense" — is not a
    restriction on this design, it is a description of it.
 4. **`--use-router` cannot reach any of those routes as currently wired.**
-   Hive Mind pins `ghcr.io/link-assistant/router:0.119.0`
+   At the time this study was written Hive Mind pinned
+   `ghcr.io/link-assistant/router:0.119.0`
    (`src/router-isolation.lib.mjs:55`); upstream is at **v1.2.0**, 26 releases
-   later. Router **v1.0.0** moved every public route under `/api/health`,
+   later. (This PR moves the pin to `0.125.4`, the highest `0.x` release — see
+   solution 6 below — which changes the distance but not the dialect.) Router **v1.0.0** moved every public route under `/api/health`,
    `/api/management/*` and `/api/services/*`
    ([`data/upstream/router-route-contract.rs`](data/upstream/router-route-contract.rs)),
    while Hive Mind still emits the pre-1.0 shapes: `ANTHROPIC_BASE_URL = baseUrl`,
@@ -95,6 +97,8 @@ so a reader can re-check it without network access. Checksums are in
 | Aggregator coverage                  | [`data/measurements/aggregator-coverage-2026-09-04.md`](data/measurements/aggregator-coverage-2026-09-04.md)                                                                                                               | Three independent aggregators, one shared blind spot.                                                                                                                                                 |
 | CLI version drift                    | [`data/measurements/cli-versions-2026-09-04.md`](data/measurements/cli-versions-2026-09-04.md)                                                                                                                             | Installed vs published for six agentic CLIs.                                                                                                                                                          |
 | Router route surface                 | [`data/measurements/router-route-comparison-2026-09-04.md`](data/measurements/router-route-comparison-2026-09-04.md)                                                                                                       | `0.119.0` vs `1.2.0`, 17 paths each, probed against running containers started with Hive Mind's own arguments.                                                                                        |
+| Router credentials and tokens        | [`data/measurements/router-credentials-and-tokens-2026-09-04.md`](data/measurements/router-credentials-and-tokens-2026-09-04.md)                                                                                           | On `1.x` the credential mount is still the wiring — `auth import` is the wrong tool for it — and the token lease keeps working across the dialect change.                                             |
+| Router pin `0.125.4`                 | [`data/measurements/router-pin-0.125.4-2026-09-04.md`](data/measurements/router-pin-0.125.4-2026-09-04.md)                                                                                                                 | `0.119.0` vs `0.125.4`: identical route surface, identical task-token lease, identical credential discovery — and the `version` header that unblocks new Codex models.                                |
 | Online research notes                | [`data/research/online-research.md`](data/research/online-research.md)                                                                                                                                                     | Vendor-quoted specs for Fable 5.1, Mythos 5.1 and GPT-6 Astra; the Anthropic Models API field list; the router routes.                                                                                |
 
 ## Requirements reconstructed
@@ -543,11 +547,19 @@ dialects** and picks one per image, instead of hard-coding either.
 4. Call `router auth claude --from-claude-home` and
    `router auth codex --from-codex-home` during sidecar initialization, so R3's
    "initialized" is satisfied and not just "mounted".
-5. Pass `CODEX_CLIENT_VERSION` to the sidecar, derived from the codex CLI
-   actually installed (`readInstalledCliVersion` in
-   `src/agentic-cli-updater.lib.mjs`), so the ChatGPT backend does not gate the
-   newest models behind the router's compiled-in `0.144.1` default.
-6. Keep the default `ROUTER_SIDECAR_IMAGE` at `0.119.0` and make the image
+5. Let `CODEX_CLIENT_VERSION` reach the sidecar, so the ChatGPT backend does
+   not gate the newest models behind a stale client version. Deriving it from
+   the locally installed codex CLI (`readInstalledCliVersion` in
+   `src/agentic-cli-updater.lib.mjs`) was the first shape of this idea and was
+   dropped on inspection: the router's own bundled default already tracks a
+   recent Codex CLI, so forwarding whatever happens to be installed here could
+   send an **older** version than the router would otherwise claim and re-gate
+   the very models this exists to reach. It is therefore a straight
+   passthrough — unset means the router's default stands, and an operator who
+   needs a specific version sets it.
+6. Move the default `ROUTER_SIDECAR_IMAGE` to `0.125.4` — the highest `0.x`
+   release, so the legacy dialect and with it the `gh` mediation are kept —
+   rather than to `1.x`, and make the image
    selectable with `HIVE_MIND_ROUTER_IMAGE`, so an operator can run `1.2.0`
    today and get the live catalogues, `--pick-model` and the split listeners,
    at the documented cost of `gh` REST/GraphQL mediation (G4).
@@ -653,7 +665,7 @@ Each step is committable on its own and leaves the tree green.
   which is what makes it acceptable to do in one PR; the per-dialect URL-shape
   tests are what make it reviewable.
 - **`gh` mediation and router `1.x` are mutually exclusive today** (G4). The
-  default pin stays at `0.119.0` for that reason, so nothing that #2164
+  default pin stays on `0.x` (at `0.125.4`) for that reason, so nothing that #2164
   shipped is removed. Choosing `1.x` via `HIVE_MIND_ROUTER_IMAGE` is an
   informed trade, reported by `describeRouterCoverageGaps` rather than
   discovered at runtime. This is the one requirement in the issue that cannot

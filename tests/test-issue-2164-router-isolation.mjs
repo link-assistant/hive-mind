@@ -240,7 +240,11 @@ assertEqual(
   false,
   'and no longer claims force pushes are unblocked — router#273 closed that from 0.110.0, and the pin is past it'
 );
-assertEqual(ROUTER_SIDECAR_IMAGE.endsWith(':0.119.0'), true, 'the pinned image carries the compare-based force-push mediation the warning above stopped claiming was missing');
+// A floor rather than an exact tag: what this test is about is that the pin
+// carries router#273, not which release it happens to sit on. Issue #2202 moves
+// it, and a bump that stays above the floor must not fail a #2164 assertion.
+const pinnedRouterVersion = (ROUTER_SIDECAR_IMAGE.split(':').pop() || '').split('.').map(Number);
+assertEqual(pinnedRouterVersion[0] === 0 && pinnedRouterVersion[1] >= 110, true, 'the pinned image is at or above 0.110.0, so it carries the compare-based force-push mediation the warning above stopped claiming was missing');
 assertEqual(
   gaps.some(gap => gap.includes('GitHub traffic is NOT routed')),
   false,

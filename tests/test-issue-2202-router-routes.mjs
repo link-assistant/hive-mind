@@ -21,7 +21,7 @@
 
 import { buildRouterCatalogueEndpoints, buildRouterGitUrlPrefix, buildRouterHealthUrl, buildRouterRouteUrl, buildRouterServiceUrl, buildRouterToolServiceUrl, parseRouterImageMajor, resolveRouterRouteDialect, ROUTER_ROUTE_DIALECTS, ROUTER_TOOL_SERVICE } from '../src/router-routes.lib.mjs';
 import { buildRouterCodexConfig, buildRouterGitConfigEntries, buildRouterTaskEnv, buildRouterTaskWiringScript, describeRouterCoverageGaps, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_SIDECAR_IMAGE } from '../src/router-isolation.lib.mjs';
-import { checkRouterSidecarHealth, waitForRouterSidecarHealth } from '../src/router-sidecar.lib.mjs';
+import { buildRouterSidecarRunArgs, checkRouterSidecarHealth, waitForRouterSidecarHealth } from '../src/router-sidecar.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -219,10 +219,25 @@ assertEqual((await probeFor({ env: { HIVE_MIND_ROUTER_IMAGE: 'ghcr.io/link-assis
 
 console.log('\n--- The shipped default is the one that keeps every issue #2164 capability ---');
 
-assertEqual(ROUTER_SIDECAR_IMAGE, 'ghcr.io/link-assistant/router:0.119.0', 'the default pin is unchanged, so nothing #2164 shipped is removed');
+assertEqual(ROUTER_SIDECAR_IMAGE, 'ghcr.io/link-assistant/router:0.125.4', 'the default pin is the highest 0.x release, so it keeps the legacy dialect and with it the gh mediation #2164 shipped');
+{
+  // R1 through the router: below 0.120.0 the router sends no `version` header to
+  // the ChatGPT backend, which then answers `Model not found` for its newer
+  // models. A pin that slipped back under that is a silent loss of models.
+  const [major, minor] = (ROUTER_SIDECAR_IMAGE.split(':').pop() || '').split('.').map(Number);
+  assertEqual(major > 0 || minor >= 120, true, 'and it is at or above 0.120.0, where the router started sending the Codex client `version` header new models are gated behind');
+}
 assertEqual(resolveRouterDialect({ env: {} }).dialect.id, 'legacy', 'and a default run therefore speaks the legacy dialect');
 assertEqual(resolveRouterDialect({ env: { HIVE_MIND_ROUTER_IMAGE: 'ghcr.io/link-assistant/router:1.2.0' } }).dialect.id, 'canonical', 'pointing HIVE_MIND_ROUTER_IMAGE at 1.x switches every URL in one step');
 assertEqual(resolveRouterSidecarImage({ HIVE_MIND_ROUTER_IMAGE: 'local/router:dev' }), 'local/router:dev', 'the image override itself still works');
+
+console.log('\n--- The Codex client version reaches the sidecar when an operator sets one ---');
+
+{
+  const argsFor = env => buildRouterSidecarRunArgs({ image: ROUTER_SIDECAR_IMAGE, tokenSecret: 'secret', env }).join(' ');
+  assertEqual(argsFor({}).includes('CODEX_CLIENT_VERSION'), false, "by default the router's own bundled version stands, so an older local codex cannot re-gate the new models");
+  assertEqual(argsFor({ CODEX_CLIENT_VERSION: '0.150.0' }).includes('--env CODEX_CLIENT_VERSION=0.150.0'), true, 'and an explicit CODEX_CLIENT_VERSION is passed straight through');
+}
 
 console.log(`\nResult: ${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

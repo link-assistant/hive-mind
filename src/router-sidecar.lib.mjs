@@ -137,6 +137,17 @@ export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts
     args.push('--env', `${mount.envVar}=${mount.target}`, '--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
 
+  // The ChatGPT backend gates its newest models behind a recent client version,
+  // and answers `Model not found` for them when the header is absent — which is
+  // why the pin is at or above 0.120.0, where the router started sending one.
+  // Its bundled default tracks a recent Codex CLI, so it is deliberately left
+  // alone by default: forwarding whatever `codex` happens to be installed here
+  // could send an *older* version than the router already claims and re-gate the
+  // models this pin exists to reach. An operator who needs a specific one sets
+  // CODEX_CLIENT_VERSION and it is passed straight through.
+  const codexClientVersion = String(env?.CODEX_CLIENT_VERSION || '').trim();
+  if (codexClientVersion) args.push('--env', `CODEX_CLIENT_VERSION=${codexClientVersion}`);
+
   const extraArgs = String(env?.HIVE_MIND_ROUTER_EXTRA_ARGS || '').trim();
   if (extraArgs) args.push(...extraArgs.split(/\s+/));
 

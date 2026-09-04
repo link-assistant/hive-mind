@@ -17,7 +17,7 @@
  * isolation hold rather than merely look tidy (all three were measured first —
  * see `experiments/issue-2164/`):
  *
- * 1. **The router serves TLS on 443.** Router 0.119.0 terminates TLS itself
+ * 1. **The router serves TLS on 443.** The router terminates TLS itself
  *    (`TLS_SELF_SIGNED=1`) and prints its CA with `router tls ca`. Plain HTTP
  *    would rule out `gh` entirely, which refuses non-HTTPS hosts.
  * 2. **GitHub is intercepted by name, not by reconfiguring `gh`.** The
@@ -60,16 +60,23 @@ export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
 // (upstream router#273), without which a routed task can still rewrite history.
 // Override with HIVE_MIND_ROUTER_IMAGE.
 //
-// The pin deliberately stays on 0.x even though upstream is at 1.2.0 (issue
-// #2202). Router 1.0.0 moved the GitHub proxy under `/api/services/github/api/v3`
-// and `gh` builds a custom host's REST base as `https://<host>/api/v3/` with no
+// 0.125.4 is the highest 0.x release, and the pin sits there rather than on
+// 0.119.0 because 0.120.0 is where a routed Codex task stopped being told that
+// new models do not exist: the ChatGPT backend gates them behind a `version`
+// header the router only started sending then, and without it `POST /responses`
+// answers `Model not found` (issue #2202, requirement R1).
+//
+// The pin deliberately stays on 0.x even though upstream is at 1.2.0. Router
+// 1.0.0 moved the GitHub proxy under `/api/services/github/api/v3` and `gh`
+// builds a custom host's REST base as `https://<host>/api/v3/` with no
 // path-prefix setting, so no client-side configuration reaches the new prefix
-// and bumping the pin would silently delete the `gh` mediation this feature
-// shipped (measured: `docs/case-studies/issue-2202/data/measurements/
+// and bumping across 1.0 would silently delete the `gh` mediation this feature
+// shipped (upstream link-assistant/router#415; measured in
+// `docs/case-studies/issue-2202/data/measurements/
 // router-route-comparison-2026-09-04.md`). Every other route is already
 // supported on both dialects, so the day upstream lands a gh-reachable base
 // this becomes a one-line change with the tests already in place.
-export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.119.0';
+export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.125.4';
 
 /**
  * Router image this run should use.
@@ -439,7 +446,7 @@ export function buildRouterProviderArgs({ name, baseUrl, model, models = null, a
  * the call, GET /v1/models advertises `{"id":"formal-ai","owned_by":
  * "hive-mind-formal-ai"}` and a chat completion for that id is answered by the
  * sidecar (HTTP 200), with `"provider":"openai-compatible","model":"formal-ai"`
- * recorded in /data/router/audit.jsonl. The pin has since moved to 0.119.0; the
+ * recorded in /data/router/audit.jsonl. The pin has since moved to 0.125.4; the
  * `providers add` surface and the automatic-routing behaviour this relies on
  * (upstream router#260) are unchanged there, but the probe has not been re-run
  * against it — re-run it before treating the measurement as current.
@@ -539,7 +546,7 @@ export function describeRouterCoverageGaps({ model = null, tool = 'claude', gith
   // capability the router looked for. Reported as router#272 and fixed upstream
   // in router#273: from 0.110.0 the router asks GitHub's compare API whether the
   // proposed tip is ahead of the current one and forwards the packfile only if it
-  // is, failing closed on any answer it cannot read. The pin is now 0.119.0, so
+  // is, failing closed on any answer it cannot read. The pin is now 0.125.4, so
   // that layer is live and this is no longer warned about.
   //
   // What remains uncovered is the other half of R13. The router's built-in

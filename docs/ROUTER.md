@@ -27,7 +27,7 @@ Nothing changes without the flag. The default path is untouched, which is delibe
 
 ## How it works
 
-1. **Sidecar.** The first routed task starts `ghcr.io/link-assistant/router:0.119.0` — a pinned version, so an upstream release never changes what a task talks to without a commit here — as `hive-mind-router`, attached to an `--internal` Docker network that nothing on the host can reach. It terminates TLS itself on port 443 with a self-signed certificate whose names cover both `link-assistant-router` and `api.github.com`. The operator's `~/.claude`, `~/.codex`, `~/.gemini` and `~/.qwen` are mounted into it and pointed at by `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` and `QWEN_HOME`. This is the only place the subscription exists (R3).
+1. **Sidecar.** The first routed task starts `ghcr.io/link-assistant/router:0.125.4` — a pinned version, so an upstream release never changes what a task talks to without a commit here — as `hive-mind-router`, attached to an `--internal` Docker network that nothing on the host can reach. It terminates TLS itself on port 443 with a self-signed certificate whose names cover both `link-assistant-router` and `api.github.com`. The operator's `~/.claude`, `~/.codex`, `~/.gemini` and `~/.qwen` are mounted into it and pointed at by `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` and `QWEN_HOME`. This is the only place the subscription exists (R3).
 2. **Token.** Hive Mind mints one token per task through `router tokens issue`, labelled with the session id and scoped with `--github-repo` to the one repository the task works on. Tokens are never shared between tasks — that is what makes each task's log its own (R6).
 3. **Task.** The task container is joined to the router network in addition to its own, and receives `ANTHROPIC_BASE_URL` (or a generated provider entry for the OpenAI-compatible tools) pointing at the sidecar, plus the token. Claude Code sends _every_ request through `ANTHROPIC_BASE_URL`, including agentic sub-loops, so there is no path that quietly escapes the proxy.
 4. **Trust and interception.** While the start gate still holds the task's command, Hive Mind writes the router's CA into the container, points `api.github.com` at the router in `/etc/hosts`, and configures git to push through `https://link-assistant-router/git/…`. Each client is told about the CA the way it expects: `NODE_EXTRA_CA_CERTS` for Node, `SSL_CERT_FILE` for `gh` and Rust clients — which _replaces_ the system store, so they are handed a bundle of the public roots plus the router CA — `CURL_CA_BUNDLE` for curl, and `http.<url>.sslCAInfo` for git. An unmodified `gh` therefore reaches the router without knowing it exists, and the task carries no GitHub token of its own (R12).
@@ -62,6 +62,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_IMAGE`             | Override the router image                                                                                     |
 | `HIVE_MIND_ROUTER_ROUTES`            | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)     |
 | `HIVE_MIND_ROUTER_EXTRA_ARGS`        | Extra `docker run` arguments for the sidecar                                                                  |
+| `CODEX_CLIENT_VERSION`               | Codex client version the router claims to the ChatGPT backend; unset means the router's own recent default    |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`      | Supply the token signing secret instead of generating one                                                     |
 | `HIVE_MIND_ROUTER_GH_HOST`           | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router) |
 | `HIVE_MIND_ROUTER_GITHUB=0`          | Do not route GitHub traffic at all; the task keeps its own `gh` credential                                    |
@@ -105,7 +106,8 @@ health probe, the per-tool base URLs, the Codex `config.toml`, the git
 `insteadOf` prefix and the model-catalogue endpoints are all derived from the
 dialect.
 
-**The default pin stays on `0.119.0`, and that is a deliberate trade-off.** On
+**The default pin is `0.125.4` — the highest `0.x` release — and staying below
+`1.0` is a deliberate trade-off.** On
 `canonical` the GitHub proxy is only mounted under `/api/services/github/…`,
 while `gh` builds a custom host's REST base as `https://<host>/api/v3/` and has
 no path-prefix setting — so `gh api` and GraphQL calls from a routed task are
@@ -115,6 +117,17 @@ therefore delete a capability this page documents, so it waits on
 [router#415](https://github.com/link-assistant/router/issues/415). Point
 `HIVE_MIND_ROUTER_IMAGE` at a `1.x` image if you want the newer surface; the run
 will print the `gh` gap before it starts.
+
+Within `0.x` the pin sits at the top for a reason of its own: **below `0.120.0` a
+routed Codex task is told its newest models do not exist.** The ChatGPT backend
+gates them behind a client `version` header, which the router only started
+sending in `0.120.0`; without it `POST /responses` answers `Model not found`.
+`0.119.0` and `0.125.4` were probed side by side and answer identically on all 17
+routes, mint and revoke a per-task token identically, and read a mounted
+subscription identically, so the bump costs nothing and removes that gap
+([`docs/case-studies/issue-2202/data/measurements/router-pin-0.125.4-2026-09-04.md`](case-studies/issue-2202/data/measurements/router-pin-0.125.4-2026-09-04.md)).
+It also brings `SIGTERM` handling, so `docker stop` on the sidecar no longer
+waits out the full grace period before a `SIGKILL`.
 
 Credential wiring is unchanged across both: mounting `~/.claude`, `~/.codex`,
 `~/.gemini` and `~/.qwen` with the matching `*_HOME` variables is still how the
@@ -137,7 +150,7 @@ The hook is generated on the host under `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT
 
 Ordinary pushes, new branches and new tags are untouched, and the guard only exists in routed tasks. `--allow-fork-divergence-resolution-using-force-push-with-lease` carries the operator's existing force-push opt-in into the container; `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` does the same by hand.
 
-Layer 3 is in place: a routed task pushes through `https://link-assistant-router/git/<owner>/<repo>` with no GitHub credential of its own, and `git push origin :branch` comes back `HTTP 403` from the router. A force push is refused too, from router `0.110.0` onward: the router asks GitHub's compare API whether the proposed tip is ahead of the current one and forwards the packfile only if it is, refusing outright when it cannot get an answer it trusts ([router#272](https://github.com/link-assistant/router/issues/272), fixed in [router#273](https://github.com/link-assistant/router/pull/273)). This repository pins `0.119.0`, so that layer is live.
+Layer 3 is in place: a routed task pushes through `https://link-assistant-router/git/<owner>/<repo>` with no GitHub credential of its own, and `git push origin :branch` comes back `HTTP 403` from the router. A force push is refused too, from router `0.110.0` onward: the router asks GitHub's compare API whether the proposed tip is ahead of the current one and forwards the packfile only if it is, refusing outright when it cannot get an answer it trusts ([router#272](https://github.com/link-assistant/router/issues/272), fixed in [router#273](https://github.com/link-assistant/router/pull/273)). This repository pins `0.125.4`, so that layer is live.
 
 That was measured against `0.109.0`, before the fix, and the pin has since moved twice without the probe being re-run — see `experiments/issue-2164/probe-git-transport.sh` if you want the current number rather than the recorded one.
 
@@ -157,7 +170,7 @@ Every routed run prints these before it starts. They are the honest limits of th
 ## Requirements
 
 - `--isolation docker`. Router isolation has no meaning without a container to isolate.
-- Docker able to pull `ghcr.io/link-assistant/router:0.119.0` (override with `HIVE_MIND_ROUTER_IMAGE`). `0.110.0` is the floor — earlier versions forward a force push. `1.x` images work too, with the `gh` caveat above.
+- Docker able to pull `ghcr.io/link-assistant/router:0.125.4` (override with `HIVE_MIND_ROUTER_IMAGE`). `0.110.0` is the floor — earlier versions forward a force push, and below `0.120.0` new Codex models are unreachable. `1.x` images work too, with the `gh` caveat above.
 - If the router cannot be reached, the task is **not launched**. Falling back to direct credentials would silently undo the isolation the flag was asked for.
 
 ## See also

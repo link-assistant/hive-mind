@@ -27,7 +27,7 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## 工作原理
 
-1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.119.0`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`。网络是内部的，因此 sidecar 除 Docker 给它的通路外没有对外出口，宿主机上的任何进程也无法访问它。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
+1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.125.4`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`。网络是内部的，因此 sidecar 除 Docker 给它的通路外没有对外出口，宿主机上的任何进程也无法访问它。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
 2. **令牌。** Hive Mind 通过 `router tokens issue` 为每个任务签发一个令牌，以会话 id 标注，并用 `--github-repo` 将其限定在该任务所要处理的那一个仓库上。令牌绝不在任务之间共享——正是这一点让每个任务的日志只属于它自己（R6）。
 3. **任务。** 任务容器在自身网络之外再接入路由器网络，并获得指向 sidecar 的 `ANTHROPIC_BASE_URL`（OpenAI 兼容工具则是一条生成的 provider 记录）以及令牌。Claude Code 的*每一次*请求都经由 `ANTHROPIC_BASE_URL` 发出，包括智能体的子循环，因此没有任何路径能悄悄绕开代理。
 4. **信任与拦截。** 在启动闸门仍扣住任务命令的这段时间里，Hive Mind 会把路由器的 CA 写进容器，在 `/etc/hosts` 中把 `api.github.com` 指向路由器，并把 git 配置成经由 `https://link-assistant-router/git/…` 推送。每个客户端都按它自己期待的方式被告知该 CA：Node 用 `NODE_EXTRA_CA_CERTS`，`gh` 和 Rust 客户端用 `SSL_CERT_FILE`——后者会*替换*系统信任库，因此交给它们的是公共根证书加上路由器 CA 的合集——curl 用 `CURL_CA_BUNDLE`，git 用 `http.<url>.sslCAInfo`。因此未经改动的 `gh` 会在毫不知情的情况下访问到路由器，而任务本身不持有任何 GitHub 令牌（R12）。
@@ -62,6 +62,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_IMAGE`             | 覆盖路由器镜像                                                                         |
 | `HIVE_MIND_ROUTER_ROUTES`            | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical` |
 | `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar 的额外 `docker run` 参数                                                       |
+| `CODEX_CLIENT_VERSION`               | 路由器向 ChatGPT 后端声明的 Codex 客户端版本；未设置时使用它自带的较新默认值           |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`      | 自行提供令牌签名密钥，而不是生成一个                                                   |
 | `HIVE_MIND_ROUTER_GH_HOST`           | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）              |
 | `HIVE_MIND_ROUTER_GITHUB=0`          | 完全不路由 GitHub 流量；任务保留自己的 `gh` 凭据                                       |
@@ -96,7 +97,9 @@ node examples/collect-logs.mjs --out ./audit
 
 Hive Mind 两种方言都会说，并根据 `HIVE_MIND_ROUTER_IMAGE` 的标签选择：主版本 `0` 用 `legacy`，`1` 及以上用 `canonical`。不带版本的标签——摘要或 `latest`——按 `canonical` 处理；若要另行指定，请设置 `HIVE_MIND_ROUTER_ROUTES`。其余都无需改动：健康探测、各工具的基础 URL、Codex 的 `config.toml`、git 的 `insteadOf` 前缀以及模型目录端点全部由方言推导得出。
 
-**默认固定版本仍为 `0.119.0`，这是一个有意的取舍。** 在 `canonical` 下 GitHub 代理只挂载在 `/api/services/github/…`，而 `gh` 会把自定义主机的 REST 基地址构造成 `https://<host>/api/v3/`，且没有任何路径前缀设置——因此在 `1.x` 路由器上，任务发出的 `gh api` 与 GraphQL 调用**不会**经过中介。`git` 不受影响，因为 `url.<prefix>.insteadOf` 接受任意前缀。移动默认固定版本会删除本页所记载的一项能力，因此它要等 [router#415](https://github.com/link-assistant/router/issues/415)。如果你需要新的接口面，把 `HIVE_MIND_ROUTER_IMAGE` 指向 `1.x` 镜像即可；运行开始前会打印 `gh` 这一缺口。
+**默认固定版本为 `0.125.4`——`0.x` 系列中最高的一个发布——而固定版本保持在 `1.0` 以下是一个有意的取舍。** 在 `canonical` 下 GitHub 代理只挂载在 `/api/services/github/…`，而 `gh` 会把自定义主机的 REST 基地址构造成 `https://<host>/api/v3/`，且没有任何路径前缀设置——因此在 `1.x` 路由器上，任务发出的 `gh api` 与 GraphQL 调用**不会**经过中介。`git` 不受影响，因为 `url.<prefix>.insteadOf` 接受任意前缀。移动默认固定版本会删除本页所记载的一项能力，因此它要等 [router#415](https://github.com/link-assistant/router/issues/415)。如果你需要新的接口面，把 `HIVE_MIND_ROUTER_IMAGE` 指向 `1.x` 镜像即可；运行开始前会打印 `gh` 这一缺口。
+
+在 `0.x` 之内，固定版本停在系列顶端另有原因：**低于 `0.120.0` 时，使用 Codex 的任务会被告知它最新的模型不存在。** ChatGPT 后端把这些模型挡在一个客户端 `version` 请求头之后，而路由器从 `0.120.0` 起才开始发送该头；没有它，`POST /responses` 会返回 `Model not found`。`0.119.0` 与 `0.125.4` 已并排探测：全部 17 条路由的响应一致，按任务签发与吊销令牌的行为一致，读取挂载订阅的方式也一致——因此这次上移没有代价，却补上了那个缺口（[`docs/case-studies/issue-2202/data/measurements/router-pin-0.125.4-2026-09-04.md`](./case-studies/issue-2202/data/measurements/router-pin-0.125.4-2026-09-04.md)）。它同时带来了 `SIGTERM` 处理，因此对 sidecar 执行 `docker stop` 不再要等满宽限期才被 `SIGKILL`。
 
 两种方言下凭据接线方式相同：挂载 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 并配上对应的 `*_HOME` 变量，仍然是路由器获取订阅的方式，并**不需要** `router auth import`——不带参数的导入读取的是厂商自己的家目录而非路由器的，因此它找不到可采纳的东西。测量记录见 [`docs/case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md`](./case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md)。
 
@@ -114,7 +117,7 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 
 普通推送、新分支和新标签都不受影响，而且该守卫只存在于启用路由器的任务中。`--allow-fork-divergence-resolution-using-force-push-with-lease` 会把操作者已经给出的强制推送授权带进容器；`HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` 则是手动做同一件事。
 
-第三层已经就位：启用路由器的任务经由 `https://link-assistant-router/git/<owner>/<repo>` 推送，自身不持有任何 GitHub 凭据，`git push origin :branch` 会从路由器得到 `HTTP 403`。自路由器 `0.110.0` 起，强制推送同样会被拒绝：路由器会询问 GitHub 的 compare API，判断待推送的提交是否领先于当前提交，只有领先时才转发 packfile；当它得不到可信的答复时则直接拒绝（[router#272](https://github.com/link-assistant/router/issues/272)，已在 [router#273](https://github.com/link-assistant/router/pull/273) 中修复）。本仓库固定为 `0.119.0`，因此这一层是生效的。
+第三层已经就位：启用路由器的任务经由 `https://link-assistant-router/git/<owner>/<repo>` 推送，自身不持有任何 GitHub 凭据，`git push origin :branch` 会从路由器得到 `HTTP 403`。自路由器 `0.110.0` 起，强制推送同样会被拒绝：路由器会询问 GitHub 的 compare API，判断待推送的提交是否领先于当前提交，只有领先时才转发 packfile；当它得不到可信的答复时则直接拒绝（[router#272](https://github.com/link-assistant/router/issues/272)，已在 [router#273](https://github.com/link-assistant/router/pull/273) 中修复）。本仓库固定为 `0.125.4`，因此这一层是生效的。
 
 上述测量是在修复之前针对 `0.109.0` 做的，此后固定版本已两次变更而探针未重跑——如果你需要当前的结果而非记录中的结果，见 `experiments/issue-2164/probe-git-transport.sh`。
 
@@ -134,7 +137,7 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 ## 前置条件
 
 - `--isolation docker`。没有要隔离的容器，路由器隔离便无从谈起。
-- Docker 能够拉取 `ghcr.io/link-assistant/router:0.119.0`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送。`1.x` 镜像同样可用，但有上文所述的 `gh` 注意事项。
+- Docker 能够拉取 `ghcr.io/link-assistant/router:0.125.4`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送，而低于 `0.120.0` 则无法使用新的 Codex 模型。`1.x` 镜像同样可用，但有上文所述的 `gh` 注意事项。
 - 如果无法连上路由器，任务**不会启动**。退回直接使用凭据会悄悄取消掉该选项本要提供的隔离。
 
 ## 另见

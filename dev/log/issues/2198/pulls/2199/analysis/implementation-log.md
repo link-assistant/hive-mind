@@ -314,3 +314,5 @@ All run locally against the branch tip:
 | `npm audit --package-lock-only --audit-level=high` | `found 0 vulnerabilities` |
 | `scripts/check-file-line-limits.sh` | all files within the limit, no warnings |
 | Full test suite (`scripts/run-tests.mjs`) | see `../local/full-test-run.txt` |
+| `npm run check:duplication` (jscpd) | exit 0 at **10.32 %** against the configured 11 % threshold — and the threshold is real, not decorative: re-running the same config with `threshold: 1` exits **1**, so this gate does fail when the property it guards is broken |
+

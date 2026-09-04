@@ -53,21 +53,22 @@ node examples/collect-logs.mjs --out ./audit
 
 ## 配置
 
-| 变量                                 | 含义                                                                          |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`             | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定          |
-| `HIVE_MIND_ROUTER_URL`               | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源 |
-| `HIVE_MIND_ROUTER_TOKEN`             | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                      |
-| `HIVE_MIND_ROUTER_SIDECAR=0`         | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                        |
-| `HIVE_MIND_ROUTER_IMAGE`             | 覆盖路由器镜像                                                                |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar 的额外 `docker run` 参数                                              |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | 自行提供令牌签名密钥，而不是生成一个                                          |
-| `HIVE_MIND_ROUTER_GH_HOST`           | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）     |
-| `HIVE_MIND_ROUTER_GITHUB=0`          | 完全不路由 GitHub 流量；任务保留自己的 `gh` 凭据                              |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | 任务结束时不归档会话数据                                                      |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | 将会话数据归档到该宿主机目录而非路由器数据卷                                  |
-| `HIVE_MIND_GIT_HOOKS_DIR`            | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）       |
-| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | 仍然允许启用路由器的任务强制推送或删除远端 ref                                |
+| 变量                                 | 含义                                                                                   |
+| ------------------------------------ | -------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`             | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定                   |
+| `HIVE_MIND_ROUTER_URL`               | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源          |
+| `HIVE_MIND_ROUTER_TOKEN`             | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                               |
+| `HIVE_MIND_ROUTER_SIDECAR=0`         | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                                 |
+| `HIVE_MIND_ROUTER_IMAGE`             | 覆盖路由器镜像                                                                         |
+| `HIVE_MIND_ROUTER_ROUTES`            | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical` |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar 的额外 `docker run` 参数                                                       |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | 自行提供令牌签名密钥，而不是生成一个                                                   |
+| `HIVE_MIND_ROUTER_GH_HOST`           | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）              |
+| `HIVE_MIND_ROUTER_GITHUB=0`          | 完全不路由 GitHub 流量；任务保留自己的 `gh` 凭据                                       |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | 任务结束时不归档会话数据                                                               |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | 将会话数据归档到该宿主机目录而非路由器数据卷                                           |
+| `HIVE_MIND_GIT_HOOKS_DIR`            | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）                |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | 仍然允许启用路由器的任务强制推送或删除远端 ref                                         |
 
 ### 签名密钥
 
@@ -78,6 +79,26 @@ node examples/collect-logs.mjs --out ./audit
 - `examples/collect-logs.mjs` 有意拒绝把状态目录复制进证据归档，只报告其路径。
 
 如果你通过 `HIVE_MIND_ROUTER_TOKEN_SECRET` 自行提供密钥，请按根凭据对待它。
+
+## 路由器版本与路由方言
+
+路由器 `1.0.0` 替换了全部公开路由并删除了旧路由，因此两代之间**没有**任何共同路径。把 `0.119.0` 和 `1.2.0` 并排探测（[`experiments/issue-2202/compare-router-routes.sh`](../experiments/issue-2202/compare-router-routes.sh)）得到的是互不相交的两列——在一边有响应的路径，在另一边都是 `404`：
+
+| 用途               | `legacy`（路由器 `< 1.0`） | `canonical`（路由器 `>= 1.0`）     |
+| ------------------ | -------------------------- | ---------------------------------- |
+| 健康检查           | `/health`                  | `/api/health`                      |
+| Claude / Anthropic | `/`（根）                  | `/api/services/anthropic`          |
+| Codex、OpenAI      | `/v1`                      | `/api/services/codex/v1`           |
+| GitHub REST        | `/api/v3`                  | `/api/services/github/api/v3`      |
+| GitHub GraphQL     | `/api/graphql`             | `/api/services/github/api/graphql` |
+| git 传输           | `/git/`                    | `/api/services/github/git/`        |
+| 令牌管理           | —                          | `/api/management/tokens`           |
+
+Hive Mind 两种方言都会说，并根据 `HIVE_MIND_ROUTER_IMAGE` 的标签选择：主版本 `0` 用 `legacy`，`1` 及以上用 `canonical`。不带版本的标签——摘要或 `latest`——按 `canonical` 处理；若要另行指定，请设置 `HIVE_MIND_ROUTER_ROUTES`。其余都无需改动：健康探测、各工具的基础 URL、Codex 的 `config.toml`、git 的 `insteadOf` 前缀以及模型目录端点全部由方言推导得出。
+
+**默认固定版本仍为 `0.119.0`，这是一个有意的取舍。** 在 `canonical` 下 GitHub 代理只挂载在 `/api/services/github/…`，而 `gh` 会把自定义主机的 REST 基地址构造成 `https://<host>/api/v3/`，且没有任何路径前缀设置——因此在 `1.x` 路由器上，任务发出的 `gh api` 与 GraphQL 调用**不会**经过中介。`git` 不受影响，因为 `url.<prefix>.insteadOf` 接受任意前缀。移动默认固定版本会删除本页所记载的一项能力，因此它要等 [router#415](https://github.com/link-assistant/router/issues/415)。如果你需要新的接口面，把 `HIVE_MIND_ROUTER_IMAGE` 指向 `1.x` 镜像即可；运行开始前会打印 `gh` 这一缺口。
+
+两种方言下凭据接线方式相同：挂载 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 并配上对应的 `*_HOME` 变量，仍然是路由器获取订阅的方式，并**不需要** `router auth import`——不带参数的导入读取的是厂商自己的家目录而非路由器的，因此它找不到可采纳的东西。测量记录见 [`docs/case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md`](./case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md)。
 
 ## 破坏性 git 操作
 
@@ -107,12 +128,13 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 - **Formal AI sidecar 自身的上游调用不经过路由器。** `--model formal-ai` 会经由路由器抵达 Formal AI，但如果该服务器本身去调用厂商 API，那一段会直接从 sidecar 出去。
 - **非 Claude 工具的验证较少。** codex、gemini 和 qwen 通过路由器的 OpenAI 兼容接口和一条生成的 provider 记录接入；只有 Claude Code 在 `experiments/issue-2164/` 中有端到端的证据。
 - **不接受模型别名。** 路由器按设计不内置别名表（[router#192](https://github.com/link-assistant/router/issues/192)），并且在这一点被提出时明确不打算加入层级解析（[router#323](https://github.com/link-assistant/router/issues/323)），因此 `--model sonnet` 会失败，而 `--model claude-sonnet-4-5-20250929` 可用。自 `0.115.0` 起，拒绝信息会列出该部署确实宣告的 id，因此写错名字时也能看到正确的那个。这影响的是整个以层级命名的接口——`--plan`、`--escalate` 以及内置的回退链都使用层级名——所以在启用路由器的运行中请固定使用带日期的 id。
+- **`1.x` 路由器无法中介 `gh`。** 它的 GitHub 代理位于 `/api/services/github/api/v3`，而 `gh` 没有路径前缀设置，因此 `gh api` 与 GraphQL 会绕过中介直接离开任务，而 `git` 仍然经过路由。只有通过 `HIVE_MIND_ROUTER_IMAGE` 主动选用才会遇到；默认固定版本没有这个缺口（[router#415](https://github.com/link-assistant/router/issues/415)）。
 - **`HIVE_MIND_ROUTER_GITHUB=0` 会关闭 GitHub 路由**；而外部路由器（`HIVE_MIND_ROUTER_URL`）没有我们的容器网络可供拦截，因此需要 `HIVE_MIND_ROUTER_GH_HOST`。这两种情况下任务都保留自己的 `gh` 凭据，其 GitHub 调用不受中介。
 
 ## 前置条件
 
 - `--isolation docker`。没有要隔离的容器，路由器隔离便无从谈起。
-- Docker 能够拉取 `ghcr.io/link-assistant/router:0.119.0`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送。
+- Docker 能够拉取 `ghcr.io/link-assistant/router:0.119.0`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送。`1.x` 镜像同样可用，但有上文所述的 `gh` 注意事项。
 - 如果无法连上路由器，任务**不会启动**。退回直接使用凭据会悄悄取消掉该选项本要提供的隔离。
 
 ## 另见
@@ -121,3 +143,4 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 - [Docker 支持](./DOCKER.zh.md) —— 路由器所依托的隔离机制
 - [分支保护策略](./BRANCH_PROTECTION_POLICY.zh.md) —— 针对破坏性 git 操作的控制手段
 - [案例研究：issue #2164](./case-studies/issue-2164/README.md) —— 该设计背后逐条需求的分析
+- [案例研究：issue #2202](./case-studies/issue-2202/README.md) —— 路由方言的测量结果，以及固定版本背后的推理

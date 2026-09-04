@@ -30,13 +30,20 @@
  *    itself (measured: 502 on every proxied call).
  * 3. **`github.com` itself stays untouched**, so git is pointed at the router's
  *    smart-HTTP proxy explicitly with `url.<router>/git/.insteadOf`.
+ * 4. **Every path is derived from a route dialect, never spelled inline**
+ *    (issue #2202). Router 1.0.0 moved the whole public surface and removed the
+ *    old aliases, so the shape depends on which image is running;
+ *    `router-routes.lib.mjs` holds the two tables and this module asks it.
  *
  * This module is deliberately pure: it decides *what a routed task should see*
  * and nothing else, so the policy is testable without Docker. Container
  * lifecycle lives in `router-sidecar.lib.mjs`.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2164
+ * @see https://github.com/link-assistant/hive-mind/issues/2202
  */
+
+import { buildRouterGitUrlPrefix, buildRouterToolServiceUrl, resolveRouterRouteDialect } from './router-routes.lib.mjs';
 
 export const ROUTER_SIDECAR_CONTAINER_NAME = 'hive-mind-router';
 export const ROUTER_SIDECAR_NETWORK_NAME = 'hive-mind-router';
@@ -52,7 +59,35 @@ export const ROUTER_SIDECAR_LABEL = 'com.link-assistant.hive-mind.router';
 // 0.110.0 is the floor: it carries the compare-based force-push mediation
 // (upstream router#273), without which a routed task can still rewrite history.
 // Override with HIVE_MIND_ROUTER_IMAGE.
+//
+// The pin deliberately stays on 0.x even though upstream is at 1.2.0 (issue
+// #2202). Router 1.0.0 moved the GitHub proxy under `/api/services/github/api/v3`
+// and `gh` builds a custom host's REST base as `https://<host>/api/v3/` with no
+// path-prefix setting, so no client-side configuration reaches the new prefix
+// and bumping the pin would silently delete the `gh` mediation this feature
+// shipped (measured: `docs/case-studies/issue-2202/data/measurements/
+// router-route-comparison-2026-09-04.md`). Every other route is already
+// supported on both dialects, so the day upstream lands a gh-reachable base
+// this becomes a one-line change with the tests already in place.
 export const ROUTER_SIDECAR_IMAGE = 'ghcr.io/link-assistant/router:0.119.0';
+
+/**
+ * Router image this run should use.
+ *
+ * Lives here rather than in `router-sidecar.lib.mjs` because the route dialect
+ * is derived from it and this module is the leaf both sides import.
+ */
+export const resolveRouterSidecarImage = (env = process.env) => String(env?.HIVE_MIND_ROUTER_IMAGE || '').trim() || ROUTER_SIDECAR_IMAGE;
+
+/**
+ * Route dialect for this run, resolved from the image that will actually be
+ * started (or from `HIVE_MIND_ROUTER_ROUTES` when an operator declares it).
+ *
+ * @returns {{dialect: object, source: 'env'|'image'|'default', error: string|null}}
+ */
+export function resolveRouterDialect({ env = process.env } = {}) {
+  return resolveRouterRouteDialect({ image: resolveRouterSidecarImage(env), env });
+}
 
 /** The one GitHub name the router impersonates; see the module header. */
 export const ROUTER_GITHUB_API_HOST = 'api.github.com';
@@ -259,12 +294,19 @@ export function resolveRouterGitHubRouting({ env = process.env, external = false
  *
  * @returns {Array<[string, string]>}
  */
-export function buildRouterGitConfigEntries({ baseUrl, token, githubMode = 'transparent' } = {}) {
+export function buildRouterGitConfigEntries({ baseUrl, token, githubMode = 'transparent', dialect = null } = {}) {
   if (!baseUrl || !token || githubMode === 'off') return [];
+  const routes = dialect || resolveRouterDialect().dialect;
+  const gitPrefix = buildRouterGitUrlPrefix({ baseUrl, dialect: routes });
+  if (!gitPrefix) return [];
+  // The CA and the header stay scoped to the origin, not to the git prefix:
+  // git matches these keys by URL prefix, and the origin covers every path the
+  // router serves — including a future one — while the rewrite target must be
+  // exact.
   const routerUrl = `${String(baseUrl).replace(/\/+$/, '')}/`;
   return [
     ['credential.helper', ''],
-    ['url.' + `${routerUrl}git/` + '.insteadOf', 'https://github.com/'],
+    ['url.' + gitPrefix + '.insteadOf', 'https://github.com/'],
     [`http.${routerUrl}.sslCAInfo`, ROUTER_CA_CONTAINER_PATH],
     [`http.${routerUrl}.extraHeader`, `Authorization: Bearer ${token}`],
   ];
@@ -287,9 +329,11 @@ export function buildRouterGitConfigEntries({ baseUrl, token, githubMode = 'tran
  *
  * @returns {Record<string,string>}
  */
-export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode = 'transparent', ghHost = null, homeDir = '/home/box' } = {}) {
+export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode = 'transparent', ghHost = null, homeDir = '/home/box', dialect = null } = {}) {
   if (!baseUrl || !token) return {};
   const normalizedTool = normalizeTool(tool);
+  const routes = dialect || resolveRouterDialect().dialect;
+  const serviceUrl = buildRouterToolServiceUrl({ baseUrl, dialect: routes, tool: normalizedTool });
   const taskEnv = {
     HIVE_MIND_USE_ROUTER: '1',
     HIVE_MIND_ROUTER_URL: baseUrl,
@@ -303,15 +347,28 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode
     GIT_TERMINAL_PROMPT: '0',
   };
   if (ANTHROPIC_TOOLS.has(normalizedTool)) {
-    taskEnv.ANTHROPIC_BASE_URL = baseUrl;
+    // serviceUrl is the origin itself on the legacy dialect and
+    // <origin>/api/services/anthropic on the canonical one; Claude Code appends
+    // /v1/messages to whichever it is given.
+    if (serviceUrl) taskEnv.ANTHROPIC_BASE_URL = serviceUrl;
     taskEnv.ANTHROPIC_AUTH_TOKEN = token;
     taskEnv.ANTHROPIC_API_KEY = token;
+  } else if (normalizedTool === 'gemini') {
+    // gemini-cli reads neither of the two variables above. Before issue #2202 it
+    // was handed OPENAI_BASE_URL and ignored it, which meant a "routed" gemini
+    // task quietly called Google directly — an isolation hole, not a detail.
+    // Only the canonical dialect serves Gemini at all, so a legacy pin wires
+    // nothing rather than pointing the CLI at a 404.
+    if (serviceUrl) {
+      taskEnv.GOOGLE_GEMINI_BASE_URL = serviceUrl;
+      taskEnv.GEMINI_API_KEY = token;
+    }
   } else {
-    // codex, opencode, gemini and qwen all speak the OpenAI-compatible surface,
-    // which the router serves under /v1. Codex additionally ignores
-    // OPENAI_BASE_URL and needs the generated provider entry written by
-    // buildRouterTaskWiringScript().
-    taskEnv.OPENAI_BASE_URL = `${baseUrl}/v1`;
+    // codex, opencode and qwen all speak the OpenAI-compatible surface. On the
+    // canonical dialect each has its own service prefix, so they are no longer
+    // interchangeable. Codex additionally ignores OPENAI_BASE_URL and needs the
+    // generated provider entry written by buildRouterTaskWiringScript().
+    if (serviceUrl) taskEnv.OPENAI_BASE_URL = serviceUrl;
     taskEnv.OPENAI_API_KEY = token;
     if (normalizedTool === 'codex') taskEnv.CODEX_HOME = `${homeDir}/.codex`;
   }
@@ -334,10 +391,12 @@ export function buildRouterTaskEnv({ tool = 'claude', baseUrl, token, githubMode
  * Codex 0.147 ignores `OPENAI_BASE_URL` (measured: it kept calling
  * api.openai.com and returned 401), so the endpoint has to be declared as a
  * provider in `CODEX_HOME/config.toml`. `wire_api = "responses"` matches the
- * router's `/v1/responses`.
+ * router's `…/responses`, which the dialect decides the prefix of.
  */
-export function buildRouterCodexConfig({ baseUrl } = {}) {
-  return `model_provider = "${CODEX_PROVIDER_ID}"\n\n[model_providers.${CODEX_PROVIDER_ID}]\nname = "Hive Mind Router"\nbase_url = "${baseUrl}/v1"\nenv_key = "OPENAI_API_KEY"\nwire_api = "responses"\n`;
+export function buildRouterCodexConfig({ baseUrl, dialect = null } = {}) {
+  const routes = dialect || resolveRouterDialect().dialect;
+  const codexUrl = buildRouterToolServiceUrl({ baseUrl, dialect: routes, tool: 'codex' }) || `${baseUrl}/v1`;
+  return `model_provider = "${CODEX_PROVIDER_ID}"\n\n[model_providers.${CODEX_PROVIDER_ID}]\nname = "Hive Mind Router"\nbase_url = "${codexUrl}"\nenv_key = "OPENAI_API_KEY"\nwire_api = "responses"\n`;
 }
 
 /**
@@ -413,7 +472,7 @@ export function buildRouterFormalAiProviderArgs({ baseUrl } = {}) {
  *
  * @returns {string} a `sh -c` script
  */
-export function buildRouterTaskWiringScript({ routerIp = null, caCertificate = null, homeDir = '/home/box', tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent' } = {}) {
+export function buildRouterTaskWiringScript({ routerIp = null, caCertificate = null, homeDir = '/home/box', tool = 'claude', baseUrl = getInternalRouterBaseUrl(), githubMode = 'transparent', dialect = null } = {}) {
   const lines = ['set -e'];
   if (caCertificate) {
     lines.push(`cat > ${ROUTER_CA_CONTAINER_PATH} <<'HIVE_MIND_ROUTER_CA_PEM'`, String(caCertificate).trim(), 'HIVE_MIND_ROUTER_CA_PEM', `chmod 0644 ${ROUTER_CA_CONTAINER_PATH}`);
@@ -427,7 +486,7 @@ export function buildRouterTaskWiringScript({ routerIp = null, caCertificate = n
   }
   if (normalizeTool(tool) === 'codex') {
     const codexHome = `${homeDir}/.codex`;
-    lines.push(`mkdir -p ${codexHome}`, `cat > ${codexHome}/config.toml <<'HIVE_MIND_ROUTER_CODEX_TOML'`, buildRouterCodexConfig({ baseUrl }).trimEnd(), 'HIVE_MIND_ROUTER_CODEX_TOML');
+    lines.push(`mkdir -p ${codexHome}`, `cat > ${codexHome}/config.toml <<'HIVE_MIND_ROUTER_CODEX_TOML'`, buildRouterCodexConfig({ baseUrl, dialect }).trimEnd(), 'HIVE_MIND_ROUTER_CODEX_TOML');
     // The exec runs as root; the task does not, and codex rewrites its own
     // config. Hand the directory to whoever owns the home directory.
     lines.push(`owner=$(stat -c '%u:%g' ${homeDir} 2>/dev/null || echo '')`, `if [ -n "$owner" ]; then chown -R "$owner" ${codexHome}; fi`);
@@ -460,8 +519,17 @@ export function getRouterSuppressedCredentialPaths({ tool = 'claude', ghRouted =
  * Human-readable warnings for the parts of issue #2164 that are not yet covered,
  * so an experimental run states its own limits instead of implying full coverage.
  */
-export function describeRouterCoverageGaps({ model = null, tool = 'claude', githubMode = 'transparent' } = {}) {
+export function describeRouterCoverageGaps({ model = null, tool = 'claude', githubMode = 'transparent', dialect = null } = {}) {
   const gaps = [];
+  const routes = dialect || resolveRouterDialect().dialect;
+  // Measured in experiments/issue-2202/compare-router-routes.sh: on router >= 1.0
+  // the GitHub proxy is only mounted under /api/services/github/api/*, and `gh`
+  // builds a custom host's REST base as `https://<host>/api/v3/` with no
+  // path-prefix setting. Nothing on the client side closes that gap, so a run on
+  // the canonical dialect has to say what it lost rather than 404 in the task.
+  if (githubMode !== 'off' && routes && routes.ghReachable === false) {
+    gaps.push(`This router serves the GitHub proxy under ${routes.github.rest} and ${routes.github.graphql}, but gh has no path-prefix setting and always calls /api/v3/ — so \`gh api\` and GraphQL are NOT mediated on this dialect. git still is. Pin HIVE_MIND_ROUTER_IMAGE to a 0.x router to keep gh routed (upstream link-assistant/router#415).`);
+  }
   if (githubMode === 'off') {
     gaps.push('GitHub traffic is NOT routed: the task keeps its own gh credential, and destructive API calls are not mediated. Unset HIVE_MIND_ROUTER_GITHUB, or set HIVE_MIND_ROUTER_GH_HOST for an external router.');
   }

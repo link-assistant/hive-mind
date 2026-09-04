@@ -60,6 +60,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_TOKEN`             | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                               |
 | `HIVE_MIND_ROUTER_SIDECAR=0`         | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                 |
 | `HIVE_MIND_ROUTER_IMAGE`             | राउटर image बदलें                                                                                               |
+| `HIVE_MIND_ROUTER_ROUTES`            | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`           |
 | `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                       |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`      | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                            |
 | `HIVE_MIND_ROUTER_GH_HOST`           | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                  |
@@ -78,6 +79,26 @@ node examples/collect-logs.mjs --out ./audit
 - `examples/collect-logs.mjs` जान-बूझकर state डायरेक्टरी को साक्ष्य संग्रह में कॉपी करने से मना करता है और उसके बजाय उसका पथ बता देता है।
 
 यदि आप `HIVE_MIND_ROUTER_TOKEN_SECRET` से अपना secret देते हैं, तो उसे root क्रेडेंशियल की तरह ही मानें।
+
+## राउटर संस्करण और route बोलियाँ
+
+राउटर `1.0.0` ने हर सार्वजनिक route बदल दिया और पुराने हटा दिए, इसलिए दोनों पीढ़ियों में **कोई भी** पथ साझा नहीं है। `0.119.0` और `1.2.0` को साथ-साथ जाँचने पर ([`experiments/issue-2202/compare-router-routes.sh`](../experiments/issue-2202/compare-router-routes.sh)) दोनों स्तंभ पूरी तरह अलग निकलते हैं — जो पथ एक पर उत्तर देता है वह दूसरे पर `404` है:
+
+| उद्देश्य           | `legacy` (राउटर `< 1.0`) | `canonical` (राउटर `>= 1.0`)       |
+| ------------------ | ------------------------ | ---------------------------------- |
+| स्वास्थ्य          | `/health`                | `/api/health`                      |
+| Claude / Anthropic | `/` (root)               | `/api/services/anthropic`          |
+| Codex, OpenAI      | `/v1`                    | `/api/services/codex/v1`           |
+| GitHub REST        | `/api/v3`                | `/api/services/github/api/v3`      |
+| GitHub GraphQL     | `/api/graphql`           | `/api/services/github/api/graphql` |
+| git ट्रांसपोर्ट    | `/git/`                  | `/api/services/github/git/`        |
+| टोकन प्रबंधन       | —                        | `/api/management/tokens`           |
+
+Hive Mind दोनों बोलियाँ बोलता है और `HIVE_MIND_ROUTER_IMAGE` के टैग से एक चुनता है: major `0` का अर्थ `legacy`, `1` और उससे ऊपर का अर्थ `canonical`। जिस टैग में संस्करण नहीं है — digest, या `latest` — उसे `canonical` माना जाता है; कुछ और कहना हो तो `HIVE_MIND_ROUTER_ROUTES` सेट करें। बाकी कुछ बदलना नहीं पड़ता: स्वास्थ्य जाँच, हर उपकरण का base URL, Codex का `config.toml`, git का `insteadOf` उपसर्ग और मॉडल-कैटलॉग endpoint — सब बोली से ही निकलते हैं।
+
+**डिफ़ॉल्ट पिन `0.119.0` पर ही रहता है, और यह एक सोचा-समझा समझौता है।** `canonical` में GitHub प्रॉक्सी केवल `/api/services/github/…` के नीचे mount होती है, जबकि `gh` किसी कस्टम होस्ट का REST base `https://<host>/api/v3/` के रूप में बनाता है और उसके पास कोई path-prefix सेटिंग नहीं है — इसलिए `1.x` राउटर पर routed कार्य की `gh api` और GraphQL कॉलें मध्यस्थ से **नहीं** गुज़रतीं। `git` अप्रभावित रहता है, क्योंकि `url.<prefix>.insteadOf` कोई भी उपसर्ग स्वीकार करता है। डिफ़ॉल्ट पिन आगे बढ़ाने से इसी पृष्ठ में दर्ज एक क्षमता मिट जाती, इसलिए वह [router#415](https://github.com/link-assistant/router/issues/415) की प्रतीक्षा में है। नई सतह चाहिए तो `HIVE_MIND_ROUTER_IMAGE` को `1.x` image पर लगाएँ; शुरू होने से पहले रन `gh` वाली कमी छाप देगा।
+
+क्रेडेंशियल की जोड़-तोड़ दोनों में एक जैसी है: `~/.claude`, `~/.codex`, `~/.gemini` और `~/.qwen` को उनके `*_HOME` चरों के साथ mount करना ही अब भी वह तरीका है जिससे राउटर सदस्यताएँ पाता है, और `router auth import` की ज़रूरत **नहीं** है — बिना पथ वाला import वेंडर का अपना home पढ़ता है, राउटर का नहीं, इसलिए उसे अपनाने को कुछ मिलता ही नहीं। माप [`docs/case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md`](./case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md) में दर्ज है।
 
 ## विनाशकारी git ऑपरेशन
 
@@ -107,12 +128,13 @@ Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`)
 - **Formal AI sidecar की अपनी upstream कॉलें route नहीं होतीं।** `--model formal-ai` राउटर से होकर Formal AI तक पहुँचता है, पर यदि वह सर्वर स्वयं किसी वेंडर API को बुलाता है, तो वह हिस्सा sidecar से सीधे बाहर जाता है।
 - **Claude के अलावा अन्य टूल कम परखे गए हैं।** codex, gemini और qwen राउटर के OpenAI-संगत surface तथा एक उत्पन्न provider प्रविष्टि से जुड़े हैं; end-to-end प्रमाण `experiments/issue-2164/` में केवल Claude Code का है।
 - **मॉडल के उपनाम स्वीकार नहीं होते।** राउटर में alias तालिका जान-बूझकर नहीं है ([router#192](https://github.com/link-assistant/router/issues/192)), और यह बात उठाए जाने पर उसने tier resolution जोड़ने से मना कर दिया ([router#323](https://github.com/link-assistant/router/issues/323)), इसलिए `--model sonnet` वहाँ विफल होता है जहाँ `--model claude-sonnet-4-5-20250929` चलता है। `0.115.0` से इनकार उन id की सूची देता है जो deployment वाकई घोषित करता है, इसलिए ग़लत नाम से ही सही नाम मिल जाता है। यह पूरे tier-आधारित surface पर लागू है — `--plan`, `--escalate` और अंतर्निहित fallback शृंखलाएँ सभी tier नाम लेती हैं — इसलिए routed रन में दिनांक वाले id दें।
+- **`1.x` राउटर `gh` की मध्यस्थता नहीं कर सकता।** उसकी GitHub प्रॉक्सी `/api/services/github/api/v3` पर रहती है, और `gh` के पास कोई path-prefix सेटिंग नहीं है, इसलिए `gh api` और GraphQL बिना मध्यस्थता के कार्य से बाहर चले जाते हैं जबकि `git` routed बना रहता है। यह केवल `HIVE_MIND_ROUTER_IMAGE` से स्वयं चुनने पर मिलता है; डिफ़ॉल्ट पिन में यह कमी नहीं है ([router#415](https://github.com/link-assistant/router/issues/415))।
 - **`HIVE_MIND_ROUTER_GITHUB=0` GitHub routing बंद कर देता है**, और बाहरी राउटर (`HIVE_MIND_ROUTER_URL`) के पास हमारा कोई कंटेनर नेटवर्क नहीं होता जिसमें वह अवरोधन कर सके, इसलिए उसे `HIVE_MIND_ROUTER_GH_HOST` चाहिए। दोनों ही स्थितियों में कार्य अपना `gh` क्रेडेंशियल रखता है और उसकी GitHub कॉलें मध्यस्थ से नहीं गुज़रतीं।
 
 ## आवश्यकताएँ
 
 - `--isolation docker`। जिस कंटेनर को आइसोलेट करना है वही न हो तो राउटर आइसोलेशन का कोई अर्थ नहीं।
-- Docker, जो `ghcr.io/link-assistant/router:0.119.0` खींच सके (`HIVE_MIND_ROUTER_IMAGE` से बदला जा सकता है)। निचली सीमा `0.110.0` है: उससे पुराने संस्करण force push आगे भेज देते हैं।
+- Docker, जो `ghcr.io/link-assistant/router:0.119.0` खींच सके (`HIVE_MIND_ROUTER_IMAGE` से बदला जा सकता है)। निचली सीमा `0.110.0` है: उससे पुराने संस्करण force push आगे भेज देते हैं। `1.x` image भी चलते हैं, ऊपर बताई `gh` वाली चेतावनी के साथ।
 - यदि राउटर तक पहुँच न बने तो कार्य **शुरू नहीं किया जाता**। सीधे क्रेडेंशियल पर लौट आना उसी आइसोलेशन को चुपचाप पलट देता जिसके लिए विकल्प माँगा गया था।
 
 ## यह भी देखें
@@ -121,3 +143,4 @@ Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`)
 - [Docker समर्थन](./DOCKER.hi.md) — वह आइसोलेशन जिस पर राउटर टिका है
 - [Branch protection नीति](./BRANCH_PROTECTION_POLICY.hi.md) — विनाशकारी git ऑपरेशनों का नियंत्रण
 - [केस स्टडी: issue #2164](./case-studies/issue-2164/README.md) — इस डिज़ाइन के पीछे आवश्यकता-दर-आवश्यकता विश्लेषण
+- [केस स्टडी: issue #2202](./case-studies/issue-2202/README.md) — route बोलियों के माप, और पिन के पीछे का तर्क

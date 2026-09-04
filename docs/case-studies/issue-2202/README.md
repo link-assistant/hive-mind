@@ -340,39 +340,49 @@ key that makes `gh` reach the new prefix.
 `…/git/` simply becomes `…/api/services/github/git/`.
 
 This is the "if it does not support that mode of operation, we should ensure it
-will, by reporting issues on missing features" case R3 names explicitly. The
-route contract already declares a `ListenerKind::GitHubAdapter`
-(`data/upstream/router-route-contract.rs`), but **no `RouteSpec` uses it and
-`router serve --help` exposes no flag that enables it** — the hook for exactly
-this exists and is unfinished.
+will, by reporting issues on missing features" case R3 names explicitly, and it
+is filed as
+[link-assistant/router#415](https://github.com/link-assistant/router/issues/415).
+The route contract already declares a `ListenerKind::GitHubAdapter`
+(`data/upstream/router-route-contract.rs`), but **no `RouteSpec` uses it —
+every spec uses `COMBINED_AND_INFERENCE`, `COMBINED_AND_ADMIN` or
+`COMBINED_ONLY` — and `router serve --help` exposes no flag that enables it**
+(it has `--inference-only`, `--admin-port`, `--admin-host`, `--admin-key`,
+`--bridge-model-policy` and nothing else). The hook for exactly this exists and
+is unfinished, which is what #415 asks for.
 
 Consequence for the plan: the pin cannot move to `1.x` by default without
 silently deleting a shipped isolation feature. Hive Mind must therefore speak
 **both** dialects and choose per image, keeping the default pin where `gh`
 mediation works until upstream lands a `gh`-reachable base. See R3 + R4 below.
 
-### G3 — one upstream issue is required, and two more are worth filing
+### G3 — three upstream issues, all filed
 
-The `gh` base path in G4 is a genuine missing feature and must be reported. Two
-smaller things are worth reporting to `link-assistant/router` alongside it, as
-the issue's rule directs:
+The `gh` base path in G4 is a genuine missing feature and is reported as
+[router#415](https://github.com/link-assistant/router/issues/415). Two smaller
+things were reported alongside it, as the issue's rule directs:
 
-1. **A single merged catalogue route.** Hive Mind must currently fan out to five
-   service-specific routes and normalise three different response shapes
+1. **A single merged catalogue route** —
+   [router#417](https://github.com/link-assistant/router/issues/417). Hive Mind
+   must currently fan out to five service-specific routes and normalise three
+   different response shapes
    (Anthropic `data[].id` + `max_input_tokens`, OpenAI `data[].id`, Gemini
    `models[].name` + `inputTokenLimit`). A `GET /api/services/models` that
    returns every adopted provider's catalogue in one normalised envelope would
    remove that adapter from every client, not just this one.
-2. **Catalogue metadata beyond the ID.** The Anthropic route can carry
-   `max_input_tokens`, `max_tokens` and `capabilities`; the OpenAI route carries
-   little more than the ID. If the router surfaced normalised
+2. **Catalogue metadata beyond the ID** —
+   [router#418](https://github.com/link-assistant/router/issues/418). The
+   Anthropic route can carry `max_input_tokens`, `max_tokens` and
+   `capabilities`; the OpenAI route carries little more than the ID. If the
+   router surfaced normalised
    context/output/pricing per model, R8's "all other parameters" would be
    satisfiable from the router alone, with models.dev demoted to a true
    last-resort fallback rather than the primary metadata source.
 
-The last two are enhancements, not blockers; the plan below does not depend on
-them. G4 is a blocker for moving the default pin, and the plan below is shaped
-around not waiting for it.
+#417 and #418 are enhancements, not blockers; the plan below does not depend on
+them, and the normalisation they would remove is implemented downstream in the
+meantime. G4/#415 is a blocker for moving the default pin, and the plan below is
+shaped around not waiting for it.
 
 ---
 

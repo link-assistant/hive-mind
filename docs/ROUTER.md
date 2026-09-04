@@ -60,6 +60,7 @@ node examples/collect-logs.mjs --out ./audit
 | `HIVE_MIND_ROUTER_TOKEN`             | Token for that external router. Required when `HIVE_MIND_ROUTER_URL` is set                                   |
 | `HIVE_MIND_ROUTER_SIDECAR=0`         | Never start or stop a sidecar (for operators who manage the router themselves)                                |
 | `HIVE_MIND_ROUTER_IMAGE`             | Override the router image                                                                                     |
+| `HIVE_MIND_ROUTER_ROUTES`            | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)     |
 | `HIVE_MIND_ROUTER_EXTRA_ARGS`        | Extra `docker run` arguments for the sidecar                                                                  |
 | `HIVE_MIND_ROUTER_TOKEN_SECRET`      | Supply the token signing secret instead of generating one                                                     |
 | `HIVE_MIND_ROUTER_GH_HOST`           | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router) |
@@ -78,6 +79,49 @@ The secret that signs tokens is generated once and stored in the bot state direc
 - `examples/collect-logs.mjs` deliberately refuses to copy the state directory into an evidence archive, and reports its path instead.
 
 If you supply your own via `HIVE_MIND_ROUTER_TOKEN_SECRET`, treat it as a root credential.
+
+## Router versions and route dialects
+
+Router `1.0.0` replaced every public route and removed the old ones, so the two
+generations share **no** paths. Probing `0.119.0` and `1.2.0` side by side
+([`experiments/issue-2202/compare-router-routes.sh`](../experiments/issue-2202/compare-router-routes.sh))
+gives disjoint columns — every path that answers on one is a `404` on the other:
+
+| Purpose            | `legacy` (router `< 1.0`) | `canonical` (router `>= 1.0`)      |
+| ------------------ | ------------------------- | ---------------------------------- |
+| Health             | `/health`                 | `/api/health`                      |
+| Claude / Anthropic | `/` (root)                | `/api/services/anthropic`          |
+| Codex, OpenAI      | `/v1`                     | `/api/services/codex/v1`           |
+| GitHub REST        | `/api/v3`                 | `/api/services/github/api/v3`      |
+| GitHub GraphQL     | `/api/graphql`            | `/api/services/github/api/graphql` |
+| git transport      | `/git/`                   | `/api/services/github/git/`        |
+| Token management   | —                         | `/api/management/tokens`           |
+
+Hive Mind speaks both and picks one from the tag on `HIVE_MIND_ROUTER_IMAGE`:
+major `0` means `legacy`, `1` and above mean `canonical`. A tag that carries no
+version — a digest, or `latest` — is assumed `canonical`; set
+`HIVE_MIND_ROUTER_ROUTES` to say otherwise. Nothing else has to change: the
+health probe, the per-tool base URLs, the Codex `config.toml`, the git
+`insteadOf` prefix and the model-catalogue endpoints are all derived from the
+dialect.
+
+**The default pin stays on `0.119.0`, and that is a deliberate trade-off.** On
+`canonical` the GitHub proxy is only mounted under `/api/services/github/…`,
+while `gh` builds a custom host's REST base as `https://<host>/api/v3/` and has
+no path-prefix setting — so `gh api` and GraphQL calls from a routed task are
+**not** mediated on a `1.x` router. `git` is unaffected, because
+`url.<prefix>.insteadOf` takes an arbitrary prefix. Moving the default pin would
+therefore delete a capability this page documents, so it waits on
+[router#415](https://github.com/link-assistant/router/issues/415). Point
+`HIVE_MIND_ROUTER_IMAGE` at a `1.x` image if you want the newer surface; the run
+will print the `gh` gap before it starts.
+
+Credential wiring is unchanged across both: mounting `~/.claude`, `~/.codex`,
+`~/.gemini` and `~/.qwen` with the matching `*_HOME` variables is still how the
+router acquires its subscriptions, and `router auth import` is _not_ needed — an
+unqualified import reads the vendor's own home rather than the router's, so it
+finds nothing to adopt. Measured in
+[`docs/case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md`](./case-studies/issue-2202/data/measurements/router-credentials-and-tokens-2026-09-04.md).
 
 ## Destructive git operations
 
@@ -107,12 +151,13 @@ Every routed run prints these before it starts. They are the honest limits of th
 - **The Formal AI sidecar's own upstream calls are not routed.** `--model formal-ai` reaches Formal AI through the router, but if that server itself calls a vendor API, that leg leaves the sidecar directly.
 - **Non-Claude tools are less exercised.** codex, gemini and qwen are wired through the router's OpenAI-compatible surface and a generated provider entry; only Claude Code has an end-to-end proof in `experiments/issue-2164/`.
 - **Model aliases are rejected.** The router ships no alias table by design ([router#192](https://github.com/link-assistant/router/issues/192)) and declined to add tier resolution when it was raised ([router#323](https://github.com/link-assistant/router/issues/323)), so `--model sonnet` fails where `--model claude-sonnet-4-5-20250929` works. Since `0.115.0` the refusal lists the ids the deployment does advertise, so a wrong name tells you the right one. This affects the tier-shaped surface generally — `--plan`, `--escalate` and the built-in fallback chains all name tiers — so pin dated ids on a routed run.
+- **A `1.x` router cannot mediate `gh`.** Its GitHub proxy lives under `/api/services/github/api/v3`, and `gh` has no path-prefix setting, so `gh api` and GraphQL leave the task unmediated while `git` stays routed. Only reachable by opting in with `HIVE_MIND_ROUTER_IMAGE`; the default pin does not have this gap ([router#415](https://github.com/link-assistant/router/issues/415)).
 - **`HIVE_MIND_ROUTER_GITHUB=0` turns GitHub routing off**, and an external router (`HIVE_MIND_ROUTER_URL`) has no container network of ours to intercept in, so it needs `HIVE_MIND_ROUTER_GH_HOST`. In both cases the task keeps its own `gh` credential and its GitHub calls are not mediated.
 
 ## Requirements
 
 - `--isolation docker`. Router isolation has no meaning without a container to isolate.
-- Docker able to pull `ghcr.io/link-assistant/router:0.119.0` (override with `HIVE_MIND_ROUTER_IMAGE`). `0.110.0` is the floor — earlier versions forward a force push.
+- Docker able to pull `ghcr.io/link-assistant/router:0.119.0` (override with `HIVE_MIND_ROUTER_IMAGE`). `0.110.0` is the floor — earlier versions forward a force push. `1.x` images work too, with the `gh` caveat above.
 - If the router cannot be reached, the task is **not launched**. Falling back to direct credentials would silently undo the isolation the flag was asked for.
 
 ## See also
@@ -121,3 +166,4 @@ Every routed run prints these before it starts. They are the honest limits of th
 - [Docker support](./DOCKER.md) — the isolation the router builds on
 - [Branch protection policy](./BRANCH_PROTECTION_POLICY.md) — the control for destructive git operations
 - [Case study: issue #2164](./case-studies/issue-2164/README.md) — requirement-by-requirement analysis behind this design
+- [Case study: issue #2202](./case-studies/issue-2202/README.md) — the route-dialect measurements and the reasoning behind the pin

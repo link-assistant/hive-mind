@@ -23,6 +23,7 @@ verified to fail. A guard whose test cannot be made to fail is not evidence of a
 | F10 | Fragility | `6501cdd3` | n/a³ | yes — `not ok 2 - checks out before referencing the local composite action` |
 | F11 | False positive | `6501cdd3` | yes — both `uses:` forms tried, both gates observed | n/a⁴ |
 | F12 | False negative (missing gate) | `19a25d4d` | n/a¹ | yes — 4 failing assertions on the pre-fix tree |
+| F14 | False negative (4 dead links) + false positive (13 by design) | this commit | yes — the gate’s first CI run, 18 errors | yes — 3 mutations, each caught |
 | R7 | Guide gap (both gates undocumented) | `a4bea2c6` | yes — the new test fails on the 3 untranslated files | yes — 3 mutations of the English text, each caught |
 
 ¹ A missing gate has no failing execution: nothing was running, so nothing could fail.

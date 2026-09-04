@@ -13,7 +13,7 @@ Evidence pack and deep analysis for
 | `workflows-before/` | The three workflow files as they stood before this PR |
 | `template-workflows/`, `template-scripts/`, `template-head.txt` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` at `7ae16b0e` (tag 0.11.28, 2026-09-03) |
 | `local/` | Before/after output of every linter run locally: actionlint, zizmor, secretlint, the `npm link` matrix, the reproduction of the release failure, the full test run |
-| `analysis/` | Per-finding root-cause write-ups `F0`–`F13`, plus the implementation log |
+| `analysis/` | Per-finding root-cause write-ups `F0`–`F14`, plus the implementation log |
 
 Reproduction experiments are kept in the repository at `experiments/issue-2198/` and
 `experiments/npm-link-allow-scripts.sh`.
@@ -22,8 +22,8 @@ Reproduction experiments are kept in the repository at `experiments/issue-2198/`
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| R1 | Check for **all false positives** in CI/CD and fix them all | 3 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint) |
-| R2 | Check for **all false negatives** and fix them all | 6 found — F3, F5, F8, F9, F10, F12 |
+| R1 | Check for **all false positives** in CI/CD and fix them all | 4 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs) |
+| R2 | Check for **all false negatives** and fix them all | 7 found — F3, F5, F8, F9, F10, F12, F14 |
 | R3 | Check for **all warnings** and fix them all | The run's entire `::warning` inventory is 2 annotations (F6) plus 4 `npm warn` lines (F4); both cleared |
 | R4 | Check for **all errors** and fix them all | 1 — the `Release` job failure (F1), root-caused and fixed |
 | R5 | Compare the **full file tree** against the JS pipeline template and reuse the best practices | `analysis/F13-template-gap-analysis.md` — 5 adopted, 4 deferred with reasons, 4 places hive-mind is ahead |
@@ -74,7 +74,7 @@ was written to prevent (F7).
 | 2026-08-30 | zizmor 1.30.0 adds the `self-repository` audit. Because `zizmor-action` tracks `latest`, the template is now red on its next push and does not know it. (F11) |
 | **2026-09-04 10:24** | Run [33861728465](https://github.com/link-assistant/hive-mind/actions/runs/33861728465): `changeset version` → `@changesets/format` → `package-manager-detector` reads `bun.lock` → `spawn bun ENOENT`. **Release fails.** (F1) |
 | 2026-09-04 11:53 | Issue #2198 filed. |
-| 2026-09-04 | This PR: F1–F13, three upstream reports. |
+| 2026-09-04 | This PR: F1–F14, three upstream reports. |
 
 ## Findings
 
@@ -93,6 +93,8 @@ was written to prevent (F7).
   dependency tree. High. `19a25d4d`.
 - **[F9](analysis/F9-documentation-links-never-checked.md)** — documentation links never
   checked; one broken for six months. Medium. `d1832ad6`.
+- **[F14](analysis/F14-link-checker-first-real-run.md)** — 11 links to this repository
+  under its former owner; the API says `301`, the pages a reader clicks say `404`. Medium.
 - **[F5](analysis/F5-declared-bins-not-executable.md)** — two declared bins ship
   non-executable; the guard was dead code. Medium. `515843e8`.
 - **[F10](analysis/F10-bare-buildx-boot.md)** — eight Docker jobs boot BuildKit with no
@@ -106,6 +108,9 @@ was written to prevent (F7).
   so tightening it reported red. Medium. `e5e99f32`.
 - **[F9](analysis/F9-documentation-links-never-checked.md)** — Markdown inside code spans
   read as links (`CHANGELOG.md:2155`). Fixed while writing the checker.
+- **[F14](analysis/F14-link-checker-first-real-run.md)** — 13 of the link checker's first
+  18 errors are unreachable-by-design, not broken: GitHub gates `/stargazers` behind login
+  for every public repo, and npmjs/claude.ai answer 403 to any client. Medium.
 
 ### Warnings
 

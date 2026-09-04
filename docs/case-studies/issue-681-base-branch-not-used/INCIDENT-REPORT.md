@@ -4,7 +4,7 @@
 
 **Date**: 2025-11-05
 **Reported by**: konard
-**Issue**: https://github.com/deep-assistant/hive-mind/issues/681
+**Issue**: https://github.com/link-assistant/hive-mind/issues/681
 **Severity**: High
 **Status**: Documented - Fix pending
 
@@ -262,7 +262,7 @@ PR was created with correct base, but branch history was already wrong by this p
 
 ## References
 
-- **Issue**: https://github.com/deep-assistant/hive-mind/issues/681
+- **Issue**: https://github.com/link-assistant/hive-mind/issues/681
 - **Affected PR**: https://github.com/uselessgoddess/bar/pull/6
 - **First Session Log**: [first-session-log.txt](./first-session-log.txt)
 - **Second Session Log**: [second-session-log.txt](./second-session-log.txt)

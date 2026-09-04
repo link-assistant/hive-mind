@@ -127,4 +127,43 @@ for (const prefix of EXCLUDED_PREFIXES) {
 assert.ok(existsSync(join(repoRoot, '.lycheeignore')), '.lycheeignore exists');
 assert.ok(existsSync(join(repoRoot, 'scripts/check-web-archive.mjs')), 'scripts/check-web-archive.mjs exists');
 
+// --- the repository this one was renamed from -----------------------------
+
+// `deep-assistant/hive-mind` is this repository under its former name. The
+// GitHub *API* reports it as `301 Moved Permanently` -> `link-assistant/
+// hive-mind`, but the HTML URLs it redirects from answer 404 to a link
+// checker, so every historical reference to the old name is a broken link.
+// Rewriting the owner keeps the reference pointing at the same issue.
+const renamedFrom = tracked.filter(file => readFileSync(join(repoRoot, file), 'utf8').includes('github.com/deep-assistant/hive-mind'));
+assert.deepEqual(renamedFrom, [], `these files still link to this repository under its former owner (deep-assistant -> link-assistant):\n  ${renamedFrom.join('\n  ')}`);
+
+// --- the ignore list matches the URLs it was written for -------------------
+
+// Every entry here was checked by hand and found to fail for a reason no
+// change to this repository can fix. The assertion is not that the URL is
+// listed -- it is that some pattern in `.lycheeignore` actually *matches* it.
+// The first version of that file carried `https://www\.npmjs\.com` while
+// README.md links to the bare host, so the pattern was there and matched
+// nothing: an ignore rule that ignores nothing is indistinguishable from a
+// missing one until the checker runs.
+const ignoredWithReason = [
+  ['https://npmjs.com/@link-assistant/hive-mind', '403 to any client, bot protection'],
+  ['https://www.npmjs.com/package/@link-assistant/hive-mind', '403 to any client, bot protection'],
+  ['https://claude.ai/code', '403 to any client, bot protection'],
+  ['https://github.com/link-assistant/hive-mind/stargazers', '404 unless signed in; GitHub gates the stargazers list behind login for every public repository'],
+];
+
+const ignorePatterns = readFileSync(join(repoRoot, '.lycheeignore'), 'utf8')
+  .split('\n')
+  .map(line => line.trim())
+  .filter(line => line && !line.startsWith('#'))
+  .map(line => new RegExp(line));
+
+for (const [url, why] of ignoredWithReason) {
+  assert.ok(
+    ignorePatterns.some(pattern => pattern.test(url)),
+    `.lycheeignore has no pattern matching ${url} (${why}), so lychee will report it`
+  );
+}
+
 console.log(`doc-links-2198.test.mjs: all assertions passed (${tracked.length} Markdown files scanned)`);

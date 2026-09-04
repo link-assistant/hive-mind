@@ -6,7 +6,7 @@ This case study documents a critical bug where the `--base-branch` option was ig
 
 ## Issue Details
 
-- **Issue URL**: https://github.com/deep-assistant/hive-mind/issues/681
+- **Issue URL**: https://github.com/link-assistant/hive-mind/issues/681
 - **Affected PR**: https://github.com/uselessgoddess/bar/pull/6
 - **Reporter**: konard
 - **Date Reported**: 2025-11-05

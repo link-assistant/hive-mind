@@ -35,3 +35,13 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   `npm audit --package-lock-only --audit-level=high`, which also runs on the
   existing schedule.
 - actionlint is pinned to 1.7.12 instead of 1.7.7.
+
+- Eleven links pointed at this repository under its former owner
+  (`deep-assistant/hive-mind`). The GitHub API reports that name as
+  `301 Moved Permanently`, but the pages a reader actually clicks answer 404,
+  so every one of them was broken. All rewritten, including six in a directory
+  the link checker excludes and would never have reported. The suppression list
+  it needed alongside them was also wrong: it carried a `www.npmjs.com` pattern
+  while the README links the bare host, so the rule matched nothing. Both are
+  now asserted — the guard checks that each suppressed URL is genuinely
+  *matched* by a pattern, not merely mentioned near one.

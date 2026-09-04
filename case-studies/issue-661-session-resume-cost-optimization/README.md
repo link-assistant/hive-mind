@@ -1,8 +1,8 @@
 # Case Study: Session Resume with Context Preservation for Cost Optimization
 
-**Issue Reference**: [#661](https://github.com/deep-assistant/hive-mind/issues/661)
+**Issue Reference**: [#661](https://github.com/link-assistant/hive-mind/issues/661)
 
-**Related Pull Request**: https://github.com/deep-assistant/hive-mind/pull/662
+**Related Pull Request**: https://github.com/link-assistant/hive-mind/pull/662
 
 **Referenced Example**: [test-anywhere PR #38](https://github.com/link-foundation/test-anywhere/pull/38)
 
@@ -612,7 +612,7 @@ Without caching currently:
 
 ## References
 
-- Issue #661: https://github.com/deep-assistant/hive-mind/issues/661
+- Issue #661: https://github.com/link-assistant/hive-mind/issues/661
 - test-anywhere PR #38: https://github.com/link-foundation/test-anywhere/pull/38
 - Claude sessions research: docs/dependencies-research/claude-sessions/README.md
 - Prompt caching docs: https://docs.claude.com/en/docs/build-with-claude/prompt-caching

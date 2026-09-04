@@ -23,11 +23,28 @@ http://example\.com
 https://example\.org
 http://example\.org
 
-# npmjs.com returns 403 to link checkers (bot protection)
-https://www\.npmjs\.com
+# npmjs.com returns 403 to link checkers (bot protection), on both the bare
+# host and www. README.md links the bare form, so a www-only pattern here
+# matches nothing -- which is how this was missed the first time.
+https://(www\.)?npmjs\.com
 
 # Medium.com returns 403 to link checkers (bot protection)
 https://medium\.com
 
 # Web Archive returns 502 to link checkers (bot protection)
 https://web\.archive\.org
+
+# claude.ai returns 403 to link checkers (bot protection)
+https://claude\.ai
+
+# GitHub gates the stargazers, watchers and forks lists behind login: they
+# answer 404 to any signed-out client, for every public repository, so a
+# badge pointing at one is unreachable to a link checker by design.
+https://github\.com/[^/]+/[^/]+/(stargazers|watchers|forks)$
+
+# Dead third-party URLs quoted as evidence, not offered as references.
+# data/case-studies/issue-683-pr-creation-failure.md records which repository
+# a failing run was operating on; that repository has since gone private or
+# been deleted (404 to any client). Rewriting or removing the URL would
+# falsify the incident record, so the link is suppressed instead of "fixed".
+https://github\.com/40Think/AgogeDigitalTwin

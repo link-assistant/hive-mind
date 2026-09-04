@@ -1,6 +1,6 @@
 # Implementation Proposal: Session Resume for Auto-Restart Cost Optimization
 
-**Issue**: [#661](https://github.com/deep-assistant/hive-mind/issues/661)
+**Issue**: [#661](https://github.com/link-assistant/hive-mind/issues/661)
 **Status**: 📋 Proposal
 **Date**: 2025-11-03
 

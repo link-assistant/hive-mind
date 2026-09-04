@@ -352,7 +352,12 @@ export const mapModelToId = model => {
 export const MIN_AGENT_LIVE_INPUT_VERSION = '0.24.1';
 
 export const getAgentCliVersion = versionOutput => {
-  return semver.clean(versionOutput) || semver.coerce(versionOutput)?.version || null;
+  // `agent --version` can come back as `undefined` when the probe times out or
+  // the binary writes nothing to stdout, and `semver.clean(undefined)` throws.
+  // The floors below must answer "unknown", not blow up, so the caller reports
+  // the missing version instead of a `TypeError`.
+  const text = versionOutput == null ? '' : String(versionOutput);
+  return semver.clean(text) || semver.coerce(text)?.version || null;
 };
 
 export const agentCliSupportsLiveInput = versionOutput => {
@@ -374,6 +379,31 @@ export const MIN_AGENT_FORMAL_AI_VERSION = '0.25.8';
 export const agentCliFailsClosedOnModelMismatch = versionOutput => {
   const version = getAgentCliVersion(versionOutput);
   return !!version && semver.gte(version, MIN_AGENT_FORMAL_AI_VERSION);
+};
+
+/**
+ * Agent keeps a rollback snapshot per project under
+ * `$XDG_DATA_HOME/link-assistant-agent/snapshot/<project id>`, and that project
+ * id is the worktree's *root commit*. Before js-0.26.1 the store was a
+ * standalone object database — no `objects/info/alternates` — and nothing ever
+ * removed it, so any harness that runs the agent inside a throwaway `git init`
+ * checkout minted a brand-new full copy of the repository per invocation and
+ * never reclaimed one. Issue #2186 measured 115 orphaned stores / 31 GB in a
+ * single 9.5 h task (~5 GB/h, every recorded worktree already deleted) while
+ * every Hive Mind disk check — the 10 GB pre-flight gate, `disk-guard`,
+ * `hive-cleanup` — reported a healthy workspace, because all of them only look
+ * at `/tmp`. link-assistant/agent#298 (PR #300, shipped in 0.26.1) shares the
+ * repository's objects through `objects/info/alternates` and prunes projects
+ * whose recorded worktree no longer exists, which is what makes an unattended
+ * multi-hour run bounded. Older releases are refused rather than left to fill
+ * the disk.
+ */
+export const MIN_AGENT_SNAPSHOT_HYGIENE_VERSION = '0.26.1';
+
+/** True when this Agent CLI shares snapshot objects and prunes dead projects. */
+export const agentCliPrunesOrphanSnapshots = versionOutput => {
+  const version = getAgentCliVersion(versionOutput);
+  return !!version && semver.gte(version, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION);
 };
 
 // Function to validate Agent connection
@@ -411,6 +441,24 @@ export const validateAgentConnection = async (model = defaultModels.agent, optio
         }
       }
 
+      if (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION)) {
+        await log(`❌ Hive Mind requires @link-assistant/agent >= ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION}`, { level: 'error' });
+        await log('   Older releases write a full, standalone copy of the repository into', { level: 'error' });
+        await log('   ~/.local/share/link-assistant-agent/snapshot/ per project and never reclaim it', { level: 'error' });
+        await log('   (link-assistant/agent#298): issue #2186 lost 31 GB to 115 orphaned stores in one task.', { level: 'error' });
+        if (agentVersion) {
+          await log(`   Installed Agent CLI version: ${agentVersion}`, { level: 'error' });
+        } else {
+          await log('   Could not determine the installed Agent CLI version.', { level: 'error' });
+        }
+        await log('   Update with: bun install -g @link-assistant/agent@latest', { level: 'error' });
+        return false;
+      }
+
+      // The two capability gates below are subsumed by the floor above while it
+      // stays the highest of the three. They are kept because each states an
+      // independent contract with its own diagnosis, and any one of the floors
+      // can move on its own.
       if (requireLiveInput && (!agentVersion || !semver.gte(agentVersion, MIN_AGENT_LIVE_INPUT_VERSION))) {
         await log(`❌ Agent live stream-json input requires @link-assistant/agent >= ${MIN_AGENT_LIVE_INPUT_VERSION}`, { level: 'error' });
         if (agentVersion) {

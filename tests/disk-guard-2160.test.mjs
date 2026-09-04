@@ -69,7 +69,13 @@ const createFakeDisk = ({ freeMB, workspaces, procCwds = [] }) => {
       state.removed.push(targetPath);
     },
     fileSystem: {
-      readdir: async dir => (dir === '/proc' ? procCwds.map((_, index) => String(index + 100)) : ['some-other-dir', ...remaining.keys()]),
+      // Path-aware: the guard also scans the agent snapshot root (issue #2186),
+      // which in this fixture is empty, so only `/tmp` lists workspaces.
+      readdir: async dir => {
+        if (dir === '/proc') return procCwds.map((_, index) => String(index + 100));
+        if (dir !== '/tmp') throw new Error(`ENOENT: ${dir}`);
+        return ['some-other-dir', ...remaining.keys()];
+      },
       stat: async targetPath => {
         const name = targetPath.split('/').pop();
         const workspace = remaining.get(name);

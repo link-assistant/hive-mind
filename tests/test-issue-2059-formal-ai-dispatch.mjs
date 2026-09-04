@@ -385,7 +385,7 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
     ['Dockerfile.dind', dindDockerfile],
     ['coolify/Dockerfile', coolifyDockerfile],
   ]) {
-    assert.match(contents, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, `${name} must build against a runtime-compatible glibc`);
+    assert.match(contents, /FROM rust:1\.98-slim-bookworm AS formal-ai-builder/, `${name} must build against a runtime-compatible glibc`);
     assert.match(contents, /formal-ai --version/, `${name} must verify that the Formal AI wrapper is installed`);
   }
 
@@ -410,7 +410,7 @@ test('Docker assets install the wrapper and define a persistent Formal AI servic
     assert.match(builderStage, /^ENV OPENSSL_STATIC=1$/m, `${name} must link OpenSSL statically so the copy into the runtime image carries no soname dependency`);
   }
 
-  assert.match(serverDockerfile, /FROM rust:1\.96-slim-bookworm AS formal-ai-builder/, 'the service must build against a runtime-compatible glibc');
+  assert.match(serverDockerfile, /FROM rust:1\.98-slim-bookworm AS formal-ai-builder/, 'the service must build against a runtime-compatible glibc');
   assert.match(serverDockerfile, /FROM konard\/hive-mind-dind:/, 'the service image must extend the root Telegram/DinD image');
   assert.match(serverDockerfile, /formal-ai", "serve", "--agent-mode"/, 'the service image must start the agent-mode API');
   assert.match(verifyImageScript, /check_tool "Formal AI" formal-ai --version/, 'image verification must exercise the installed wrapper');

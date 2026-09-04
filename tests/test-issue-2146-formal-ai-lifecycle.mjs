@@ -22,9 +22,14 @@ import path from 'node:path';
 
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from '../src/formal-ai-isolation.lib.mjs';
 import { FORMAL_AI_MEMORY_MOUNT, FORMAL_AI_MEMORY_VOLUME_NAME, FORMAL_AI_SIDECAR_CONTAINER_NAME, FORMAL_AI_SIDECAR_NETWORK_ALIAS, FORMAL_AI_SIDECAR_NETWORK_NAME, acquireFormalAiSidecar, attachTaskToFormalAiNetwork, buildFormalAiSidecarRunArgs, isFormalAiSidecarEnabled, isFormalAiTask, readFormalAiSidecarState, reconcileFormalAiSidecar, releaseFormalAiSidecar, writeFormalAiSidecarState } from '../src/formal-ai-sidecar.lib.mjs';
+import { FORMAL_AI_IMAGE_REPOSITORY } from '../src/formal-ai-image.lib.mjs';
+import { FORMAL_AI_BOOTSTRAP_VERSION } from '../src/formal-ai-version.lib.mjs';
 import { createDockerSimulator } from './formal-ai-docker-simulator.mjs';
 
-const SIDECAR_IMAGE = 'ghcr.io/link-assistant/formal-ai:0.339.1';
+// The sidecar image the lifecycle resolves by default follows
+// FORMAL_AI_BOOTSTRAP_VERSION, so it is derived here rather than pinned: this
+// suite is about the lifecycle, and a hard-coded tag only breaks on upgrades.
+const SIDECAR_IMAGE = `${FORMAL_AI_IMAGE_REPOSITORY}:${FORMAL_AI_BOOTSTRAP_VERSION}`;
 const stateDirs = [];
 
 const makeEnv = (extra = {}) => {

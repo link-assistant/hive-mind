@@ -32,8 +32,10 @@ const test = (name, fn) => {
 // ============================================================
 console.log('\n=== 1. Fable 5 Alias Resolution ===');
 
-test('fable alias maps to claude-fable-5 in claudeModels', () => {
-  assert.strictEqual(claudeModels['fable'], 'claude-fable-5', 'fable should map to claude-fable-5');
+// Issue #2202: the bare `fable` alias now maps to claude-fable-5-1, the same way
+// `opus` moved to Opus 5 in Issue #2096. `fable-5` stays pinned to Fable 5.
+test('fable alias maps to claude-fable-5-1 in claudeModels (Issue #2202)', () => {
+  assert.strictEqual(claudeModels['fable'], 'claude-fable-5-1', 'fable should map to claude-fable-5-1');
 });
 
 test('fable-5 alias maps to claude-fable-5 in claudeModels', () => {
@@ -45,17 +47,23 @@ test('claude-fable-5 maps to itself in claudeModels', () => {
 });
 
 test('fable alias resolves in CLAUDE_MODELS', () => {
-  assert.strictEqual(CLAUDE_MODELS['fable'], 'claude-fable-5', 'fable should resolve in CLAUDE_MODELS');
+  assert.strictEqual(CLAUDE_MODELS['fable'], 'claude-fable-5-1', 'fable should resolve in CLAUDE_MODELS');
 });
 
 test('fable alias resolves in availableModels (claude.lib.mjs)', () => {
-  assert.strictEqual(availableModels['fable'], 'claude-fable-5', 'fable should resolve in availableModels');
+  assert.strictEqual(availableModels['fable'], 'claude-fable-5-1', 'fable should resolve in availableModels');
 });
 
-test('validateModelName accepts fable and maps to claude-fable-5', () => {
+test('validateModelName accepts fable and maps to claude-fable-5-1', () => {
   const result = validateModelName('fable', 'claude');
   assert(result.valid, `fable should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-fable-5', 'fable should map to claude-fable-5');
+  assert.strictEqual(result.mappedModel, 'claude-fable-5-1', 'fable should map to claude-fable-5-1');
+});
+
+test('fable-5 stays pinned to Fable 5 after the alias move (Issue #2202)', () => {
+  assert.strictEqual(CLAUDE_MODELS['fable-5'], 'claude-fable-5', 'fable-5 should stay on claude-fable-5');
+  const result = validateModelName('fable-5', 'claude');
+  assert.strictEqual(result.mappedModel, 'claude-fable-5', 'fable-5 should still map to claude-fable-5');
 });
 
 test('validateModelName accepts fable-5 and maps to claude-fable-5', () => {
@@ -70,8 +78,12 @@ test('validateModelName accepts claude-fable-5 directly', () => {
   assert.strictEqual(result.mappedModel, 'claude-fable-5', 'Should map to itself');
 });
 
-test('mapModelToId maps fable to claude-fable-5', () => {
-  assert.strictEqual(mapModelToId('fable'), 'claude-fable-5', 'mapModelToId should map fable to claude-fable-5');
+test('mapModelToId maps fable to claude-fable-5-1', () => {
+  assert.strictEqual(mapModelToId('fable'), 'claude-fable-5-1', 'mapModelToId should map fable to claude-fable-5-1');
+});
+
+test('mapModelToId maps fable-5 to claude-fable-5', () => {
+  assert.strictEqual(mapModelToId('fable-5'), 'claude-fable-5', 'mapModelToId should map fable-5 to claude-fable-5');
 });
 
 test('mapModelToId passes through claude-fable-5 unchanged', () => {
@@ -201,7 +213,7 @@ test('supports1mContext returns true for claude-mythos-5', () => {
 test('validateModelName accepts fable[1m]', () => {
   const result = validateModelName('fable[1m]', 'claude');
   assert(result.valid, `fable[1m] should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-fable-5[1m]', 'Should map to claude-fable-5[1m]');
+  assert.strictEqual(result.mappedModel, 'claude-fable-5-1[1m]', 'Should map to claude-fable-5-1[1m]');
   assert.strictEqual(result.has1mSuffix, true, 'Should indicate 1m suffix');
 });
 
@@ -220,7 +232,11 @@ test('validateModelName accepts mythos-5[1m]', () => {
 });
 
 test('mapModelToId handles fable[1m]', () => {
-  assert.strictEqual(mapModelToId('fable[1m]'), 'claude-fable-5[1m]', 'mapModelToId should handle fable[1m]');
+  assert.strictEqual(mapModelToId('fable[1m]'), 'claude-fable-5-1[1m]', 'mapModelToId should handle fable[1m]');
+});
+
+test('mapModelToId handles fable-5[1m]', () => {
+  assert.strictEqual(mapModelToId('fable-5[1m]'), 'claude-fable-5[1m]', 'mapModelToId should handle fable-5[1m]');
 });
 
 // ============================================================
@@ -364,8 +380,9 @@ test('defaultFallbackModels.claude maps claude-mythos-5 -> fable', () => {
   assert.strictEqual(defaultFallbackModels.claude['claude-mythos-5'], 'fable', 'Mythos 5 should fall back to fable');
 });
 
-test('resolveDefaultFallbackModel returns opus for fable alias', () => {
-  assert.strictEqual(resolveDefaultFallbackModel('claude', 'fable'), 'opus', 'fable alias should resolve fallback to opus');
+// Issue #2202: `fable` resolves to Fable 5.1, which steps down to Fable 5 first.
+test('resolveDefaultFallbackModel returns fable-5 for the fable alias', () => {
+  assert.strictEqual(resolveDefaultFallbackModel('claude', 'fable'), 'fable-5', 'fable alias should resolve fallback to fable-5');
 });
 
 test('resolveDefaultFallbackModel returns opus for fable-5 alias', () => {
@@ -411,7 +428,7 @@ console.log('\n=== 10. Case Insensitivity ===');
 test('validateModelName handles FABLE (uppercase)', () => {
   const result = validateModelName('FABLE', 'claude');
   assert(result.valid, `FABLE should be valid, got: ${result.message}`);
-  assert.strictEqual(result.mappedModel, 'claude-fable-5', 'FABLE should map to claude-fable-5');
+  assert.strictEqual(result.mappedModel, 'claude-fable-5-1', 'FABLE should map to claude-fable-5-1');
 });
 
 test('validateModelName handles CLAUDE-FABLE-5 (uppercase full ID)', () => {

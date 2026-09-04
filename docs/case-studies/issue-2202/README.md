@@ -379,10 +379,14 @@ Add to `src/models/index.mjs`, with the vendor-quoted specs in
   tells a user whether they can actually call them.
 - `gpt-6-astra` under `gpt-6-astra`, plus the `openai.gpt-6-astra` and
   `openai/gpt-6-astra` variants the existing `OPENAI_MODEL_PREFIX_PATTERN`
-  handles, and 1M-context registration (1,050,000 window / 922,000 max input).
-  Add `gpt-6-astra` → `gpt-5.6-sol` to `defaultFallbackModels.codex`, since the
-  model is preview-gated and a fallback is the difference between a degraded run
-  and a failed one.
+  handles. Add `gpt-6-astra` → `gpt-5.6-sol` to `defaultFallbackModels.codex`,
+  since the model is preview-gated and a fallback is the difference between a
+  degraded run and a failed one. Its 1,050,000-token window is **not** recorded
+  in `MODELS_SUPPORTING_1M_CONTEXT`: that list exists only to drive the `[1m]`
+  suffix, and `supports1mContext` short-circuits on any tool other than
+  `claude`, so an entry there would be inert and would imply a `[1m]` suffix
+  Codex does not accept. GPT-6 Astra's window belongs to the R8 metadata
+  layer instead.
 - `gpt-5.6-cyber` and the two Daybreak aliases (`gpt-daybreak-blue-latest`,
   `gpt-daybreak-red-latest`) — the latter two are already advertised by the
   installed Codex CLI, so shipping them costs nothing and closes a real gap.
@@ -539,6 +543,13 @@ Each step is committable on its own and leaves the tree green.
 
 1. This case study (R10).
 2. `src/models/index.mjs` — the new models, with a reproducing test (R1).
+   The additions pushed the file past the 1350-line early-warning threshold of
+   `scripts/check-file-line-limits.sh`, so the bundled catalogue (alias maps,
+   defaults, capability lists) moves to a new leaf module
+   `src/models/catalog.mjs`, re-exported from `src/models/index.mjs` so the
+   public surface is unchanged. This follows the extraction precedent of issue
+   #2198 and gives step 3 one obvious thing to merge the live catalogue
+   against.
 3. `src/model-catalogue.lib.mjs` — sources, merge, TTL cache, token-free
    guarantee and its test (R2, R7, R8, R9).
 4. Router pin + `/api/services/*` migration + credential adoption + docs

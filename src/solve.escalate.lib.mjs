@@ -90,6 +90,9 @@ const TIER_ALIASES = {
   fable: 'fable',
   'fable-5': 'fable',
   'claude-fable-5': 'fable',
+  // Fable 5.1 is the same escalation tier as Fable 5 (Issue #2202).
+  'fable-5-1': 'fable',
+  'claude-fable-5-1': 'fable',
 };
 
 /**

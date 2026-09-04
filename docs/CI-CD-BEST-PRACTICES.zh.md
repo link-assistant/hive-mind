@@ -354,6 +354,38 @@ merge-manifest:
 
 参考实现：[`link-foundation/box`](https://github.com/link-foundation/box) 和 [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind)。
 
+### 14. 对 workflows 本身进行 lint
+
+**Pipeline 也是代码，而默认没有任何东西对它做 lint。** Workflow files 会不断积累 shell 引号错误、过于宽泛的 `permissions`、unpinned actions 以及 template-injection 注入点，而 pipeline 中没有任何 job 在查找它们——因为每个 job 都忙着检查应用程序。
+
+在单独的 workflow 中使用两个互补的工具，由 `.github/` 的改动触发：
+
+- [`actionlint`](https://github.com/rhysd/actionlint) — 语法、表达式，以及（最关键的）每个 `run:` 块内部的 shell。
+- [`zizmor`](https://docs.zizmor.sh/) — 安全审计：`excessive-permissions`、`unpinned-uses`、`template-injection`、`artipacked`。
+
+```yaml
+- uses: docker://rhysd/actionlint:1.7.12
+  with:
+    args: -color
+```
+
+- **以 Docker image 方式运行 actionlint，而不是裸二进制文件。** 该镜像自带 `shellcheck` 和 `pyflakes`。`PATH` 上没有 `shellcheck` 的二进制文件会静默跳过所有 shell 检查并 exit 0——因此本地跑绿了什么也说明不了。正是这一个细节决定了是找到十四个 shell bug 还是一个也找不到。
+- 对 zizmor 而言，除非 workflow 运行的所有场景都启用了 code scanning，否则**优先使用 annotations 而非 SARIF**。SARIF 上传在 forks 上会静默失败；annotations 在两种情况下都会明确失败。
+- **设置置信度下限，而不是严重性下限。** `--min-confidence medium` 按工具的确信程度过滤，而不是按发现的严重程度。对落在下限以下的内容审阅一次并记录决定，而不是日后才发现下限一直掩盖着一个真实的发现。
+- **将 suppressions 限定到单个文件，并写明何时可以移除。** 一刀切的 `ignore` 与完全没有这道关卡毫无区别。
+
+### 15. 审计依赖树
+
+**Code scanning 不审计你的依赖，而 PR 范围内的 dependency review 也不审计你已经拥有的依赖。** 这两个 job 合起来看似完整覆盖，中间却留下一个缺口：CodeQL 分析你的源代码，而 `dependency-review-action` 只在 `pull_request` 上运行，并且只检查 PR *改动过*的依赖。针对某个已固定一年的软件包发布的 advisory，对两者永远不可见，因为没有任何 PR 会碰到那一行。
+
+```yaml
+- run: npm audit --package-lock-only --audit-level=high
+```
+
+- **按提交时的原样审计 lockfile**（`--package-lock-only`）。它报告的是使用者实际会得到的内容，也无法靠仅在本 runner 上发生的依赖解析把结果变绿。
+- **把这个 job 放到 schedule 上**，而不只是放在 push 上。只有定时运行才能发现代码停止变动之后才发布的 advisory。
+- **显式设置级别。** 默认值是 `low`，那会让所有人习惯于忽略这个 job；完全不加 flag 与刻意写上 `--audit-level=high` 是两种不同的失败。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：

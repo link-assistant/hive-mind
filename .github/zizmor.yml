@@ -1,0 +1,31 @@
+# zizmor configuration — https://docs.zizmor.sh/configuration/
+rules:
+  # Issue #2198: zizmor's `self-repository` audit (v1.30.0) asks for GitHub's
+  # `uses: $/...` form, shipped 2026-07-30, instead of `uses: ./...`. actionlint
+  # does not parse `$/` yet -- v1.7.12 is the newest release and support is
+  # still open upstream (rhysd/actionlint#711, rhysd/actionlint#732) -- so the
+  # two gates in workflows.yml contradict each other: satisfying zizmor makes
+  # actionlint fail with "invalid format because ref is missing", eight times.
+  #
+  # `./` is the form that both the runner and actionlint accept today, so the
+  # audit is ignored for this file, not the finding worked around. The four
+  # merge jobs check out before referencing the action (asserted by
+  # tests/setup-buildx-resilient.test.mjs), which covers the runtime-filesystem
+  # concern behind the audit. Drop this block once actionlint understands `$/`.
+  self-repository:
+    ignore:
+      - release.yml
+  unpinned-uses:
+    config:
+      policies:
+        # These publishers are trusted at tag granularity: their release tags
+        # are the reference a reader is meant to recognise at a glance.
+        # Everything else must be pinned to a full commit hash.
+        actions/*: ref-pin
+        github/*: ref-pin
+        docker/*: ref-pin
+        astral-sh/*: ref-pin
+        lycheeverse/*: ref-pin
+        zizmorcore/*: ref-pin
+        changesets/*: ref-pin
+        '*': hash-pin

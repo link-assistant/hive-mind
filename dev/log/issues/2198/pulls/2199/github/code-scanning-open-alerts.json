@@ -1,0 +1,1042 @@
+[
+  {
+    "number": 233,
+    "rule": "js/redos",
+    "severity": "high",
+    "path": "src/use-m-single-flight.lib.mjs",
+    "line": 71,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 232,
+    "rule": "js/redos",
+    "severity": "high",
+    "path": "docs/case-studies/issue-2092/data/use-m-8.14.2-use.js",
+    "line": 89,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 231,
+    "rule": "js/redos",
+    "severity": "high",
+    "path": "docs/case-studies/issue-1724/data/use-m-source.js",
+    "line": 82,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 230,
+    "rule": "js/functionality-from-untrusted-source",
+    "severity": "medium",
+    "path": "docs/case-studies/issue-1752/external/git-push.html",
+    "line": 4199,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 229,
+    "rule": "js/functionality-from-untrusted-source",
+    "severity": "medium",
+    "path": "docs/case-studies/issue-1752/external/git-push.html",
+    "line": 4200,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 228,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-issue-1706-sub-session-size.mjs",
+    "line": 34,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 227,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 453,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 226,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 440,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 225,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 377,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 224,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 296,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 223,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 290,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 222,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 150,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 221,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "src/limits.lib.mjs",
+    "line": 694,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 220,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "src/github-rate-limit.lib.mjs",
+    "line": 355,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 219,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "src/github-rate-limit.lib.mjs",
+    "line": 206,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 218,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 229,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 217,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 224,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 216,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 219,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 215,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 214,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 214,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 209,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 213,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 204,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 212,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 199,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 211,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 135,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 210,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 128,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 209,
+    "rule": "js/clear-text-logging",
+    "severity": "high",
+    "path": "experiments/thinking-budget-test.mjs",
+    "line": 121,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 208,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "tests/test-telegram-markdown-escaping.mjs",
+    "line": 28,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 207,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "tests/test-telegram-markdown-escaping.mjs",
+    "line": 28,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 206,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1999-resource-diagnostics.mjs",
+    "line": 138,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 205,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1999-resource-diagnostics.mjs",
+    "line": 138,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 204,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "tests/test-accept-invites-output.mjs",
+    "line": 20,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 203,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-merge-queue.lib.mjs",
+    "line": 1271,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 202,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-merge-queue.lib.mjs",
+    "line": 1236,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 201,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-merge-queue.lib.mjs",
+    "line": 1222,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 200,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-merge-command.lib.mjs",
+    "line": 49,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 199,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-markdown.lib.mjs",
+    "line": 18,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 198,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-markdown.lib.mjs",
+    "line": 18,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 197,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/telegram-accept-invitations.lib.mjs",
+    "line": 37,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 196,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/review.mjs",
+    "line": 377,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 195,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/review.mjs",
+    "line": 377,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 194,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/review.mjs",
+    "line": 376,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 193,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/review.mjs",
+    "line": 376,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 192,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 350,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 191,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 344,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 190,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 188,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 189,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 188,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 188,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 118,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 187,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 118,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 186,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 117,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 185,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/claude.lib.mjs",
+    "line": 117,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 184,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "src/buildUserMention.lib.mjs",
+    "line": 78,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 181,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-theory.mjs",
+    "line": 79,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 180,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-theory.mjs",
+    "line": 79,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 179,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-markdown-escaping.mjs",
+    "line": 23,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 178,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-markdown-escaping.mjs",
+    "line": 23,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 177,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-paths-filter-1582.mjs",
+    "line": 24,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 176,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-input-chars.mjs",
+    "line": 40,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 175,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-input-chars.mjs",
+    "line": 40,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 174,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-comment-id-extraction.mjs",
+    "line": 40,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 173,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/test-comment-id-extraction.mjs",
+    "line": 21,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 172,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/solve-with-opencode.mjs",
+    "line": 275,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 171,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/solve-with-opencode.mjs",
+    "line": 275,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 170,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/simulate-error.mjs",
+    "line": 9,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 169,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/simulate-error.mjs",
+    "line": 9,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 168,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/reconstruct-error.mjs",
+    "line": 9,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 167,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/reconstruct-error.mjs",
+    "line": 9,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 166,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/find-offset-133.mjs",
+    "line": 6,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 165,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/find-offset-133.mjs",
+    "line": 6,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 164,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/find-offset-133-v2.mjs",
+    "line": 48,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 163,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "experiments/find-offset-133-v2.mjs",
+    "line": 48,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 162,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "docs/case-studies/issue-1292/telegram-merge-queue.lib.mjs",
+    "line": 550,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 161,
+    "rule": "js/incomplete-sanitization",
+    "severity": "high",
+    "path": "docs/case-studies/issue-1292/telegram-merge-command.lib.mjs",
+    "line": 46,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 160,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-telegram-validate-url.mjs",
+    "line": 33,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 159,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-solve.mjs",
+    "line": 222,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 158,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-solve-reply-with-options.mjs",
+    "line": 60,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 157,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-private-repo-screenshots-1349.mjs",
+    "line": 89,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 156,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-private-repo-screenshots-1349.mjs",
+    "line": 63,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 155,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-misleading-merge-logs-1712.mjs",
+    "line": 293,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 154,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-misleading-merge-logs-1712.mjs",
+    "line": 292,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 153,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-misleading-merge-logs-1712.mjs",
+    "line": 221,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 152,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-misleading-merge-logs-1712.mjs",
+    "line": 198,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 151,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-misleading-merge-logs-1712.mjs",
+    "line": 159,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 150,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-merge-auto-resolve-1805.mjs",
+    "line": 217,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 149,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1851-process-debug.mjs",
+    "line": 226,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 148,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1783-stop-improvements.mjs",
+    "line": 190,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 147,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1783-stop-improvements.mjs",
+    "line": 188,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 146,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1780-stop-by-url.mjs",
+    "line": 182,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 145,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1783-stop-improvements.mjs",
+    "line": 80,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 144,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-issue-1102-fix.mjs",
+    "line": 36,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 143,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "tests/test-fork-parent-validation.mjs",
+    "line": 251,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 142,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/telegram-bot.mjs",
+    "line": 628,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 141,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/telegram-bot.mjs",
+    "line": 388,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 140,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/telegram-bot.mjs",
+    "line": 380,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 139,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/solve.pre-pr-failure-notifier.lib.mjs",
+    "line": 35,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 138,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/log-upload.lib.mjs",
+    "line": 116,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 137,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/log-upload.lib.mjs",
+    "line": 114,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 136,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "src/github-url-parser.lib.mjs",
+    "line": 38,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 135,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "scripts/format-release-notes.mjs",
+    "line": 84,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 134,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test_url_normalization.mjs",
+    "line": 17,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 133,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test_solve_url_normalization.mjs",
+    "line": 22,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 132,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test-url-validation-improvements.mjs",
+    "line": 21,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 131,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-bot-specific-url.mjs",
+    "line": 106,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 130,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test-telegram-bot-specific-url.mjs",
+    "line": 62,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 129,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test-screen-integration.mjs",
+    "line": 83,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 128,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/test-raw-command-log.mjs",
+    "line": 76,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 127,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/issue-1102/test-exact-error.mjs",
+    "line": 18,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 126,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "experiments/issue-1102/test-error-message.mjs",
+    "line": 17,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 125,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "docs/dependencies-research/command-stream-issues/issue-11-gh-pr-create-output.mjs",
+    "line": 182,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 124,
+    "rule": "js/incomplete-url-substring-sanitization",
+    "severity": "high",
+    "path": "create-test-repo.mjs",
+    "line": 382,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 73,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-tool-specific-defaults.mjs",
+    "line": 34,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 72,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-telegram-bot-version.mjs",
+    "line": 134,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 71,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-telegram-bot-version.mjs",
+    "line": 55,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 70,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-solve.mjs",
+    "line": 33,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 69,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-sentry.mjs",
+    "line": 92,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 68,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-sentry.mjs",
+    "line": 73,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 57,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-memory-check.mjs",
+    "line": 231,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 56,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-memory-check.mjs",
+    "line": 38,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 37,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-hive.mjs",
+    "line": 273,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 36,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-hive.mjs",
+    "line": 34,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 12,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "tests/test-feedback-lines-integration.mjs",
+    "line": 51,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 11,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-version-output.mjs",
+    "line": 106,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 10,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-version-output.mjs",
+    "line": 51,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 9,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-version-output.mjs",
+    "line": 22,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 8,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-task.mjs",
+    "line": 33,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 7,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-review.mjs",
+    "line": 33,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 6,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-error-handling.mjs",
+    "line": 70,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 5,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-error-handling.mjs",
+    "line": 46,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 4,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-error-handling.mjs",
+    "line": 23,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 3,
+    "rule": "js/shell-command-injection-from-environment",
+    "severity": "medium",
+    "path": "experiments/test-changeset-scripts.mjs",
+    "line": 37,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 2,
+    "rule": "js/request-forgery",
+    "severity": "critical",
+    "path": "experiments/issue-2130/proxy-capture.mjs",
+    "line": 28,
+    "ref": "refs/heads/main"
+  },
+  {
+    "number": 1,
+    "rule": "js/identity-replacement",
+    "severity": "medium",
+    "path": "src/system-cleanup-estimates.lib.mjs",
+    "line": 40,
+    "ref": "refs/heads/main"
+  }
+]

@@ -1,0 +1,11 @@
+npm 11.17.0, node v20.20.2
+
+baseline                                       warning=yes prepare_ran=yes
+package.json allowScripts (bare name)          warning=yes prepare_ran=yes
+package.json allowScripts (name@version)       warning=yes prepare_ran=yes
+.npmrc allow-scripts                           warning=yes prepare_ran=yes
+--allow-scripts=<name>                         warning=yes prepare_ran=yes
+--ignore-scripts                               warning=no  prepare_ran=no
+
+npm approve-scripts --allow-scripts-pending says:
+No packages with unreviewed install scripts.

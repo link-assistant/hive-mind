@@ -1,8 +1,8 @@
 # Implementation: Session Resume for Auto-Restart Cost Optimization
 
-**Issue**: [#661](https://github.com/deep-assistant/hive-mind/issues/661)
+**Issue**: [#661](https://github.com/link-assistant/hive-mind/issues/661)
 
-**Pull Request**: [#662](https://github.com/deep-assistant/hive-mind/pull/662)
+**Pull Request**: [#662](https://github.com/link-assistant/hive-mind/pull/662)
 
 **Status**: ✅ **IMPLEMENTED** (Experimental Feature)
 
@@ -250,7 +250,7 @@ Potential improvements for future iterations:
 
 - Case study: `case-studies/issue-661-session-resume-cost-optimization/README.md`
 - Original proposal: `case-studies/issue-661-session-resume-cost-optimization/implementation-proposal.md`
-- Issue #661: https://github.com/deep-assistant/hive-mind/issues/661
+- Issue #661: https://github.com/link-assistant/hive-mind/issues/661
 - test-anywhere PR #38: https://github.com/link-foundation/test-anywhere/pull/38
 
 ---

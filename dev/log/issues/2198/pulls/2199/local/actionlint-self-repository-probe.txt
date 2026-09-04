@@ -1,0 +1,45 @@
+############ uses: ./.github/actions/demo
+--- actionlint 1.7.7
+EXIT=0
+--- actionlint 1.7.12
+EXIT=0
+--- zizmor 1.30.0
+ INFO zizmor: 🌈 zizmor v1.30.0
+ WARN audit: zizmor: zizmor is running in offline mode by default; some audits and auto-fixes will not be available. see https://docs.zizmor.sh/usage/#operating-modes for details
+ INFO audit: zizmor: 🌈 completed /tmp/tmp.NMqaNxNa3D/.github/actions/demo/action.yml
+ INFO audit: zizmor: 🌈 completed /tmp/tmp.NMqaNxNa3D/.github/workflows/probe.yml
+help[self-repository]: use GitHub's dedicated self-repository syntax
+ --> /tmp/tmp.NMqaNxNa3D/.github/workflows/probe.yml:9:15
+  |
+9 |       - uses: ./.github/actions/demo
+  |         ------^^^^^^^^^^^^^^^^^^^^^^
+  |         |     |
+  |         |     use '$/...' instead of './...'
+  |         this step
+  |
+  = note: audit confidence → High
+  = note: this finding has an auto-fix
+  = help: audit documentation → https://docs.zizmor.sh/audits/#self-repository
+
+3 findings (2 suppressed, 1 safe fixes): 0 informational, 1 low, 0 medium, 0 high
+EXIT=12
+############ uses: $/.github/actions/demo
+--- actionlint 1.7.7
+[33m.github/workflows/probe.yml[0m[90m:[0m9[90m:[0m15[90m: [0m[1mspecifying action "$/.github/actions/demo" in invalid format because ref is missing. available formats are "{owner}/{repo}@{ref}" or "{owner}/{repo}/{path}@{ref}"[0m[90m [action]
+[0m[90m  |
+[0m[90m9 | [0m      - uses: $/.github/actions/demo
+[90m  | [0m[32m              ^~~~~~~~~~~~~~~~~~~~~~[0m
+EXIT=1
+--- actionlint 1.7.12
+[33m.github/workflows/probe.yml[0m[90m:[0m9[90m:[0m15[90m: [0m[1mspecifying action "$/.github/actions/demo" in invalid format because ref is missing. available formats are "{owner}/{repo}@{ref}" or "{owner}/{repo}/{path}@{ref}"[0m[90m [action]
+[0m[90m  |
+[0m[90m9 | [0m      - uses: $/.github/actions/demo
+[90m  | [0m[32m              ^~~~~~~~~~~~~~~~~~~~~~[0m
+EXIT=1
+--- zizmor 1.30.0
+ INFO zizmor: 🌈 zizmor v1.30.0
+ WARN audit: zizmor: zizmor is running in offline mode by default; some audits and auto-fixes will not be available. see https://docs.zizmor.sh/usage/#operating-modes for details
+ INFO audit: zizmor: 🌈 completed /tmp/tmp.NMqaNxNa3D/.github/actions/demo/action.yml
+ INFO audit: zizmor: 🌈 completed /tmp/tmp.NMqaNxNa3D/.github/workflows/probe.yml
+No findings to report. Good job! (2 suppressed)
+EXIT=0

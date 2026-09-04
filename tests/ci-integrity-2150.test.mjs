@@ -46,14 +46,20 @@ assert.match(gate, / {4}if: always\(\)/, 'terminal status gate must run after fa
 assert.match(gate, /NEEDS_JSON: \$\{\{ toJSON\(needs\) \}\}/, 'terminal gate receives every dependency result');
 assert.deepEqual(listNeededJobs(gate).sort(), jobs.filter(job => job !== 'pipeline-status').sort(), 'terminal gate observes every other release job');
 
-for (const [name, source, permissionPattern] of [
-  ['release', workflow, /permissions:\s+read-all/],
-  ['cleanup', cleanupWorkflow, /permissions:\s+read-all/],
-  ['security', securityWorkflow, /permissions:\n\s+contents: read/],
+// Issue #2198: the top-level default used to be `read-all`, which zizmor
+// flags as excessive-permissions -- it also grants read access to actions,
+// packages and security events. Every workflow now declares the narrowest
+// default that still allows checkout, and any job needing more writes its
+// own `permissions:` block.
+for (const [name, source] of [
+  ['release', workflow],
+  ['cleanup', cleanupWorkflow],
+  ['security', securityWorkflow],
 ]) {
   assert.doesNotMatch(source, /uses: actions\/(?:checkout|setup-node)@v5/, `${name} workflow uses Node 24-native action releases`);
   assert.match(source, /GIT_CONFIG_KEY_0:\s*init\.defaultBranch/, `${name} workflow suppresses Git's obsolete default-branch warning`);
-  assert.match(source, permissionPattern, `${name} workflow defaults to least-privilege read permissions`);
+  assert.doesNotMatch(source, /^permissions: read-all$/m, `${name} workflow does not default to blanket read-all permissions`);
+  assert.match(source, /^permissions:\n {2}contents: read$/m, `${name} workflow defaults to least-privilege read permissions`);
 }
 
 assert.match(securityWorkflow, /uses: github\/codeql-action\/analyze@v4/, 'CodeQL analyzes source and workflow code');

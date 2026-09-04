@@ -28,7 +28,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 import { assertTokenFreeSource, assertTokenFreeUrl, BILLABLE_PATH_PATTERNS, isBillableCatalogueUrl, listModelCatalogueSourcesForTool, MODEL_CATALOGUE_SOURCES, MODEL_CATALOGUE_TTL_MS, REJECTED_EXTRACTION_METHODS, resolveModelCatalogueTtlMs } from '../src/model-catalogue-sources.lib.mjs';
-import { fetchCodexCliCatalogue, fetchJsonCatalogue, fetchModelsDevMetadata, fetchRouterCatalogue, normalizeCataloguePayload } from '../src/model-catalogue-fetch.lib.mjs';
+import { fetchCodexCliCatalogue, fetchJsonCatalogue, fetchModelsDevMetadata, fetchRouterCatalogue, fetchRouterCatalogueViaExec, normalizeCataloguePayload } from '../src/model-catalogue-fetch.lib.mjs';
 import { getMergedModelCatalogue, isModelCatalogueEntryFresh, isModelHotLoadEnabled, isRouterCatalogueEnabled, listBundledModelIds, loadModelCatalogue, mergeModelCatalogue, modelCatalogueCacheKey, readModelCatalogueCache } from '../src/model-catalogue.lib.mjs';
 import { ROUTER_ROUTE_DIALECTS } from '../src/router-routes.lib.mjs';
 
@@ -107,6 +107,29 @@ check('the fetch layer refuses a billable URL even when a caller passes one dire
     throw new Error('fetch must not be called');
   };
   return assert.rejects(fetchJsonCatalogue('https://api.anthropic.com/v1/messages', { fetchImpl: never }), /billable endpoint/i);
+});
+
+await checkAsync('a failed router read never repeats the leased token back at the operator', async () => {
+  // Node builds a failed execFile's message as "Command failed: <argv…>", and
+  // this argv carries the token. That message is printed in `/models`' source
+  // footer, so it must not be propagated as-is.
+  const token = 'router-lease-token-abcdef123456';
+  const run = async (file, args) => {
+    const error = new Error(`Command failed: ${file} ${args.join(' ')}\nError response from daemon: No such container`);
+    error.stderr = 'Error response from daemon: No such container';
+    error.code = 1;
+    throw error;
+  };
+  await assert.rejects(fetchRouterCatalogueViaExec({ url: 'https://link-assistant-router/v1/models', token, run }), error => {
+    assert.equal(error.message.includes(token), false, `the token leaked: ${error.message}`);
+    assert.match(error.message, /No such container/, 'the useful part of the failure survives');
+    return true;
+  });
+
+  // And the same through the caller that actually reports it.
+  const result = await fetchRouterCatalogue({ baseUrl: 'https://link-assistant-router', dialect: ROUTER_ROUTE_DIALECTS.legacy, token, tool: 'claude', transport: 'exec', run });
+  assert.equal(result.status, 'error');
+  assert.equal(String(result.error).includes(token), false, `the token leaked into the source footer: ${result.error}`);
 });
 
 check('the TUI extraction methods are recorded as rejected, with a reason', () => {

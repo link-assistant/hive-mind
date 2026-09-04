@@ -708,6 +708,26 @@ of _N_ children each child excludes only itself, sees the other *N*−1, and
 defers. That is the correct outcome: a CLI must never be replaced underneath a
 running task.
 
+### A second detail, found by reading the diff rather than the tests
+
+The router catalogue is read through `docker exec … bun -e` when the sidecar
+publishes no host port, and the leased client token is handed to that process as
+an environment variable on the argv. Node builds a failed `execFile`'s message
+as `Command failed: <the whole argv>`, and `fetchRouterCatalogue` puts the
+reader's error text into the `error` field of its result — which `/models`
+prints in its source footer and `hive-models --json` emits. So any failure to
+reach the container, a missing container being the ordinary case, would have
+printed the leased token to the operator and into whatever captured that output.
+[`experiments/issue-2202/probe-execfile-error-message.mjs`](../../../experiments/issue-2202/probe-execfile-error-message.mjs)
+reproduces it in five lines.
+
+`fetchRouterCatalogueViaExec` now describes a failure from the parts that are
+safe to show — the process's stderr, or its exit code — and scrubs the token
+from whatever is left, because `docker` sometimes echoes the environment back in
+its own error text. The regression test asserts the token is absent both from
+the thrown error and from the `error` field that reaches the footer, and that
+the useful part of the failure ("No such container") survives the redaction.
+
 ### Evidence the hot-load path works against the real world
 
 Two runs captured on 2026-09-04, both from inside this repository:

@@ -181,8 +181,38 @@ export const fetchRouterCatalogueViaExec = async ({ url, token, containerName = 
   const loopback = String(url).replace(/^https?:\/\/[^/]+/, `https://127.0.0.1:${ROUTER_SIDECAR_PORT}`);
   assertTokenFreeUrl(loopback, 'router');
   const script = `fetch(${JSON.stringify(loopback)},{headers:{Authorization:"Bearer "+process.env.ROUTER_CATALOGUE_TOKEN}}).then(r=>r.ok?r.text():Promise.reject(new Error("HTTP "+r.status))).then(t=>{process.stdout.write(t)}).catch(e=>{process.stderr.write(String(e&&e.message||e));process.exit(1)})`;
-  const { stdout } = await run('docker', ['exec', '--env', 'NODE_TLS_REJECT_UNAUTHORIZED=0', '--env', `ROUTER_CATALOGUE_TOKEN=${token}`, containerName, 'bun', '-e', script], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
-  return JSON.parse(stdout);
+  try {
+    const { stdout } = await run('docker', ['exec', '--env', 'NODE_TLS_REJECT_UNAUTHORIZED=0', '--env', `ROUTER_CATALOGUE_TOKEN=${token}`, containerName, 'bun', '-e', script], { encoding: 'utf8', timeout: timeoutMs, maxBuffer: 10 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  } catch (error) {
+    // Node builds a failed `execFile`'s message as "Command failed: <argv…>",
+    // and this argv carries the leased router token. That message would travel
+    // straight into the source footer `/models` prints and into
+    // `hive-models --json`. So the failure is re-raised from the parts that are
+    // safe to show, and anything left is scrubbed of the token as well — docker
+    // itself sometimes echoes the environment back in its own error text.
+    throw new Error(redactRouterToken(describeExecFailure(error, containerName), token));
+  }
+};
+
+/** A failed `docker exec` described without repeating the command line. */
+const describeExecFailure = (error, containerName) => {
+  const detail = String(error?.stderr || '')
+    .trim()
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join(' ');
+  if (detail) return `docker exec into ${containerName} failed: ${detail}`;
+  if (error?.code === 'ENOENT') return 'docker is not installed';
+  return `docker exec into ${containerName} failed (${error?.code ?? error?.signal ?? 'unknown error'})`;
+};
+
+/** Replace a leased token wherever it survived into text meant for a human. */
+const redactRouterToken = (text, token) => {
+  const secret = String(token || '');
+  if (secret.length < 8) return text;
+  return String(text).split(secret).join('***');
 };
 
 /**

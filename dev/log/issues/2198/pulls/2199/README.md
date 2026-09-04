@@ -13,7 +13,7 @@ Evidence pack and deep analysis for
 | `workflows-before/` | The three workflow files as they stood before this PR |
 | `template-workflows/`, `template-scripts/`, `template-head.txt` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` at `7ae16b0e` (tag 0.11.28, 2026-09-03) |
 | `local/` | Before/after output of every linter run locally: actionlint, zizmor, secretlint, the `npm link` matrix, the reproduction of the release failure, the full test run |
-| `analysis/` | Per-finding root-cause write-ups `F0`–`F14`, plus the implementation log |
+| `analysis/` | Per-finding root-cause write-ups `F0`–`F15`, plus the implementation log |
 
 Reproduction experiments are kept in the repository at `experiments/issue-2198/` and
 `experiments/npm-link-allow-scripts.sh`.
@@ -23,11 +23,11 @@ Reproduction experiments are kept in the repository at `experiments/issue-2198/`
 | # | Requirement | Status |
 | --- | --- | --- |
 | R1 | Check for **all false positives** in CI/CD and fix them all | 4 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs) |
-| R2 | Check for **all false negatives** and fix them all | 7 found — F3, F5, F8, F9, F10, F12, F14 |
+| R2 | Check for **all false negatives** and fix them all | 8 found — F3, F5, F8, F9, F10, F12, F14, and F15, which this PR's own green runs were hiding |
 | R3 | Check for **all warnings** and fix them all | The run's entire `::warning` inventory is 2 annotations (F6) plus 4 `npm warn` lines (F4); both cleared |
 | R4 | Check for **all errors** and fix them all | 1 — the `Release` job failure (F1), root-caused and fixed |
 | R5 | Compare the **full file tree** against the JS pipeline template and reuse the best practices | `analysis/F13-template-gap-analysis.md` — 5 adopted, 4 deferred with reasons, 4 places hive-mind is ahead |
-| R6 | **If the same issue exists in the template, report it there too** | 2 upstream reports filed, 1 more warranted — see below |
+| R6 | **If the same issue exists in the template, report it there too** | 4 upstream reports filed — see below |
 | R7 | Follow `docs/CI-CD-BEST-PRACTICES.md` | Followed; §11 (secrets) was documented but unimplemented until F8. The reverse gap also existed — workflow linting and dependency auditing were *undescribed*, so the guide could not have prevented F3 or F12; both added as §14/§15 in all 4 translations (`a4bea2c6`) |
 | R8 | Add debug output / a verbose mode where evidence was missing, default off | `setup-buildx-resilient` traces on `verbose: true` **or** `RUNNER_DEBUG=1`; `create-manifest-list.sh` has `DRY_RUN` |
 | R9 | Apply each fix **everywhere** it applies, not just where it was found | F10 across all 8 Docker jobs; F7 across all 4 workflows; F9 across all 4 translations of `FREE_MODELS.md`; F2's manifest merge across all 4 merge jobs |
@@ -53,12 +53,16 @@ Underneath it, four things that had **never been checked at all**:
   months (F9);
 - **the dependency tree** — CodeQL scans our source and `dependency-review` only sees
   dependencies a PR *changes*, so a high-severity advisory against a long-pinned package
-  was invisible forever (F12).
+  was invisible forever (F12);
+- **whether the green check meant anything** — a docs commit pushed a minute after a code
+  commit cancels the code commit's run and then skips the code jobs itself, so the head is
+  green over code no job ever saw. Found on *this PR's own runs* (F15).
 
 The recurring shape is worth naming: **a plausible-looking control that does not check
 the thing you assumed it checked.** An installed scanner (F8), a security workflow with
 two jobs (F12), a `build:pre` script nothing runs (F5), a test asserting the defect it
-was written to prevent (F7).
+was written to prevent (F7), a `Pipeline Status` job that answers "did anything fail"
+when the question is "was this code tested" (F15).
 
 ## Timeline
 
@@ -76,6 +80,8 @@ was written to prevent (F7).
 | 2026-09-04 11:53 | Issue #2198 filed. |
 | 2026-09-04 | This PR: F1–F14, three upstream reports. |
 | 2026-09-04 (later) | `main` merges #2186, growing `src/agent.lib.mjs` to 1357 lines. Merging it in reintroduces the F6 warning class — and F6's guard catches it locally, which is what a threshold that is *enforced* rather than *announced* buys. |
+| 2026-09-04 14:52 | Run [33886267473](https://github.com/link-assistant/hive-mind/actions/runs/33886267473) starts at `237acd2d` (the extraction above) and is **cancelled while still queued** — the API records zero jobs for it. (F15) |
+| 2026-09-04 14:53 | Run [33886365226](https://github.com/link-assistant/hive-mind/actions/runs/33886365226), one docs commit later, reports **success** with `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` skipped. All four workflows green; the extraction inside them tested by nothing. (F15) |
 
 ## Findings
 
@@ -86,6 +92,9 @@ was written to prevent (F7).
 
 ### False negatives
 
+- **[F15](analysis/F15-incremental-detection-trusts-untested-head.md)** — the change
+  detector trusts a head that cancellation ensured was never tested; the pipeline reports
+  green over code no job ran. High. `fba98a4a`.
 - **[F3](analysis/F3-no-workflow-lint-gate.md)** — no job ever linted the workflows.
   High. `e6152f95`.
 - **[F8](analysis/F8-secretlint-installed-never-run.md)** — secretlint installed on every
@@ -143,6 +152,7 @@ The issue requires that a problem also present in the template be reported there
 | --- | --- | --- |
 | `npm link` warns about install scripts no `allowScripts` mechanism can cover; `linkPkg()` never calls `resolveAllowScripts()` | [npm/cli#9951](https://github.com/npm/cli/issues/9951) | Open — filed with reproducer, root cause and suggested patch (F4) |
 | `changeset version` will spawn `deno x prettier` after the changesets 3.x upgrade: `deno.lock` outranks `package-lock.json` and `package.json` declares no package manager | [js-ai-driven-development-pipeline-template#154](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/154) | Open — the template has hive-mind's F1 latent, with `deno.lock` in place of `bun.lock` |
+| `detect-code-changes.mjs` classifies a PR by its **last commit only**, so code jobs skip on a multi-commit push — and on any push that cancels the previous run | [js-ai-driven-development-pipeline-template#156](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/156) | Open — filed with the synthetic-merge-commit reproducer, both routes to the hole, and the two-stage fix (F15) |
 | The template's `Workflows` job is latently broken: `zizmor-action` tracks `latest`, zizmor 1.30.0 added `self-repository`, and the syntax it asks for breaks the actionlint job next to it | [js-ai-driven-development-pipeline-template#155](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/155) | Open — filed with the twelve-line reproducer, the 2×2 linter matrix, the ignore block, and the 1.7.7 → 1.7.12 bump (F11) |
 
 ## Method note

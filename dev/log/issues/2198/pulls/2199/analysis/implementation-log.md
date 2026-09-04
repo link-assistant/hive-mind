@@ -190,6 +190,50 @@ caught it locally before CI, and the Agent CLI version floors moved to
 
 ---
 
+## F15 — found by distrusting our own green
+
+Every workflow was green at `d871d1f9`, which is where this PR could have stopped. Opening
+the job list instead of the run summary showed why it should not have:
+`test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` all
+**skipped**, because the head commit was documentation-only. The commit before it —
+`237acd2d`, the extraction of `src/agent.version-gates.lib.mjs` — had its run cancelled
+one minute in, with zero jobs recorded.
+
+Green over untested code, produced by two mechanisms this repository deliberately added:
+#1665's incremental diff and #2082's `cancel-in-progress`. Neither is wrong. Their
+composition is. Full analysis in
+[`F15-incremental-detection-trusts-untested-head.md`](F15-incremental-detection-trusts-untested-head.md).
+
+Three things are worth recording about the fix itself.
+
+**The reproducing test came first and was seen to fail.** It drives the real
+`scripts/detect-code-changes.mjs` against a stub of the Actions API bound to
+`GITHUB_API_URL` — the lookup runs end to end, offline, with nothing in the code under
+test mocked out.
+
+**The first draft introduced a worse false negative.** Returning `null` for an unverified
+head let `getChangedFiles` fall through to its full-PR branch, which without a base SHA
+falls through *again* to `HEAD^..HEAD` — one commit, narrower than the range it replaced.
+`tests/test-detect-code-changes-1528.mjs` failed on it immediately (*"multi-commit push …
+Expected output to include `src/feature.mjs`"*), which is the whole return on keeping an
+old suite green. The rule is now explicit in the code and asserted in the test: widening
+must never narrow.
+
+**The stub deadlocked the test.** The stub server lives in the test process, so
+`execFileSync` blocked the event loop that had to answer the child's request — parent
+waiting on child, child waiting on parent, no output from either. Async `execFile` with an
+explicit timeout; the comment above `run()` says why, since the synchronous form is the
+obvious thing to reach for and fails silently by hanging.
+
+Both directions are mutation-checked: forcing `previousHeadWasTested` to `true` reproduces
+the original defect, and restoring the `return null` draft fails the widening assertion.
+
+The template has the same hole through two routes, one of which needs no cancellation at
+all — reproduced with its own detector in
+[`experiments/issue-2198/template-detect-changes-untested-commits.sh`](../../../../../../experiments/issue-2198/template-detect-changes-untested-commits.sh)
+and reported as
+[js-ai-driven-development-pipeline-template#156](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/156).
+
 ## Verification state
 
 All run locally against the branch tip:

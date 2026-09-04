@@ -48,3 +48,12 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
 - Kept the 1350-line warning threshold met after merging `main`: issue #2186 grew
   `src/agent.lib.mjs` to 1357 lines, so the Agent CLI version floors moved to
   `src/agent.version-gates.lib.mjs` (re-exported, so no importer changed).
+- The change detector no longer trusts a PR head that was never tested. Issue
+  #1665's incremental `before..after` diff is correct only if the previous head
+  passed, and `cancel-in-progress` means it often had not: a docs commit pushed
+  minutes after a code commit cancels that commit's run and then skips the code
+  jobs itself, leaving the branch green over code no job ever ran.
+  `detect-code-changes.mjs` now asks the Actions API whether a successful run is
+  recorded for the previous head, and widens to the full PR diff whenever the
+  answer is anything else — including when the lookup itself fails, since an
+  unanswerable lookup must not be read as a "yes".

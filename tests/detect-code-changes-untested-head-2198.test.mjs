@@ -158,6 +158,7 @@ const CI_ENV = {
 
     assert.match(output, /code=false/, 'a docs-only push on top of an already-tested head must still skip the code jobs (issue #1665)');
     assert.doesNotMatch(output, / {2}src\/feature\.mjs/, 'the incremental comparison is what gets reported');
+    assert.match(output, /Successful runs of release\.yml at [0-9a-f]{40}: 1/, 'the count the decision rests on is logged, with the endpoint that produced it');
   } finally {
     await api.close();
     rmSync(repoDir, { recursive: true, force: true });
@@ -207,7 +208,11 @@ for (const [name, stub, env] of [
       GITHUB_HEAD_SHA: docsCommit,
     });
     assert.match(output, /code=false/, 'without workflow context the detector keeps the plain incremental behaviour');
-    assert.doesNotMatch(output, /answered HTTP|Run lookup/, 'and attempts no network call at all');
+    assert.doesNotMatch(output, /answered HTTP|Run lookup for/, 'and attempts no network call at all');
+    // Every branch says which one it took. A run that never asked the API and
+    // one that asked and was told "no" produced identical logs in the first
+    // version, and telling them apart cost a full CI round.
+    assert.match(output, /GITHUB_REPOSITORY and GITHUB_WORKFLOW_REF unset/, 'the reason for not checking is named, not left silent');
   } finally {
     rmSync(repoDir, { recursive: true, force: true });
   }
@@ -246,6 +251,11 @@ const releaseWorkflow = readFileSync(join(repoRoot, '.github/workflows/release.y
 const detectJob = releaseWorkflow.match(/ {2}detect-changes:([\s\S]*?)\n {2}[a-z]/)?.[1];
 assert.ok(detectJob, 'release.yml still has a detect-changes job');
 assert.match(detectJob, /GITHUB_TOKEN:/, 'detect-changes passes a token so it can ask whether the previous head was tested');
-assert.match(detectJob, /GITHUB_WORKFLOW_REF:/, 'detect-changes passes the workflow ref so the lookup targets its own workflow');
+assert.match(detectJob, /actions: read/, "and the scope that lets the token read this workflow's runs");
+// The other half of the lookup's context, GITHUB_WORKFLOW_REF, is a runner
+// default environment variable, present in every job. Setting it from
+// `${{ github.workflow_ref }}` would be redundant at best and, if that
+// expression ever resolves empty, would clobber a guaranteed value with "".
+assert.doesNotMatch(detectJob, /GITHUB_WORKFLOW_REF:/, 'the runner-provided workflow ref is left alone rather than overridden');
 
 console.log('detect-code-changes-untested-head-2198.test.mjs: all assertions passed');

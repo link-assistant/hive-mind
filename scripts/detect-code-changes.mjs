@@ -185,13 +185,21 @@ async function previousHeadWasTested(sha) {
   // `owner/repo/.github/workflows/release.yml@refs/pull/1/merge`
   const workflowRef = process.env.GITHUB_WORKFLOW_REF;
   if (!repository || !workflowRef) {
+    // Say which one is missing. The first version of this function returned
+    // here silently, and the first CI run that took the branch was
+    // indistinguishable from one that had asked the API and been told "no" --
+    // a check whose failures look exactly like its successes is the shape of
+    // defect this whole issue is about.
+    const missing = [!repository && 'GITHUB_REPOSITORY', !workflowRef && 'GITHUB_WORKFLOW_REF'].filter(Boolean).join(' and ');
+    console.log(`Not in a workflow run (${missing} unset); not checking whether ${sha} was tested`);
     return false;
   }
 
   const workflowFile = workflowRef.split('@')[0].split('/').pop();
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (!token || !workflowFile) {
-    console.log(`Cannot check whether ${sha} was tested (missing token or workflow file); using the full PR diff`);
+    const missing = [!token && 'a token', !workflowFile && `a workflow file name in "${workflowRef}"`].filter(Boolean).join(' and ');
+    console.log(`Cannot check whether ${sha} was tested (missing ${missing}); using the full PR diff`);
     return false;
   }
 
@@ -211,7 +219,12 @@ async function previousHeadWasTested(sha) {
       return false;
     }
     const body = await response.json();
-    return Number(body?.total_count) > 0;
+    const count = Number(body?.total_count);
+    // The endpoint, never the token. Without this line a zero count and an
+    // unasked question read the same in the log, which cost a round of CI to
+    // tell apart.
+    console.log(`Successful runs of ${workflowFile} at ${sha}: ${count} (asked ${endpoint})`);
+    return count > 0;
   } catch (error) {
     console.log(`Run lookup for ${sha} failed (${error.message}); using the full PR diff`);
     return false;

@@ -95,11 +95,12 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_AFTER_SHA: ${{ github.event.after }}
-          # Issue #2198: the two variables the run lookup needs. The ref names
-          # the workflow file to ask about, so the check stays correct if this
-          # file is ever renamed.
+          # Issue #2198: the token the run lookup needs, to ask whether the
+          # previous PR head ever finished a successful run of this workflow.
+          # GITHUB_WORKFLOW_REF is deliberately *not* set here: the runner
+          # provides it in every job, and overriding it with an expression can
+          # only ever replace a guaranteed value with an empty one.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: node scripts/detect-code-changes.mjs
   # === VERSION CHANGE CHECK ===
   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD

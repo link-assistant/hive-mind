@@ -13,7 +13,7 @@ Evidence pack and deep analysis for
 | `workflows-before/` | The three workflow files as they stood before this PR |
 | `template-workflows/`, `template-scripts/`, `template-head.txt` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` at `7ae16b0e` (tag 0.11.28, 2026-09-03) |
 | `local/` | Before/after output of every linter run locally: actionlint, zizmor, secretlint, the `npm link` matrix, the reproduction of the release failure, the full test run |
-| `analysis/` | Per-finding root-cause write-ups `F0`–`F15`, plus the implementation log |
+| `analysis/` | Per-finding root-cause write-ups `F0`–`F16`, plus the implementation log |
 
 Reproduction experiments are kept in the repository at `experiments/issue-2198/` and
 `experiments/npm-link-allow-scripts.sh`.
@@ -22,9 +22,9 @@ Reproduction experiments are kept in the repository at `experiments/issue-2198/`
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| R1 | Check for **all false positives** in CI/CD and fix them all | 4 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs) |
+| R1 | Check for **all false positives** in CI/CD and fix them all | 5 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs), F16 (this PR's own check red on an npm rename) |
 | R2 | Check for **all false negatives** and fix them all | 8 found — F3, F5, F8, F9, F10, F12, F14, and F15, which this PR's own green runs were hiding |
-| R3 | Check for **all warnings** and fix them all | The run's entire `::warning` inventory is 2 annotations (F6) plus 4 `npm warn` lines (F4); both cleared |
+| R3 | Check for **all warnings** and fix them all | The run's entire `::warning` inventory is 2 annotations (F6) plus 4 `npm warn` lines (F4, still absent after npm's 11.19 rename — F16); both cleared |
 | R4 | Check for **all errors** and fix them all | 1 — the `Release` job failure (F1), root-caused and fixed |
 | R5 | Compare the **full file tree** against the JS pipeline template and reuse the best practices | `analysis/F13-template-gap-analysis.md` — 5 adopted, 4 deferred with reasons, 4 places hive-mind is ahead |
 | R6 | **If the same issue exists in the template, report it there too** | 4 upstream reports filed — see below |
@@ -82,6 +82,8 @@ when the question is "was this code tested" (F15).
 | 2026-09-04 (later) | `main` merges #2186, growing `src/agent.lib.mjs` to 1357 lines. Merging it in reintroduces the F6 warning class — and F6's guard catches it locally, which is what a threshold that is *enforced* rather than *announced* buys. |
 | 2026-09-04 14:52 | Run [33886267473](https://github.com/link-assistant/hive-mind/actions/runs/33886267473) starts at `237acd2d` (the extraction above) and is **cancelled while still queued** — the API records zero jobs for it. (F15) |
 | 2026-09-04 14:53 | Run [33886365226](https://github.com/link-assistant/hive-mind/actions/runs/33886365226), one docs commit later, reports **success** with `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` skipped. All four workflows green; the extraction inside them tested by nothing. (F15) |
+| 2026-09-04 15:35 | Run [33890315861](https://github.com/link-assistant/hive-mind/actions/runs/33890315861) is the first on this branch whose code jobs the F15 fix keeps alive — `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` all run instead of skipping. `test-suites` fails, on F4's own test. (F15, F16) |
+| 2026-09-04 (same run) | The runners are on npm 11.19.0, which renamed `npm warn allow-scripts` to `npm warn install-scripts`. F4's test matched the old label verbatim, so a rename was reported as "npm fixed linkPkg()". It had not. (F16) |
 
 ## Findings
 
@@ -112,6 +114,9 @@ when the question is "was this code tested" (F15).
 
 ### False positives
 
+- **[F16](analysis/F4-npm-link-allow-scripts-warning.md#f16--the-fixs-own-check-went-red-on-a-rename-2026-09-04)** —
+  F4's own test keyed on a vendor label, so npm 11.19 renaming it turned `test-suites`
+  red under the message "npm fixed linkPkg()". npm had not. Medium.
 - **[F11](analysis/F11-zizmor-actionlint-self-repository-deadlock.md)** — the two workflow
   linters now contradict each other. Medium. `6501cdd3`.
 - **[F7](analysis/F7-excessive-permissions.md)** — a test asserted `permissions: read-all`,
@@ -150,7 +155,7 @@ The issue requires that a problem also present in the template be reported there
 
 | Report | Where | Status |
 | --- | --- | --- |
-| `npm link` warns about install scripts no `allowScripts` mechanism can cover; `linkPkg()` never calls `resolveAllowScripts()` | [npm/cli#9951](https://github.com/npm/cli/issues/9951) | Open — filed with reproducer, root cause and suggested patch (F4) |
+| `npm link` warns about install scripts no `allowScripts` mechanism can cover; `linkPkg()` never calls `resolveAllowScripts()` | [npm/cli#9951](https://github.com/npm/cli/issues/9951) | Open — filed with reproducer, root cause and suggested patch; re-confirmed unfixed on npm 11.19.0, which renamed the warning and nothing else (F4, F16) |
 | `changeset version` will spawn `deno x prettier` after the changesets 3.x upgrade: `deno.lock` outranks `package-lock.json` and `package.json` declares no package manager | [js-ai-driven-development-pipeline-template#154](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/154) | Open — the template has hive-mind's F1 latent, with `deno.lock` in place of `bun.lock` |
 | `detect-code-changes.mjs` classifies a PR by its **last commit only**, so code jobs skip on a multi-commit push — and on any push that cancels the previous run | [js-ai-driven-development-pipeline-template#156](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/156) | Open — filed with the synthetic-merge-commit reproducer, both routes to the hole, and the two-stage fix (F15) |
 | The template's `Workflows` job is latently broken: `zizmor-action` tracks `latest`, zizmor 1.30.0 added `self-repository`, and the syntax it asks for breaks the actionlint job next to it | [js-ai-driven-development-pipeline-template#155](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/155) | Open — filed with the twelve-line reproducer, the 2×2 linter matrix, the ignore block, and the 1.7.7 → 1.7.12 bump (F11) |

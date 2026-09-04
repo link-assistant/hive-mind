@@ -57,3 +57,9 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   recorded for the previous head, and widens to the full PR diff whenever the
   answer is anything else — including when the lookup itself fails, since an
   unanswerable lookup must not be read as a "yes".
+- F16: the F4 test matched npm's `allow-scripts` log prefix verbatim, so npm 11.19
+  renaming it to `install-scripts` turned `test-suites` red under a message claiming
+  npm had fixed the underlying bug. It had not — `linkPkg()` still resolves no
+  allowScripts policy, and `--ignore-scripts` is still the only lever that works.
+  The check now keys on the sentence that states the defect, pins both shipped
+  labels as samples, and no longer asserts a cause it cannot distinguish.

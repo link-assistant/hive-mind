@@ -42,3 +42,4 @@ actionlint is run as the **Docker image**, not a bare binary, for the reason rec
 [`../analysis/F3-no-workflow-lint-gate.md`](../analysis/F3-no-workflow-lint-gate.md): the
 image bundles shellcheck, so `run:` blocks are linted. A bare binary silently skips them
 and exits 0 — which is how F2's 14 shellcheck findings stayed invisible.
+| `npm-warning-rename.txt` | F16's side-by-side | what npm 11.17.0 and 11.19.0 each print for the same `npm link`, and which flags silence them |

@@ -234,6 +234,41 @@ all — reproduced with its own detector in
 and reported as
 [js-ai-driven-development-pipeline-template#156](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/156).
 
+## F16 — the first run F15 let through, and what it caught
+
+The F15 fix did the thing it was built to do on run
+[33890315861](https://github.com/link-assistant/hive-mind/actions/runs/33890315861):
+`test-suites`, `test-compilation`, `check-file-line-limits` and
+`memory-check-linux` all ran, where the run before it had skipped them. The
+first thing they found was a defect in this PR's own work.
+
+`test-suites` failed with four assertions from
+`tests/test-issue-2198-npm-link-scripts.mjs`, the test written for F4, saying
+npm had fixed `linkPkg()`. It had not. The runners had moved 11.17.0 → 11.19.0,
+renaming the log prefix `npm warn allow-scripts` to `npm warn install-scripts`;
+the test matched the old label as a literal.
+
+Checked rather than inferred, because the CI log truncates the warning at 400
+characters: `experiments/issue-2198/npm-allow-scripts-warning-rename.sh` links
+the same fixture under both npms, and a policy probe re-ran all four knobs under
+each. Every behaviour is identical across the two releases — bare `npm link`
+warns, no `allowScripts` form covers it, `--ignore-scripts` silences it and
+skips `prepare`. Only the labels moved. The `test-execution` job, the one that
+actually runs the workaround, printed zero warnings under 11.19: the fix was
+never in question, only its detector.
+
+The detector now keys on `not yet covered by allowScripts`, the sentence that
+states the defect and is byte-identical across both releases, with either
+shipped prefix as a fallback signal. Both labels are pinned as samples and
+asserted against the matcher, so narrowing it back fails at once rather than on
+the runners' next bump — verified by mutating it back and watching the 11.19
+sample assertion fail, and by forcing the matcher to never match and watching
+the bare-link assertion fail. 11 passed, 0 failed under each npm.
+
+The failure message was the other half of the defect. It named one cause — "npm
+fixed linkPkg()" — for a symptom with two, and the wrong one was the one that
+happened. It now names both and points at the experiment that separates them.
+
 ## Verification state
 
 All run locally against the branch tip:

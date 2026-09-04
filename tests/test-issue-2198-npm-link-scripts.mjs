@@ -14,8 +14,9 @@
  * The warning cannot be reviewed away, which is why the call site needs
  * --ignore-scripts rather than a policy entry:
  *
- *   - `npm approve-scripts --allow-scripts-pending` answers "No packages with
- *     unreviewed install scripts" — it cannot see the package.
+ *   - the review command — `npm approve-scripts --allow-scripts-pending` in
+ *     npm 11.17, renamed to `npm install-scripts ls` in 11.19 — answers "No
+ *     packages with unreviewed install scripts": it cannot see the package.
  *   - neither `allowScripts` in package.json (by bare name or by name@version)
  *     nor `--allow-scripts=<name>` suppresses it. `linkPkg()` in npm's
  *     lib/commands/link.js never calls `resolveAllowScripts()` at all, so no
@@ -29,6 +30,16 @@
  * The first block reproduces all of that from scratch against whatever npm is
  * on PATH, so the day npm fixes `linkPkg()` these tests start failing and tell
  * us the workaround can be dropped. The last block pins the call site.
+ *
+ * What the warning is *called* is not part of any of that. npm 11.19 renamed
+ * the log prefix `npm warn allow-scripts` to `npm warn install-scripts` and
+ * left `linkPkg()` exactly as it was; this file matched the old label
+ * verbatim, so the rename alone turned the `test-suites` job red on run
+ * 33890315861 — under a failure message claiming npm had fixed the bug. A
+ * check that reports a vendor's cosmetic rename as a defect in our code is the
+ * same false positive this issue is about, so the matcher below keys on the
+ * sentence that states the defect, and the two labels npm has shipped so far
+ * are pinned as samples rather than as the detector.
  *
  * @hive-mind-test-suite default
  *
@@ -63,6 +74,26 @@ const npmHasAllowScripts = Number.isInteger(npmMajor) && (npmMajor > 11 || (npmM
  * the warning quotes the script body back at you, so any sentinel the script
  * echoes shows up in the warning whether or not it ever executed.
  */
+/**
+ * Whether npm reported the linked package's install scripts as unreviewed.
+ *
+ * Keyed on the sentence, not the label. `1 package has install scripts not yet
+ * covered by allowScripts:` is byte-identical in npm 11.17 and 11.19; the
+ * prefix in front of it is not, and neither is the command it suggests. The
+ * second alternative keeps either shipped prefix as a fallback signal, so a
+ * future re-wording of the sentence does not silently read as "npm fixed it".
+ */
+const warnsAboutUnreviewedScripts = output => /not yet covered by allowScripts|npm warn (?:allow|install)-scripts/.test(output);
+
+// Verbatim first lines of what each npm actually printed for this fixture,
+// captured by experiments/issue-2198/npm-allow-scripts-warning-rename.sh.
+// These are here so that tightening the matcher back onto one release's label
+// fails at once instead of on the runners' next npm bump.
+const SHIPPED_WARNING_SAMPLES = {
+  '11.17.0': 'npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:',
+  '11.19.0': 'npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:',
+};
+
 const linkFixture = (extraArgs, allowScripts) => {
   const dir = mkdtempSync(join(tmpdir(), 'hive-mind-2198-link-'));
   try {
@@ -105,10 +136,10 @@ if (!npmHasAllowScripts) {
   skip(`npm ${npmVersion || '(unknown)'} predates the allowScripts policy (npm 11.17) — nothing to reproduce`);
 } else {
   const bare = linkFixture([]);
-  assert(bare.output.includes('allow-scripts'), 'a bare `npm link` still warns about unreviewed install scripts — if this fails, npm fixed linkPkg() ' + 'and the --ignore-scripts workaround in scripts/test-global-commands.sh can be dropped ' + `(npm ${npmVersion}, output: ${JSON.stringify(bare.output.trim().slice(0, 400))})`);
+  assert(warnsAboutUnreviewedScripts(bare.output), 'a bare `npm link` still warns about unreviewed install scripts — if this fails, either npm fixed linkPkg() ' + 'and the --ignore-scripts workaround in scripts/test-global-commands.sh can be dropped, or npm re-worded the warning again; ' + 'experiments/issue-2198/npm-allow-scripts-warning-rename.sh tells the two apart ' + `(npm ${npmVersion}, output: ${JSON.stringify(bare.output.trim().slice(0, 400))})`);
 
   const ignored = linkFixture(['--ignore-scripts']);
-  assert(!ignored.output.includes('allow-scripts'), `\`npm link --ignore-scripts\` emits no allow-scripts warning (npm ${npmVersion}, output: ${JSON.stringify(ignored.output.trim().slice(0, 400))})`);
+  assert(!warnsAboutUnreviewedScripts(ignored.output), `\`npm link --ignore-scripts\` emits no unreviewed-scripts warning (npm ${npmVersion}, output: ${JSON.stringify(ignored.output.trim().slice(0, 400))})`);
   assert(!ignored.prepareRan, "`npm link --ignore-scripts` does not run the linked package's prepare script");
   // What --ignore-scripts actually costs, stated rather than assumed: a bare
   // link does run `prepare`. For this repository that is `husky`, already run
@@ -122,10 +153,16 @@ if (!npmHasAllowScripts) {
     ['package.json allowScripts, name@version', { '@hive-mind-fixture/link-me@1.0.0': true }],
   ]) {
     const withPolicy = linkFixture([], policy);
-    assert(withPolicy.output.includes('allow-scripts'), `${label} still does not cover the linked package (npm/cli#9951)`);
+    assert(warnsAboutUnreviewedScripts(withPolicy.output), `${label} still does not cover the linked package (npm/cli#9951)`);
   }
   const withFlag = linkFixture(['--allow-scripts=@hive-mind-fixture/link-me']);
-  assert(withFlag.output.includes('allow-scripts'), '--allow-scripts=<name> still does not cover the linked package (npm/cli#9951)');
+  assert(warnsAboutUnreviewedScripts(withFlag.output), '--allow-scripts=<name> still does not cover the linked package (npm/cli#9951)');
+}
+
+// The matcher has to recognise every label npm has shipped, whichever one is
+// installed here — that is the whole point of keying on the sentence.
+for (const [version, sample] of Object.entries(SHIPPED_WARNING_SAMPLES)) {
+  assert(warnsAboutUnreviewedScripts(sample), `the unreviewed-scripts matcher recognises what npm ${version} prints`);
 }
 
 const globalCommandsScript = readFileSync(join(repoRoot, 'scripts', 'test-global-commands.sh'), 'utf8');

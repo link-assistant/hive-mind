@@ -94,7 +94,12 @@ WORKDIR /home/box
 
 # Create a stable symlink to the active Node.js version's bin directory
 # This allows us to add it to PATH without knowing the specific version
-RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | head -1) && \
+# `sort -V | tail -1` (not `ls | head -1`): `ls` sorts lexicographically and
+# ascending, so once a second Node.js version is installed the plain listing
+# picks the OLDEST one (and text-sorts "v9" above "v22"). Version-sort and take
+# the last entry so /home/box/.node-bin always points at the newest node in the
+# image (issue #2187).
+RUN NODE_VERSION_DIR=$(ls -d /home/box/.nvm/versions/node/v* 2>/dev/null | sort -V | tail -1) && \
     if [ -n "$NODE_VERSION_DIR" ] && [ -d "$NODE_VERSION_DIR/bin" ]; then \
       ln -sf "$NODE_VERSION_DIR/bin" /home/box/.node-bin; \
     fi

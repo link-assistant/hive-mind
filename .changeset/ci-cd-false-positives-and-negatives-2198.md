@@ -12,3 +12,14 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   back.
 - Lockfile changes now count as package changes in `detect-code-changes.mjs`,
   so the guard cannot be gated out.
+- Every workflow now declares the narrowest default `permissions` that still
+  allows checkout, instead of `read-all`, clearing zizmor's
+  `excessive-permissions` findings.
+- secretlint was installed on every build but never run as a linter and had no
+  config; `npm run check:secrets` now runs it in the lint job, fail-closed,
+  with a narrow `.secretlintignore` for the fixtures that hold fake secrets on
+  purpose.
+- A Broken Link Checker workflow (lychee, with a Wayback Machine fallback) and
+  an offline relative-link test now cover documentation links. They catch the
+  `docs/FREE_MODELS.md` case-study link that had pointed at a file which never
+  existed in any commit, in all four translations.

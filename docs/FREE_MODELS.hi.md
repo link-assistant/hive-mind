@@ -314,7 +314,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [Agent Kilo Documentation](https://github.com/link-assistant/agent/blob/main/docs/kilo.md) - Kilo Gateway विवरण
 - [Case Study: Issue #1282](./case-studies/issue-1282/README.md) - Kilo models integration analysis
 - [Case Study: Issue #1300](./case-studies/issue-1300/README.md) - Free models update (MiniMax M2.5, DeepSeek R1)
-- [Case Study: Issue #1391](./case-studies/issue-1391/README.md) - Free models update (minimax-m2.5-free default के रूप में, kimi-k2.5-free deprecated)
+- [Issue #1391](https://github.com/link-assistant/hive-mind/issues/1391) - Free models update (minimax-m2.5-free default के रूप में, kimi-k2.5-free deprecated)
 - [Case Study: Issue #1473](./case-studies/issue-1473/README.md) - Model recognition fix और free models sync
 - [Case Study: Issue #1543](./case-studies/issue-1543/README.md) - Free models update (qwen3.6-plus-free default के रूप में, nemotron-3-super-free जोड़ा गया)
 - [Case Study: Issue #1563](./case-studies/issue-1563/README.md) - Free models update (qwen3.6-plus-free deprecated, nemotron-3-super-free default के रूप में)

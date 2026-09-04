@@ -1,0 +1,33 @@
+# Lychee ignore patterns - regex patterns for URLs to skip during link checking
+#
+# Add patterns here for:
+# - Local/placeholder URLs
+# - URLs that require authentication
+# - Known false positives (rate-limited sites, etc.)
+# - URLs intentionally used as examples
+#
+# Whole files are excluded with --exclude-path in .github/workflows/links.yml
+# instead; this file is only for URLs.
+
+# Localhost and local development URLs
+http://localhost
+https://localhost
+http://127.0.0.1
+https://127.0.0.1
+http://0\.0\.0\.0
+https://0\.0\.0\.0
+
+# Example/placeholder URLs commonly used in documentation
+https://example\.com
+http://example\.com
+https://example\.org
+http://example\.org
+
+# npmjs.com returns 403 to link checkers (bot protection)
+https://www\.npmjs\.com
+
+# Medium.com returns 403 to link checkers (bot protection)
+https://medium\.com
+
+# Web Archive returns 502 to link checkers (bot protection)
+https://web\.archive\.org

@@ -183,6 +183,34 @@ const brokenCollect = async () => {
 const stillDenied = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 100, collectReclaimable: brokenCollect });
 check(stillDenied.ok === false && stillDenied.reclaimable === null, 'a failing collector never breaks the gate');
 
+// --- the gate reclaims superseded images before deferring -------------------
+// "reclaim and continue rather than stop" (#2187 E): a rebuild's leftovers are
+// dead weight no in-flight task can release, so the gate drops them itself.
+const dockerCalls = [];
+const guardDocker = async (file, args) => {
+  const command = args.join(' ');
+  dockerCalls.push(`${file} ${command}`);
+  if (command.startsWith('image ls')) return { stdout: DOCKER_IMAGES.map(image => JSON.stringify(image)).join('\n') };
+  if (command.startsWith('ps')) return { stdout: '' };
+  if (command.startsWith('image rm')) return { stdout: 'Untagged: konard/hive-mind:v2.16.0' };
+  throw new Error(`unexpected docker command: ${command}`);
+};
+const recovered = await ensureDiskSpaceForWorker({
+  ...guardOptions,
+  // Full until the superseded image is gone, then enough to start the task.
+  getFreeMB: async () => (dockerCalls.some(call => call.startsWith('docker image rm')) ? 999_999 : 100),
+  dockerImageReclaimMode: 'superseded',
+  exec: guardDocker,
+});
+check(recovered.ok === true && recovered.reason === 'reclaimed', 'the gate continues once the superseded image is gone instead of stopping the run');
+check(recovered.reclaimedImages.includes('konard/hive-mind:v2.16.0'), 'the reclaimed image is reported');
+check(dockerCalls.includes('docker image rm konard/hive-mind:v2.16.0'), 'the superseded tag is removed by reference');
+check(!dockerCalls.some(call => call.includes('konard/hive-mind:latest')), 'the image the next task needs is never removed');
+
+dockerCalls.length = 0;
+const withoutDocker = await ensureDiskSpaceForWorker({ ...guardOptions, getFreeMB: async () => 100, exec: guardDocker });
+check(withoutDocker.ok === false && dockerCalls.length === 0, 'the docker daemon is left alone unless the run opted into cleanup');
+
 // --- and the startup check prints it before exiting -------------------------
 const logged = [];
 let exitCode = null;

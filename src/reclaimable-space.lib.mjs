@@ -123,7 +123,7 @@ const collectDockerSources = async ({ exec, env, dockerImageReclaimMode }) => {
     });
   }
   if (daemonBytes) {
-    sources.push({ id: 'docker_daemon', label: 'docker reports reclaimable', count: 1, bytes: daemonBytes, counted: true, automatic: false, command: 'hive-cleanup --docker', note: 'images, containers, volumes and build cache', items: [], truncated: false });
+    sources.push({ id: 'docker_daemon', label: 'docker reports reclaimable', count: 1, bytes: daemonBytes, counted: true, automatic: false, command: 'hive-cleanup --docker', note: 'images, containers and build cache (volumes are counted too, and never pruned automatically)', items: [], truncated: false });
   }
   return sources;
 };

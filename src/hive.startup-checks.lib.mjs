@@ -9,6 +9,7 @@
  */
 
 import { formatReclaimableSpaceLines } from './reclaimable-space.lib.mjs';
+import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 
 /**
  * Run the startup checks, exiting through `safeExit` when one fails.
@@ -37,7 +38,7 @@ export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceFor
   // a generic error. `exitOnFailure` is deliberately not used: it calls process.exit(1)
   // directly, which skips the log-flushing safeExit path and printed no actionable reason.
   const startupRequiredDiskSpaceMB = argv.minDiskSpace || 10240;
-  const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, log });
+  const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, dockerImageReclaimMode: resolveDockerImageReclaimMode(argv), log });
   if (!startupDiskGuard.ok) {
     await log(`❌ Insufficient disk space to start: ${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required`, { level: 'error' });
     // Issue #2187: "free space on this host" is only actionable if the operator

@@ -42,6 +42,7 @@ import { createShutdownManager } from './hive.shutdown.lib.mjs';
 // Issue #2160: keep dequeuing safe when the host disk fills up mid-run.
 import { EXIT_CODE_INSUFFICIENT_DISK_SPACE, ensureDiskSpaceForWorker, extractSolverWorkspacePaths } from './disk-guard.lib.mjs';
 import { logReclaimableSpace } from './reclaimable-space.lib.mjs';
+import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
 const isRunningDirectly = isDirectExecution(process.argv[1], import.meta.url);
 if (isRunningDirectly) {
   console.log('🐝 Hive Mind - AI-powered issue solver');
@@ -623,6 +624,9 @@ if (isRunningDirectly) {
             requiredMB: requiredDiskSpaceMB,
             protectedPaths: getProtectedWorkspacePaths(),
             maxWaitMs: otherWorkInFlight ? DISK_SPACE_WAIT_MS : 0,
+            // Issue #2187: with --auto-cleanup the guard may also drop images a
+            // rebuild superseded before it defers the task.
+            dockerImageReclaimMode: resolveDockerImageReclaimMode(argv),
             log,
           });
           if (!diskGuard.ok) {

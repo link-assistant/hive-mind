@@ -46,7 +46,12 @@ date":
    This is the concrete, checkable answer to R4's "double check that after all
    recent changes to router, our Hive Mind and `--use-router` support all the
    best features of it": today it does not, and bumping the pin without
-   migrating the URLs would break `--use-router` outright.
+   migrating the URLs would break `--use-router` outright. Probing both images
+   side by side
+   ([`data/measurements/router-route-comparison-2026-09-04.md`](data/measurements/router-route-comparison-2026-09-04.md))
+   confirms the two dialects are disjoint — and turns up one route that has no
+   replacement `gh` can reach, which is why Hive Mind learns both dialects
+   instead of simply moving the pin (G4).
 5. **The one cache that exists has no expiry.** `fetchModelsDevApi()`
    (`src/models/index.mjs:1000`) memoises `https://models.dev/api.json` in a
    module-level `let modelsDevCache = null` with no TTL and no disk backing:
@@ -89,6 +94,7 @@ so a reader can re-check it without network access. Checksums are in
 | Catalogue gap analysis               | [`data/measurements/catalogue-gap-analysis.json`](data/measurements/catalogue-gap-analysis.json)                                                                                                                           | Bundled ↔ live ↔ models.dev set differences, in both directions.                                                                                                                                      |
 | Aggregator coverage                  | [`data/measurements/aggregator-coverage-2026-09-04.md`](data/measurements/aggregator-coverage-2026-09-04.md)                                                                                                               | Three independent aggregators, one shared blind spot.                                                                                                                                                 |
 | CLI version drift                    | [`data/measurements/cli-versions-2026-09-04.md`](data/measurements/cli-versions-2026-09-04.md)                                                                                                                             | Installed vs published for six agentic CLIs.                                                                                                                                                          |
+| Router route surface                 | [`data/measurements/router-route-comparison-2026-09-04.md`](data/measurements/router-route-comparison-2026-09-04.md)                                                                                                       | `0.119.0` vs `1.2.0`, 17 paths each, probed against running containers started with Hive Mind's own arguments.                                                                                        |
 | Online research notes                | [`data/research/online-research.md`](data/research/online-research.md)                                                                                                                                                     | Vendor-quoted specs for Fable 5.1, Mythos 5.1 and GPT-6 Astra; the Anthropic Models API field list; the router routes.                                                                                |
 
 ## Requirements reconstructed
@@ -259,8 +265,11 @@ the items that bear on this issue:
   report what it picked and why.
 - `--json` on `tokens list`, `accounts list`, `providers list`, `clients list`.
 - A valid client token is now required before live catalogs are returned.
-- An `originator` header is required for newer models (e.g. `gpt-5.6-luna`), or
-  `POST /responses` answers `Model not found`.
+- Codex subscriptions send a `version` header when proxying to the ChatGPT
+  backend (default `0.144.1`, overridable with `CODEX_CLIENT_VERSION`). The
+  backend gates newer models — `gpt-5.6-luna` is upstream's own example —
+  behind a recent client version; without the header `POST /responses` answers
+  `Model not found`.
 - macOS Claude credentials live in the login Keychain, and the newer of
   Keychain/file wins.
 
@@ -276,15 +285,21 @@ issue reaches: **live catalogues, not compiled-in tables.**
 
 Hive Mind emits, all from `src/router-isolation.lib.mjs`:
 
-| What                | Current (line)                             | Required under router ≥ 1.0             |
-| ------------------- | ------------------------------------------ | --------------------------------------- |
-| Anthropic           | `ANTHROPIC_BASE_URL = baseUrl` (`:306`)    | `${baseUrl}/api/services/anthropic`     |
-| OpenAI env          | `OPENAI_BASE_URL = ${baseUrl}/v1` (`:314`) | `${baseUrl}/api/services/openai/v1`     |
-| Codex `config.toml` | `base_url = "${baseUrl}/v1"` (`:340`)      | `${baseUrl}/api/services/codex/v1`      |
-| git `insteadOf`     | `${routerUrl}git/` (`:267`)                | `${baseUrl}/api/services/github/git/`   |
-| gh REST             | `/api/v3/` (`:206`)                        | `${baseUrl}/api/services/github/api/v3` |
-| Gemini              | (not wired)                                | `${baseUrl}/api/services/gemini`        |
-| Qwen                | (not wired)                                | `${baseUrl}/api/services/qwen/v1`       |
+| What                | Current (line)                             | Required under router ≥ 1.0           |
+| ------------------- | ------------------------------------------ | ------------------------------------- |
+| Anthropic           | `ANTHROPIC_BASE_URL = baseUrl` (`:306`)    | `${baseUrl}/api/services/anthropic`   |
+| OpenAI env          | `OPENAI_BASE_URL = ${baseUrl}/v1` (`:314`) | `${baseUrl}/api/services/openai/v1`   |
+| Codex `config.toml` | `base_url = "${baseUrl}/v1"` (`:340`)      | `${baseUrl}/api/services/codex/v1`    |
+| git `insteadOf`     | `${routerUrl}git/` (`:267`)                | `${baseUrl}/api/services/github/git/` |
+| gh REST             | `/api/v3/` (`:206`)                        | unreachable by `gh` — see **G4**      |
+| Gemini              | (not wired)                                | `${baseUrl}/api/services/gemini`      |
+| Qwen                | (not wired)                                | `${baseUrl}/api/services/qwen/v1`     |
+
+Every row except `gh` is a mechanical substitution. All of them were verified
+against a running container rather than read off the route table:
+[`data/measurements/router-route-comparison-2026-09-04.md`](data/measurements/router-route-comparison-2026-09-04.md)
+probes both images side by side and shows the two dialects are **disjoint** —
+every path that answers on `0.119.0` is a `404` on `1.2.0` and vice versa.
 
 This is not a gap in the router. It is a gap in Hive Mind, and it is the whole
 of R4's answer. The pin bump and the URL migration are a **single atomic
@@ -301,10 +316,46 @@ It means: the bundled table knows the model exists and how to spell it, and the
 live catalogue says whether _this_ account can call it. That is the merge R5
 describes, and it is why the merge must be labelled rather than flattened.
 
-### G3 — no upstream issue is required, but two are worth filing
+### G4 — router ≥ 1.0 has no `gh`-reachable REST base (blocking, and the reason the pin cannot simply move)
 
-Nothing in R1–R9 is blocked on a missing router feature. Two smaller things are
-worth reporting to `link-assistant/router` as the issue's rule directs:
+Issue #2164 gave `--use-router` the ability to mediate `gh` itself: the sidecar
+holds the GitHub token, `/etc/hosts` points `api.github.com` at the router, and
+the task container never sees a credential. Measurement says that capability
+does not survive the pin bump:
+
+| Shape `gh` emits | `0.119.0` | `1.2.0` |
+| ---------------- | --------- | ------- |
+| `/api/v3/…`      | **401**   | 404     |
+| `/api/graphql`   | **401**   | 404     |
+
+On `1.x` the proxy is only mounted under `/api/services/github/api/v3` and
+`/api/services/github/api/graphql`. `gh` builds a custom host's REST base as
+`https://<host>/api/v3/` and offers **no path-prefix setting** — the router's
+own release notes state this twice
+(`data/upstream/router-releases-since-0.119.0.md`, lines 1641 and 1649). There
+is therefore no client-side configuration, environment variable or `hosts.yml`
+key that makes `gh` reach the new prefix.
+
+`git` is unaffected: `url.<prefix>.insteadOf` takes an arbitrary prefix, so
+`…/git/` simply becomes `…/api/services/github/git/`.
+
+This is the "if it does not support that mode of operation, we should ensure it
+will, by reporting issues on missing features" case R3 names explicitly. The
+route contract already declares a `ListenerKind::GitHubAdapter`
+(`data/upstream/router-route-contract.rs`), but **no `RouteSpec` uses it and
+`router serve --help` exposes no flag that enables it** — the hook for exactly
+this exists and is unfinished.
+
+Consequence for the plan: the pin cannot move to `1.x` by default without
+silently deleting a shipped isolation feature. Hive Mind must therefore speak
+**both** dialects and choose per image, keeping the default pin where `gh`
+mediation works until upstream lands a `gh`-reachable base. See R3 + R4 below.
+
+### G3 — one upstream issue is required, and two more are worth filing
+
+The `gh` base path in G4 is a genuine missing feature and must be reported. Two
+smaller things are worth reporting to `link-assistant/router` alongside it, as
+the issue's rule directs:
 
 1. **A single merged catalogue route.** Hive Mind must currently fan out to five
    service-specific routes and normalise three different response shapes
@@ -319,7 +370,9 @@ worth reporting to `link-assistant/router` as the issue's rule directs:
    satisfiable from the router alone, with models.dev demoted to a true
    last-resort fallback rather than the primary metadata source.
 
-These are enhancements, not blockers; the plan below does not depend on them.
+The last two are enhancements, not blockers; the plan below does not depend on
+them. G4 is a blocker for moving the default pin, and the plan below is shaped
+around not waiting for it.
 
 ---
 
@@ -460,25 +513,45 @@ network call to a preview API.
 
 ### R3 + R4 — router pin, routes, and credential adoption
 
-One coordinated change to `src/router-isolation.lib.mjs`:
+G1 and G4 together decide the shape: the routes must move, but the default pin
+must not, because moving it deletes `gh` mediation. So Hive Mind learns **both
+dialects** and picks one per image, instead of hard-coding either.
 
-1. Move `ROUTER_SIDECAR_IMAGE` to `ghcr.io/link-assistant/router:1.2.0`.
-2. Introduce `ROUTER_SERVICE_PATHS` as the single place the `/api/services/*`
-   prefixes are spelled, and derive `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`, the
-   Codex `base_url`, the git `insteadOf` and the gh REST base from it (G1's
-   table). Wire Gemini and Qwen, which were never wired.
-3. Point the health check at `/api/health` and the token mint/revoke calls at
-   the management listener.
+1. A new leaf module `src/router-routes.lib.mjs` holds two frozen route tables —
+   `legacy` (`0.x`: `/health`, `/v1`, `/api/v3`, `/git`) and `canonical`
+   (`≥ 1.0`: `/api/health`, `/api/management/*`, `/api/services/*`) — plus
+   `resolveRouterRouteDialect({ image, env })`, which parses the pinned image
+   tag and is overridable with `HIVE_MIND_ROUTER_ROUTES`. Both tables are
+   asserted against the measured status codes, so neither can drift silently.
+2. Derive every URL from the resolved dialect rather than string-concatenating
+   at each call site: `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL` (per tool —
+   codex, openai, qwen differ), the Codex `config.toml` `base_url`, the git
+   `insteadOf`, the gh REST base, and the catalogue paths R2 consumes. Wire
+   Gemini and Qwen, which were never wired at all.
+3. Point the health check and the token mint/revoke calls at the dialect's
+   health and management paths.
 4. Call `router auth claude --from-claude-home` and
    `router auth codex --from-codex-home` during sidecar initialization, so R3's
    "initialized" is satisfied and not just "mounted".
-5. Send the `originator` header the newer models require.
-6. Update `docs/ROUTER.md` (+ `.zh` / `.hi` / `.ru`) — in particular the
+5. Pass `CODEX_CLIENT_VERSION` to the sidecar, derived from the codex CLI
+   actually installed (`readInstalledCliVersion` in
+   `src/agentic-cli-updater.lib.mjs`), so the ChatGPT backend does not gate the
+   newest models behind the router's compiled-in `0.144.1` default.
+6. Keep the default `ROUTER_SIDECAR_IMAGE` at `0.119.0` and make the image
+   selectable with `HIVE_MIND_ROUTER_IMAGE`, so an operator can run `1.2.0`
+   today and get the live catalogues, `--pick-model` and the split listeners,
+   at the documented cost of `gh` REST/GraphQL mediation (G4).
+   `describeRouterCoverageGaps` reports that trade-off per dialect instead of
+   leaving it implicit. When upstream lands a `gh`-reachable base, moving the
+   default becomes a one-line change with the tests already in place.
+7. File the G4 issue upstream, and the two G3 enhancements.
+8. Tests in the `tests/test-issue-2164-router-*.mjs` family, asserting the
+   built URLs for **both** dialects against the route tables in
+   `data/upstream/` and the measured status codes, so the next pin bump fails
+   loudly instead of silently.
+9. Update `docs/ROUTER.md` (+ `.zh` / `.hi` / `.ru`) — in particular the
    "Model aliases are rejected" limitation, which `--pick-model` and the
    catalogue merge now give a real answer to.
-7. Tests in the `tests/test-issue-2164-router-*.mjs` family, asserting the
-   built URLs against the route table in `data/upstream/`, so the next pin bump
-   fails loudly instead of silently.
 
 Given the "Claude Code 2.1.255 or newer" floor in the router's own client guide
 and the 2.1.251 measured here, R4 and R6 are the same fix seen from two sides.
@@ -531,7 +604,7 @@ Reuse `updateAgenticClisWhenIdle()` from `src/agentic-cli-updater.lib.mjs`:
 
 Delivered by this folder: `data/github/` (the issue and PR feeds),
 `data/hive-mind/` (the pinned code state), `data/upstream/` (the router's
-release history and route table), `data/measurements/` (five reproducible
+release history and route table), `data/measurements/` (six reproducible
 measurements), `data/research/` (vendor-quoted specs and citations),
 [`MANIFEST.md`](MANIFEST.md) (SHA-256 for every file), and Parts 1–5 above.
 
@@ -550,10 +623,12 @@ Each step is committable on its own and leaves the tree green.
    public surface is unchanged. This follows the extraction precedent of issue
    #2198 and gives step 3 one obvious thing to merge the live catalogue
    against.
-3. `src/model-catalogue.lib.mjs` — sources, merge, TTL cache, token-free
+3. `src/router-routes.lib.mjs` + the dual-dialect migration, credential
+   adoption and docs (R3, R4). This comes **before** the hot-load mechanism
+   because the router is the first and best catalogue source, and R2 needs the
+   dialect-aware catalogue paths this step introduces.
+4. `src/model-catalogue.lib.mjs` — sources, merge, TTL cache, token-free
    guarantee and its test (R2, R7, R8, R9).
-4. Router pin + `/api/services/*` migration + credential adoption + docs
-   (R3, R4).
 5. `/models` Telegram command and `hive-models` bin (R5).
 6. Updater wiring into `/models` and the solve/task/fix paths (R6).
 7. Docs (`README.md`, `docs/MODELS.md` + `.zh`/`.hi`/`.ru`), changeset, version
@@ -563,10 +638,17 @@ Each step is committable on its own and leaves the tree green.
 
 - **Preview-gated models will not appear for most accounts.** By design (G2).
   `/models` says so rather than pretending otherwise.
-- **The router bump is the riskiest step.** It changes every URL `--use-router`
-  emits. It is gated behind an opt-in experimental flag today, which is what
-  makes it acceptable to do in one PR; the URL-shape tests are what make it
-  reviewable.
+- **The route migration is the riskiest step.** It changes every URL
+  `--use-router` emits. It is gated behind an opt-in experimental flag today,
+  which is what makes it acceptable to do in one PR; the per-dialect URL-shape
+  tests are what make it reviewable.
+- **`gh` mediation and router `1.x` are mutually exclusive today** (G4). The
+  default pin stays at `0.119.0` for that reason, so nothing that #2164
+  shipped is removed. Choosing `1.x` via `HIVE_MIND_ROUTER_IMAGE` is an
+  informed trade, reported by `describeRouterCoverageGaps` rather than
+  discovered at runtime. This is the one requirement in the issue that cannot
+  be fully satisfied from inside this repository; the upstream issue is the
+  remedy the issue itself prescribes.
 - **Not a goal: changing any default model.** Fable 5.1 and GPT-6 Astra are both
   more expensive than the current defaults and both are, today, gated. They
   become selectable, not automatic.

@@ -52,7 +52,7 @@ import path from 'node:path';
 //   - `stopRequestedByUser`/`stopRequestedBy` must survive a restart too: with
 //     `--on-session-kill=resume` now the default, forgetting that an operator
 //     asked for the stop would relaunch the very work they cancelled.
-const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'killRecoveryResumed', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
+const PERSISTABLE_FIELDS = ['chatId', 'messageId', 'startTime', 'url', 'command', 'commandAlias', 'isolationBackend', 'sessionId', 'executionUuid', 'containerFilesystemStartBytes', 'containerFilesystemLastBytes', 'containerFilesystemLastObservedAt', 'tool', 'infoBlock', 'urlContext', 'requesterUserId', 'showLimits', 'locale', 'logPath', 'args', 'completionNotifiedAt', 'completionExitCode', 'completionStatus', 'lastToolSessionId', 'killRecoveryAttempts', 'killRecoverySessionId', 'killRecoveryOfSession', 'killRecoveryResumed', 'killRecoveryInPlace', 'killRecoveryResumeMode', 'stopRequestedByUser', 'stopRequestedBy', 'onSessionKill', 'resolvedPullRequestUrl'];
 
 /**
  * Resolve the directory durable bot state is written to. Honors

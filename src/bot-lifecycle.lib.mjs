@@ -84,6 +84,52 @@ export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DE
 }
 
 /**
+ * Reconcile the isolation backend's own view of still-running executions.
+ *
+ * Issue #2189: the detached-docker completion watchers are children of the
+ * process that launched them, so a bot restart leaves every running container
+ * unsupervised — its exit is never written to the log footer, which is one of
+ * the ways the reported session stayed in limbo. `$ --resume-all`
+ * (start-command >= 0.33.0) re-attaches a watcher to what is still alive and
+ * finalizes what died meanwhile; it starts no work on its own.
+ *
+ * Run *before* the durable store is replayed so the first monitor tick reads
+ * settled state rather than racing upstream's reconciliation. An older `$`
+ * without the verb, or no isolation at all, is a no-op — never an error.
+ *
+ * @returns {Promise<{attempted: boolean, reconciled: number, reattached: number, running: number, unsupported: boolean, error: string|null}>}
+ */
+async function reconcileIsolationExecutions({ reconcileIsolationSessions, verbose, logger, consoleImpl }) {
+  const idle = { attempted: false, reconciled: 0, reattached: 0, running: 0, unsupported: false, error: null };
+  if (typeof reconcileIsolationSessions !== 'function') return idle;
+  try {
+    const result = await reconcileIsolationSessions({ verbose });
+    const executions = Array.isArray(result?.executions) ? result.executions : [];
+    const count = action => executions.filter(entry => entry?.action === action).length;
+    const summary = {
+      attempted: true,
+      reconciled: count('reconciled'),
+      reattached: count('reattached'),
+      running: count('running'),
+      unsupported: result?.unsupported === true,
+      error: result?.success === false && result?.unsupported !== true ? result?.error || 'unknown error' : null,
+    };
+    if (summary.reconciled > 0 || summary.reattached > 0) {
+      consoleImpl.log(`♻️  Reconciled ${executions.length} isolated execution(s) with the isolation backend (${summary.reattached} re-attached, ${summary.reconciled} finalized after running unsupervised)`);
+    } else if (verbose) {
+      consoleImpl.log(`[VERBOSE] resume-all: ${summary.unsupported ? 'this `$` build has no --resume-all; skipped' : `${executions.length} execution(s), nothing to re-attach`}`);
+    }
+    logger?.event?.('isolation_executions_reconciled', summary);
+    return summary;
+  } catch (error) {
+    // Startup reconciliation is best effort by construction: it must never be
+    // able to stop the bot from coming up.
+    consoleImpl.error(`[telegram-bot] Could not reconcile isolated executions: ${error?.message || error}`);
+    return { ...idle, attempted: true, error: error?.message || String(error) };
+  }
+}
+
+/**
  * Resume sessions left tracked by a previous run (requirements #2/#4).
  *
  * After a restart, reload sessions that were still being tracked when the
@@ -92,9 +138,14 @@ export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DE
  * `sessions_resumed` event either way and never throws: a resume failure must
  * not stop the bot from coming up.
  *
- * @returns {Promise<{ resumed: any[], skipped: any[], error?: Error }>}
+ * Issue #2189 added the step before it: `reconcileIsolationSessions`
+ * (`$ --resume-all`) settles the isolation backend's own record of what is
+ * still running, so the replayed sessions are matched against the truth.
+ *
+ * @returns {Promise<{ resumed: any[], skipped: any[], reconciliation: object, error?: Error }>}
  */
-export async function resumeSessionsOnLaunch({ resumeTrackedSessions, botStartTime, verbose = false, logger, consoleImpl = console } = {}) {
+export async function resumeSessionsOnLaunch({ resumeTrackedSessions, reconcileIsolationSessions = null, botStartTime, verbose = false, logger, consoleImpl = console } = {}) {
+  const reconciliation = await reconcileIsolationExecutions({ reconcileIsolationSessions, verbose, logger, consoleImpl });
   try {
     const { resumed, skipped } = await resumeTrackedSessions({ botStartTime, verbose });
     if (resumed.length > 0) {
@@ -105,11 +156,11 @@ export async function resumeSessionsOnLaunch({ resumeTrackedSessions, botStartTi
       skipped: skipped.length,
       sessions: resumed.map(r => r.sessionName),
     });
-    return { resumed, skipped };
+    return { resumed, skipped, reconciliation };
   } catch (error) {
     consoleImpl.error(`[telegram-bot] Failed to resume tracked sessions: ${error.message}`);
     logger.error('Failed to resume tracked sessions', { error: error.message });
-    return { resumed: [], skipped: [], error };
+    return { resumed: [], skipped: [], reconciliation, error };
   }
 }
 

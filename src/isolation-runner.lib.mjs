@@ -1,4 +1,3 @@
-import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 /**
  * Isolation Runner for Telegram bot
  *
@@ -30,30 +29,22 @@ import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCre
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
-let commandStreamDollarPromise = null;
-async function getCommandStreamDollar() {
-  if (!commandStreamDollarPromise) {
-    commandStreamDollarPromise = (async () => {
-      if (typeof globalThis.use === 'undefined') {
-        await ensureUseM();
-      }
-      const { $ } = await globalThis.use('command-stream');
-      return $;
-    })();
-  }
-  try {
-    return await commandStreamDollarPromise;
-  } catch (error) {
-    commandStreamDollarPromise = null;
-    throw error;
-  }
-}
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
 // Issue #2175: the `$` output parsers live in their own module to keep this file
 // under the 1350-line warning threshold. Re-exported so importers are unaffected.
 import { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus } from './isolation-runner.parsers.lib.mjs';
 export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput, parseSessionStatusOutput, parseStartCommandExecutionUuid, readSessionExitFromLog, shouldFallbackToScreenStatus };
+// Issue #2189: the `$` loader and PATH lookup live in their own module so the
+// resume/attach wrappers can use them without importing this runner (a cycle).
+import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
+export { findStartCommandBinary };
+// Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
+// (link-foundation/start#162). Re-exported so callers keep reaching every
+// isolation verb through this module.
+import { resumeAllIsolationSessions, resumeIsolatedSession } from './isolation-runner.resume.lib.mjs';
+export { resumeAllIsolationSessions, resumeIsolatedSession };
+export { parseExecutionResumeAllOutput, parseExecutionResumeOutput, RESUME_ALL_ACTIONS, RESUME_MODES } from './isolation-runner.resume.lib.mjs';
 // Valid isolation backends
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 const DOCKER_CONTAINER_HOME = '/home/box';
@@ -310,20 +301,6 @@ async function runStartCommand(binPath, startCommandArgs) {
  */
 export function generateSessionId() {
   return crypto.randomUUID();
-}
-/**
- * Find the `$` CLI binary path
- * @returns {Promise<string|null>} Path to `$` binary or null
- */
-async function findStartCommandBinary() {
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`which $`;
-    const path = result.stdout?.toString().trim() || '';
-    return path || null;
-  } catch {
-    return null;
-  }
 }
 /**
  * Verbose post-launch diagnostics for a native docker-isolated session.
@@ -611,6 +588,21 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
         console.log(`[VERBOSE] isolation-runner: $ --stop ${sessionId} stderr: ${stderr.substring(0, 300)}`);
       }
     }
+    // Issue #2189: `command-stream`'s `$` resolves — it does not throw — when the
+    // child exits non-zero, so the catch below never sees a refusal. `$ --stop`
+    // answers `Error: No execution found with UUID or session name: …` on stderr
+    // with exit code 1; without this check every such refusal was reported to the
+    // operator as a successful stop, and a session nobody stopped looked handled.
+    const code = Number.isFinite(result.code) ? result.code : 0;
+    if (code !== 0) {
+      // describeChildExit rather than an interpolated code: issue #2135 made it
+      // the single vocabulary for "how a child ended", so a `$` that was
+      // signalled reads the same way here as everywhere else. command-stream
+      // normalizes a signalled exit to 128+signum before we see it
+      // (node_modules/command-stream/src/$.process-runner-stream-kill.mjs:194),
+      // so there is no separate signal to pass.
+      return { success: false, output: stdout, error: stderr.trim() || describeChildExit({ command: '`$ --stop`', code }) };
+    }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {
     const stderr = error?.stderr?.toString?.() || '';
@@ -674,6 +666,37 @@ export async function checkDockerContainerRunning(containerName, verbose = false
       console.log(`[VERBOSE] isolation-runner: docker inspect for '${containerName}': ${running ? 'running' : 'not running'}`);
     }
     return running;
+  } catch {
+    // `docker inspect` exits non-zero when no such container exists.
+    return false;
+  }
+}
+/**
+ * Check whether the Docker container backing a session still exists at all —
+ * running or stopped.
+ *
+ * Issue #2189 requirement R2: a killed session should be re-entered rather than
+ * restarted from scratch, and `$ --resume` can only do that while the container
+ * is still there. `checkDockerContainerRunning` answers a different question (a
+ * stopped container is "not running" but is exactly the one worth resuming), so
+ * the state is read instead of the running flag.
+ *
+ * @param {string} containerName - Container name (the session UUID)
+ * @param {boolean} [verbose] - Enable verbose logging
+ * @returns {Promise<boolean>} True when `docker inspect` finds the container
+ */
+export async function checkDockerContainerExists(containerName, verbose = false) {
+  if (!containerName) return false;
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker inspect -f ${'{{.State.Status}}'} ${containerName}`;
+    const code = Number.isFinite(result.code) ? result.code : 0;
+    const state = (result.stdout?.toString() || '').trim();
+    const exists = code === 0 && state !== '';
+    if (verbose) {
+      console.log(`[VERBOSE] isolation-runner: docker inspect state for '${containerName}': ${exists ? state : 'no such container'}`);
+    }
+    return exists;
   } catch {
     // `docker inspect` exits non-zero when no such container exists.
     return false;

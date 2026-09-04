@@ -13,12 +13,13 @@ From https://platform.claude.com/docs/en/about-claude/models/overview:
 | Claude Opus 4.5   | claude-opus-4-5-20251101   | 64K tokens |
 
 Legacy models:
-| Model | Max Output |
-|-------|------------|
+
+| Model           | Max Output |
+| --------------- | ---------- |
 | Claude Opus 4.1 | 32K tokens |
 | Claude Sonnet 4 | 64K tokens |
-| Claude Opus 4 | 32K tokens |
-| Claude Haiku 3 | 4K tokens |
+| Claude Opus 4   | 32K tokens |
+| Claude Haiku 3  | 4K tokens  |
 
 ### GitHub Issues
 

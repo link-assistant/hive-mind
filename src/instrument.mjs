@@ -1,17 +1,6 @@
 // Lazy-load config only when needed to avoid loading use-m at module initialization
 // This prevents network fetches that can hang during --help or --version
-import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
-
-const sanitizeEventValue = (value, seen = new WeakSet()) => {
-  if (typeof value === 'string') return sanitizeCredentialText(value);
-  if (!value || typeof value !== 'object') return value;
-  if (seen.has(value)) return value;
-  seen.add(value);
-  for (const [key, item] of Object.entries(value)) {
-    value[key] = sanitizeEventValue(item, seen);
-  }
-  return value;
-};
+import { sanitizeSentryLog, sanitizeSentryValue } from './instrument.sanitize.lib.mjs';
 
 // Check if Sentry should be disabled
 const shouldDisableSentry = () => {
@@ -78,7 +67,9 @@ if (!shouldDisableSentry()) {
       environment: process.env.NODE_ENV || 'production',
       release: `hive-mind@${process.env.npm_package_version || version.default}`,
 
-      // Send structured logs to Sentry
+      // Send structured logs to Sentry. Stated explicitly even though Sentry
+      // 10.71 made it the default, so the setting stays a decision rather than
+      // whatever the SDK happens to default to next.
       enableLogs: true,
 
       // Tracing
@@ -98,7 +89,7 @@ if (!shouldDisableSentry()) {
 
       // Before send hook to filter out sensitive data
       beforeSend(event) {
-        sanitizeEventValue(event);
+        sanitizeSentryValue(event);
 
         // Filter out sensitive environment variables
         if (event.contexts && event.contexts.runtime && event.contexts.runtime.env) {
@@ -121,6 +112,13 @@ if (!shouldDisableSentry()) {
         }
 
         return event;
+      },
+
+      // Structured logs never pass through beforeSend, so they get the same
+      // masking here — otherwise a token printed by `Sentry.logger.*` would
+      // leave the process verbatim.
+      beforeSendLog(log) {
+        return sanitizeSentryLog(log);
       },
 
       // Integration specific options

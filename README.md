@@ -815,6 +815,21 @@ solve https://github.com/owner/repo/issues/123 --resume 657e6db1-6eb3-4a8d
 (cd /tmp/gh-issue-solver-123456789 && claude --resume session-id)
 ```
 
+**Killed sessions recover themselves.** With `--on-session-kill=resume` (the
+default) a working session killed by the out-of-memory killer, a full disk or a
+forced kill is restarted automatically, bounded by
+`--session-kill-resume-attempts`. When the isolation backend allows it and `$`
+(`start-command`) is at least 0.33.0, the recovery session **re-enters the same
+container** instead of starting from scratch, so the clone, the caches and the
+half-finished branch survive.
+
+**A bot restart never orphans in-flight work.** On startup the Telegram bot
+reconciles the isolation backend's own view of still-running executions
+(`$ --resume-all`): what is still alive gets its completion watcher back, what
+died unsupervised is finalized and reported. See
+[docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for `--on-session-kill` and
+`--session-kill-resume-attempts`.
+
 ### Disk Cleanup
 
 `hive-cleanup` frees disk space by removing stale hive-mind temporary

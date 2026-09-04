@@ -95,7 +95,7 @@ not call `sanitizeLogContent`. The fix is plumbing, not pattern coverage.
    sanitizer also includes known-local tokens (env vars + `gh auth status`
    tokens) so even unknown patterns still get masked.
 2. **Tighten masking to `first-3 + \*** + last-3`** to match the issue's
-requirement (was `first-5 + \*\*\* + last-5`).
+   requirement (was `first-5 + \*\*\* + last-5`).
 3. **Hook leak alerting** — when a comment body is detected to contain any
    known-local token, the bridge logs a warning and (when a telegram notifier
    is registered) DMs the owner of the chat that started the session.

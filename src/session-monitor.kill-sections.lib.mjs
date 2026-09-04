@@ -95,6 +95,14 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
       exitCode,
       stopRequestedByUser: sessionInfo?.stopRequestedByUser === true,
       locale,
+      // start-command 0.33.0 scans the log tail for fatal markers when the
+      // command exits and reports what it found (link-foundation/start#164,
+      // #165 — both filed from this issue). Pass it through: `$` saw the exit
+      // live, so it can carry evidence our bounded re-read of a huge log may
+      // have missed. Absent on an older `$`, which is why the local scan stays.
+      reportedMemoryExhausted: statusResult?.memoryExhausted ?? null,
+      reportedMemoryExhaustedReason: statusResult?.memoryExhaustedReason ?? null,
+      reportedExitReason: statusResult?.exitReason ?? null,
     });
 
     const argv = argvFromSessionArgs(sessionInfo?.args);

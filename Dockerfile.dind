@@ -152,7 +152,7 @@ RUN bun install -g @openai/codex && \
     bun install -g @github/copilot && \
     bun install -g opencode-ai
 
-# start-command is pinned to 0.32.1: 0.29.1 fixed detached docker
+# start-command is pinned to 0.33.0: 0.29.1 fixed detached docker
 # `--status`/`--list` reporting a terminal status (`executed`) with the `-1`
 # sentinel while the container is still running (link-foundation/start#136,
 # link-assistant/hive-mind#1939); 0.29.2 (start#138 / start PR #139) records the
@@ -178,6 +178,18 @@ RUN bun install -g @openai/codex && \
 # baseline, and the in-repo attach keeps working (fail-closed) on any
 # start-command version instead of silently degrading to a single network on
 # pre-0.32.0 parsers (see docs/case-studies/issue-2146, issue #2146).
+# 0.33.0 (start#162, #164, #165) closes the three upstream issues this repo filed
+# from the issue #2189 incident: `--attach` / `--resume <uuid>` / `--resume-all`
+# re-enter an existing execution — same container, same execution UUID — instead
+# of forcing a fresh isolated run (start#162); `--status`/`--list` expose
+# `exitReason` and `memoryExhausted`/`memoryExhaustedReason`, so a V8 heap
+# self-abort (`FATAL ERROR: Reached heap limit`, exit 134/139 with `oomKilled`
+# false and cgroup `oom_kill` 0) is no longer indistinguishable from a forced
+# kill (start#164); and the exit markers are detected in a bounded 64 KiB log-tail
+# window instead of buffering the whole log (start#165). Hive Mind consumes all
+# three and keeps its own log-marker kill classification and streaming sanitizer
+# as defense in depth, so behaviour degrades gracefully on an older `$` binary
+# (see docs/case-studies/issue-2189, issue #2189).
 RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     bun install -g "@link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     if [ "${HIVE_MIND_VERSION}" != "latest" ]; then \
@@ -185,7 +197,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
     bun install -g @link-assistant/agent && \
-    bun install -g start-command@0.32.1 && \
+    bun install -g start-command@0.33.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \
     bun install -g gh-load-issue && \

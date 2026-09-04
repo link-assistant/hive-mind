@@ -64,7 +64,7 @@ export const formatWorkingSessionSummaryMarkdown = text => {
   let inFence = false;
   let previousNonEmpty = '';
 
-  for (let index = 0; index < lines.length; ) {
+  for (let index = 0; index < lines.length;) {
     const line = lines[index];
     if (/^\s*(```|~~~)/.test(line)) {
       inFence = !inFence;

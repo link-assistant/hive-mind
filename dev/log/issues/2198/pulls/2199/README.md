@@ -8,12 +8,12 @@ Evidence pack and deep analysis for
 
 | Path | What it holds |
 | --- | --- |
-| `github/` | Issue #2198, PR #2199, the two default-branch runs, job lists, recent run index |
+| `github/` | Issue #2198, PR #2199, the two default-branch runs, job lists, recent run index, and the repository's open code-scanning alerts (`code-scanning-open-alerts.json`, the 130-alert backlog of F17; `code-scanning-alerts-256-257.json`, the two raised against this PR) |
 | `ci-logs/` | Full log of run 33861728465 ("Checks and release", **failed**) and 33861728549 ("Security", success), plus the isolated `Release` job. Stored gzipped (`gunzip -k` to read) — `.gitignore` excludes `*.log`, so a raw log here would be silently untracked, and the line numbers cited in `analysis/` refer to the decompressed files |
 | `workflows-before/` | The three workflow files as they stood before this PR |
 | `template-workflows/`, `template-scripts/`, `template-head.txt` | Snapshot of `link-foundation/js-ai-driven-development-pipeline-template` at `7ae16b0e` (tag 0.11.28, 2026-09-03) |
 | `local/` | Before/after output of every linter run locally: actionlint, zizmor, secretlint, the `npm link` matrix, the reproduction of the release failure, the full test run |
-| `analysis/` | Per-finding root-cause write-ups `F0`–`F16`, plus the implementation log |
+| `analysis/` | Per-finding root-cause write-ups `F0`–`F17`, plus the implementation log |
 
 Reproduction experiments are kept in the repository at `experiments/issue-2198/` and
 `experiments/npm-link-allow-scripts.sh`.
@@ -22,8 +22,8 @@ Reproduction experiments are kept in the repository at `experiments/issue-2198/`
 
 | # | Requirement | Status |
 | --- | --- | --- |
-| R1 | Check for **all false positives** in CI/CD and fix them all | 5 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs), F16 (this PR's own check red on an npm rename) |
-| R2 | Check for **all false negatives** and fix them all | 8 found — F3, F5, F8, F9, F10, F12, F14, and F15, which this PR's own green runs were hiding |
+| R1 | Check for **all false positives** in CI/CD and fix them all | 6 found — F7 (a test pinning `read-all`), F9 (code spans read as links), F11 (zizmor vs actionlint), F14 (13 unreachable-by-design URLs), F16 (this PR's own check red on an npm rename), F17 (CodeQL reading a test log search as URL sanitization) |
+| R2 | Check for **all false negatives** and fix them all | 9 found — F3, F5, F8, F9, F10, F12, F14, F15 (which this PR's own green runs were hiding), and F17's second half: `Security` is green over 130 open CodeQL alerts, because the gate is a repository setting no pull request can reach |
 | R3 | Check for **all warnings** and fix them all | The run's entire `::warning` inventory is 2 annotations (F6) plus 4 `npm warn` lines (F4, still absent after npm's 11.19 rename — F16); both cleared |
 | R4 | Check for **all errors** and fix them all | 1 — the `Release` job failure (F1), root-caused and fixed |
 | R5 | Compare the **full file tree** against the JS pipeline template and reuse the best practices | `analysis/F13-template-gap-analysis.md` — 5 adopted, 4 deferred with reasons, 4 places hive-mind is ahead |
@@ -83,6 +83,7 @@ when the question is "was this code tested" (F15).
 | 2026-09-04 14:52 | Run [33886267473](https://github.com/link-assistant/hive-mind/actions/runs/33886267473) starts at `237acd2d` (the extraction above) and is **cancelled while still queued** — the API records zero jobs for it. (F15) |
 | 2026-09-04 14:53 | Run [33886365226](https://github.com/link-assistant/hive-mind/actions/runs/33886365226), one docs commit later, reports **success** with `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` skipped. All four workflows green; the extraction inside them tested by nothing. (F15) |
 | 2026-09-04 15:35 | Run [33890315861](https://github.com/link-assistant/hive-mind/actions/runs/33890315861) is the first on this branch whose code jobs the F15 fix keeps alive — `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` all run instead of skipping. `test-suites` fails, on F4's own test. (F15, F16) |
+| 2026-09-04 15:35 | `github-advanced-security[bot]` has two open high-severity alerts on this PR's own test file, and 130 more are open on `main` under a green `Security` workflow. (F17) |
 | 2026-09-04 (same run) | The runners are on npm 11.19.0, which renamed `npm warn allow-scripts` to `npm warn install-scripts`. F4's test matched the old label verbatim, so a rename was reported as "npm fixed linkPkg()". It had not. (F16) |
 
 ## Findings
@@ -114,6 +115,11 @@ when the question is "was this code tested" (F15).
 
 ### False positives
 
+- **[F17](analysis/F17-codeql-alerts-never-gate.md)** — CodeQL read two of this PR's
+  test assertions as incomplete URL sanitization. Wrong about the security property,
+  right about the code: both are now exact host comparisons, and the tighter form
+  caught an unasserted retry budget. High. Also documents the 130 alerts `Security`
+  stays green over.
 - **[F16](analysis/F4-npm-link-allow-scripts-warning.md#f16--the-fixs-own-check-went-red-on-a-rename-2026-09-04)** —
   F4's own test keyed on a vendor label, so npm 11.19 renaming it turned `test-suites`
   red under the message "npm fixed linkPkg()". npm had not. Medium.

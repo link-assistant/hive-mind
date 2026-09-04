@@ -63,3 +63,10 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   allowScripts policy, and `--ignore-scripts` is still the only lever that works.
   The check now keys on the sentence that states the defect, pins both shipped
   labels as samples, and no longer asserts a cause it cannot distinguish.
+- F17: CodeQL flagged two of this PR's own test assertions as incomplete URL
+  sanitization. The alert was wrong about the security property — the flagged value
+  is a log the test's own mock wrote, not a URL anyone trusts — and right about the
+  code: `calls.includes('mirror.gcr.io')` was never what "the mirror was contacted"
+  meant. The assertions now compare registry hosts by equality, which retires both
+  alerts at the source and, being exact, immediately caught a retry budget no test
+  had been asserting.

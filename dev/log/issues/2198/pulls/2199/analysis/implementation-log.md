@@ -230,7 +230,7 @@ the original defect, and restoring the `return null` draft fails the widening as
 
 The template has the same hole through two routes, one of which needs no cancellation at
 all — reproduced with its own detector in
-[`experiments/issue-2198/template-detect-changes-untested-commits.sh`](../../../../../../experiments/issue-2198/template-detect-changes-untested-commits.sh)
+[`experiments/issue-2198/template-detect-changes-untested-commits.sh`](../../../../../../../experiments/issue-2198/template-detect-changes-untested-commits.sh)
 and reported as
 [js-ai-driven-development-pipeline-template#156](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/156).
 
@@ -268,6 +268,36 @@ the bare-link assertion fail. 11 passed, 0 failed under each npm.
 The failure message was the other half of the defect. It named one cause — "npm
 fixed linkPkg()" — for a symptom with two, and the wrong one was the one that
 happened. It now names both and points at the experiment that separates them.
+
+## F17 — the alerts that were already on this PR
+
+Checking PR #2199 for review comments before finishing turned up two, both from
+`github-advanced-security[bot]`, both high severity, both on
+`tests/setup-buildx-resilient.test.mjs` — the test written for F10 in this same
+PR. They had been sitting there since 14:27.
+
+CodeQL called `result.calls.includes('mirror.gcr.io')` incomplete URL
+sanitization. It is not sanitization at all: `result.calls` is a file the
+test's own mock `docker` wrote, and nothing downstream trusts it. But the
+assertion really was loose — "the mirror was contacted" should mean a pull
+whose registry *is* the mirror, and a substring search says only that the name
+appeared somewhere.
+
+Rewriting it as a structured comparison over parsed `docker` calls retires both
+alerts without suppressing anything, and failed on the first run: with both
+registries down the mirror is attempted twice, once per `PREPULL_ATTEMPTS`, and
+the loose assertion could not tell one attempt from two. The retry budget is now
+pinned — mutating `PREPULL_ATTEMPTS` from 2 to 3 fails the test.
+
+The wider state came out while checking whether the rule fired elsewhere.
+`analyze@v4` carries no severity threshold and does not fail a job on findings,
+so `Security` is green while `main` carries 130 open alerts — 1 critical, 106
+high. That is this issue's own shape, and it is also outside this PR's reach:
+the threshold lives in repository settings, and enabling it today would fail
+every PR against a backlog nobody has triaged. Inventoried in
+`analysis/F17-codeql-alerts-never-gate.md` so the decision can be made
+deliberately; the alerts themselves are application-code findings and belong in
+their own issue.
 
 ## Verification state
 

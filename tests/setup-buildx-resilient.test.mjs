@@ -138,13 +138,58 @@ function runCase({ canonicalOk, mirrorOk }) {
   };
 }
 
+// The two constants the fixture is configured with, named once so the
+// assertions below compare against the same values `runCase` passes in.
+const REGISTRY_MIRROR = 'mirror.gcr.io';
+const BUILDKIT_IMAGE = 'moby/buildkit:buildx-stable-1';
+
+/**
+ * The registry host of a Docker image reference, or '' for an implicit Docker
+ * Hub reference: `moby/buildkit:tag` -> '', `mirror.gcr.io/moby/buildkit:tag`
+ * -> 'mirror.gcr.io'. The first segment is a registry only if it looks like a
+ * host (contains a dot or a port) or if segments follow it on both sides.
+ */
+const registryOf = ref => {
+  const [head, ...rest] = ref.split('/');
+  return rest.length >= 2 || head.includes('.') || head.includes(':') ? head : '';
+};
+
+/** One `{ command, args }` per line the mock `docker` recorded. */
+const dockerCalls = log =>
+  log
+    .split('\n')
+    .filter(line => line.trim() !== '')
+    .map(line => {
+      const [command, ...args] = line.trim().split(/\s+/);
+      return { command, args };
+    });
+
+/** The image references a recorded log pulled from one specific registry. */
+const pullsFromRegistry = (log, registry) =>
+  dockerCalls(log)
+    .filter(call => call.command === 'pull')
+    .map(call => call.args[0] ?? '')
+    .filter(ref => registryOf(ref) === registry);
+
+/** Every image reference the mock actually served, one per line. */
+const pulledRefs = log => log.split('\n').filter(line => line.trim() !== '');
+
+// These read the recorded log as structured calls rather than searching it as
+// one string. That is the more exact assertion -- "the mirror was contacted"
+// should mean a pull whose *registry* is the mirror, not the mirror's name
+// appearing anywhere, in any argument, in any order -- and it also retires
+// CodeQL alerts 256 and 257, which read `calls.includes('mirror.gcr.io')` as
+// incomplete URL sanitization. The alert was a false positive about the
+// security property (this is a test log, not an access decision) and correct
+// about the code: a substring search was never what these lines meant.
+
 describe('setup-buildx-resilient pre-pull script', () => {
   it('caches the canonical image and never touches the mirror when Docker Hub is healthy', () => {
     const result = runCase({ canonicalOk: true, mirrorOk: false });
 
     assert.equal(result.status, 0, result.output);
-    assert.ok(result.pulled.includes('moby/buildkit:buildx-stable-1'), 'the canonical image is pulled');
-    assert.ok(!result.calls.includes('mirror.gcr.io'), 'the mirror is not contacted when the canonical registry works');
+    assert.ok(pulledRefs(result.pulled).includes(BUILDKIT_IMAGE), 'the canonical image is pulled');
+    assert.deepEqual(pullsFromRegistry(result.calls, REGISTRY_MIRROR), [], 'the mirror is not contacted when the canonical registry works');
     assert.equal(result.tagged.trim(), '', 'nothing is re-tagged on the happy path');
   });
 
@@ -152,8 +197,13 @@ describe('setup-buildx-resilient pre-pull script', () => {
     const result = runCase({ canonicalOk: false, mirrorOk: true });
 
     assert.equal(result.status, 0, result.output);
-    assert.ok(result.pulled.includes('mirror.gcr.io/moby/buildkit:buildx-stable-1'), 'the mirror serves the image');
-    assert.ok(result.tagged.includes('tag mirror.gcr.io/moby/buildkit:buildx-stable-1 moby/buildkit:buildx-stable-1'), 'the mirrored image is re-tagged to its canonical reference so the buildx boot finds it locally');
+    assert.deepEqual(pullsFromRegistry(result.calls, REGISTRY_MIRROR), [`${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}`], 'the mirror is asked for exactly the pinned image');
+    assert.ok(pulledRefs(result.pulled).includes(`${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}`), 'the mirror serves the image');
+    assert.deepEqual(
+      dockerCalls(result.tagged).filter(call => call.command === 'tag'),
+      [{ command: 'tag', args: [`${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}`, BUILDKIT_IMAGE] }],
+      'the mirrored image is re-tagged to its canonical reference so the buildx boot finds it locally'
+    );
   });
 
   it('falls through non-fatally when both the registry and the mirror are down', () => {
@@ -163,7 +213,11 @@ describe('setup-buildx-resilient pre-pull script', () => {
     // its own pull, preserving the previous worst-case behaviour. A pre-pull
     // that could fail the job would be a new failure mode, not a fix.
     assert.equal(result.status, 0, result.output);
-    assert.ok(result.calls.includes('mirror.gcr.io'), 'the mirror was attempted');
+    // Twice, not once: `runCase` sets PREPULL_ATTEMPTS=2, and a mirror that is
+    // also down gets the same retry budget as the canonical registry. The
+    // substring check this replaced could not see the difference between one
+    // attempt and two, so the retry budget was asserted by nobody.
+    assert.deepEqual(pullsFromRegistry(result.calls, REGISTRY_MIRROR), [`${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}`, `${REGISTRY_MIRROR}/${BUILDKIT_IMAGE}`], 'the mirror was attempted, once per configured pre-pull attempt');
     assert.ok(result.output.includes('could not pre-pull'), 'the warning names the situation');
   });
 });

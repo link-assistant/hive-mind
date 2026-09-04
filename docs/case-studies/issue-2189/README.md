@@ -136,18 +136,18 @@ commit that addresses it.
 
 ### From the issue body
 
-| #   | Requirement                                                                                                                                                                            | Status                                                                       |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| R1  | The bot must **initiate** the resume itself, with context preserved, instead of only offering it                                                                                       | Done — `eea64afb`                                                            |
-| R2  | Ideally re-enter the **same `$` session id / container** rather than starting a fresh isolated run                                                                                     | Blocked upstream — `link-foundation/start#162`                               |
-| R3  | On startup, resume all still-running / interrupted commands so a bot restart never orphans in-flight work                                                                              | Done — `eea64afb` (`resumeTrackedSessions`)                                  |
-| R4  | The offer/report must be timely (crash `14:07:49Z`, noticed `20:14:00Z`)                                                                                                               | Done — bounded by the poll interval once the session is in the durable store |
-| R5  | `KILL_CAUSE_OUT_OF_MEMORY` when the log tail contains `FATAL ERROR: Reached heap limit` / `JavaScript heap out of memory`, regardless of cgroup counters                               | Done — `403d3084`                                                            |
-| R6  | Decide the upload strategy from `logStats.size` **before** reading anything                                                                                                            | Done — `98923151`                                                            |
-| R7  | Sanitize as a **stream** (chunked, with an overlap window for tokens spanning a boundary), writing to a temp file; never materialise the log or any transform of it as a single string | Done — `98923151`                                                            |
-| R8  | Never sanitize the same content twice                                                                                                                                                  | Done — `98923151`                                                            |
-| R9  | **No unbounded buffering anywhere in Hive Mind** — log capture, session monitoring and comment building all memory-bounded                                                             | Done — `17b08c8a`, `ea37f10a`                                                |
-| R10 | A worker with a bounded heap for the sanitize step, to contain any residual blow-up                                                                                                    | Done — `8c3fbbdf`, Solution §4                                               |
+| #   | Requirement                                                                                                                                                                            | Status                                                                                              |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| R1  | The bot must **initiate** the resume itself, with context preserved, instead of only offering it                                                                                       | Done — `eea64afb`                                                                                   |
+| R2  | Ideally re-enter the **same `$` session id / container** rather than starting a fresh isolated run                                                                                     | Done — `78a6a679` (was blocked on `link-foundation/start#162`, delivered in `start-command@0.33.0`) |
+| R3  | On startup, resume all still-running / interrupted commands so a bot restart never orphans in-flight work                                                                              | Done — `eea64afb` (`resumeTrackedSessions`) + `df9dc818` (`$ --resume-all`)                         |
+| R4  | The offer/report must be timely (crash `14:07:49Z`, noticed `20:14:00Z`)                                                                                                               | Done — bounded by the poll interval once the session is in the durable store                        |
+| R5  | `KILL_CAUSE_OUT_OF_MEMORY` when the log tail contains `FATAL ERROR: Reached heap limit` / `JavaScript heap out of memory`, regardless of cgroup counters                               | Done — `403d3084`                                                                                   |
+| R6  | Decide the upload strategy from `logStats.size` **before** reading anything                                                                                                            | Done — `98923151`                                                                                   |
+| R7  | Sanitize as a **stream** (chunked, with an overlap window for tokens spanning a boundary), writing to a temp file; never materialise the log or any transform of it as a single string | Done — `98923151`                                                                                   |
+| R8  | Never sanitize the same content twice                                                                                                                                                  | Done — `98923151`                                                                                   |
+| R9  | **No unbounded buffering anywhere in Hive Mind** — log capture, session monitoring and comment building all memory-bounded                                                             | Done — `17b08c8a`, `ea37f10a`                                                                       |
+| R10 | A worker with a bounded heap for the sanitize step, to contain any residual blow-up                                                                                                    | Done — `8c3fbbdf`, Solution §4                                                                      |
 
 ### From comment 2 (the live follow-up)
 
@@ -158,17 +158,33 @@ commit that addresses it.
 
 ### From comment 3 (the scope comment)
 
-| #   | Requirement                                                                                                                                    | Status                                                     |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| R13 | Verify auto-recovery from OOM works **at all levels**                                                                                          | Done — see Verification                                    |
-| R14 | Verify monitoring works                                                                                                                        | Done — see Verification                                    |
-| R15 | Verify Hive Mind is not the root cause of OOM in any place in our code                                                                         | Done — `tests/test-issue-2189-bounded-buffering-sweep.mjs` |
-| R16 | Download all logs and data to `docs/case-studies/issue-2189` and do a deep case study: timeline, all requirements, root causes, solution plans | This document                                              |
-| R17 | Search online for additional facts and data                                                                                                    | See External Corroboration                                 |
-| R18 | If there is not enough data to find the actual root cause, add debug output and verbose mode for the next iteration                            | Done — `3b324d14`                                          |
-| R19 | File upstream issues with reproducible examples, workarounds and code fix suggestions                                                          | Done — `link-foundation/start#165`, `#164`                 |
-| R20 | Apply the requirements to the **entire** codebase — if the issue exists in multiple places, fix all of them                                    | Done — `ea37f10a`                                          |
-| R21 | Everything in this single pull request                                                                                                         | `link-assistant/hive-mind#2191`                            |
+| #   | Requirement                                                                                                                                    | Status                                                                                                              |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| R13 | Verify auto-recovery from OOM works **at all levels**                                                                                          | Done — see Verification                                                                                             |
+| R14 | Verify monitoring works                                                                                                                        | Done — see Verification                                                                                             |
+| R15 | Verify Hive Mind is not the root cause of OOM in any place in our code                                                                         | Done — `tests/test-issue-2189-bounded-buffering-sweep.mjs`                                                          |
+| R16 | Download all logs and data to `docs/case-studies/issue-2189` and do a deep case study: timeline, all requirements, root causes, solution plans | This document                                                                                                       |
+| R17 | Search online for additional facts and data                                                                                                    | See External Corroboration                                                                                          |
+| R18 | If there is not enough data to find the actual root cause, add debug output and verbose mode for the next iteration                            | Done — `3b324d14`                                                                                                   |
+| R19 | File upstream issues with reproducible examples, workarounds and code fix suggestions                                                          | Done — `link-foundation/start#162`, `#164`, `#165`; all three delivered in `start-command@0.33.0` and consumed here |
+| R20 | Apply the requirements to the **entire** codebase — if the issue exists in multiple places, fix all of them                                    | Done — `ea37f10a`                                                                                                   |
+| R21 | Everything in this single pull request                                                                                                         | `link-assistant/hive-mind#2191`, then `#2197` for the upstream follow-through                                       |
+
+### From comment 4 (the dependency follow-through)
+
+> "We need to finish this issue by actually updating
+> [link-foundation/start](https://github.com/link-foundation/start) (as we
+> reported issues there and they are now delivered) and all other dependencies
+> we have in the repository. We also should see what changed, and use all
+> relevant best practices from all our dependencies in all our supported
+> languages."
+
+| #   | Requirement                                                                          | Status                                                                                                                                      |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| R22 | Update `start-command` to the version that delivers the three issues filed from here | Done — `7687f647` pins `0.33.0` in both images                                                                                              |
+| R23 | Consume what it delivers, rather than only pinning it                                | Done — `60750f4a` (hints), `48603fd4`/`1211d554` (`--resume`/`--resume-all` wrappers), `78a6a679` (R2), `df9dc818` (startup reconciliation) |
+| R24 | Update all other dependencies                                                        | Done — see Dependency Follow-Through                                                                                                        |
+| R25 | See what changed and adopt the relevant best practices from them                     | Done — see Dependency Follow-Through                                                                                                        |
 
 ## Findings
 
@@ -516,6 +532,22 @@ Test files added by this change:
 - `tests/test-issue-2134-killed-session-recovery.mjs` — extended for the new
   default policy.
 
+Added while consuming `start-command@0.33.0` (see Dependency Follow-Through):
+
+- `tests/test-issue-2189-isolation-resume.mjs` — the `--resume` / `--resume-all`
+  parsers and both wrappers, including the exit-code check that
+  `command-stream`'s resolving `$` makes necessary, an older `$` degrading to
+  `unsupported`, a real refusal, a missing `$`, and the same fix applied to
+  `$ --stop`.
+- `tests/test-issue-2189-same-container-resume.mjs` — the in-place resume policy
+  (Formal AI and `--use-router` tasks excluded), the attempt against a stub
+  runner, and end to end through `recoverKilledSession`: no fresh container is
+  launched, the execution UUID is preserved, and the fallback path still gets
+  its own UUID.
+- `tests/test-issue-2189-startup-resume-all.mjs` — reconciliation runs before the
+  durable store is replayed, reports what it did, and never blocks startup when
+  the verb is unsupported, refused or throws.
+
 Regression suites re-run for the touched areas: `test-issue-1999-*`,
 `test-issue-2001-*`, `test-issue-2015-oom-killed-status`,
 `test-attach-logs-safety-net-1952`, `test-issue-1927-bot-lifecycle`,
@@ -523,14 +555,49 @@ Regression suites re-run for the touched areas: `test-issue-1999-*`,
 
 ## Upstream Follow-Up
 
+All three issues filed from this incident were delivered in
+**`start-command@0.33.0`**, which is now pinned in both images (`7687f647`).
+What each one turned into downstream is recorded with it.
+
 - **`link-foundation/start#162`** — _"Docker isolation: no way to attach to,
   resume, or re-enter a detached session — and no way to resume all running
   commands after a supervisor restart"_. R2 ("re-enter the same `$` session id /
-  container") cannot be satisfied from Hive Mind alone: `$` preserves the
-  container, the log and the execution record, but exposes no `--attach`,
-  `--resume [-- <cmd>]` or `--resume-all`. Until those exist, Hive Mind's
-  auto-resume starts a **fresh** isolated run seeded with the recovered tool
-  session id, which preserves the agent's context but not the container.
+  container") could not be satisfied from Hive Mind alone: `$` preserved the
+  container, the log and the execution record, but exposed no `--attach`,
+  `--resume [-- <cmd>]` or `--resume-all`, so auto-resume had to start a
+  **fresh** isolated run seeded with the recovered tool session id — the agent's
+  context survived, the container did not.
+
+  **Delivered in 0.33.0** as `--attach [--read-only]`, `--resume <id> [-- <cmd>]`
+  and `--resume-all`. For a stopped docker session, `--resume` commits the
+  container filesystem (`start-command-resume/<name>:<attempt>`) and runs the new
+  command in a container derived from that snapshot; the execution UUID and the
+  log path are preserved, and the previous session name stays addressable through
+  `options.sessionNameHistory`. Downstream:
+  - `src/isolation-runner.resume.lib.mjs` wraps both verbs. Neither throws, and
+    an older `$` yields `unsupported: true` rather than an error — verified
+    against a real 0.32.1 binary, which answers
+    `Error: Unknown wrapper option: --resume`.
+  - `src/session-kill-resume.in-place.lib.mjs` uses `--resume` for kill recovery,
+    so the killed session's clone, caches and half-finished branch survive. Two
+    task kinds are deliberately excluded: Formal AI (#2146) and `--use-router`
+    tasks reach their sidecars over _internal_ Docker networks that Hive Mind
+    attaches with `docker network connect` **after** the container is created,
+    which `$` knows nothing about; a resumed container would come up without
+    them, and #2146 requires Formal AI to fail closed. Those fall back to the
+    fresh-launch path, which re-acquires the leases properly.
+  - `resumeSessionsOnLaunch` runs `--resume-all` before the durable store is
+    replayed. The detached-docker completion watchers are children of the
+    process that launched them, so a bot restart leaves every running container
+    unsupervised and an execution that ends while the bot is down never gets its
+    exit written — one of the ways the reported session stayed in limbo.
+
+  Building the wrappers also surfaced a defect on this side: `command-stream`'s
+  `$` **resolves** on a non-zero child exit instead of throwing, so code that
+  only inspected the resolved value reported every refusal as a success. The
+  pre-existing `stopIsolatedSession` had exactly that shape — `$ --stop <unknown>`
+  exits 1 with `Error: No execution found …`, and Hive Mind reported the stop as
+  done. Fixed with the wrappers in `1211d554`.
 
 - **`link-foundation/start#165`** (filed for this issue) — _"Docker isolation: a
   V8 heap-limit self-abort (exit 139/134) is reported with `oomKilled=false` and
@@ -542,8 +609,15 @@ Regression suites re-run for the touched areas: `test-issue-1999-*`,
   `--isolated docker --image node:24` → `EXIT=139`, `OOMKilled=false`); the
   report includes the marker table, a fix built on the existing bounded
   `readLogTail` helper, the `docker-cleanup.js` footer correction, and the
-  workaround Hive Mind now ships (`403d3084`). Until it lands, every `$`
-  consumer has to re-derive the classification from the log itself.
+  workaround Hive Mind now ships (`403d3084`).
+
+  **Delivered in 0.33.0** as three additive `--status` fields — `exitReason`
+  (e.g. `memory-exhaustion (v8-heap-limit)`), `memoryExhausted` and
+  `memoryExhaustedReason` — derived from a bounded 64 KiB log-tail window and
+  only for abnormal exits. `src/isolation-runner.parsers.lib.mjs` reads them and
+  `describeKillCause` consumes them as **hints beside** the local evidence, never
+  as a verdict replacing it (`60750f4a`): the log-marker rule from R5 stays in
+  place, so a `$` that reports nothing still classifies a heap abort correctly.
 
 - **`link-foundation/start#164`** (filed for this issue) — _"Command argv is
   flattened with `join(' ')`, so quoted arguments are re-parsed by the inner
@@ -556,6 +630,212 @@ Regression suites re-run for the touched areas: `test-issue-1999-*`,
   still runs `bash -c echo hello world` (empty output, exit 0). Not a Hive Mind
   defect — Hive Mind passes a single command string — but it is why the
   reproduction above has to base64-encode its payload.
+
+  **Delivered in 0.33.0**: a lone argument is now run verbatim as a shell
+  script, which is what makes `$ --resume <id> -- "<display>"` safe for the
+  fully shell-quoted command string `buildResumeCommand` already produces.
+
+## Dependency Follow-Through
+
+Comment 4 asked for the rest of the loop: update `start-command` now that the
+three issues filed from this incident are delivered, update **all other**
+dependencies too, and "see what changed" rather than only moving the numbers.
+`start-command` is R22/R23 above. This section is the rest.
+
+Every package in `package.json` was moved to its current release:
+
+| Package                                                     | Was        | Now        | What it cost, or bought, here                                                         |
+| ----------------------------------------------------------- | ---------- | ---------- | ------------------------------------------------------------------------------------- |
+| `start-command` (global, both images)                       | `0.32.1`   | `0.33.0`   | The three upstream deliveries — see R22/R23                                           |
+| `@changesets/cli`                                           | `^2.31.0`  | `^3.0.1`   | **Breaking**: `changeset version` now exits 1 with no changesets — guarded, see below |
+| `jscpd`                                                     | `^4.0.5`   | `^5.1.2`   | **Breaking config**: `skipComments` is not a v5 key — `.jscpd.json` repaired          |
+| `@sentry/node`, `@sentry/profiling-node`                    | `^10.62`   | `^10.73`   | Structured logs are on by default and bypass `beforeSend` — `beforeSendLog` added     |
+| `prettier`                                                  | `^3.8.5`   | `^3.9.6`   | Reformatted 23 documents and exposed four genuinely malformed ones                    |
+| `agent-commander`                                           | `^0.8.0`   | `^0.10.1`  | Pulls `command-stream` + `node-pty`; the native build is declined, see below          |
+| `dayjs`                                                     | `^1.11.21` | `^1.11.23` | `dayjs.tz(<unparseable>, …)` no longer throws `RangeError`                            |
+| `eslint`                                                    | `^10.5.0`  | `^10.9.1`  | No config change; `npm run lint` is clean                                             |
+| `lint-staged`                                               | `^17.0.8`  | `^17.4.1`  | Nothing to migrate — v17's breaking changes were absorbed at 17.0                     |
+| `secretlint`, `@secretlint/core`, `@secretlint/…-recommend` | `^13.0.2`  | `^13.0.5`  | Patch; the scanner used by the sanitizer behaves identically                          |
+| `lino-i18n`                                                 | `^0.1.1`   | `^0.2.0`   | Reactive subscriptions and React bindings — not used here                             |
+| `lino-objects-codec`                                        | `^0.4.0`   | `^0.8.0`   | Readable single-line encoding, and the same jscpd repair we needed                    |
+
+### `@changesets/cli` 2 → 3: a release that used to end quietly now fails
+
+`node_modules/@changesets/cli/dist/version.mjs`:
+
+```js
+if (changesets.length === 0 && (preState == null || preState.mode !== 'exit')) {
+  log.warn('No unreleased changesets found.');
+  throw new ExitError(1);
+}
+```
+
+In 2.x that branch warned and returned, so the process exited 0. The release job
+only reaches `npm run changeset:version` when `check-release-needed.mjs` counted
+changeset files, so this looks unreachable — but `versionAndCommit` fetches and
+**rebases onto `origin/main`** in between, and that rebase can remove the very
+changesets the decision was made on, because another run released them first.
+The existing `countChangesets() === 0` guard runs _before_ the rebase and cannot
+see it.
+
+`scripts/version-and-commit.lib.mjs` now reads the count again after the rebase
+and takes the same self-healing path as an advanced remote (`already_released`,
+so the publish step still gets its chance) instead of invoking a command that
+now exits 1 and fails the whole release job.
+`tests/test-issue-2189-changesets-3-version-guard.mjs` pins it: the guard fires
+only when the rebase really consumed the changesets, and both the ordinary bump
+and a rebase that keeps its changesets still version normally.
+
+The other 3.0 changes do not reach us: `.changeset/config.json` has no
+`prettier` key (removed in favour of `format`), `changeset tag` (renamed to
+`changeset git-tag`) is not used anywhere in `scripts/` or `.github/workflows/`,
+the published package is not private, and `engines` (`^22.11 || ^24 || >=26`)
+is satisfied by the Node 24 the workflows install.
+
+### `jscpd` 4 → 5: the duplication check was reading a key that no longer exists
+
+v5 is a Rust rewrite, and `skipComments` is not one of its configuration keys.
+It does not fail — it warns and falls back, which is the failure mode that
+survives a code review. `experiments/issue-2189/jscpd5-config-keys.sh` shows
+both spellings against the installed binary with `--debug`, which prints the
+merged configuration:
+
+```
+=== v4 key: skipComments ===
+config file .jscpd.json: unknown field 'skipComments'
+  "mode": "mild",
+=== v5 key: mode ===
+  "mode": "weak",
+```
+
+So on jscpd 5 the repository would have been scanned in `mild` mode — comment
+tokens counted as duplication — while `.jscpd.json` still claimed otherwise.
+`"skipComments": true` is now `"mode": "weak"`.
+
+This one is a practice adopted directly from a dependency: `lino-objects-codec`
+0.8.0's changelog records the same migration on its own repository ("`jscpd` 4 →
+5, and `.jscpd.json` repaired … `skipComments` is `"mode": "weak"` in v5"),
+including a second trap we do not have — `"format"` read as the list of file
+formats rather than as a reporter. `.jscpd.json` here already spells those two
+separately (`"format": ["javascript"]`, `"reporters": ["console", "html"]`), so
+only the `mode` repair was needed.
+
+### `@sentry/node` 10.62 → 10.73: logs leave without passing `beforeSend`
+
+Two facts from the installed SDK. `@sentry/core/build/cjs/client.js`:
+
+```js
+this._options.enableLogs = this._options.enableLogs ?? this._options._experiments?.enableLogs ?? true;
+```
+
+— structured logs are on unless switched off. And
+`@sentry/core/build/cjs/logs/internal.js`:
+
+```js
+const log = beforeSendLog ? debugLogger.consoleSandbox(() => beforeSendLog(processedLog)) : processedLog;
+```
+
+— a log is filtered by `beforeSendLog`, never by `beforeSend`. `src/instrument.mjs`
+masked credentials in `beforeSend` only, so a token that reached
+`Sentry.logger.*` (or the console-logging integration) left the process
+verbatim. That is the same class of defect as the one this whole issue is about:
+a safety step that exists, is believed to run, and does not.
+
+The masking walker moved into `src/instrument.sanitize.lib.mjs` and is now
+registered on **both** hooks; `enableLogs: true` stays spelled out rather than
+inherited from a default that changed once and can change again.
+`tests/test-issue-2189-sentry-log-sanitization.mjs` pins the walker (nested
+values, attributes, arrays, cycles), that `beforeSendLog` returns the log rather
+than dropping it, and that `src/instrument.mjs` actually registers it.
+
+### `prettier` 3.8.5 → 3.9.6: four documents were malformed, not reformatted
+
+The bump rewrote 23 markdown files. In nineteen the diff is blank lines, table
+delimiters and list indentation. In four it changed rendered text, and in every
+one of those the source was already wrong — GitHub had been rendering it wrong
+too, 3.8.5 simply left it alone:
+
+- `README.zh.md` wrote session counts as `2~8` and `10~25`. A pair of single
+  tildes is GFM strikethrough, so everything between the two ranges rendered
+  struck through on GitHub, and 3.9.6 normalized the source to the doubled
+  tildes it already meant. Fixed with the fullwidth CJK tilde `～`, which is
+  what a Chinese range wants anyway.
+- `docs/case-studies/issue-2166/README.md`, `docs/case-studies/issue-793-eslint-warnings.md`:
+  an unescaped `|` inside a code span inside a table splits the cell. Fixed with
+  `\|`, which GFM honours inside code spans.
+- `docs/case-studies/issue-1756/README.md`: a backslash-escaped backtick inside
+  a code span, which does not escape anything. Fixed by delimiting the span
+  with two backticks instead of one, which is how GFM carries a backtick.
+
+The four READMEs also carry the real documentation for this pull request — the
+new resume behaviour, in all four supported languages, enforced by
+`tests/test-docs-language-sync.mjs`.
+
+### `agent-commander` 0.8 → 0.10, and a native build we decline
+
+0.9.0 and 0.10.0 add real-TUI launch, input/resize control and terminal artifact
+capture "backed by command-stream", so the tree now carries
+`command-stream@0.17.2` → `node-pty@1.2.0-beta.15`, which builds a native
+addon in a `postinstall` script. `package.json`'s `allowScripts` policy answers
+for it explicitly — `"node-pty@1.2.0-beta.15": false` — because an absent entry
+is only a warning, and a warning is not a decision.
+
+Declining the build is safe, and the check is cheap rather than assumed:
+`await import('agent-commander')` resolves with the unbuilt `node-pty` in place
+(`ASK_DECISIONS … captureAgentTui, executeCommand …`), because the pty host is a
+**separate process** — `command-stream/src/terminal-pty.mjs` resolves
+`./terminal-pty-host.mjs` through `fileURLToPath` and spawns it — and only the
+TUI-capture path ever starts it. Hive Mind drives `agent-commander` headlessly
+(`src/agent-commander.lib.mjs`, behind `--use-agent-commander`), so the addon is
+never reached. `@sentry/node-cpu-profiler` keeps its `true`: the profiler is
+loaded in-process by `src/instrument.mjs` and does need its binding.
+
+### `dayjs` 1.11.21 → 1.11.23: an exception our code was already catching
+
+Both releases fix the timezone plugin, which `src/usage-limit.lib.mjs` uses to
+turn an agent's "resets at 8:00 PM" into a UTC instant. One of the two is
+demonstrable here — `experiments/issue-2189/dayjs-tz-invalid.mjs`, run against
+both versions:
+
+```
+dayjs 1.11.21
+  dayjs.tz(<garbage>, <format>, tz) -> THREW RangeError: Invalid time value
+dayjs 1.11.23
+  dayjs.tz(<garbage>, <format>, tz) -> Invalid Date (no throw)
+```
+
+The parser feeds `dayjs.tz` text an agent wrote, so unparseable input is a
+reachable case, not a hypothetical one. Hive Mind was not crashing on it —
+every call site is wrapped in `try/catch` — but the catch silently re-parsed
+**without the timezone**, so a limit message in an odd shape could be resolved
+against the wrong zone. On 1.11.23 the timezone-aware branch is the one that
+answers.
+
+The second fix (1.11.22, "compute instance `.tz()` offset without host DST")
+could **not** be reproduced with the shapes this repository calls:
+`experiments/issue-2189/dayjs-tz-dst.mjs` prints identical offsets on both
+versions for four zones × two instants under three host timezones. It is
+recorded as unverified rather than claimed.
+
+### Bumps with nothing to adopt, and one thing deliberately left
+
+`eslint` 10.9.1, `lint-staged` 17.4.1 and the `secretlint` 13.0.5 family needed
+no change: lint is clean, the lint-staged v17 migration (Node ≥ 22.22.1,
+optional `yaml`, git ≥ 2.32) was absorbed at 17.0 and this repository's config
+lives in `package.json` rather than a YAML file, and secretlint's patch releases
+leave the scanner the log sanitizer drives untouched.
+
+Left for later, on purpose:
+
+- jscpd 5's `--baseline-from-ref` / `--fail-on-new-clones` would turn the
+  duplication gate from an absolute threshold into "no _new_ clones", which is a
+  policy change for the whole repository and does not belong in an incident
+  follow-up.
+- `lino-i18n@0.2.0` still depends on `lino-objects-codec@^0.4.0` and
+  `links-notation@^0.13.0`, so `node_modules` holds two codec versions and two
+  grammars. Nothing here decodes through lino-i18n's copy, but 0.4.0 predates
+  the 0.7.0 fix that stopped a single control character turning a whole string
+  into base64 — worth an upstream bump request rather than a local override.
 
 ## Source Links
 

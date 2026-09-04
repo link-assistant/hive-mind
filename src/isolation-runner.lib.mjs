@@ -595,11 +595,13 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
     // operator as a successful stop, and a session nobody stopped looked handled.
     const code = Number.isFinite(result.code) ? result.code : 0;
     if (code !== 0) {
-      // describeChildExit rather than an interpolated code: issue #2135 showed
-      // that a child ended by a signal reports `code === null`, and "exited with
-      // code null" is the message that hid an out-of-memory kill for a whole
-      // session.
-      return { success: false, output: stdout, error: stderr.trim() || describeChildExit({ command: '`$ --stop`', code: result.code ?? null, signal: result.signal ?? null }) };
+      // describeChildExit rather than an interpolated code: issue #2135 made it
+      // the single vocabulary for "how a child ended", so a `$` that was
+      // signalled reads the same way here as everywhere else. command-stream
+      // normalizes a signalled exit to 128+signum before we see it
+      // (node_modules/command-stream/src/$.process-runner-stream-kill.mjs:194),
+      // so there is no separate signal to pass.
+      return { success: false, output: stdout, error: stderr.trim() || describeChildExit({ command: '`$ --stop`', code }) };
     }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {

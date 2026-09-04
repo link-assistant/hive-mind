@@ -164,10 +164,10 @@ function interpretStartCommandResult(result, error = null) {
   const stderr = source.stderr?.toString?.().trim() || '';
   const code = error ? (Number.isFinite(source.code) ? source.code : 1) : Number.isFinite(source.code) ? source.code : 0;
   if (!error && code === 0) return { ok: true, stdout, message: null, unsupported: false };
-  // describeChildExit keeps a signalled `$` from being reported as "code null"
-  // (issue #2135), which is the same class of lost cause this wrapper exists to
-  // stop losing.
-  const message = stderr || source.message || describeChildExit({ command: 'start-command', code: Number.isFinite(source.code) ? source.code : code, signal: source.signal ?? null });
+  // describeChildExit is the repository's single vocabulary for "how a child
+  // ended" (issue #2135); command-stream has already normalized a signalled
+  // exit to 128+signum by this point, so the code is all there is to say.
+  const message = stderr || source.message || describeChildExit({ command: 'start-command', code });
   return { ok: false, stdout, message, unsupported: isUnsupportedStartCommandVerb(`${message}\n${stdout}`) };
 }
 

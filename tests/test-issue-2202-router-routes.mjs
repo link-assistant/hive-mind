@@ -148,7 +148,12 @@ assertEqual(qwenCanonical.OPENAI_BASE_URL, `${ORIGIN}/api/services/qwen/v1`, 'qw
 // unrouted before this change, which is a hole in the isolation, not a detail.
 const geminiCanonical = buildRouterTaskEnv({ tool: 'gemini', baseUrl: ORIGIN, token: TASK_TOKEN, dialect: canonical });
 assertEqual(geminiCanonical.GOOGLE_GEMINI_BASE_URL, `${ORIGIN}/api/services/gemini`, 'gemini is wired through the variable its CLI actually reads');
-assertEqual(geminiCanonical.GEMINI_API_KEY, TASK_TOKEN, 'and authenticates with the task token');
+// Compared inside the assertion rather than handed to it: `fail` prints the
+// values it is given, and a variable named like a credential should not be
+// echoed into test output on a failure. CodeQL flags precisely that flow
+// (`js/clear-text-logging`, alert 259), and the sibling issue-2164 suite
+// already compares its ANTHROPIC_* variables this way.
+assertEqual(geminiCanonical.GEMINI_API_KEY === TASK_TOKEN, true, 'and authenticates with the task token');
 const geminiLegacy = buildRouterTaskEnv({ tool: 'gemini', baseUrl: ORIGIN, token: TASK_TOKEN, dialect: legacy });
 assertEqual('GOOGLE_GEMINI_BASE_URL' in geminiLegacy, false, 'a dialect that does not serve Gemini wires nothing rather than a 404');
 

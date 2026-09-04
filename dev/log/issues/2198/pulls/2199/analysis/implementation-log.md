@@ -162,6 +162,34 @@ English text — removing `exits 0`, deleting the schedule bullet, and changing
 
 ---
 
+## Merging `main`
+
+`main` moved while this PR was open (`3b7c4eaf`, issue #2186). Two of its changes met this
+branch head-on, and both are recorded here because each is an instance of what the issue
+asks about.
+
+**`bun.lock` — modify/delete.** #2186 *regenerated* the lockfile ("stale enough to still
+list `@changesets/cli ^2.27.0`"); F1 *deletes* it. Regenerating does not address F1: the
+release died on `spawn bun ENOENT`, which is the `bun` binary being absent from the runner,
+not the lockfile being stale — a freshly generated `bun.lock` makes `@changesets/format`
+spawn `bun` just the same. Nothing in `main`'s workflows, `package.json` or `scripts/`
+references bun (`git grep` on `origin/main` returns nothing), so the file is still what F1
+found it to be: inert input that only one tool reads. Resolved in favour of the deletion,
+which `devEngines.packageManager` and `tests/no-bun-lockfile-2198.test.mjs` hold down.
+
+**`actions/checkout@v6` → `@v7`.** #2186 bumped every `uses:` in the tree; the nine that
+remained on v6 after the merge were, all nine, steps *this branch added* (`workflows.yml`,
+`links.yml`, the new `security.yml` audit job, four new `release.yml` checkouts). Git
+merged both sides cleanly and produced a pipeline running two major versions of the same
+action — no conflict, no warning, nobody's mistake. Bumped to v7 to match.
+
+**`src/agent.lib.mjs` 1309 → 1357.** See [F6](F6-file-line-limit-warnings.md#the-guard-earning-its-keep):
+the merge reintroduced the warning class F6 removed, `tests/extracted-modules-2198.test.mjs`
+caught it locally before CI, and the Agent CLI version floors moved to
+`src/agent.version-gates.lib.mjs` (1357 → 1309, every name re-exported).
+
+---
+
 ## Verification state
 
 All run locally against the branch tip:

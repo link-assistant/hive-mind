@@ -75,6 +75,7 @@ was written to prevent (F7).
 | **2026-09-04 10:24** | Run [33861728465](https://github.com/link-assistant/hive-mind/actions/runs/33861728465): `changeset version` → `@changesets/format` → `package-manager-detector` reads `bun.lock` → `spawn bun ENOENT`. **Release fails.** (F1) |
 | 2026-09-04 11:53 | Issue #2198 filed. |
 | 2026-09-04 | This PR: F1–F14, three upstream reports. |
+| 2026-09-04 (later) | `main` merges #2186, growing `src/agent.lib.mjs` to 1357 lines. Merging it in reintroduces the F6 warning class — and F6's guard catches it locally, which is what a threshold that is *enforced* rather than *announced* buys. |
 
 ## Findings
 
@@ -118,6 +119,9 @@ was written to prevent (F7).
   annotations. Medium. `bcc3df08`.
 - **[F4](analysis/F4-npm-link-allow-scripts-warning.md)** — 4 `npm warn allow-scripts`
   lines per run whose documented remedy does not work. Medium. `ca8eacd6`.
+- **[F6, again](analysis/F6-file-line-limit-warnings.md#the-guard-earning-its-keep)** —
+  merging `main` reintroduced the threshold breach; caught by F6's own guard, fixed by
+  extracting `src/agent.version-gates.lib.mjs`.
 
 ### Aggregate
 

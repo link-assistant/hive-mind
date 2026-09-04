@@ -508,6 +508,13 @@ en
       must
         be
           type "URL must be a GitHub {{allowedTypes}} (not {{type}})"
+      recovered """
+        ℹ️ I repaired the link before starting.
+
+        You sent: {{original}}
+        Using: {{used}}
+        Repaired: {{repairs}}
+      """
     language
       invalid """
         ❌ Invalid language. Supported: {{supported}}.

@@ -25,7 +25,7 @@
  */
 
 import { parseGitHubUrl } from '../src/github-url-parser.lib.mjs';
-import { describeHiddenCharacters, repairGitHubPathParts, repairGitHubUrlText, revealHiddenCharacters } from '../src/github-url-recovery.lib.mjs';
+import { describeHiddenCharacters, namesGitHubHost, repairGitHubPathParts, repairGitHubUrlText, revealHiddenCharacters } from '../src/github-url-recovery.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -182,6 +182,19 @@ for (const hostile of [
 assert(parseGitHubUrl('git@github.com:owner/repo.git').canonical === 'https://github.com/owner/repo', 'an SSH remote is still read as its web address');
 assert(parseGitHubUrl('ssh://git@github.com/owner/repo').canonical === 'https://github.com/owner/repo', 'an ssh:// URL is still read as its web address');
 assert(parseGitHubUrl('[PR 30](https://github.com/owner/repo/pull/30)').canonical === 'https://github.com/owner/repo/pull/30', 'a Markdown link whose target names github.com is still unwrapped');
+
+// The Telegram bot gates on `namesGitHubHost` before it parses, and that gate used
+// to be `url.includes('github.com')` — which accepts every host that merely mentions
+// github.com in its path, and rejects every GitHub URL that spells its host in any
+// other case. Both directions are asserted here (issue #2194, CodeQL
+// js/incomplete-url-substring-sanitization).
+for (const named of ['https://github.com/owner/repo/pull/30', 'HTTPS://GITHUB.COM/owner/repo/pull/30', 'github.com/owner/repo', 'https://www.github.com/owner/repo', 'https://api.github.com/repos/owner/repo/pulls/30', 'git@github.com:owner/repo.git', '[PR 30](https://github.com/owner/repo/pull/30)']) {
+  assert(namesGitHubHost(named) === true, `namesGitHubHost accepts ${JSON.stringify(named)}`);
+}
+
+for (const notNamed of ['https://evil.com/github.com/owner/repo/pull/30', 'https://github.com.evil.com/owner/repo/pull/30', 'https://gist.github.com/owner/abc123', 'https://raw.githubusercontent.com/owner/repo/main/f.txt', 'https://gitlab.com/owner/repo/pull/30', 'notgithub.com/owner/repo', 'support@github.com', 'owner/repo/pull/30', 'not a url at all', '']) {
+  assert(namesGitHubHost(notNamed) === false, `namesGitHubHost rejects ${JSON.stringify(notNamed)}`);
+}
 
 console.log('\n=== R4: codepoint-level diagnostics ===\n');
 

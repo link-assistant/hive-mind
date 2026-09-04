@@ -357,6 +357,31 @@ function normalizePathShape(text, repairs) {
 }
 
 /**
+ * Does `text` address github.com *as its host*?
+ *
+ * A substring test cannot answer this. `https://evil.example/github.com/o/r` and
+ * `https://github.com.evil.example/o/r` both contain "github.com" and neither one is
+ * a GitHub URL, while `HTTPS://GITHUB.COM/o/r` and `https：//github．com/o/r` are
+ * GitHub URLs that contain no ASCII lowercase "github.com" at all. So the question
+ * is answered by the same host normalizer the repair path uses, and by nothing else.
+ *
+ * The shorthand form (`owner/repo`) names no host and is deliberately not a match:
+ * this is the check a caller makes *before* deciding the input was meant to be a URL
+ * at all, so a bare word must stay distinguishable from a mistyped address.
+ *
+ * @param {string} text - The URL exactly as the user supplied it.
+ * @returns {boolean}
+ */
+export function namesGitHubHost(text) {
+  if (!text || typeof text !== 'string') return false;
+  const repairs = [];
+  const stripped = stripDecoration(stripHiddenCharacters(text.trim(), repairs).trim(), repairs);
+  if (stripped === '') return false;
+  const host = normalizeHost(stripped, repairs);
+  return Boolean(host) && !host.rejection;
+}
+
+/**
  * Repair the textual form of a GitHub URL before it is parsed.
  *
  * @param {string} raw - The URL exactly as the user supplied it.
@@ -481,6 +506,7 @@ export default {
   describeHiddenCharacters,
   formatUrlRepairs,
   hasNotableRepair,
+  namesGitHubHost,
   repairGitHubPathParts,
   repairGitHubUrlText,
   revealHiddenCharacters,

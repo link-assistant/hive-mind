@@ -169,7 +169,7 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = lim
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
-const { formatUrlRepairs, hasNotableRepair, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
+const { formatUrlRepairs, hasNotableRepair, namesGitHubHost, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
@@ -318,8 +318,10 @@ async function validateGitHubUrl(args, options = {}) {
   // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
   const url = cleanNonPrintableChars(rawUrl);
   // Issue #2194: the host may be typed in any case (GITHUB.COM) or hidden behind
-  // look-alike punctuation, so let the parser's recovery layer make the call.
-  if (!url.toLowerCase().includes('github.com')) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
+  // look-alike punctuation, and "github.com" in the path of another host is not a
+  // GitHub URL at all — so the recovery layer's host check makes the call, not a
+  // substring test that both misses the first case and accepts the second.
+  if (!namesGitHubHost(url)) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
   const parsed = parseGitHubUrl(url);
   if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
   // Issue #2194: tell the user which URL we actually understood when we had to repair theirs.

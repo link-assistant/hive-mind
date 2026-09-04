@@ -159,6 +159,18 @@ The parser treated a shouted URL as a _relative path_, making `HTTPS:` the owner
 The Telegram bot's own gate had the same flaw — `if (!url.includes('github.com'))`
 rejected `GITHUB.COM/...` before the parser ever saw it.
 
+A substring test is wrong in both directions, and lower-casing it only fixes one of
+them: `https://evil.example/github.com/owner/repo/pull/30` contains `github.com` and
+is not a GitHub URL. CodeQL says the same thing about that line
+([`js/incomplete-url-substring-sanitization`](https://codeql.github.com/codeql-query-help/javascript/js-incomplete-url-substring-sanitization/):
+"`github.com` can be anywhere in the URL, and arbitrary hosts may come before or
+after it"). So the gate no longer asks whether the text _contains_ github.com; it
+asks `namesGitHubHost()`, which runs the recovery layer's own host normalizer — the
+one that already had to decide `gist.` from `www.`, and `github.com.evil.example`
+from `github.com` — and accepts only what that normalizer resolves to a github.com
+address. The shorthand `owner/repo` deliberately does not match: the gate exists to
+tell "this was never meant to be a URL" apart from "this URL needs repair".
+
 ### RC6: nothing recorded what the user actually typed
 
 `[VERBOSE] /claude command received` is followed by twelve lines about message
@@ -205,11 +217,11 @@ reproduces the old path exactly, which is what makes the before/after evidence a
 possible. On top of that, the three entry points a human actually talks to say what
 they did:
 
-| Entry point                    | What the user sees                                                                                                                                            |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/telegram-bot.mjs`         | `telegram.url_recovered` — "I repaired the link before starting" with sent/used/repaired, in `en`/`ru`/`hi`/`zh`. Also fixes RC3 and the case-sensitive gate. |
-| `src/solve.validation.lib.mjs` | "ℹ️ Repaired the GitHub URL before solving:" with the same three lines                                                                                        |
-| `src/hive.mjs`                 | "ℹ️ Repaired the GitHub URL before monitoring:"                                                                                                               |
+| Entry point                    | What the user sees                                                                                                                                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/telegram-bot.mjs`         | `telegram.url_recovered` — "I repaired the link before starting" with sent/used/repaired, in `en`/`ru`/`hi`/`zh`. Also fixes RC3, and replaces the substring gate with the host check described in RC5. |
+| `src/solve.validation.lib.mjs` | "ℹ️ Repaired the GitHub URL before solving:" with the same three lines                                                                                                                                  |
+| `src/hive.mjs`                 | "ℹ️ Repaired the GitHub URL before monitoring:"                                                                                                                                                         |
 
 One limitation worth stating: the _labels_ of that message are translated, but the
 repair descriptions interpolated into it (`"/pulls/30" is the pull request list page

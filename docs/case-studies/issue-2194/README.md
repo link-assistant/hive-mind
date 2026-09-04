@@ -211,6 +211,15 @@ they did:
 | `src/solve.validation.lib.mjs` | "ℹ️ Repaired the GitHub URL before solving:" with the same three lines                                                                                        |
 | `src/hive.mjs`                 | "ℹ️ Repaired the GitHub URL before monitoring:"                                                                                                               |
 
+One limitation worth stating: the _labels_ of that message are translated, but the
+repair descriptions interpolated into it (`"/pulls/30" is the pull request list page
+— read it as "/pull/30"`) are English in every locale. That matches what the
+surrounding code already does — `telegram.url_repo_error` and
+`telegram.url_must_be_type` interpolate English type names into translated
+templates — so it is a consistent gap rather than a new one. Each repair carries a
+stable `code`, so localizing them later is a matter of adding
+`telegram.url_repair.<code>` keys; nothing in the design has to change.
+
 And for the next investigation: `traceUrlRecovery()` logs each repair stage under
 `--verbose`, and `/solve` (with all its aliases, including the `/Claude` that started
 this) logs its raw message text through `revealHiddenCharacters()`, so an invisible

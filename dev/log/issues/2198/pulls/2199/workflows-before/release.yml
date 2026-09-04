@@ -192,11 +192,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24.x
-      # Issue #2198: a lockfile for another package manager at the root makes
-      # `changeset version` shell out to a package manager the runner does not
-      # have. Checked before install so it fails in seconds.
-      - name: Check package manager declaration and lockfiles
-        run: node scripts/check-package-manager.mjs
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs ci
       - name: Run Prettier format check

@@ -295,6 +295,10 @@ function isExcludedFromCodeChanges(filePath) {
   return false;
 }
 
+// Lockfiles that decide which package manager tooling shells out to. Kept in
+// sync with LOCKFILE_AGENTS in scripts/check-package-manager.lib.mjs (issue #2198).
+const PACKAGE_MANIFEST_PATTERN = /^(package-lock\.json|npm-shrinkwrap\.json|bun\.lock|bun\.lockb|deno\.lock|nub\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|yarn\.lock|aube-lock\.yaml|aube-workspace\.yaml)$/;
+
 /**
  * Main function to detect changes
  */
@@ -315,8 +319,12 @@ function detectChanges() {
   const mjsChanged = changedFiles.some(file => file.endsWith('.mjs'));
   setOutput('mjs', mjsChanged ? 'true' : 'false');
 
-  // Detect package.json changes
-  const packageChanged = changedFiles.some(file => file === 'package.json');
+  // Detect package.json / lockfile changes.
+  // Issue #2198: a lockfile is a manifest change too. A stray `bun.lock` at the
+  // root silently redirected `changeset version` to a package manager the
+  // runner does not have, and because only `package.json` counted here, the
+  // lint job — which is where the package-manager guard runs — was skipped.
+  const packageChanged = changedFiles.some(file => file === 'package.json' || PACKAGE_MANIFEST_PATTERN.test(file));
   setOutput('package', packageChanged ? 'true' : 'false');
 
   // Detect documentation changes (any .md file)

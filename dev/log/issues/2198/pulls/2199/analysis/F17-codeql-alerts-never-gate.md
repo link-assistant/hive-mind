@@ -1,7 +1,7 @@
 # F17 — CodeQL's two alerts on this PR, and the 130 it is not allowed to act on
 
 **Severity:** High · **Class:** False positive (fixed at source) + false negative (documented, out of this PR's reach)
-**Status:** The PR's own two alerts retired in `<commit>`; the 130 pre-existing ones inventoried, not fixed — see *Scope* below.
+**Status:** The PR's own two alerts retired in `be056829`; the 130 pre-existing ones inventoried, not fixed — see *Scope* below.
 
 ## Symptom
 

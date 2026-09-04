@@ -29,7 +29,7 @@
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "npm run build:pre && changeset publish",
-    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/fix.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs",
+    "build:pre": "chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/task.mjs && chmod +x src/fix.mjs && chmod +x src/cleanup.mjs && chmod +x src/review.mjs && chmod +x src/configure-claude.mjs && chmod +x src/start-screen.mjs && chmod +x src/hive-screens.mjs && chmod +x src/telegram-bot.mjs",
     "prepare": "husky"
   },
   "repository": {

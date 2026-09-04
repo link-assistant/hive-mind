@@ -73,13 +73,22 @@ export function parseStartCommandExecutionUuid(output) {
  * `--output-format json` is supported, or human-readable key/value text.
  * Keep the parser tolerant so completion monitoring survives either format.
  *
+ * start-command 0.33.0 (link-foundation/start#164, #165) added three additive
+ * hint fields to a finished record: `exitReason` (e.g.
+ * `memory-exhaustion (v8-heap-limit)` or `signal (SIGSEGV)`),
+ * `memoryExhausted` and `memoryExhaustedReason` (the log line carrying the
+ * evidence). They are hints, never verdicts — upstream never lets them change
+ * `status`, `exitCode` or `oomKilled` — and they are absent on older `$`
+ * binaries, so they are parsed as nullable and every consumer keeps its own
+ * log-marker classification as defense in depth (issue #2189).
+ *
  * @param {string} output - Raw stdout from `$ --status`
- * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, raw: string}}
+ * @returns {{exists: boolean, uuid: string|null, status: string|null, exitCode: number|null, startTime: string|null, endTime: string|null, currentTime: string|null, logPath: string|null, command: string|null, isolation: string|null, workingDirectory: string|null, sessionName: string|null, processIds: Object, oomKilled: boolean|null, exitReason: string|null, memoryExhausted: boolean|null, memoryExhaustedReason: string|null, raw: string}}
  */
 export function parseSessionStatusOutput(output) {
   const raw = (output || '').trim();
   if (!raw) {
-    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, raw: '' };
+    return { exists: false, uuid: null, status: null, exitCode: null, startTime: null, endTime: null, currentTime: null, logPath: null, command: null, isolation: null, workingDirectory: null, sessionName: null, processIds: {}, oomKilled: null, exitReason: null, memoryExhausted: null, memoryExhaustedReason: null, raw: '' };
   }
   const normalizeBooleanField = value => {
     if (typeof value === 'boolean') return value;
@@ -112,6 +121,9 @@ export function parseSessionStatusOutput(output) {
       sessionName: data?.sessionName || data?.options?.sessionName || null,
       processIds,
       oomKilled: normalizeBooleanField(data?.oomKilled ?? data?.OOMKilled ?? data?.options?.oomKilled ?? data?.state?.oomKilled ?? data?.State?.OOMKilled),
+      exitReason: typeof data?.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
+      memoryExhausted: normalizeBooleanField(data?.memoryExhausted),
+      memoryExhaustedReason: typeof data?.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
       raw,
     };
   } catch {
@@ -123,7 +135,11 @@ export function parseSessionStatusOutput(output) {
       .find(line => line.trim() && !line.includes(' '))
       ?.trim() || null;
   const readField = name => {
-    const match = raw.match(new RegExp(`^\\s*${name}\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
+    // Links notation separates key and value with whitespace (`  exitReason x`);
+    // `--output-format text` uses a padded colon (`Exit Reason:       x`). Accept
+    // both — the colon is optional, so every existing camelCase lookup is
+    // unchanged and the text labels (which contain a space) become readable too.
+    const match = raw.match(new RegExp(`^\\s*${name}\\s*:?\\s+"?([^"\\n]+)"?\\s*$`, 'mi'));
     return match ? match[1].trim() : null;
   };
   const readBooleanField = name => normalizeBooleanField(readField(name));
@@ -154,6 +170,12 @@ export function parseSessionStatusOutput(output) {
     sessionName: readField('sessionName'),
     processIds,
     oomKilled: readBooleanField('oomKilled'),
+    // `--output-format text` labels the same three fields `Exit Reason:`,
+    // `Memory Exhausted:` and `Memory Evidence:`; links notation uses the camelCase
+    // keys. Accept both so the parser does not depend on the output format.
+    exitReason: readField('exitReason') || readField('Exit Reason'),
+    memoryExhausted: readBooleanField('memoryExhausted') ?? readBooleanField('Memory Exhausted'),
+    memoryExhaustedReason: readField('memoryExhaustedReason') || readField('Memory Evidence'),
     raw,
   };
 }
@@ -286,6 +308,10 @@ export function parseSessionListOutput(output) {
         isolation: isolationCandidate ? isolationCandidate.toLowerCase() : null,
         workingDirectory: data.workingDirectory || null,
         sessionName: data.sessionName || data.options?.sessionName || null,
+        // Additive 0.33.0 hints (link-foundation/start#164, #165); null on older `$`.
+        exitReason: typeof data.exitReason === 'string' && data.exitReason.trim() ? data.exitReason.trim() : null,
+        memoryExhausted: typeof data.memoryExhausted === 'boolean' ? data.memoryExhausted : null,
+        memoryExhaustedReason: typeof data.memoryExhaustedReason === 'string' && data.memoryExhaustedReason.trim() ? data.memoryExhaustedReason.trim() : null,
       };
     })
     .filter(Boolean);

@@ -54,6 +54,16 @@ export const KILL_DIAGNOSTICS_LOG_BYTES = 1024 * 1024;
  */
 export const HEAP_EXHAUSTED_PERCENT = 90;
 
+/**
+ * Prefix start-command 0.33.0 puts on every `exitReason` that reports memory
+ * exhaustion, whatever the mechanism — `memory-exhaustion (v8-heap-limit)`,
+ * `memory-exhaustion (kernel-oom-killer)`, `memory-exhaustion (go-runtime)`,
+ * `memory-exhaustion (allocation-failure)`. Matching the prefix rather than the
+ * exact strings means a new upstream mechanism is classified correctly without
+ * a Hive Mind release. See link-foundation/start#164 and #165.
+ */
+export const UPSTREAM_MEMORY_EXHAUSTION_PREFIX = 'memory-exhaustion';
+
 /** Disk is considered full at or above this used percentage… */
 export const DISK_FULL_USED_PERCENT = 95;
 /** …or below this much free space, whichever triggers first. */
@@ -268,9 +278,12 @@ function describeDisk(disk, timestamp) {
  * @param {number|null} [params.exitCode]
  * @param {Object|null} [params.system] - collectSystemKillDiagnostics() result
  * @param {boolean} [params.stopRequestedByUser] - The operator asked for the stop
+ * @param {boolean|null} [params.reportedMemoryExhausted] - `$ --status` `memoryExhausted` (start-command >= 0.33.0)
+ * @param {string|null} [params.reportedMemoryExhaustedReason] - `$ --status` `memoryExhaustedReason` (the evidence line)
+ * @param {string|null} [params.reportedExitReason] - `$ --status` `exitReason` hint, e.g. `memory-exhaustion (v8-heap-limit)`
  * @returns {{cause: string, summary: string, evidence: string[], memory: Object|null, disk: Object|null, victims: Array}}
  */
-export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false } = {}) {
+export function describeKillCause({ logText = null, resourceMarkers = null, oomKilled = false, exitCode = null, system = null, stopRequestedByUser = false, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
   const parsed = resourceMarkers || (logText ? parseResourceMarkers(logText) : { markers: [], byPhase: {} });
   const memoryMarker = selectLastMemoryResourceMarker(parsed);
   const heapMarker = selectLastHeapResourceMarker(parsed);
@@ -310,6 +323,30 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     evidence.push(`the ${fatalMemoryMarker.runtime} runtime aborted on its own heap limit: \`${fatalMemoryMarker.line}\` (a self-abort is invisible to \`docker inspect\` and to cgroup OOM counters)`);
   }
 
+  // Issue #2189 also went upstream: start-command 0.33.0 (link-foundation/start
+  // #164, #165) performs the same tail scan inside `$` and reports it as
+  // `memoryExhausted` / `memoryExhaustedReason` / `exitReason`. Consuming it
+  // catches the case our own scan cannot: the fatal line scrolled out of the
+  // bounded window we read, but `$` saw it when the command exited. The local
+  // scan stays as defense in depth — these fields are absent on an older `$`.
+  const reportedExitReasonText = typeof reportedExitReason === 'string' && reportedExitReason.trim() ? reportedExitReason.trim() : null;
+  const reportedMemoryExhaustion = abnormalExit && (reportedMemoryExhausted === true || (reportedExitReasonText !== null && reportedExitReasonText.startsWith(UPSTREAM_MEMORY_EXHAUSTION_PREFIX)));
+  // `memory-exhaustion (v8-heap-limit)` → `v8-heap-limit`: the prefix is already
+  // said in words by the surrounding sentence, so only the mechanism is new.
+  const reportedMechanism =
+    reportedMemoryExhaustion && reportedExitReasonText
+      ? reportedExitReasonText
+          .slice(UPSTREAM_MEMORY_EXHAUSTION_PREFIX.length)
+          .trim()
+          .replace(/^\((.*)\)$/, '$1') || null
+      : null;
+  if (reportedMemoryExhaustion) {
+    const detail = reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : '';
+    evidence.push(`\`$ --status\` reports memory exhaustion${reportedMechanism ? ` (\`${reportedMechanism}\`)` : ''}${detail}`);
+  } else if (reportedExitReasonText && abnormalExit) {
+    evidence.push(`\`$ --status\` reports \`exitReason = ${reportedExitReasonText}\``);
+  }
+
   const ratio = memoryRatio(memory);
   const memoryExhausted = ratio !== null && ratio <= MEMORY_EXHAUSTED_AVAILABLE_RATIO;
   // A heap already at the limit is only evidence of a kill when the session
@@ -322,7 +359,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
   let cause = KILL_CAUSE_UNKNOWN;
   if (stopRequestedByUser) {
     cause = KILL_CAUSE_FORCED_KILL;
-  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker || heapExhausted) {
+  } else if (victims.length > 0 || (cgroupOomKills !== null && cgroupOomKills > 0) || oomKilled || memoryExhausted || fatalMemoryMarker || heapExhausted || reportedMemoryExhaustion) {
     cause = KILL_CAUSE_OUT_OF_MEMORY;
   } else if (diskFull) {
     cause = KILL_CAUSE_DISK_FULL;
@@ -340,6 +377,11 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     // Same shape as the fatal-marker case, but reconstructed from telemetry when
     // the fatal line itself was lost (truncated tail, killed before flushing).
     summary = `out of memory — the runtime's own heap was exhausted: ${heapLine}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
+  } else if (cause === KILL_CAUSE_OUT_OF_MEMORY && reportedMemoryExhaustion && victims.length === 0 && !oomKilled && !(cgroupOomKills > 0) && !memoryExhausted) {
+    // Only `$` saw the evidence (our bounded window missed the fatal line).
+    // Quote what it saw rather than falling back to the host-memory phrasing,
+    // which would again read as a contradiction on a healthy machine.
+    summary = `out of memory — start-command reported memory exhaustion${reportedMechanism ? ` (${reportedMechanism})` : ''}${reportedMemoryExhaustedReason ? `: \`${reportedMemoryExhaustedReason}\`` : ''}${memoryLine ? ` (host memory was fine: ${memoryLine})` : ''}`;
   } else if (cause === KILL_CAUSE_OUT_OF_MEMORY) {
     const victim = victims.length > 0 ? `, kernel OOM killer terminated \`${victims[victims.length - 1].comm || 'unknown'}\` (pid ${victims[victims.length - 1].pid ?? '?'})` : '';
     summary = `out of memory${memoryLine ? ` — ${memoryLine}` : ''}${victim}`;
@@ -352,7 +394,7 @@ export function describeKillCause({ logText = null, resourceMarkers = null, oomK
     summary = 'unknown — no resource marker, cgroup counter or kernel OOM report was available';
   }
 
-  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker };
+  return { cause, summary, evidence, memory, heap: heapMemory, heapUsedPercent, disk, victims, fatalMemoryMarker, reportedMemoryExhaustion, reportedExitReason: reportedExitReasonText };
 }
 
 /**
@@ -429,7 +471,7 @@ export function formatKillResumeSection({ sessionId = null, attempt = null, maxA
  * @param {Object} [options]
  * @returns {Promise<{section: string, diagnosis: Object|null}>}
  */
-export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics } = {}) {
+export async function buildKillDiagnosticsSection(logPath, { verbose = false, readFile = fsPromises.readFile, maxLogBytes = KILL_DIAGNOSTICS_LOG_BYTES, oomKilled = false, exitCode = null, stopRequestedByUser = false, locale = null, collectSystem = collectSystemKillDiagnostics, reportedMemoryExhausted = null, reportedMemoryExhaustedReason = null, reportedExitReason = null } = {}) {
   try {
     let logText = '';
     if (logPath) {
@@ -441,7 +483,7 @@ export async function buildKillDiagnosticsSection(logPath, { verbose = false, re
       logText = await readLogTextBounded(logPath, { readFile, maxBytes: maxLogBytes, verbose });
     }
     const system = await collectSystem({ verbose });
-    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser });
+    const diagnosis = describeKillCause({ logText, oomKilled, exitCode, system, stopRequestedByUser, reportedMemoryExhausted, reportedMemoryExhaustedReason, reportedExitReason });
     if (verbose) console.log(`[VERBOSE] kill-diagnostics: cause=${diagnosis.cause} — ${diagnosis.summary}`);
     return { section: formatKillDiagnosticsSection(diagnosis, { locale }), diagnosis };
   } catch (error) {

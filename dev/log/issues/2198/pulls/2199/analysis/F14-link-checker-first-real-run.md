@@ -66,6 +66,12 @@ Both added to `tests/doc-links-2198.test.mjs`, and both mutation-checked:
 | Every URL we chose to suppress is *actually matched* by a pattern in `.lycheeignore` | Restore the `www`-only npmjs pattern | fails, naming the URL |
 | | Delete the stargazers pattern | fails, naming the URL |
 
+The first guard produced a false positive of its own on its first full-suite run: it
+scanned raw text, so it flagged **this document**, which has to quote the dead URL to
+record what was broken. It now masks code spans and fences the way the rest of the file
+already does — a document that *names* the old owner is evidence; one that *links* to it
+is a broken link. The mutation above re-confirms it still catches a real link.
+
 The second guard is the interesting one: it does not assert that a URL is *listed* in the
 ignore file — listing is what already failed. It compiles each pattern and requires it to
 match the URL it was written for.

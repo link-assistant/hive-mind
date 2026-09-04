@@ -134,7 +134,14 @@ assert.ok(existsSync(join(repoRoot, 'scripts/check-web-archive.mjs')), 'scripts/
 // hive-mind`, but the HTML URLs it redirects from answer 404 to a link
 // checker, so every historical reference to the old name is a broken link.
 // Rewriting the owner keeps the reference pointing at the same issue.
-const renamedFrom = tracked.filter(file => readFileSync(join(repoRoot, file), 'utf8').includes('github.com/deep-assistant/hive-mind'));
+//
+// `maskCode` applies here for the same reason it applies above: the write-up
+// of this very finding has to quote the dead URL to record what was broken,
+// and it does so in code spans. A document that *names* the old owner is
+// evidence; one that *links* to it is a broken link. Scanning the raw text
+// flagged `analysis/F14-...md` — a guard against false positives producing
+// one of its own, which is why it is masked here too.
+const renamedFrom = tracked.filter(file => maskCode(readFileSync(join(repoRoot, file), 'utf8')).includes('github.com/deep-assistant/hive-mind'));
 assert.deepEqual(renamedFrom, [], `these files still link to this repository under its former owner (deep-assistant -> link-assistant):\n  ${renamedFrom.join('\n  ')}`);
 
 // --- the ignore list matches the URLs it was written for -------------------

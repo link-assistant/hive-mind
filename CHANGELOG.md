@@ -1,5 +1,111 @@
 # @link-assistant/hive-mind
 
+## 2.17.0
+
+### Minor Changes
+
+- d37c412: Stop the unbounded agent snapshot leak: refuse pre-0.26.1 Agent CLIs, reclaim orphaned stores, and teach every disk check about `~/.local/share` (issue #2186).
+
+  One 9.5 h task left **115 directories / 31 GB** behind in `~/.local/share/link-assistant-agent/snapshot/`, growing at ~5 GB/h, while every disk check reported a healthy workspace. `@link-assistant/agent` keeps a rollback snapshot per project keyed on the worktree's _root commit_; Hive Mind runs each task in a throwaway checkout, so every run minted a new project, and up to agent 0.26.0 that store was a standalone git object database (no `objects/info/alternates`, ~270 MB each) that nothing ever removed. Hive Mind's own checks were blind to it: `disk-guard.lib.mjs` only looks at `/tmp`, cleanup only walks `/tmp` and `/var/tmp`, and the resource snapshots reported a flat `statfs` reading for `/`.
+
+  - **The leaking CLI is refused, not worked around.** `MIN_AGENT_SNAPSHOT_HYGIENE_VERSION = '0.26.1'` gates `validateAgentConnection` before any other probe, and both images pin `@link-assistant/agent@0.26.1` — the release that writes `objects/info/alternates` from `git rev-parse --git-path objects` and prunes projects whose worktree is gone (link-assistant/agent#298, PR #300). Verified by diffing the published 0.26.0 and 0.26.1 tarballs, not by reading a changelog.
+  - **Hive Mind reclaims orphans itself.** `src/agent-snapshot-store.lib.mjs` deletes a store only when the worktree recorded in `storage/project/<id>.json` no longer exists (or the record is gone) **and** the store has been idle for 15 minutes — agent's own `recentSnapshotAge`. The version floor alone would not be enough: the disk gate runs before agent does, `--tool codex` / `--tool claude` tasks never run agent at all, and a host upgraded from 0.26.0 still carries what it already leaked.
+  - **It runs unconditionally at the end of a task**, not only under `--auto-cleanup`: an orphaned store has no worktree left to restore into, so it has no debugging value.
+  - **The disk model knows about agent state.** The pre-flight disk guard reclaims orphaned stores _before_ solver workspaces (an orphan is pure garbage, a workspace may still be wanted), `hive-cleanup` gained an agent-snapshot category with `--dry-run` reporting and a `--no-agent-snapshots` opt-out, and the `📈 Resource usage` block now reports the store count and size, so `after_agent` shows this growth instead of a flat `/` reading. The size walk is bounded so measuring a 31 GB tree cannot become the next incident, and the resource markers only carry the new fields when there is agent state to report, so existing markers parse unchanged.
+
+  The rest of the stack moves with it: Formal AI 0.339.1 → 0.345.0, Rust 1.96 → 1.98 for the Formal AI builder, `konard/box` and `konard/box-dind` 2.3.5 → 2.4.0, `actions/checkout` and `actions/setup-node` v6 → v7, `@changesets/cli` 3.0.1 → 3.0.2. The Formal AI bump was checked the same way as the agent one: 0.345.0's `Cargo.lock` still carries no `openssl-sys` (so the builder keeps working on a stock `rust:slim` image) and its four memory-contract sources are byte-identical to 0.339.1, so the `memory upgrade-status` / `memory migrate` contract the container updater depends on is unchanged.
+
+  Evidence, reproduction scripts and the full analysis are in `docs/case-studies/issue-2186/README.md` and `experiments/issue-2186/`.
+
+- 5e918d5: Fix the release failure and the CI/CD gaps behind issue #2198.
+
+  - `changeset version` no longer resolves `bun` from a stale root `bun.lock`:
+    the lockfile is removed and `devEngines.packageManager` declares npm, so
+    `@changesets/format` cannot spawn a package manager the runner does not have.
+  - New `scripts/check-package-manager.mjs` guard, run in the lint job, fails
+    loudly if a foreign lockfile or a missing package manager declaration comes
+    back.
+  - Lockfile changes now count as package changes in `detect-code-changes.mjs`,
+    so the guard cannot be gated out.
+  - Every workflow now declares the narrowest default `permissions` that still
+    allows checkout, instead of `read-all`, clearing zizmor's
+    `excessive-permissions` findings.
+  - secretlint was installed on every build but never run as a linter and had no
+    config; `npm run check:secrets` now runs it in the lint job, fail-closed,
+    with a narrow `.secretlintignore` for the fixtures that hold fake secrets on
+    purpose.
+  - A Broken Link Checker workflow (lychee, with a Wayback Machine fallback) and
+    an offline relative-link test now cover documentation links. They catch the
+    `docs/FREE_MODELS.md` case-study link that had pointed at a file which never
+    existed in any commit, in all four translations.
+  - All eight Docker jobs booted buildx through a bare
+    `docker/setup-buildx-action`, so a transient registry outage failed the
+    publish; they now go through a `setup-buildx-resilient` composite action that
+    pre-pulls the pinned BuildKit image with backoff and falls back to a
+    pull-through mirror.
+  - Nothing audited the dependency tree: CodeQL analyses our own source, and
+    `dependency-review-action` only runs on pull requests and only inspects the
+    dependencies a PR changes, so an advisory against a long-pinned package was
+    invisible to both. `security.yml` gains an `npm-audit` job running
+    `npm audit --package-lock-only --audit-level=high`, which also runs on the
+    existing schedule.
+  - actionlint is pinned to 1.7.12 instead of 1.7.7.
+
+  - Eleven links pointed at this repository under its former owner
+    (`deep-assistant/hive-mind`). The GitHub API reports that name as
+    `301 Moved Permanently`, but the pages a reader actually clicks answer 404,
+    so every one of them was broken. All rewritten, including six in a directory
+    the link checker excludes and would never have reported. The suppression list
+    it needed alongside them was also wrong: it carried a `www.npmjs.com` pattern
+    while the README links the bare host, so the rule matched nothing. Both are
+    now asserted — the guard checks that each suppressed URL is genuinely
+    _matched_ by a pattern, not merely mentioned near one.
+  - Kept the 1350-line warning threshold met after merging `main`: issue #2186 grew
+    `src/agent.lib.mjs` to 1357 lines, so the Agent CLI version floors moved to
+    `src/agent.version-gates.lib.mjs` (re-exported, so no importer changed).
+  - The change detector no longer trusts a PR head that was never tested. Issue
+    #1665's incremental `before..after` diff is correct only if the previous head
+    passed, and `cancel-in-progress` means it often had not: a docs commit pushed
+    minutes after a code commit cancels that commit's run and then skips the code
+    jobs itself, leaving the branch green over code no job ever ran.
+    `detect-code-changes.mjs` now asks the Actions API whether a successful run is
+    recorded for the previous head, and widens to the full PR diff whenever the
+    answer is anything else — including when the lookup itself fails, since an
+    unanswerable lookup must not be read as a "yes".
+  - F16: the F4 test matched npm's `allow-scripts` log prefix verbatim, so npm 11.19
+    renaming it to `install-scripts` turned `test-suites` red under a message claiming
+    npm had fixed the underlying bug. It had not — `linkPkg()` still resolves no
+    allowScripts policy, and `--ignore-scripts` is still the only lever that works.
+    The check now keys on the sentence that states the defect, pins both shipped
+    labels as samples, and no longer asserts a cause it cannot distinguish.
+  - F17: CodeQL flagged two of this PR's own test assertions as incomplete URL
+    sanitization. The alert was wrong about the security property — the flagged value
+    is a log the test's own mock wrote, not a URL anyone trusts — and right about the
+    code: `calls.includes('mirror.gcr.io')` was never what "the mirror was contacted"
+    meant. The assertions now compare registry hosts by equality, which retires both
+    alerts at the source and, being exact, immediately caught a retry budget no test
+    had been asserting.
+
+- ce43cc9: Resume a killed session in the container it died in, reconcile executions that outlived their supervisor, and move the whole dependency set forward (issue #2189).
+
+  The first half of #2189 shipped in 2.16.0 with one requirement left open: R2 asked for a killed session to be continued **in the same `$` session / container**, and `$` could not do that yet. The three upstream issues this repository filed — `link-foundation/start#162` (`--resume`), `#164` (argv flattened with `join(' ')`), `#165` (a V8 self-abort reported as `oomKilled=false`) — are delivered in `start-command@0.33.0`, so R2 is closed here and the rest of the toolchain is brought up with it.
+
+  - **Same-container resume.** `src/isolation-runner.resume.lib.mjs` wraps `$ --resume <id> [-- <command>]`, and `src/session-kill-resume.in-place.lib.mjs` prefers it over a fresh isolated run: the clone, the caches and the half-finished branch survive the kill instead of being rebuilt from scratch. When in-place resume is unavailable or refused, the previous behaviour — a new isolated session — still runs, and the reason is recorded on the session record (`killRecoveryInPlace`, `killRecoveryResumeMode`) and in the operator's report.
+  - **No more limbo executions.** The bot reconciles at startup with `$ --resume-all`: a container still running is re-attached to, and one that ended while unsupervised is finalized with the exit code it actually had, rather than being polled forever as "executing".
+  - **`$` refusals are read as refusals.** `command-stream`'s `$` _resolves_ on a non-zero exit instead of throwing, so `$ --stop <unknown>` ("No execution found…", exit 1) had been reported to the operator as a stop that happened. Every `$` invocation now inspects the exit code, and both resume wrappers additionally distinguish an older `$` that does not know the verb (`unsupported: true`, so callers keep their old path) from a genuine refusal.
+  - **0.33.0's kill hints are consumed.** `exitReason` and `memoryExhausted` from `$ --status` feed `describeKillCause` directly, so a runtime self-abort is named as out of memory from the supervisor's own answer rather than only from log forensics.
+  - **The dependency set is current, and what changed in it is used.** `@changesets/cli` 2 → 3, `jscpd` 4 → 5, `@sentry/node` 10.62 → 10.73, `prettier` 3.8.5 → 3.9.6, `agent-commander` 0.8 → 0.10, `dayjs` 1.11.21 → 1.11.23, `eslint` 10.5 → 10.9, `lint-staged` 17.0 → 17.4, secretlint 13.0.2 → 13.0.5, `lino-objects-codec` 0.4 → 0.8, `lino-i18n` 0.1 → 0.2.
+
+  Three of those bumps were behaviour changes that needed work rather than a version number:
+
+  - `changeset version` **exits 1** when there are no unreleased changesets in 3.0, where 2.x warned and exited 0. The release job reads the changeset count before rebasing onto the remote, and the rebase can consume the very changesets the decision was made on — a race that turned into a red release. `versionAndCommit` re-reads the count after the rebase and reports the already-published version through the existing `already_released` path.
+  - `jscpd` 5 is a Rust rewrite that treats `skipComments` as an **unknown field**: it warned and silently fell back to `mode: mild`, quietly loosening the duplication gate. `.jscpd.json` now says `"mode": "weak"`, which is what that option means in 5.
+  - `@sentry/node` 10.71+ turns structured logs on by default, and they bypass `beforeSend` entirely. The redaction this repository relies on was therefore no longer covering everything it left through; `src/instrument.sanitize.lib.mjs` is now shared between `beforeSend` and a new `beforeSendLog` hook, so both surfaces are scrubbed by the same code.
+
+  `node-pty` (pulled in by `agent-commander` 0.10's real-TUI capture) is denied a native build in `allowScripts`: it runs in a separate spawned pty host that this repository never launches headlessly.
+
+  Evidence for every claim above — including the two dependency behaviours that were checked and found _not_ to affect this repository — is in `docs/case-studies/issue-2189/README.md` under "Dependency Follow-Through", with the reproduction scripts in `experiments/issue-2189/`.
+
 ## 2.16.0
 
 ### Minor Changes

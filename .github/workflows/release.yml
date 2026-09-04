@@ -34,7 +34,11 @@ on:
         description: 'Manual release description (optional)'
         required: false
         type: string
-permissions: read-all
+# Least privilege by default (zizmor excessive-permissions): `read-all` also
+# grants read access to actions, packages, security events and more. Every job
+# that needs to write declares its own `permissions:` block below.
+permissions:
+  contents: read
 # Concurrency: Only one workflow run per branch at a time.
 # - main (releases): QUEUE. A run on main publishes to npm and then pushes the
 #   version bump back to main. Cancelling it in between leaves the registry ahead
@@ -127,9 +131,12 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Read through the environment, never interpolated into the script:
+          # a branch name is attacker-controlled on a fork PR.
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
         run: |
           # Skip changeset check for automated version PRs
-          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+          if [[ "$GITHUB_HEAD_REF" == "changeset-release/"* ]]; then
             echo "Skipping changeset check for automated release PR"
             exit 0
           fi
@@ -493,14 +500,14 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Get package version
         id: package-version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Package version: $VERSION"
       - name: Lint Helm chart
         run: |
@@ -574,8 +581,8 @@ jobs:
         id: publish
         if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
         run: |
-          echo "published=true" >> $GITHUB_OUTPUT
-          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
@@ -718,15 +725,13 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
+      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: |
           echo "Inspecting multi-platform image..."
@@ -844,15 +849,13 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
+      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
       - name: Verify published image
@@ -881,7 +884,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Release Helm chart
@@ -929,7 +932,12 @@ jobs:
         # repository ruleset blocks the direct push to main (issue #2175).
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+          # Read through the environment, never interpolated into the script:
+          # `description` is free-form text from whoever dispatched the run
+          # (zizmor template-injection).
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: node scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
         id: publish_npm
@@ -939,8 +947,8 @@ jobs:
         id: publish
         if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
         run: |
-          echo "published=true" >> $GITHUB_OUTPUT
-          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
@@ -1072,15 +1080,13 @@ jobs:
           # Set version label to actual release version, not Git ref "main" (issue #1419)
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: |
           echo "Inspecting multi-platform image..."
@@ -1197,15 +1203,13 @@ jobs:
             type=raw,value=latest
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+      # Needed only for scripts/create-manifest-list.sh; this job builds nothing.
+      - name: Checkout repository
+        uses: actions/checkout@v6
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
 
@@ -1234,7 +1238,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Release Helm chart
@@ -1266,13 +1270,18 @@ jobs:
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
       - name: Create changeset file
-        run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+        # Same reasoning as the instant-release job: dispatch inputs reach the
+        # script through the environment, not through string interpolation.
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: node scripts/create-manual-changeset.mjs --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
       - name: Format changeset with Prettier
         run: |
           npx prettier --write ".changeset/*.md"
           echo "Formatted changeset files"
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'

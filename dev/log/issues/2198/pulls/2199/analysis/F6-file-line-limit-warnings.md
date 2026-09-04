@@ -49,3 +49,26 @@ to fail on the pre-fix state.
 Adding the secretlint step (F8) pushed `release.yml` itself over 1350. Rather than accept
 a new warning while removing two, the memory-check job's three inline smoke-test blocks
 moved to `scripts/memory-check-smoke-test.sh` (same commands, same order): 1360 → 1322.
+
+## The guard earning its keep
+
+While this PR was open, `main` merged issue #2186 (`5f062aa5`, "Reclaim orphaned agent
+snapshot stores"), which grew `src/agent.lib.mjs` from 1309 to **1357** lines. Merging
+`main` into this branch therefore reintroduced exactly the warning class this finding
+removed — and the guard caught it locally, before CI, naming the file and the count:
+
+```
+AssertionError: no file exceeds the 1350-line warning threshold
+  actual: [ [ 'src/agent.lib.mjs', 1357 ] ]
+```
+
+That is the difference between a threshold that is *enforced* and one that is merely
+*announced*: `check-file-line-limits.sh` would have printed a `::warning` annotation and
+exited 0, which is how the file drifted up in the first place.
+
+Fixed the same way as the other three: the Agent CLI **version floors** — three
+`MIN_AGENT_*` constants and the four predicates that read them — moved to
+`src/agent.version-gates.lib.mjs` (1357 → 1309). They are a self-contained cluster whose
+only dependency is `semver`, and every name is re-exported from `agent.lib.mjs`, so
+`tests/test-codex-support.mjs` and `tests/test-issue-2186-agent-snapshot-leak.mjs` — which
+import them from there — did not change and still pass.

@@ -45,3 +45,6 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   while the README links the bare host, so the rule matched nothing. Both are
   now asserted — the guard checks that each suppressed URL is genuinely
   *matched* by a pattern, not merely mentioned near one.
+- Kept the 1350-line warning threshold met after merging `main`: issue #2186 grew
+  `src/agent.lib.mjs` to 1357 lines, so the Agent CLI version floors moved to
+  `src/agent.version-gates.lib.mjs` (re-exported, so no importer changed).

@@ -68,6 +68,11 @@ export const createYargsConfig = yargsInstance =>
       description: '[EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar instead of mounting AI credentials into the task container (issue #2164)',
       default: false,
     })
+    .option('tool-update', {
+      type: 'boolean',
+      description: 'Check for a newer version of the agentic CLI before starting the task (issue #2202). Use --no-tool-update to skip.',
+      default: true,
+    })
     .option('screen-name', {
       type: 'string',
       description: 'Screen session name when --isolation screen is used',

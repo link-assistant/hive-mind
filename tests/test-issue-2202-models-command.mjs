@@ -22,9 +22,14 @@
  */
 
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { describeFreshnessResult, ensureAgenticCliFreshness, parseTaskRef, resolveFreshnessTools } from '../src/agentic-cli-freshness.lib.mjs';
 import { listAgenticCliUpdateTargets } from '../src/agentic-cli-updater.lib.mjs';
+import { buildSolveArgs, partitionFixArgs } from '../src/fix.ci-cd.lib.mjs';
+import { getSolvePassthroughOptionNames } from '../src/hive.config.lib.mjs';
+import { SOLVE_OPTION_DEFINITIONS } from '../src/solve.config.lib.mjs';
+import { parseTaskArguments } from '../src/task.config.lib.mjs';
 import { parseHiveModelsArgs, runHiveModels } from '../src/hive-models.lib.mjs';
 import { MODEL_CATALOGUE_TOOLS } from '../src/model-catalogue.lib.mjs';
 import { describeCatalogueSources, formatAge, formatModelCatalogueTelegram, formatModelCatalogueText, formatModelSpec, formatTokenCount, groupHeading } from '../src/model-catalogue-render.lib.mjs';
@@ -448,6 +453,34 @@ check('the freshness summary only speaks when it has something to say', () => {
   assert.match(describeFreshnessResult({ status: 'checked', updated: [{ id: 'codex', from: '1.0.0', to: '1.1.0' }], failed: [] }), /Updated codex 1\.0\.0 → 1\.1\.0/);
   assert.match(describeFreshnessResult({ status: 'checked', updated: [], failed: [{ id: 'codex' }] }), /Could not update codex/);
   assert.match(describeFreshnessResult({ status: 'busy', updated: [], failed: [] }), /other tasks are running/);
+});
+
+console.log('\n--- R6: the commands that drive a CLI are wired to the check ---');
+
+check('/solve, /hive and /task expose the same opt-out', () => {
+  const definition = SOLVE_OPTION_DEFINITIONS['tool-update'];
+  assert.ok(definition, 'R6: solve must declare --tool-update, or yargs strict mode rejects it');
+  assert.equal(definition.type, 'boolean');
+  assert.equal(definition.default, true, 'the check is on by default; --no-tool-update opts out');
+  assert.equal(getSolvePassthroughOptionNames().includes('tool-update'), true, 'hive forwards it to every solve child it starts');
+  assert.equal(parseTaskArguments(['node', 'task.mjs', 'a task']).toolUpdate, true);
+  assert.equal(parseTaskArguments(['node', 'task.mjs', 'a task', '--no-tool-update']).toolUpdate, false);
+});
+
+check('the run excludes its own task from the idle gate', () => {
+  // A regression here is silent: the check would still run, find the calling
+  // solve in the process list, and defer every single time.
+  const solve = fs.readFileSync(new URL('../src/solve.mjs', import.meta.url), 'utf8');
+  assert.match(solve, /await ensureAgenticCliFreshness\(.*ignoreTasks: \[issueUrl\]/, 'solve must not count itself as a busy task');
+  assert.match(solve, /!prepareOnly && argv\.toolUpdate !== false/, 'a dry run must not install anything');
+  const task = fs.readFileSync(new URL('../src/task.mjs', import.meta.url), 'utf8');
+  assert.match(task, /ensureAgenticCliFreshness\(/, 'task drives a CLI too');
+});
+
+check('/fix reaches the check through the solve child it starts', () => {
+  const passthrough = partitionFixArgs(['https://github.com/o/r', '--ci-cd', '--tool', 'codex', '--no-tool-update']).passthrough;
+  assert.deepEqual(passthrough, ['--tool', 'codex', '--no-tool-update'], 'fix forwards the opt-out rather than swallowing it');
+  assert.match(buildSolveArgs({ issueUrl: 'https://github.com/o/r/issues/1', passthrough }).join(' '), /--no-tool-update/);
 });
 
 console.log(`\nResult: ${passed} passed, ${failed} failed`);

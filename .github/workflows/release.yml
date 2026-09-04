@@ -222,6 +222,16 @@ jobs:
           echo "Running jscpd code duplication detection..."
           npm run check:duplication
           echo "Code duplication check passed"
+
+      # Issue #2198: secretlint shipped as a devDependency for the log
+      # sanitizer but no job ever ran it, so a committed credential would
+      # have passed CI unnoticed. Fail-closed; .secretlintignore lists the
+      # few fixture files that hold fake secrets on purpose.
+      - name: Run secret scan
+        run: |
+          echo "Running secretlint credential scan..."
+          npm run check:secrets
+          echo "Secret scan passed"
   # === FILE LINE LIMIT CHECK ===
   # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
   # See docs/case-studies/issue-1141 for why this is critical.
@@ -371,51 +381,13 @@ jobs:
           node-version: 24.x
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
-      - name: System info
-        run: |
-          echo "=== System Information ==="
-          uname -a
-          echo ""
-          echo "=== Memory Information ==="
-          free -h
-          echo ""
-          echo "=== Disk Information ==="
-          df -h
-          echo ""
-          echo "=== CPU Information ==="
-          lscpu | head -20
       - name: Run memory-check tests
-        run: |
-          chmod +x tests/test-memory-check.mjs
-          node tests/test-memory-check.mjs
-
-      - name: Test memory-check with various thresholds
-        run: |
-          echo "Testing with low thresholds (should pass)..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
-          echo ""
-          echo "Testing verbose output..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100
-          echo ""
-          echo "Testing quiet mode..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --quiet --json
-      - name: Test memory-check failure conditions
-        run: |
-          echo "Testing with impossible memory requirement (should fail)..."
-          if ./src/memory-check.mjs --min-memory 999999 --exit-on-failure --quiet --json; then
-            echo "ERROR: Should have failed with impossible memory requirement"
-            exit 1
-          else
-            echo "Correctly failed with impossible memory requirement"
-          fi
-          echo ""
-          echo "Testing with impossible disk requirement (should fail)..."
-          if ./src/memory-check.mjs --min-disk-space 999999999 --exit-on-failure --quiet --json; then
-            echo "ERROR: Should have failed with impossible disk requirement"
-            exit 1
-          else
-            echo "Correctly failed with impossible disk requirement"
-          fi
+        run: node tests/test-memory-check.mjs
+      # Issue #2198: the runner resource dump and the pass/fail threshold
+      # probes moved to scripts/ to keep this workflow under the line-limit
+      # warning threshold. Same commands, same order.
+      - name: Smoke-test memory-check on this runner
+        run: bash scripts/memory-check-smoke-test.sh
   # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
     runs-on: ubuntu-latest

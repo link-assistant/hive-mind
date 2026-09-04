@@ -24,6 +24,7 @@
     "lint": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'",
     "lint:fix": "eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' --fix",
     "check:duplication": "jscpd .",
+    "check:secrets": "secretlint --secretlintignore .secretlintignore \"**/*\"",
     "format": "prettier --write \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
     "format:check": "prettier --check \"**/*.{js,mjs,json,md}\" --ignore-path .prettierignore",
     "changeset": "changeset",

@@ -9,7 +9,12 @@ on:
         type: boolean
         default: false
 
-permissions: read-all
+# Least privilege by default (zizmor excessive-permissions): `read-all` also
+# grants read access to actions, packages, security events and more. This
+# workflow only needs to check out the repository; every deletion it performs
+# goes through TEST_GITHUB_USER_REPO_DELETION_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
 
 env:
   GIT_CONFIG_COUNT: '1'

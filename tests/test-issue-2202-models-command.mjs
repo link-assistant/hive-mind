@@ -477,6 +477,7 @@ check('the run excludes its own task from the idle gate', () => {
   assert.match(solve, /!prepareOnly && argv\.toolUpdate !== false/, 'a dry run must not install anything');
   const task = fs.readFileSync(new URL('../src/task.mjs', import.meta.url), 'utf8');
   assert.match(task, /ensureAgenticCliFreshness\(/, 'task drives a CLI too');
+  assert.match(task, /!argv\.dryRun && argv\.toolUpdate !== false/, 'a task dry run drives no CLI, so it installs nothing either');
 });
 
 check('/fix reaches the check through the solve child it starts', () => {

@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import v8 from 'node:v8';
 
+import { measureAgentSnapshotUsage } from './agent-snapshot-store.lib.mjs';
+
 export const RESOURCE_MARKER_PREFIX = '📈 [RESOURCES]';
 
 export const RESOURCE_PHASE_SOLVE_START = 'solve_start';
@@ -327,6 +329,7 @@ export function buildResourceMarker(snapshot) {
   const cpu = s.cpu || {};
   const memory = s.memory || {};
   const disk = s.disk || {};
+  const agentState = s.agentState || null;
   return [
     RESOURCE_MARKER_PREFIX,
     `phase=${encodeValue(s.phase || 'snapshot')}`,
@@ -353,6 +356,11 @@ export function buildResourceMarker(snapshot) {
     `mem=${encodeValue(`${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total`)}`,
     `heap=${encodeValue(formatHeapUsage(memory))}`,
     `disk=${encodeValue(`${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total`)}`,
+    // Issue #2186: only emitted when the agent state was actually measured, so
+    // markers written before this existed keep parsing byte-for-byte the same.
+    agentState ? `agentStatePath=${encodeValue(agentState.path)}` : null,
+    agentState ? numberField('agentStoreCount', finiteNumber(agentState.count)) : null,
+    agentState ? numberField('agentStoreBytes', finiteNumber(agentState.bytes)) : null,
   ]
     .filter(Boolean)
     .join(' ');
@@ -404,6 +412,15 @@ function parseMarkerLine(line) {
       usedPercent: parseNumber(fields.diskUsedPercent),
       error: fields.error ? decodeURIComponent(fields.error) : null,
     },
+    // Issue #2186: absent in markers produced before agent state was measured,
+    // and absent on hosts where the agent data home does not exist.
+    agentState: fields.agentStatePath
+      ? {
+          path: decodeURIComponent(fields.agentStatePath),
+          count: parseNumber(fields.agentStoreCount),
+          bytes: parseNumber(fields.agentStoreBytes),
+        }
+      : null,
   };
 }
 
@@ -440,13 +457,18 @@ export function formatResourceSnapshotForLog(snapshot, label = null) {
   const memory = s.memory || {};
   const disk = s.disk || {};
   const lines = [`📈 Resource usage (${phaseLabel}):`, `   CPU load: ${formatNumber(cpu.load1)} ${formatNumber(cpu.load5)} ${formatNumber(cpu.load15)}${Number.isFinite(cpu.cpuCount) ? ` (${cpu.cpuCount} CPUs)` : ''}`, `   Memory: ${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total (${formatBytes(memory.usedBytes)} used)`, `   Process RSS: ${formatBytes(memory.processRssBytes)}, V8 heap: ${formatHeapUsage(memory)}`, `   Disk (${disk.path || '/'}): ${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total${Number.isFinite(disk.usedPercent) ? ` (${disk.usedPercent.toFixed(1)}% used)` : ''}`];
+  // Issue #2186: `/` alone hid ~5 GB/h of agent snapshot growth under
+  // `~/.local/share`, so name the directory that is actually filling up.
+  if (s.agentState && Number(s.agentState.count) > 0) {
+    lines.push(`   Agent snapshot stores (${s.agentState.path}): ${s.agentState.count} store(s), ${formatBytes(s.agentState.bytes)}${s.agentState.truncated ? '+ (measurement truncated)' : ''}`);
+  }
   if (isHeapUnderPressure(memory)) lines.push(`   ⚠️  V8 heap is at ${memory.processHeapUsedPercent.toFixed(1)}% of its limit — a further allocation can abort the process with "JavaScript heap out of memory"`);
   if (disk.error) lines.push(`   Disk probe error: ${disk.error}`);
   lines.push(buildResourceMarker(snapshot));
   return lines.join('\n');
 }
 
-export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot, logExecutionContext = false, detectContext = detectExecutionContext } = {}) {
+export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot, logExecutionContext = false, detectContext = detectExecutionContext, measureAgentState = measureAgentSnapshotUsage } = {}) {
   if (typeof log !== 'function') return null;
   try {
     // Issue #2001: optionally report the execution context (host vs container)
@@ -459,6 +481,17 @@ export async function recordResourceSnapshot({ phase, log, diskPath = '/', label
       }
     }
     const snapshot = capture({ phase, diskPath });
+    // Issue #2186: agent state lives outside `diskPath` and needs the file
+    // system, so it is measured separately and stays best-effort — a missing or
+    // unreadable agent data home must never cost us the rest of the snapshot.
+    if (typeof measureAgentState === 'function') {
+      try {
+        const agentState = await measureAgentState();
+        if (agentState && Number(agentState.count) > 0) snapshot.agentState = agentState;
+      } catch {
+        /* agent state is a diagnostic extra, not a precondition */
+      }
+    }
     await log(formatResourceSnapshotForLog(snapshot, label));
     return snapshot;
   } catch (error) {

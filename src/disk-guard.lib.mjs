@@ -27,6 +27,8 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
+import { DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, getAgentDataHome, reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -224,8 +226,12 @@ export const reclaimSolverWorkspaces = async ({ requiredMB = 0, tmpRoot = DEFAUL
  *
  * An unreadable `df` never blocks work: the guard is an optimisation over solve's own pre-flight
  * check, not a replacement for it.
+ *
+ * Issue #2186 added a second source of reclaimable space: orphaned
+ * `@link-assistant/agent` snapshot stores in the home directory, which no `/tmp`-scoped check
+ * could see. Pass `agentDataHome: null` to opt out.
  */
-export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove } = {}) => {
+export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS } = {}) => {
   const startedAt = now();
   const reclaimed = [];
   let freeMB = await getFreeMB(tmpRoot);
@@ -239,6 +245,20 @@ export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = D
   }
   await log(`   💾 Low disk space: ${freeMB}MB free, ${requiredMB}MB required — reclaiming idle solver workspaces before starting work`, { level: 'warning' });
   for (;;) {
+    // Issue #2186: orphaned agent snapshot stores are pure garbage — their
+    // worktree is gone, so nothing can be restored from them — while a solver
+    // workspace may still be wanted for debugging. Reclaim them first, and note
+    // that they live in the home directory, which every check here used to be
+    // blind to.
+    if (agentDataHome) {
+      const agentResult = await reclaimAgentSnapshotStores({ dataHome: agentDataHome, minIdleMs: agentSnapshotMinIdleMs, stopWhenFreeMB: requiredMB, getFreeMB: () => getFreeMB(tmpRoot), now, log, fileSystem, remove });
+      reclaimed.push(...agentResult.removed);
+      if (agentResult.freeMB !== null && agentResult.freeMB !== undefined) freeMB = agentResult.freeMB;
+      if (freeMB >= requiredMB) {
+        await log(`   ✅ Disk space recovered: ${freeMB}MB free after reclaiming ${agentResult.removed.length} orphaned agent snapshot store(s)`);
+        return { ok: true, freeMB, reason: 'reclaimed', reclaimed, waitedMs: now() - startedAt };
+      }
+    }
     const result = await reclaimSolverWorkspaces({ requiredMB, tmpRoot, protectedPaths, minIdleMs, now, log, fileSystem, procRoot, getFreeMB, remove });
     reclaimed.push(...result.removed);
     if (result.freeMB !== null && result.freeMB !== undefined) freeMB = result.freeMB;

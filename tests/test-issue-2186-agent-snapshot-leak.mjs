@@ -59,7 +59,11 @@ check(agentCliPrunesOrphanSnapshots(undefined) === false, 'a missing version is 
 // change lifts one of them above it, the ordering assumption below fails loudly
 // instead of silently letting a leaking CLI through some other path.
 const [major, minor, patch] = MIN_AGENT_SNAPSHOT_HYGIENE_VERSION.split('.').map(Number);
-const asNumber = version => version.split('.').map(Number).reduce((total, part) => total * 1000 + part, 0);
+const asNumber = version =>
+  version
+    .split('.')
+    .map(Number)
+    .reduce((total, part) => total * 1000 + part, 0);
 check(asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION) >= asNumber(MIN_AGENT_LIVE_INPUT_VERSION), `the snapshot floor is at least the live-input floor (${MIN_AGENT_LIVE_INPUT_VERSION})`);
 check(asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION) >= asNumber(MIN_AGENT_FORMAL_AI_VERSION), `the snapshot floor is at least the Formal AI floor (${MIN_AGENT_FORMAL_AI_VERSION})`);
 check(Number.isInteger(major) && Number.isInteger(minor) && Number.isInteger(patch), 'the floor is a plain semver release, not a range');

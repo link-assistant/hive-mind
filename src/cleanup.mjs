@@ -39,6 +39,7 @@ import { isConfirmationYes, readConfirmationLine } from './confirmation.lib.mjs'
 import { classifyEntries, summarize, formatBytes, describeReason, buildActiveMatchers, DEFAULT_PROTECTED_NAMES, formatEntryContext, formatTaskSummary, DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE, describeDockerIsolationReason, formatDockerIsolationContainerSummary, normalizeDockerIsolationCleanupMode, planDockerIsolationCleanup } from './cleanup.lib.mjs';
 import { getTempRoot, listTempEntries, getPathSize, readFolderGitInfo, listProcessHeldPaths, getActiveTasks, listSessionTasks, removePath, runSystemCleanup, collectProcessDebugReport, signalOrphanedAgentTrees, listDockerIsolationContainers, removeDockerContainer } from './cleanup.os.lib.mjs';
 import { formatProcessDebugReport } from './process-debug.lib.mjs';
+import { classifyAgentSnapshotStores, describeAgentSnapshotReason, getAgentDataHome } from './agent-snapshot-store.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
 
@@ -138,6 +139,11 @@ System / Ubuntu cleanup (opt-in):
   --system                    Shorthand for --apt --journal --npm
   --sudo                      Prefix package-manager commands with sudo
 
+Agent state cleanup (issue #2186):
+  --no-agent-snapshots        Do not reclaim orphaned @link-assistant/agent
+                              snapshot stores under
+                              $XDG_DATA_HOME/link-assistant-agent/snapshot/
+
 Docker isolation cleanup:
   --docker-isolation[=<mode>] Clean task containers named by session UUID
                               [default: ${DEFAULT_DOCKER_ISOLATION_CLEANUP_MODE}]
@@ -173,6 +179,7 @@ const options = {
   journal: hasFlag('--journal', '--system'),
   docker: hasFlag('--docker'),
   dockerIsolationMode: parseDockerIsolationMode(),
+  agentSnapshots: !hasFlag('--no-agent-snapshots'),
   npm: hasFlag('--npm', '--system'),
   sudo: hasFlag('--sudo'),
 };
@@ -371,18 +378,48 @@ async function main() {
     }
   }
 
-  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)}), docker keep ${dockerIsolationPlan.keep.length}, docker remove ${dockerIsolationPlan.remove.length}`);
+  // Issue #2186: agent's snapshot stores live in the home directory, outside the
+  // tmp root everything above scans, and each one is a full copy of a
+  // repository. A store is only listed for removal when the worktree its project
+  // record points at is gone, so this can never disturb a live checkout.
+  let agentSnapshotPlan = { orphaned: [], keep: [] };
+  if (!options.agentSnapshots) {
+    await log('\n🗄️  Agent snapshot stores: disabled (--no-agent-snapshots)');
+  } else {
+    const agentDataHome = getAgentDataHome();
+    agentSnapshotPlan = await classifyAgentSnapshotStores({ dataHome: agentDataHome });
+    for (const item of [...agentSnapshotPlan.keep, ...agentSnapshotPlan.orphaned]) item.size = getPathSize(item.path);
+    const orphanBytes = agentSnapshotPlan.orphaned.reduce((total, item) => total + (item.size || 0), 0);
+    await log(`\n🗄️  Agent snapshot stores (${path.join(agentDataHome, 'snapshot')}):`);
+    if (agentSnapshotPlan.keep.length === 0 && agentSnapshotPlan.orphaned.length === 0) {
+      await log('   (none)');
+    } else {
+      await log('   KEPT:');
+      if (agentSnapshotPlan.keep.length === 0) await log('      (none)');
+      for (const item of agentSnapshotPlan.keep.sort((a, b) => (b.size || 0) - (a.size || 0))) {
+        await log(`      ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeAgentSnapshotReason(item.reason)}${item.worktree ? ` (${item.worktree})` : ''}`);
+      }
+      await log(`   ${options.dryRun ? 'WOULD REMOVE' : 'TO REMOVE'} (${formatBytes(orphanBytes)}):`);
+      if (agentSnapshotPlan.orphaned.length === 0) await log('      (none)');
+      for (const item of agentSnapshotPlan.orphaned.sort((a, b) => (b.size || 0) - (a.size || 0))) {
+        await log(`      ${formatBytes(item.size).padStart(7)}  ${item.path}  — ${describeAgentSnapshotReason(item.reason)}${item.worktree ? ` (${item.worktree})` : ''}`);
+      }
+    }
+  }
+
+  await log(`\n📊 Summary: keep ${totals.keepCount} (${formatBytes(totals.keepBytes)}), remove ${totals.removeCount} (${formatBytes(totals.removeBytes)}), docker keep ${dockerIsolationPlan.keep.length}, docker remove ${dockerIsolationPlan.remove.length}, agent snapshots remove ${agentSnapshotPlan.orphaned.length}`);
 
   // 7. Execute deletion (unless dry-run).
   const hasTempRemovals = classified.remove.length > 0;
   const hasDockerRemovals = dockerIsolationPlan.remove.length > 0;
+  const hasAgentSnapshotRemovals = agentSnapshotPlan.orphaned.length > 0;
   if (options.dryRun) {
     await log('\n✅ Dry run complete. Re-run without --dry-run to delete.');
-  } else if (!hasTempRemovals && !hasDockerRemovals) {
+  } else if (!hasTempRemovals && !hasDockerRemovals && !hasAgentSnapshotRemovals) {
     await log('\n✅ Nothing to delete.');
   } else {
     if (!options.force) {
-      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}) and remove ${dockerIsolationPlan.remove.length} Docker isolation containers.`);
+      console.log(`\n⚠️  This will permanently delete ${classified.remove.length} entries (${formatBytes(totals.removeBytes)}), ${agentSnapshotPlan.orphaned.length} orphaned agent snapshot stores and remove ${dockerIsolationPlan.remove.length} Docker isolation containers.`);
       console.log('Type "yes" to confirm, or Ctrl+C to cancel:');
       let answer;
       try {
@@ -412,6 +449,23 @@ async function main() {
         }
       }
       await log(`\n✅ Deleted ${deleted} entries${failed ? `, ${failed} failed` : ''}.`);
+    }
+
+    if (hasAgentSnapshotRemovals) {
+      await log('\n🗄️  Removing orphaned agent snapshot stores...');
+      let deleted = 0;
+      let failed = 0;
+      for (const item of agentSnapshotPlan.orphaned) {
+        const ok = removePath(item.path);
+        if (ok) {
+          deleted++;
+          await vlog(`   removed ${item.path}`);
+        } else {
+          failed++;
+          await log(`   ⚠️  failed to remove ${item.path}`, { level: 'warn' });
+        }
+      }
+      await log(`\n✅ Deleted ${deleted} orphaned agent snapshot stores${failed ? `, ${failed} failed` : ''}.`);
     }
 
     if (hasDockerRemovals) {

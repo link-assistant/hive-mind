@@ -155,9 +155,33 @@ assert(
 
 console.log('\n=== R3: recovery must not invent GitHub targets ===\n');
 
-for (const hostile of ['https://gitlab.com/owner/repo/pull/30', 'https://bitbucket.org/owner/repo/pull-requests/30', 'https://gist.github.com/owner/abc123', 'https://raw.githubusercontent.com/owner/repo/main/f.txt', 'https://github.com.evil.com/owner/repo/pull/30', 'https://evil.com/github.com/owner/repo/pull/30', 'https://example.com/issues/123', 'not a url at all', '', '!!!']) {
+for (const hostile of [
+  'https://gitlab.com/owner/repo/pull/30',
+  'https://bitbucket.org/owner/repo/pull-requests/30',
+  'https://gist.github.com/owner/abc123',
+  'https://raw.githubusercontent.com/owner/repo/main/f.txt',
+  'https://github.com.evil.com/owner/repo/pull/30',
+  'https://evil.com/github.com/owner/repo/pull/30',
+  'https://example.com/issues/123',
+  'not a url at all',
+  '',
+  '!!!',
+  // Recovery must not over-reach in the other direction either: unwrapping prose
+  // punctuation is only worth doing when what comes out already names github.com.
+  '[a](b)',
+  '"just-a-word"',
+  '(some-token)',
+  // An email address at github.com is not a repository URL.
+  'me@github.com',
+  'support@github.com',
+]) {
   assertRejected(hostile, `rejected: ${JSON.stringify(hostile)}`);
 }
+
+// ...while the SSH remote form, which uses the same `user@host` shape, still works.
+assert(parseGitHubUrl('git@github.com:owner/repo.git').canonical === 'https://github.com/owner/repo', 'an SSH remote is still read as its web address');
+assert(parseGitHubUrl('ssh://git@github.com/owner/repo').canonical === 'https://github.com/owner/repo', 'an ssh:// URL is still read as its web address');
+assert(parseGitHubUrl('[PR 30](https://github.com/owner/repo/pull/30)').canonical === 'https://github.com/owner/repo/pull/30', 'a Markdown link whose target names github.com is still unwrapped');
 
 console.log('\n=== R4: codepoint-level diagnostics ===\n');
 

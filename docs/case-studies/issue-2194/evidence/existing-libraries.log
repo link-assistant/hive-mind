@@ -1,0 +1,25 @@
+the reported case
+  input:           "https://github.com/G-Ivan-A/aether-orbis/pulls/30"
+  normalize-url:   "https://github.com/G-Ivan-A/aether-orbis/pulls/30"
+  confusables:     "https://github.com/G-Ivan-A/aether-orbis/pulls/30"
+
+zero-width space in the repo name
+  input:           "https://github.com/G-Ivan-A/aether-orbis​/pull/30"
+  normalize-url:   "https://github.com/G-Ivan-A/aether-orbis%E2%80%8B/pull/30"
+  confusables:     "https://github.com/G-Ivan-A/aether-orbis/pull/30"
+
+full-width colon
+  input:           "https：//github.com/G-Ivan-A/aether-orbis/pull/30"
+  normalize-url:   "threw: Invalid URL"
+  confusables:     "https：//github.com/G-Ivan-A/aether-orbis/pull/30"
+
+markdown link
+  input:           "[PR 30](https://github.com/G-Ivan-A/aether-orbis/pull/30)"
+  normalize-url:   "threw: Invalid URL"
+  confusables:     "[PR 30](https://github.com/G-Ivan-A/aether-orbis/pull/30)"
+
+non-ASCII owner name that must survive
+  input:           "https://github.com/Ćwikła/aether-orbis/pull/30"
+  normalize-url:   "https://github.com/%C4%86wik%C5%82a/aether-orbis/pull/30"
+  confusables:     "https://github.com/Cwikla/aether-orbis/pull/30"
+

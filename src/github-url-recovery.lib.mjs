@@ -133,6 +133,9 @@ const UNBALANCED_CLOSERS = new Map([
  */
 const HOST_PREFIX = /^(?:[A-Za-z][A-Za-z0-9+.-]*:\/{0,3}|[A-Za-z][A-Za-z0-9+.-]*\/{2,3}|\/{0,3})(?:[^/\s@]*@)?(www\.|m\.|api\.)?$/;
 
+/** Repairs that mean the token was wrapped in prose punctuation rather than typed as a URL. */
+const WRAPPER_REPAIR_CODES = new Set(['markdown-link-unwrapped', 'wrapper-stripped']);
+
 /** The first path segment must be able to be a GitHub login for the shorthand form. */
 const GITHUB_LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\/|$)/;
 
@@ -288,6 +291,10 @@ function normalizeHost(text, repairs) {
   let after = fold(text.slice(hostEnd, hostEnd + 1), SEPARATOR_CONFUSABLES) + text.slice(hostEnd + 1);
   if (after !== '' && !/^[/:?#]/.test(after)) return { rejection: REJECT_NOT_GITHUB };
 
+  // `git@github.com:owner/repo.git` is an SSH remote; `support@github.com` on its
+  // own is an email address and must never become a GitHub URL (issue #2194).
+  if (prefix.includes('@') && !/^[:/]./.test(after)) return { rejection: REJECT_NOT_GITHUB };
+
   const port = after.match(/^:(\d+)(.*)$/s);
   if (port) after = port[2];
   const rest = after.replace(/^:+/, '/');
@@ -365,6 +372,7 @@ export function repairGitHubUrlText(raw) {
   let text = stripHiddenCharacters(raw.trim(), repairs).trim();
   text = stripDecoration(text, repairs);
   if (text === '') return { text, repairs, rejection: REJECT_MALFORMED };
+  const wasWrapped = repairs.some(repair => WRAPPER_REPAIR_CODES.has(repair.code));
 
   const host = normalizeHost(text, repairs);
   if (host?.rejection) return { text, repairs, rejection: host.rejection };
@@ -374,6 +382,10 @@ export function repairGitHubUrlText(raw) {
   // too, so it is handed to the parser untouched and rejected there — this is what
   // keeps `https://gitlab.com/owner/repo` from being rewritten into a GitHub URL.
   if (EXPLICIT_SCHEME.test(text)) return { text, repairs };
+  // `[label](target)` and `"word"` in the middle of a sentence are prose. Unwrapping
+  // them is only worth doing when what comes out already names github.com, so a bare
+  // token that was wrapped must not be promoted to a GitHub profile (issue #2194).
+  if (wasWrapped) return { text, repairs, rejection: REJECT_MALFORMED };
   if (!GITHUB_LOGIN.test(text)) return { text, repairs, rejection: REJECT_MALFORMED };
   addRepair(repairs, 'scheme-normalized', `read the shorthand as a ${GITHUB_HOST} path`);
   return { text: normalizePathShape(`https://${GITHUB_HOST}/${text.replace(/^\/+/, '')}`, repairs), repairs };

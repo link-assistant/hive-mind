@@ -547,6 +547,17 @@ Added while consuming `start-command@0.33.0` (see Dependency Follow-Through):
 - `tests/test-issue-2189-startup-resume-all.mjs` — reconciliation runs before the
   durable store is replayed, reports what it did, and never blocks startup when
   the verb is unsupported, refused or throws.
+- `tests/test-issue-2189-start-command-0.33.mjs` — the new `exitReason`,
+  `memoryExhausted` and `memoryExhaustedReason` fields across all three
+  `--status` output formats, and the kill diagnosis that reads them: an upstream
+  heap self-abort is named as one instead of being reported as a forced kill.
+
+`tests/test-issue-2135-log-explosion.mjs` needed no change of intent, only a
+longer file list: its "every spawner reports the signal rather than
+interpolating a null code" guard is what caught the first draft of these
+wrappers writing `exited with code ${code}` by hand, so
+`src/isolation-runner.resume.lib.mjs` was added to the files it holds to that
+rule.
 
 Regression suites re-run for the touched areas: `test-issue-1999-*`,
 `test-issue-2001-*`, `test-issue-2015-oom-killed-status`,

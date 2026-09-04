@@ -61,11 +61,12 @@ When the hive-mind solver ran on [link-foundation/meta-theory#22](https://github
 - Anthropic cost: $2.34 = actual billing with internal caching discounts (Claude Code subscription tier)
 
 **Comparison with other sessions on the same PR**:
-| Session | Public Price | Anthropic Cost | Difference |
-|---------|-------------|----------------|------------|
-| Session 1 (initial) | $4.61 | $3.06 | -33.65% |
-| Session 2 (auto-restart) | $0.84 | $0.46 | -45.53% |
-| Session 3 (this issue) | $15.26 | $2.34 | -84.68% |
+
+| Session                  | Public Price | Anthropic Cost | Difference |
+| ------------------------ | ------------ | -------------- | ---------- |
+| Session 1 (initial)      | $4.61        | $3.06          | -33.65%    |
+| Session 2 (auto-restart) | $0.84        | $0.46          | -45.53%    |
+| Session 3 (this issue)   | $15.26       | $2.34          | -84.68%    |
 
 Session 3 has a much higher difference because it used extensive prompt caching (20.9M cache read tokens across 39 turns), making the caching discount much more significant.
 

@@ -106,7 +106,7 @@ const measureDiff = diff => {
     section = null;
   };
 
-  for (let start = 0; start < diff.length; ) {
+  for (let start = 0; start < diff.length;) {
     let end = diff.indexOf('\n', start);
     if (end === -1) end = diff.length;
     const line = diff.slice(start, end);

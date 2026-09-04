@@ -40,11 +40,12 @@ ERROR: jscpd found too many duplicates (11.03%) over threshold (11%)
 ```
 
 jscpd report summary:
-| Metric | Value |
-|--------|-------|
-| Files analyzed | 229 |
-| Total lines | 63,419 |
-| Clones found | 622 |
+
+| Metric           | Value          |
+| ---------------- | -------------- |
+| Files analyzed   | 229            |
+| Total lines      | 63,419         |
+| Clones found     | 622            |
 | Duplicated lines | 6,998 (11.03%) |
 
 Specific duplications involving new files:

@@ -8,6 +8,7 @@ projects:
 milestone:
 number: 1877
 --
+
 We should find best practices and standards about this file, and integrate support for for both codex, claude, ideally in the same way, using same skill, so they can continue work of each other in single pull request.
 
 That should be supported as --use-handoff (experimental option, disabled by default).

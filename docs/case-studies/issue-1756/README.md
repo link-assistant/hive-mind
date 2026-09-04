@@ -168,7 +168,7 @@ Unit tests covering:
   dependency and force a much larger refactor (we'd no longer be calling `gh`).
   Not justified for a fix to one error class that the existing helper already
   knows how to recognise.
-- **Move every direct `execAsync(\`gh …\`)`to`ghCmdRetry`.** `ghCmdRetry`
+- **Move every direct ``execAsync(`gh …`)`` to `ghCmdRetry`.** `ghCmdRetry`
   uses command-stream `$`, not `child_process.exec`. The `solve.auto-pr.lib.mjs`
   call site needs the exact `cwd`/`env`/`encoding` options that `execAsync`
   takes, so `execGhWithRetry` is the appropriate wrapper.

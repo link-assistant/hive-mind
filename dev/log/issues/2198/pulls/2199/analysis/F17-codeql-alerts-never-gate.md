@@ -74,6 +74,17 @@ When both registries are down the mirror is attempted **twice** — once per
 a substring search cannot distinguish one attempt from two. The retry budget is
 now pinned; changing `PREPULL_ATTEMPTS` from 2 to 3 fails the test.
 
+### Confirmed retired by CodeQL itself
+
+After `be056829`, CodeQL's re-analysis of the pull request reports both alerts
+as fixed rather than dismissed — the code no longer contains the pattern:
+
+```console
+$ gh api "repos/link-assistant/hive-mind/code-scanning/alerts?ref=refs/pull/2199/merge" \
+    --jq 'group_by(.state)[] | [.[0].state, (length|tostring)] | @tsv'
+fixed	2
+```
+
 ## The other half: nothing makes these alerts matter
 
 While checking whether this rule fired anywhere else, the wider state came out.

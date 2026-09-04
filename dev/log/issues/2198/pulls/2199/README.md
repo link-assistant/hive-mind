@@ -85,6 +85,7 @@ when the question is "was this code tested" (F15).
 | 2026-09-04 15:35 | Run [33890315861](https://github.com/link-assistant/hive-mind/actions/runs/33890315861) is the first on this branch whose code jobs the F15 fix keeps alive — `test-suites`, `test-compilation`, `check-file-line-limits` and `memory-check-linux` all run instead of skipping. `test-suites` fails, on F4's own test. (F15, F16) |
 | 2026-09-04 15:35 | `github-advanced-security[bot]` has two open high-severity alerts on this PR's own test file, and 130 more are open on `main` under a green `Security` workflow. (F17) |
 | 2026-09-04 (same run) | The runners are on npm 11.19.0, which renamed `npm warn allow-scripts` to `npm warn install-scripts`. F4's test matched the old label verbatim, so a rename was reported as "npm fixed linkPkg()". It had not. (F16) |
+| 2026-09-04 16:41 | Run [33894506764](https://github.com/link-assistant/hive-mind/actions/runs/33894506764) at `0b7ea3bb`: all four workflows green **with the code jobs actually running** — `test-suites`, `test-compilation`, `check-file-line-limits`, `memory-check-linux`, `test-execution` all `success`, none skipped. CodeQL re-analysis reports this PR's two alerts as `fixed`. (F15, F16, F17) |
 
 ## Findings
 

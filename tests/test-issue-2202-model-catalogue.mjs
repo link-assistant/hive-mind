@@ -23,6 +23,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { inspect } from 'node:util';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -123,6 +124,10 @@ await checkAsync('a failed router read never repeats the leased token back at th
   await assert.rejects(fetchRouterCatalogueViaExec({ url: 'https://link-assistant-router/v1/models', token, run }), error => {
     assert.equal(error.message.includes(token), false, `the token leaked: ${error.message}`);
     assert.match(error.message, /No such container/, 'the useful part of the failure survives');
+    // A `cause` is printed in full by Node's default handler and by
+    // util.inspect, and an error's stack repeats its message — so the whole
+    // inspected chain has to be clean, not just the top message.
+    assert.equal(inspect(error, { depth: 5 }).includes(token), false, 'the token survived in the inspected error chain');
     return true;
   });
 

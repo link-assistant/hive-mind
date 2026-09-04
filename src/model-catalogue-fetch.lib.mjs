@@ -191,7 +191,12 @@ export const fetchRouterCatalogueViaExec = async ({ url, token, containerName = 
     // `hive-models --json`. So the failure is re-raised from the parts that are
     // safe to show, and anything left is scrubbed of the token as well — docker
     // itself sometimes echoes the environment back in its own error text.
-    throw new Error(redactRouterToken(describeExecFailure(error, containerName), token));
+    //
+    // The cause is the caught error, but scrubbed first and in place: its
+    // message *and* its stack (which repeats the message) hold the argv, and a
+    // cause is printed in full by Node's default handler and by util.inspect.
+    scrubRouterToken(error, token);
+    throw new Error(redactRouterToken(describeExecFailure(error, containerName), token), { cause: error });
   }
 };
 
@@ -206,6 +211,31 @@ const describeExecFailure = (error, containerName) => {
   if (detail) return `docker exec into ${containerName} failed: ${detail}`;
   if (error?.code === 'ENOENT') return 'docker is not installed';
   return `docker exec into ${containerName} failed (${error?.code ?? error?.signal ?? 'unknown error'})`;
+};
+
+/**
+ * Scrub a leased token out of a caught error, in place.
+ *
+ * Node puts the whole argv in `message`, repeats it in `stack`, and `exec`-style
+ * failures also carry it in `cmd`. Every string the error owns is rewritten, so
+ * attaching it as a `cause` cannot resurrect the secret somewhere downstream.
+ */
+const scrubRouterToken = (error, token) => {
+  if (!error || typeof error !== 'object') return error;
+  for (const key of ['message', 'stack', 'cmd', 'stdout', 'stderr']) {
+    const value = error[key];
+    if (typeof value !== 'string') continue;
+    const redacted = redactRouterToken(value, token);
+    if (redacted !== value) {
+      try {
+        error[key] = redacted;
+      } catch {
+        // A frozen error cannot be scrubbed; the caller still only surfaces the
+        // description built above, which never quotes the command line.
+      }
+    }
+  }
+  return error;
 };
 
 /** Replace a leased token wherever it survived into text meant for a human. */

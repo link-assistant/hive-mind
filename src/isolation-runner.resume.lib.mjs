@@ -25,6 +25,7 @@
  * @see https://github.com/link-foundation/start/issues/162
  */
 
+import { describeChildExit } from './child-exit.lib.mjs';
 import { findStartCommandBinary, getCommandStreamDollar, START_COMMAND_MISSING_ERROR } from './start-command-cli.lib.mjs';
 
 /** Strategies `$ --resume` can pick, mirroring upstream `ResumeMode`. */
@@ -163,7 +164,10 @@ function interpretStartCommandResult(result, error = null) {
   const stderr = source.stderr?.toString?.().trim() || '';
   const code = error ? (Number.isFinite(source.code) ? source.code : 1) : Number.isFinite(source.code) ? source.code : 0;
   if (!error && code === 0) return { ok: true, stdout, message: null, unsupported: false };
-  const message = stderr || source.message || `start-command exited with code ${code}`;
+  // describeChildExit keeps a signalled `$` from being reported as "code null"
+  // (issue #2135), which is the same class of lost cause this wrapper exists to
+  // stop losing.
+  const message = stderr || source.message || describeChildExit({ command: 'start-command', code: Number.isFinite(source.code) ? source.code : code, signal: source.signal ?? null });
   return { ok: false, stdout, message, unsupported: isUnsupportedStartCommandVerb(`${message}\n${stdout}`) };
 }
 

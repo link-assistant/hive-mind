@@ -595,7 +595,11 @@ export async function stopIsolatedSession(sessionId, verbose = false) {
     // operator as a successful stop, and a session nobody stopped looked handled.
     const code = Number.isFinite(result.code) ? result.code : 0;
     if (code !== 0) {
-      return { success: false, output: stdout, error: stderr.trim() || `\`$ --stop\` exited with code ${code}` };
+      // describeChildExit rather than an interpolated code: issue #2135 showed
+      // that a child ended by a signal reports `code === null`, and "exited with
+      // code null" is the message that hid an out-of-memory kill for a whole
+      // session.
+      return { success: false, output: stdout, error: stderr.trim() || describeChildExit({ command: '`$ --stop`', code: result.code ?? null, signal: result.signal ?? null }) };
     }
     return { success: true, output: stdout || stderr, error: null };
   } catch (error) {

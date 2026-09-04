@@ -1,0 +1,676 @@
+ INFO zizmor: 🌈 zizmor v1.30.0
+ WARN audit: zizmor: zizmor is running in offline mode by default; some audits and auto-fixes will not be available. see https://docs.zizmor.sh/usage/#operating-modes for details
+ INFO audit: zizmor: 🌈 completed .github/workflows/cleanup-test-repos.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/release.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/security.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/workflows.yml
+help[artipacked]: credential persistence through GitHub Actions artifacts
+  --> .github/workflows/cleanup-test-repos.yml:27:9
+   |
+27 |         - name: Checkout repository
+   |  _________^
+28 | |         uses: actions/checkout@v6
+   | |_________________________________^ does not set persist-credentials: false
+   |
+   = note: audit confidence → Low
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+  --> .github/workflows/release.yml:78:9
+   |
+78 |         - uses: actions/checkout@v6
+   |  _________^
+79 | |         with:
+80 | |           fetch-depth: 0
+   | |________________________^ does not set persist-credentials: false
+   |
+   = note: audit confidence → Low
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:101:9
+    |
+101 |         - uses: actions/checkout@v6
+    |  _________^
+102 | |         with:
+103 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:118:9
+    |
+118 |         - uses: actions/checkout@v6
+    |  _________^
+119 | |         with:
+120 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:157:9
+    |
+157 |         - name: Checkout repository
+    |  _________^
+158 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:187:9
+    |
+187 |         - name: Checkout repository
+    |  _________^
+188 | |         uses: actions/checkout@v6
+189 | |         with:
+190 | |           # For PRs, fetch enough history to merge with base branch
+191 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:235:9
+    |
+235 |         - name: Checkout repository
+    |  _________^
+236 | |         uses: actions/checkout@v6
+237 | |         with:
+238 | |           # For PRs, fetch enough history to merge with base branch
+239 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:264:9
+    |
+264 |       - uses: actions/checkout@v6
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:296:9
+    |
+296 |       - uses: actions/checkout@v6
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:367:9
+    |
+367 |       - uses: actions/checkout@v6
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:428:9
+    |
+428 |         - uses: actions/checkout@v6
+    |  _________^
+429 | |         with:
+430 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:465:9
+    |
+465 |         - name: Checkout repository
+    |  _________^
+466 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:498:9
+    |
+498 |         - name: Checkout repository
+    |  _________^
+499 | |         uses: actions/checkout@v6
+500 | |         with:
+501 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:536:9
+    |
+536 |         - uses: actions/checkout@v6
+    |  _________^
+537 | |         with:
+538 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:639:9
+    |
+639 |         - name: Checkout repository
+    |  _________^
+640 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:729:9
+    |
+729 |         - name: Checkout repository
+    |  _________^
+730 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:768:9
+    |
+768 |         - name: Checkout repository
+    |  _________^
+769 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:853:9
+    |
+853 |         - name: Checkout repository
+    |  _________^
+854 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:881:9
+    |
+881 |         - name: Checkout repository
+    |  _________^
+882 | |         uses: actions/checkout@v6
+883 | |         with:
+884 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:912:9
+    |
+912 |         - uses: actions/checkout@v6
+    |  _________^
+913 | |         with:
+914 | |           fetch-depth: 0
+    | |________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+   --> .github/workflows/release.yml:993:9
+    |
+993 |         - name: Checkout repository
+    |  _________^
+994 | |         uses: actions/checkout@v6
+    | |_________________________________^ does not set persist-credentials: false
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1084:9
+     |
+1084 |         - name: Checkout repository
+     |  _________^
+1085 | |         uses: actions/checkout@v6
+     | |_________________________________^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1123:9
+     |
+1123 |         - name: Checkout repository
+     |  _________^
+1124 | |         uses: actions/checkout@v6
+     | |_________________________________^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1207:9
+     |
+1207 |         - name: Checkout repository
+     |  _________^
+1208 | |         uses: actions/checkout@v6
+     | |_________________________________^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1236:9
+     |
+1236 |         - name: Checkout repository
+     |  _________^
+1237 | |         uses: actions/checkout@v6
+1238 | |         with:
+1239 | |           fetch-depth: 0
+     | |________________________^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1263:9
+     |
+1263 |         - uses: actions/checkout@v6
+     |  _________^
+1264 | |         with:
+1265 | |           fetch-depth: 0
+     | |________________________^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+    --> .github/workflows/release.yml:1341:9
+     |
+1341 |       - uses: actions/checkout@v6
+     |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:585:39
+    |
+583 |         run: |
+    |         --- this run block
+584 |           echo "published=true" >> "$GITHUB_OUTPUT"
+585 |           echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:586:68
+    |
+583 |         run: |
+    |         --- this run block
+...
+586 |           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+    |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:592:76
+    |
+592 |         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository...
+    |         --- this run block                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:597:76
+    |
+597 |         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository...
+    |         --- this run block                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:644:67
+    |
+644 |         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+    |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:678:23
+    |
+676 |         run: |
+    |         --- this run block
+677 |           mkdir -p /tmp/digests
+678 |           digest="${{ steps.build.outputs.digest }}"
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:738:70
+    |
+736 |         run: |
+    |         --- this run block
+737 |           echo "Inspecting multi-platform image..."
+738 |           docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+    |                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:744:27
+    |
+741 |         run: |
+    |         --- this run block
+...
+744 |           echo "Tags: ${{ steps.meta.outputs.tags }}"
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:773:67
+    |
+773 |         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
+    |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:805:23
+    |
+803 |         run: |
+    |         --- this run block
+804 |           mkdir -p /tmp/digests
+805 |           digest="${{ steps.build.outputs.digest }}"
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:860:73
+    |
+860 |         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
+    |         --- this run block                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:865:27
+    |
+862 |         run: |
+    |         --- this run block
+...
+865 |           echo "Tags: ${{ steps.meta.outputs.tags }}"
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:891:67
+    |
+891 |         run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
+    |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:897:58
+    |
+897 |         run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
+    |         --- this run block                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:951:39
+    |
+949 |         run: |
+    |         --- this run block
+950 |           echo "published=true" >> "$GITHUB_OUTPUT"
+951 |           echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:952:68
+    |
+949 |         run: |
+    |         --- this run block
+...
+952 |           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+    |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:957:76
+    |
+957 |         run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository...
+    |         --- this run block                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:963:76
+    |
+963 |         run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository...
+    |         --- this run block                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:998:67
+    |
+998 |         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+    |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → Low
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1032:23
+     |
+1030 |         run: |
+     |         --- this run block
+1031 |           mkdir -p /tmp/digests
+1032 |           digest="${{ steps.build.outputs.digest }}"
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1093:70
+     |
+1091 |         run: |
+     |         --- this run block
+1092 |           echo "Inspecting multi-platform image..."
+1093 |           docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+     |                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1098:27
+     |
+1095 |         run: |
+     |         --- this run block
+...
+1098 |           echo "Tags: ${{ steps.meta.outputs.tags }}"
+     |                           ^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1128:67
+     |
+1128 |         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+     |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1160:23
+     |
+1158 |         run: |
+     |         --- this run block
+1159 |           mkdir -p /tmp/digests
+1160 |           digest="${{ steps.build.outputs.digest }}"
+     |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1214:73
+     |
+1214 |         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+     |         --- this run block                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1220:27
+     |
+1217 |         run: |
+     |         --- this run block
+...
+1220 |           echo "Tags: ${{ steps.meta.outputs.tags }}"
+     |                           ^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1245:67
+     |
+1245 |         run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+     |         --- this run block                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+info[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1251:58
+     |
+1251 |         run: bash scripts/upload-release-assets.sh "v${{ needs.instant-release.outputs.published_version }}" .helm-packages/*.tgz
+     |         --- this run block                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → Low
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+  --> .github/workflows/security.yml:40:9
+   |
+40 |       - uses: actions/checkout@v6
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+   |
+   = note: audit confidence → Low
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+help[artipacked]: credential persistence through GitHub Actions artifacts
+  --> .github/workflows/security.yml:66:9
+   |
+66 |       - uses: actions/checkout@v6
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^ does not set persist-credentials: false
+   |
+   = note: audit confidence → Low
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#artipacked
+
+128 findings (71 suppressed, 49 unsafe fixes): 28 informational, 29 low, 0 medium, 0 high

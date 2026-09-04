@@ -755,6 +755,17 @@ router call sites now use instead of repeating the expression — masks
 keeping the variable's name and the rest of the command line so the message
 still says what failed.
 
+CodeQL found a third instance of the same theme, in the tests rather than the
+source: `js/clear-text-logging`
+([alert 259](https://github.com/link-assistant/hive-mind/security/code-scanning/259))
+on `tests/test-issue-2202-router-routes.mjs`, where
+`assertEqual(geminiCanonical.GEMINI_API_KEY, TASK_TOKEN, …)` hands a
+credential-named value to a helper that prints both sides when they differ. The
+value is a fixture (`la_sk_x`), so nothing real was ever printed — but the
+shape is the one worth not having, and the sibling issue-2164 suite already
+compares its `ANTHROPIC_*` variables before the helper sees them. The
+assertion now does the same.
+
 ### Evidence the hot-load path works against the real world
 
 Two runs captured on 2026-09-04, both from inside this repository:

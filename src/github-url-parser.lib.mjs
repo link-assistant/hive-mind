@@ -1,8 +1,37 @@
 import { reportError } from './sentry.lib.mjs';
+import { describeHiddenCharacters, repairGitHubPathParts, repairGitHubUrlText, revealHiddenCharacters, traceUrlRecovery } from './github-url-recovery.lib.mjs';
+
+/**
+ * Attach the issue #2194 recovery diagnostics to a parse result.
+ *
+ * `original` is always present so a caller can show the user what they actually
+ * sent; `hidden`/`revealed` only appear when there was something invisible to
+ * reveal, keeping the common result small.
+ *
+ * @param {Object} result - The result object to annotate (mutated and returned).
+ * @param {string} original - The URL exactly as it was passed in.
+ * @param {Array<{code: string, message: string, notable: boolean}>} repairs
+ * @param {Array<{escape: string, name: string}>} hidden
+ * @returns {Object} The same result object.
+ */
+function withRecoveryDiagnostics(result, original, repairs, hidden) {
+  result.original = original;
+  result.repairs = repairs;
+  result.recovered = repairs.length > 0;
+  if (hidden.length > 0) {
+    result.hidden = hidden;
+    result.revealed = revealHiddenCharacters(original);
+  }
+  return result;
+}
 
 /**
  * Universal GitHub URL parser that handles various formats
  * @param {string} url - The GitHub URL to parse
+ * @param {Object} [options] - Parsing options
+ * @param {boolean} [options.recover=true] - Repair recoverable damage (invisible
+ *   Unicode, wrappers, look-alike punctuation, `/pulls/30` for `/pull/30`, …)
+ *   before parsing. Pass `false` to see the URL exactly as it was typed.
  * @returns {Object} Parsed URL information including:
  *   - valid: boolean indicating if the URL is valid
  *   - normalized: the normalized URL (https://github.com/...), query/fragment kept
@@ -13,22 +42,41 @@ import { reportError } from './sentry.lib.mjs';
  *   - number: issue/PR number (if applicable)
  *   - path: additional path components
  *   - error: error message if invalid
+ *   - original: the URL exactly as it was passed in
+ *   - repairs: the list of repairs recovery had to apply (issue #2194)
+ *   - recovered: true when at least one repair was applied
+ *   - hidden/revealed: codepoint diagnostics, present only when the input carried
+ *     invisible or look-alike characters
  */
-export function parseGitHubUrl(url) {
+export function parseGitHubUrl(url, options = {}) {
   if (!url || typeof url !== 'string') {
     return {
       valid: false,
       error: 'Invalid input: URL must be a non-empty string',
     };
   }
+  const { recover = true } = options;
+  // Issue #2194: a URL that renders correctly on screen can still be broken —
+  // `…/pulls/30` previews as a healthy page, a zero-width space is unprintable by
+  // definition. Repair what can be repaired first, and keep a record of it, so the
+  // user is told what was interpreted instead of being told "invalid URL".
+  const hidden = describeHiddenCharacters(url);
+  let repairs = [];
   // Trim whitespace and remove trailing slashes
   let normalizedUrl = url.trim().replace(/\/+$/, '');
+  if (recover) {
+    const repaired = repairGitHubUrlText(normalizedUrl);
+    repairs = repaired.repairs;
+    if (repaired.rejection) {
+      traceUrlRecovery('rejected', { original: url, error: repaired.rejection, repairs, hidden });
+      return withRecoveryDiagnostics({ valid: false, error: repaired.rejection }, url, repairs, hidden);
+    }
+    normalizedUrl = repaired.text.replace(/\/+$/, '');
+    if (repairs.length > 0) traceUrlRecovery('repaired-text', { original: url, repaired: normalizedUrl, repairs, hidden });
+  }
   // Check if this looks like a valid GitHub-related input Reject clearly invalid inputs (spaces in the URL, special chars at the start, etc.)
   if (/\s/.test(normalizedUrl) || /^[!@#$%^&*()[\]{}|\\:;"'<>,?`~]/.test(normalizedUrl)) {
-    return {
-      valid: false,
-      error: 'Invalid GitHub URL format',
-    };
+    return withRecoveryDiagnostics({ valid: false, error: 'Invalid GitHub URL format' }, url, repairs, hidden);
   }
   // Handle protocol normalization
   if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
@@ -40,10 +88,7 @@ export function parseGitHubUrl(url) {
       normalizedUrl = 'https://github.com/' + normalizedUrl;
     } else {
       // Has github.com somewhere but not at the start - likely malformed
-      return {
-        valid: false,
-        error: 'Invalid GitHub URL format',
-      };
+      return withRecoveryDiagnostics({ valid: false, error: 'Invalid GitHub URL format' }, url, repairs, hidden);
     }
   }
   // Convert http to https
@@ -56,11 +101,16 @@ export function parseGitHubUrl(url) {
     // Generate suggested URL by replacing backslashes with forward slashes
     const suggestedUrl = urlBeforeQueryAndHash.replace(/\\/g, '/');
     const urlAfterPath = normalizedUrl.substring(urlBeforeQueryAndHash.length);
-    return {
-      valid: false,
-      error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
-      suggestion: suggestedUrl + urlAfterPath,
-    };
+    return withRecoveryDiagnostics(
+      {
+        valid: false,
+        error: 'Invalid character in URL: backslash (\\) is not allowed in URL paths',
+        suggestion: suggestedUrl + urlAfterPath,
+      },
+      url,
+      repairs,
+      hidden
+    );
   }
   // Parse the URL
   let urlObj;
@@ -74,17 +124,11 @@ export function parseGitHubUrl(url) {
         url: normalizedUrl,
       });
     }
-    return {
-      valid: false,
-      error: 'Invalid URL format',
-    };
+    return withRecoveryDiagnostics({ valid: false, error: 'Invalid URL format' }, url, repairs, hidden);
   }
   // Ensure it's a GitHub URL
   if (urlObj.hostname !== 'github.com' && urlObj.hostname !== 'www.github.com') {
-    return {
-      valid: false,
-      error: 'Not a GitHub URL',
-    };
+    return withRecoveryDiagnostics({ valid: false, error: 'Not a GitHub URL' }, url, repairs, hidden);
   }
   // Normalize hostname
   if (urlObj.hostname === 'www.github.com') {
@@ -92,7 +136,19 @@ export function parseGitHubUrl(url) {
     urlObj = new globalThis.URL(normalizedUrl);
   }
   // Parse the pathname
-  const pathParts = urlObj.pathname.split('/').filter(p => p);
+  let pathParts = urlObj.pathname.split('/').filter(p => p);
+  // Issue #2194: `/owner/repo/pulls/30` carries every byte needed to address pull
+  // request 30 — restore it rather than reporting the pull request list page.
+  if (recover) {
+    const pathRepair = repairGitHubPathParts(pathParts);
+    if (pathRepair.repairs.length > 0) {
+      repairs = repairs.concat(pathRepair.repairs);
+      pathParts = pathRepair.parts;
+      urlObj.pathname = `/${pathParts.join('/')}`;
+      normalizedUrl = urlObj.toString().replace(/\/+$/, '');
+      traceUrlRecovery('repaired-path', { original: url, repaired: normalizedUrl, repairs, hidden });
+    }
+  }
   // Handle different GitHub URL patterns
   const result = {
     valid: true,
@@ -108,6 +164,7 @@ export function parseGitHubUrl(url) {
     protocol: 'https',
     path: urlObj.pathname,
   };
+  withRecoveryDiagnostics(result, url, repairs, hidden);
   // No path - just github.com
   if (pathParts.length === 0) {
     result.type = 'home';

@@ -508,6 +508,13 @@ ru
       must
         be
           type "URL должен быть GitHub {{allowedTypes}} (не {{type}})"
+      recovered """
+        ℹ️ Ссылка была исправлена перед запуском.
+
+        Вы отправили: {{original}}
+        Используется: {{used}}
+        Исправлено: {{repairs}}
+      """
     language
       invalid """
         ❌ Неверный язык. Поддерживаются: {{supported}}.

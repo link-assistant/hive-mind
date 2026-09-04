@@ -169,6 +169,8 @@ const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = lim
 const { handleShowLimitsFlag, captureStartSnapshotAndAppend } = await import('./telegram-show-limits.lib.mjs'); // #594
 const { getVersionInfo, formatVersionMessage } = await import('./version-info.lib.mjs');
 const { escapeMarkdown, escapeMarkdownV2, cleanNonPrintableChars, makeSpecialCharsVisible } = await import('./telegram-markdown.lib.mjs');
+const { formatUrlRepairs, hasNotableRepair, namesGitHubHost, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs'); // #2194
+
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
@@ -315,22 +317,28 @@ async function validateGitHubUrl(args, options = {}) {
   if (!rawUrl) return { valid: false, error: t('telegram.missing_github_url', { commandName }, { locale }) };
   // Issue #1102: Clean non-printable chars (Zero-Width Space, BOM, etc.) from URLs
   const url = cleanNonPrintableChars(rawUrl);
-  if (!url.includes('github.com')) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
+  // Issue #2194: the host may be typed in any case (GITHUB.COM) or hidden behind
+  // look-alike punctuation, and "github.com" in the path of another host is not a
+  // GitHub URL at all — so the recovery layer's host check makes the call, not a
+  // substring test that both misses the first case and accepts the second.
+  if (!namesGitHubHost(url)) return { valid: false, error: t('telegram.first_arg_must_be_github_url', {}, { locale }) };
   const parsed = parseGitHubUrl(url);
   if (!parsed.valid) return { valid: false, error: parsed.error || 'Invalid GitHub URL', suggestion: parsed.suggestion };
+  // Issue #2194: tell the user which URL we actually understood when we had to repair theirs.
+  const recoveryNotice = hasNotableRepair(parsed.repairs) ? t('telegram.url_recovered', { original: escapeMarkdown(makeSpecialCharsVisible(rawUrl)), used: escapeMarkdown(parsed.canonical), repairs: escapeMarkdown(formatUrlRepairs(parsed.repairs, { notableOnly: true })) }, { locale }) : null;
   if (!allowedTypes.includes(parsed.type)) {
     const allowedTypesStr = allowedTypes.map(t => (t === 'pull' ? 'pull request' : t)).join(', ');
     const baseUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
     const escapedUrl = escapeMarkdown(url),
       escapedBaseUrl = escapeMarkdown(baseUrl); // Issue #1102: escape for Markdown
     let error;
-    if (parsed.type === 'issues_list') error = t('telegram.url_issues_list_error', { url: escapedUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
-    else if (parsed.type === 'pulls_list') error = t('telegram.url_pulls_list_error', { url: escapedUrl, example: `${escapedBaseUrl}/pull/1` }, { locale });
+    if (parsed.type === 'issues_list') error = t('telegram.url_issues_list_error', { url: escapedBaseUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
+    else if (parsed.type === 'pulls_list') error = t('telegram.url_pulls_list_error', { url: escapedBaseUrl, example: `${escapedBaseUrl}/pull/1` }, { locale });
     else if (parsed.type === 'repo') error = t('telegram.url_repo_error', { allowedTypes: allowedTypesStr, url: escapedUrl, example: `${escapedBaseUrl}/issues/1` }, { locale });
     else error = t('telegram.url_must_be_type', { allowedTypes: allowedTypesStr, type: parsed.type.replace('_', ' ') }, { locale });
     return { valid: false, error };
   }
-  return { valid: true, parsed, normalizedUrl: url };
+  return { valid: true, parsed, normalizedUrl: url, recoveryNotice };
 }
 
 const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
@@ -539,6 +547,10 @@ async function handleSolveCommand(ctx) {
   }
 
   VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} passed all checks, executing...`);
+  // Issue #2194: the incoming text is the only record of what the user actually
+  // typed, and the log for that issue did not contain it — so an invisible
+  // character in the URL was invisible in the log too. Reveal it here.
+  VERBOSE && console.log(`[VERBOSE] ${solveCommandDisplay} raw text: ${revealHiddenCharacters(ctx.message.text)}`);
   const solveToolAlias = getSolveToolAliasFromText(ctx.message.text);
   let userArgs = parseCommandArgs(ctx.message.text);
 
@@ -607,6 +619,8 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
+  // Issue #2194: the link needed repair, so show what we understood before we act on it.
+  if (validation.recoveryNotice) await safeReply(ctx, validation.recoveryNotice, { reply_to_message_id: ctx.message.message_id });
   userArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
   // Issue #2166: hand the spawned session the same canonical URL that is shown
   // in the chat, so the echo and the actual work can never disagree.
@@ -826,6 +840,8 @@ async function handleHiveCommand(ctx) {
     await safeReply(ctx, errorMsg, { reply_to_message_id: ctx.message.message_id });
     return;
   }
+  // Issue #2194: the link needed repair, so show what we understood before we act on it.
+  if (validation.recoveryNotice) await safeReply(ctx, validation.recoveryNotice, { reply_to_message_id: ctx.message.message_id });
   // Normalize issues_list/pulls_list to base repo URL, or use cleaned URL
   let normalizedArgs = moveArgumentToFront(userArgs, validation.normalizedUrl, cleanNonPrintableChars);
   const p = validation.parsed;

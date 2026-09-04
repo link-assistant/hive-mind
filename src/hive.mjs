@@ -86,6 +86,8 @@ if (isRunningDirectly) {
     const { validateYouTrackConfig, testYouTrackConnection, createYouTrackConfigFromEnv } = youTrackLib;
     const youTrackSync = await import('./youtrack/youtrack-sync.mjs');
     const { syncYouTrackToGitHub, formatIssuesForHive } = youTrackSync;
+    // Issue #2194: recovery diagnostics for URLs that had to be repaired before parsing.
+    const { formatUrlRepairs, hasNotableRepair, revealHiddenCharacters } = await import('./github-url-recovery.lib.mjs');
     const memCheck = await import('./memory-check.mjs');
     const { checkSystem } = memCheck;
     const exitHandler = await import('./exit-handler.lib.mjs');
@@ -184,6 +186,14 @@ if (isRunningDirectly) {
         console.error('  - owner (will be converted to https://github.com/owner)');
         console.error('  - owner/repo (will be converted to https://github.com/owner/repo)');
         await safeExit(1, 'Error occurred');
+      }
+      // Issue #2194: report a repaired URL before monitoring starts, so the user
+      // can catch a wrong guess instead of watching the wrong repository.
+      if (hasNotableRepair(parsedUrl.repairs)) {
+        console.error('ℹ️  Repaired the GitHub URL before monitoring:');
+        console.error(`     You typed: ${revealHiddenCharacters(githubUrl)}`);
+        console.error(`     Using:     ${parsedUrl.canonical || parsedUrl.normalized}`);
+        console.error(`     Repaired:  ${formatUrlRepairs(parsedUrl.repairs, { notableOnly: true })}`);
       }
       // Check if it's a valid type for hive (user or repo)
       if (parsedUrl.type !== 'user' && parsedUrl.type !== 'repo') {

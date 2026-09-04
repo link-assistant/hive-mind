@@ -354,6 +354,38 @@ merge-manifest:
 
 संदर्भ implementations: [`link-foundation/box`](https://github.com/link-foundation/box) और [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind)।
 
+### 14. Workflows को स्वयं Lint करें
+
+**Pipeline भी code है, और default रूप से उसे कोई lint नहीं करता।** Workflow files में shell quoting bugs, अत्यधिक व्यापक `permissions`, unpinned actions और template-injection sinks जमा होते रहते हैं जिन्हें pipeline का कोई job नहीं देखता — क्योंकि हर job application को जाँचने में व्यस्त है।
+
+`.github/` में परिवर्तन पर trigger होने वाले अपने अलग workflow में दो पूरक tools:
+
+- [`actionlint`](https://github.com/rhysd/actionlint) — syntax, expressions, और (सबसे महत्वपूर्ण) हर `run:` block के भीतर का shell।
+- [`zizmor`](https://docs.zizmor.sh/) — security audits: `excessive-permissions`, `unpinned-uses`, `template-injection`, `artipacked`।
+
+```yaml
+- uses: docker://rhysd/actionlint:1.7.12
+  with:
+    args: -color
+```
+
+- **actionlint को Docker image के रूप में चलाएँ, bare binary के रूप में नहीं।** Image में `shellcheck` और `pyflakes` शामिल हैं। जिस binary के `PATH` पर `shellcheck` नहीं है वह चुपचाप हर shell check छोड़ देता है और exit 0 करता है — तो हरा local run कुछ भी साबित नहीं करता। यही एक विवरण चौदह shell bugs मिलने और एक भी न मिलने के बीच का अंतर है।
+- **zizmor के लिए SARIF की जगह annotations चुनें**, जब तक code scanning हर उस जगह सक्षम न हो जहाँ workflow चलता है। SARIF upload forks पर चुपचाप विफल होता है; annotations दोनों जगह स्पष्ट रूप से विफल होते हैं।
+- **Severity floor नहीं, confidence floor सेट करें।** `--min-confidence medium` इस आधार पर filter करता है कि tool कितना निश्चित है, इस आधार पर नहीं कि finding कितनी गंभीर है। Floor के नीचे जो आता है उसकी एक बार समीक्षा करें और निर्णय दर्ज करें, बजाय बाद में यह पता चलने के कि floor एक वास्तविक finding छिपा रहा था।
+- **Suppressions को एक file तक सीमित रखें, और लिखें कि उन्हें कब हटाया जा सकता है।** एक blanket `ignore` और gate का बिल्कुल न होना — दोनों में कोई अंतर नहीं है।
+
+### 15. Dependency Tree का Audit करें
+
+**Code scanning आपकी dependencies का audit नहीं करता, और PR-scoped dependency review उन dependencies का audit नहीं करता जो आपके पास पहले से हैं।** ये दोनों jobs मिलकर coverage जैसे दिखते हैं और बीच में एक छेद छोड़ देते हैं: CodeQL आपके source का विश्लेषण करता है, जबकि `dependency-review-action` केवल `pull_request` पर चलता है और केवल उन dependencies को देखता है जिन्हें PR _बदलता_ है। किसी ऐसे package के विरुद्ध प्रकाशित advisory जो एक वर्ष से pinned है, दोनों के लिए हमेशा के लिए अदृश्य है, क्योंकि कोई PR उस line को छूता ही नहीं।
+
+```yaml
+- run: npm audit --package-lock-only --audit-level=high
+```
+
+- **Lockfile का उसी रूप में audit करें जैसे वह commit हुआ है** (`--package-lock-only`)। यह वही रिपोर्ट करता है जो एक consumer को मिलेगा, और इसे किसी ऐसे resolution से हरा नहीं किया जा सकता जो केवल इसी runner पर होता है।
+- **Job को schedule पर रखें**, केवल push पर नहीं। Code बदलना बंद हो जाने के बाद प्रकाशित हुई advisory को केवल एक scheduled run ही पकड़ सकता है।
+- **Level स्पष्ट रूप से सेट करें।** Default `low` है, जो सबको job की अनदेखी करना सिखा देता है; कोई flag न होना और जानबूझकर `--audit-level=high` लगाना — ये दो अलग विफलताएँ हैं।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:

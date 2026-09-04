@@ -200,7 +200,7 @@ Source: `first-session-log.txt:164`
 
 ## Related Issues
 
-- Issue #681: https://github.com/deep-assistant/hive-mind/issues/681
+- Issue #681: https://github.com/link-assistant/hive-mind/issues/681
 - Affected PR #6: https://github.com/uselessgoddess/bar/pull/6
 
 ## Statistics

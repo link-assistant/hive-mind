@@ -1,0 +1,8 @@
+=== PR contents: docs/notes.md src/feature.mjs 
+=== template detector, pull_request event
+Comparing HEAD^2^ to HEAD^2 (per-commit diff of PR head)
+  docs/notes.md
+js-changed=false
+docs-changed=true
+  (none)
+any-code-changed=false

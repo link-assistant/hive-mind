@@ -30,7 +30,7 @@ This guide explains how to deploy the Hive-Mind application to Coolify, a self-h
 3. **Set Environment Variables**:
 
    ```bash
-   GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+   GITHUB_TOKEN=ghp_your_github_token_here
    GITHUB_URL=https://github.com/org-or-repo-to-monitor
    CLAUDE_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
    ```

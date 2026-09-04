@@ -354,6 +354,38 @@ merge-manifest:
 
 Reference implementations: [`link-foundation/box`](https://github.com/link-foundation/box) and [`link-assistant/hive-mind`](https://github.com/link-assistant/hive-mind).
 
+### 14. Lint the Workflows Themselves
+
+**The pipeline is code, and nothing lints it by default.** Workflow files accumulate shell quoting bugs, over-broad `permissions`, unpinned actions and template-injection sinks that no job in the pipeline is looking for, because every job is busy checking the application.
+
+Two complementary tools, in their own workflow, triggered on changes to `.github/`:
+
+- [`actionlint`](https://github.com/rhysd/actionlint) — syntax, expressions, and (crucially) the shell inside every `run:` block.
+- [`zizmor`](https://docs.zizmor.sh/) — security audits: `excessive-permissions`, `unpinned-uses`, `template-injection`, `artipacked`.
+
+```yaml
+- uses: docker://rhysd/actionlint:1.7.12
+  with:
+    args: -color
+```
+
+- **Run actionlint as the Docker image, not a bare binary.** The image bundles `shellcheck` and `pyflakes`. A binary without `shellcheck` on `PATH` silently skips every shell check and exits 0 — so a green local run means nothing. This one detail is the difference between finding fourteen shell bugs and finding none.
+- **Prefer annotations to SARIF** for zizmor unless code scanning is enabled everywhere the workflow runs. SARIF upload fails silently on forks; annotations fail loudly in both.
+- **Set a confidence floor, not a severity floor.** `--min-confidence medium` filters by how sure the tool is, not by how bad the finding is. Review what falls below the floor once and record the decision, rather than discovering later that the floor was hiding a real finding.
+- **Scope suppressions to a file, and write down when they can be removed.** A blanket `ignore` is indistinguishable from no gate at all.
+
+### 15. Audit the Dependency Tree
+
+**Code scanning does not audit your dependencies, and PR-scoped dependency review does not audit the ones you already have.** These two jobs look like coverage together and leave a hole between them: CodeQL analyses your source, while `dependency-review-action` runs only on `pull_request` and only inspects the dependencies a PR _changes_. An advisory published against a package that has been pinned for a year is invisible to both, forever, because no PR touches that line.
+
+```yaml
+- run: npm audit --package-lock-only --audit-level=high
+```
+
+- **Audit the lockfile as committed** (`--package-lock-only`). It reports what a consumer would get, and cannot be turned green by a resolution that only happens on this runner.
+- **Put the job on the schedule**, not only on push. A scheduled run is the only thing that can notice an advisory published after the code stopped changing.
+- **Set the level explicitly.** The default is `low`, which trains everyone to ignore the job; no flag at all is a different failure from a deliberate `--audit-level=high`.
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:

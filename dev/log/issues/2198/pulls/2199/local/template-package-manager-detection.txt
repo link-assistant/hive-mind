@@ -1,0 +1,21 @@
+checkout:              /tmp/js-template
+lockfiles (in probe order): deno.lock, package-lock.json
+packageManager:        (unset)
+devEngines.packageManager: (unset)
+@changesets/cli:       ^2.29.7
+detect() =>            {"name":"deno","agent":"deno"}
+changeset version would spawn: deno x prettier
+
+VERDICT: misdetected as "deno" because deno.lock is probed
+         before package-lock.json and package.json declares no package manager.
+         On a GitHub runner without that agent installed, @changesets/format
+         dies with: Error: spawn deno ENOENT
+checkout:              /tmp/gh-issue-solver-1788522846821
+lockfiles (in probe order): package-lock.json
+packageManager:        (unset)
+devEngines.packageManager: {"name":"npm"}
+@changesets/cli:       ^3.0.1
+detect() =>            {"name":"npm","agent":"npm"}
+changeset version would spawn: npm x prettier
+
+VERDICT: package manager resolves correctly.

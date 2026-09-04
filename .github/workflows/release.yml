@@ -34,7 +34,11 @@ on:
         description: 'Manual release description (optional)'
         required: false
         type: string
-permissions: read-all
+# Least privilege by default (zizmor excessive-permissions): `read-all` also
+# grants read access to actions, packages, security events and more. Every job
+# that needs to write declares its own `permissions:` block below.
+permissions:
+  contents: read
 # Concurrency: Only one workflow run per branch at a time.
 # - main (releases): QUEUE. A run on main publishes to npm and then pushes the
 #   version bump back to main. Cancelling it in between leaves the registry ahead
@@ -61,6 +65,14 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `actions: read` on top of the workflow-wide `contents: read`: the detector
+    # asks the Actions API whether the previous head of this PR ever finished a
+    # successful run of this workflow before it trusts an incremental diff
+    # (issue #2198). Without the scope the lookup answers 403 and the detector
+    # falls back to the full PR diff -- safe, but needlessly expensive.
+    permissions:
+      contents: read
+      actions: read
     outputs:
       mjs-changed: ${{ steps.changes.outputs.mjs }}
       package-changed: ${{ steps.changes.outputs.package }}
@@ -83,6 +95,12 @@ jobs:
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GITHUB_BEFORE_SHA: ${{ github.event.before }}
           GITHUB_AFTER_SHA: ${{ github.event.after }}
+          # Issue #2198: the token the run lookup needs, to ask whether the
+          # previous PR head ever finished a successful run of this workflow.
+          # GITHUB_WORKFLOW_REF is deliberately *not* set here: the runner
+          # provides it in every job, and overriding it with an expression can
+          # only ever replace a guaranteed value with an empty one.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/detect-code-changes.mjs
   # === VERSION CHANGE CHECK ===
   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
@@ -127,9 +145,12 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Read through the environment, never interpolated into the script:
+          # a branch name is attacker-controlled on a fork PR.
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
         run: |
           # Skip changeset check for automated version PRs
-          if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+          if [[ "$GITHUB_HEAD_REF" == "changeset-release/"* ]]; then
             echo "Skipping changeset check for automated release PR"
             exit 0
           fi
@@ -192,6 +213,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24.x
+      # Issue #2198: a lockfile for another package manager at the root makes
+      # `changeset version` shell out to a package manager the runner does not
+      # have. Checked before install so it fails in seconds.
+      - name: Check package manager declaration and lockfiles
+        run: node scripts/check-package-manager.mjs
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs ci
       - name: Run Prettier format check
@@ -210,6 +236,16 @@ jobs:
           echo "Running jscpd code duplication detection..."
           npm run check:duplication
           echo "Code duplication check passed"
+
+      # Issue #2198: secretlint shipped as a devDependency for the log
+      # sanitizer but no job ever ran it, so a committed credential would
+      # have passed CI unnoticed. Fail-closed; .secretlintignore lists the
+      # few fixture files that hold fake secrets on purpose.
+      - name: Run secret scan
+        run: |
+          echo "Running secretlint credential scan..."
+          npm run check:secrets
+          echo "Secret scan passed"
   # === FILE LINE LIMIT CHECK ===
   # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
   # See docs/case-studies/issue-1141 for why this is critical.
@@ -359,51 +395,13 @@ jobs:
           node-version: 24.x
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
-      - name: System info
-        run: |
-          echo "=== System Information ==="
-          uname -a
-          echo ""
-          echo "=== Memory Information ==="
-          free -h
-          echo ""
-          echo "=== Disk Information ==="
-          df -h
-          echo ""
-          echo "=== CPU Information ==="
-          lscpu | head -20
       - name: Run memory-check tests
-        run: |
-          chmod +x tests/test-memory-check.mjs
-          node tests/test-memory-check.mjs
-
-      - name: Test memory-check with various thresholds
-        run: |
-          echo "Testing with low thresholds (should pass)..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
-          echo ""
-          echo "Testing verbose output..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100
-          echo ""
-          echo "Testing quiet mode..."
-          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --quiet --json
-      - name: Test memory-check failure conditions
-        run: |
-          echo "Testing with impossible memory requirement (should fail)..."
-          if ./src/memory-check.mjs --min-memory 999999 --exit-on-failure --quiet --json; then
-            echo "ERROR: Should have failed with impossible memory requirement"
-            exit 1
-          else
-            echo "Correctly failed with impossible memory requirement"
-          fi
-          echo ""
-          echo "Testing with impossible disk requirement (should fail)..."
-          if ./src/memory-check.mjs --min-disk-space 999999999 --exit-on-failure --quiet --json; then
-            echo "ERROR: Should have failed with impossible disk requirement"
-            exit 1
-          else
-            echo "Correctly failed with impossible disk requirement"
-          fi
+        run: node tests/test-memory-check.mjs
+      # Issue #2198: the runner resource dump and the pass/fail threshold
+      # probes moved to scripts/ to keep this workflow under the line-limit
+      # warning threshold. Same commands, same order.
+      - name: Smoke-test memory-check on this runner
+        run: bash scripts/memory-check-smoke-test.sh
   # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
     runs-on: ubuntu-latest
@@ -488,14 +486,14 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Get package version
         id: package-version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Package version: $VERSION"
       - name: Lint Helm chart
         run: |
@@ -569,8 +567,8 @@ jobs:
         id: publish
         if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
         run: |
-          echo "published=true" >> $GITHUB_OUTPUT
-          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
 
       - name: Create GitHub Release
@@ -630,8 +628,8 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -688,6 +686,11 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
@@ -695,8 +698,8 @@ jobs:
           pattern: hive-mind-digests-*
           merge-multiple: true
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -714,14 +717,9 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: |
           echo "Inspecting multi-platform image..."
@@ -762,8 +760,8 @@ jobs:
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -815,14 +813,19 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind-dind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-dind-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -840,14 +843,9 @@ jobs:
             org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
 
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
       - name: Verify published image
@@ -876,7 +874,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Release Helm chart
@@ -924,7 +922,12 @@ jobs:
         # repository ruleset blocks the direct push to main (issue #2175).
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+          # Read through the environment, never interpolated into the script:
+          # `description` is free-form text from whoever dispatched the run
+          # (zizmor template-injection).
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: node scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
       - name: Publish to npm
         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
         id: publish_npm
@@ -934,8 +937,8 @@ jobs:
         id: publish
         if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
         run: |
-          echo "published=true" >> $GITHUB_OUTPUT
-          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> $GITHUB_OUTPUT
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
           echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
       - name: Create GitHub Release
         if: steps.publish.outputs.published == 'true'
@@ -984,8 +987,8 @@ jobs:
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1042,14 +1045,19 @@ jobs:
     env:
       IMAGE_NAME: konard/hive-mind
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-instant-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1068,14 +1076,9 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: |
           echo "Inspecting multi-platform image..."
@@ -1115,8 +1118,8 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Wait for NPM package availability
         run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1169,14 +1172,19 @@ jobs:
       IMAGE_NAME: konard/hive-mind-dind
 
     steps:
+      # First step: this job builds nothing, but it needs the working tree for
+      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
+      # -- a local composite action has to be on disk before it is referenced.
+      - name: Checkout repository
+        uses: actions/checkout@v7
       - name: Download digests
         uses: actions/download-artifact@v8
         with:
           path: /tmp/digests
           pattern: hive-mind-dind-instant-digests-*
           merge-multiple: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+      - name: Set up Docker Buildx (resilient)
+        uses: ./.github/actions/setup-buildx-resilient
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -1193,14 +1201,9 @@ jobs:
           labels: |
             org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
       - name: Create manifest list and push
-        working-directory: /tmp/digests
-        run: |
-          echo "Creating multi-platform manifest..."
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Digests:"
-          ls -la
-          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            $(printf '${{ env.IMAGE_NAME }}@sha256:%s ' *)
+        env:
+          DIGESTS_DIR: /tmp/digests
+        run: bash scripts/create-manifest-list.sh
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
 
@@ -1229,7 +1232,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: v3.14.0
       - name: Release Helm chart
@@ -1261,13 +1264,18 @@ jobs:
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
       - name: Create changeset file
-        run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+        # Same reasoning as the instant-release job: dispatch inputs reach the
+        # script through the environment, not through string interpolation.
+        env:
+          BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+          RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+        run: node scripts/create-manual-changeset.mjs --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
       - name: Format changeset with Prettier
         run: |
           npx prettier --write ".changeset/*.md"
           echo "Formatted changeset files"
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v8
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'

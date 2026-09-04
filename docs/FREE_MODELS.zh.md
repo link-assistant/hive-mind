@@ -314,7 +314,7 @@ echo "Your prompt here" | agent --model kilo/deepseek-r1-free
 - [Agent Kilo 文档](https://github.com/link-assistant/agent/blob/main/docs/kilo.md) - Kilo Gateway 详情
 - [案例研究：Issue #1282](./case-studies/issue-1282/README.md) - Kilo 模型集成分析
 - [案例研究：Issue #1300](./case-studies/issue-1300/README.md) - 免费模型更新（MiniMax M2.5、DeepSeek R1）
-- [案例研究：Issue #1391](./case-studies/issue-1391/README.md) - 免费模型更新（minimax-m2.5-free 作为默认，kimi-k2.5-free 弃用）
+- [Issue #1391](https://github.com/link-assistant/hive-mind/issues/1391) - 免费模型更新（minimax-m2.5-free 作为默认，kimi-k2.5-free 弃用）
 - [案例研究：Issue #1473](./case-studies/issue-1473/README.md) - 模型识别修复和免费模型同步
 - [案例研究：Issue #1543](./case-studies/issue-1543/README.md) - 免费模型更新（qwen3.6-plus-free 作为默认，添加 nemotron-3-super-free）
 - [案例研究：Issue #1563](./case-studies/issue-1563/README.md) - 免费模型更新（qwen3.6-plus-free 弃用，nemotron-3-super-free 作为默认）

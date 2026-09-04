@@ -1,0 +1,32 @@
+$ node scripts/run-tests.mjs > /tmp/full-test-run-f17.txt 2>&1; echo "SUITE_EXIT=$?"
+
+# Run at the branch tip on 2026-09-04, after every fix in this PR — including
+# F16's matcher and F17's exact-ref rewrite of the buildx test.
+# The full log is 16222 lines / 773 KB, so only the shape of the run is kept here.
+
+Running 446 default test file(s)...
+446 test-file headers seen in the log ("[n/446] <path>")
+0 occurrences of the runner's failure banner ("Failed test files:")
+
+# the test files added by this PR:
+108:[3/446] tests/check-web-archive.test.mjs
+208:[9/446] tests/cicd-best-practices-pipeline-gates-2198.test.mjs
+213:[11/446] tests/dependency-audit-2198.test.mjs
+252:[12/446] tests/detect-code-changes-untested-head-2198.test.mjs
+300:[14/446] tests/doc-links-2198.test.mjs
+429:[18/446] tests/extracted-modules-2198.test.mjs
+1118:[38/446] tests/secret-scan-2198.test.mjs
+1145:[40/446] tests/setup-buildx-resilient.test.mjs
+10814:[322/446] tests/test-issue-2198-bin-executable.mjs
+10863:[323/446] tests/test-issue-2198-manifest-list.mjs
+10890:[324/446] tests/test-issue-2198-npm-link-scripts.mjs
+10909:[325/446] tests/test-issue-2198-package-manager-detection.mjs
+
+# the three CI-integrity suites that guard the workflows:
+193:[4/446] tests/ci-integrity-2150.test.mjs
+196:[5/446] tests/ci-workflow-cancellation-2082.test.mjs
+199:[6/446] tests/ci-workflow-timeouts-2082.test.mjs
+
+
+All 446 selected test file(s) passed.
+SUITE_EXIT=0

@@ -70,3 +70,29 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
+
+  # Issue #2198: neither of the jobs above audits the dependency tree we ship.
+  # CodeQL analyses our source; dependency-review only runs on pull requests and
+  # only inspects the dependencies a PR *changes*, so an advisory published for a
+  # long-pinned package is invisible to it forever. Ported from the pipeline
+  # template's security.yml, without its workspace matrix -- package-lock.json is
+  # the only lockfile in this repository.
+  npm-audit:
+    name: Audit npm lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+
+      # --package-lock-only audits the lockfile as committed, without installing:
+      # the job reports on what a consumer would get, and cannot be turned green
+      # by a resolution that only happens on this runner.
+      - name: Audit current lock
+        run: npm audit --package-lock-only --audit-level=high

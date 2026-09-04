@@ -34,7 +34,7 @@ import { checkReplacementRepositoryBranchSafety } from './solve.repository-safet
 import { buildForkReplacementBlockedReason, buildForkReplacementSafetyCheckDescription } from './solve.repository-recovery-message.lib.mjs';
 // Issue #2192: GitHub throttles *anonymous* git downloads; a token must be sent
 // preemptively (a credential helper is never consulted for a public repository).
-import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport, isAnonymousDownloadLimit } from './git-auth-transport.lib.mjs';
+import { GIT_AUTH_TRANSPORT_DISABLE, ensureAuthenticatedGitTransport } from './git-auth-transport.lib.mjs';
 
 // Import GitHub utilities for permission checks
 const githubLib = await import('./github.lib.mjs');
@@ -932,69 +932,12 @@ Thank you!`;
 
   return { repoToClone, forkedRepo, upstreamRemote, prForkOwner: forkOwner };
 };
-// Classify git clone errors to determine if they are retryable
-export const classifyCloneError = errorOutput => {
-  const output = errorOutput.toLowerCase();
-  // Issue #1211: ENOSPC (disk full) errors - NOT retryable, requires user action
-  if (lib.isENOSPC(errorOutput) || output.includes('no space left on device') || (output.includes('unable to write file') && output.includes('error')) || output.includes('errno -28')) {
-    return { type: 'ENOSPC', retryable: false, description: 'No space left on device' };
-  }
+// Issue #2198: clone-failure classification and partial-clone cleanup live in
+// their own module to keep this file under the line-limit warning threshold.
+// Re-exported so importers keep working.
+import { classifyCloneError, cleanPartialClone } from './solve.clone-errors.lib.mjs';
 
-  // Transient server errors (5xx) - typically retryable
-  if (output.includes('error: 500') || output.includes('internal server error') || output.includes('error: 502') || output.includes('error: 503') || output.includes('error: 504')) {
-    return { type: 'TRANSIENT', retryable: true, description: 'GitHub server error' };
-  }
-  // Network-related errors - typically retryable
-  // Issue #1957: git fetch-pack/sideband disconnects (e.g.
-  // "fetch-pack: unexpected disconnect while reading sideband packet",
-  // "early EOF", "the remote end hung up unexpectedly", "RPC failed",
-  // "index-pack failed") leave an incomplete or missing clone but are transient.
-  if (output.includes('connection refused') || output.includes('connection timed out') || output.includes('connection reset') || output.includes('unable to connect') || output.includes('network is unreachable') || output.includes('ssl error') || output.includes('unexpected disconnect') || output.includes('sideband') || output.includes('early eof') || output.includes('remote end hung up') || output.includes('rpc failed') || output.includes('fetch-pack') || output.includes('index-pack failed') || output.includes('transfer closed')) {
-    return { type: 'NETWORK', retryable: true, description: 'Network connectivity issue (interrupted transfer)' };
-  }
-
-  // Issue #2192: GitHub refusing an *unauthenticated* download. Retryable, but
-  // waiting is not the remedy — the clone has to be authenticated. Checked
-  // before PERMISSION/NOT_FOUND/RATE_LIMIT because GitHub's wording ("limiting",
-  // "retry later or authenticate") overlaps all three.
-  if (isAnonymousDownloadLimit(errorOutput)) {
-    return { type: 'ANONYMOUS_RATE_LIMIT', retryable: true, description: 'GitHub is limiting unauthenticated downloads (this clone was not authenticated)' };
-  }
-
-  // Authentication/permission errors - not retryable
-  if (output.includes('error: 401') || output.includes('error: 403') || output.includes('authentication failed') || output.includes('permission denied')) {
-    return { type: 'PERMISSION', retryable: false, description: 'Authentication or permission error' };
-  }
-  // Repository not found - not retryable
-  if (output.includes('error: 404') || output.includes('not found') || output.includes('repository not found')) {
-    return { type: 'NOT_FOUND', retryable: false, description: 'Repository not found' };
-  }
-
-  // Rate limiting - retryable with backoff
-  if (output.includes('rate limit') || output.includes('too many requests') || output.includes('api rate limit exceeded')) {
-    return { type: 'RATE_LIMIT', retryable: true, description: 'Rate limit exceeded' };
-  }
-  // Default to retryable for unknown errors
-  return { type: 'UNKNOWN', retryable: true, description: 'Unknown error' };
-};
-
-// Issue #1957: remove leftovers from an interrupted clone so a retry can start clean.
-// We empty the directory in place (rather than removing it) because the path was
-// created up-front by setupTempDirectory and may be the configured working directory.
-export const cleanPartialClone = async tempDir => {
-  try {
-    const entries = await fs.readdir(tempDir);
-    for (const entry of entries) {
-      await fs.rm(path.join(tempDir, entry), { recursive: true, force: true });
-    }
-  } catch (error) {
-    // Directory may not exist yet, or be unreadable — non-fatal; the retry/clone
-    // will surface any real problem with a clearer message.
-    if (error?.code !== 'ENOENT') {
-      reportError(error, { context: 'clean_partial_clone', tempDir, operation: 'empty_directory' });
-    }
-  }
-};
+export { classifyCloneError, cleanPartialClone };
 // Clone repository and set up remotes with retry mechanism
 export const cloneRepository = async (repoToClone, tempDir, argv, owner, repo) => {
   const maxRetries = 3;

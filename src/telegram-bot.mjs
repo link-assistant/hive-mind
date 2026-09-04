@@ -27,10 +27,10 @@ const yargs = getLinoYargsFactory();
 const { createYargsConfig: createTelegramYargsConfig } = await import('./telegram.config.lib.mjs');
 const { createYargsConfig: createSolveYargsConfig, detectMalformedFlags } = await import('./solve.config.lib.mjs');
 const { createYargsConfig: createHiveYargsConfig } = await import('./hive.config.lib.mjs');
-const { enhanceUnknownArgumentError } = await import('./option-suggestions.lib.mjs');
 const { validateBranchInArgs } = await import('./solve.branch.lib.mjs');
 const { extractIsolationFromArgs, isValidPerCommandIsolation } = await import('./telegram-isolation.lib.mjs');
 const { mergeArgsWithOverrides } = await import('./args-overrides.lib.mjs'); // issue #2085
+const { validateCommandOverrides } = await import('./telegram-overrides-validation.lib.mjs'); // issue #2198
 const config = createTelegramYargsConfig(yargs(hideBin(process.argv))).parse();
 
 // Configuration priority: CLI option > --configuration LINO > .lenv > .env
@@ -109,96 +109,26 @@ if (ISOLATION_BACKEND) {
   }
 }
 
-// Validate solve overrides early using solve's yargs config
-// Only validate if solve command is enabled
-if (solveEnabled && solveOverrides.length > 0) {
-  console.log('Validating solve overrides...');
-  try {
-    const { backend: solveOverrideIsolation, filteredArgs: solveOverridesForValidation } = extractIsolationFromArgs(solveOverrides);
-    if (solveOverrideIsolation && !isValidPerCommandIsolation(solveOverrideIsolation)) {
-      throw new Error(`Invalid --isolation value '${solveOverrideIsolation}'. Must be: screen, tmux, or docker`);
-    }
-    // Add a dummy URL as the first argument (required positional for solve)
-    const testArgs = ['https://github.com/test/test/issues/1', ...solveOverridesForValidation];
-    // Temporarily suppress stderr to avoid yargs error output during validation
-    const originalStderrWrite = process.stderr.write;
-    const stderrBuffer = [];
-    process.stderr.write = chunk => {
-      stderrBuffer.push(chunk);
-      return true;
-    };
+// Validate solve/hive overrides early, using each command's own yargs config, so
+// a bad flag is rejected at startup instead of when the first session spawns
+// (issue #1209). The shared implementation lives in
+// telegram-overrides-validation.lib.mjs (issue #2198).
+for (const { enabled, label, flag, overrides, createYargsConfig, dummyUrl } of [
+  { enabled: solveEnabled, label: 'Solve', flag: 'solve-overrides', overrides: solveOverrides, createYargsConfig: createSolveYargsConfig, dummyUrl: 'https://github.com/test/test/issues/1' },
+  { enabled: hiveEnabled, label: 'Hive', flag: 'hive-overrides', overrides: hiveOverrides, createYargsConfig: createHiveYargsConfig, dummyUrl: 'https://github.com/test/test' },
+]) {
+  if (!enabled || overrides.length === 0) continue;
 
-    try {
-      // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
-      const testYargs = createSolveYargsConfig(yargs());
-      // Suppress yargs error output - we'll handle errors ourselves
-      testYargs
-        .exitProcess(false)
-        .showHelpOnFail(false)
-        .fail((msg, err) => {
-          if (err) throw err;
-          throw new Error(msg);
-        });
-      await testYargs.parse(testArgs);
-      // Issue #1482: Validate --base-branch in overrides early
-      const overrideBranchError = validateBranchInArgs(solveOverridesForValidation);
-      if (overrideBranchError) throw new Error(overrideBranchError);
-      console.log('✅ Solve overrides validated successfully');
-    } finally {
-      // Restore stderr
-      process.stderr.write = originalStderrWrite;
-    }
-  } catch (error) {
-    const enhancedError = enhanceUnknownArgumentError(error, createSolveYargsConfig(yargs()));
-    console.error(`❌ Invalid solve-overrides: ${enhancedError.message || String(enhancedError)}`);
-    console.error(`   Overrides: ${solveOverrides.join(' ')}`);
-    process.exit(1);
+  console.log(`Validating ${label.toLowerCase()} overrides...`);
+  const result = await validateCommandOverrides({ overrides, createYargsConfig, yargs, dummyUrl });
+  if (result.ok) {
+    console.log(`✅ ${label} overrides validated successfully`);
+    continue;
   }
-}
-// Validate hive overrides early using hive's yargs config
-// Only validate if hive command is enabled
-if (hiveEnabled && hiveOverrides.length > 0) {
-  console.log('Validating hive overrides...');
-  try {
-    const { backend: hiveOverrideIsolation, filteredArgs: hiveOverridesForValidation } = extractIsolationFromArgs(hiveOverrides);
-    if (hiveOverrideIsolation && !isValidPerCommandIsolation(hiveOverrideIsolation)) {
-      throw new Error(`Invalid --isolation value '${hiveOverrideIsolation}'. Must be: screen, tmux, or docker`);
-    }
-    // Add a dummy URL as the first argument (required positional for hive)
-    const testArgs = ['https://github.com/test/test', ...hiveOverridesForValidation];
 
-    // Temporarily suppress stderr to avoid yargs error output during validation
-    const originalStderrWrite = process.stderr.write;
-    const stderrBuffer = [];
-    process.stderr.write = chunk => {
-      stderrBuffer.push(chunk);
-      return true;
-    };
-    try {
-      // Use .parse() instead of yargs(args).parseSync() to ensure .strict() mode works
-      const testYargs = createHiveYargsConfig(yargs());
-      // Suppress yargs error output - we'll handle errors ourselves
-      testYargs
-        .exitProcess(false)
-        .showHelpOnFail(false)
-        .fail((msg, err) => {
-          if (err) throw err;
-          throw new Error(msg);
-        });
-      await testYargs.parse(testArgs);
-      const overrideBranchError = validateBranchInArgs(hiveOverridesForValidation); // Issue #1482
-      if (overrideBranchError) throw new Error(overrideBranchError);
-      console.log('✅ Hive overrides validated successfully');
-    } finally {
-      // Restore stderr
-      process.stderr.write = originalStderrWrite;
-    }
-  } catch (error) {
-    const enhancedError = enhanceUnknownArgumentError(error, createHiveYargsConfig(yargs()));
-    console.error(`❌ Invalid hive-overrides: ${enhancedError.message || String(enhancedError)}`);
-    console.error(`   Overrides: ${hiveOverrides.join(' ')}`);
-    process.exit(1);
-  }
+  console.error(`❌ Invalid ${flag}: ${result.message}`);
+  console.error(`   Overrides: ${overrides.join(' ')}`);
+  process.exit(1);
 }
 
 // Handle dry-run mode - exit after validation WITHOUT loading heavy dependencies

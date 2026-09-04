@@ -9,8 +9,10 @@
  * Key behavior:
  * - For PR synchronize events: compares GitHub's before..after PR head update
  *   range, so all commits from the latest push control whether expensive CI jobs
- *   rerun. If the event SHAs are unavailable, it falls back to GitHub Actions'
- *   synthetic merge commit and compares HEAD^2^..HEAD^2.
+ *   rerun -- but only when the previous head was actually tested. See
+ *   `previousHeadWasTested` below; issue #2198. If the event SHAs are
+ *   unavailable, it falls back to GitHub Actions' synthetic merge commit and
+ *   compares HEAD^2^..HEAD^2.
  * - For PR opened/reopened events: compares the full PR head against base branch
  * - For pushes: compares HEAD against HEAD^
  * - Uses positive matching to detect code changes (only files matching known
@@ -159,14 +161,102 @@ function diffChangedFiles(fromRef, toRef, description) {
 }
 
 /**
- * Get files changed by the latest PR head update for synchronize events.
- * @returns {string[]|null} Changed files, or null when the comparison cannot be built
+ * Ask whether a previous PR head already has a successful run of *this*
+ * workflow.
+ *
+ * Issue #2198. The incremental comparison below only looks at the newest push,
+ * which is sound if the commits before it were tested. They frequently were
+ * not: `release.yml` sets `cancel-in-progress: true` on every branch except
+ * `main`, so pushing again while a run is in flight cancels it. Push a code
+ * commit, push a docs commit before the first run finishes, and the surviving
+ * run skips the code jobs -- the PR head goes green having never compiled the
+ * code in it.
+ *
+ * Every uncertain answer -- no workflow context, no token, an unreachable or
+ * unparseable API -- returns false, which widens the comparison to the full PR
+ * diff. Running jobs that did not need to run costs runner minutes; skipping
+ * jobs that did need to run costs the gate.
+ *
+ * @param {string} sha - The previous PR head
+ * @returns {Promise<boolean>} True only when a successful run is recorded for it
  */
-function getPullRequestSynchronizeChangedFiles() {
+async function previousHeadWasTested(sha) {
+  const repository = process.env.GITHUB_REPOSITORY;
+  // `owner/repo/.github/workflows/release.yml@refs/pull/1/merge`
+  const workflowRef = process.env.GITHUB_WORKFLOW_REF;
+  if (!repository || !workflowRef) {
+    // Say which one is missing. The first version of this function returned
+    // here silently, and the first CI run that took the branch was
+    // indistinguishable from one that had asked the API and been told "no" --
+    // a check whose failures look exactly like its successes is the shape of
+    // defect this whole issue is about.
+    const missing = [!repository && 'GITHUB_REPOSITORY', !workflowRef && 'GITHUB_WORKFLOW_REF'].filter(Boolean).join(' and ');
+    console.log(`Not in a workflow run (${missing} unset); not checking whether ${sha} was tested`);
+    return false;
+  }
+
+  const workflowFile = workflowRef.split('@')[0].split('/').pop();
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (!token || !workflowFile) {
+    const missing = [!token && 'a token', !workflowFile && `a workflow file name in "${workflowRef}"`].filter(Boolean).join(' and ');
+    console.log(`Cannot check whether ${sha} was tested (missing ${missing}); using the full PR diff`);
+    return false;
+  }
+
+  const apiUrl = process.env.GITHUB_API_URL || 'https://api.github.com';
+  const endpoint = `${apiUrl}/repos/${repository}/actions/workflows/${workflowFile}/runs?head_sha=${sha}&status=success&per_page=1`;
+
+  try {
+    const response = await fetch(endpoint, {
+      headers: {
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${token}`,
+        'x-github-api-version': '2022-11-28',
+      },
+    });
+    if (!response.ok) {
+      console.log(`Run lookup for ${sha} answered HTTP ${response.status}; using the full PR diff`);
+      return false;
+    }
+    const body = await response.json();
+    const count = Number(body?.total_count);
+    // The endpoint, never the token. Without this line a zero count and an
+    // unasked question read the same in the log, which cost a round of CI to
+    // tell apart.
+    console.log(`Successful runs of ${workflowFile} at ${sha}: ${count} (asked ${endpoint})`);
+    return count > 0;
+  } catch (error) {
+    console.log(`Run lookup for ${sha} failed (${error.message}); using the full PR diff`);
+    return false;
+  }
+}
+
+/**
+ * Get files changed by the latest PR head update for synchronize events.
+ * @returns {Promise<string[]|null>} Changed files, or null when the comparison cannot be built
+ */
+async function getPullRequestSynchronizeChangedFiles() {
   const beforeSha = process.env.GITHUB_BEFORE_SHA;
   const afterSha = process.env.GITHUB_AFTER_SHA || process.env.GITHUB_HEAD_SHA;
 
   if (ensureShaAvailable(beforeSha, 'Before') && ensureShaAvailable(afterSha, 'After')) {
+    if (await previousHeadWasTested(beforeSha)) {
+      return diffChangedFiles(beforeSha, afterSha, 'PR head update');
+    }
+
+    // Issue #2198: comparing against an untested head hides that head's changes.
+    // Widen to the whole PR -- but only if the whole PR is actually available.
+    const baseSha = process.env.GITHUB_BASE_SHA;
+    if (ensureShaAvailable(baseSha, 'Base')) {
+      console.log(`Previous PR head ${beforeSha} has no successful run of this workflow; comparing the full PR instead`);
+      return diffChangedFiles(baseSha, afterSha, 'full PR');
+    }
+
+    // No base to widen to. Returning null here would drop through to the
+    // HEAD^..HEAD fallback, which is *narrower* than the range it replaced --
+    // a fix for a false negative that manufactures a worse one. Keep the
+    // incremental range: unverified is not the same as known-untested.
+    console.log(`Previous PR head ${beforeSha} is unverified and no base SHA is available; keeping the PR head update range`);
     return diffChangedFiles(beforeSha, afterSha, 'PR head update');
   }
 
@@ -222,13 +312,13 @@ function setOutput(name, value) {
  * Get the list of changed files between two commits
  * @returns {string[]} Array of changed file paths
  */
-function getChangedFiles() {
+async function getChangedFiles() {
   const eventName = process.env.GITHUB_EVENT_NAME || 'local';
   const eventAction = process.env.GITHUB_EVENT_ACTION || '';
 
   if (eventName === 'pull_request') {
     if (eventAction === 'synchronize') {
-      const synchronizeFiles = getPullRequestSynchronizeChangedFiles();
+      const synchronizeFiles = await getPullRequestSynchronizeChangedFiles();
       if (synchronizeFiles) {
         return synchronizeFiles;
       }
@@ -295,13 +385,17 @@ function isExcludedFromCodeChanges(filePath) {
   return false;
 }
 
+// Lockfiles that decide which package manager tooling shells out to. Kept in
+// sync with LOCKFILE_AGENTS in scripts/check-package-manager.lib.mjs (issue #2198).
+const PACKAGE_MANIFEST_PATTERN = /^(package-lock\.json|npm-shrinkwrap\.json|bun\.lock|bun\.lockb|deno\.lock|nub\.lock|pnpm-lock\.yaml|pnpm-workspace\.yaml|yarn\.lock|aube-lock\.yaml|aube-workspace\.yaml)$/;
+
 /**
  * Main function to detect changes
  */
-function detectChanges() {
+async function detectChanges() {
   console.log('Detecting file changes for CI/CD...\n');
 
-  const changedFiles = getChangedFiles();
+  const changedFiles = await getChangedFiles();
 
   console.log('Changed files:');
   if (changedFiles.length === 0) {
@@ -315,8 +409,12 @@ function detectChanges() {
   const mjsChanged = changedFiles.some(file => file.endsWith('.mjs'));
   setOutput('mjs', mjsChanged ? 'true' : 'false');
 
-  // Detect package.json changes
-  const packageChanged = changedFiles.some(file => file === 'package.json');
+  // Detect package.json / lockfile changes.
+  // Issue #2198: a lockfile is a manifest change too. A stray `bun.lock` at the
+  // root silently redirected `changeset version` to a package manager the
+  // runner does not have, and because only `package.json` counted here, the
+  // lint job — which is where the package-manager guard runs — was skipped.
+  const packageChanged = changedFiles.some(file => file === 'package.json' || PACKAGE_MANIFEST_PATTERN.test(file));
   setOutput('package', packageChanged ? 'true' : 'false');
 
   // Detect documentation changes (any .md file)
@@ -376,5 +474,5 @@ export { getChangedFiles, isExcludedFromCodeChanges, isMergeCommit, matchesPatte
 
 // Run the detection when executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
-  detectChanges();
+  await detectChanges();
 }

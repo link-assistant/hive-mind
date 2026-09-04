@@ -583,6 +583,7 @@ zh
         usage "用法：`/hive <github-url> [options]`"
         example "示例：`/hive https://github.com/owner/repo`"
         disabled "*/hive* - ❌ 已禁用"
+      models "*/models* - 列出可用模型，合并本次安装自带的模型与所有实时来源的模型。用法：`/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - 显示使用限额"
       version "*/version* - 显示机器人和运行时版本"
       language "*/language* `[en|ru|zh|hi]` - 设置或显示首选回复语言（内存中，按用户）"
@@ -604,7 +605,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/hive、/queue、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model

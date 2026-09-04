@@ -310,6 +310,59 @@ echo ""
 echo "=== All system & development tools verification checks PASSED ==="
 
 # ---------------------------------------------------------------------------
+# Step 2b: Runtime freshness and single-version toolchain roots (issue #2187)
+#
+# The Box base ships Node.js 20 and the hive-mind layer installs the pinned
+# current LTS on top. Two things must hold afterwards:
+#   1. the node that is actually on PATH satisfies this package's engines floor
+#      (a stale runtime is what made tasks download their own node into /tmp);
+#   2. exactly ONE node version remains under ~/.nvm, so the image does not
+#      carry superseded copies and `.node-bin` / `nvm use default` / a bare
+#      `node` cannot disagree about which runtime is current.
+# MIN_NODE_MAJOR is kept equal to `engines.node` in package.json by
+# tests/test-issue-2187-runtime-versions.mjs.
+# ---------------------------------------------------------------------------
+echo ""
+echo "=== Verifying runtime versions (issue #2187) ==="
+
+MIN_NODE_MAJOR=24
+
+NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+echo "Node.js on PATH: v$(node -p 'process.versions.node') (required major >= ${MIN_NODE_MAJOR})"
+if [ "$NODE_MAJOR" -lt "$MIN_NODE_MAJOR" ]; then
+  echo "ERROR: image node is older than the engines.node floor (>= ${MIN_NODE_MAJOR})"
+  echo "The hive-mind layer is expected to install the pinned current Node.js (issue #2187)."
+  exit 1
+fi
+echo "Node.js version: OK"
+
+NVM_NODE_ROOT="$HOME/.nvm/versions/node"
+if [ -d "$NVM_NODE_ROOT" ]; then
+  INSTALLED_NODE_VERSIONS=$(ls -1 "$NVM_NODE_ROOT" 2>/dev/null | wc -l)
+  echo "Node.js versions under ${NVM_NODE_ROOT}: ${INSTALLED_NODE_VERSIONS}"
+  ls -1 "$NVM_NODE_ROOT" 2>/dev/null || true
+  if [ "$INSTALLED_NODE_VERSIONS" -ne 1 ]; then
+    echo "ERROR: expected exactly one installed Node.js version, found ${INSTALLED_NODE_VERSIONS}"
+    echo "Superseded runtimes must be removed in the same layer that installs the new one (issue #2187)."
+    exit 1
+  fi
+  ACTIVE_NODE_DIR=$(dirname "$(dirname "$(command -v node)")")
+  if [ "$ACTIVE_NODE_DIR" != "$NVM_NODE_ROOT/$(ls -1 "$NVM_NODE_ROOT")" ] && [ "$(readlink -f "$ACTIVE_NODE_DIR")" != "$(readlink -f "$NVM_NODE_ROOT/$(ls -1 "$NVM_NODE_ROOT")")" ]; then
+    echo "ERROR: node on PATH (${ACTIVE_NODE_DIR}) is not the single installed nvm version"
+    exit 1
+  fi
+  echo "Single Node.js version: OK"
+else # shell-lint: allow-nonfatal — a non-nvm node layout is not a failure here.
+  echo "WARNING: ${NVM_NODE_ROOT} not found; skipping single-version check"
+fi
+
+echo "Bun on PATH: $(bun --version)"
+
+echo ""
+echo "=== Runtime version verification checks PASSED ==="
+
+
+# ---------------------------------------------------------------------------
 # Step 3: Verify AI-specific tools (added by hive-mind on top of Box)
 # ---------------------------------------------------------------------------
 echo ""

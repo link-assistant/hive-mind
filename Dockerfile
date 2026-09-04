@@ -92,6 +92,64 @@ ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/
 USER box
 WORKDIR /home/box
 
+# Use bash for every subsequent RUN. nvm is sourced below and the build steps
+# further down already use bash-only syntax (`&>`), which /bin/sh (dash) parses
+# as "run in background, then redirect" — silently turning those guards into
+# no-ops. Declaring the shell here instead of at the end of the file makes the
+# steps run as they read (issue #2187).
+SHELL ["/bin/bash", "-c"]
+
+# --- Current Node.js and Bun (issue #2187) ---
+# The Box base installs Node.js 20 (`nvm install 20` in box's
+# ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was
+# built, so every derived image inherits runtimes that are well behind the
+# workloads. Hive Mind itself declares `engines.node >= 24`, and tasks on
+# repositories that need something newer used to download their own node/bun
+# into /tmp on every run and leave the copy behind — a second accumulation of
+# versions on top of the image's own. Reported upstream as
+# link-foundation/box#112 so the base stops shipping a stale Node.js.
+#
+# Pin the runtimes here (bump these ARGs like any other pin):
+#   - HIVE_MIND_NODE_VERSION must stay >= the `engines.node` floor in package.json;
+#     tests/test-issue-2187-runtime-versions.mjs fails the build otherwise.
+#   - HIVE_MIND_BUN_VERSION is installed OVER the inherited binary, so ~/.bun keeps one
+#     bun rather than accumulating versions.
+#
+# The nvm root is left with exactly ONE node version: the base's global npm
+# packages are re-installed under the new version AT THEIR EXISTING VERSIONS
+# (pinning matters — ~/.cache/ms-playwright already holds the browser builds
+# matching the inherited playwright, so an unpinned upgrade would leave the CLI
+# pointing at browsers the image does not have), then every other version
+# directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
+# all resolve to the same, newest runtime (issue #2187, item A).
+ARG HIVE_MIND_NODE_VERSION=24.20.0
+ARG HIVE_MIND_BUN_VERSION=1.4.1
+RUN set -e && \
+    . "$NVM_DIR/nvm.sh" && \
+    PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \
+    GLOBAL_SPECS="" && \
+    for package_json in "$PREVIOUS_GLOBAL_LIB"/*/package.json "$PREVIOUS_GLOBAL_LIB"/@*/*/package.json; do \
+      [ -f "$package_json" ] || continue; \
+      spec="$(node -p 'const pkg = require(process.argv[1]); pkg.name + "@" + pkg.version' "$package_json")"; \
+      case "$spec" in npm@*|corepack@*) continue ;; esac; \
+      GLOBAL_SPECS="$GLOBAL_SPECS $spec"; \
+    done && \
+    echo "Inherited global npm packages to re-install:${GLOBAL_SPECS:- (none)}" && \
+    nvm install "${HIVE_MIND_NODE_VERSION}" && \
+    nvm alias default "${HIVE_MIND_NODE_VERSION}" && \
+    nvm use default && \
+    if [ -n "$GLOBAL_SPECS" ]; then npm install -g $GLOBAL_SPECS --no-fund --force; fi && \
+    for version_dir in "$NVM_DIR"/versions/node/*; do \
+      [ -d "$version_dir" ] || continue; \
+      if [ "$(basename "$version_dir")" = "v${HIVE_MIND_NODE_VERSION}" ]; then continue; fi; \
+      echo "Removing superseded node $(basename "$version_dir")"; \
+      rm -rf "$version_dir"; \
+    done && \
+    curl -fsSL https://bun.sh/install | bash -s "bun-v${HIVE_MIND_BUN_VERSION}" && \
+    node --version && \
+    npm --version && \
+    "$BUN_INSTALL/bin/bun" --version
+
 # Create a stable symlink to the active Node.js version's bin directory
 # This allows us to add it to PATH without knowing the specific version
 # `sort -V | tail -1` (not `ls | head -1`): `ls` sorts lexicographically and
@@ -278,5 +336,4 @@ RUN mkdir -p /home/box/.claude && \
       echo "configure-claude not present in @link-assistant/hive-mind@latest yet (likely a PR build before the bin is published); skipping baseline — solve re-applies it at runtime"; \
     fi
 
-SHELL ["/bin/bash", "-c"]
 CMD ["/bin/bash"]

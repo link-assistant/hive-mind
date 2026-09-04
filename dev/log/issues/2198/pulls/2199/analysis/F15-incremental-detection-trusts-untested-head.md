@@ -87,6 +87,58 @@ passes `GITHUB_TOKEN` and `GITHUB_WORKFLOW_REF`.
 unparseable body, no workflow context at all: each logs its reason and widens. A lookup
 that cannot answer must not be read as a "yes" — that is how the defect got here.
 
+## The invariant the proxy rests on
+
+"A successful run exists for the previous head" is a *proxy* for "the previous head was
+tested", and it is worth writing down why the proxy is sound — the original defect was
+precisely an unstated premise, so leaving a new one unstated would repeat it.
+
+The claim is inductive: **a successful run implies the code in its head has been tested,
+by that run or by one it legitimately inherited from.**
+
+- A docs-only push onto a tested head skips the code jobs and succeeds. Its head carries
+  the same code as the previous head, which was tested. The claim holds.
+- A push onto an *untested* head widens to the full PR and runs the code jobs. Success
+  then means tested outright. The claim holds.
+- A run that fails, is cancelled, or never starts records no success, so the next push
+  widens. Conservative, and the claim is not relied on.
+
+The base case is the only soft spot: runs recorded *before* this fix could be green while
+having skipped everything — run 33886365226 above is one. Those are indistinguishable
+from honest successes by this query, so for one push after this lands the proxy can say
+"tested" about a head that was not. It is a transition artifact, not a standing defect,
+and it self-heals on the first push whose previous head has a post-fix run.
+
+Verified in production on the first run to carry the fix
+([33890006722](https://github.com/link-assistant/hive-mind/actions/runs/33890006722)):
+
+```
+Successful runs of release.yml at 3daa84ca...: 0 (asked https://api.github.com/repos/link-assistant/hive-mind/actions/workflows/release.yml/runs?head_sha=3daa84ca...&status=success&per_page=1)
+Previous PR head 3daa84ca... has no successful run of this workflow; comparing the full PR instead
+code=true
+```
+
+The count is zero for the right reason: that head's own run had just been cancelled by
+this push — the exact scenario the finding is about, caught live.
+
+## Observability
+
+The run before that one logged **nothing**. It fell back to the full PR diff, which is the
+safe answer, but the branch taken when the workflow context is missing returned silently,
+so "never asked the API" and "asked and was told no" produced identical output. A check
+whose failures are indistinguishable from its successes is this issue's own subject
+matter, reproduced inside the fix for it.
+
+Every branch now names itself, and the successful path logs the count the decision rests
+on together with the endpoint that produced it — the endpoint only, never the token. Two
+assertions in the test cover it, because a diagnostic with no test regresses the moment
+it is inconvenient.
+
+`release.yml` also stopped setting `GITHUB_WORKFLOW_REF` from `${{ github.workflow_ref }}`.
+The runner supplies that variable in every job as a documented default; overriding it with
+an expression can only replace a guaranteed value with an empty one. The test asserts it
+is left alone.
+
 ## The fix's own false negative, caught before it shipped
 
 The first draft returned `null` for an unverified head, letting `getChangedFiles` fall

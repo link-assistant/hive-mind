@@ -28,4 +28,10 @@ Fix the release failure and the CI/CD gaps behind issue #2198.
   publish; they now go through a `setup-buildx-resilient` composite action that
   pre-pulls the pinned BuildKit image with backoff and falls back to a
   pull-through mirror.
+- Nothing audited the dependency tree: CodeQL analyses our own source, and
+  `dependency-review-action` only runs on pull requests and only inspects the
+  dependencies a PR changes, so an advisory against a long-pinned package was
+  invisible to both. `security.yml` gains an `npm-audit` job running
+  `npm audit --package-lock-only --audit-level=high`, which also runs on the
+  existing schedule.
 - actionlint is pinned to 1.7.12 instead of 1.7.7.

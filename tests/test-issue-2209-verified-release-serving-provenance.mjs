@@ -126,7 +126,7 @@ test('an accepted update is the backend that serves, and is named by, every late
     assert.equal(firstProvenance.formalAiWrapperVersion, FORMAL_AI_MINIMUM_VERSION, 'the local wrapper is recorded separately');
     assert.notEqual(firstProvenance.formalAiVersion, firstProvenance.formalAiWrapperVersion);
     assert.equal(firstProvenance.backend.imageDigest, update.digest, 'the evidence names the immutable image, not a moving tag');
-    assert.equal(firstProvenance.backend.managed, true);
+    assert.equal(firstProvenance.backend.leased, true);
 
     await releaseFormalAiSidecar({ sessionId: 'task-a', ...options });
 

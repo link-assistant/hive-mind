@@ -488,7 +488,7 @@ const describeFormalAiBackend = backend => [`${backend.version} at ${backend.bas
  *
  * @returns {Promise<object>} `{ baseUrl, version, memory, image, imageDigest, imageSource, managed, probedAt }`
  */
-const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, managed }) => {
+const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocally }) => {
   const sidecar = readFormalAiSidecarProvenance(env);
   const probe = await (deps.probeBackendImpl || probeFormalAiBackend)({ baseUrl, apiKey, env });
   const { version, memory } = assertSupportedFormalAiBackend(probe, { baseUrl, expectedVersion: sidecar?.version ?? null });
@@ -499,8 +499,10 @@ const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, managed }) =
     image: sidecar?.image ?? null,
     imageDigest: sidecar?.imageDigest ?? null,
     imageSource: sidecar?.imageSource ?? null,
-    managed: !!sidecar,
-    local: managed,
+    /** True when Hive Mind leased this endpoint from its own sidecar. */
+    leased: !!sidecar,
+    /** True when this process started the server it is now talking to. */
+    startedLocally,
     probedAt: new Date().toISOString(),
   };
 };
@@ -545,7 +547,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     // Issue #2208: the cache key is the endpoint, not the release behind it. An
     // external base URL can be re-pointed at a different container between
     // tasks, so the cached provenance is re-checked instead of replayed.
-    const backend = await resolveFormalAiBackend({ baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), env, deps, managed: cached.runtime.serverStarted });
+    const backend = await resolveFormalAiBackend({ baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), env, deps, startedLocally: cached.runtime.serverStarted });
     if (backend.version !== cached.runtime.backend?.version || backend.imageDigest !== cached.runtime.backend?.imageDigest) {
       await log(`🧠 Formal AI: serving backend changed to ${describeFormalAiBackend(backend)}`);
     }
@@ -587,7 +589,7 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
     }
 
     // Before any client configuration is written, ask the endpoint who it is.
-    const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, managed: !!server });
+    const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, startedLocally: !!server });
     await log(`🧠 Formal AI: serving backend ${describeFormalAiBackend(backend)}`);
     if (backend.version !== formalAiWrapperVersion) {
       await log(`🧠 Formal AI: local wrapper ${formalAiWrapperVersion} differs from the serving backend ${backend.version}; provenance records the backend`, { verbose: true });

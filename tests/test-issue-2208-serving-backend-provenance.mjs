@@ -247,7 +247,7 @@ test('the leased image identity is published to the task and carried into proven
       // A task's evidence can now name the immutable image that answered it.
       assert.equal(runtime.backend.imageDigest, 'sha256:accepted');
       assert.equal(runtime.backend.image, sidecar.imageReference);
-      assert.equal(runtime.backend.managed, true);
+      assert.equal(runtime.backend.leased, true);
       assert.equal(runtime.backend.version, '0.346.0');
     } finally {
       await runtime.stop();

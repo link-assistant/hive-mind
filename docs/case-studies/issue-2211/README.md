@@ -306,16 +306,21 @@ before it can be merged` at warning level whenever the primary fix has failed, w
 
 ## 9. Reports to other repositories (R12)
 
-The two affected repositories are the ones hive-mind polluted, and the pollution is a
-symptom of the defect fixed here rather than a defect of theirs:
+Both affected repositories were reported, each with the raw evidence, a reproduction, a
+workaround and the code-level fix:
 
-- `konard/audio-decomposer` — `.gitkeep` on `main` holds four solver lines; issue #1 is
-  still open and the two merged pull requests implemented nothing.
-- `link-foundation/rust-ai-driven-development-pipeline-template` — `.gitkeep` on `main`
-  holds eight solver lines, and every repository generated from it inherits them.
+| Repository                                                     | Issue                                                                                              | State on the default branch     |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------- |
+| `konard/audio-decomposer`                                      | [#4](https://github.com/konard/audio-decomposer/issues/4)                                          | `.gitkeep` holds 4 solver lines |
+| `link-foundation/rust-ai-driven-development-pipeline-template` | [#158](https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/issues/158) | `.gitkeep` holds 8 solver lines |
 
-The remedy in both is a one-line change (`git rm .gitkeep`, or truncate it to empty),
-which is only durable once the fix in this pull request is released — otherwise the next
-run recreates the file and the accumulation restarts. Both are owned by the same
-maintainer as this repository; the state of both is archived under [`data/`](./data) with
-exact timestamps so the cleanup can be verified afterwards.
+The pollution is a symptom of the defect fixed here rather than a defect of theirs, so
+both issues say the same thing about the remedy: `git rm .gitkeep` (or truncating it to
+empty) is a one-line change, but it is only durable once this fix is released —
+otherwise the next run recreates the file and the accumulation restarts. Both also warn
+against the obvious wrong workaround, gitignoring the file, which hive-mind refuses with
+a root-cause message ([#1825](https://github.com/link-assistant/hive-mind/issues/1825)).
+`konard/audio-decomposer#1` stays open: PR #2 and #3 closed nothing.
+
+The exact state of both repositories is archived under [`data/`](./data) with timestamps,
+so the cleanup can be verified afterwards.

@@ -148,6 +148,15 @@ console.log('\n📋 info block label for a repository URL\n');
   assertEqual('repository info block is the generic-URL block verbatim', repoBlock, buildTelegramInfoBlock({ urlKind: 'url', url: REPO_URL }));
   assertTrue('repository info block is not labelled as an issue', urlLineOf(repoBlock).label !== urlLineOf(buildTelegramInfoBlock({ urlKind: 'issue', url: REPO_URL })).label, urlLineOf(repoBlock).label);
   assertTrue('repository info block is not labelled as a pull request', urlLineOf(repoBlock).label !== urlLineOf(buildTelegramInfoBlock({ urlKind: 'pullRequest', url: REPO_URL })).label, urlLineOf(repoBlock).label);
+  // The mislabelling this assertion exists to catch: a handler that kept the
+  // issue URL it was given instead of the repository URL /solve was invoked
+  // with. That URL is REPO_URL plus a path, so it contains REPO_URL by
+  // construction -- a containment check could not tell the two blocks apart,
+  // which is why the comparison above is an equality one. See
+  // experiments/issue-2212-codeql-url-substring.mjs.
+  const mislabelledBlock = buildTelegramInfoBlock({ urlKind: 'url', url: `${REPO_URL}/issues/2212` });
+  assertTrue('a block showing a longer URL that starts with the repository URL is rejected', urlLineOf(mislabelledBlock).url !== REPO_URL, urlLineOf(mislabelledBlock).url);
+
   // The issue label is still applied to an issue URL -- the fix widened the
   // accepted types, it did not relabel anything that already worked.
   const issueBlock = buildTelegramInfoBlock({ urlKind: urlKindFor('issue'), url: ISSUE_URL });

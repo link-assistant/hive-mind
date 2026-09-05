@@ -34,6 +34,7 @@ Issue #2212: /solve accepts a repository URL in the Telegram bot
 ✅ repository info block is the generic-URL block verbatim
 ✅ repository info block is not labelled as an issue
 ✅ repository info block is not labelled as a pull request
+✅ a block showing a longer URL that starts with the repository URL is rejected
 ✅ issue info block shows exactly the issue URL
 ✅ issue info block keeps the issue label
 ✅ telegram-bot.mjs maps a repo URL to the generic 'url' label
@@ -43,6 +44,6 @@ Issue #2212: /solve accepts a repository URL in the Telegram bot
 ✅ validateGitHubEntityExistence guards the issue/PR check with `if (number)`
 
 ================================================================================
-Results: 24 passed, 0 failed
+Results: 25 passed, 0 failed
 ================================================================================
 

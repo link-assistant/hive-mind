@@ -1,0 +1,50 @@
+=== starting from the bootstrap release ghcr.io/link-assistant/formal-ai:0.345.0 ===
+
+=== idle update ===
+⬇️ Checking for a newer Formal AI image (ghcr.io/link-assistant/formal-ai:latest)
+🛑 Formal AI sidecar stopped (updating the Formal AI image); memory volume 'hive-mind-formal-ai-memory' preserved
+[VERBOSE] formal-ai-sidecar: removed container=false network='hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: created volume 'hive-mind-formal-ai-memory'
+[VERBOSE] formal-ai-updater: no memory migration required (schema none, state missing)
+[VERBOSE] formal-ai-sidecar: created internal network 'hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: 'hive-mind-formal-ai' healthy after 7 probe(s) (version=0.347.0, memory schema=unknown)
+✅ Formal AI updated to 0.347.0; the sidecar stays stopped until a Formal AI task needs it
+{
+  "status": "updated",
+  "version": "0.347.0",
+  "digest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82"
+}
+
+=== replay: Scala / agent ===
+[VERBOSE] formal-ai-image: using 'sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82' (accepted-update) already present locally, digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82
+[VERBOSE] formal-ai-sidecar: created internal network 'hive-mind-formal-ai'
+🧠 Starting the Formal AI sidecar (ghcr.io/link-assistant/formal-ai:latest @ sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, accepted-update) on the internal network 'hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: 'hive-mind-formal-ai' healthy after 6 probe(s) (version=0.347.0, memory schema=unknown)
+[VERBOSE] formal-ai-sidecar: lease 'replay-agent' acquired (1 active), image=ghcr.io/link-assistant/formal-ai:latest (accepted-update), digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, address=172.19.0.2, formal-ai=0.347.0, memory schema=unknown
+{
+  "tool": "agent",
+  "language": "Scala",
+  "repo": "konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b",
+  "servingVersion": "0.347.0",
+  "servingDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "imageSource": "accepted-update",
+  "baseUrl": "http://172.19.0.2:8080"
+}
+🛑 Formal AI sidecar stopped (no Formal AI tasks running); memory volume 'hive-mind-formal-ai-memory' preserved
+[VERBOSE] formal-ai-sidecar: removed container=true network='hive-mind-formal-ai'
+{
+  "exitCode": 130,
+  "remote": [
+    {
+      "number": 2,
+      "url": "https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2",
+      "state": "OPEN",
+      "files": [],
+      "hasWorkflow": false,
+      "hasSource": false,
+      "diffSays": false
+    }
+  ]
+}
+
+=== summary written to /tmp/gh-issue-solver-1788602762926/logs/replay/replay-summary.json ===

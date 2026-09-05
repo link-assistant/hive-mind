@@ -53,7 +53,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { assertSupportedFormalAiVersion, FORMAL_AI_MINIMUM_VERSION, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
+import { assertSupportedFormalAiVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -64,6 +64,26 @@ export const FORMAL_AI_DEFAULT_API_KEY = 'formal-ai';
 export const FORMAL_AI_MODEL_NAME = 'formal-ai';
 export const FORMAL_AI_DEFAULT_HOST = '127.0.0.1';
 export const FORMAL_AI_SERVER_READY_TIMEOUT_MS = 90_000;
+
+/** Where a Formal AI server reports its own version and memory compatibility. */
+export const FORMAL_AI_HEALTH_PATH = '/health';
+
+/**
+ * Bounded budget for the backend probe (issue #2208).
+ *
+ * Deliberately short: this runs immediately before the client executes, so a
+ * hanging endpoint must surface as a refusal rather than as a task that appears
+ * to be thinking. The server-start path has its own, much longer budget.
+ */
+export const FORMAL_AI_BACKEND_PROBE_TIMEOUT_MS = 15_000;
+
+/** Environment carrying the Hive-Mind-managed sidecar's identity into the task container (issue #2207/#2208). */
+export const FORMAL_AI_SIDECAR_PROVENANCE_ENV = Object.freeze({
+  image: 'HIVE_MIND_FORMAL_AI_SIDECAR_IMAGE',
+  imageDigest: 'HIVE_MIND_FORMAL_AI_SIDECAR_DIGEST',
+  version: 'HIVE_MIND_FORMAL_AI_SIDECAR_VERSION',
+  imageSource: 'HIVE_MIND_FORMAL_AI_SIDECAR_SOURCE',
+});
 
 export const resolveFormalAiApiKey = (env = process.env) => env.FORMAL_AI_API_KEY?.trim() || FORMAL_AI_DEFAULT_API_KEY;
 
@@ -162,6 +182,109 @@ export const waitForFormalAiServerReady = async ({ baseUrl, probePath = '/api/op
     await delay(intervalMs);
   }
   return { ready: false, error: lastError || 'timed out' };
+};
+
+/**
+ * Ask the endpoint that will actually answer the model requests who it is
+ * (issue #2208).
+ *
+ * Until this existed, `prepareFormalAiRuntime` read `formal-ai --version` from
+ * the *local* executable and logged the answer as "the Formal AI version" even
+ * when `HIVE_MIND_FORMAL_AI_BASE_URL` pointed at a container running a
+ * completely different release. Every provenance record therefore named a binary
+ * that never saw the request.
+ *
+ * Properties that matter:
+ *
+ *  - **Bounded.** The whole probe shares one deadline, and each request carries
+ *    its own abort signal, so an endpoint that accepts the connection and then
+ *    goes quiet cannot stall the task.
+ *  - **Authenticated.** The configured key is presented the way the served API
+ *    expects it. A 401/403 is reported as an authentication problem and is *not*
+ *    retried — retrying a rejected credential only delays the failure.
+ *  - **Honest about malformed answers.** A body that is not JSON, or that
+ *    carries no version, is a distinct outcome from "unreachable"; guessing a
+ *    version here would recreate the defect this function exists to fix.
+ *
+ * @returns {Promise<{ok: boolean, kind: string, status: number|null, version: string|null, memory: object|null, health: object|null, error: string|null}>}
+ */
+export const probeFormalAiBackend = async ({ baseUrl, apiKey = null, path = FORMAL_AI_HEALTH_PATH, timeoutMs = FORMAL_AI_BACKEND_PROBE_TIMEOUT_MS, fetchImpl = globalThis.fetch, intervalMs = 500, now = () => Date.now(), sleepImpl = delay } = {}) => {
+  if (!baseUrl) return { ok: false, kind: 'unreachable', status: null, version: null, memory: null, health: null, error: 'no base URL to probe' };
+  const url = `${String(baseUrl).replace(/\/+$/, '')}${path}`;
+  const headers = apiKey ? { Authorization: `Bearer ${apiKey}`, 'X-Api-Key': apiKey } : {};
+  const deadline = now() + timeoutMs;
+  let last = { ok: false, kind: 'unreachable', status: null, version: null, memory: null, health: null, error: 'not probed' };
+
+  for (;;) {
+    const remaining = deadline - now();
+    if (remaining <= 0) break;
+    try {
+      const response = await fetchImpl(url, { headers, signal: AbortSignal.timeout(Math.min(remaining, timeoutMs)) });
+      const status = response?.status ?? null;
+      if (status === 401 || status === 403) {
+        // Not retried: the credential is wrong, and it will still be wrong in 500ms.
+        return { ok: false, kind: 'unauthorized', status, version: null, memory: null, health: null, error: `the Formal AI endpoint rejected the configured credentials (HTTP ${status})` };
+      }
+      if (!response?.ok) {
+        last = { ok: false, kind: 'http-error', status, version: null, memory: null, health: null, error: `HTTP ${status}` };
+      } else {
+        const text = await response.text();
+        let health;
+        try {
+          health = JSON.parse(text);
+        } catch {
+          return { ok: false, kind: 'malformed', status, version: null, memory: null, health: null, error: `${path} did not return JSON: ${text.slice(0, 200)}` };
+        }
+        const version = typeof health?.version === 'string' ? health.version.trim() || null : null;
+        if (!version) return { ok: false, kind: 'no-version', status, version: null, memory: health?.memory ?? null, health, error: `${path} answered without a version field` };
+        return { ok: true, kind: 'ok', status, version, memory: health?.memory ?? null, health, error: null };
+      }
+    } catch (error) {
+      last = { ok: false, kind: 'unreachable', status: null, version: null, memory: null, health: null, error: error?.message || String(error) };
+    }
+    if (deadline - now() <= intervalMs) break;
+    await sleepImpl(intervalMs);
+  }
+  return last;
+};
+
+/**
+ * Turn a probe result into either the accepted backend description or an
+ * actionable refusal.
+ *
+ * Fail-closed (issue #2146) applies here too: a Formal AI task that cannot prove
+ * which release is serving it must stop, not proceed and record a guess.
+ *
+ * @param {object} probe - Output of {@link probeFormalAiBackend}.
+ * @param {object} context
+ * @param {string} context.baseUrl
+ * @param {string} [context.minimumVersion]
+ * @param {string|null} [context.expectedVersion] - Version the leased sidecar image was verified at.
+ * @returns {{version: string, memory: object|null}}
+ */
+export const assertSupportedFormalAiBackend = (probe, { baseUrl, minimumVersion = FORMAL_AI_MINIMUM_VERSION, expectedVersion = null } = {}) => {
+  const where = `the Formal AI endpoint ${baseUrl}`;
+  if (!probe?.ok) {
+    const detail = probe?.error ? `: ${probe.error}` : '';
+    if (probe?.kind === 'unauthorized') throw new Error(`${where} refused the configured credentials${detail}. Set FORMAL_AI_API_KEY to a key the server accepts.`);
+    if (probe?.kind === 'malformed') throw new Error(`${where} answered ${FORMAL_AI_HEALTH_PATH} with something other than JSON${detail}. Hive Mind will not guess which Formal AI release is serving this task.`);
+    if (probe?.kind === 'no-version') throw new Error(`${where} answered ${FORMAL_AI_HEALTH_PATH} without a version${detail}. Hive Mind requires a serving backend that reports its version (Formal AI >= ${minimumVersion}).`);
+    if (probe?.kind === 'http-error') throw new Error(`${where} did not serve ${FORMAL_AI_HEALTH_PATH}${detail}. Check that HIVE_MIND_FORMAL_AI_BASE_URL points at a Formal AI server >= ${minimumVersion}.`);
+    throw new Error(`${where} could not be reached${detail}. Check HIVE_MIND_FORMAL_AI_BASE_URL and that the Formal AI server is running.`);
+  }
+  if (!isFormalAiVersionAtLeast(probe.version, minimumVersion)) {
+    throw new Error(`${where} serves Formal AI ${probe.version}, but Hive Mind requires >= ${minimumVersion}. Upgrade the server; the local wrapper's version does not change what answers the requests.`);
+  }
+  if (probe.memory?.compatible === false) {
+    throw new Error(`${where} reports incompatible persisted memory (migration_state=${probe.memory?.migration_state ?? 'unknown'}). Refusing to run a task against memory the serving release cannot read.`);
+  }
+  if (expectedVersion && expectedVersion !== probe.version) {
+    // A lease pins the sidecar's image for the whole task, so the endpoint
+    // answering with a different release means it is not the container Hive
+    // Mind verified and leased.
+    throw new Error(`${where} serves Formal AI ${probe.version}, but the leased Hive Mind sidecar image was verified as ${expectedVersion}. Refusing to record provenance for a backend that is not the accepted release.`);
+  }
+  return { version: probe.version, memory: probe.memory ?? null };
 };
 
 /** Read the machine-readable client registry (`formal-ai clients --format json`). */
@@ -321,6 +444,69 @@ export const startFormalAiServer = async ({ cwd, host = FORMAL_AI_DEFAULT_HOST, 
   };
 };
 
+/**
+ * The provenance Hive Mind's sidecar lifecycle publishes for the container it
+ * leased to this task (issues #2207, #2208).
+ *
+ * The lease pins one verified image for the whole task, so these values say
+ * which release *should* be answering. They are a cross-check, never a
+ * substitute for asking the endpoint itself.
+ */
+export const readFormalAiSidecarProvenance = (env = process.env) => {
+  const read = name => String(env[name] || '').trim() || null;
+  const image = read(FORMAL_AI_SIDECAR_PROVENANCE_ENV.image);
+  const imageDigest = read(FORMAL_AI_SIDECAR_PROVENANCE_ENV.imageDigest);
+  const version = read(FORMAL_AI_SIDECAR_PROVENANCE_ENV.version);
+  const imageSource = read(FORMAL_AI_SIDECAR_PROVENANCE_ENV.imageSource);
+  if (!image && !imageDigest && !version) return null;
+  return { image, imageDigest, version, imageSource };
+};
+
+/**
+ * Publish the leased sidecar's identity into a task's environment so the runtime
+ * inside the container can cross-check the endpoint it is pointed at.
+ *
+ * @param {object|null} sidecar - An `acquireFormalAiSidecar` result.
+ * @returns {object} Environment entries (empty when nothing is known).
+ */
+export const buildFormalAiSidecarProvenanceEnv = (sidecar = null) => {
+  if (!sidecar) return {};
+  const entries = {
+    [FORMAL_AI_SIDECAR_PROVENANCE_ENV.image]: sidecar.imageReference || sidecar.image || null,
+    [FORMAL_AI_SIDECAR_PROVENANCE_ENV.imageDigest]: sidecar.imageDigest || null,
+    [FORMAL_AI_SIDECAR_PROVENANCE_ENV.version]: sidecar.servingVersion || sidecar.health?.version || null,
+    [FORMAL_AI_SIDECAR_PROVENANCE_ENV.imageSource]: sidecar.imageSource || null,
+  };
+  return Object.fromEntries(Object.entries(entries).filter(([, value]) => value));
+};
+
+/** One-line description of the backend for logs and session provenance. */
+const describeFormalAiBackend = backend => [`${backend.version} at ${backend.baseUrl}`, backend.image ? `image ${backend.image}` : null, backend.imageDigest ? `digest ${backend.imageDigest}` : null].filter(Boolean).join(', ');
+
+/**
+ * Query the endpoint that will serve this task and build its provenance record.
+ *
+ * @returns {Promise<object>} `{ baseUrl, version, memory, image, imageDigest, imageSource, leased, startedLocally, probedAt }`
+ */
+const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocally }) => {
+  const sidecar = readFormalAiSidecarProvenance(env);
+  const probe = await (deps.probeBackendImpl || probeFormalAiBackend)({ baseUrl, apiKey, env });
+  const { version, memory } = assertSupportedFormalAiBackend(probe, { baseUrl, expectedVersion: sidecar?.version ?? null });
+  return {
+    baseUrl,
+    version,
+    memory,
+    image: sidecar?.image ?? null,
+    imageDigest: sidecar?.imageDigest ?? null,
+    imageSource: sidecar?.imageSource ?? null,
+    /** True when Hive Mind leased this endpoint from its own sidecar. */
+    leased: !!sidecar,
+    /** True when this process started the server it is now talking to. */
+    startedLocally,
+    probedAt: new Date().toISOString(),
+  };
+};
+
 const runtimeCache = new Map();
 let exitHookInstalled = false;
 
@@ -357,16 +543,32 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
   const resolvedFormalAiPath = formalAiPath || env.HIVE_MIND_FORMAL_AI_PATH?.trim() || 'formal-ai';
   const cacheKey = `${tool}::${workdir}::${env.HIVE_MIND_FORMAL_AI_BASE_URL || ''}`;
   const cached = runtimeCache.get(cacheKey);
-  if (cached) return cached.runtime;
+  if (cached) {
+    // Issue #2208: the cache key is the endpoint, not the release behind it. An
+    // external base URL can be re-pointed at a different container between
+    // tasks, so the cached provenance is re-checked instead of replayed.
+    const backend = await resolveFormalAiBackend({ baseUrl: cached.runtime.baseUrl, apiKey: resolveFormalAiApiKey(env), env, deps, startedLocally: cached.runtime.serverStarted });
+    if (backend.version !== cached.runtime.backend?.version || backend.imageDigest !== cached.runtime.backend?.imageDigest) {
+      await log(`🧠 Formal AI: serving backend changed to ${describeFormalAiBackend(backend)}`);
+    }
+    cached.runtime.backend = backend;
+    cached.runtime.formalAiVersion = backend.version;
+    return cached.runtime;
+  }
 
   installExitHook();
 
   // Issue #2146: `--no-tool-check` skipped the only version probe, allowing an
   // old Formal AI build to return the same unexecuted plan through all five
   // Claude/Codex restarts. Runtime safety cannot depend on preflight options.
-  const formalAiVersion = await (deps.readVersionImpl || readFormalAiBinaryVersion)({ formalAiPath: resolvedFormalAiPath, env });
-  assertSupportedFormalAiVersion(formalAiVersion);
-  await log(`🧠 Formal AI: version ${formalAiVersion} (minimum ${FORMAL_AI_MINIMUM_VERSION})`);
+  //
+  // This is the *local wrapper*: the executable that starts the server and
+  // writes the client configuration. Issue #2208: it is not necessarily the
+  // release that answers the model requests, so it keeps its own name and its
+  // own compatibility check, and it is never reported as the serving version.
+  const formalAiWrapperVersion = await (deps.readVersionImpl || readFormalAiBinaryVersion)({ formalAiPath: resolvedFormalAiPath, env });
+  assertSupportedFormalAiVersion(formalAiWrapperVersion);
+  await log(`🧠 Formal AI: local wrapper version ${formalAiWrapperVersion} (minimum ${FORMAL_AI_MINIMUM_VERSION})`);
 
   const apiKey = resolveFormalAiApiKey(env);
   const externalBaseUrl = env.HIVE_MIND_FORMAL_AI_BASE_URL?.trim() || null;
@@ -384,6 +586,13 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       await log(`🧠 Formal AI: server ready on ${baseUrl} (pid ${server.pid})`, { verbose: true });
     } else {
       await log(`🧠 Formal AI: using the configured server ${baseUrl}`, { verbose: true });
+    }
+
+    // Before any client configuration is written, ask the endpoint who it is.
+    const backend = await resolveFormalAiBackend({ baseUrl, apiKey, env, deps, startedLocally: !!server });
+    await log(`🧠 Formal AI: serving backend ${describeFormalAiBackend(backend)}`);
+    if (backend.version !== formalAiWrapperVersion) {
+      await log(`🧠 Formal AI: local wrapper ${formalAiWrapperVersion} differs from the serving backend ${backend.version}; provenance records the backend`, { verbose: true });
     }
 
     const clients = await (deps.loadRegistryImpl || loadFormalAiClientRegistry)({ formalAiPath: resolvedFormalAiPath, env });
@@ -429,7 +638,11 @@ export const prepareFormalAiRuntime = async ({ tool, workdir, log = async () => 
       client,
       notes,
       serverStarted: !!server,
-      formalAiVersion,
+      /** The release that actually answers this task's model requests. */
+      formalAiVersion: backend.version,
+      /** The local executable that started the server and wrote the config. */
+      formalAiWrapperVersion,
+      backend,
       stop: async () => {
         runtimeCache.delete(cacheKey);
         await server?.stop?.();

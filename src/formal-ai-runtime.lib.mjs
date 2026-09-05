@@ -486,7 +486,7 @@ const describeFormalAiBackend = backend => [`${backend.version} at ${backend.bas
 /**
  * Query the endpoint that will serve this task and build its provenance record.
  *
- * @returns {Promise<object>} `{ baseUrl, version, memory, image, imageDigest, imageSource, managed, probedAt }`
+ * @returns {Promise<object>} `{ baseUrl, version, memory, image, imageDigest, imageSource, leased, startedLocally, probedAt }`
  */
 const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocally }) => {
   const sidecar = readFormalAiSidecarProvenance(env);

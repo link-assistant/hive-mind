@@ -322,6 +322,9 @@ solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
 # Continue working on existing PR
 solve https://github.com/owner/repo/pull/456 --model opus
 
+# Solve every open issue of a repository with one pull request (repository mode)
+solve https://github.com/owner/repo
+
 # Resume from Claude session when limit is reached
 solve https://github.com/owner/repo/issues/123 --resume session-id
 
@@ -353,6 +356,8 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 ```
+
+> **📦 Режим репозитория**: передайте URL репозитория вместо URL задачи — solve соберёт все открытые задачи этого репозитория (сначала самые старые, не более 100 — это лимит GitHub на количество под-задач у одной родительской задачи), создаст одну сводную задачу, где они перечислены как нативные под-задачи GitHub, и будет решать её — так что один pull request сможет закрыть их все сразу. Режим также включает `--deep-analysis` и `--ensure-all-sub-issues-addressed`. См. [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Наиболее часто используемые параметры:**
 

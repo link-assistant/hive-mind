@@ -130,10 +130,29 @@ console.log('\n📋 info block label for a repository URL\n');
   assertEqual('urlKind for "pull"', urlKindFor('pull'), 'pullRequest');
   assertEqual('urlKind for "repo"', urlKindFor('repo'), 'url');
 
+  // The block is two lines: "<requested-by label>: <requester>" and
+  // "<url label>: <url>". Split the second one on its first ": " and compare the
+  // parts by equality. Searching the whole block for the URL would also pass for
+  // a longer URL that merely contains this one -- which is both weaker than what
+  // "the block shows this URL" means and what CodeQL reports as
+  // js/incomplete-url-substring-sanitization.
+  const urlLineOf = block => {
+    const line = block.split('\n')[1] ?? '';
+    const separator = line.indexOf(': ');
+    return separator === -1 ? { label: line, url: '' } : { label: line.slice(0, separator), url: line.slice(separator + 2) };
+  };
+
   const repoBlock = buildTelegramInfoBlock({ urlKind: urlKindFor('repo'), url: REPO_URL });
+  assertEqual('repository info block shows exactly the repository URL', urlLineOf(repoBlock).url, REPO_URL);
+  // Same URL, all three labels: the repo block must be the generic-URL one.
+  assertEqual('repository info block is the generic-URL block verbatim', repoBlock, buildTelegramInfoBlock({ urlKind: 'url', url: REPO_URL }));
+  assertTrue('repository info block is not labelled as an issue', urlLineOf(repoBlock).label !== urlLineOf(buildTelegramInfoBlock({ urlKind: 'issue', url: REPO_URL })).label, urlLineOf(repoBlock).label);
+  assertTrue('repository info block is not labelled as a pull request', urlLineOf(repoBlock).label !== urlLineOf(buildTelegramInfoBlock({ urlKind: 'pullRequest', url: REPO_URL })).label, urlLineOf(repoBlock).label);
+  // The issue label is still applied to an issue URL -- the fix widened the
+  // accepted types, it did not relabel anything that already worked.
   const issueBlock = buildTelegramInfoBlock({ urlKind: urlKindFor('issue'), url: ISSUE_URL });
-  assertTrue('repository info block shows the repository URL', repoBlock.includes(REPO_URL), repoBlock);
-  assertTrue('repository info block is not labelled as an issue', repoBlock !== issueBlock.replace(ISSUE_URL, REPO_URL), repoBlock);
+  assertEqual('issue info block shows exactly the issue URL', urlLineOf(issueBlock).url, ISSUE_URL);
+  assertEqual('issue info block keeps the issue label', urlLineOf(issueBlock).label, urlLineOf(buildTelegramInfoBlock({ urlKind: 'issue', url: REPO_URL })).label);
 
   const source = fs.readFileSync(path.join(srcDir, 'telegram-bot.mjs'), 'utf8');
   assertTrue("telegram-bot.mjs maps a repo URL to the generic 'url' label", /urlKind:[^\n]*'repo'\s*\?\s*'url'/.test(source), 'urlKind expression does not handle repo');

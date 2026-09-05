@@ -37,9 +37,10 @@ Test suites, the fake-`gh` experiment and the real read-only preview, captured o
 | File                                          | Bytes | Contents                                                                                                                                       |
 | --------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `example-preview-hive-mind.log`               | 12170 | `node examples/solve-repository-mode-preview.mjs https://github.com/link-assistant/hive-mind` — a real, read-only run against this repository. |
+| `experiment-codeql-url-substring.log`         | 473   | `node experiments/issue-2212-codeql-url-substring.mjs` — why the info-block assertion compares by equality instead of `.includes()`.           |
 | `experiment-repository-mode.log`              | 2772  | `node experiments/issue-2212-repository-mode.mjs` — the full flow against a fake `gh`.                                                         |
 | `test-solve-repository-mode-2212.log`         | 3169  | `node tests/test-solve-repository-mode-2212.mjs` — 47 assertions, all passing.                                                                 |
-| `test-telegram-solve-repository-url-2212.log` | 1589  | `node tests/test-telegram-solve-repository-url-2212.mjs` — 20 assertions, all passing.                                                         |
+| `test-telegram-solve-repository-url-2212.log` | 1809  | `node tests/test-telegram-solve-repository-url-2212.mjs` — 24 assertions, all passing.                                                         |
 
 ## SHA-256
 
@@ -58,9 +59,10 @@ ce8005fca6c27e23de336bba55fbc121e24b1cbf9c3c5e718ea4322b3ebaa4bd  github/issue-2
 37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570  github/pr-2216-reviews.json
 b6a2ccf342d736641e4ceb5b07d3029e53d85ca569d2cd26aebd897fc266cdb2  github/pr-2216.json
 35823b5729a8ef06fcfa202c1b7757f2927d61328e72caee8ee4b01bb117b63d  logs/example-preview-hive-mind.log
+5a34fd64a22fa9a5d653757d09e53f79a6a7befbbd67e3c0d60bb2f3376e1c9c  logs/experiment-codeql-url-substring.log
 5fac5a638c9db215a5a7359835c420704b6bd3f802146ead4740873dd50fb890  logs/experiment-repository-mode.log
 292a1f3fc4efd9a8ad4b87ba71d0be17b9cca00c14300efd456610ace954d088  logs/test-solve-repository-mode-2212.log
-b17b3926b6e2dad5a9f9e7317fcce0eda69f3ff55ad0e91322fc91d103c7a943  logs/test-telegram-solve-repository-url-2212.log
+3a7dd5732bb764e8e9f7f7c5471b50cae1b6e31961d0790561e38d2f02559350  logs/test-telegram-solve-repository-url-2212.log
 853497f4cdc0f16756136a5da8c312c8f3d92409dc2fa9156a82f2d820443668  research/github-docs-adding-sub-issues.md
 7e553b6f693b5e28abdde4c9634df5174edede713eb425d4b01f361867d8cc6e  research/github-docs-best-practices-for-using-the-rest-api.md
 77d2383e11069fb07968f69e102de1b0472b8c8dd0c0bd60e6c938ace050c15c  research/github-docs-linking-a-pull-request-to-an-issue.md

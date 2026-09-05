@@ -252,8 +252,9 @@ Both are covered by source guards in `tests/test-telegram-solve-repository-url-2
 | Evidence                                                | What it shows                                                                                                                                                                    |
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `data/logs/test-solve-repository-mode-2212.log`         | 47 assertions: the reproduction, the pure helpers, the fake-`gh` orchestration, the CLI flag, the wiring.                                                                        |
-| `data/logs/test-telegram-solve-repository-url-2212.log` | 20 assertions for the Telegram entry point, starting from the rejection it used to produce.                                                                                      |
+| `data/logs/test-telegram-solve-repository-url-2212.log` | 24 assertions for the Telegram entry point, starting from the rejection it used to produce.                                                                                      |
 | `data/logs/experiment-repository-mode.log`              | The whole flow against a fake `gh`: the combined issue body and every `gh` call it would make.                                                                                   |
+| `data/logs/experiment-codeql-url-substring.log`         | Why the info-block assertion compares the URL line by equality: the old `.includes()` check passed on a block showing the wrong URL.                                             |
 | `data/logs/example-preview-hive-mind.log`               | A **real**, read-only run of `examples/solve-repository-mode-preview.mjs` against this repository: 88 open issues found, all of them under the sub-issue limit, nothing created. |
 
 The preview log is the closest thing to production evidence that does not create

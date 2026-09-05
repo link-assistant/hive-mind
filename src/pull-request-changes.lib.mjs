@@ -48,19 +48,139 @@ import { quietProbe } from './quiet-probe.lib.mjs';
 const LARGE_DIFF_WARNING_BYTES = 8 * 1024 * 1024;
 
 /**
- * The solver's own scaffolding files, recognised by the content it writes into
- * them (`src/solve.auto-pr.lib.mjs`). A pull request whose whole diff is one of
- * these contains no solution: the placeholder exists only to give an empty
- * branch something to open a pull request from, and is reverted once the AI
- * commits real work.
+ * The solver's own scaffolding files (`src/solve.auto-pr.lib.mjs`). A pull
+ * request whose whole diff is one of these contains no solution: the
+ * placeholder exists only to give an empty branch something to open a pull
+ * request from, and is reverted once the AI commits real work.
  *
- * Matching on content, not on the file name, keeps a repository's own
- * `.gitkeep` or `CLAUDE.md` edits counted as the real changes they are.
+ * Issue #2211: asking "did the diff *add* the auto-generated header line?" only
+ * recognised the case where the solver created the file. When the repository
+ * already tracks a `.gitkeep` - the normal state of every repository generated
+ * from a template whose own solver run leaked one - `solve.auto-pr.lib.mjs`
+ * appends `# Updated: <timestamp>` instead, so the header is a context line, no
+ * pattern matched, and a pull request whose entire diff was that one timestamp
+ * measured as one changed file and was auto-merged:
+ *
+ *   https://github.com/konard/audio-decomposer/pull/3
+ *   .gitkeep | 2 +-
+ *
+ * The question asked here is therefore the one that actually decides it: once
+ * the solver's own generated lines are removed from both sides of the diff, is
+ * the file unchanged? That answers "created", "appended to" and "appended to
+ * again" with one rule, and it still counts a repository's own `.gitkeep` or
+ * `CLAUDE.md` edits as the real changes they are - a change to any line the
+ * solver did not write makes the two sides differ.
  */
-const PLACEHOLDER_CONTENT_PATTERNS = new Map([
-  ['.gitkeep', [/^\+#\s*\.gitkeep file auto-generated at .+ for PR creation at branch /m]],
-  ['CLAUDE.md', [/^\+Issue to solve: \S+/m, /^\+Your prepared branch: \S+/m]],
+
+/** Lines `solve.auto-pr.lib.mjs` writes into `.gitkeep`. */
+const GITKEEP_GENERATED_LINE_PATTERNS = [/^#\s*\.gitkeep file auto-generated at \S+ for PR creation at branch \S+ for issue \S+\s*$/, /^#\s*Updated: \d{4}-\d{2}-\d{2}T[\d:.]+Z?\s*$/];
+
+/** The line that opens the task block `solve.auto-pr.lib.mjs` writes into `CLAUDE.md`. */
+const CLAUDE_MD_TASK_BLOCK_HEAD = /^Issue to solve: \S+\s*$/;
+
+/** Lines of that task block, including the ones only `--fork` runs emit. */
+const CLAUDE_MD_GENERATED_LINE_PATTERNS = [CLAUDE_MD_TASK_BLOCK_HEAD, /^Your prepared branch: \S+\s*$/, /^Your prepared working directory: \S+\s*$/, /^Your forked repository: \S+\s*$/, /^Original repository \(upstream\): \S+\s*$/, /^Proceed\.\s*$/, /^Run timestamp: \d{4}-\d{2}-\d{2}T[\d:.]+Z?\s*$/];
+
+const PLACEHOLDER_GENERATED_LINES = new Map([
+  ['.gitkeep', GITKEEP_GENERATED_LINE_PATTERNS],
+  ['CLAUDE.md', CLAUDE_MD_GENERATED_LINE_PATTERNS],
 ]);
+
+/**
+ * Rebuild both sides of one file's unified-diff section.
+ *
+ * Only the hunks are read: everything before the first `@@` is git's own header
+ * (`index`, `new file mode`, `--- a/x`, `+++ b/x`) and belongs to neither side,
+ * and `\ No newline at end of file` is a note about the previous line, not a
+ * line of the file.
+ *
+ * Context outside the hunks is missing from both sides equally, which is all the
+ * caller needs: it compares the two reconstructions against each other.
+ *
+ * @param {string} body - the section text, hunk headers included.
+ * @returns {{oldLines: string[], newLines: string[]}}
+ */
+const reconstructSides = body => {
+  const oldLines = [];
+  const newLines = [];
+  let inHunk = false;
+  for (const line of body.split('\n')) {
+    if (line.startsWith('@@')) {
+      inHunk = true;
+      continue;
+    }
+    if (!inHunk || line.startsWith('\\')) continue;
+    const text = line.slice(1);
+    if (line[0] === '-') oldLines.push(text);
+    else if (line[0] === '+') newLines.push(text);
+    else {
+      // ' ' is a context line; a completely empty line is a context line whose
+      // content is empty (git omits the trailing space on some diffs).
+      oldLines.push(text);
+      newLines.push(text);
+    }
+  }
+  return { oldLines, newLines };
+};
+
+/**
+ * True when the first non-blank line at or after `from` opens the CLAUDE.md
+ * task block, i.e. the preceding `---` is the separator the solver writes
+ * rather than a horizontal rule a human wrote.
+ */
+const opensClaudeTaskBlock = (lines, from) => {
+  for (let i = from; i < lines.length; i++) {
+    if (lines[i].trim() === '') continue;
+    return CLAUDE_MD_TASK_BLOCK_HEAD.test(lines[i]);
+  }
+  return false;
+};
+
+/**
+ * Drop every line the solver generated, leaving whatever the repository owns.
+ *
+ * @returns {{kept: string[], removed: number}}
+ */
+const stripGeneratedLines = (path, lines) => {
+  const patterns = PLACEHOLDER_GENERATED_LINES.get(path) || [];
+  const kept = [];
+  let removed = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (patterns.some(pattern => pattern.test(line))) {
+      removed += 1;
+      continue;
+    }
+    // The CLAUDE.md append path writes "\n\n---\n\n" ahead of the task block;
+    // that separator is generated too, but only in that position.
+    if (path === 'CLAUDE.md' && /^-{3,}\s*$/.test(line) && opensClaudeTaskBlock(lines, i + 1)) {
+      removed += 1;
+      continue;
+    }
+    kept.push(line);
+  }
+  return { kept, removed };
+};
+
+/**
+ * Is this section nothing but the solver's placeholder bookkeeping?
+ *
+ * @param {string|null} path - the file's path, or null when it is not a
+ *   placeholder candidate.
+ * @param {string} body - the section text.
+ * @returns {boolean}
+ */
+const isPlaceholderSection = (path, body) => {
+  if (!PLACEHOLDER_GENERATED_LINES.has(path)) return false;
+  const { oldLines, newLines } = reconstructSides(body);
+  const before = stripGeneratedLines(path, oldLines);
+  const after = stripGeneratedLines(path, newLines);
+  // Nothing generated on either side means this diff is not the solver's doing.
+  if (before.removed === 0 && after.removed === 0) return false;
+  // Trailing blank lines are what the append path leaves behind; they are not a
+  // change anyone made.
+  return before.kept.join('\n').trimEnd() === after.kept.join('\n').trimEnd();
+};
 
 /**
  * Measure a unified diff in a single pass.
@@ -96,8 +216,7 @@ const measureDiff = diff => {
 
   const closeSection = () => {
     if (!section) return;
-    const isPlaceholder = Boolean(section.patterns) && section.patterns.every(pattern => pattern.test(section.body));
-    if (isPlaceholder) placeholderSections += 1;
+    if (isPlaceholderSection(section.path, section.body)) placeholderSections += 1;
     else {
       filesChanged += 1;
       additions += section.additions;
@@ -116,14 +235,13 @@ const measureDiff = diff => {
       closeSection();
       const match = /^diff --git a\/(.+) b\/(.+)$/.exec(line);
       const path = match ? match[2] : '';
-      const patterns = PLACEHOLDER_CONTENT_PATTERNS.get(path) || null;
-      section = { patterns, body: '', additions: 0, deletions: 0 };
+      section = { path, candidate: PLACEHOLDER_GENERATED_LINES.has(path), body: '', additions: 0, deletions: 0 };
       continue;
     }
     if (!section) continue;
     // Only a placeholder candidate needs its text kept; every other file is
     // reduced to two counters as it streams past.
-    if (section.patterns) section.body += `${line}\n`;
+    if (section.candidate) section.body += `${line}\n`;
     if (line.length > 1) {
       if (line[0] === '+' && line[1] !== '+') section.additions += 1;
       else if (line[0] === '-' && line[1] !== '-') section.deletions += 1;
@@ -147,7 +265,7 @@ const measureDiff = diff => {
  * @param {number} params.prNumber
  * @param {Function} params.$ command-stream tagged-template executor
  * @param {Function} [params.log] - optional logger for the size diagnostic
- * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, placeholderOnly: boolean, measured: boolean, diffBytes: number}>}
+ * @returns {Promise<{hasChanges: boolean, filesChanged: number, additions: number, deletions: number, placeholderOnly: boolean, placeholderSections: number, measured: boolean, diffBytes: number}>}
  *   The counts cover the AI's own work: the solver's placeholder file is
  *   excluded and reported through `placeholderOnly` instead. `measured` is
  *   false when the diff could not be fetched, in which case callers must not
@@ -187,6 +305,11 @@ export const getPullRequestChangeStats = async ({ owner, repo, prNumber, $, log 
     additions,
     deletions,
     placeholderOnly: filesChanged === 0 && placeholderSections > 0,
+    // Issue #2211: a pull request that has real changes *and* still carries the
+    // solver's placeholder is not empty, but it must not be merged with the
+    // placeholder in it either. Reported separately so the merge watcher can
+    // clean it up before merging instead of shipping it to the default branch.
+    placeholderSections,
     measured,
     diffBytes,
   };
@@ -233,4 +356,10 @@ export const EMPTY_PULL_REQUEST_BLOCKER = 'The pull request contains no changes 
  */
 export const buildEmptyPullRequestBlocker = (stats = null) => (stats?.placeholderOnly ? 'The pull request contains only the placeholder file the solver commits to open a pull request, so there is nothing to merge' : EMPTY_PULL_REQUEST_BLOCKER);
 
-export default { getPullRequestChangeStats, formatChangeSummary, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker };
+/**
+ * Exported for tests and for `experiments/issue-2211`: measuring a diff without
+ * a GitHub round trip is the only way to replay an archived pull request.
+ */
+export const __measureDiffForTests = measureDiff;
+
+export default { getPullRequestChangeStats, formatChangeSummary, EMPTY_PULL_REQUEST_BLOCKER, buildEmptyPullRequestBlocker, __measureDiffForTests: measureDiff };

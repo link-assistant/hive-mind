@@ -1,6 +1,6 @@
 ---
 title: Best practices for using the REST API
-intro: "Follow these best practices when using {% data variables.product.company_short %}'s API."
+intro: 'Follow these best practices when using {% data variables.product.company_short %}''s API.'
 redirect_from:
   - /guides/best-practices-for-integrators
   - /v3/guides/best-practices-for-integrators
@@ -28,9 +28,9 @@ You should subscribe to webhook events instead of polling the API for data. This
 
 If you cannot use webhooks and you must poll the API, poll as efficiently as possible to avoid exceeding the rate limit:
 
-- Poll only as often as you need to, on a fixed schedule. If a response includes an `x-poll-interval` header, wait at least that many seconds before you poll the same endpoint again.
-- Make authenticated conditional requests, so that unchanged data does not count against your primary rate limit. For more information, see [Use conditional requests](#use-conditional-requests).
-- Request only the data that you need, and keep responses stable, so that more of your polls return `304 Not Modified`. For more information, see [Make requests that can be cached](#make-requests-that-can-be-cached).
+* Poll only as often as you need to, on a fixed schedule. If a response includes an `x-poll-interval` header, wait at least that many seconds before you poll the same endpoint again.
+* Make authenticated conditional requests, so that unchanged data does not count against your primary rate limit. For more information, see [Use conditional requests](#use-conditional-requests).
+* Request only the data that you need, and keep responses stable, so that more of your polls return `304 Not Modified`. For more information, see [Make requests that can be cached](#make-requests-that-can-be-cached).
 
 ## Make authenticated requests
 
@@ -48,9 +48,9 @@ If you are making a large number of `POST`, `PATCH`, `PUT`, or `DELETE` requests
 
 If you receive a rate limit error, you should stop making requests temporarily according to these guidelines:
 
-- If the `retry-after` response header is present, you should not retry your request until after that many seconds has elapsed.
-- If the `x-ratelimit-remaining` header is `0`, you should not make another request until after the time specified by the `x-ratelimit-reset` header. The `x-ratelimit-reset` header is in UTC epoch seconds.
-- Otherwise, wait for at least one minute before retrying. If your request continues to fail due to a secondary rate limit, wait for an exponentially increasing amount of time between retries, and throw an error after a specific number of retries.
+* If the `retry-after` response header is present, you should not retry your request until after that many seconds has elapsed.
+* If the `x-ratelimit-remaining` header is `0`, you should not make another request until after the time specified by the `x-ratelimit-reset` header. The `x-ratelimit-reset` header is in UTC epoch seconds.
+* Otherwise, wait for at least one minute before retrying. If your request continues to fail due to a secondary rate limit, wait for an exponentially increasing amount of time between retries, and throw an error after a specific number of retries.
 
 Continuing to make requests while you are rate limited may result in the banning of your integration.
 
@@ -138,5 +138,5 @@ Intentionally ignoring repeated validation errors may result in the suspension o
 
 ## Further reading
 
-- [AUTOTITLE](/webhooks/using-webhooks/best-practices-for-using-webhooks)
-- [AUTOTITLE](/apps/creating-github-apps/about-creating-github-apps/best-practices-for-creating-a-github-app)
+* [AUTOTITLE](/webhooks/using-webhooks/best-practices-for-using-webhooks)
+* [AUTOTITLE](/apps/creating-github-apps/about-creating-github-apps/best-practices-for-creating-a-github-app)

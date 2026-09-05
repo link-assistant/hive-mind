@@ -45,10 +45,9 @@ In general, you can calculate your primary rate limit for the REST API based on 
 {% data reusables.rest-api.primary-rate-limit-authenticated-users %}
 
 {% ifversion ghec %}
-
 > [!NOTE]
 > The [Enterprise audit logs API endpoint](/rest/enterprise-admin/audit-log#get-the-audit-log-for-an-enterprise) has a rate limit of 1,750 queries per hour, per user and IP address. If your integration receives a rate limit error (typically a 403 or 429 response), it should wait before making another request to the GitHub API.
-> {% endif %}
+{% endif %}
 
 ### Primary rate limit for Git LFS access
 
@@ -89,13 +88,13 @@ You can use the built-in `GITHUB_TOKEN` to authenticate requests in {% data vari
 
 You can use the headers that are sent with each response to determine the current status of your primary rate limit.
 
-| Header name             | Description                                                                                                                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `x-ratelimit-limit`     | The maximum number of requests that you can make per hour                                                                                                                                                    |
-| `x-ratelimit-remaining` | The number of requests remaining in the current rate limit window                                                                                                                                            |
-| `x-ratelimit-used`      | The number of requests you have made in the current rate limit window                                                                                                                                        |
-| `x-ratelimit-reset`     | The time at which the current rate limit window resets, in UTC epoch seconds                                                                                                                                 |
-| `x-ratelimit-resource`  | The rate limit resource that the request counted against. For more information about the different resources, see [AUTOTITLE](/rest/rate-limit/rate-limit#get-rate-limit-status-for-the-authenticated-user). |
+Header name | Description
+-----------|-----------|
+`x-ratelimit-limit` | The maximum number of requests that you can make per hour
+`x-ratelimit-remaining` | The number of requests remaining in the current rate limit window
+`x-ratelimit-used` | The number of requests you have made in the current rate limit window
+`x-ratelimit-reset` | The time at which the current rate limit window resets, in UTC epoch seconds
+`x-ratelimit-resource` | The rate limit resource that the request counted against. For more information about the different resources, see [AUTOTITLE](/rest/rate-limit/rate-limit#get-rate-limit-status-for-the-authenticated-user).
 
 You can also call the `GET /rate_limit` endpoint to check your rate limit. Calling this endpoint does not count against your primary rate limit, but it can count against your secondary rate limit. See [AUTOTITLE](/rest/rate-limit/rate-limit). When possible, you should use the rate limit response headers instead of calling the API to check your rate limit.
 

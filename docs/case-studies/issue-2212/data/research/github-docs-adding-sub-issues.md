@@ -42,9 +42,9 @@ You can add up to {% data variables.projects.sub-issue_limit %} sub-issues per p
 
 1. In the drop-down menu, click **Add existing issue**.
 1. Select the issue that you want to add as a sub-issue.
-   - Select an issue from one of the suggestions.
-   - In the "Search issues" field, type an issue title or issue number, then click on the results.
-   - To add issues from other repositories, click {% octicon "arrow-left" aria-label="Back to repository selection" %} next to the repository name and select a different repository.
+    * Select an issue from one of the suggestions.
+    * In the "Search issues" field, type an issue title or issue number, then click on the results.
+    * To add issues from other repositories, click {% octicon "arrow-left" aria-label="Back to repository selection" %} next to the repository name and select a different repository.
 
 ## Working with sub-issues using {% data variables.product.prodname_cli %}
 

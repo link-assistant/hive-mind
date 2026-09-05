@@ -34,25 +34,25 @@ When you merge a linked pull request into the **default branch** of a repository
 
 You can link a pull request to an issue by using a supported keyword in the pull request's description or in a commit message. The pull request **must be** on the default branch.
 
-- `close`
-- `closes`
-- `closed`
-- `fix`
-- `fixes`
-- `fixed`
-- `resolve`
-- `resolves`
-- `resolved`
+* `close`
+* `closes`
+* `closed`
+* `fix`
+* `fixes`
+* `fixed`
+* `resolve`
+* `resolves`
+* `resolved`
 
 If you use a keyword to reference a pull request comment in another pull request, the pull requests will be linked. Merging the referencing pull request also closes the referenced pull request.
 
 The syntax for closing keywords depends on whether the issue is in the same repository as the pull request.
 
-| Linked issue                    | Syntax                                | Example                                                        |
-| ------------------------------- | ------------------------------------- | -------------------------------------------------------------- |
-| Issue in the same repository    | KEYWORD #ISSUE-NUMBER                 | `Closes #10`                                                   |
-| Issue in a different repository | KEYWORD OWNER/REPOSITORY#ISSUE-NUMBER | `Fixes octo-org/octo-repo#100`                                 |
-| Multiple issues                 | Use full syntax for each issue        | `Resolves #10, resolves #123, resolves octo-org/octo-repo#100` |
+Linked issue | Syntax | Example
+--------------- | ------ | ------
+Issue in the same repository | KEYWORD #ISSUE-NUMBER | `Closes #10`
+Issue in a different repository | KEYWORD OWNER/REPOSITORY#ISSUE-NUMBER | `Fixes octo-org/octo-repo#100`
+Multiple issues | Use full syntax for each issue | `Resolves #10, resolves #123, resolves octo-org/octo-repo#100`
 
 The keywords can be followed by colons or in uppercase. For example: `Closes: #10`, `CLOSES #10`, or `CLOSES: #10`.
 
@@ -68,9 +68,8 @@ You can manually link up to ten issues to each pull request. The issue and pull 
 
 {% data reusables.repositories.navigate-to-repo %}
 {% data reusables.repositories.sidebar-pr %}
-
 1. In the list of pull requests, click the pull request that you'd like to link to an issue.
-   {% data reusables.pull_requests.click-development-in-pull-request %}
+{% data reusables.pull_requests.click-development-in-pull-request %}
 1. Click the issue you want to link to the pull request.
 
 ## Manually linking a pull request or branch to an issue using the issue sidebar
@@ -81,13 +80,12 @@ You can manually link up to ten issues to each pull request. The issue can be in
 
 {% data reusables.repositories.navigate-to-repo %}
 {% data reusables.repositories.sidebar-issues %}
-
 1. In the list of issues, click the issue that you'd like to link a pull request or branch to.
-   {% data reusables.pull_requests.click-development-in-issue %}
+{% data reusables.pull_requests.click-development-in-issue %}
 1. Click the repository containing the pull request or branch you want to link to the issue.
 1. Click the pull request or branch you want to link to the issue.
 1. Click **Apply**.
 
 ## Further reading
 
-- [AUTOTITLE](/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls#issues-and-pull-requests)
+* [AUTOTITLE](/get-started/writing-on-github/working-with-advanced-formatting/autolinked-references-and-urls#issues-and-pull-requests)

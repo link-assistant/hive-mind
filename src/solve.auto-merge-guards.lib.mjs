@@ -150,3 +150,31 @@ export default {
   resolveDraftBlocker,
   resolveMergeFailure,
 };
+
+/**
+ * Issue #2211: revert a solver placeholder that survived into the pull request diff.
+ *
+ * `src/solve.mjs` reverts the placeholder before this loop starts, so reaching
+ * here means the session that created it crashed, was resumed from a different
+ * working directory, or was restarted inside the loop. Merging anyway publishes
+ * hive-mind's own scaffolding to the default branch, which is what happened to
+ * https://github.com/konard/audio-decomposer/pull/3 - and, eight times over, to
+ * the `.gitkeep` on the default branch of the template repository it was
+ * generated from. See docs/case-studies/issue-2211.
+ *
+ * Failure is not fatal: the caller re-measures the diff, and a placeholder that
+ * could not be reverted still keeps the pull request from looking mergeable.
+ *
+ * @returns {Promise<boolean>} whether a cleanup was attempted
+ */
+export const revertPlaceholderBeforeMerge = async ({ changeStats, tempDir, branchName, argv, log, formatAligned, cleanErrorMessage }) => {
+  if (!tempDir || !(changeStats?.placeholderSections > 0)) return false;
+  await log(formatAligned('🧹', 'Placeholder in diff:', 'reverting the solver placeholder file before it can be merged', 2), { level: 'warning' });
+  try {
+    const { cleanupClaudeFile } = await import('./solve.results.lib.mjs');
+    await cleanupClaudeFile(tempDir, branchName, null, argv);
+  } catch (error) {
+    await log(formatAligned('⚠️', 'Placeholder cleanup failed:', cleanErrorMessage(error), 2), { level: 'warning' });
+  }
+  return true;
+};

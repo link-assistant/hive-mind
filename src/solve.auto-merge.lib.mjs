@@ -34,7 +34,7 @@ const { mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDet
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
-const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure } = autoMergeGuards;
+const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
 // Re-exported so callers and tests keep a single entry point for the watch loop.
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
 // Import GitHub functions for log attachment
@@ -131,10 +131,7 @@ export const watchUntilMergeable = async params => {
   // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
-  // Issue #2211: the solver placeholder (.gitkeep / CLAUDE.md) is reverted before
-  // this loop starts, but a session that crashed, was resumed, or was restarted
-  // inside this loop can leave it in the diff. Merging then publishes the
-  // solver's scaffolding to the default branch. Try to revert it once per watch.
+  // Issue #2211: revert a leftover solver placeholder at most once per watch.
   let placeholderCleanupAttempted = false;
   // Issue #1567: Initial cooldown to let CI register and solution logs post
   const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
@@ -335,25 +332,15 @@ export const watchUntilMergeable = async params => {
       if (isEmptyPullRequest) {
         await log(formatAligned('⚠️', 'PR is empty:', changeStats.placeholderOnly ? 'only the solver placeholder file is in the diff - not treating it as mergeable' : 'net diff contains no files - not treating it as mergeable', 2), { level: 'warning' });
       }
-      // Issue #2211: defense in depth against merging the solver placeholder.
-      // https://github.com/konard/audio-decomposer/pull/3 merged a .gitkeep whose
-      // only content was the solver's own bookkeeping lines, and the same file on
-      // link-foundation/rust-ai-driven-development-pipeline-template@main had
-      // accumulated 8 of those lines from 8 merged pull requests. See
-      // docs/case-studies/issue-2211.
-      if (changeStats.placeholderSections > 0 && !placeholderCleanupAttempted && tempDir) {
+      // Issue #2211: defense in depth - never merge the solver's own placeholder.
+      if (changeStats.placeholderSections > 0 && !placeholderCleanupAttempted) {
         placeholderCleanupAttempted = true;
-        await log(formatAligned('🧹', 'Placeholder in diff:', 'reverting the solver placeholder file before it can be merged', 2), { level: 'warning' });
-        try {
-          const { cleanupClaudeFile } = await import('./solve.results.lib.mjs');
-          await cleanupClaudeFile(tempDir, prBranch || branchName, null, argv);
-        } catch (cleanupError) {
-          await log(formatAligned('⚠️', 'Placeholder cleanup failed:', cleanErrorMessage(cleanupError), 2), { level: 'warning' });
+        if (await revertPlaceholderBeforeMerge({ changeStats, tempDir, branchName: prBranch || branchName, argv, log, formatAligned, cleanErrorMessage })) {
+          // Give the revert push a moment to register, then re-measure so the
+          // merge decision is made on the post-cleanup diff.
+          await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
+          continue;
         }
-        // Give the revert push a moment to register, then re-measure so the
-        // merge decision is made on the post-cleanup diff.
-        await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
-        continue;
       }
       // If PR is mergeable, no blockers, no new comments, no issue metadata
       // edits, no uncommitted changes and it actually changes something

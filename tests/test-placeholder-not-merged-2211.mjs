@@ -123,6 +123,10 @@ assert.ok(cleanupPos < watchPos, 'issue #2211: the placeholder is reverted BEFOR
 
 const autoMergeSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-merge.lib.mjs'), 'utf8');
 assert.ok(autoMergeSource.includes('changeStats.placeholderSections > 0'), 'the watch loop notices a placeholder that survived into its diff');
-assert.ok(autoMergeSource.includes("await import('./solve.results.lib.mjs')"), 'the watch loop reverts it instead of merging it');
+assert.ok(autoMergeSource.includes('revertPlaceholderBeforeMerge('), 'the watch loop reverts it instead of merging it');
+
+const guardsSource = await readFile(path.join(repoRoot, 'src', 'solve.auto-merge-guards.lib.mjs'), 'utf8');
+assert.ok(guardsSource.includes("await import('./solve.results.lib.mjs')"), 'the guard runs the same cleanup solve.mjs runs');
+assert.ok(/revertPlaceholderBeforeMerge = async/.test(guardsSource), 'the guard is exported from the watch-loop guard rails');
 
 console.log('PASS: issue #2211 the solver placeholder is detected in every shape and reverted before the merge');

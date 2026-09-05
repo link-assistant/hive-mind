@@ -39,6 +39,8 @@ const ACCEPTED_DIGEST = 'sha256:accepted';
 const ACCEPTED_VERSION = '0.346.0';
 const MEMORY = { compatible: true, schema_version: 3, migration_required: false, migration_state: 'current' };
 const fast = { healthAttempts: 1, healthDelayMs: 0, sleepImpl: async () => {} };
+/** Quote a constant for literal use inside a regular expression. */
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const makeDocker = (images = {}) =>
   createDockerSimulator({
@@ -160,7 +162,7 @@ test('a sidecar that regressed to the pre-update release is refused, not recorde
     await withServingContainer(
       () => ({ version: FORMAL_AI_BOOTSTRAP_VERSION, memory: { ...MEMORY, schema_version: 2 } }),
       async baseUrl => {
-        await assert.rejects(provenanceOfTask({ sidecar, baseUrl, hostEnv: {}, workdir }), new RegExp(`serves Formal AI ${FORMAL_AI_BOOTSTRAP_VERSION.replace(/\./g, '\\.')}, but the leased Hive Mind sidecar image was verified as ${ACCEPTED_VERSION.replace(/\./g, '\\.')}`));
+        await assert.rejects(provenanceOfTask({ sidecar, baseUrl, hostEnv: {}, workdir }), new RegExp(`serves Formal AI ${escapeRegExp(FORMAL_AI_BOOTSTRAP_VERSION)}, but the leased Hive Mind sidecar image was verified as ${escapeRegExp(ACCEPTED_VERSION)}`));
       }
     );
   } finally {

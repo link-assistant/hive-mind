@@ -31,6 +31,8 @@ import { buildFormalAiTaskEnv } from '../src/formal-ai-isolation.lib.mjs';
 import { FORMAL_AI_MINIMUM_VERSION } from '../src/formal-ai-version.lib.mjs';
 
 const WRAPPER_VERSION = FORMAL_AI_MINIMUM_VERSION;
+/** Quote a constant for literal use inside a regular expression. */
+const escapeRegExp = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** An endpoint whose answer the test controls, request by request. */
 const withBackend = async (handler, body) => {
@@ -113,7 +115,7 @@ test('the serving backend, not the local wrapper, is what provenance records', a
 test('a fresh local wrapper does not excuse an unsupported server', async () => {
   await withBackend(answerJson({ version: '0.100.0', memory: { compatible: true } }), async ({ baseUrl }) => {
     resetFormalAiRuntimeCache();
-    await assert.rejects(prepareAgainst({ baseUrl, wrapperVersion: '9.9.9' }), new RegExp(`serves Formal AI 0\\.100\\.0.*requires >= ${FORMAL_AI_MINIMUM_VERSION.replace(/\./g, '\\.')}`, 's'));
+    await assert.rejects(prepareAgainst({ baseUrl, wrapperVersion: '9.9.9' }), new RegExp(`serves Formal AI 0\\.100\\.0.*requires >= ${escapeRegExp(FORMAL_AI_MINIMUM_VERSION)}`, 's'));
     resetFormalAiRuntimeCache();
   });
 });

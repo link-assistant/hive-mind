@@ -13,6 +13,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
 import { MAX_SUB_ISSUES_PER_PARENT, REPOSITORY_MODE_MARKER, buildClosingKeywordBlock, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, isPullRequestEntry, normalizeOpenIssueEntry, selectOldestOpenIssues } from '../src/solve.repository-mode.lib.mjs';
 import { SUB_ISSUE_ATTACH_BACKOFF_MS, SUB_ISSUE_ATTACH_DELAY_MS, attachSubIssues, parseRepositoryModeUrl, prepareRepositoryModeIssue, resolveRepositoryModeTarget } from '../src/solve.repository-mode.run.lib.mjs';
@@ -496,6 +497,37 @@ test('CLI: aliases work', async () => {
 
 test('CLI: flag absent leaves the feature disabled', async () => {
   assert.equal(normalizeEnsureSubIssuesLimit(await parseFlag([])), 0);
+});
+
+// ---------------------------------------------------------------------------
+// Wiring guards (solve.mjs)
+// ---------------------------------------------------------------------------
+
+const solveSource = await readFile(new URL('../src/solve.mjs', import.meta.url), 'utf8');
+
+test('solve.mjs resolves repository mode before validating the URL as an issue', () => {
+  const repositoryMode = solveSource.indexOf('resolveRepositoryModeTarget({');
+  const validation = solveSource.indexOf('validateGitHubUrl(issueUrl)');
+  assert.ok(repositoryMode > 0, 'solve.mjs must call resolveRepositoryModeTarget');
+  assert.ok(validation > 0, 'solve.mjs must still validate the URL');
+  // validateGitHubUrl rejects repository URLs, so repository mode has to run
+  // first and replace the URL with the combined issue it creates.
+  assert.ok(repositoryMode < validation, 'repository mode must run before validateGitHubUrl');
+});
+
+test('solve.mjs runs the sub-issue check after the other post-solve loops', () => {
+  const keepWorking = solveSource.indexOf('runKeepWorkingUntilDone({');
+  const ensureSubIssues = solveSource.indexOf('runEnsureAllSubIssuesAddressed({');
+  assert.ok(keepWorking > 0 && ensureSubIssues > 0);
+  // The earlier loops may still rewrite the pull request description, so the
+  // closing references have to be verified against its final state.
+  assert.ok(ensureSubIssues > keepWorking, '--ensure-all-sub-issues-addressed must run last');
+});
+
+test('the restart iteration cannot recurse into itself', async () => {
+  const loopSource = await readFile(new URL('../src/solve.ensure-sub-issues.lib.mjs', import.meta.url), 'utf8');
+  assert.match(loopSource, /ensureAllSubIssuesAddressed: 0/);
+  assert.match(loopSource, /'ensure-all-sub-issues-addressed': 0/);
 });
 
 // ---------------------------------------------------------------------------

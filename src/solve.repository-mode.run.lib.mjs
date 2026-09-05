@@ -43,8 +43,15 @@ export const SUB_ISSUE_ATTACH_DELAY_MS = 1000;
 /** Attempts per sub-issue when GitHub answers with a rate-limit error. */
 export const SUB_ISSUE_ATTACH_MAX_ATTEMPTS = 3;
 
-/** Backoff before retrying a rate-limited sub-issue attachment. */
-export const SUB_ISSUE_ATTACH_BACKOFF_MS = Object.freeze([5000, 15000]);
+/**
+ * Backoff before retrying a rate-limited sub-issue attachment.
+ *
+ * GitHub's best-practice guide asks to "wait for at least one minute before
+ * retrying" a secondary rate-limit error, then "an exponentially increasing
+ * amount of time between retries"
+ * (https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#handle-rate-limit-errors-appropriately).
+ */
+export const SUB_ISSUE_ATTACH_BACKOFF_MS = Object.freeze([60000, 120000]);
 
 const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 

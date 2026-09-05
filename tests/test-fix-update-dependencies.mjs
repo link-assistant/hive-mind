@@ -49,6 +49,23 @@ await test('every catalog entry carries the fields the issue body renders', () =
   }
 });
 
+await test('the rendered update command never nests backticks', () => {
+  // Markdown code spans do not nest: wrapping "bump every `uses:` reference" in
+  // backticks renders the middle of the sentence as prose and the rest as code.
+  for (const ecosystem of DEPENDENCY_ECOSYSTEMS) {
+    if (ecosystem.updateCommand.includes('`')) {
+      assert.ok(ecosystem.updateCommandIsProse, `${ecosystem.key} formats itself, so it must be marked as prose`);
+    }
+  }
+  const section = buildEcosystemsSection({ languages: { Dockerfile: 1 }, files: ['Dockerfile', '.github/workflows/ci.yml', 'package.json'] });
+  for (const line of section.split('\n').filter(entry => entry.includes('Update everything:'))) {
+    const rendered = line.slice(line.indexOf('Update everything:') + 'Update everything:'.length).trim();
+    if (rendered.startsWith('`')) assert.ok(!rendered.slice(1, -1).includes('`'), `nested backticks in: ${line}`);
+  }
+  assert.match(section, /Update everything: bump each `FROM` base-image tag/);
+  assert.match(section, /Update everything: `npx npm-check-updates -u && npm install`/);
+});
+
 await test('catalog keys are unique', () => {
   const keys = DEPENDENCY_ECOSYSTEMS.map(ecosystem => ecosystem.key);
   assert.equal(new Set(keys).size, keys.length);

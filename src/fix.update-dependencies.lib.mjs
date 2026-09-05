@@ -181,6 +181,9 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       pathPatterns: [/^\.github\/workflows\/[^/]+\.ya?ml$/],
       dependabot: ['github-actions'],
       updateCommand: 'bump every `uses:` reference to the newest release (tag or pinned digest)',
+      // Prose, not a command: it formats itself, so the renderer must not wrap it
+      // in a code span (nested backticks do not nest in Markdown).
+      updateCommandIsProse: true,
       note: 'Actions pinned to a stale major (`actions/checkout@v3`) are the most common source of deprecation warnings in an otherwise green pipeline. Update reusable workflows and composite `action.yml` files too.',
       alwaysRelevantWhen: files => files.some(file => /^\.github\//.test(file)),
     },
@@ -192,6 +195,7 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       pathPatterns: [/(^|\/)Dockerfile([.-][^/]*)?$/, /(^|\/)devcontainer\.json$/],
       dependabot: ['docker', 'docker-compose', 'devcontainers'],
       updateCommand: 'bump each `FROM` base-image tag (and re-pin the digest, if digests are used)',
+      updateCommandIsProse: true,
       note: 'A base image is a dependency: an old `FROM` ships the distribution’s unpatched libraries no matter how current the language packages are.',
     },
     {
@@ -312,7 +316,7 @@ export function buildEcosystemsSection({ languages, files } = {}) {
       if (matchedLanguages.length > 0) lines.push(`   - Detected languages: ${matchedLanguages.join(', ')}`);
       lines.push(`   - Manifests: ${manifests.length > 0 ? manifests.map(file => `\`${file}\``).join(', ') : '_none found — check whether one is missing_'}`);
       if (lockfiles.length > 0) lines.push(`   - Lockfiles to regenerate and commit: ${lockfiles.map(file => `\`${file}\``).join(', ')}`);
-      lines.push(`   - Update everything: \`${ecosystem.updateCommand}\``);
+      lines.push(`   - Update everything: ${ecosystem.updateCommandIsProse ? ecosystem.updateCommand : `\`${ecosystem.updateCommand}\``}`);
       if (ecosystem.note) lines.push(`   - ${ecosystem.note}`);
       lines.push('');
     });

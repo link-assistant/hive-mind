@@ -544,16 +544,19 @@ Examples:
 如果目标 PR 尚未完成，`/merge` 会等待它变为可合并后再合并。合并冲突跳过仍可配合
 `--auto-resolve` 使用。
 
-#### `/fix` - 自动修复 CI/CD
+#### `/fix` - 自动修复 CI/CD 与依赖
 
 ```
 /fix <github-repository-url> --ci-cd [options]
+/fix <github-repository-url> --update-all-dependencies [options]
 
 Examples:
 /fix https://github.com/owner/repo --ci-cd
 /fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
 /fix owner/repo --ci-cd --dry-run
 /fix owner/repo --ci-cd --no-solve
+/fix https://github.com/owner/repo --update-all-dependencies
+/fix owner/repo --update-all-dependencies --dry-run
 ```
 
 `/fix --ci-cd` 会检测目标仓库使用的语言，检查默认分支的最新提交及其 CI/CD 运行情况，并自动创建一个 CI/CD
@@ -564,9 +567,16 @@ issue 交给 `/solve --development-log --deep-analysis --auto-merge` 处理。�
 issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `/solve`。详见
 [自动 CI/CD 修复](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)。
 
-如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 只执行相同的 CI/CD issue
-生成步骤。该命令会返回新建 issue 的 URL；回复
-`/solve --development-log --deep-analysis --auto-merge` 即可通过常规 solve 流程继续修复。
+`/fix --update-all-dependencies` 对依赖执行同样的流程。它会检测仓库使用的语言*以及*默认分支上提交的每个依赖清单文件，把两者映射到包生态系统，并创建一个 `Task`
+类型的 issue（带 `dependencies` 标签），其中列出每个生态系统、找到的清单文件、需要重新生成的锁文件，以及在该生态系统中真正能跨越大版本的命令。随后它会把该 issue 交给
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`。详见
+[自动化的依赖更新](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md#自动化的依赖更新)。每次运行必须且只能指定一种模式：不带模式或同时带两种模式的 `/fix` 都会被拒绝。
+
+如果完整的 `/fix` 流程不可用，`/task --ci-cd <repository>` 和
+`/task --update-all-dependencies <repository>` 只执行相同的 issue
+生成步骤。它们会返回新建 issue 的 URL；回复
+`/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
+`--update-all-dependencies`）即可通过常规 solve 流程继续。
 
 #### `/limits` - 显示用量限制
 
@@ -646,6 +656,7 @@ Shows:
 
 - [BEST-PRACTICES.zh.md](./docs/BEST-PRACTICES.zh.md) — 通用提示、Issue 编写指南、架构改进和子 Agent 模式
 - [CI-CD-BEST-PRACTICES.zh.md](./docs/CI-CD-BEST-PRACTICES.zh.md) — CI/CD 流水线设置、推荐模板和执行策略
+- [DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md](./docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md) — 更新每个生态系统的每个依赖，并保持其最新
 
 完善 CI/CD 的核心优势：
 

@@ -549,16 +549,19 @@ pull request, например на предыдущую команду `/codex 
 выполняет слияние. Пропуск конфликтов слияния по-прежнему работает с
 `--auto-resolve`.
 
-#### `/fix` — Автоматическое исправление CI/CD
+#### `/fix` — Автоматическое исправление CI/CD и зависимостей
 
 ```
 /fix <github-repository-url> --ci-cd [options]
+/fix <github-repository-url> --update-all-dependencies [options]
 
 Examples:
 /fix https://github.com/owner/repo --ci-cd
 /fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
 /fix owner/repo --ci-cd --dry-run
 /fix owner/repo --ci-cd --no-solve
+/fix https://github.com/owner/repo --update-all-dependencies
+/fix owner/repo --update-all-dependencies --dry-run
 ```
 
 `/fix --ci-cd` определяет языки целевого репозитория, анализирует последний коммит ветки по умолчанию и его
@@ -570,10 +573,21 @@ Examples:
 `/solve`. Подробнее см.
 [Автоматическое исправление CI/CD](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation).
 
-Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` выполняет
-только тот же этап создания issue для CI/CD. Команда возвращает URL созданного
-issue; ответьте `/solve --development-log --deep-analysis --auto-merge`, чтобы
-продолжить исправление обычным процессом solve.
+`/fix --update-all-dependencies` выполняет тот же процесс для зависимостей. Он определяет языки
+репозитория _и_ каждый манифест зависимостей, закоммиченный в ветку по умолчанию, сопоставляет оба сигнала
+с пакетными экосистемами и создаёт issue типа `Task` (с меткой `dependencies`), где перечислены каждая
+экосистема, найденные манифесты, lock-файлы для перегенерации и команда, которая действительно пересекает
+там мажорные версии. Затем он передаёт issue в
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`. Подробнее см.
+[Автоматическое обновление зависимостей](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md#автоматическое-обновление-зависимостей).
+За один запуск требуется ровно один режим: `/fix` без режима или сразу с двумя отклоняется.
+
+Если полный процесс `/fix` недоступен, `/task --ci-cd <repository>` и
+`/task --update-all-dependencies <repository>` выполняют только тот же этап
+создания issue. Команды возвращают URL созданного issue; ответьте
+`/solve --development-log --deep-analysis --auto-merge` (добавив
+`--update-all-dependencies` для issue о зависимостях), чтобы продолжить обычным
+процессом solve.
 
 #### `/limits` — Показать лимиты использования
 
@@ -656,6 +670,7 @@ Hive Mind работает ещё лучше, когда в репозитори
 
 - [BEST-PRACTICES.ru.md](./docs/BEST-PRACTICES.ru.md) — универсальные промпты, рекомендации по написанию задач, улучшение архитектуры и паттерны субагентов
 - [CI-CD-BEST-PRACTICES.ru.md](./docs/CI-CD-BEST-PRACTICES.ru.md) — настройка CI/CD-пайплайнов, рекомендуемые шаблоны и стратегии применения
+- [DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md](./docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md) — обновление всех зависимостей всех экосистем и поддержание их актуальности
 
 Ключевые преимущества правильного CI/CD:
 

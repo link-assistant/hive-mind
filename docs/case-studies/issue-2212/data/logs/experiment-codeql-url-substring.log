@@ -1,0 +1,12 @@
+block a regressed handler would produce:
+"telegram.info_requested_by_label: \ntelegram.info_url_label: https://github.com/link-assistant/hive-mind/issues/2212"
+
+the URL it shows is "https://github.com/link-assistant/hive-mind/issues/2212",
+built as REPO_URL + "/issues/2212" — so it contains REPO_URL by construction,
+which is why a containment check could not tell this block from a correct one.
+
+new  urlLineOf(block).url === REPO_URL  on the regressed block -> false  (fails — the bug is caught)
+new  urlLineOf(block).url === REPO_URL  on the correct block   -> true  (passes)
+
+✅ the tightened assertion catches a mislabelling containment could not
+✅ the tightened assertion still passes on the correct block

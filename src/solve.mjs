@@ -47,6 +47,7 @@ const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
 const { runEscalation } = await import('./solve.escalate.lib.mjs');
+const { runEnsureAllSubIssuesAddressed } = await import('./solve.ensure-sub-issues.lib.mjs');
 const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
@@ -151,6 +152,25 @@ if (!issueUrl) {
   await log('Error: Missing required github issue or pull request URL', { level: 'error' });
   await log('Run "solve.mjs --help" for more information', { level: 'error' });
   await safeExit(1, 'Missing required GitHub URL');
+}
+// Issue #2212: repository mode. When a repository URL is given instead of an
+// issue/pull request URL, collect every open issue of that repository, create a
+// single combined issue that lists them as GitHub native sub-issues, and solve
+// that issue instead — so one pull request can close all of them at once.
+{
+  const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
+  if (repositoryMode.handled) {
+    if (repositoryMode.error) {
+      await log(`Error: ${repositoryMode.error}`, { level: 'error' });
+      await safeExit(1, 'Repository mode failed');
+    }
+    issueUrl = repositoryMode.issueUrl;
+    argv['issue-url'] = repositoryMode.issueUrl;
+    // Repository mode always asks for deep analysis and always double checks
+    // that the pull request lists every issue it is supposed to close.
+    Object.assign(argv, repositoryMode.argvOverrides);
+  }
 }
 // Validate GitHub URL using validation module (more thorough check)
 const urlValidation = validateGitHubUrl(issueUrl);
@@ -1081,6 +1101,10 @@ try {
   applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
   applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
+  // Issue #2212: runs last on purpose — the earlier loops may still rewrite the
+  // pull request description, so the closing references are verified against its
+  // final state.
+  applyRestartResult(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');

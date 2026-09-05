@@ -1,0 +1,225 @@
+
+📦 REPOSITORY MODE: https://github.com/link-assistant/hive-mind
+   Collecting all open issues to combine them into a single issue...
+   Open issues found:        88
+   Attached as sub-issues:   88 (limit 100)
+
+--- combined issue that would be created ---
+
+Title: Address all 88 open issues in link-assistant/hive-mind
+
+<!-- hive-mind-solve-repository-mode -->
+
+## Objective
+
+Address every open issue listed below in [link-assistant/hive-mind](https://github.com/link-assistant/hive-mind) with a **single pull request**.
+
+This issue was generated automatically by `/solve https://github.com/link-assistant/hive-mind` (repository mode, see https://github.com/link-assistant/hive-mind/issues/2212). Every issue below is attached to this issue as a GitHub native sub-issue.
+
+## Scope
+
+- Open issues found in the repository: 88
+- Issues attached as sub-issues of this issue: 88
+- GitHub sub-issue limit per parent issue: 100
+
+## Issues to address
+
+- [ ] #410 Add Full SourceCraft Platform Support — opened 2025-10-04
+- [ ] #448 Support entire organization clone, so the AI will have full local context about the entire organization — opened 2025-10-08
+- [ ] #449 feature: Implement automatic containerization for each Hive Mind job (solve, hive, review) — opened 2025-10-08
+- [ ] #450 feature: Implement secure user key storage and isolated injection mechanism — opened 2025-10-08
+- [ ] #451 security: Automatic Secure Issue Text Scanning for Dangerous LLM Commands — opened 2025-10-08
+- [ ] #520 Create separate user for each issue, for better isolation — opened 2025-10-14
+- [ ] #693 Add hive monitoring mode - assign to solve — opened 2025-11-08
+- [ ] #697 Integrate with CC Switch — opened 2025-11-10
+- [ ] #702 /hive command does not skip issues with pull requests — opened 2025-11-10
+- [ ] #708 Request timed out — opened 2025-11-10
+- [ ] #713 Pull Request was not linked to the issue — opened 2025-11-11
+- [ ] #721 Collect feedback from https://deepwiki.com/search/-57-4-23-57_0e4aa687-7a9d-4591-8c6f-67c4b2d732f6 and do detailed case study — opened 2025-11-13
+- [ ] #733 hive-telegram-bot killed — opened 2025-11-14
+- [ ] #744 Research what we can do to reduce the probability of claude command killing itself and our telegram bot and all other running processes — opened 2025-11-15
+- [ ] #746 opencode stuck in infinite loop of auto restart — opened 2025-11-17
+- [ ] #756 Better auto-restart flow — opened 2025-11-19
+- [ ] #769 PDF file read failed — opened 2025-11-30
+- [ ] #773 The PDF specified was not valid — opened 2025-11-30
+- [ ] #787 Fix cost calculation — opened 2025-12-02
+- [ ] #853 We were unable to get results for some tool uses based on the comments of the pull request — opened 2025-12-06
+- [ ] #856 Bash tool use result was added as comment without the comment about tool use itself — opened 2025-12-06
+- [ ] #902 Add support for GitLab and BitBucket — opened 2025-12-09
+- [ ] #919 Add optional database of solved issues for solve command — opened 2025-12-11
+- [ ] #935 /architect command — opened 2025-12-16
+- [ ] #977 Support multiple GitHub users — opened 2025-12-23
+- [ ] #978 Support multiple Claude MAX subscriptions — opened 2025-12-23
+- [ ] #981 Add `--keep-tool-context-in-repository` option — opened 2025-12-24
+- [ ] #1029 Preinstall https://github.com/GLips/Figma-Context-MCP in server/docker for claude and agent commands — opened 2025-12-29
+- [ ] #1033 Uploading of images to comments didn't work — opened 2025-12-29
+- [ ] #1082 PDF too large. Please double press esc to edit your message and try again. — opened 2026-01-08
+- [ ] #1128 Добавить таблицу возможностей в readme — opened 2026-01-14
+- [ ] #1129 Исследовать возможность настраивать параметр temperature для LLM — opened 2026-01-14
+- [ ] #1130 Добавить возможность запускать решение задач через API — opened 2026-01-14
+- [ ] #1160 Conflicts were not resolved by `--tool agent` — opened 2026-01-23
+- [ ] #1161 Auto-restart with tool agent led to upload to files, that was not explicitly asked by user or requirements — opened 2026-01-23
+- [ ] #1171 Find out what is the reason of termination — opened 2026-01-23
+- [ ] #1188 API Error: 400 due to tool use concurrency issues. — opened 2026-01-27
+- [ ] #1193 Add orchestartor CLI command — opened 2026-01-29
+- [ ] #1204 The request body is not valid JSON: no low surrogate in string: line 1 column 160309 (char 160308) — opened 2026-01-30
+- [ ] #1216 Enhancement: Add PR state validation and auto-recovery for cross-repository forks — opened 2026-02-05
+- [ ] #1223 Support `opusplan` — opened 2026-02-06
+- [ ] #1252 Support memory of `--tool claude`? — opened 2026-02-10
+- [ ] #1265 Make a prototype of GItHub Action, that is triggered manually, and accepts link to an issue — opened 2026-02-12
+- [ ] #1284 Double check Playwright MCP best practices — opened 2026-02-13
+- [ ] #1305 Добавить команду /status — opened 2026-02-15
+- [ ] #1317 Something strange happening on high CPU/RAM load — opened 2026-02-17
+- [ ] #1355 Join auto-restart for uncommitted changes and auto-restart for until mergable, and all other auto-restart reasons, so we will have single unified logic in single place — opened 2026-02-26
+- [ ] #1409 Can we use something like this to improve task understanding by AI agent? — opened 2026-03-10
+- [ ] #1422 Move all API github related code to `./src/lib/github` — opened 2026-03-13
+- [ ] #1435 Local script/image/cli tool to install GitLab locally, GitLab runner locally, with Hive Mind connected to them — opened 2026-03-17
+- [ ] #1444 /hive command stuck on completion and I had to do interruption — opened 2026-03-19
+- [ ] #1464 Is there any way to support other user's fork branch on our fork of original repository to merge into original repository? — opened 2026-03-21
+- [ ] #1474 For all free models in queue of `--tool agent` please use mode `1 at time` for each specific free model. — opened 2026-03-24
+- [ ] #1478 PR creation failed: GraphQL: Something went wrong while executing your query on 2026-03-24T20:09:47Z. Please include `C494:160A:1899070D:156DE0AF:69C2EF89` when reporting this issue. — opened 2026-03-25
+- [ ] #1493 All resources leaks should be found and fixed — opened 2026-03-29
+- [ ] #1495 Multiple repeated comments after `ready to merge` without clear demarcation of working sessions — opened 2026-03-29
+- [ ] #1513 PR creation failed: GraphQL: Something went wrong while executing your query on 2026-03-31T11:11:16Z. Please include `E400:214657:A4EF54:90FAA6:69CBABD3` when reporting this issue. — opened 2026-03-31
+- [ ] #1565 AI solver refuses to comply with changed requirements — opened 2026-04-10
+- [ ] #1597 --create-pull-request-on-first-commit option — opened 2026-04-11
+- [ ] #1601 You trust no one, even yourself. You verify every claim, even produced yourself. — opened 2026-04-14
+- [ ] #1610 No changes committed by codex tool — opened 2026-04-15
+- [ ] #1629 Hive Mind stuck in a loop that lead to no changes in pull request — opened 2026-04-17
+- [ ] #1653 `/solve` command crushing without finishing work — opened 2026-04-23
+- [ ] #1702 /test command — opened 2026-04-27
+- [ ] #1732 Make CI/CD actions templates and so on — opened 2026-04-30
+- [ ] #1739 claude tool task solution is stuck — opened 2026-05-01
+- [ ] #1743 `--requirements-tracking` — opened 2026-05-02
+- [ ] #1754 Learn which best practices we have missing in Hive Mind from https://sourcecraft.dev/hyperonym/agentic-fdd — opened 2026-05-05
+- [ ] #1771 Add `--auto-base-branch-creation` option. — opened 2026-05-10
+- [ ] #1782 `--auto-fix-ci-cd` option for /solve command — opened 2026-05-11
+- [ ] #1811 Some tasks in /hive command just stuck, and didn't finish without clear fail or stop — opened 2026-05-16
+- [ ] #1841 `Prompt is too long`? — opened 2026-05-29
+- [ ] #1854 docs: Docker install instructions stale after 1.74.3 (missing dind production setup; misleading flags; codex verification false-positive) — opened 2026-06-07
+- [ ] #1856 Research what exactly happening in https://github.com/ProverCoderAI/docker-git/pull/381 — opened 2026-06-07
+- [ ] #1864 Double check that we use https://github.com/link-foundation/command-stream for all CLI and TUI operations — opened 2026-06-08
+- [ ] #1870 Стоит сделать API сервер. — opened 2026-06-09
+- [ ] #1887 We need update system prompt to increase probability of AI models to actually fix all CI/CD in this pull request no matter if it was broken something else when `--auto-restart-until-mergeable` is enabled — opened 2026-06-10
+- [ ] #1961 Is it confirmed compaction split or now in `--tool codex`? — opened 2026-06-21
+- [ ] #1962 Support & document both DooD and DinD docker-isolation workflows (DooD = zero-copy/zero-disk image reuse for disk-constrained hosts) — opened 2026-06-21
+- [ ] #1971 /hive command graceful interruption — opened 2026-06-23
+- [ ] #2047 Investigate the reason for rejection — opened 2026-07-11
+- [ ] #2069 /review — opened 2026-07-16
+- [ ] #2099 Check https://github.com/archcore-ai/plugin/issues/24 for issues (false positives, false negatives, errors, warnings, and fix them all, so Hive Mind will operate next time perfectly) — opened 2026-07-25
+- [ ] #2100 Share sccache across isolated Rust task containers — opened 2026-07-25
+- [ ] #2184 `/fix --update-all-dependencies` — opened 2026-08-28
+- [ ] #2187 Image and host accumulate superseded versions: duplicate Rust toolchains (stable is older than the pin), stale node/bun forcing per-task downloads, 24 GB reclaimable images — opened 2026-09-01
+- [ ] #2190 Codex refuses to work as requested — opened 2026-09-03
+- [ ] #2212 Allow to pass repository link to `/solve` commands — opened 2026-09-05
+
+## Requirements
+
+1. Read every issue listed above (including its comments) and fully implement what it asks for.
+2. Do all of the work in this single pull request. Do not defer any listed issue to a follow-up pull request.
+3. The pull request description **must** close this issue and **every** issue listed above, so that merging the pull request closes all of them at once.
+4. GitHub requires the full closing syntax for each issue: one keyword per issue. `Fixes #1, #2` only closes `#1`. Use the block below verbatim (plus `Fixes #<this issue>` for this issue).
+5. If an issue turns out to be already resolved or not reproducible, say so explicitly in the pull request description — but still keep its closing reference so it is closed on merge.
+
+## Required closing references in the pull request description
+
+```
+Fixes #410
+Fixes #448
+Fixes #449
+Fixes #450
+Fixes #451
+Fixes #520
+Fixes #693
+Fixes #697
+Fixes #702
+Fixes #708
+Fixes #713
+Fixes #721
+Fixes #733
+Fixes #744
+Fixes #746
+Fixes #756
+Fixes #769
+Fixes #773
+Fixes #787
+Fixes #853
+Fixes #856
+Fixes #902
+Fixes #919
+Fixes #935
+Fixes #977
+Fixes #978
+Fixes #981
+Fixes #1029
+Fixes #1033
+Fixes #1082
+Fixes #1128
+Fixes #1129
+Fixes #1130
+Fixes #1160
+Fixes #1161
+Fixes #1171
+Fixes #1188
+Fixes #1193
+Fixes #1204
+Fixes #1216
+Fixes #1223
+Fixes #1252
+Fixes #1265
+Fixes #1284
+Fixes #1305
+Fixes #1317
+Fixes #1355
+Fixes #1409
+Fixes #1422
+Fixes #1435
+Fixes #1444
+Fixes #1464
+Fixes #1474
+Fixes #1478
+Fixes #1493
+Fixes #1495
+Fixes #1513
+Fixes #1565
+Fixes #1597
+Fixes #1601
+Fixes #1610
+Fixes #1629
+Fixes #1653
+Fixes #1702
+Fixes #1732
+Fixes #1739
+Fixes #1743
+Fixes #1754
+Fixes #1771
+Fixes #1782
+Fixes #1811
+Fixes #1841
+Fixes #1854
+Fixes #1856
+Fixes #1864
+Fixes #1870
+Fixes #1887
+Fixes #1961
+Fixes #1962
+Fixes #1971
+Fixes #2047
+Fixes #2069
+Fixes #2099
+Fixes #2100
+Fixes #2184
+Fixes #2187
+Fixes #2190
+Fixes #2212
+```
+
+
+--- what a real run would do next ---
+
+1. Create that issue in link-assistant/hive-mind.
+2. Attach 88 issue(s) to it as GitHub native sub-issues (one request per second).
+3. Solve that issue with --deep-analysis and --ensure-all-sub-issues-addressed,
+   which restarts the AI tool until the pull request description closes every sub-issue.
+
+Nothing was created by this preview.

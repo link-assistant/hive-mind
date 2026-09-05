@@ -276,6 +276,13 @@ const registryFor = tool =>
     qwen: { id: 'qwen', api_key_env: 'OPENAI_API_KEY', default_protocol: 'openai', endpoints: { openai: '/api/openai/v1' }, global_configs: [{ format: 'shell_env', path: '.profile' }] },
   })[tool];
 
+/**
+ * Issue #2208: the runtime now asks the endpoint which release is serving it.
+ * These tests stub the server itself, so the probe answers the way a backend
+ * matching the stubbed wrapper would.
+ */
+const healthyBackendProbe = async () => ({ ok: true, kind: 'ok', status: 200, version: '0.336.0', memory: { compatible: true }, health: { version: '0.336.0' }, error: null });
+
 const prepareWithStubs = async ({ tool, env = {}, profile = null }) => {
   resetFormalAiRuntimeCache();
   const home = await mkdtemp(join(tmpdir(), 'hive-2130-runtime-'));
@@ -292,6 +299,7 @@ const prepareWithStubs = async ({ tool, env = {}, profile = null }) => {
         stopped.push({ started: options });
         return { baseUrl: 'http://127.0.0.1:41235', port: 41235, pid: 4242, stop: async () => stopped.push({ stopped: true }) };
       },
+      probeBackendImpl: healthyBackendProbe,
       loadRegistryImpl: async () => [registryFor(tool)],
       seedImpl: async () => [],
       configureImpl: async () => {
@@ -326,7 +334,7 @@ test('prepareFormalAiRuntime starts the server in the repository clone and retur
 test('prepareFormalAiRuntime reuses one server per workspace and tool', async () => {
   const { runtime, stopped } = await prepareWithStubs({ tool: 'claude', profile: 'export ANTHROPIC_MODEL="formal-ai"\n' });
   try {
-    const again = await prepareFormalAiRuntime({ tool: 'claude', workdir: '/tmp/workspace', env: {}, formalAiPath: '/opt/formal-ai', deps: { startServerImpl: async () => assert.fail('a second server must not be started') } });
+    const again = await prepareFormalAiRuntime({ tool: 'claude', workdir: '/tmp/workspace', env: {}, formalAiPath: '/opt/formal-ai', deps: { probeBackendImpl: healthyBackendProbe, startServerImpl: async () => assert.fail('a second server must not be started') } });
     assert.equal(again, runtime);
     assert.equal(stopped.filter(entry => entry.started).length, 1);
   } finally {
@@ -412,7 +420,7 @@ test('prepareFormalAiRuntime fails with an actionable message for a tool Formal 
       workdir: '/tmp/workspace',
       env: { HIVE_MIND_FORMAL_AI_BASE_URL: 'http://formal-ai:41235' },
       formalAiPath: '/opt/formal-ai',
-      deps: { readVersionImpl: async () => '0.336.0', loadRegistryImpl: async () => [{ id: 'claude' }] },
+      deps: { readVersionImpl: async () => '0.336.0', probeBackendImpl: healthyBackendProbe, loadRegistryImpl: async () => [{ id: 'claude' }] },
     }),
     /does not list a client configuration for "nonexistent"/
   );
@@ -486,6 +494,7 @@ test('prepareFormalAiRuntime creates the isolated HOME under the configured root
           return home;
         },
         startServerImpl: async () => ({ baseUrl: 'http://127.0.0.1:41235', port: 41235, pid: 4242, stop: async () => {} }),
+        probeBackendImpl: healthyBackendProbe,
         loadRegistryImpl: async () => [registryFor('codex')],
         seedImpl: async () => [],
         configureImpl: async () => {},

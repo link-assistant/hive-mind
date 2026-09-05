@@ -16,6 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2146
  */
 
+import { buildFormalAiSidecarProvenanceEnv } from './formal-ai-runtime.lib.mjs';
 import { acquireFormalAiSidecar, attachTaskToFormalAiNetwork, isFormalAiSidecarEnabled, isFormalAiTask, releaseFormalAiSidecar } from './formal-ai-sidecar.lib.mjs';
 
 const logToConsole = message => console.log(message);
@@ -44,6 +45,19 @@ export const acquireFormalAiSidecarForTask = async ({ backend, args = [], model 
 };
 
 /**
+ * The environment a Formal AI task is launched with.
+ *
+ * Besides the endpoint, this carries the identity of the image the lease pinned
+ * (issue #2208). The runtime inside the container still asks the endpoint which
+ * release is answering; these values let it refuse when the answer is not the
+ * accepted image Hive Mind leased, and let the task record the digest rather
+ * than a mutable tag.
+ *
+ * @returns {object} The task environment (`env` itself when Formal AI is not involved).
+ */
+export const buildFormalAiTaskEnv = ({ sidecar, env = process.env } = {}) => (sidecar ? { ...env, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl, ...buildFormalAiSidecarProvenanceEnv(sidecar) } : env);
+
+/**
  * Add the internal Formal AI network to the freshly-created task container.
  *
  * @returns {Promise<string|null>} An error message when the task cannot reach
@@ -66,4 +80,4 @@ export const releaseFormalAiSidecarForTask = async ({ sidecar, sessionId, env = 
   }
 };
 
-export default { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask };
+export default { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, releaseFormalAiSidecarForTask };

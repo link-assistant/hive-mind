@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
-import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
+import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
 // The image references live in their own module so the Formal AI sidecar can
 // resolve the locally present Hive Mind image (which bakes `formal-ai`) without
 // importing this runner and creating a cycle. Re-exported here because callers
@@ -399,7 +399,7 @@ export async function executeWithIsolation(command, args, options = {}) {
     await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
     return failLaunch(formalAiRoutingError);
   }
-  const taskEnv = sidecar ? { ...hostEnv, HIVE_MIND_FORMAL_AI_BASE_URL: sidecar.baseUrl } : hostEnv;
+  const taskEnv = buildFormalAiTaskEnv({ sidecar, env: hostEnv });
   const effectiveOptions =
     backend === 'docker'
       ? {

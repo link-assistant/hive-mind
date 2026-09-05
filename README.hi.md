@@ -548,16 +548,19 @@ message पर `/merge` से reply भी कर सकते हैं जि
 mergeable होने तक wait करता है। Merge-conflict skips अभी भी `--auto-resolve` के
 साथ काम करते हैं।
 
-#### `/fix` - CI/CD स्वतः ठीक करें
+#### `/fix` - CI/CD और dependencies स्वतः ठीक करें
 
 ```
 /fix <github-repository-url> --ci-cd [options]
+/fix <github-repository-url> --update-all-dependencies [options]
 
 Examples:
 /fix https://github.com/owner/repo --ci-cd
 /fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
 /fix owner/repo --ci-cd --dry-run
 /fix owner/repo --ci-cd --no-solve
+/fix https://github.com/owner/repo --update-all-dependencies
+/fix owner/repo --update-all-dependencies --dry-run
 ```
 
 `/fix --ci-cd` लक्ष्य रिपॉज़िटरी की भाषाओं का पता लगाता है, डिफ़ॉल्ट ब्रांच के नवीनतम कमिट और उसके CI/CD रनों
@@ -570,10 +573,21 @@ Examples:
 `--no-solve` का उपयोग करें। विवरण के लिए
 [स्वचालित CI/CD सुधार](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation) देखें।
 
-यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` केवल वही CI/CD
-issue-generation चरण चलाता है। यह बनाए गए issue का URL लौटाता है; सामान्य solve workflow
-से remediation जारी रखने के लिए `/solve --development-log --deep-analysis --auto-merge`
-से reply करें।
+`/fix --update-all-dependencies` वही प्रवाह dependencies के लिए चलाता है। यह रिपॉज़िटरी की भाषाओं _और_
+डिफ़ॉल्ट ब्रांच पर commit किए गए हर dependency manifest का पता लगाता है, दोनों को package ecosystems पर
+मैप करता है, और एक `Task` issue बनाता है (`dependencies` label के साथ) जिसमें हर ecosystem, मिले हुए
+manifests, फिर से generate किए जाने वाले lockfiles, और वहाँ वास्तव में major संस्करण पार करने वाला कमांड
+सूचीबद्ध होते हैं। इसके बाद यह issue को
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंप देता है।
+विवरण के लिए
+[स्वचालित Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md#स्वचालित-dependency-remediation)
+देखें। हर बार ठीक एक मोड आवश्यक है: बिना मोड वाला या दोनों मोड वाला `/fix` अस्वीकार कर दिया जाता है।
+
+यदि पूरा `/fix` workflow उपलब्ध न हो, तो `/task --ci-cd <repository>` और
+`/task --update-all-dependencies <repository>` केवल वही issue-generation चरण चलाते हैं।
+वे बनाए गए issue का URL लौटाते हैं; सामान्य solve workflow से काम जारी रखने के लिए
+`/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
+`--update-all-dependencies` भी जोड़कर) से reply करें।
 
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
@@ -655,6 +669,7 @@ Hive Mind और भी बेहतर काम करता है जब र
 
 - [BEST-PRACTICES.hi.md](./docs/BEST-PRACTICES.hi.md) — सार्वभौमिक प्रॉम्प्ट, इश्यू लेखन दिशानिर्देश, आर्किटेक्चर सुधार और सब-एजेंट पैटर्न
 - [CI-CD-BEST-PRACTICES.hi.md](./docs/CI-CD-BEST-PRACTICES.hi.md) — CI/CD पाइपलाइन सेटअप, अनुशंसित टेम्पलेट और प्रवर्तन रणनीतियाँ
+- [DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md](./docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md) — हर ecosystem की हर dependency को अपडेट करना और उसे वर्तमान बनाए रखना
 
 उचित CI/CD के मुख्य लाभ:
 

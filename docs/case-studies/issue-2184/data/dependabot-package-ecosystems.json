@@ -1,0 +1,14 @@
+{
+  "source": "https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference",
+  "cross_checked_with": "https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories",
+  "captured": "2026-09-05",
+  "captured_with": "WebFetch",
+  "description": "Full set of accepted `package-ecosystem` values in .github/dependabot.yml. Used as the reference list against which DEPENDENCY_ECOSYSTEMS in src/fix.update-dependencies.lib.mjs was checked for coverage.",
+  "package_ecosystem_values": ["bazel", "bun", "bundler", "cargo", "composer", "conda", "deno", "devcontainers", "docker", "docker-compose", "dotnet-sdk", "elm", "github-actions", "gitsubmodule", "gomod", "gradle", "helm", "hex", "julia", "maven", "npm", "nuget", "opentofu", "pip", "pre-commit", "pub", "rust-toolchain", "sbt", "swift", "terraform", "uv", "vcpkg", "yarn"],
+  "notes": [
+    "`hex` is the Elixir ecosystem; its manifest is mix.exs / mix.lock.",
+    "`pip` covers requirements.txt, Pipfile, pyproject.toml (setuptools and Poetry v2); `uv` is a separate value for uv.lock.",
+    "`npm`, `yarn` and `bun` read package.json but differ in lockfile; there is no `pnpm` value -- pnpm-lock.yaml is covered by `npm`.",
+    "Dependabot version updates are per-directory and per-ecosystem: a polyglot repository needs one `updates:` entry per (ecosystem, directory) pair."
+  ]
+}

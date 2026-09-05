@@ -565,16 +565,19 @@ request link, such as a previous `/codex ...issues/123` command.
 If a target PR is not finished yet, `/merge` waits for it to become mergeable
 before merging. Merge-conflict skips still work with `--auto-resolve`.
 
-#### `/fix` - Auto-Remediate CI/CD
+#### `/fix` - Auto-Remediate CI/CD and Dependencies
 
 ```
 /fix <github-repository-url> --ci-cd [options]
+/fix <github-repository-url> --update-all-dependencies [options]
 
 Examples:
 /fix https://github.com/owner/repo --ci-cd
 /fix owner/repo --ci-cd --tool codex --model gpt-5.5 --think max
 /fix owner/repo --ci-cd --dry-run
 /fix owner/repo --ci-cd --no-solve
+/fix https://github.com/owner/repo --update-all-dependencies
+/fix owner/repo --update-all-dependencies --dry-run
 ```
 
 `/fix --ci-cd` detects the target repository's languages, inspects the latest
@@ -589,10 +592,24 @@ does not consume itself (e.g. `--tool`, `--model`, `--think`) is forwarded to
 [Automatic CI/CD Remediation](docs/CI-CD-BEST-PRACTICES.md#automatic-cicd-remediation)
 for details.
 
-If the full `/fix` workflow is unavailable, `/task --ci-cd <repository>` runs
-only the same CI/CD issue-generation step. It returns the created issue URL;
-reply with `/solve --development-log --deep-analysis --auto-merge` to continue
-the remediation through the normal solve workflow.
+`/fix --update-all-dependencies` runs the same flow for dependencies. It detects
+the repository's languages _and_ every dependency manifest committed to the
+default branch, maps both onto package ecosystems, and creates a `Task` issue
+(labelled `dependencies`) listing each ecosystem with the manifests found, the
+lockfiles to regenerate, and the command that actually crosses major versions
+there. It then hands the issue off to
+`/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`.
+See
+[Automatic Dependency Remediation](docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md#automatic-dependency-remediation)
+for details. Exactly one mode is required per run: `/fix` with no mode, or with
+both, is rejected.
+
+If the full `/fix` workflow is unavailable, `/task --ci-cd <repository>` and
+`/task --update-all-dependencies <repository>` run only the same
+issue-generation step. They return the created issue URL; reply with
+`/solve --development-log --deep-analysis --auto-merge` (adding
+`--update-all-dependencies` for the dependency issue) to continue through the
+normal solve workflow.
 
 #### `/limits` - Show Usage Limits
 
@@ -673,6 +690,7 @@ Hive Mind works even better when repositories have strong CI/CD pipelines and cl
 
 - [BEST-PRACTICES.md](./docs/BEST-PRACTICES.md) — Universal prompts, issue writing guidelines, architecture improvement, and subagent patterns
 - [CI-CD-BEST-PRACTICES.md](./docs/CI-CD-BEST-PRACTICES.md) — CI/CD pipeline setup, recommended templates, and enforcement strategies
+- [DEPENDENCY-UPDATE-BEST-PRACTICES.md](./docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md) — updating every dependency of every ecosystem, and keeping it current
 
 Key benefits of proper CI/CD:
 

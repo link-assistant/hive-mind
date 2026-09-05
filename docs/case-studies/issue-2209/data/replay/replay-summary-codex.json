@@ -1,0 +1,33 @@
+{
+  "tasks": [
+    {
+      "tool": "codex",
+      "language": "Rust",
+      "repo": "konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c",
+      "servingVersion": "0.347.0",
+      "servingDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+      "imageSource": "accepted-update",
+      "baseUrl": "http://172.19.0.2:8080",
+      "exitCode": 1,
+      "logFile": "docs/case-studies/issue-2209/data/replay/codex-rust.log.gz",
+      "remote": [
+        {
+          "number": 2,
+          "url": "https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2",
+          "state": "OPEN",
+          "files": [
+            ".gitkeep"
+          ],
+          "hasWorkflow": false,
+          "hasSource": false,
+          "diffSays": false
+        }
+      ]
+    }
+  ],
+  "update": {
+    "status": "updated",
+    "version": "0.347.0",
+    "digest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82"
+  }
+}

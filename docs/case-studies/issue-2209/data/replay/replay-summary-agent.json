@@ -1,0 +1,31 @@
+{
+  "tasks": [
+    {
+      "tool": "agent",
+      "language": "Scala",
+      "repo": "konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b",
+      "servingVersion": "0.347.0",
+      "servingDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+      "imageSource": "accepted-update",
+      "baseUrl": "http://172.19.0.2:8080",
+      "exitCode": 130,
+      "logFile": "/tmp/gh-issue-solver-1788602762926/logs/replay/agent-scala.log",
+      "remote": [
+        {
+          "number": 2,
+          "url": "https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2",
+          "state": "OPEN",
+          "files": [],
+          "hasWorkflow": false,
+          "hasSource": false,
+          "diffSays": false
+        }
+      ]
+    }
+  ],
+  "update": {
+    "status": "updated",
+    "version": "0.347.0",
+    "digest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82"
+  }
+}

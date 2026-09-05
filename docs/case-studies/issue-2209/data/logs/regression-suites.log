@@ -1,0 +1,46 @@
+=== node tests/test-issue-2207-accepted-image-persistence.mjs ===
+PASS: issue #2207 a verified Formal AI update is consumed by the next task (accepted digest, restart, rollback, pruned image, operator pin, busy lease)
+
+=== node --test tests/test-issue-2208-serving-backend-provenance.mjs ===
+# Subtest: the serving backend, not the local wrapper, is what provenance records
+ok 1 - the serving backend, not the local wrapper, is what provenance records
+# Subtest: a fresh local wrapper does not excuse an unsupported server
+ok 2 - a fresh local wrapper does not excuse an unsupported server
+# Subtest: a server that cannot read the persisted memory is refused
+ok 3 - a server that cannot read the persisted memory is refused
+# Subtest: a malformed health body is reported as such instead of being guessed at
+ok 4 - a malformed health body is reported as such instead of being guessed at
+# Subtest: a health answer without a version is not silently accepted
+ok 5 - a health answer without a version is not silently accepted
+# Subtest: the probe presents the configured credentials and does not retry a rejection
+ok 6 - the probe presents the configured credentials and does not retry a rejection
+# Subtest: an unreachable endpoint gives up on its deadline instead of hanging
+ok 7 - an unreachable endpoint gives up on its deadline instead of hanging
+# Subtest: a reused endpoint whose backend changed between tasks is re-probed
+ok 8 - a reused endpoint whose backend changed between tasks is re-probed
+# Subtest: the leased image identity is published to the task and carried into provenance
+ok 9 - the leased image identity is published to the task and carried into provenance
+# Subtest: an endpoint that is not the leased image is refused rather than recorded
+ok 10 - an endpoint that is not the leased image is refused rather than recorded
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 677.183115
+
+=== node --test tests/test-issue-2209-verified-release-serving-provenance.mjs ===
+# Subtest: an accepted update is the backend that serves, and is named by, every later task
+ok 1 - an accepted update is the backend that serves, and is named by, every later task
+# Subtest: a sidecar that regressed to the pre-update release is refused, not recorded
+ok 2 - a sidecar that regressed to the pre-update release is refused, not recorded
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 588.671882

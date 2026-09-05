@@ -8,7 +8,7 @@
   "notes": [
     "`hex` is the Elixir ecosystem; its manifest is mix.exs / mix.lock.",
     "`pip` covers requirements.txt, Pipfile, pyproject.toml (setuptools and Poetry v2); `uv` is a separate value for uv.lock.",
-    "`npm`, `yarn`, `pnpm` and `bun` all read package.json but differ in lockfile.",
+    "`npm`, `yarn` and `bun` read package.json but differ in lockfile; there is no `pnpm` value -- pnpm-lock.yaml is covered by `npm`.",
     "Dependabot version updates are per-directory and per-ecosystem: a polyglot repository needs one `updates:` entry per (ecosystem, directory) pair."
   ]
 }

@@ -55,7 +55,9 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       languages: ['JavaScript', 'TypeScript'],
       manifests: ['package.json'],
       lockfiles: ['package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb'],
-      dependabot: ['npm', 'yarn', 'pnpm', 'bun'],
+      // pnpm is deliberately absent: Dependabot covers pnpm-lock.yaml under the
+      // `npm` ecosystem, and `package-ecosystem: pnpm` is rejected as invalid.
+      dependabot: ['npm', 'yarn', 'bun'],
       updateCommand: 'npx npm-check-updates -u && npm install',
       note: '`npm update` stays inside the existing semver ranges and never crosses a major; `npm-check-updates -u` rewrites package.json to the `latest` dist-tag.',
     },

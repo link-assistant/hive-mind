@@ -4,7 +4,8 @@ import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
 import { createCiCdIssue } from './fix.ci-cd-issue.lib.mjs';
-import { parseFixRepository } from './fix.ci-cd.lib.mjs';
+import { createUpdateDependenciesIssue } from './fix.update-dependencies-issue.lib.mjs';
+import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } from './fix.args.lib.mjs';
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
@@ -28,6 +29,42 @@ export function hasTaskSplitFlag(args) {
 
 export function hasTaskCiCdFlag(args) {
   return args.includes('--ci-cd');
+}
+
+/**
+ * `/task` modes that generate an issue from a repository instead of from the
+ * message text. `/fix` runs the same generators and then starts `/solve`;
+ * `/task` stops after the issue so a human can decide when to solve it.
+ */
+export const TASK_GENERATED_ISSUE_MODES = Object.freeze([
+  Object.freeze({
+    mode: FIX_MODE_CI_CD,
+    flag: '--ci-cd',
+    // "Collecting <context> context and creating a GitHub issue in <repo>..."
+    context: 'CI/CD',
+    followUp: '/solve --development-log --deep-analysis --auto-merge',
+    followUpDescription: 'the full CI/CD remediation workflow',
+  }),
+  Object.freeze({
+    mode: FIX_MODE_UPDATE_ALL_DEPENDENCIES,
+    flag: '--update-all-dependencies',
+    context: 'dependency',
+    followUp: '/solve --development-log --deep-analysis --auto-merge --update-all-dependencies',
+    followUpDescription: 'the full dependency update workflow',
+  }),
+]);
+
+export function hasTaskUpdateAllDependenciesFlag(args) {
+  return args.includes('--update-all-dependencies');
+}
+
+/**
+ * The generated-issue mode requested by a `/task` invocation, or `null` when
+ * the command creates an issue from the message text as usual.
+ */
+export function findTaskGeneratedIssueMode(args, commandName = 'task') {
+  if (commandName !== 'task') return null;
+  return TASK_GENERATED_ISSUE_MODES.find(mode => args.includes(mode.flag)) || null;
 }
 
 export function applyTaskCommandDefaults(args, commandName = 'task') {
@@ -65,7 +102,11 @@ export function buildTaskCommandArgs(text) {
   };
 }
 
-export function buildTaskCiCdCommandArgs(text) {
+/**
+ * Arguments of a `/task` invocation that names a repository rather than an
+ * issue (`--ci-cd`, `--update-all-dependencies`).
+ */
+export function buildTaskRepositoryCommandArgs(text) {
   const args = parseCommandArgs(text);
   const repositoryRaw = args.find(arg => !arg.startsWith('-') && parseFixRepository(arg)) || null;
   return {
@@ -74,6 +115,9 @@ export function buildTaskCiCdCommandArgs(text) {
     repository: repositoryRaw ? parseFixRepository(repositoryRaw) : null,
   };
 }
+
+/** @deprecated Use {@link buildTaskRepositoryCommandArgs}; kept for callers written before /task gained a second generated-issue mode. */
+export const buildTaskCiCdCommandArgs = buildTaskRepositoryCommandArgs;
 
 function getReplyText(message) {
   const reply = message?.reply_to_message;
@@ -106,7 +150,7 @@ function injectLanguageIfMissing(args, locale) {
 }
 
 export function registerTaskCommands(bot, options) {
-  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, resolveLocale = null } = options;
+  const { VERBOSE, taskEnabled, addBreadcrumb, isOldMessage, isForwarded, isGroupChat, isTopicAuthorized, buildAuthErrorMessage, isChatStopped, getStoppedChatRejectMessage, safeReply, executeAndUpdateMessage, createTaskIssue: createTaskIssueFn = createTaskIssue, createCiCdIssue: createCiCdIssueFn = createCiCdIssue, createUpdateDependenciesIssue: createUpdateDependenciesIssueFn = createUpdateDependenciesIssue, resolveLocale = null } = options;
 
   async function handleTaskCommand(ctx) {
     const commandName = getTaskCommandNameFromText(ctx.message?.text) || 'task';
@@ -147,33 +191,34 @@ export function registerTaskCommands(bot, options) {
 
     const parsedArgs = parseCommandArgs(ctx.message.text);
     const splitMode = commandName === 'split' || hasTaskSplitFlag(parsedArgs);
-    const ciCdMode = commandName === 'task' && hasTaskCiCdFlag(parsedArgs);
+    const generatedIssueMode = findTaskGeneratedIssueMode(parsedArgs, commandName);
 
-    if (splitMode && ciCdMode) {
-      await safeReply(ctx, '❌ `--ci-cd` and `--split` cannot be used together.', { reply_to_message_id: ctx.message.message_id });
+    if (splitMode && generatedIssueMode) {
+      await safeReply(ctx, `❌ \`${generatedIssueMode.flag}\` and \`--split\` cannot be used together.`, { reply_to_message_id: ctx.message.message_id });
       return;
     }
 
-    if (ciCdMode) {
-      const built = buildTaskCiCdCommandArgs(ctx.message.text);
+    if (generatedIssueMode) {
+      const built = buildTaskRepositoryCommandArgs(ctx.message.text);
       if (!built.repository) {
-        await safeReply(ctx, `❌ Missing GitHub repository URL. Usage: \`${commandDisplay} --ci-cd <github-repository-url>\`\n\nExample: \`${commandDisplay} --ci-cd https://github.com/owner/repo\``, { reply_to_message_id: ctx.message.message_id });
+        await safeReply(ctx, `❌ Missing GitHub repository URL. Usage: \`${commandDisplay} ${generatedIssueMode.flag} <github-repository-url>\`\n\nExample: \`${commandDisplay} ${generatedIssueMode.flag} https://github.com/owner/repo\``, { reply_to_message_id: ctx.message.message_id });
         return;
       }
 
-      const statusMessage = await ctx.reply(`Collecting CI/CD context and creating a GitHub issue in ${built.repository.fullName}...`, {
+      const createIssueFn = generatedIssueMode.mode === FIX_MODE_CI_CD ? createCiCdIssueFn : createUpdateDependenciesIssueFn;
+      const statusMessage = await ctx.reply(`Collecting ${generatedIssueMode.context} context and creating a GitHub issue in ${built.repository.fullName}...`, {
         reply_to_message_id: ctx.message.message_id,
         disable_web_page_preview: true,
       });
 
       try {
-        const createdIssue = await createCiCdIssueFn({
+        const createdIssue = await createIssueFn({
           repository: built.repository,
           log: message => VERBOSE && console.log(`[VERBOSE] ${message}`),
         });
-        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with /solve --development-log --deep-analysis --auto-merge to continue the full CI/CD remediation workflow.`);
+        await editTelegramMessage(ctx, statusMessage, `Created GitHub issue:\n${createdIssue.url}\n\nReply to this message with ${generatedIssueMode.followUp} to continue ${generatedIssueMode.followUpDescription}.`);
       } catch (error) {
-        await editTelegramMessage(ctx, statusMessage, `Error creating CI/CD issue:\n${error.message || String(error)}`);
+        await editTelegramMessage(ctx, statusMessage, `Error creating ${generatedIssueMode.context} issue:\n${error.message || String(error)}`);
       }
       return;
     }

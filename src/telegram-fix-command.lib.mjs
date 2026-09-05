@@ -2,9 +2,10 @@
  * Telegram `/fix` command (issue #1733).
  *
  * Spawns the `fix` CLI in a work session, exactly like `/solve` and `/task` do
- * for their own CLIs. `fix` creates the CI/CD remediation issue and then hands
- * it off to `/solve --development-log --deep-analysis --auto-merge` itself, so
- * this handler only has to validate the request and start the session.
+ * for their own CLIs. `fix` creates the issue for the requested mode (`--ci-cd`
+ * or `--update-all-dependencies`, issue #2184) and then hands it off to
+ * `/solve --development-log --deep-analysis --auto-merge` itself, so this
+ * handler only has to validate the request and start the session.
  */
 
 import { buildUserMention } from './buildUserMention.lib.mjs';
@@ -13,14 +14,14 @@ import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { createYargsConfig as createSolveYargsConfig, detectMalformedFlags } from './solve.config.lib.mjs';
 import { parseArgsWithYargs } from './telegram-solve-command.lib.mjs';
 import { validateModelName } from './models/index.mjs';
-import { parseFixRepository } from './fix.ci-cd.lib.mjs';
+import { FIX_MODES, parseFixRepository } from './fix.args.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { mergeArgsWithOverrides } from './args-overrides.lib.mjs';
 import { moveArgumentToFront, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
-import { partitionFixArgs } from './fix.ci-cd.lib.mjs';
+import { partitionFixArgs } from './fix.args.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
 
 export const FIX_COMMAND_NAMES = Object.freeze(['fix']);
@@ -34,12 +35,14 @@ export function getFixCommandNameFromText(text) {
 }
 
 /**
- * `--ci-cd` is the only mode `fix` supports today and it is required by the
- * CLI, so the chat command implies it instead of making every user type it.
+ * `fix` requires a mode and `--ci-cd` was the only one for its first release,
+ * so the chat command keeps implying it rather than making every user type it.
+ * Any explicitly requested mode (e.g. `--update-all-dependencies`) wins: adding
+ * `--ci-cd` on top would make the CLI reject the request as two modes at once.
  */
 export function applyFixCommandDefaults(args) {
-  const hasCiCd = args.includes('--ci-cd');
-  return hasCiCd ? args : [...args, '--ci-cd'];
+  const hasMode = FIX_MODES.some(mode => args.includes(mode.flag));
+  return hasMode ? args : [...args, '--ci-cd'];
 }
 
 export function findFixRepositoryArg(args) {
@@ -78,7 +81,7 @@ export function buildFixCommandArgs(text) {
  * Options `/fix` consumes itself; everything else is forwarded to `/solve` and
  * must therefore be a valid `solve` option.
  */
-export const FIX_OWN_OPTIONS = Object.freeze(['--ci-cd', '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
+export const FIX_OWN_OPTIONS = Object.freeze([...FIX_MODES.map(mode => mode.flag), '--isolation', '--dry-run', '--no-solve', '--no-auto-solve', '--solve', '--help', '-h', '--version']);
 
 /**
  * Reject a `/fix` request that contains any option `fix` or `solve` cannot act on.

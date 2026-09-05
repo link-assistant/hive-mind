@@ -6,37 +6,66 @@ Captured on 2026-09-05 UTC. Everything [`README.md`](README.md) quotes is commit
 
 Snapshots of every GitHub conversation this issue and its pull request have, fetched with `--paginate`. All three pull-request comment channels were captured separately, since `gh pr view --json comments` returns only the conversation one. A `[]` file is not a capture failure: there genuinely are no comments yet.
 
-| File                                 | SHA-256 (first 16) | Bytes | Contents                                                                                      |
-| ------------------------------------ | ------------------ | ----- | --------------------------------------------------------------------------------------------- |
-| `issue-2212-comments.json`           | `37517e5f3dc66819` | 3     | `repos/.../issues/2212/comments --paginate` — empty; the issue has no comments.               |
-| `issue-2212-task-snapshot.json`      | `591226f51eaffcec` | 2656  | The `gh issue view --json` snapshot taken when this task started, kept as the original brief. |
-| `issue-2212.json`                    | `ce8005fca6c27e23` | 5381  | Issue #2212 as returned by `repos/link-assistant/hive-mind/issues/2212`.                      |
-| `pr-2216-conversation-comments.json` | `37517e5f3dc66819` | 3     | `repos/.../issues/2216/comments --paginate` — empty.                                          |
-| `pr-2216-review-comments.json`       | `37517e5f3dc66819` | 3     | `repos/.../pulls/2216/comments --paginate` (inline review comments) — empty.                  |
-| `pr-2216-reviews.json`               | `37517e5f3dc66819` | 3     | `repos/.../pulls/2216/reviews --paginate` — empty.                                            |
-| `pr-2216.json`                       | `b6a2ccf342d73664` | 21285 | Pull request #2216 at capture time.                                                           |
+| File                                 | Bytes | Contents                                                                                      |
+| ------------------------------------ | ----- | --------------------------------------------------------------------------------------------- |
+| `issue-2212-comments.json`           | 3     | `repos/.../issues/2212/comments --paginate` — empty; the issue has no comments.               |
+| `issue-2212-task-snapshot.json`      | 2656  | The `gh issue view --json` snapshot taken when this task started, kept as the original brief. |
+| `issue-2212.json`                    | 5381  | Issue #2212 as returned by `repos/link-assistant/hive-mind/issues/2212`.                      |
+| `pr-2216-conversation-comments.json` | 3     | `repos/.../issues/2216/comments --paginate` — empty.                                          |
+| `pr-2216-review-comments.json`       | 3     | `repos/.../pulls/2216/comments --paginate` (inline review comments) — empty.                  |
+| `pr-2216-reviews.json`               | 3     | `repos/.../pulls/2216/reviews --paginate` — empty.                                            |
+| `pr-2216.json`                       | 21285 | Pull request #2216 at capture time.                                                           |
 
 ## `data/research/`
 
 Verbatim copies of the GitHub documentation the analysis quotes, taken from the `github/docs` sources (so the raw markdown, including the unresolved variables, can be checked) plus one extract of a rendered page. `docs/case-studies/issue-2212/data/` is listed in `.prettierignore` so these copies are never reformatted.
 
-| File                                                   | SHA-256 (first 16) | Bytes | Contents                                                                                                                                              |
-| ------------------------------------------------------ | ------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github-docs-adding-sub-issues.md`                     | `853497f4cdc0f167` | 3962  | Source of docs.github.com "Adding sub-issues": the 100-per-parent limit and the 8 nesting levels.                                                     |
-| `github-docs-best-practices-for-using-the-rest-api.md` | `7e553b6f693b5e28` | 11043 | Source of "Best practices for using the REST API": one second between mutative requests, and how to back off from a rate-limit error.                 |
-| `github-docs-linking-a-pull-request-to-an-issue.md`    | `77d2383e11069fb0` | 5075  | Source of "Linking a pull request to an issue": the per-issue closing syntax, and the ten-issue limit that applies to manual linking only.            |
-| `github-docs-rate-limits-for-the-rest-api.md`          | `74d4f0421323825f` | 9100  | Source of "Rate limits for the REST API", for the primary/secondary distinction.                                                                      |
-| `github-docs-rest-sub-issues.excerpt.md`               | `d12800a0ff662487` | 626   | Extract of the rendered REST sub-issues page: the endpoints and the secondary-rate-limit notes. The full page is 600 KB of HTML and is not committed. |
-| `github-docs-sub-issues.md`                            | `cb847356932a8b81` | 420   | Source of the REST sub-issues page; its body is autogenerated from the OpenAPI description.                                                           |
-| `github-docs-variables-projects.yml`                   | `5d08e2a0ab6d5af5` | 888   | github/docs variable file that resolves `sub-issue_limit` to `100`.                                                                                   |
+| File                                                   | Bytes | Contents                                                                                                                                              |
+| ------------------------------------------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github-docs-adding-sub-issues.md`                     | 3962  | Source of docs.github.com "Adding sub-issues": the 100-per-parent limit and the 8 nesting levels.                                                     |
+| `github-docs-best-practices-for-using-the-rest-api.md` | 11043 | Source of "Best practices for using the REST API": one second between mutative requests, and how to back off from a rate-limit error.                 |
+| `github-docs-linking-a-pull-request-to-an-issue.md`    | 5075  | Source of "Linking a pull request to an issue": the per-issue closing syntax, and the ten-issue limit that applies to manual linking only.            |
+| `github-docs-rate-limits-for-the-rest-api.md`          | 9100  | Source of "Rate limits for the REST API", for the primary/secondary distinction.                                                                      |
+| `github-docs-rest-sub-issues.excerpt.md`               | 626   | Extract of the rendered REST sub-issues page: the endpoints and the secondary-rate-limit notes. The full page is 600 KB of HTML and is not committed. |
+| `github-docs-sub-issues.md`                            | 420   | Source of the REST sub-issues page; its body is autogenerated from the OpenAPI description.                                                           |
+| `github-docs-variables-projects.yml`                   | 888   | github/docs variable file that resolves `sub-issue_limit` to `100`.                                                                                   |
 
 ## `data/logs/`
 
 Test suites, the fake-`gh` experiment and the real read-only preview, captured on this branch.
 
-| File                                          | SHA-256 (first 16) | Bytes | Contents                                                                                                                                       |
-| --------------------------------------------- | ------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `example-preview-hive-mind.log`               | `35823b5729a8ef06` | 12170 | `node examples/solve-repository-mode-preview.mjs https://github.com/link-assistant/hive-mind` — a real, read-only run against this repository. |
-| `experiment-repository-mode.log`              | `5fac5a638c9db215` | 2772  | `node experiments/issue-2212-repository-mode.mjs` — the full flow against a fake `gh`.                                                         |
-| `test-solve-repository-mode-2212.log`         | `292a1f3fc4efd9a8` | 3169  | `node tests/test-solve-repository-mode-2212.mjs` — 47 assertions, all passing.                                                                 |
-| `test-telegram-solve-repository-url-2212.log` | `b17b3926b6e2dad5` | 1589  | `node tests/test-telegram-solve-repository-url-2212.mjs` — 20 assertions, all passing.                                                         |
+| File                                          | Bytes | Contents                                                                                                                                       |
+| --------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `example-preview-hive-mind.log`               | 12170 | `node examples/solve-repository-mode-preview.mjs https://github.com/link-assistant/hive-mind` — a real, read-only run against this repository. |
+| `experiment-repository-mode.log`              | 2772  | `node experiments/issue-2212-repository-mode.mjs` — the full flow against a fake `gh`.                                                         |
+| `test-solve-repository-mode-2212.log`         | 3169  | `node tests/test-solve-repository-mode-2212.mjs` — 47 assertions, all passing.                                                                 |
+| `test-telegram-solve-repository-url-2212.log` | 1589  | `node tests/test-telegram-solve-repository-url-2212.mjs` — 20 assertions, all passing.                                                         |
+
+## SHA-256
+
+Full digests, with paths relative to `data/`, so the whole capture can be verified in one command:
+
+```bash
+cd docs/case-studies/issue-2212/data && grep -E '^[0-9a-f]{64}  ' ../MANIFEST.md | sha256sum --check
+```
+
+```text
+37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570  github/issue-2212-comments.json
+591226f51eaffcec898b71e130b14836d3676b0c6c4d56c16b00598de8614e8a  github/issue-2212-task-snapshot.json
+ce8005fca6c27e23de336bba55fbc121e24b1cbf9c3c5e718ea4322b3ebaa4bd  github/issue-2212.json
+37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570  github/pr-2216-conversation-comments.json
+37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570  github/pr-2216-review-comments.json
+37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570  github/pr-2216-reviews.json
+b6a2ccf342d736641e4ceb5b07d3029e53d85ca569d2cd26aebd897fc266cdb2  github/pr-2216.json
+35823b5729a8ef06fcfa202c1b7757f2927d61328e72caee8ee4b01bb117b63d  logs/example-preview-hive-mind.log
+5fac5a638c9db215a5a7359835c420704b6bd3f802146ead4740873dd50fb890  logs/experiment-repository-mode.log
+292a1f3fc4efd9a8ad4b87ba71d0be17b9cca00c14300efd456610ace954d088  logs/test-solve-repository-mode-2212.log
+b17b3926b6e2dad5a9f9e7317fcce0eda69f3ff55ad0e91322fc91d103c7a943  logs/test-telegram-solve-repository-url-2212.log
+853497f4cdc0f16756136a5da8c312c8f3d92409dc2fa9156a82f2d820443668  research/github-docs-adding-sub-issues.md
+7e553b6f693b5e28abdde4c9634df5174edede713eb425d4b01f361867d8cc6e  research/github-docs-best-practices-for-using-the-rest-api.md
+77d2383e11069fb07968f69e102de1b0472b8c8dd0c0bd60e6c938ace050c15c  research/github-docs-linking-a-pull-request-to-an-issue.md
+74d4f0421323825f2f3649fc5fd9059efdc6ee4f853d5662f3d66f63ccf06efd  research/github-docs-rate-limits-for-the-rest-api.md
+d12800a0ff6624872dbe3ca7efa67f746d0d4ca4b7b352630149b124691750a7  research/github-docs-rest-sub-issues.excerpt.md
+cb847356932a8b81a31724dfd0b5999519dd28df2aaf98eee528ed7cbdf0503f  research/github-docs-sub-issues.md
+5d08e2a0ab6d5af5ac5faee1388099890903619ad8f80a173a84f6327526f58a  research/github-docs-variables-projects.yml
+```

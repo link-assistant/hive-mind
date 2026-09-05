@@ -56,7 +56,7 @@ const imageOf = args => {
  * @param {object} [options]
  * @param {object} [options.images] - Local image reference → content digest.
  * @param {object} [options.pull] - Image reference → digest a `docker pull` installs.
- * @param {object|Function} [options.health] - `/health` payload, or a function of the running image.
+ * @param {object|Function} [options.health] - `/health` payload, or a function of `(reference, digest)` of the running image.
  * @param {object} [options.memory] - `formal-ai memory <subcommand>` → JSON payload.
  * @param {string} [options.memorySha256] - What `sha256sum` reports for a file in the volume.
  * @returns {object} `{ run, calls, containers, networks, volumes, images, createContainer, ... }`
@@ -68,6 +68,10 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     networks: new Map(),
     volumes: new Set(),
     images: new Map(Object.entries(images)),
+    // Content addresses the daemon holds, tagged or not. Retagging a reference
+    // leaves the previous image on the host as a dangling one, still runnable
+    // by its ID — which is exactly what issue #2207's fix depends on.
+    digests: new Set(Object.values(images)),
     memory,
     memorySha256,
     health,
@@ -81,6 +85,34 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
   };
 
   simulator.ran = pattern => simulator.calls.some(call => (typeof pattern === 'string' ? call.includes(pattern) : pattern.test(call)));
+
+  /**
+   * Resolve a reference the way the daemon does: a tag, or a content address.
+   *
+   * Real Docker accepts an image ID (`sha256:…`, what `docker image inspect
+   * --format {{.Id}}` prints) everywhere a tag is accepted, and that is the
+   * whole mechanism issue #2207's fix relies on — booting the *accepted*
+   * revision cannot be diverted by a tag that moved afterwards. A simulator that
+   * only knew tags would have reported the accepted image as absent.
+   */
+  simulator.resolveImage = reference => {
+    if (simulator.images.has(reference)) return simulator.images.get(reference);
+    if (simulator.digests.has(reference)) return reference;
+    return null;
+  };
+
+  /** Move a tag to a different build, the way a registry push does. */
+  simulator.retag = (reference, digest) => {
+    simulator.images.set(reference, digest);
+    simulator.digests.add(digest);
+  };
+
+  /** The tag that currently points at a content address, for `/health` lookups. */
+  const referenceOf = image => {
+    if (simulator.images.has(image)) return image;
+    for (const [reference, digest] of simulator.images.entries()) if (digest === image) return reference;
+    return image;
+  };
 
   const attach = (networkName, containerName) => {
     const network = simulator.networks.get(networkName);
@@ -173,8 +205,11 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     const name = flagValue(args, '--name');
     if (simulator.containers.has(name)) fail(`Error response from daemon: Conflict. The container name "/${name}" is already in use`);
     const image = imageOf(args);
-    if (!simulator.images.has(image)) fail(`Unable to find image '${image}' locally`);
-    simulator.containers.set(name, { image, imageDigest: simulator.images.get(image), running: true, networks: new Map() });
+    const digest = simulator.resolveImage(image);
+    if (!digest) fail(`Unable to find image '${image}' locally`);
+    // `{{.Config.Image}}` echoes the reference the container was created from,
+    // so a container booted by digest reports the digest.
+    simulator.containers.set(name, { image, imageDigest: digest, running: true, networks: new Map() });
     const network = flagValue(args, '--network');
     if (network) attach(network, name);
     return `${name}-id`;
@@ -186,14 +221,14 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
 
     if (args[0] === 'inspect') return { stdout: inspectContainer(args) };
     if (args[0] === 'image' && args[1] === 'inspect') {
-      const digest = simulator.images.get(args[2]);
+      const digest = simulator.resolveImage(args[2]);
       if (!digest) fail(`Error: No such image: ${args[2]}`);
       return { stdout: digest };
     }
     if (args[0] === 'pull') {
       if (pullError) fail(pullError);
       const image = args[args.length - 1];
-      if (pull[image]) simulator.images.set(image, pull[image]);
+      if (pull[image]) simulator.retag(image, pull[image]);
       return { stdout: simulator.images.get(image) ?? '' };
     }
     if (args[0] === 'network') return { stdout: handleNetwork(args) };
@@ -202,7 +237,7 @@ export const createDockerSimulator = ({ images = {}, pull = {}, health = DEFAULT
     if (args[0] === 'exec') {
       const container = simulator.containers.get(args[1]);
       if (!container?.running) fail(`Error response from daemon: container ${args[1]} is not running`);
-      const payload = typeof simulator.health === 'function' ? simulator.health(container.image) : simulator.health;
+      const payload = typeof simulator.health === 'function' ? simulator.health(referenceOf(container.image), container.imageDigest) : simulator.health;
       if (!payload) fail('curl: (7) Failed to connect');
       return { stdout: JSON.stringify(payload) };
     }

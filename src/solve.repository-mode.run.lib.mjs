@@ -23,9 +23,30 @@ import { parseGitHubUrl } from './github-url-parser.lib.mjs';
 import { createTaskIssue } from './task.issue-creation.lib.mjs';
 import { buildAddSubIssueApiArgs } from './task.split.lib.mjs';
 import { MAX_SUB_ISSUES_PER_PARENT, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, selectOldestOpenIssues } from './solve.repository-mode.lib.mjs';
+import { isRateLimitError } from './github-rate-limit.lib.mjs';
 
 /** Labels applied best-effort to the generated combined issue. */
 export const REPOSITORY_MODE_ISSUE_LABELS = Object.freeze(['enhancement']);
+
+/**
+ * Pause between two sub-issue POSTs.
+ *
+ * GitHub's own documentation warns that "creating content too quickly using
+ * this endpoint may result in secondary rate limiting"
+ * (https://docs.github.com/en/rest/issues/sub-issues), and its best-practice
+ * guide asks for at least one second between mutative requests. Attaching 100
+ * sub-issues therefore costs about a minute — negligible next to a solve run,
+ * and much cheaper than being throttled halfway through.
+ */
+export const SUB_ISSUE_ATTACH_DELAY_MS = 1000;
+
+/** Attempts per sub-issue when GitHub answers with a rate-limit error. */
+export const SUB_ISSUE_ATTACH_MAX_ATTEMPTS = 3;
+
+/** Backoff before retrying a rate-limited sub-issue attachment. */
+export const SUB_ISSUE_ATTACH_BACKOFF_MS = Object.freeze([5000, 15000]);
+
+const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function runCommand(command, args, options = {}) {
   return new Promise(resolve => {
@@ -126,28 +147,55 @@ export async function prepareRepositoryModeIssue({ repository, limit = MAX_SUB_I
  * would be worse than solving the rest (the issue is still listed in the
  * combined issue body either way).
  *
+ * A rate-limited attachment is retried with a bounded backoff, and the requests
+ * are spaced out, because this endpoint is explicitly documented as prone to
+ * secondary rate limiting when content is created quickly.
+ *
  * @param {object} params
  * @param {{owner: string, repo: string, number: number}} params.parentIssue
  * @param {Array<{number: number, id: number}>} params.issues
  * @param {Function} [params.run]
  * @param {Function} [params.log]
+ * @param {number} [params.delayMs] - pause between requests (0 disables it)
+ * @param {number} [params.maxAttempts] - attempts per sub-issue on rate limits
+ * @param {Function} [params.sleep] - test override for the waiting
  * @returns {Promise<{attached: Array<object>, failed: Array<{issue: object, error: string}>}>}
  */
-export async function attachSubIssues({ parentIssue, issues, run = runCommand, log = null }) {
+export async function attachSubIssues({ parentIssue, issues, run = runCommand, log = null, delayMs = SUB_ISSUE_ATTACH_DELAY_MS, maxAttempts = SUB_ISSUE_ATTACH_MAX_ATTEMPTS, sleep = defaultSleep }) {
   const attached = [];
   const failed = [];
+  const list = Array.isArray(issues) ? issues : [];
 
-  for (const issue of Array.isArray(issues) ? issues : []) {
-    try {
-      if (!Number.isInteger(issue.id) || issue.id <= 0) {
-        throw new Error(`missing REST id for issue #${issue.number}`);
+  for (let index = 0; index < list.length; index++) {
+    const issue = list[index];
+    if (index > 0 && delayMs > 0) await sleep(delayMs);
+
+    let lastError = null;
+    for (let attempt = 1; attempt <= Math.max(1, maxAttempts); attempt++) {
+      try {
+        if (!Number.isInteger(issue.id) || issue.id <= 0) {
+          throw new Error(`missing REST id for issue #${issue.number}`);
+        }
+        await commandOutput(run, 'gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: issue.id }));
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        // Only rate limits are worth retrying: "already has a parent" and the
+        // like would fail identically however long we wait.
+        if (attempt >= Math.max(1, maxAttempts) || !isRateLimitError(error)) break;
+        const waitMs = SUB_ISSUE_ATTACH_BACKOFF_MS[Math.min(attempt - 1, SUB_ISSUE_ATTACH_BACKOFF_MS.length - 1)];
+        await log?.(`   ⏳ Rate limited while attaching #${issue.number}; retrying in ${Math.round(waitMs / 1000)}s (attempt ${attempt + 1}/${maxAttempts})...`);
+        await sleep(waitMs);
       }
-      await commandOutput(run, 'gh', buildAddSubIssueApiArgs({ parentIssue, subIssueId: issue.id }));
-      attached.push(issue);
-    } catch (error) {
-      const message = error?.message ? String(error.message).split('\n')[0] : String(error);
+    }
+
+    if (lastError) {
+      const message = lastError?.message ? String(lastError.message).split('\n')[0] : String(lastError);
       failed.push({ issue, error: message });
       await log?.(`   ⚠️  Could not attach #${issue.number} as a sub-issue: ${message}`);
+    } else {
+      attached.push(issue);
     }
   }
 
@@ -160,7 +208,7 @@ export async function attachSubIssues({ parentIssue, issues, run = runCommand, l
  * @param {object} params
  * @returns {Promise<{owner, repo, number, url, prepared, attached, failed}>}
  */
-export async function createRepositoryModeIssue({ repository, prepared, run = runCommand, log = null }) {
+export async function createRepositoryModeIssue({ repository, prepared, run = runCommand, log = null, attachOptions = {} }) {
   const issue = await createTaskIssue({
     repository,
     title: prepared.title,
@@ -175,6 +223,7 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
     issues: prepared.selected,
     run,
     log,
+    ...attachOptions,
   });
 
   return { ...issue, prepared, attached, failed };
@@ -192,9 +241,10 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
  * @param {Function} [params.run]
  * @param {number} [params.limit]
  * @param {boolean} [params.dryRun] - prepare only; do not create anything
+ * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
  * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, error?: string}>}
  */
-export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false }) {
+export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {} }) {
   const repository = parseRepositoryModeUrl(url);
   if (!repository) return { handled: false };
 
@@ -227,10 +277,11 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
 
   await emit('');
   await emit('📝 Creating the combined issue...');
+  await emit(`   Then attaching ${prepared.selected.length} issue(s) as sub-issues, one request per second to stay clear of GitHub's secondary rate limit...`);
 
   let issue;
   try {
-    issue = await createRepositoryModeIssue({ repository, prepared, run, log: emit });
+    issue = await createRepositoryModeIssue({ repository, prepared, run, log: emit, attachOptions });
   } catch (error) {
     return { handled: true, error: `Could not create the combined issue in ${repository.fullName}: ${error.message}` };
   }
@@ -258,6 +309,7 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
 
 export default {
   REPOSITORY_MODE_ISSUE_LABELS,
+  SUB_ISSUE_ATTACH_DELAY_MS,
   parseRepositoryModeUrl,
   fetchOpenIssues,
   prepareRepositoryModeIssue,

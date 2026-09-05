@@ -32,6 +32,8 @@ const result = await resolveRepositoryModeTarget({
   url: 'https://github.com/o/r',
   run: fakeRun,
   log: async message => console.log(message),
+  // No throttling here: the experiment talks to a fake `gh`, not to GitHub.
+  attachOptions: { delayMs: 0 },
 });
 
 console.log('\n--- result ---');

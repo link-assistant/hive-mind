@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict';
 
 import { MAX_SUB_ISSUES_PER_PARENT, REPOSITORY_MODE_MARKER, buildClosingKeywordBlock, buildCombinedIssueBody, buildCombinedIssueTitle, buildOpenIssuesApiArgs, buildRepositoryModeSummaryLines, isPullRequestEntry, normalizeOpenIssueEntry, selectOldestOpenIssues } from '../src/solve.repository-mode.lib.mjs';
-import { attachSubIssues, parseRepositoryModeUrl, prepareRepositoryModeIssue, resolveRepositoryModeTarget } from '../src/solve.repository-mode.run.lib.mjs';
+import { SUB_ISSUE_ATTACH_BACKOFF_MS, SUB_ISSUE_ATTACH_DELAY_MS, attachSubIssues, parseRepositoryModeUrl, prepareRepositoryModeIssue, resolveRepositoryModeTarget } from '../src/solve.repository-mode.run.lib.mjs';
 import { DEFAULT_ENSURE_SUB_ISSUES_LIMIT, buildEnsureSubIssuesFeedback, buildMissingReferenceBlock, findMissingSubIssueReferences, formatEnsureSubIssuesLimit, normalizeEnsureSubIssuesLimit, normalizeSubIssueEntry } from '../src/solve.ensure-sub-issues.detect.lib.mjs';
 import { SOLVE_OPTION_DEFINITIONS, parseArguments } from '../src/solve.config.lib.mjs';
 import { validateGitHubUrl } from '../src/solve.validation.lib.mjs';
@@ -205,6 +205,9 @@ test('summary lines mention the skipped issues only when there are any', () => {
 // Orchestration against a fake `gh`
 // ---------------------------------------------------------------------------
 
+// Tests must not pay the real one-second-per-request throttle.
+const NO_THROTTLE = Object.freeze({ delayMs: 0 });
+
 const makeFakeRun = (entries, { createFails = false, attachFailsFor = [] } = {}) => {
   const calls = [];
   const run = async (command, args) => {
@@ -240,7 +243,7 @@ test('prepare collects the open issues without creating anything', async () => {
 
 test('resolve creates one combined issue and attaches every issue as a sub-issue', async () => {
   const { run, calls } = makeFakeRun([issueEntry(1, { id: 101 }), issueEntry(3, { id: 103 })]);
-  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run });
+  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
 
   assert.equal(result.handled, true);
   assert.equal(result.error, undefined);
@@ -257,7 +260,7 @@ test('resolve creates one combined issue and attaches every issue as a sub-issue
 
 test('resolve turns on deep analysis and the sub-issue check for the generated issue', async () => {
   const { run } = makeFakeRun([issueEntry(1)]);
-  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run });
+  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.argvOverrides['deep-analysis'], true);
   assert.equal(result.argvOverrides.deepAnalysis, true);
   assert.equal(result.argvOverrides['ensure-all-sub-issues-addressed'], true);
@@ -273,7 +276,7 @@ test('resolve leaves issue and pull request URLs untouched', async () => {
 
 test('resolve reports a repository with no open issues instead of creating an empty issue', async () => {
   const { run, calls } = makeFakeRun([issueEntry(1, { pullRequest: true })]);
-  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run });
+  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.handled, true);
   assert.match(result.error, /no open issues/);
   assert.equal(calls.filter(call => call[1] === 'issue').length, 0);
@@ -281,7 +284,7 @@ test('resolve reports a repository with no open issues instead of creating an em
 
 test('resolve reports a failure to create the combined issue', async () => {
   const { run } = makeFakeRun([issueEntry(1)], { createFails: true });
-  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run });
+  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.handled, true);
   assert.match(result.error, /Could not create the combined issue/);
 });
@@ -291,7 +294,7 @@ test('a single unattachable issue does not abort the whole run', async () => {
   // run must continue with the rest.
   const { run } = makeFakeRun([issueEntry(1, { id: 101 }), issueEntry(2, { id: 102 })], { attachFailsFor: [101] });
   const messages = [];
-  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, log: async message => messages.push(message) });
+  const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, log: async message => messages.push(message), attachOptions: NO_THROTTLE });
   assert.equal(result.issue.attached.length, 1);
   assert.equal(result.issue.failed.length, 1);
   assert.equal(result.issue.failed[0].issue.number, 1);
@@ -305,6 +308,49 @@ test('attachSubIssues rejects entries without a REST id instead of sending a bad
   assert.equal(failed.length, 1);
   assert.match(failed[0].error, /missing REST id/);
   assert.equal(calls.length, 0);
+});
+
+test('attachSubIssues spaces the requests out to stay clear of the secondary rate limit', async () => {
+  // GitHub documents this endpoint as prone to secondary rate limiting when
+  // content is created quickly, so requests must not be fired back to back.
+  const { run } = makeFakeRun([]);
+  const waits = [];
+  await attachSubIssues({
+    parentIssue: { owner: 'o', repo: 'r', number: 1 },
+    issues: [
+      { number: 1, id: 101 },
+      { number: 2, id: 102 },
+      { number: 3, id: 103 },
+    ],
+    run,
+    sleep: async ms => waits.push(ms),
+  });
+  // One pause between consecutive requests, none before the first.
+  assert.deepEqual(waits, [SUB_ISSUE_ATTACH_DELAY_MS, SUB_ISSUE_ATTACH_DELAY_MS]);
+});
+
+test('attachSubIssues retries a rate-limited attachment and gives up on other errors', async () => {
+  let attempts = 0;
+  const run = async () => {
+    attempts++;
+    if (attempts < 3) return { code: 1, stdout: '', stderr: 'You have exceeded a secondary rate limit' };
+    return { code: 0, stdout: '{}', stderr: '' };
+  };
+  const waits = [];
+  const { attached, failed } = await attachSubIssues({ parentIssue: { owner: 'o', repo: 'r', number: 1 }, issues: [{ number: 7, id: 107 }], run, delayMs: 0, sleep: async ms => waits.push(ms) });
+  assert.equal(attempts, 3);
+  assert.equal(attached.length, 1);
+  assert.equal(failed.length, 0);
+  assert.deepEqual(waits, [...SUB_ISSUE_ATTACH_BACKOFF_MS]);
+
+  let otherAttempts = 0;
+  const failingRun = async () => {
+    otherAttempts++;
+    return { code: 1, stdout: '', stderr: 'Issue already has a parent' };
+  };
+  const other = await attachSubIssues({ parentIssue: { owner: 'o', repo: 'r', number: 1 }, issues: [{ number: 8, id: 108 }], run: failingRun, delayMs: 0, sleep: async () => {} });
+  assert.equal(otherAttempts, 1, 'a non rate-limit error must not be retried');
+  assert.equal(other.failed.length, 1);
 });
 
 // ---------------------------------------------------------------------------

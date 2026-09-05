@@ -1,0 +1,44 @@
+
+================================================================================
+Issue #2212: /solve accepts a repository URL in the Telegram bot
+================================================================================
+
+📋 a repository URL parses as type "repo"
+
+✅ parseGitHubUrl(repo URL).valid
+✅ parseGitHubUrl(repo URL).type
+✅ parseGitHubUrl(repo URL).owner
+✅ parseGitHubUrl(repo URL).repo
+✅ parseGitHubUrl(repo URL).number is absent
+
+📋 the allowedTypes gate (reproduction + fix)
+
+✅ OLD allowedTypes ["issue","pull"] rejects a repository URL
+✅ NEW allowedTypes accepts a repository URL
+✅ NEW allowedTypes still accepts an issue URL
+✅ NEW allowedTypes still accepts a pull request URL
+✅ NEW allowedTypes still rejects an issues list URL
+
+📋 source guard: the /solve handler allows repository URLs
+
+✅ /solve allowedTypes contains "repo"
+✅ /solve allowedTypes still contains "issue"
+✅ /solve allowedTypes still contains "pull"
+
+📋 info block label for a repository URL
+
+✅ urlKind for "issue"
+✅ urlKind for "pull"
+✅ urlKind for "repo"
+✅ repository info block shows the repository URL
+✅ repository info block is not labelled as an issue
+✅ telegram-bot.mjs maps a repo URL to the generic 'url' label
+
+📋 the entity pre-check tolerates a missing issue/PR number
+
+✅ validateGitHubEntityExistence guards the issue/PR check with `if (number)`
+
+================================================================================
+Results: 20 passed, 0 failed
+================================================================================
+

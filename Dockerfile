@@ -39,6 +39,10 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
+# Pinned at 2.4.0 because it is the newest konard/box tag actually pullable:
+# box fixed the stale-runtime duplication in 2.5.0/2.6.0 but never published
+# either tag to a registry this build can reach (link-foundation/box#117), so
+# the runtime block below still has to re-install Node.js and Bun by hand.
 FROM konard/box:2.4.0
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
@@ -107,7 +111,13 @@ SHELL ["/bin/bash", "-c"]
 # repositories that need something newer used to download their own node/bun
 # into /tmp on every run and leave the copy behind — a second accumulation of
 # versions on top of the image's own. Reported upstream as
-# link-foundation/box#112 so the base stops shipping a stale Node.js.
+# link-foundation/box#112, which box fixed in its 2.5.0/2.6.0 sources — but
+# neither tag was ever published anywhere this build can pull from: Docker Hub
+# stops at konard/box:2.4.0 (2026-06-21) because the release job's Docker Hub
+# login expired, and box's GHCR packages are private. The FROM pin above
+# therefore stays at 2.4.0 and this layer keeps installing the runtimes itself;
+# tracked upstream as link-foundation/box#117. Once a fixed base is pullable,
+# bump the FROM pin and re-check whether this block is still needed.
 #
 # Pin the runtimes here (bump these ARGs like any other pin):
 #   - HIVE_MIND_NODE_VERSION must stay >= the `engines.node` floor in package.json;
@@ -123,7 +133,7 @@ SHELL ["/bin/bash", "-c"]
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
 ARG HIVE_MIND_NODE_VERSION=24.20.0
-ARG HIVE_MIND_BUN_VERSION=1.4.1
+ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \
     PREVIOUS_GLOBAL_LIB="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules" && \

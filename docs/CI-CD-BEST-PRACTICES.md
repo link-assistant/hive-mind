@@ -249,6 +249,7 @@ Automated release workflows ensure:
 - **OIDC trusted publishing** - No API tokens needed in CI (npm, PyPI, crates.io)
 - **Validated releases only** - All checks must pass before publishing
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
+- **A rule-blocked push is not a failed release** - When a repository ruleset requires that changes arrive through a pull request, the release job opens one for its version bump instead of dying on the rejection. That path, and the rebase-and-retry path for a lost race, are two different recoveries for two rejections that print the same word (see principle 10)
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -293,6 +294,35 @@ jobs:
 By default, a concurrency group keeps at most one running and one pending job; a newer pending writer replaces the older pending writer. If every queued write must run, add `queue: max` to the writer's concurrency block (up to 100 jobs can wait). `queue: max` cannot be combined with `cancel-in-progress: true`, and execution order follows when jobs start waiting rather than workflow dispatch order, so write jobs should remain idempotent. See [GitHub's concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) for the current queue limits and semantics.
 
 Use `!cancelled()` instead of `always()` in job conditions so cancellation propagates correctly through the job graph. A bare `always()` can keep downstream work running after cancellation.
+
+**Serialisation orders writers; it does not rebase them.** The concurrency group decides _when_ each writer runs, not _what_ it has checked out. `actions/checkout` checks out `github.sha` — the commit that triggered the run — so the second writer in the queue starts one or more commits behind the branch the instant the first one lands, and its push is rejected:
+
+```
+ ! [rejected]        main -> main (non-fast-forward)
+```
+
+The bullets above without this one convert "two writers collide" into "the second writer reliably fails" — better, because it is deterministic and loud, but still a broken release. `link-foundation/browser-commander` implemented the group to the letter (three language releases in three workflow files, zero overlap in their timings) and two of its three releases still ended on that line. Each run looked like ordinary flaky CI, so the damage accumulated unnoticed: the Rust crate reached 0.10.11 on crates.io while `Cargo.toml` on `main` still said 0.9.0, and the Python package was never published at all, because the job dies at a changelog push that sits before the publish step.
+
+**Do not fix it with `ref: main` on the checkout.** That silences the rejection by building, testing and publishing a tree that is not the tree CI validated, with nothing in the log to say so. The rejection is the honest outcome; what is missing is the recovery.
+
+**Give every write job a push that classifies the rejection, then rebases and retries.** A repository-ruleset rejection (GH006, GH013 — "Changes must be made through a pull request") also prints `[rejected]`, and no number of rebases can ever satisfy a rule; it needs the pull-request path instead (see principle 9). Retrying it burns the queue slot and reports the wrong cause.
+
+```js
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const result = await run('git', ['push', remote, branch]);
+  if (result.code === 0) return { pushed: true, attempt };
+  // A rule can never be satisfied by a rebase: land the same commit via a PR.
+  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Auth, network, a missing remote: rebasing would hide the real error.
+  if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
+  await run('git', ['pull', '--rebase', remote, branch]);
+}
+```
+
+- **Never `--force`, and never `--force-with-lease`, on a shared branch.** Both turn a lost race into a silent deletion of whatever the writer ahead of you landed. Rebasing is the point: the later commit has to end up on top of the earlier one.
+- **Recompute after the rebase whatever was derived before it.** A version number, a changelog entry or a tag chosen against the stale tip may already be taken by the writer that won the queue. Re-read the state instead of replaying the plan.
+- **Report success only after the push landed.** A step that sets `version_committed=true` before the push is confirmed leaves the downstream publish job working from a commit that exists only on that runner.
+- **Bound the retries and name the reason in the log.** A handful of attempts with a short delay covers a queue; an unbounded loop against a branch that is genuinely protected turns a fast failure into a long one.
 
 ### 11. Secrets Detection
 

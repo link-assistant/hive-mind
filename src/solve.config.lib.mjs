@@ -65,6 +65,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     default: false,
     hidden: true,
   },
+  'tool-update': {
+    type: 'boolean',
+    description: 'Check for a newer version of the agentic CLI before starting the task (issue #2202). Use --no-tool-update to skip.',
+    default: true,
+  },
   'tool-connection-check': {
     type: 'boolean',
     description: 'Perform tool connection check (enabled by default, use --no-tool-connection-check to skip). Does NOT affect model validation.',
@@ -696,6 +701,12 @@ export const SOLVE_OPTION_DEFINITIONS = {
     alias: ['keep-going-until-all-requirements-are-fully-done', 'keep-working', 'keep-going'],
     default: undefined,
   },
+  'ensure-all-sub-issues-addressed': {
+    type: 'string',
+    description: '[EXPERIMENTAL] After the main solve completes, check that the pull request description closes every GitHub native sub-issue of the issue being solved with a reference GitHub actually recognizes. When references are missing, automatically restart the AI tool and ask it to double check that each of those sub-issues was really addressed in this single pull request. Accepts a number of restarts (default: 5), or "forever"/"unlimited" to remove the limit. Bare flag means the default of 5. Enabled automatically when solving a repository URL.',
+    alias: ['ensure-all-sub-issues', 'ensure-sub-issues'],
+    default: undefined,
+  },
   escalate: {
     type: 'string',
     description: '[EXPERIMENTAL] Start solving with a cheaper/lower-tier model and automatically escalate to a more capable (more expensive) model while unfinished work remains. Accepts a model range "<lower>-<upper>" using short Claude tier names (ladder: haiku < sonnet < opus < fable), e.g. "sonnet-opus". A single name (e.g. "opus") means just that tier. Bare flag means "sonnet-fable". The idea: iterate cheaply first so expensive models do more reading and less writing.',
@@ -1056,6 +1067,26 @@ export const parseArguments = async (yargs = getLinoYargsFactory(), hideBinFn = 
     } else if (argv.keepWorkingUntilAllRequirementsAreFullyDone === undefined) {
       // Not provided: keep it disabled (do not coerce the string-type default).
       argv.keepWorkingUntilAllRequirementsAreFullyDone = undefined;
+    }
+  }
+
+  // --ensure-all-sub-issues-addressed normalization (issue #2212)
+  // Same value semantics as --keep-working-until-all-requirements-are-fully-done:
+  // a number of restarts, the keywords "forever"/"unlimited"/"infinite", or no
+  // value (bare flag => default of 5). Final numeric normalization happens at
+  // runtime in solve.ensure-sub-issues.detect.lib.mjs.
+  {
+    const ensureSubIssuesAliases = ['--ensure-all-sub-issues-addressed', '--ensure-all-sub-issues', '--ensure-sub-issues'];
+    const ensureSubIssuesProvided = ensureSubIssuesAliases.some(alias => hasRawOption(rawArgs, alias));
+    if (ensureSubIssuesProvided) {
+      const current = argv.ensureAllSubIssuesAddressed;
+      if (current === true || current === '' || current === undefined || current === null) {
+        argv.ensureAllSubIssuesAddressed = 5;
+      } else if (typeof current === 'string') {
+        argv.ensureAllSubIssuesAddressed = current.trim();
+      }
+    } else if (argv.ensureAllSubIssuesAddressed === undefined) {
+      argv.ensureAllSubIssuesAddressed = undefined;
     }
   }
 

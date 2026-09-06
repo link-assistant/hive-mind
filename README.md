@@ -328,6 +328,9 @@ solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
 # Continue working on existing PR
 solve https://github.com/owner/repo/pull/456 --model opus
 
+# Solve every open issue of a repository with one pull request (repository mode)
+solve https://github.com/owner/repo
+
 # Resume from Claude session when limit is reached
 solve https://github.com/owner/repo/issues/123 --resume session-id
 
@@ -359,6 +362,8 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 ```
+
+> **📦 Repository mode**: pass a repository URL instead of an issue URL and solve collects every open issue of that repository (oldest first, at most 100 — GitHub's sub-issue limit per parent), creates one combined issue that lists them as GitHub native sub-issues, and solves that issue — so a single pull request can close all of them at once. It also turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed`. See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options).
 
 **Most frequently used options:**
 
@@ -532,6 +537,8 @@ Current tool defaults in Hive Mind:
 See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) for the full per-tool defaults and reasoning mappings.
 
 > **📖 Free Models Guide**: See [docs/FREE_MODELS.md](./docs/FREE_MODELS.md) for comprehensive information about all free models including OpenCode Zen and Kilo Gateway providers.
+
+> **📖 Live model list**: run `hive-models` (or `/models` in Telegram) to see which models are reachable right now, including ones released after this installation was published. See [docs/MODELS.md](./docs/MODELS.md).
 
 #### `/hive` - Run Hive Orchestration
 

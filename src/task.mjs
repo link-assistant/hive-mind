@@ -43,6 +43,7 @@ if (earlyArgs.length === 0 || earlyArgs.includes('--help') || earlyArgs.includes
   console.log('  --model, -m        Model to use');
   console.log('  --isolation        agent-commander isolation mode [default: docker]');
   console.log('  --use-router       [EXPERIMENTAL] Route model traffic through the hive-mind-router sidecar (issue #2164)');
+  console.log('  --no-tool-update   Skip the agentic CLI version check before starting');
   console.log('  --dry-run          Print split output without creating GitHub issues');
   console.log('  --verbose, -v      Enable verbose logging');
   console.log('  --output-format    Output format (text or json) [default: text]');
@@ -292,6 +293,17 @@ try {
   await log(formatAligned('🤖', 'Model:', selectedModel));
   await log(formatAligned('🔒', 'Isolation:', argv.isolation));
   await log(formatAligned('✂️', 'Split mode:', argv.split ? `enabled (count: ${argv.splitCount})` : 'disabled'));
+
+  // Issue #2202 (R6): refresh the agentic CLI before the run drives it, for the
+  // same reason /solve does — and, for the same reason, not on a dry run, which
+  // drives no CLI at all. Never fatal: a registry outage must not cost the
+  // operator their task.
+  if (!argv.dryRun && argv.toolUpdate !== false) {
+    const { describeFreshnessResult, ensureAgenticCliFreshness } = await import('./agentic-cli-freshness.lib.mjs');
+    const freshness = await ensureAgenticCliFreshness({ tools: [argv.tool], verbose: argv.verbose, log: message => log(message, { verbose: true }), ignoreTasks: argv.split ? [taskInput] : [] });
+    const freshnessLine = describeFreshnessResult(freshness);
+    if (freshnessLine) await log(`🔄 ${freshnessLine}`);
+  }
 
   const result = argv.split ? await runSplitMode() : await runClarifyOrDecomposeMode();
 

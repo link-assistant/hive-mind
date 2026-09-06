@@ -47,6 +47,7 @@ const { startAutoRestartUntilMergeable } = await import('./solve.auto-merge.lib.
 const { runAutoEnsureRequirements } = await import('./solve.auto-ensure.lib.mjs');
 const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs');
 const { runEscalation } = await import('./solve.escalate.lib.mjs');
+const { runEnsureAllSubIssuesAddressed } = await import('./solve.ensure-sub-issues.lib.mjs');
 const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
 const exitHandler = await import('./exit-handler.lib.mjs');
 const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
@@ -152,6 +153,25 @@ if (!issueUrl) {
   await log('Run "solve.mjs --help" for more information', { level: 'error' });
   await safeExit(1, 'Missing required GitHub URL');
 }
+// Issue #2212: repository mode. When a repository URL is given instead of an
+// issue/pull request URL, collect every open issue of that repository, create a
+// single combined issue that lists them as GitHub native sub-issues, and solve
+// that issue instead — so one pull request can close all of them at once.
+{
+  const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
+  const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
+  if (repositoryMode.handled) {
+    if (repositoryMode.error) {
+      await log(`Error: ${repositoryMode.error}`, { level: 'error' });
+      await safeExit(1, 'Repository mode failed');
+    }
+    issueUrl = repositoryMode.issueUrl;
+    argv['issue-url'] = repositoryMode.issueUrl;
+    // Repository mode always asks for deep analysis and always double checks
+    // that the pull request lists every issue it is supposed to close.
+    Object.assign(argv, repositoryMode.argvOverrides);
+  }
+}
 // Validate GitHub URL using validation module (more thorough check)
 const urlValidation = validateGitHubUrl(issueUrl);
 if (!urlValidation.isValid) {
@@ -220,6 +240,18 @@ if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.s
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)
 const prepareOnly = argv.dryRun || argv.onlyPrepareCommand;
 const skipToolConnectionCheck = prepareOnly || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false;
+// Issue #2202 (R6): before we start driving the agentic CLI, make sure it is the
+// version the task needs — a stale binary is the usual reason a brand-new model
+// name is rejected. Best effort by design: `ensureAgenticCliFreshness` never
+// throws, and the updater underneath refuses to swap a binary while other tasks
+// are running. This run's own issue is excluded, because the idle gate detects
+// tasks by scanning process command lines and would otherwise find us.
+if (!prepareOnly && argv.toolUpdate !== false) {
+  const { describeFreshnessResult, ensureAgenticCliFreshness } = await import('./agentic-cli-freshness.lib.mjs');
+  const freshness = await ensureAgenticCliFreshness({ tools: [tool], verbose: argv.verbose, log: message => log(message, { verbose: true }), ignoreTasks: [issueUrl] });
+  const freshnessLine = describeFreshnessResult(freshness);
+  if (freshnessLine) await log(`🔄 ${freshnessLine}`);
+}
 const { cascadePlaywrightMcpDisable, ensureSolvePlaywrightMcpReady } = await import('./playwright-mcp.lib.mjs');
 await cascadePlaywrightMcpDisable(argv, log);
 if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCheck, argv.model, argv))) {
@@ -1069,6 +1101,10 @@ try {
   applyRestartResult(await runEscalation({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
   applyRestartResult(await runAutoEnsureRequirements({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, argv, cleanupClaudeFile }));
   applyRestartResult(await runKeepWorkingUntilDone({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile, resultSummary }));
+  // Issue #2212: runs last on purpose — the earlier loops may still rewrite the
+  // pull request description, so the closing references are verified against its
+  // final state.
+  applyRestartResult(await runEnsureAllSubIssuesAddressed({ issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, argv, cleanupClaudeFile }));
   // Start watch mode if enabled OR if we need to handle uncommitted changes
   if (argv.verbose) {
     await log('');
@@ -1185,6 +1221,20 @@ try {
       logsAttached = true;
     }
   }
+  // Issue #1516: Cleanup after all completion signals (it was before verifyResults, which
+  // caused premature commits). Issue #2211: but strictly BEFORE the auto-merge watch loop.
+  // It used to run after it, and `--auto-merge` therefore merged the placeholder into the
+  // default branch and only then reverted it on a branch nobody would look at again:
+  //
+  //   19:20:07  Initial commit with task details   (.gitkeep touched)
+  //   19:28:09  Merge pull request #3              (.gitkeep leaked into main)
+  //   19:28:13  Revert "Initial commit with task details"  <- 4 seconds too late
+  //
+  // https://github.com/konard/audio-decomposer/pull/3, docs/case-studies/issue-2211.
+  // Reverting first also lets the loop see the pull request as it really is: with the
+  // placeholder gone, a pull request that implemented nothing has an empty diff and the
+  // loop restarts the AI instead of merging an empty change.
+  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
   // Issue #2182: the AI working session is over at this point — everything below is
   // monitoring and merging, not working. The pull request must therefore be back in
   // "ready for review" BEFORE the auto-merge watch loop starts, because that loop can
@@ -1225,8 +1275,6 @@ try {
   }
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;
-  // Issue #1516: Cleanup after all signals (was before verifyResults, caused premature commits)
-  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash, argv);
   await finalizeDevelopmentLog(); // Issue #1596/#2048: idempotent no-op on the success path (already committed before readiness signal); still preserves late/error work.
   await endWorkSession({ isContinueMode, prNumber, argv, log, formatAligned, $, logsAttached });
 } catch (error) {

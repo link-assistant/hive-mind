@@ -46,7 +46,7 @@ import fs from 'node:fs';
 import { promisify } from 'node:util';
 
 import { FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast } from './formal-ai-version.lib.mjs';
-import { ensureFormalAiSidecarImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
+import { ensureFormalAiSidecarImage, readAcceptedFormalAiImage, resolveFormalAiSidecarImage } from './formal-ai-image.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
@@ -90,7 +90,7 @@ export const FORMAL_AI_MEMORY_PATH = `${FORMAL_AI_MEMORY_MOUNT}/memory.lino`;
  * issue #2154 taught us that "which image" and "is it actually pullable" are the
  * same question.
  */
-export { FORMAL_AI_IMAGE_REPOSITORY, resolveFormalAiSidecarImage, resolveFormalAiSidecarImageCandidates } from './formal-ai-image.lib.mjs';
+export { FORMAL_AI_IMAGE_REPOSITORY, readAcceptedFormalAiImage, resolveAcceptedFormalAiImageCandidates, resolveFormalAiSidecarImage, resolveFormalAiSidecarImageCandidates } from './formal-ai-image.lib.mjs';
 
 /** Applied to the sidecar, its network and its volume so reconciliation can find them. */
 export const FORMAL_AI_SIDECAR_LABEL = 'com.link-assistant.hive-mind.formal-ai';
@@ -102,7 +102,13 @@ const SIDECAR_LOCK_NAME = 'formal-ai-sidecar';
 const DEFAULT_HEALTH_ATTEMPTS = 60;
 const DEFAULT_HEALTH_DELAY_MS = 1000;
 
-const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null });
+/**
+ * `lastUpdate` is the accepted-release record (issue #2207) and `serving` is the
+ * provenance of the container that last answered a lease (issue #2208). Neither
+ * is derivable from `image`/`imageDigest`, which are only a cache of whatever is
+ * running right now.
+ */
+const EMPTY_STATE = Object.freeze({ version: 1, image: null, imageReference: null, imageDigest: null, startedAt: null, leases: [], lastUpdate: null, serving: null });
 
 /**
  * True when a task will be driven by Formal AI.
@@ -350,14 +356,21 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       // #2154 the reference went straight into `docker run`, so a registry that
       // refused the pull surfaced as an unreadable `Command failed: docker run …`
       // dump and the task died even though a usable image sat on the host.
-      const resolved = container.exists && container.image ? { image: container.image, source: 'running-sidecar', pulled: false } : await ensureFormalAiSidecarImage({ env, run, timeoutMs: imageTimeoutMs, log, verbose });
+      //
+      // `accepted` is what issue #2207 was missing: without it the candidate
+      // list was rebuilt from the bootstrap pin on every cold start, so an
+      // update that had already been pulled, migrated and verified was silently
+      // discarded by the very next task.
+      const accepted = readAcceptedFormalAiImage(state);
+      const resolved = container.exists && container.image ? { image: container.image, reference: container.image, source: 'running-sidecar', pulled: false } : await ensureFormalAiSidecarImage({ env, accepted, run, timeoutMs: imageTimeoutMs, log, verbose });
       const image = resolved.image;
+      const imageReference = resolved.reference || image;
 
       await ensureFormalAiNetwork({ run, timeoutMs, log, verbose });
       await ensureFormalAiMemoryVolume({ image, run, timeoutMs, log, verbose });
 
       if (!container.exists) {
-        if (log) await log(`🧠 Starting the Formal AI sidecar (${image}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
+        if (log) await log(`🧠 Starting the Formal AI sidecar (${imageReference}${imageReference === image ? '' : ` @ ${image}`}, ${resolved.source}) on the internal network '${FORMAL_AI_SIDECAR_NETWORK_NAME}'`);
         await dockerText(run, buildFormalAiSidecarRunArgs({ image, env }), { timeoutMs });
         container = await inspectDockerContainer(FORMAL_AI_SIDECAR_CONTAINER_NAME, { run, timeoutMs });
       }
@@ -375,15 +388,27 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
       // and then fail on the agent-mode API the tasks depend on.
       const reportedVersion = health.health?.version ?? null;
       if (reportedVersion && !isFormalAiVersionAtLeast(reportedVersion, FORMAL_AI_MINIMUM_VERSION)) {
-        throw new Error(`Formal AI sidecar image ${image} (${resolved.source}) runs formal-ai ${reportedVersion}, but Hive Mind requires >= ${FORMAL_AI_MINIMUM_VERSION}. Rebuild or repin the image (HIVE_MIND_FORMAL_AI_IMAGE) before running Formal AI tasks.`);
+        throw new Error(`Formal AI sidecar image ${imageReference} (${resolved.source}) runs formal-ai ${reportedVersion}, but Hive Mind requires >= ${FORMAL_AI_MINIMUM_VERSION}. Rebuild or repin the image (HIVE_MIND_FORMAL_AI_IMAGE) before running Formal AI tasks.`);
       }
 
       const address = await readFormalAiSidecarAddress({ run, timeoutMs });
       const acquiredAt = now().toISOString();
       const nextLeases = [...leases.filter(lease => lease.sessionId !== sessionId), { sessionId, tool, model, acquiredAt }];
-      writeFormalAiSidecarState({ ...state, image: container.image || image, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases }, { env, fsImpl });
+      // The provenance of what is *actually serving* this lease, so a task's
+      // evidence can name the release that answered its requests rather than
+      // whatever binary happens to sit next to the wrapper (issue #2208).
+      const serving = {
+        image: imageReference,
+        imageDigest: container.imageDigest ?? resolved.digest ?? null,
+        imageSource: resolved.source,
+        version: reportedVersion,
+        memorySchemaVersion: health.health?.memory?.schema_version ?? null,
+        acceptedAt: accepted?.updatedAt ?? null,
+        observedAt: acquiredAt,
+      };
+      writeFormalAiSidecarState({ ...state, image: container.image || image, imageReference, imageDigest: container.imageDigest, startedAt: state.startedAt || acquiredAt, leases: nextLeases, serving }, { env, fsImpl });
 
-      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${container.image || image} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${health.health?.version ?? 'unknown'}, memory schema=${health.health?.memory?.schema_version ?? 'unknown'}`);
+      if (verbose && log) await log(`[VERBOSE] formal-ai-sidecar: lease '${sessionId}' acquired (${nextLeases.length} active), image=${imageReference} (${resolved.source}), digest=${container.imageDigest ?? 'unknown'}, address=${address ?? 'unknown'}, formal-ai=${reportedVersion ?? 'unknown'}, memory schema=${serving.memorySchemaVersion ?? 'unknown'}`);
 
       return {
         address,
@@ -394,8 +419,14 @@ export const acquireFormalAiSidecar = async ({ sessionId, tool = null, model = n
         containerName: FORMAL_AI_SIDECAR_CONTAINER_NAME,
         memoryVolume: FORMAL_AI_MEMORY_VOLUME_NAME,
         image: container.image || image,
+        imageReference,
         imageSource: resolved.source,
-        imageDigest: container.imageDigest,
+        imageDigest: serving.imageDigest,
+        acceptedImage: accepted?.image ?? null,
+        acceptedDigest: accepted?.digest ?? null,
+        acceptedVersion: accepted?.version ?? null,
+        servingVersion: reportedVersion,
+        memorySchemaVersion: serving.memorySchemaVersion,
         health: health.health,
         leaseCount: nextLeases.length,
       };
@@ -453,6 +484,7 @@ export default {
   inspectDockerContainer,
   isFormalAiSidecarEnabled,
   isFormalAiTask,
+  readAcceptedFormalAiImage,
   readDockerImageDigest,
   readFormalAiSidecarAddress,
   readFormalAiSidecarState,

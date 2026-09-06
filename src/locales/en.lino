@@ -590,6 +590,7 @@ en
         usage "Usage: `/hive <github-url> [options]`"
         example "Example: `/hive https://github.com/owner/repo`"
         disabled "*/hive* - ❌ Disabled"
+      models "*/models* - List available models, merged from this installation and every live source. Usage: `/models [--tool claude|codex|...] [--details] [--refresh] [--all]`"
       limits "*/limits* - Show usage limits"
       version "*/version* - Show bot and runtime versions"
       language "*/language* `[en|ru|zh|hi]` - Set or show your preferred reply language (in-memory only, per-user)"
@@ -611,7 +612,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model

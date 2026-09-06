@@ -92,7 +92,7 @@ export function buildTelegramHelpMessage({ locale = null, chatId, chatType = '',
     message.push('');
   }
 
-  const simpleCommandKeys = ['telegram.help_solve_queue', 'telegram.help_limits', 'telegram.help_version', 'telegram.help_language', 'telegram.help_accept_invites', 'telegram.help_merge', 'telegram.help_merge_usage', 'telegram.help_merge_description', 'telegram.help_subscribe', 'telegram.help_help', 'telegram.help_stop_start', 'telegram.help_stop_uuid', 'telegram.help_log', 'telegram.help_terminal_watch'];
+  const simpleCommandKeys = ['telegram.help_solve_queue', 'telegram.help_models', 'telegram.help_limits', 'telegram.help_version', 'telegram.help_language', 'telegram.help_accept_invites', 'telegram.help_merge', 'telegram.help_merge_usage', 'telegram.help_merge_description', 'telegram.help_subscribe', 'telegram.help_help', 'telegram.help_stop_start', 'telegram.help_stop_uuid', 'telegram.help_log', 'telegram.help_terminal_watch'];
   for (const key of simpleCommandKeys) addLine(message, key, {}, locale);
   message.push('');
   addLine(message, 'telegram.help_notifications', {}, locale);

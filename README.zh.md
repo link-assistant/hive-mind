@@ -322,6 +322,9 @@ solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
 # Continue working on existing PR
 solve https://github.com/owner/repo/pull/456 --model opus
 
+# Solve every open issue of a repository with one pull request (repository mode)
+solve https://github.com/owner/repo
+
 # Resume from Claude session when limit is reached
 solve https://github.com/owner/repo/issues/123 --resume session-id
 
@@ -353,6 +356,8 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 ```
+
+> **📦 仓库模式**：传入仓库 URL（而不是 issue URL），solve 会收集该仓库的所有开放 issue（最旧优先，最多 100 个 —— GitHub 每个父 issue 的子 issue 上限），创建一个把它们列为 GitHub 原生子 issue 的合并 issue，并解决该 issue —— 这样一个 pull request 就能一次性关闭它们全部。该模式还会自动启用 `--deep-analysis` 和 `--ensure-all-sub-issues-addressed`。参见 [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)。
 
 **最常用选项：**
 
@@ -511,6 +516,8 @@ Free Models via Kilo Gateway (with --tool agent):
 ```
 
 > **📖 免费模型指南**：有关所有免费模型（包括 OpenCode Zen 和 Kilo Gateway 提供商）的全面信息，请参见 [docs/FREE_MODELS.zh.md](./docs/FREE_MODELS.zh.md)。
+
+> **📖 实时模型列表**：运行 `hive-models`（或在 Telegram 中使用 `/models`）即可查看当前可用的模型，包括本次安装发布之后才推出的模型。参见 [docs/MODELS.zh.md](./docs/MODELS.zh.md)。
 
 #### `/hive` - 运行蜂群编排
 

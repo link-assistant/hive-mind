@@ -49,8 +49,24 @@ export const dockerOk = async (run, args, options) => {
   }
 };
 
+/**
+ * Mask the secrets a `docker` argv carries.
+ *
+ * `execFile` builds a failed command's message as "Command failed: <argv…>",
+ * and the argvs assembled here carry real secrets: the router's
+ * `--env TOKEN_SECRET=…`, a leased `--env ROUTER_CATALOGUE_TOKEN=…`, a
+ * provider's `--api-key …`. stderr is preferred over that message precisely
+ * because it describes the failure without the command line, but stderr is
+ * empty when the process is killed on a timeout — so whatever survives is
+ * masked before anyone reads it.
+ */
+const maskDockerArgvSecrets = text =>
+  String(text ?? '')
+    .replace(/(--env[= ])([A-Za-z_][A-Za-z0-9_]*)=(\S+)/g, '$1$2=***')
+    .replace(/(--(?:api-key|token|secret|password)[= ])(\S+)/g, '$1***');
+
 /** The message a failed `docker` invocation should be reported with. */
-export const dockerErrorMessage = error => error?.stderr?.toString?.().trim() || error?.message || String(error);
+export const dockerErrorMessage = error => maskDockerArgvSecrets(error?.stderr?.toString?.().trim() || error?.message || String(error));
 
 /**
  * Inspect a container without treating "absent" as an error.

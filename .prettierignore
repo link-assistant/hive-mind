@@ -61,3 +61,9 @@ reports/
 
 # Collected CI/CD investigation evidence: verbatim upstream copies must not be reformatted
 dev/log/
+
+# Collected upstream/vendor evidence: verbatim copies must not be reformatted
+docs/case-studies/issue-2202/data/
+docs/case-studies/issue-2209/data/
+docs/case-studies/issue-2211/data/
+docs/case-studies/issue-2212/data/

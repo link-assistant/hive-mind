@@ -1,0 +1,48 @@
+ok - reproduction: validateGitHubUrl alone still rejects a repository URL
+ok - repository mode recognizes exactly the URLs the validator rejects
+ok - open-issues query parameters go into the endpoint, never into -f fields
+ok - open-issues request always paginates and clamps per_page to 1..100
+ok - pull requests are recognized and excluded from the selection
+ok - selection is oldest-first regardless of input order
+ok - ties on created_at fall back to the issue number
+ok - over the limit only the oldest N are kept and the rest are reported as skipped
+ok - GitHub sub-issue limit per parent is 100
+ok - excluded issue numbers are never selected
+ok - malformed entries are dropped instead of crashing the run
+ok - normalizeOpenIssueEntry keeps the REST database id needed by the sub-issues API
+ok - closing keywords are repeated per issue (GitHub ignores comma lists)
+ok - combined issue title reflects whether everything fit under the limit
+ok - combined issue body lists every issue and its required closing reference
+ok - combined issue body says how many issues were left out over the limit
+ok - summary lines mention the skipped issues only when there are any
+ok - prepare collects the open issues without creating anything
+ok - resolve creates one combined issue and attaches every issue as a sub-issue
+ok - resolve turns on deep analysis and the sub-issue check for the generated issue
+ok - resolve leaves issue and pull request URLs untouched
+ok - resolve reports a repository with no open issues instead of creating an empty issue
+ok - resolve reports a failure to create the combined issue
+ok - a single unattachable issue does not abort the whole run
+ok - attachSubIssues rejects entries without a REST id instead of sending a bad request
+ok - attachSubIssues spaces the requests out to stay clear of the secondary rate limit
+ok - attachSubIssues retries a rate-limited attachment and gives up on other errors
+ok - default restart limit is 5
+ok - limit normalization mirrors the keep-working semantics
+ok - sub-issue entries carry their own repository so cross-repo refs stay qualified
+ok - missing closing references are detected per sub-issue
+ok - a comma separated keyword list only counts for the first issue
+ok - a plain mention without a closing keyword does not count as addressed
+ok - fully qualified and URL references are recognized
+ok - no sub-issues means nothing can be missing
+ok - the reference block uses one keyword per issue and qualifies cross-repo issues
+ok - restart feedback names every missing sub-issue and the required references
+ok - restart feedback reports an unlimited limit as "unlimited"
+ok - --ensure-all-sub-issues-addressed is a documented (non-hidden) solve option
+ok - CLI: bare flag means the default of 5 restarts
+ok - CLI: an explicit count is honored
+ok - CLI: "forever" removes the limit
+ok - CLI: aliases work
+ok - CLI: flag absent leaves the feature disabled
+ok - solve.mjs resolves repository mode before validating the URL as an issue
+ok - solve.mjs runs the sub-issue check after the other post-solve loops
+ok - the restart iteration cannot recurse into itself
+All 47 issue #2212 repository-mode tests passed.

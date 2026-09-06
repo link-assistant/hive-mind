@@ -471,6 +471,9 @@ const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs'
 registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
+// Issue #2202 (R5): /models lists the merged model catalogue per tool.
+const { registerModelsCommand } = await import('./telegram-models-command.lib.mjs');
+const { handleModelsCommand } = registerModelsCommand(bot, { ...sharedCommandOpts, safeReply });
 const { registerSubscribeCommands } = await import('./telegram-subscribers.lib.mjs'); // #1688
 registerSubscribeCommands(bot, sharedCommandOpts);
 const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs');
@@ -609,7 +612,10 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  const validation = await validateGitHubUrl(userArgs, { createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
+  // Issue #2212: a repository URL is accepted too — solve then collects every open
+  // issue of that repository into one combined issue (with GitHub native sub-issues)
+  // and solves that issue, so a single pull request can close all of them.
+  const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['issue', 'pull', 'repo'], createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) {
@@ -702,7 +708,7 @@ async function handleSolveCommand(ctx) {
   let infoBlock = buildTelegramInfoBlock({
     locale: solveLocale,
     requester,
-    urlKind: validation.parsed?.type === 'pull' ? 'pullRequest' : 'issue',
+    urlKind: validation.parsed?.type === 'pull' ? 'pullRequest' : validation.parsed?.type === 'repo' ? 'url' : 'issue', // #2212: a repository URL is neither an issue nor a pull request
     url: escapeMarkdown(normalizedUrl),
     optionsRaw: userOptionsRaw ? escapeMarkdown(userOptionsRaw) : '',
     lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',
@@ -1027,7 +1033,7 @@ bot.on('message', async (ctx, next) => {
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, queue: handleSolveQueueCommand };
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, queue: handleSolveQueueCommand, models: handleModelsCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();

@@ -322,6 +322,9 @@ solve https://github.com/owner/repo/issues/123 --base-branch develop --fork
 # Continue working on existing PR
 solve https://github.com/owner/repo/pull/456 --model opus
 
+# Solve every open issue of a repository with one pull request (repository mode)
+solve https://github.com/owner/repo
+
 # Resume from Claude session when limit is reached
 solve https://github.com/owner/repo/issues/123 --resume session-id
 
@@ -353,6 +356,8 @@ review --repo owner/repo --pr 456
 ```bash
 solve <issue-url> [options]
 ```
+
+> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले, अधिकतम 100 — GitHub की प्रति parent sub-issue सीमा), उन्हें GitHub native sub-issues के रूप में सूचीबद्ध करने वाला एक संयुक्त issue बनाता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 
@@ -514,6 +519,8 @@ Free Models via Kilo Gateway (with --tool agent):
 ```
 
 > **📖 मुफ्त मॉडल गाइड**: OpenCode Zen और Kilo Gateway प्रदाताओं सहित सभी मुफ्त मॉडलों के बारे में व्यापक जानकारी के लिए [docs/FREE_MODELS.hi.md](./docs/FREE_MODELS.hi.md) देखें।
+
+> **📖 लाइव मॉडल सूची**: यह देखने के लिए कि इस समय कौन-से मॉडल उपलब्ध हैं — उनमें वे भी जो इस installation के प्रकाशित होने के बाद जारी हुए — `hive-models` चलाएँ (या Telegram में `/models`)। देखें [docs/MODELS.hi.md](./docs/MODELS.hi.md)।
 
 #### `/hive` - Hive ऑर्केस्ट्रेशन चलाएँ
 

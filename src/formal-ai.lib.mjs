@@ -92,6 +92,11 @@ export const resolveFormalAiToolExecution = async ({ tool, model, toolPath, work
     env: runtime.env,
     home: runtime.home,
     client: runtime.client,
+    // Issue #2208: provenance names the backend that answered, and the local
+    // wrapper under its own name — the two are not interchangeable.
+    backend: runtime.backend,
+    formalAiVersion: runtime.formalAiVersion,
+    formalAiWrapperVersion: runtime.formalAiWrapperVersion,
     stop: runtime.stop,
   };
 };

@@ -30,9 +30,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
-import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
+import { attachDockerNetwork, DEFAULT_IMAGE_TIMEOUT_MS, dockerErrorMessage, dockerOk, dockerText, ensureDockerVolume, ensureInternalDockerNetwork, inspectDockerContainer, readDockerImageDigest, readSidecarState, reconcileSidecarLeases, resolveSidecarStatePath, sleep, writeSidecarState } from './docker-sidecar.lib.mjs';
 import { drainTaskSessionData } from './router-session-drain.lib.mjs';
-import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES, resolveRouterBaseUrl } from './router-isolation.lib.mjs';
+import { buildRouterTaskWiringScript, getInternalRouterBaseUrl, resolveRouterBaseUrl, resolveRouterDialect, resolveRouterSidecarImage, ROUTER_CREDENTIAL_MOUNTS, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_GH_CONFIG_MOUNT, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_LABEL, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from './router-isolation.lib.mjs';
 import { withStateLock } from './state-lock.lib.mjs';
 
 const execFileAsync = promisify(execFile);
@@ -65,8 +65,10 @@ export const isRouterSidecarEnabled = (env = process.env) => {
   return raw !== '0' && raw !== 'false' && raw !== 'no';
 };
 
-/** Image the sidecar runs, overridable for pinning or a local build. */
-export const resolveRouterSidecarImage = (env = process.env) => String(env?.HIVE_MIND_ROUTER_IMAGE || '').trim() || ROUTER_SIDECAR_IMAGE;
+// Image resolution and the route dialect derived from it now live in
+// router-isolation.lib.mjs, the leaf both this module and the task wiring
+// import (issue #2202). Re-exported so callers keep their import site.
+export { resolveRouterDialect, resolveRouterSidecarImage };
 
 export const resolveRouterSidecarStatePath = (env = process.env) => resolveSidecarStatePath(STATE_FILE_NAME, env);
 
@@ -135,6 +137,17 @@ export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts
     args.push('--env', `${mount.envVar}=${mount.target}`, '--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
 
+  // The ChatGPT backend gates its newest models behind a recent client version,
+  // and answers `Model not found` for them when the header is absent — which is
+  // why the pin is at or above 0.120.0, where the router started sending one.
+  // Its bundled default tracks a recent Codex CLI, so it is deliberately left
+  // alone by default: forwarding whatever `codex` happens to be installed here
+  // could send an *older* version than the router already claims and re-gate the
+  // models this pin exists to reach. An operator who needs a specific one sets
+  // CODEX_CLIENT_VERSION and it is passed straight through.
+  const codexClientVersion = String(env?.CODEX_CLIENT_VERSION || '').trim();
+  if (codexClientVersion) args.push('--env', `CODEX_CLIENT_VERSION=${codexClientVersion}`);
+
   const extraArgs = String(env?.HIVE_MIND_ROUTER_EXTRA_ARGS || '').trim();
   if (extraArgs) args.push(...extraArgs.split(/\s+/));
 
@@ -151,8 +164,12 @@ export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts
  * `bun`, which is used here as the HTTP client instead of adding a dependency to
  * an image Hive Mind does not own.
  */
-export const checkRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs = 30_000 } = {}) => {
-  const probe = `fetch("https://127.0.0.1:${ROUTER_SIDECAR_PORT}/health").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))`;
+export const checkRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs = 30_000, env = process.env, dialect = null } = {}) => {
+  // /health on router 0.x, /api/health on 1.x — and a 404 either way if the
+  // wrong one is asked for, which would read as "unhealthy" and stall the
+  // acquire loop until it gave up (issue #2202).
+  const healthPath = (dialect || resolveRouterDialect({ env }).dialect).health;
+  const probe = `fetch("https://127.0.0.1:${ROUTER_SIDECAR_PORT}${healthPath}").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))`;
   // The certificate names the alias, not 127.0.0.1, and this probe is a
   // liveness check on a loopback socket inside the container — there is no
   // network for anyone to sit in the middle of. Verification is disabled for
@@ -160,9 +177,12 @@ export const checkRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_
   return dockerOk(run, ['exec', '--env', 'NODE_TLS_REJECT_UNAUTHORIZED=0', containerName, 'bun', '-e', probe], { timeoutMs });
 };
 
-export const waitForRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, attempts = DEFAULT_HEALTH_ATTEMPTS, delayMs = DEFAULT_HEALTH_DELAY_MS, sleepImpl = sleep, log = null, verbose = false } = {}) => {
+export const waitForRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, attempts = DEFAULT_HEALTH_ATTEMPTS, delayMs = DEFAULT_HEALTH_DELAY_MS, sleepImpl = sleep, log = null, verbose = false, env = process.env, dialect = null } = {}) => {
+  // Resolved once rather than per attempt: the answer cannot change between
+  // them, and probing the wrong path would fail every attempt identically.
+  const routes = dialect || resolveRouterDialect({ env }).dialect;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    if (await checkRouterSidecarHealth({ containerName, run })) {
+    if (await checkRouterSidecarHealth({ containerName, run, env, dialect: routes })) {
       if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: healthy after ${attempt} attempt(s)`);
       return { healthy: true, attempts: attempt };
     }
@@ -220,7 +240,7 @@ export const issueRouterTaskToken = async ({ sessionId, containerName = ROUTER_S
     if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: issued token ${tokenId || '(id unknown)'} for '${sessionId}'`);
     return { token, tokenId, error: null };
   } catch (error) {
-    return { token: null, tokenId: null, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { token: null, tokenId: null, error: dockerErrorMessage(error) };
   }
 };
 
@@ -355,7 +375,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
       try {
         await dockerText(run, buildRouterSidecarRunArgs({ image, tokenSecret, credentialMounts, env }), { timeoutMs });
       } catch (error) {
-        return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+        return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: dockerErrorMessage(error) };
       }
       startedAt = now().toISOString();
       if (log) await log(`🔀 Router sidecar started with ${credentialMounts.length} credential mount(s); tasks will not receive vendor credentials directly`);
@@ -365,7 +385,7 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
     // acquire, including the ones that reuse a running container.
     await attachDockerNetwork({ network: ROUTER_SIDECAR_NETWORK_NAME, container: ROUTER_SIDECAR_CONTAINER_NAME, alias: ROUTER_SIDECAR_NETWORK_ALIAS, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
 
-    const health = await waitForRouterSidecarHealth({ run, attempts: healthAttempts, delayMs: healthDelayMs, sleepImpl, log, verbose });
+    const health = await waitForRouterSidecarHealth({ run, attempts: healthAttempts, delayMs: healthDelayMs, sleepImpl, log, verbose, env });
     if (!health.healthy) {
       return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: 'router sidecar did not become healthy' };
     }
@@ -432,7 +452,7 @@ export const registerRouterProvider = async ({ providerArgs, containerName = ROU
     // `docker exec` bypasses the image entrypoint, so the binary is named again.
     await dockerText(run, ['exec', containerName, 'router', ...providerArgs], { timeoutMs });
   } catch (error) {
-    return { registered: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { registered: false, error: dockerErrorMessage(error) };
   }
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: registered provider '${providerArgs[providerArgs.indexOf('--name') + 1]}'`);
   return { registered: true, error: null };
@@ -479,7 +499,7 @@ export const wireRouterTaskContainer = async ({ sessionId, tool = 'claude', base
   try {
     await dockerText(run, ['exec', '--user', '0', sessionId, 'sh', '-c', script], { timeoutMs });
   } catch (error) {
-    return { wired: false, error: error?.stderr?.toString?.().trim() || error?.message || String(error) };
+    return { wired: false, error: dockerErrorMessage(error) };
   }
   if (verbose && log) await log(`[VERBOSE] ${LOG_PREFIX}: wired '${sessionId}' (CA installed, github=${githubMode}${routerIp ? ` via ${routerIp}` : ''})`);
   return { wired: true, error: null };

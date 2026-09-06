@@ -249,6 +249,7 @@ changeset-check:
 - **OIDC 受信发布** - CI 中无需 API token（npm、PyPI、crates.io）
 - **仅验证通过的发布** - 所有检查必须在发布前通过
 - **双触发模式** - 自动（合并时）和手动（工作流调度）
+- **被规则拒绝不等于发布失败** - 当仓库规则集要求变更必须经由拉取请求时，发布任务应为其版本升级开一个 PR，而不是死在这次拒绝上。该路径与竞争失败时的 rebase 重试路径，是对两种打印同一个词的拒绝的两种不同恢复方式（参见原则 10）
 
 **禁止在 PR 中手动更改版本** — 所有版本升级应由 CI 发布工作流管理：
 
@@ -293,6 +294,35 @@ jobs:
 默认情况下，一个并发分组最多保留一个运行中任务和一个待处理任务；新的待处理写入任务会替换旧的待处理任务。如果队列中的每次写入都必须执行，请在写入任务的并发配置中加入 `queue: max`（最多可等待 100 个任务）。`queue: max` 不能与 `cancel-in-progress: true` 同时使用；执行顺序依据任务开始等待的时间，而非工作流触发顺序，因此写入任务应保持幂等。
 
 在任务条件中使用 `!cancelled()` 而非 `always()`，以便取消操作正确地在任务图中传播。单独使用 `always()` 可能导致下游工作在取消后仍继续运行。
+
+**串行化只决定写入任务的顺序，并不会替它们执行 rebase。** 并发分组决定每个写入任务_何时_运行，而不是它检出了_什么_。`actions/checkout` 检出的是 `github.sha`——触发该次运行的提交——因此队列中的第二个写入任务在第一个任务落地的瞬间，就已经落后目标分支一个或多个提交，其推送会被拒绝：
+
+```
+ ! [rejected]        main -> main (non-fast-forward)
+```
+
+缺少这一条时，上面的建议只是把“两个写入任务相互冲突”变成“第二个写入任务必然失败”——这更好，因为它是确定且显眼的，但发布仍然是坏的。`link-foundation/browser-commander` 严格实现了该分组（三个工作流文件中的三个语言发布任务，时间上完全没有重叠），其三次发布中仍有两次止于这一行。每次运行看起来都像普通的不稳定 CI，于是损失在无人察觉中累积：crates.io 上的 Rust crate 已经到了 0.10.11，而 `main` 上的 `Cargo.toml` 仍写着 0.9.0；Python 包则根本没有发布过，因为任务死在了排在发布步骤之前的 changelog 推送上。
+
+**不要用 checkout 的 `ref: main` 来“修复”它。** 那样只是让拒绝消声，转而去构建、测试并发布一棵 CI 从未验证过的代码树，而日志里对此只字不提。拒绝才是诚实的结果；缺少的是恢复手段。
+
+**为每个写入任务提供一个先分类拒绝、再 rebase 重试的推送。** 仓库规则集的拒绝（GH006、GH013——“Changes must be made through a pull request”）同样会打印 `[rejected]`，而再多次 rebase 也无法满足规则；它需要的是拉取请求路径（参见原则 9）。重试只会浪费队列名额，并报告错误的原因。
+
+```js
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const result = await run('git', ['push', remote, branch]);
+  if (result.code === 0) return { pushed: true, attempt };
+  // 规则无法通过 rebase 满足：让同一个提交经由 PR 落地。
+  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // 认证、网络、缺失的 remote：rebase 会掩盖真正的错误。
+  if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
+  await run('git', ['pull', '--rebase', remote, branch]);
+}
+```
+
+- **在共享分支上永远不要 `--force`，也不要 `--force-with-lease`。** 两者都会把一次失败的竞争变成对前一个写入任务成果的静默删除。rebase 正是关键：较晚的提交必须落在较早的提交之上。
+- **rebase 之后，重新计算此前推导出的一切。** 基于过时分支尖端选定的版本号、changelog 条目或标签，可能已被赢得队列的那个写入任务占用。请重新读取状态，而不是重放原有计划。
+- **只有推送真正落地后才报告成功。** 在推送确认之前就设置 `version_committed=true` 的步骤，会让下游发布任务基于一个只存在于该 runner 上的提交继续工作。
+- **限制重试次数，并在日志中写明原因。** 少量重试配合短暂延迟足以覆盖排队；而针对确实受保护的分支进行无限循环，只会把快速失败拖成漫长失败。
 
 ### 11. 密钥检测
 

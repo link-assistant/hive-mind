@@ -249,6 +249,7 @@ Automated release workflows सुनिश्चित करते हैं:
 - **OIDC trusted publishing** - CI में कोई API tokens आवश्यक नहीं (npm, PyPI, crates.io)
 - **केवल validated releases** - Publishing से पहले सभी checks pass होने चाहिए
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
+- **Rule से रुका हुआ push विफल release नहीं है** - जब repository ruleset यह माँगता है कि बदलाव pull request से आएँ, तब release job अस्वीकृति पर मरने के बजाय अपने version bump के लिए एक PR खोलता है। यह रास्ता और हारी हुई दौड़ का rebase-and-retry रास्ता, एक ही शब्द छापने वाली दो अस्वीकृतियों के दो अलग recovery हैं (देखें सिद्धांत 10)
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -293,6 +294,35 @@ jobs:
 Default रूप से concurrency group में अधिकतम एक running और एक pending job रहता है; नया pending writer पुराने pending writer को बदल देता है। यदि हर queued write चलना आवश्यक है, तो writer के concurrency block में `queue: max` जोड़ें (अधिकतम 100 jobs प्रतीक्षा कर सकते हैं)। `queue: max` को `cancel-in-progress: true` के साथ उपयोग नहीं किया जा सकता, और execution order workflow dispatch order के बजाय jobs के प्रतीक्षा शुरू करने के समय पर आधारित होता है; इसलिए write jobs idempotent होने चाहिए।
 
 Job conditions में `always()` के बजाय `!cancelled()` उपयोग करें ताकि cancellation job graph में सही ढंग से propagate हो। केवल `always()` लगाने से cancellation के बाद भी downstream work चल सकता है।
+
+**Serialisation writer-ों का क्रम तय करता है, उनके लिए rebase नहीं करता।** Concurrency group यह तय करती है कि हर writer _कब_ चलेगा, यह नहीं कि उसने _क्या_ checkout किया है। `actions/checkout` `github.sha` को checkout करता है — वही commit जिसने run शुरू किया — इसलिए queue का दूसरा writer, पहले writer के land करते ही, branch से एक या अधिक commits पीछे शुरू होता है और उसका push अस्वीकार हो जाता है:
+
+```
+ ! [rejected]        main -> main (non-fast-forward)
+```
+
+इस बिंदु के बिना ऊपर की सलाह "दो writers टकराते हैं" को "दूसरा writer हर बार विफल होता है" में बदल देती है — यह बेहतर है, क्योंकि यह deterministic और स्पष्ट है, फिर भी release टूटा हुआ ही रहता है। `link-foundation/browser-commander` ने इस group को अक्षरशः लागू किया (तीन workflow files में तीन भाषाओं के releases, timings में शून्य overlap) और उसके तीन में से दो releases फिर भी इसी line पर समाप्त हुए। हर run सामान्य flaky CI जैसा दिखा, इसलिए नुकसान बिना ध्यान में आए जमा होता रहा: crates.io पर Rust crate 0.10.11 तक पहुँच गया जबकि `main` पर `Cargo.toml` अब भी 0.9.0 कहता था, और Python package कभी publish हुआ ही नहीं, क्योंकि job उस changelog push पर मरता है जो publish step से पहले आता है।
+
+**इसे checkout में `ref: main` से मत "ठीक" करें।** इससे अस्वीकृति तो चुप हो जाती है, पर आप उस tree को build, test और publish करते हैं जिसे CI ने validate नहीं किया, और log में इसका कोई निशान नहीं होता। अस्वीकृति ईमानदार परिणाम है; जो कमी है वह recovery की है।
+
+**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; वहाँ pull request वाला रास्ता चाहिए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
+
+```js
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const result = await run('git', ['push', remote, branch]);
+  if (result.code === 0) return { pushed: true, attempt };
+  // Rule को rebase से संतुष्ट नहीं किया जा सकता: वही commit PR के रास्ते land करें।
+  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Auth, network, गायब remote: rebase असली error को छिपा देता।
+  if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
+  await run('git', ['pull', '--rebase', remote, branch]);
+}
+```
+
+- **साझा branch पर कभी `--force` नहीं, और कभी `--force-with-lease` भी नहीं।** दोनों ही हारी हुई दौड़ को उस काम के चुपचाप मिटने में बदल देते हैं जो आपसे आगे वाले writer ने land किया था। Rebase ही मुद्दा है: बाद वाला commit पहले वाले के ऊपर बैठना चाहिए।
+- **Rebase के बाद वह सब दोबारा गणना करें जो उससे पहले निकाला गया था।** पुरानी tip के सापेक्ष चुना गया version number, changelog entry या tag उस writer द्वारा पहले ही लिया जा चुका हो सकता है जिसने queue जीती। योजना दोहराने के बजाय state दोबारा पढ़ें।
+- **सफलता तभी बताएँ जब push land कर चुका हो।** Push की पुष्टि से पहले `version_committed=true` सेट करने वाला step downstream publish job को ऐसे commit पर काम करने देता है जो केवल उसी runner पर मौजूद है।
+- **Retries की सीमा रखें और log में कारण बताएँ।** छोटी देरी के साथ कुछ प्रयास queue के लिए पर्याप्त हैं; वास्तव में protected branch के विरुद्ध अनंत loop तेज़ विफलता को लंबी विफलता बना देता है।
 
 ### 11. Secrets Detection
 

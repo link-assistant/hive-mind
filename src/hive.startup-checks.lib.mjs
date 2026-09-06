@@ -8,6 +8,9 @@
  * (see tests/hive-startup-checks-2175.test.mjs).
  */
 
+import { formatReclaimableSpaceLines } from './reclaimable-space.lib.mjs';
+import { resolveDockerImageReclaimMode } from './docker-image-reclaim.lib.mjs';
+
 /**
  * Run the startup checks, exiting through `safeExit` when one fails.
  *
@@ -20,9 +23,10 @@
  * @param {Function} deps.validateToolConnection
  * @param {Function} deps.validateClaudeConnection
  * @param {number} deps.EXIT_CODE_INSUFFICIENT_DISK_SPACE
+ * @param {Function} [deps.formatReclaimable] renders the guard's reclaimable-space summary (#2187)
  * @returns {Promise<{skipped: boolean}>}
  */
-export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE }) {
+export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE, formatReclaimable = formatReclaimableSpaceLines }) {
   if (argv.dryRun || argv.skipToolConnectionCheck || argv.toolConnectionCheck === false) {
     await log('⏩ Skipping system resource check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
     await log('⏩ Skipping AI tool connection check (dry-run mode or skip-tool-connection-check enabled)', { verbose: true });
@@ -34,11 +38,18 @@ export async function runStartupChecks({ argv, log, safeExit, ensureDiskSpaceFor
   // a generic error. `exitOnFailure` is deliberately not used: it calls process.exit(1)
   // directly, which skips the log-flushing safeExit path and printed no actionable reason.
   const startupRequiredDiskSpaceMB = argv.minDiskSpace || 10240;
-  const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, log });
+  const startupDiskGuard = await ensureDiskSpaceForWorker({ requiredMB: startupRequiredDiskSpaceMB, dockerImageReclaimMode: resolveDockerImageReclaimMode(argv), log });
   if (!startupDiskGuard.ok) {
     await log(`❌ Insufficient disk space to start: ${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required`, { level: 'error' });
+    // Issue #2187: "free space on this host" is only actionable if the operator
+    // is told where that space is — docker's reclaimable data, orphaned agent
+    // snapshot stores, toolchain versions superseded by newer ones.
+    for (const line of formatReclaimable(startupDiskGuard.reclaimable)) await log(line, { level: 'error' });
     await log('   Free space on this host, or run with --auto-cleanup so workspaces are removed after each task.', { level: 'error' });
     await safeExit(EXIT_CODE_INSUFFICIENT_DISK_SPACE, `Insufficient disk space (${startupDiskGuard.freeMB}MB available, ${startupRequiredDiskSpaceMB}MB required)`);
+    // safeExit normally ends the process; returning keeps a stubbed or failing
+    // exit from running the rest of the startup sequence anyway.
+    return { skipped: false, stopped: 'insufficient_disk_space' };
   }
 
   const systemCheck = await checkSystem({ minDiskSpaceMB: startupRequiredDiskSpaceMB, minMemoryMB: 256 }, { log });

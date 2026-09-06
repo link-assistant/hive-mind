@@ -28,6 +28,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 import { DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, getAgentDataHome, reclaimAgentSnapshotStores } from './agent-snapshot-store.lib.mjs';
+import { collectDockerImageReclaimPlan, normalizeDockerImageReclaimMode, reclaimDockerImages } from './docker-image-reclaim.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -218,6 +219,49 @@ export const reclaimSolverWorkspaces = async ({ requiredMB = 0, tmpRoot = DEFAUL
 };
 
 /**
+ * Reclaim superseded and dangling docker images (issue #2187).
+ *
+ * Off unless the caller asks for it: this runs inside every worker's pre-flight
+ * check, and touching the docker daemon is only appropriate when the run has
+ * opted into cleanup. The plan itself never removes the newest tag of a
+ * repository, `latest`, the pinned isolation tag, or anything a container
+ * references, so a host always keeps a usable Hive Mind image.
+ */
+const reclaimSupersededImages = async ({ mode, exec, log }) => {
+  if (normalizeDockerImageReclaimMode(mode, 'none') === 'none') return { removed: [], reclaimedBytes: 0 };
+  try {
+    const plan = await collectDockerImageReclaimPlan({ exec, mode });
+    if (!plan || plan.remove.length === 0) return { removed: [], reclaimedBytes: 0 };
+    await log(`   🐳 Reclaiming ${plan.remove.length} superseded docker image(s) before deferring work`);
+    const result = await reclaimDockerImages({ plan, exec, log });
+    return { removed: result.removed.map(image => image.reference), reclaimedBytes: result.reclaimedBytes };
+  } catch (error) {
+    await log(`   ⚠️  Could not reclaim docker images: ${error.message}`, { level: 'warning' });
+    return { removed: [], reclaimedBytes: 0 };
+  }
+};
+
+/**
+ * The reclaimable-space report, imported lazily so the disk guard (used by
+ * every worker) does not pull docker and toolchain scanning into its module
+ * graph until a run is actually short on space.
+ */
+const defaultCollectReclaimableSpace = async options => {
+  const { collectReclaimableSpace } = await import('./reclaimable-space.lib.mjs');
+  return collectReclaimableSpace(options);
+};
+
+/** Never let the diagnostic break the decision it is only annotating. */
+const measureReclaimableSpace = async ({ collectReclaimable, ...options }) => {
+  if (!collectReclaimable) return null;
+  try {
+    return await collectReclaimable(options);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Make sure `requiredMB` is free before a worker starts a task.
  *
  * Returns `{ ok: true }` when there is (or there now is) enough space, and
@@ -231,9 +275,11 @@ export const reclaimSolverWorkspaces = async ({ requiredMB = 0, tmpRoot = DEFAUL
  * `@link-assistant/agent` snapshot stores in the home directory, which no `/tmp`-scoped check
  * could see. Pass `agentDataHome: null` to opt out.
  */
-export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS } = {}) => {
+export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = DEFAULT_TMP_ROOT, protectedPaths = new Set(), minIdleMs = DEFAULT_MIN_IDLE_MS, maxWaitMs = 0, pollIntervalMs = 30000, log = async () => {}, now = Date.now, sleep = defaultSleep, getFreeMB = getFreeDiskSpaceMB, fileSystem = fsPromises, procRoot = '/proc', remove = defaultRemove, agentDataHome = getAgentDataHome(), agentSnapshotMinIdleMs = DEFAULT_AGENT_SNAPSHOT_MIN_IDLE_MS, collectReclaimable = defaultCollectReclaimableSpace, dockerImageReclaimMode = 'none', exec = execFileAsync } = {}) => {
   const startedAt = now();
   const reclaimed = [];
+  const reclaimedImages = [];
+  let triedImages = false;
   let freeMB = await getFreeMB(tmpRoot);
   if (freeMB === null) {
     await log('   💾 Could not determine free disk space — continuing and letting the solver pre-flight check decide', { verbose: true });
@@ -266,9 +312,32 @@ export const ensureDiskSpaceForWorker = async ({ requiredMB = 10240, tmpRoot = D
       await log(`   ✅ Disk space recovered: ${freeMB}MB free after reclaiming ${result.removed.length} workspace(s)`);
       return { ok: true, freeMB, reason: 'reclaimed', reclaimed, waitedMs: now() - startedAt };
     }
+    // Issue #2187: images superseded by a rebuild are dead weight no in-flight
+    // task can release, so reclaim them here rather than deferring work while
+    // gigabytes of replaced tags sit on the disk. Once per call: a second pass
+    // would find the same plan already applied.
+    if (!triedImages) {
+      triedImages = true;
+      const imageResult = await reclaimSupersededImages({ mode: dockerImageReclaimMode, exec, log });
+      if (imageResult.removed.length > 0) {
+        reclaimedImages.push(...imageResult.removed);
+        const afterImages = await getFreeMB(tmpRoot);
+        if (afterImages !== null && afterImages !== undefined) freeMB = afterImages;
+        if (freeMB >= requiredMB) {
+          await log(`   ✅ Disk space recovered: ${freeMB}MB free after reclaiming ${imageResult.removed.length} superseded docker image(s)`);
+          return { ok: true, freeMB, reason: 'reclaimed', reclaimed, reclaimedImages, waitedMs: now() - startedAt };
+        }
+      }
+    }
     const elapsedMs = now() - startedAt;
     if (elapsedMs + pollIntervalMs > maxWaitMs) {
-      return { ok: false, freeMB, reason: 'insufficient_disk_space', reclaimed, waitedMs: elapsedMs, skipped: result.skipped };
+      // Issue #2187: everything reclaimable here has already been reclaimed, so
+      // the caller is about to say "no in-flight work can release disk space".
+      // Measure what is left elsewhere — docker, toolchains, stores this run may
+      // not touch on its own — so the operator is told where the space is
+      // instead of just that there is none.
+      const reclaimable = await measureReclaimableSpace({ collectReclaimable, tmpRoot, protectedPaths, minIdleMs, agentDataHome, agentSnapshotMinIdleMs, now, fileSystem, procRoot });
+      return { ok: false, freeMB, reason: 'insufficient_disk_space', reclaimed, reclaimedImages, waitedMs: elapsedMs, skipped: result.skipped, reclaimable };
     }
     await log(`   ⏳ Still ${freeMB}MB free of the ${requiredMB}MB required — waiting ${Math.round(pollIntervalMs / 1000)}s for in-flight work to release disk space`);
     await sleep(pollIntervalMs);

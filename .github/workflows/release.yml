@@ -342,19 +342,7 @@ jobs:
           echo "hive.mjs executes without critical errors"
           timeout 10s ./src/hive.mjs --version
       - name: Test telegram-bot.mjs execution
-        run: |
-          echo "Testing telegram-bot.mjs basic execution..."
-          timeout 10s ./src/telegram-bot.mjs --help
-          echo "telegram-bot.mjs executes without critical errors"
-          echo ""
-          echo "Testing telegram-bot.mjs --dry-run with issue #487 command..."
-          timeout 10s ./src/telegram-bot.mjs \
-            --token "test_token_123" \
-            --allowed-chats "(-1002975819706 -1002861722681)" \
-            --no-hive \
-            --solve-overrides $'( \n  --auto-continue\n  --attach-logs\n  --verbose\n  --no-tool-check\n)' \
-            --dry-run
-          echo "Issue #487 command passes with --dry-run"
+        run: bash scripts/test-telegram-bot-execution.sh
 
       - name: Test memory-check.mjs execution
         run: |
@@ -363,14 +351,7 @@ jobs:
       - name: Test global command installation
         run: bash scripts/test-global-commands.sh
       - name: Test hive dry-run integration
-        run: |
-          echo "Testing hive dry-run mode with solve command integration..."
-          timeout 30s ./src/hive.mjs https://github.com/test/repo --dry-run --skip-claude-check --once --max-issues 1 2>&1 | tee hive_dry_run.log
-          if grep -q "solve.*--dry-run.*--skip-claude-check" hive_dry_run.log; then
-            echo "hive correctly passes --dry-run and --skip-claude-check flags to solve command"
-          else
-            echo "No issues were selected in dry-run mode; hive completed successfully"
-          fi
+        run: bash scripts/test-hive-dry-run-integration.sh
       - name: Test --auto-fork option
         run: bash scripts/test-auto-fork-option.sh
 
@@ -503,11 +484,27 @@ jobs:
 
       - name: Verify Chart.yaml structure
         run: bash scripts/verify-chart-yaml.sh
+  # === RELEASE PREFLIGHT - prove the release can be published before building it ===
+  # Issue #2221. A push to main exists to produce a release, so the credentials
+  # that release needs are proven before anything is built or published. The
+  # steps live in .github/workflows/release-preflight.yml; pull requests get a
+  # report, main and workflow_dispatch fail fast.
+  release-preflight:
+    name: Release Preflight
+    # !cancelled() so concurrency cancellation still works.
+    if: ${{ !cancelled() }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/release-preflight.yml
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   # === RELEASE - only runs on main after tests pass ===
   release:
     name: Release
-    needs: [detect-changes, lint, test-suites, test-execution, memory-check-linux]
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+    needs: [detect-changes, release-preflight, lint, test-suites, test-execution, memory-check-linux]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -888,7 +885,9 @@ jobs:
   # === MANUAL INSTANT RELEASE ===
   instant-release:
     name: Instant Release
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant'
+    needs: [release-preflight]
+    # Issue #2221: a manual release publishes too, so it waits on the same proof.
+    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -1318,6 +1317,7 @@ jobs:
       - validate-docs
       - docker-pr-check
       - helm-pr-check
+      - release-preflight
       - release
       - docker-publish
       - docker-publish-merge

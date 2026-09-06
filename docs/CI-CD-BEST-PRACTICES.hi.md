@@ -386,6 +386,36 @@ merge-manifest:
 - **Job को schedule पर रखें**, केवल push पर नहीं। Code बदलना बंद हो जाने के बाद प्रकाशित हुई advisory को केवल एक scheduled run ही पकड़ सकता है।
 - **Level स्पष्ट रूप से सेट करें।** Default `low` है, जो सबको job की अनदेखी करना सिखा देता है; कोई flag न होना और जानबूझकर `--audit-level=high` लगाना — ये दो अलग विफलताएँ हैं।
 
+### 16. Build करने से पहले सिद्ध करें कि आप Publish कर सकते हैं
+
+**Pull request का काम code को test करना है; default branch पर push का काम release बनाना है।** ये दो अलग काम हैं, और एक गुम credential इनके लिए अलग-अलग अर्थ रखता है। Pull request पर यह एक warning है — forks के पास secrets होते ही नहीं, और code फिर भी test किया जा सकता है। Default branch पर यही उत्तर है: यदि किसी भी नियोजित release के लिए ज़रूरी कोई credential अनुपयोगी है, तो उसके बाद run जो कुछ भी करे वह release नहीं बना सकता, और build में बीता हर मिनट व्यर्थ है।
+
+एक `preflight` job सबसे पहले रखें और हर publishing job को उस पर `needs:` करवाएँ।
+
+```yaml
+release-preflight:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    id-token: write # ताकि probe `npm publish` की ज़रूरत पड़ने से पहले ही OIDC की पुष्टि कर ले
+  steps:
+    - uses: actions/checkout@v7
+    - env:
+        PREFLIGHT_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || 'report' }}
+      run: node scripts/preflight-credentials.mjs --mode "$PREFLIGHT_MODE"
+
+release:
+  needs: [release-preflight]
+  if: ${{ !cancelled() && needs.release-preflight.result == 'success' }}
+```
+
+- **Login से नहीं, एक write से probe करें।** ghcr.io का token endpoint किसी भी scope के लिए 200 लौटाता है और कुछ भी सत्यापित नहीं करता — push तब 403 से विफल होता है। docker.io अनाम push-scope अनुरोध का उत्तर 200 और केवल-pull `access` claim के साथ देता है। एक blob upload session खोलें (`POST /v2/<repo>/blobs/uploads/`) और उसे `DELETE <Location>` से रद्द करें: एक round trip, कुछ भी संग्रहीत नहीं, और जाँच का यही एकमात्र रूप है जो अनुमान नहीं है।
+- **पहली नहीं, हर विफलता रिपोर्ट करें।** Preflight का मूल्य एक ऐसी रिपोर्ट है जो सभी गुम credentials के नाम बताए। Job को रोक देने वाला login step बाकी को छिपा देता है, इसलिए उसे `continue-on-error: true` रखें और निर्णय preflight script को करने दें।
+- **केवल writability नहीं, reachability भी जाँचें।** GHCR package पहली push पर private होता है और तब तक private रहता है जब तक कोई क्लिक न करे; ऐसे package के और versions प्रकाशित करना जिसे कोई pull ही नहीं कर सकता, ठीक वही compute है जिसे यह job छोड़ने के लिए है। GitHub package visibility के लिए कोई API नहीं देता (packages REST API केवल GET/DELETE/restore है), इसलिए यह एक manual step है जिसे pipeline केवल पहचान कर नाम दे सकती है।
+- **Trusted publishing को प्राथमिकता दें।** समाप्त होने वाला credential एक ऐसा release outage है जो कैलेंडर की तारीख का इंतज़ार कर रहा है। npm (`id-token: write` + `--provenance`) और Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, कोई `password:` नहीं) दोनों OIDC का समर्थन करते हैं। कोशिश करने से पहले `ACTIONS_ID_TOKEN_REQUEST_URL` जाँचें — runner उसे तभी inject करता है जब `id-token: write` दिया गया हो, ताकि आधा-अधूरा setup token request के बारे में नहीं, permission के बारे में संदेश के साथ विफल हो।
+- **प्रकाशित परिणाम को अनाम रूप से, और अलग से सत्यापित करें।** Release को कभी push पर मत टिकाइए (एक विफल mirror एक अच्छे release को मिटाए नहीं), लेकिन बाद में बिना किसी credential के अवश्य जाँचिए कि जो आपने प्रकाशित किया वह pull हो सकता है या नहीं। Authenticate करने वाली जाँच publisher का दृष्टिकोण मापती है; पाठक को न वह login मिलता है और न ही संदेह का लाभ।
+- **अनुमान नहीं, `unknown` रिपोर्ट करें।** Timeout देने वाली या HTTP 429 लौटाने वाली registry ने यह नहीं कहा कि credential टूटा हुआ है, और जिस run में कुछ भी सत्यापित न हो सका वह pass नहीं है। बताइए कि इनमें से क्या हुआ: "0 सत्यापित, 3 unknown" पर कार्रवाई हो सकती है, "कोई विफलता नहीं" पर नहीं।
+
 ## Quality Enforcement रणनीति
 
 Templates एक defense-in-depth दृष्टिकोण implement करते हैं:

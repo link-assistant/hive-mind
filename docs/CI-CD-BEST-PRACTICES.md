@@ -386,6 +386,36 @@ Two complementary tools, in their own workflow, triggered on changes to `.github
 - **Put the job on the schedule**, not only on push. A scheduled run is the only thing that can notice an advisory published after the code stopped changing.
 - **Set the level explicitly.** The default is `low`, which trains everyone to ignore the job; no flag at all is a different failure from a deliberate `--audit-level=high`.
 
+### 16. Prove You Can Publish Before You Build
+
+**A pull request exists to test the code; a push to the default branch exists to produce a release.** Those are different jobs, and a missing credential means different things to each. On a pull request it is a warning — forks have no secrets, and the code can still be tested. On the default branch it is the answer: if any credential needed for any planned release is unusable, nothing the run does afterwards can produce a release, and every minute spent building is waste.
+
+Put a `preflight` job first and make every publishing job `needs:` it.
+
+```yaml
+release-preflight:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    id-token: write # so the probe can confirm OIDC works before `npm publish` needs it
+  steps:
+    - uses: actions/checkout@v7
+    - env:
+        PREFLIGHT_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || 'report' }}
+      run: node scripts/preflight-credentials.mjs --mode "$PREFLIGHT_MODE"
+
+release:
+  needs: [release-preflight]
+  if: ${{ !cancelled() && needs.release-preflight.result == 'success' }}
+```
+
+- **Probe with a write, not with a login.** ghcr.io's token endpoint returns 200 for any scope and verifies nothing — the push then fails 403. docker.io answers an anonymous push-scope request with 200 and a pull-only `access` claim. Open a blob upload session (`POST /v2/<repo>/blobs/uploads/`) and cancel it with `DELETE <Location>`: one round trip, nothing stored, and the only form of the check that is not a guess.
+- **Report every failure, not the first.** The preflight's value is one report naming all missing credentials. A login step that aborts the job hides the rest, so make it `continue-on-error: true` and let the preflight script decide.
+- **Check reachability, not just writability.** A GHCR package is private on first push and stays private until someone clicks; publishing more versions of a package nobody can pull is exactly the compute this job exists to skip. GitHub exposes no API for package visibility (the packages REST API is GET/DELETE/restore only), so this is a manual step that the pipeline can only detect and name.
+- **Prefer trusted publishing.** A credential that expires is a release outage waiting for a calendar date. npm (`id-token: write` + `--provenance`) and Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, no `password:`) both support OIDC. Check `ACTIONS_ID_TOKEN_REQUEST_URL` before trying — the runner injects it only when `id-token: write` is granted, so a half-wired setup fails with a message about the permission rather than about the token request.
+- **Verify the published result anonymously, and separately.** Never gate the release on the push (a failed mirror must not delete a good release), but do check afterwards, with no credentials, that what you published can be pulled. A check that authenticates measures the publisher's view; a reader gets neither the login nor the benefit of the doubt.
+- **Report `unknown`, never a guess.** A registry that times out or answers HTTP 429 has not said the credential is broken, and a run in which nothing could be verified is not a pass. Say which of the two happened: "0 verified, 3 unknown" is actionable, "no failures" is not.
+
 ## Quality Enforcement Strategy
 
 The templates implement a defense-in-depth approach:

@@ -386,6 +386,36 @@ merge-manifest:
 - **把这个 job 放到 schedule 上**，而不只是放在 push 上。只有定时运行才能发现代码停止变动之后才发布的 advisory。
 - **显式设置级别。** 默认值是 `low`，那会让所有人习惯于忽略这个 job；完全不加 flag 与刻意写上 `--audit-level=high` 是两种不同的失败。
 
+### 16. 在构建之前先证明你能发布
+
+**Pull request 存在的意义是测试代码；向默认分支的 push 存在的意义是产出发布。** 这是两件不同的事，缺失的凭据对它们意味着不同的东西。在 pull request 上它是一个警告——fork 拿不到 secrets，代码依然可以被测试。在默认分支上它就是答案：如果任何一个计划中的发布所需的凭据不可用，此后这次运行做的一切都无法产出发布，花在构建上的每一分钟都是浪费。
+
+把 `preflight` job 放在最前面，让每个发布 job 都 `needs:` 它。
+
+```yaml
+release-preflight:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    id-token: write # 这样探测就能在 `npm publish` 需要之前确认 OIDC 可用
+  steps:
+    - uses: actions/checkout@v7
+    - env:
+        PREFLIGHT_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || 'report' }}
+      run: node scripts/preflight-credentials.mjs --mode "$PREFLIGHT_MODE"
+
+release:
+  needs: [release-preflight]
+  if: ${{ !cancelled() && needs.release-preflight.result == 'success' }}
+```
+
+- **用写入去探测，而不是用登录。** ghcr.io 的 token 端点对任何 scope 都返回 200，什么都不校验——随后的 push 才会以 403 失败。docker.io 对匿名的 push scope 请求返回 200，而 `access` 声明只有 pull。开一个 blob 上传会话（`POST /v2/<repo>/blobs/uploads/`）再用 `DELETE <Location>` 取消它：一次往返，什么都不留下，而且这是唯一一种不靠猜测的检查形式。
+- **报告每一个失败，而不是第一个。** Preflight 的价值在于一份点名所有缺失凭据的报告。会中断 job 的登录步骤会把其余问题掩盖掉，所以让它 `continue-on-error: true`，由 preflight 脚本来判定。
+- **检查可达性，而不只是可写性。** GHCR 的包在首次 push 后是私有的，并且一直私有到有人去点一下；为一个没人能拉取的包继续发布新版本，正是这个 job 要跳过的计算。GitHub 没有暴露查询包可见性的 API（packages REST API 只有 GET/DELETE/restore），所以这是一个手动步骤，流水线只能检测并把它说出来。
+- **优先使用 trusted publishing。** 会过期的凭据就是一次等着日历日期到来的发布中断。npm（`id-token: write` + `--provenance`）和 Docker Hub（`DOCKERHUB_OIDC_CONNECTIONID`，不写 `password:`）都支持 OIDC。动手之前先检查 `ACTIONS_ID_TOKEN_REQUEST_URL`——只有在授予了 `id-token: write` 时 runner 才会注入它，这样配置只做了一半时，失败信息说的是权限，而不是 token 请求。
+- **匿名地、单独地验证发布结果。** 永远不要让发布依赖于推送的成败（一个失败的镜像不该抹掉一个好的发布），但事后一定要在不带任何凭据的情况下检查：你发布的东西能不能被拉取。带认证的检查测量的是发布者的视角；读者既拿不到那次登录，也得不到善意的假设。
+- **报告 `unknown`，而不是猜测。** 超时或返回 HTTP 429 的 registry 并没有说凭据坏了，而一次什么都没能验证的运行也不是通过。要说清楚发生的是哪一种："0 项已验证，3 项未知"是可以行动的，"没有失败"不是。
+
 ## 质量强制策略
 
 这些模板实现了纵深防御方法：

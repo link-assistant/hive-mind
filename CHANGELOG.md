@@ -1,5 +1,63 @@
 # @link-assistant/hive-mind
 
+## 2.21.1
+
+### Patch Changes
+
+- f19f9f7: CI/CD guide, principle 10: a serialised writer still checks out `github.sha`
+
+  The concurrency group orders main-writing jobs; it does not refresh their
+  working trees, so the second writer in the queue starts behind the branch and
+  its push is rejected as non-fast-forward. Principle 10 now says so, rules out
+  `ref: main` on the checkout (it publishes a tree CI never validated), and
+  prescribes the recovery: classify the rejection — a GH006/GH013 ruleset
+  rejection prints `rejected` too and can never be satisfied by a rebase — then
+  rebase and retry. Added to all four translations, with the pull-request
+  recovery cross-referenced from principle 9.
+
+## 2.21.0
+
+### Minor Changes
+
+- 72d5911: Prove the release can be published before building it: a `release-preflight` job now gates every publishing job, and the guide gains principle #16 (issue #2221).
+
+  A pull request exists to test the code; a push to `main` exists to produce a release. `release.yml` did not distinguish them: `DOCKERHUB_TOKEN` was first touched by a `docker/login-action` step that runs _after_ npm has already published, so an expired token was discovered at the end of a run whose entire purpose was the release. link-foundation/box#117 is the worked example — run 33972074755 built the whole image matrix, published 2.5.0 and 2.6.0, reported `success`, and delivered no images at all, because the login step was `continue-on-error: true`, the mirror steps were guarded on its outcome, and `skipped` is not `failure`.
+
+  - **The probe attempts a write, because a login proves nothing.** Measured against both registries and recorded in `dev/log/issues/2221/live-probe.log`: docker.io answers an _anonymous_ `pull,push` token request with HTTP 200 and silently narrows the `access` claim to `pull`, so a check that reads 200 as "I can push" passes with no credentials at all; with a credential ghcr.io answers 200 too and hands back the credential base64-encoded. `scripts/registry-probe.lib.mjs` instead opens a blob upload session (`POST /v2/<repo>/blobs/uploads/`) and cancels it with `DELETE <Location>` — one round trip, nothing stored, no blob, no manifest, no tag, no package version.
+  - **Every credential is reported, not just the first.** `scripts/preflight-credentials.mjs` probes all targets and decides the exit code at the end, so a broken pipeline is fixed in one pass rather than one credential per run. On `pull_request` it runs in `report` mode and never blocks: fork PRs have no secrets, and failing there would only block contributors. On a push to `main` or a manual dispatch it fails fast, before the build spends anything.
+  - **`unknown` is never reported as broken, and "no failures" is never reported as a pass.** A registry that times out or answers HTTP 429 has not said the credential is bad, so refusing to release on that basis would invent a new way for a release to fail; a run in which nothing could be verified says so out loud in its job summary.
+  - **Reachability is checked too, and never gates the release.** The preflight asks, with no credentials, what an anonymous consumer gets for the published images — the check that would have contradicted box's release notes, which claimed 28 of 56 image references resolved when anonymously it was 0 of 56.
+
+  `tests/release-preflight-2221.test.mjs` (22 assertions) drives the probes and the decision against a fake registry — including the two cases that make the cheap version of this check useless — and runs the real CLI end to end for both exit codes; `tests/cicd-best-practices-publish-preflight-2221.test.mjs` pins principle #16 in all four translations of `docs/CI-CD-BEST-PRACTICES.md` and asserts this repository follows it. `experiments/issue-2221-registry-probe-live.mjs` reproduces the live measurement.
+
+## 2.20.0
+
+### Minor Changes
+
+- 84ea8a3: Accept a repository URL in `solve` and close every open issue of that repository with one pull request, and add `--ensure-all-sub-issues-addressed` to prove it (issue #2212).
+
+  `solve https://github.com/owner/repo` used to be rejected: `validateGitHubUrl` only ever accepted an issue or a pull request URL. It now means something. Repository mode lists every open issue of the repository, creates one combined issue that lists them as GitHub **native sub-issues**, and hands that issue to the normal single-issue flow — so a single pull request can close all of them at once, and merging it closes the combined issue too.
+
+  - **The combined issue is built from what GitHub actually allows.** A parent issue takes at most 100 sub-issues, so a repository with more open issues gets the oldest 100 and the rest are reported as intentionally left out — in the run log and in the issue body, not silently. Pull requests are filtered out of the REST `/issues` response, the selection is oldest-first with the issue number as tie-breaker, and each issue is attached with its REST database id through `POST …/sub_issues`. That endpoint is documented as prone to secondary rate limiting, so attachments are spaced one second apart and a rate-limited attachment is retried with a one- then two-minute backoff; an attachment that fails for any other reason (an issue that already has a parent, say) is reported and skipped instead of aborting the run.
+  - **`--ensure-all-sub-issues-addressed` works on any issue.** After the main solve completes it lists the sub-issues of the issue being solved and checks the pull request title and description for a closing reference GitHub really recognizes — reusing `prClosesIssue`, so `Fixes #1, #2` correctly counts as closing only `#1`, exactly as GitHub reads it. When references are missing it restarts the AI tool with the concrete list of sub-issues and the exact lines to add, asking it to double check that each one was really addressed in this single pull request. Bare flag means 5 restarts; it also takes a count or `forever`. It runs last among the post-solve loops, because `--escalate`, `--auto-ensure-requirements` and `--keep-working` may still rewrite the description.
+  - **Repository mode turns on `--deep-analysis` and `--ensure-all-sub-issues-addressed` for the issue it generated**, so the run asks for the deep analysis `/fix` asks for and then verifies its own promise.
+  - **The Telegram bot accepts repository URLs in `/solve` too**, and labels such a run as a URL rather than as an issue.
+
+  `tests/test-solve-repository-mode-2212.mjs` (47 assertions) covers the rejection this starts from, the pure helpers, the orchestration against a fake `gh`, the CLI flag and the `solve.mjs` wiring; `tests/test-telegram-solve-repository-url-2212.mjs` (25 assertions) covers the Telegram entry point. `examples/solve-repository-mode-preview.mjs` previews a real repository read-only, creating nothing. The analysis, the cited GitHub documentation and the run evidence are in `docs/case-studies/issue-2212/`.
+
+## 2.19.2
+
+### Patch Changes
+
+- 57b8258: Never merge hive-mind's own placeholder file, and restart when a pull request changes nothing.
+
+  `konard/audio-decomposer#1` was solved twice, both pull requests were auto-merged, and the complete diff of both was the `.gitkeep` hive-mind writes only so that an empty branch has something to open a pull request from. Two defects had to line up for that, and both are fixed here.
+
+  - **The placeholder is reverted before anything can merge it.** `cleanupClaudeFile()` ran after `startAutoRestartUntilMergeable()`, so with `--auto-merge` it was structurally guaranteed to be too late: on that pull request the revert commit is timestamped four seconds after the merge commit. It now runs before the watch loop and still after `verifyResults()`, which is the ordering issue #1516 actually asked for. As defense in depth, the watch loop reverts a placeholder that survived into its own diff — a crashed session, a resumed run — instead of merging it.
+  - **An appended placeholder is recognised as a placeholder.** The empty-pull-request detector matched an added `# .gitkeep file auto-generated at …` line, which the solver only writes when it _creates_ the file; when the file already exists it appends `# Updated: <timestamp>` instead, and that reads as an ordinary modification. The diff was counted as real work, so the pull request looked mergeable and the auto-restart from issue #2119 never fired. The measurement now reconstructs both sides of the file and compares them with hive-mind's own generated lines removed, so created, appended and re-appended placeholders are all caught — while a genuine edit to a `.gitkeep` or `CLAUDE.md` the repository owns still counts as work.
+
+  The leak was not a one-off: `.gitkeep` on the default branch of `link-foundation/rust-ai-driven-development-pipeline-template` had accumulated eight solver-generated lines from eight merged pull requests, one of which also carried real changes. Each miss makes the next one certain, because a surviving file forces the append path that the detector could not see. The full reconstruction is in `docs/case-studies/issue-2211`.
+
 ## 2.19.1
 
 ### Patch Changes

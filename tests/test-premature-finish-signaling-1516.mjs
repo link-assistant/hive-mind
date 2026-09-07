@@ -5,7 +5,8 @@
  *
  * Verifies that:
  * 1. Process group kill is used on stream timeout (not just parent PID)
- * 2. .gitkeep cleanup runs AFTER completion signals (verifyResults, auto-merge)
+ * 2. .gitkeep cleanup runs AFTER completion signals (verifyResults) but BEFORE
+ *    the auto-merge watch loop (tightened by issue #2211, see below)
  * 3. drainHandles kills surviving child processes instead of just unreffing them
  */
 
@@ -60,7 +61,7 @@ console.log('\u2500'.repeat(60));
 // ═══════════════════════════════════════════════════════════════════
 // Test Suite 2: .gitkeep cleanup ordering in solve.mjs
 // ═══════════════════════════════════════════════════════════════════
-console.log('\n\ud83e\uddea Test Suite 2: .gitkeep cleanup ordering (Issue #1516)');
+console.log('\n\ud83e\uddea Test Suite 2: .gitkeep cleanup ordering (Issue #1516, #2211)');
 console.log('\u2500'.repeat(60));
 
 {
@@ -79,12 +80,18 @@ console.log('\u2500'.repeat(60));
 
   assert(mainCleanupPos > verifyResultsPos, 'cleanupClaudeFile runs AFTER verifyResults', `cleanupClaudeFile at pos ${mainCleanupPos}, verifyResults at pos ${verifyResultsPos}`);
 
-  assert(mainCleanupPos > autoMergePos, 'cleanupClaudeFile runs AFTER startAutoRestartUntilMergeable', `cleanupClaudeFile at pos ${mainCleanupPos}, autoMerge at pos ${autoMergePos}`);
+  // Issue #2211: this used to assert the opposite (cleanup AFTER the auto-merge
+  // loop). That ordering let --auto-merge merge the placeholder commit into the
+  // default branch and revert it 4 seconds later on a branch nobody reads again:
+  // https://github.com/konard/audio-decomposer/pull/3. The #1516 invariant that
+  // matters is "after verifyResults", not "after the merge loop".
+  assert(mainCleanupPos < autoMergePos, 'cleanupClaudeFile runs BEFORE startAutoRestartUntilMergeable (Issue #2211)', `cleanupClaudeFile at pos ${mainCleanupPos}, autoMerge at pos ${autoMergePos}`);
 
   assert(mainCleanupPos < endWorkSessionPos, 'cleanupClaudeFile runs BEFORE endWorkSession', `cleanupClaudeFile at pos ${mainCleanupPos}, endWorkSession at pos ${endWorkSessionPos}`);
 
   // Test: Comment explains the reason for the ordering
-  assert(solveMjsContent.includes('cleanupClaudeFile() moved to after completion signals'), 'Comment explains why cleanupClaudeFile was moved (Issue #1516)', 'Expected a comment explaining the ordering change');
+  const cleanupComment = solveMjsContent.substring(Math.max(0, mainCleanupPos - 1600), mainCleanupPos);
+  assert(cleanupComment.includes('Issue #1516') && cleanupComment.includes('Issue #2211'), 'Comment above the main cleanup explains both orderings (#1516 after verifyResults, #2211 before the merge loop)', 'Expected a comment citing Issue #1516 and Issue #2211 above the cleanupClaudeFile call');
 
   // Test: No cleanupClaudeFile call between showSessionSummary and verifyResults
   const sessionSummaryPos = solveMjsContent.indexOf('await showSessionSummary(');

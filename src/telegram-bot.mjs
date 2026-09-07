@@ -612,7 +612,10 @@ async function handleSolveCommand(ctx) {
     return;
   }
 
-  const validation = await validateGitHubUrl(userArgs, { createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
+  // Issue #2212: a repository URL is accepted too — solve then collects every open
+  // issue of that repository into one combined issue (with GitHub native sub-issues)
+  // and solves that issue, so a single pull request can close all of them.
+  const validation = await validateGitHubUrl(userArgs, { allowedTypes: ['issue', 'pull', 'repo'], createYargsConfig: createSolveYargsConfig, positionalNames: ['issue-url'], locale: solveLocale });
   if (!validation.valid) {
     let errorMsg = `❌ ${validation.error}`;
     if (validation.suggestion) {
@@ -705,7 +708,7 @@ async function handleSolveCommand(ctx) {
   let infoBlock = buildTelegramInfoBlock({
     locale: solveLocale,
     requester,
-    urlKind: validation.parsed?.type === 'pull' ? 'pullRequest' : 'issue',
+    urlKind: validation.parsed?.type === 'pull' ? 'pullRequest' : validation.parsed?.type === 'repo' ? 'url' : 'issue', // #2212: a repository URL is neither an issue nor a pull request
     url: escapeMarkdown(normalizedUrl),
     optionsRaw: userOptionsRaw ? escapeMarkdown(userOptionsRaw) : '',
     lockedOptions: solveOverrides.length > 0 ? escapeMarkdown(solveOverrides.join(' ')) : '',

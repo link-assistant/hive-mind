@@ -34,7 +34,7 @@ const { mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDet
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
-const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure } = autoMergeGuards;
+const { DRAFT_RECHECK_DELAY_MS, evaluateWatchTimeout, resolveDraftBlocker, resolveMergeFailure, revertPlaceholderBeforeMerge } = autoMergeGuards;
 // Re-exported so callers and tests keep a single entry point for the watch loop.
 export const { DEFAULT_WATCH_TIMEOUT_HOURS, normalizeWatchTimeoutHours } = autoMergeGuards;
 // Import GitHub functions for log attachment
@@ -131,6 +131,8 @@ export const watchUntilMergeable = async params => {
   // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
   let lastKnownHeadSha = null;
+  // Issue #2211: revert a leftover solver placeholder at most once per watch.
+  let placeholderCleanupAttempted = false;
   // Issue #1567: Initial cooldown to let CI register and solution logs post
   const INITIAL_COOLDOWN_SECONDS = MIN_CI_CHECK_INTERVAL_SECONDS;
   // Issue #2182: this loop used to be `while (true)` with no wall-clock ceiling
@@ -329,6 +331,16 @@ export const watchUntilMergeable = async params => {
       const emptyPullRequestBlocker = buildEmptyPullRequestBlocker(changeStats);
       if (isEmptyPullRequest) {
         await log(formatAligned('⚠️', 'PR is empty:', changeStats.placeholderOnly ? 'only the solver placeholder file is in the diff - not treating it as mergeable' : 'net diff contains no files - not treating it as mergeable', 2), { level: 'warning' });
+      }
+      // Issue #2211: defense in depth - never merge the solver's own placeholder.
+      if (changeStats.placeholderSections > 0 && !placeholderCleanupAttempted) {
+        placeholderCleanupAttempted = true;
+        if (await revertPlaceholderBeforeMerge({ changeStats, tempDir, branchName: prBranch || branchName, argv, log, formatAligned, cleanErrorMessage })) {
+          // Give the revert push a moment to register, then re-measure so the
+          // merge decision is made on the post-cleanup diff.
+          await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
+          continue;
+        }
       }
       // If PR is mergeable, no blockers, no new comments, no issue metadata
       // edits, no uncommitted changes and it actually changes something

@@ -249,6 +249,7 @@ Automated release workflows ensure:
 - **OIDC trusted publishing** - No API tokens needed in CI (npm, PyPI, crates.io)
 - **Validated releases only** - All checks must pass before publishing
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
+- **A rule-blocked push is not a failed release** - When a repository ruleset requires that changes arrive through a pull request, the release job opens one for its version bump instead of dying on the rejection. That path, and the rebase-and-retry path for a lost race, are two different recoveries for two rejections that print the same word (see principle 10)
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -293,6 +294,35 @@ jobs:
 By default, a concurrency group keeps at most one running and one pending job; a newer pending writer replaces the older pending writer. If every queued write must run, add `queue: max` to the writer's concurrency block (up to 100 jobs can wait). `queue: max` cannot be combined with `cancel-in-progress: true`, and execution order follows when jobs start waiting rather than workflow dispatch order, so write jobs should remain idempotent. See [GitHub's concurrency documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency) for the current queue limits and semantics.
 
 Use `!cancelled()` instead of `always()` in job conditions so cancellation propagates correctly through the job graph. A bare `always()` can keep downstream work running after cancellation.
+
+**Serialisation orders writers; it does not rebase them.** The concurrency group decides _when_ each writer runs, not _what_ it has checked out. `actions/checkout` checks out `github.sha` — the commit that triggered the run — so the second writer in the queue starts one or more commits behind the branch the instant the first one lands, and its push is rejected:
+
+```
+ ! [rejected]        main -> main (non-fast-forward)
+```
+
+The bullets above without this one convert "two writers collide" into "the second writer reliably fails" — better, because it is deterministic and loud, but still a broken release. `link-foundation/browser-commander` implemented the group to the letter (three language releases in three workflow files, zero overlap in their timings) and two of its three releases still ended on that line. Each run looked like ordinary flaky CI, so the damage accumulated unnoticed: the Rust crate reached 0.10.11 on crates.io while `Cargo.toml` on `main` still said 0.9.0, and the Python package was never published at all, because the job dies at a changelog push that sits before the publish step.
+
+**Do not fix it with `ref: main` on the checkout.** That silences the rejection by building, testing and publishing a tree that is not the tree CI validated, with nothing in the log to say so. The rejection is the honest outcome; what is missing is the recovery.
+
+**Give every write job a push that classifies the rejection, then rebases and retries.** A repository-ruleset rejection (GH006, GH013 — "Changes must be made through a pull request") also prints `[rejected]`, and no number of rebases can ever satisfy a rule; it needs the pull-request path instead (see principle 9). Retrying it burns the queue slot and reports the wrong cause.
+
+```js
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const result = await run('git', ['push', remote, branch]);
+  if (result.code === 0) return { pushed: true, attempt };
+  // A rule can never be satisfied by a rebase: land the same commit via a PR.
+  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Auth, network, a missing remote: rebasing would hide the real error.
+  if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
+  await run('git', ['pull', '--rebase', remote, branch]);
+}
+```
+
+- **Never `--force`, and never `--force-with-lease`, on a shared branch.** Both turn a lost race into a silent deletion of whatever the writer ahead of you landed. Rebasing is the point: the later commit has to end up on top of the earlier one.
+- **Recompute after the rebase whatever was derived before it.** A version number, a changelog entry or a tag chosen against the stale tip may already be taken by the writer that won the queue. Re-read the state instead of replaying the plan.
+- **Report success only after the push landed.** A step that sets `version_committed=true` before the push is confirmed leaves the downstream publish job working from a commit that exists only on that runner.
+- **Bound the retries and name the reason in the log.** A handful of attempts with a short delay covers a queue; an unbounded loop against a branch that is genuinely protected turns a fast failure into a long one.
 
 ### 11. Secrets Detection
 
@@ -385,6 +415,36 @@ Two complementary tools, in their own workflow, triggered on changes to `.github
 - **Audit the lockfile as committed** (`--package-lock-only`). It reports what a consumer would get, and cannot be turned green by a resolution that only happens on this runner.
 - **Put the job on the schedule**, not only on push. A scheduled run is the only thing that can notice an advisory published after the code stopped changing.
 - **Set the level explicitly.** The default is `low`, which trains everyone to ignore the job; no flag at all is a different failure from a deliberate `--audit-level=high`.
+
+### 16. Prove You Can Publish Before You Build
+
+**A pull request exists to test the code; a push to the default branch exists to produce a release.** Those are different jobs, and a missing credential means different things to each. On a pull request it is a warning — forks have no secrets, and the code can still be tested. On the default branch it is the answer: if any credential needed for any planned release is unusable, nothing the run does afterwards can produce a release, and every minute spent building is waste.
+
+Put a `preflight` job first and make every publishing job `needs:` it.
+
+```yaml
+release-preflight:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    id-token: write # so the probe can confirm OIDC works before `npm publish` needs it
+  steps:
+    - uses: actions/checkout@v7
+    - env:
+        PREFLIGHT_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || 'report' }}
+      run: node scripts/preflight-credentials.mjs --mode "$PREFLIGHT_MODE"
+
+release:
+  needs: [release-preflight]
+  if: ${{ !cancelled() && needs.release-preflight.result == 'success' }}
+```
+
+- **Probe with a write, not with a login.** ghcr.io's token endpoint returns 200 for any scope and verifies nothing — the push then fails 403. docker.io answers an anonymous push-scope request with 200 and a pull-only `access` claim. Open a blob upload session (`POST /v2/<repo>/blobs/uploads/`) and cancel it with `DELETE <Location>`: one round trip, nothing stored, and the only form of the check that is not a guess.
+- **Report every failure, not the first.** The preflight's value is one report naming all missing credentials. A login step that aborts the job hides the rest, so make it `continue-on-error: true` and let the preflight script decide.
+- **Check reachability, not just writability.** A GHCR package is private on first push and stays private until someone clicks; publishing more versions of a package nobody can pull is exactly the compute this job exists to skip. GitHub exposes no API for package visibility (the packages REST API is GET/DELETE/restore only), so this is a manual step that the pipeline can only detect and name.
+- **Prefer trusted publishing.** A credential that expires is a release outage waiting for a calendar date. npm (`id-token: write` + `--provenance`) and Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, no `password:`) both support OIDC. Check `ACTIONS_ID_TOKEN_REQUEST_URL` before trying — the runner injects it only when `id-token: write` is granted, so a half-wired setup fails with a message about the permission rather than about the token request.
+- **Verify the published result anonymously, and separately.** Never gate the release on the push (a failed mirror must not delete a good release), but do check afterwards, with no credentials, that what you published can be pulled. A check that authenticates measures the publisher's view; a reader gets neither the login nor the benefit of the doubt.
+- **Report `unknown`, never a guess.** A registry that times out or answers HTTP 429 has not said the credential is broken, and a run in which nothing could be verified is not a pass. Say which of the two happened: "0 verified, 3 unknown" is actionable, "no failures" is not.
 
 ## Quality Enforcement Strategy
 

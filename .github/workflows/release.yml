@@ -463,10 +463,13 @@ jobs:
         run: node scripts/free-disk-space.mjs
       - name: Show Box base image versions
         run: |
-          BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
-          BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
-          echo "Box base image version: konard/box:${BOX_VERSION}"
-          echo "Box DinD base image version: konard/box-dind:${BOX_DIND_VERSION}"
+          # Matches the base wherever it is hosted: the pins moved to
+          # ghcr.io/link-foundation in issue #2187, and a registry-hardcoded
+          # grep would print an empty version instead of failing.
+          BOX_BASE=$(sed -n 's|^FROM \(.*/box:[^[:space:]]*\).*|\1|p' Dockerfile)
+          BOX_DIND_BASE=$(sed -n 's|^FROM \(.*/box-dind:[^[:space:]]*\).*|\1|p' Dockerfile.dind)
+          echo "Box base image: ${BOX_BASE:?no box base image found in Dockerfile}"
+          echo "Box DinD base image: ${BOX_DIND_BASE:?no box-dind base image found in Dockerfile.dind}"
           echo "This pinned version ensures stable, reproducible builds."
       - name: Build Docker images and check build logs
         run: bash scripts/docker-pr-build.sh

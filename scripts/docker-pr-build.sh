@@ -27,11 +27,18 @@ set -euo pipefail
 IMAGE_NAME="${IMAGE_NAME:-konard/hive-mind}"
 DIND_IMAGE_NAME="${DIND_IMAGE_NAME:-konard/hive-mind-dind}"
 
-BOX_VERSION=$(grep '^FROM konard/box:' Dockerfile | sed 's/FROM konard\/box://')
-BOX_DIND_VERSION=$(grep '^FROM konard/box-dind:' Dockerfile.dind | sed 's/FROM konard\/box-dind://')
+# Read the whole base reference, registry included. The bases moved from
+# Docker Hub to `ghcr.io/link-foundation/...` in issue #2187 (only GHCR carries
+# a multi-arch box 2.7.0 — link-foundation/box#119), and the old `konard/box:`
+# greps would have silently produced an empty version string rather than
+# failing. Matching `*/box:` keeps this working across registry moves.
+BOX_BASE=$(sed -n 's|^FROM \(.*/box:[^[:space:]]*\).*|\1|p' Dockerfile)
+BOX_DIND_BASE=$(sed -n 's|^FROM \(.*/box-dind:[^[:space:]]*\).*|\1|p' Dockerfile.dind)
+[ -n "${BOX_BASE}" ] || { echo "ERROR: no box base image found in Dockerfile" >&2; exit 1; }
+[ -n "${BOX_DIND_BASE}" ] || { echo "ERROR: no box-dind base image found in Dockerfile.dind" >&2; exit 1; }
 
-echo "Building Docker image from konard/box:${BOX_VERSION} base..."
-echo "Note: General-purpose tools are inherited from pinned konard/box:${BOX_VERSION}"
+echo "Building Docker image from ${BOX_BASE} base..."
+echo "Note: General-purpose tools are inherited from pinned ${BOX_BASE}"
 echo "This image adds AI-specific tools on top of the Box base."
 echo "Installing @link-assistant/hive-mind@latest; configure-claude may not yet be present in the published package."
 echo ""
@@ -39,7 +46,7 @@ echo ""
 docker build --progress=plain -t "${IMAGE_NAME}:test" . 2>&1 | tee build-output.log
 
 echo ""
-echo "Building Docker-in-Docker image from konard/box-dind:${BOX_DIND_VERSION} base..."
+echo "Building Docker-in-Docker image from ${BOX_DIND_BASE} base..."
 docker build --progress=plain -f Dockerfile.dind -t "${DIND_IMAGE_NAME}:test" . 2>&1 | tee build-dind-output.log
 
 echo ""

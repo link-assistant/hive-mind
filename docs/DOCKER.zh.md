@@ -141,7 +141,7 @@ docker run --rm --network link-assistant-formal-ai \
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) 和
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879)。
 
-基础镜像（`konard/box-dind`）可以从宿主机自动播种内部 daemon——**宿主镜像透传**——
+基础镜像（`ghcr.io/link-foundation/box-dind`）可以从宿主机自动播种内部 daemon——**宿主镜像透传**——
 但前提是把宿主机的 Docker 套接字 bind-mount 进容器。**如果不挂载该套接字，透传将静默无效**，
 内部 daemon 保持为空。请挂载它并设置允许列表：
 

@@ -42,8 +42,10 @@ await assertFileExists('scripts/verify-dind-exec-defaults.sh');
 const dindDockerfile = await read('Dockerfile.dind');
 const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
-// Bumped with the box base image itself (2.3.5 -> 2.4.0).
-assertIncludes(dindDockerfile, 'FROM konard/box-dind:2.4.0', 'Dockerfile.dind');
+// Bumped with the box base image itself (2.4.0 -> 2.7.0), from GHCR: Docker
+// Hub never received a `konard/box-dind:2.7.0` at all (link-foundation/box#119).
+assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.7.0', 'Dockerfile.dind');
+assertExcludes(dindDockerfile, 'FROM konard/box-dind:', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ENV HIVE_MIND_IMAGE_VARIANT=dind', 'Dockerfile.dind');

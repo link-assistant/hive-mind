@@ -1,9 +1,10 @@
 # Hive Mind Docker image
-# Inherits from konard/box which provides all general-purpose development tools
+# Inherits from ghcr.io/link-foundation/box, which provides all general-purpose
+# development tools
 # This image adds AI-specific tools (Claude CLI, OpenAI Codex, Playwright MCP, etc.)
 #
 # Architecture (see issue #1394, #1499, #1505 and box#79):
-#   konard/box (pinned full image)
+#   ghcr.io/link-foundation/box (pinned full image)
 #     └── All general dev tools: Node.js, Bun, Deno, Python, Go, Rust, Java, PHP, etc.
 #     └── Playwright browsers pre-installed (chromium, firefox, webkit, msedge, chrome)
 #     └── /home/box directory owned by box user
@@ -39,11 +40,18 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Pinned at 2.4.0 because it is the newest konard/box tag actually pullable:
-# box fixed the stale-runtime duplication in 2.5.0/2.6.0 but never published
-# either tag to a registry this build can reach (link-foundation/box#117), so
-# the runtime block below still has to re-install Node.js and Bun by hand.
-FROM konard/box:2.4.0
+# Pinned at box 2.7.0 pulled from GHCR — box's registry of record — because
+# GHCR is the only registry that actually carries the fix for
+# link-foundation/box#112: 2.7.0 ships one Node.js (v24.20.0), one Bun (1.4.2)
+# and one Rust toolchain (stable, rustc 1.98.1) where 2.4.0 stacked a stale
+# runtime beside a current one. Docker Hub cannot be used for it —
+# `konard/box:2.7.0` and `:latest` were written by box's amd64 job alone and
+# carry no arm64 manifest, and `konard/box-dind:2.7.0` does not exist there at
+# all, because box's `docker manifest create` cannot combine per-architecture
+# tags that its own mirror wrote as single-platform indexes. These images are
+# built for linux/arm64 natively as well, so an amd64-only base is not an
+# option (reported upstream as link-foundation/box#119).
+FROM ghcr.io/link-foundation/box:2.7.0
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs
@@ -104,20 +112,25 @@ WORKDIR /home/box
 SHELL ["/bin/bash", "-c"]
 
 # --- Current Node.js and Bun (issue #2187) ---
-# The Box base installs Node.js 20 (`nvm install 20` in box's
+# Box bases up to 2.4.0 installed Node.js 20 (`nvm install 20` in box's
 # ubuntu/24.04/js/install.sh) plus whatever Bun was current when the base was
-# built, so every derived image inherits runtimes that are well behind the
-# workloads. Hive Mind itself declares `engines.node >= 24`, and tasks on
-# repositories that need something newer used to download their own node/bun
-# into /tmp on every run and leave the copy behind — a second accumulation of
-# versions on top of the image's own. Reported upstream as
-# link-foundation/box#112, which box fixed in its 2.5.0/2.6.0 sources — but
-# neither tag was ever published anywhere this build can pull from: Docker Hub
-# stops at konard/box:2.4.0 (2026-06-21) because the release job's Docker Hub
-# login expired, and box's GHCR packages are private. The FROM pin above
-# therefore stays at 2.4.0 and this layer keeps installing the runtimes itself;
-# tracked upstream as link-foundation/box#117. Once a fixed base is pullable,
-# bump the FROM pin and re-check whether this block is still needed.
+# built, so every derived image inherited runtimes well behind the workloads.
+# Hive Mind itself declares `engines.node >= 24`, and tasks on repositories that
+# need something newer used to download their own node/bun into /tmp on every
+# run and leave the copy behind — a second accumulation of versions on top of
+# the image's own. Reported upstream as link-foundation/box#112 and fixed in
+# box 2.7.0, the base the FROM pin above now uses: it already ships exactly the
+# versions pinned below, so on that base this layer adds no second version —
+# nvm reports the pin already installed and the prune loop removes nothing
+# (checked by experiments/issue-2187-runtime-block-on-new-base.sh).
+#
+# The layer is kept anyway, because it is the floor rather than the source of
+# the runtime. The base's versions are box's decision and can move under us in
+# either direction; `engines.node` is ours. Installing here means a base bump
+# can never silently drop the image below the floor, and the prune loop still
+# collapses whatever the base ships to a single version. The pin wins over the
+# base — a base shipping something NEWER would be pruned back to the pin — so
+# when box moves, bump these ARGs to match instead of deleting the block.
 #
 # Pin the runtimes here (bump these ARGs like any other pin):
 #   - HIVE_MIND_NODE_VERSION must stay >= the `engines.node` floor in package.json;

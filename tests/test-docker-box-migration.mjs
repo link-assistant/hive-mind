@@ -21,9 +21,13 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  // Bumped with the base image itself: 2.4.0 adds first-class
-  // Docker-outside-of-Docker support (box#110 / box PR #111).
-  assertIncludes(content, 'FROM konard/box:2.4.0', filePath);
+  // Bumped with the base image itself: 2.7.0 carries the box#112 fix (one
+  // Node.js, one Bun, one Rust toolchain per image — issue #2187, item A).
+  // Pulled from GHCR, box's registry of record, because Docker Hub's 2.7.0
+  // tags are amd64-only and these images build for arm64 too
+  // (link-foundation/box#119).
+  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.7.0', filePath);
+  assertExcludes(content, 'FROM konard/box:', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);
   assertIncludes(content, 'WORKDIR /home/box', filePath);
@@ -58,7 +62,11 @@ assertExcludes(verifyScript, 'Expected user sandbox', 'scripts/verify-docker-ima
 assertExcludes(verifyScript, 'id -nG sandbox', 'scripts/verify-docker-image.sh');
 
 const releaseWorkflow = await read('.github/workflows/release.yml');
-assertIncludes(releaseWorkflow, 'konard/box:', '.github/workflows/release.yml');
+// The workflow reads the base reference out of the Dockerfile rather than
+// naming a registry, so the pin can move between registries (issue #2187)
+// without the reporting step silently printing an empty version.
+assertIncludes(releaseWorkflow, "sed -n 's|^FROM \\(.*/box:[^[:space:]]*\\).*|\\1|p' Dockerfile", '.github/workflows/release.yml');
+assertIncludes(releaseWorkflow, "sed -n 's|^FROM \\(.*/box-dind:[^[:space:]]*\\).*|\\1|p' Dockerfile.dind", '.github/workflows/release.yml');
 assertExcludes(releaseWorkflow, 'konard/sandbox', '.github/workflows/release.yml');
 assertExcludes(releaseWorkflow, 'SANDBOX_VERSION', '.github/workflows/release.yml');
 

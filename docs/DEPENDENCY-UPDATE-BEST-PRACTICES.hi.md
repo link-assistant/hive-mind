@@ -149,7 +149,9 @@ govulncheck ./...                                  # Go
 
 ### Dependabot
 
-Dependabot 33 `package-ecosystem` मान स्वीकार करता है, जो ऊपर की तालिका के हर ecosystem को (Haskell को छोड़कर) कवर करते हैं। **हर ecosystem और हर directory के लिए** एक `updates:` entry चाहिए — तीन `package.json` वाली monorepo को तीन `npm` entries चाहिए।
+Dependabot 33 `package-ecosystem` मान स्वीकार करता है, जो ऊपर की तालिका के हर ecosystem को (Haskell को छोड़कर) कवर करते हैं। हर `updates:` entry को तीन keys चाहिए: `package-ecosystem`, manifests कहाँ हैं, और `schedule.interval`। कहाँ हैं — यह एक path के लिए `directory` से और सूची के लिए `directories` से बताया जाता है, और `*` wildcard केवल `directories` स्वीकार करता है; इसलिए तीन `package.json` वाली monorepo के लिए तीन entries नहीं, बल्कि तीन `directories` वाली एक `npm` entry चाहिए।
+
+किसी मान को केवल वहीं घोषित करें जहाँ वह जिस file को पढ़ता है वह सचमुच commit की गई हो। `npm`, `yarn` और `bun` तीनों वही `package.json` पढ़ते हैं और केवल lockfile में भिन्न हैं (`pnpm` नाम का कोई मान है ही नहीं — `pnpm-lock.yaml` को `npm` कवर करता है), और `terraform` तथा `opentofu` दोनों `.tf` पढ़ते हैं। जिस मान का manifest मौजूद नहीं है उसे घोषित करने पर Dependabot हर run में उस entry को fail करता है; एक ही files पढ़ने वाले दो मान घोषित करने पर एक ही bump के लिए दो pull request खुलते हैं।
 
 ```yaml
 # .github/dependabot.yml
@@ -196,7 +198,7 @@ fix https://github.com/owner/repo --update-all-dependencies
 1. **repository की भाषाओं का पता लगाता है**, GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`) से, प्रति भाषा bytes के क्रम में।
 2. **default branch की file tree सूचीबद्ध करता है** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) और हर committed manifest और lockfile खोजता है, `node_modules/`, `vendor/`, `.venv/` और `target/` जैसी vendored directories छोड़ते हुए।
 3. **दोनों संकेतों को package ecosystems पर मैप करता है।** अकेला कोई भी संकेत गलत है: Linguist उन ecosystems को नहीं देखता जिनका अपना source code नहीं है (GitHub Actions, Docker, Terraform), और manifests उस भाषा को नहीं देखते जिसका manifest असामान्य या अनुपस्थित है।
-4. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, Dependabot कॉन्फ़िगरेशन का संकेत, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
+4. **एक maintenance issue बनाता है** जिसमें हर पहचाना गया ecosystem, मिले हुए manifests, फिर से generate किए जाने वाले lockfiles, वहाँ major पार करने वाला कमांड, ठीक उन्हीं ecosystems के लिए तैयार `.github/dependabot.yml`, और ऊपर के सिद्धांतों से बना standard prompt सूचीबद्ध होते हैं। issue **Task** प्रकार और `dependencies` label के साथ बनाया जाता है।
 5. **issue को `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies` को सौंपता है**, जो अपडेट merge होने तक iterate करता है। हर वह option जिसे `fix` स्वयं उपभोग नहीं करता (उदाहरण के लिए `--tool`, `--model`, `--think`) `/solve` को अग्रेषित किया जाता है।
 
 issue बनाए बिना उसका पूर्वावलोकन करने के लिए `--dry-run` का उपयोग करें, और `/solve` शुरू किए बिना issue बनाने के लिए `--no-solve` का:

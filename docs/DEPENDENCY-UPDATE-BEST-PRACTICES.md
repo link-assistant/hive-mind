@@ -149,7 +149,9 @@ Updating once and stopping produces the same backlog again in a year. Configure 
 
 ### Dependabot
 
-Dependabot accepts 33 `package-ecosystem` values, covering every ecosystem in the table above except Haskell. One `updates:` entry is needed **per ecosystem and per directory** — a monorepo with three `package.json` files needs three `npm` entries.
+Dependabot accepts 33 `package-ecosystem` values, covering every ecosystem in the table above except Haskell. Each `updates:` entry needs three keys: `package-ecosystem`, where the manifests are, and `schedule.interval`. Where they are is `directory` for a single path or `directories` for a list — and only `directories` accepts the `*` wildcard, so a monorepo with three `package.json` files is one `npm` entry with three `directories`, not three entries.
+
+Declare a value only where the file that value reads is actually committed. `npm`, `yarn` and `bun` all read `package.json` and differ only in the lockfile (there is no `pnpm` value — `pnpm-lock.yaml` is covered by `npm`), and `terraform` and `opentofu` both read `.tf`. Declaring one whose manifest is absent makes Dependabot fail that entry on every run; declaring two that read the same files opens two pull requests for one bump.
 
 ```yaml
 # .github/dependabot.yml
@@ -196,7 +198,7 @@ This command:
 1. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by bytes per language.
 2. **Lists the default branch's file tree** (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) and finds every committed manifest and lockfile, skipping vendored directories such as `node_modules/`, `vendor/`, `.venv/` and `target/`.
 3. **Maps both signals onto package ecosystems.** Either signal alone is wrong: Linguist misses ecosystems with no source code of their own (GitHub Actions, Docker, Terraform), and manifests miss a language whose manifest is unusual or absent.
-4. **Creates a maintenance issue** listing every detected ecosystem with the manifests found, the lockfiles to regenerate, the command that crosses majors there, a Dependabot configuration hint, and the standard prompt built from the principles above. The issue is created as a **Task** with a `dependencies` label.
+4. **Creates a maintenance issue** listing every detected ecosystem with the manifests found, the lockfiles to regenerate, the command that crosses majors there, a ready `.github/dependabot.yml` for exactly those ecosystems, and the standard prompt built from the principles above. The issue is created as a **Task** with a `dependencies` label.
 5. **Hands the issue off to `/solve --development-log --deep-analysis --auto-merge --update-all-dependencies`**, which iterates until the update is merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
 
 Use `--dry-run` to preview the issue without creating it, and `--no-solve` to create the issue without starting `/solve`:

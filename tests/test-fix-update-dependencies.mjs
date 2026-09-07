@@ -10,7 +10,7 @@
 import assert from 'assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { buildAutomationSection, buildEcosystemsSection, buildStandardPrompt, buildStandardPromptParagraphs, buildUpdateDependenciesIssueBody, buildUpdateDependenciesIssueTitle, DEPENDENCY_ECOSYSTEMS, mapRepositoryToEcosystems, matchesEcosystem, REPORT_UPSTREAM_PARAGRAPH, UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TITLE, UPDATE_DEPENDENCIES_ISSUE_TYPE } from '../src/fix.update-dependencies.lib.mjs';
+import { buildAutomationSection, buildDependabotConfig, buildEcosystemsSection, buildStandardPrompt, buildStandardPromptParagraphs, buildUpdateDependenciesIssueBody, buildUpdateDependenciesIssueTitle, DEPENDENCY_ECOSYSTEMS, mapRepositoryToEcosystems, matchesEcosystem, MAX_DEPENDABOT_DIRECTORIES, REPORT_UPSTREAM_PARAGRAPH, resolveDependabotEntries, UPDATE_DEPENDENCIES_FORWARDED_SOLVE_OPTIONS, UPDATE_DEPENDENCIES_ISSUE_LABELS, UPDATE_DEPENDENCIES_ISSUE_TITLE, UPDATE_DEPENDENCIES_ISSUE_TYPE } from '../src/fix.update-dependencies.lib.mjs';
 import { buildSolveArgs, FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, FIX_MODES, FIX_SOLVE_OPTIONS, partitionFixArgs, solveOptionsForMode } from '../src/fix.args.lib.mjs';
 import { createUpdateDependenciesIssue, prepareUpdateDependenciesIssue } from '../src/fix.update-dependencies-issue.lib.mjs';
 import { getRepositoryFiles } from '../src/fix.github.lib.mjs';
@@ -46,6 +46,14 @@ await test('every catalog entry carries the fields the issue body renders', () =
     assert.ok(ecosystem.manifests.length > 0 || ecosystem.pathPatterns.length > 0, `${ecosystem.key} is detectable`);
     assert.ok(ecosystem.updateCommand, `${ecosystem.key} says how to update everything`);
     assert.ok(Array.isArray(ecosystem.dependabot), `${ecosystem.key} maps to Dependabot package-ecosystem values`);
+    // A typo in an evidence key would silently drop that value from every
+    // generated dependabot.yml, which is exactly the failure it exists to avoid.
+    for (const value of Object.keys(ecosystem.dependabotEvidence || {})) {
+      assert.ok(ecosystem.dependabot.includes(value), `${ecosystem.key} gates a value it actually declares: ${value}`);
+    }
+    if (ecosystem.dependabotFallback) {
+      assert.ok(ecosystem.dependabot.includes(ecosystem.dependabotFallback), `${ecosystem.key} falls back to a value it declares`);
+    }
   }
 });
 
@@ -168,11 +176,87 @@ await test('buildEcosystemsSection still asks for a manual sweep when nothing is
 await test('buildAutomationSection asks for dependabot.yml only when it is missing', () => {
   const missing = buildAutomationSection({ languages: { JavaScript: 1 }, files: ['package.json'] });
   assert.match(missing, /There is no `\.github\/dependabot\.yml`/);
-  assert.match(missing, /`npm`/, 'the Dependabot package-ecosystem values are spelled out');
+  assert.match(missing, /package-ecosystem: 'npm'/, 'the configuration is spelled out, not just named');
+  assert.match(missing, /Renovate/, 'the alternative is named');
 
   const present = buildAutomationSection({ languages: { JavaScript: 1 }, files: ['package.json', '.github/dependabot.yml'] });
   assert.match(present, /already exists/);
   assert.doesNotMatch(present, /There is no/);
+});
+
+await test('the generated dependabot.yml carries the three keys GitHub requires', () => {
+  // https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
+  // lists package-ecosystem, directory/directories and schedule.interval as required.
+  const config = buildDependabotConfig(resolveDependabotEntries({ languages: { JavaScript: 1 }, files: ['package.json', 'package-lock.json'] }));
+  assert.equal(config, ['version: 2', 'updates:', "  - package-ecosystem: 'npm'", "    directory: '/'", '    schedule:', "      interval: 'weekly'"].join('\n'));
+  assert.equal(buildDependabotConfig([]), '', 'nothing detected renders nothing');
+});
+
+await test('a Dependabot value is only recommended where its own manifest exists', () => {
+  // npm, yarn and bun all read package.json; declaring the two that have no
+  // lockfile here would make Dependabot fail those entries on every run.
+  const npmOnly = resolveDependabotEntries({ languages: { JavaScript: 1 }, files: ['package.json', 'package-lock.json'] });
+  assert.deepEqual(
+    npmOnly.map(entry => entry.value),
+    ['npm']
+  );
+
+  const yarnOnly = resolveDependabotEntries({ languages: { JavaScript: 1 }, files: ['package.json', 'yarn.lock'] });
+  assert.deepEqual(
+    yarnOnly.map(entry => entry.value),
+    ['yarn']
+  );
+
+  // pnpm-lock.yaml is covered by `npm`, and there is no `pnpm` value at all.
+  const pnpm = resolveDependabotEntries({ languages: { JavaScript: 1 }, files: ['package.json', 'pnpm-lock.yaml'] });
+  assert.deepEqual(
+    pnpm.map(entry => entry.value),
+    ['npm']
+  );
+
+  // Detected from the language alone (no lockfile committed): the fallback.
+  const fallback = resolveDependabotEntries({ languages: { JavaScript: 1 }, files: ['package.json'] });
+  assert.deepEqual(
+    fallback.map(entry => entry.value),
+    ['npm']
+  );
+});
+
+await test('terraform and opentofu are never both declared for the same .tf files', () => {
+  const terraform = resolveDependabotEntries({ languages: { HCL: 1 }, files: ['main.tf'] });
+  assert.deepEqual(
+    terraform.map(entry => entry.value),
+    ['terraform']
+  );
+
+  const helmOnly = resolveDependabotEntries({ languages: {}, files: ['helm/chart/Chart.yaml'] });
+  assert.deepEqual(
+    helmOnly.map(entry => entry.value),
+    ['helm']
+  );
+  assert.deepEqual(helmOnly[0].directories, ['/helm/chart']);
+});
+
+await test('an ecosystem found in several directories uses directories, not directory', () => {
+  const entries = resolveDependabotEntries({ languages: { Dockerfile: 1 }, files: ['Dockerfile', 'coolify/Dockerfile', 'experiments/x/Dockerfile'] });
+  const docker = entries.find(entry => entry.value === 'docker');
+  assert.deepEqual(docker.directories, ['/', '/coolify', '/experiments/x']);
+  assert.match(buildDependabotConfig([docker]), /directories:\n {6}- '\/'\n {6}- '\/coolify'/);
+});
+
+await test('github-actions is declared at the repository root wherever the workflows live', () => {
+  // Dependabot reads .github/workflows from `/`, not from the workflow's own directory.
+  const entries = resolveDependabotEntries({ languages: {}, files: ['.github/workflows/ci.yml', '.github/actions/setup/action.yml'] });
+  const actions = entries.find(entry => entry.value === 'github-actions');
+  assert.deepEqual(actions.directories, ['/']);
+});
+
+await test('a monorepo does not bury the instructions under hundreds of directories', () => {
+  const files = Array.from({ length: MAX_DEPENDABOT_DIRECTORIES + 5 }, (_unused, index) => `packages/p${index}/package.json`);
+  const entries = resolveDependabotEntries({ languages: { JavaScript: 1 }, files });
+  assert.equal(entries[0].directories.length, MAX_DEPENDABOT_DIRECTORIES);
+  assert.equal(entries[0].truncated, true);
+  assert.match(buildAutomationSection({ languages: { JavaScript: 1 }, files }), /Only the first 10 directories are listed/);
 });
 
 await test('buildAutomationSection recognizes the .yaml spelling too', () => {

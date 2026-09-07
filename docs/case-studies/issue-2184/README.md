@@ -230,6 +230,22 @@ verbatim into a recommended `.github/dependabot.yml`, the generated issue would
 have advised a configuration GitHub rejects. Fixed, with a regression test that
 checks every catalog value against the captured list.
 
+A second defect surfaced when the dry run was read against that same list.
+`buildAutomationSection` printed _every_ `package-ecosystem` value of every
+detected ecosystem, so running the mode on this repository recommended `yarn`
+and `bun` (no `yarn.lock`, no `bun.lock`), `devcontainers` (no
+`devcontainer.json`), `terraform`, `opentofu`, `pre-commit` and `gitsubmodule`
+(none of `.tf`, `.tofu`, `.pre-commit-config.yaml`, `.gitmodules` exists here) —
+twelve values where five are true. Dependabot reports a missing manifest on
+every run for each one. The catalog now carries `dependabotEvidence`: the file
+that a value actually reads (`yarn` ⇢ `yarn.lock`, `helm` ⇢ `Chart.yaml`,
+`terraform` ⇢ `*.tf`), so a value is declared only where its file is committed,
+with a `dependabotFallback` for the ecosystem that was detected by language
+alone. And instead of a bare list, the section now renders the file itself —
+`version: 2`, one `updates:` entry per value with the directories that file was
+found in, `directory:` for one and `directories:` for several, capped at
+`MAX_DEPENDABOT_DIRECTORIES` with a note when a monorepo exceeds it.
+
 ## 7. The documentation requirement
 
 The issue is labelled `documentation` as well as `enhancement`, and the standard

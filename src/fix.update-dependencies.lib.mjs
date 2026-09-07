@@ -58,6 +58,12 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       // pnpm is deliberately absent: Dependabot covers pnpm-lock.yaml under the
       // `npm` ecosystem, and `package-ecosystem: pnpm` is rejected as invalid.
       dependabot: ['npm', 'yarn', 'bun'],
+      // npm, yarn and bun all read package.json and differ only in the lockfile,
+      // so the value follows the lockfile that is actually committed. Declaring
+      // `yarn` for a repository that has no yarn.lock makes Dependabot report a
+      // missing manifest on every run.
+      dependabotEvidence: { npm: ['package-lock.json', 'npm-shrinkwrap.json', 'pnpm-lock.yaml'], yarn: ['yarn.lock'], bun: ['bun.lock', 'bun.lockb'] },
+      dependabotFallback: 'npm',
       updateCommand: 'npx npm-check-updates -u && npm install',
       note: '`npm update` stays inside the existing semver ranges and never crosses a major; `npm-check-updates -u` rewrites package.json to the `latest` dist-tag.',
     },
@@ -69,6 +75,7 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       lockfiles: ['uv.lock', 'poetry.lock', 'Pipfile.lock', 'requirements.lock'],
       pathPatterns: [/(^|\/)requirements[^/]*\.(txt|in)$/],
       dependabot: ['pip', 'uv'],
+      dependabotEvidence: { uv: ['uv.lock'] },
       updateCommand: 'uv lock --upgrade  •  pip-compile --upgrade  •  poetry update',
       note: 'Raise the floors in pyproject.toml as well: a `>=` floor years below the resolved version means CI and a fresh install are not testing the same tree. Drop upper bounds that exclude the current release.',
     },
@@ -79,6 +86,7 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       manifests: ['Cargo.toml'],
       lockfiles: ['Cargo.lock'],
       dependabot: ['cargo', 'rust-toolchain'],
+      dependabotEvidence: { 'rust-toolchain': ['rust-toolchain', 'rust-toolchain.toml'] },
       updateCommand: 'cargo upgrade --incompatible && cargo update  (cargo-edit)',
       note: 'Plain `cargo update` only moves Cargo.lock inside the requirements already in Cargo.toml. `cargo update --breaking` rewrites them but is nightly-only (`-Z unstable-options`), so `cargo upgrade --incompatible` from cargo-edit is the stable route. Revisit `edition` and `rust-version` too.',
     },
@@ -100,6 +108,7 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       lockfiles: ['packages.lock.json'],
       pathPatterns: [/\.(cs|fs|vb)proj$/],
       dependabot: ['nuget', 'dotnet-sdk'],
+      dependabotEvidence: { 'dotnet-sdk': ['global.json'] },
       updateCommand: 'dotnet outdated -u  (dotnet-outdated)  •  dotnet list package --outdated',
       note: 'Check `TargetFramework` at the same time; a test SDK or xunit major usually moves with it.',
     },
@@ -111,6 +120,8 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       lockfiles: ['gradle.lockfile'],
       pathPatterns: [/(^|\/)gradle\/libs\.versions\.toml$/, /(^|\/)gradle\/wrapper\/gradle-wrapper\.properties$/],
       dependabot: ['maven', 'gradle', 'sbt'],
+      dependabotEvidence: { maven: ['pom.xml'], gradle: ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts', 'libs.versions.toml'], sbt: ['build.sbt'] },
+      dependabotFallback: 'maven',
       updateCommand: 'mvn versions:use-latest-releases versions:update-properties  •  ./gradlew dependencyUpdates',
       note: 'Maven pins most versions in `<properties>`, so `versions:use-latest-releases` alone leaves them behind — run `versions:update-properties` too. Review `maven.compiler.source/target` and the Gradle wrapper version.',
     },
@@ -180,6 +191,9 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       manifests: ['action.yml', 'action.yaml'],
       pathPatterns: [/^\.github\/workflows\/[^/]+\.ya?ml$/],
       dependabot: ['github-actions'],
+      // Documented as `directory: "/"`: Dependabot reads .github/workflows from
+      // the repository root, not from the directory the workflow file lives in.
+      dependabotDirectories: ['/'],
       updateCommand: 'bump every `uses:` reference to the newest release (tag or pinned digest)',
       // Prose, not a command: it formats itself, so the renderer must not wrap it
       // in a code span (nested backticks do not nest in Markdown).
@@ -194,6 +208,8 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       manifests: ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'],
       pathPatterns: [/(^|\/)Dockerfile([.-][^/]*)?$/, /(^|\/)devcontainer\.json$/],
       dependabot: ['docker', 'docker-compose', 'devcontainers'],
+      dependabotEvidence: { docker: [/(^|\/)Dockerfile([.-][^/]*)?$/], 'docker-compose': ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'], devcontainers: ['devcontainer.json'] },
+      dependabotFallback: 'docker',
       updateCommand: 'bump each `FROM` base-image tag (and re-pin the digest, if digests are used)',
       updateCommandIsProse: true,
       note: 'A base image is a dependency: an old `FROM` ships the distribution’s unpatched libraries no matter how current the language packages are.',
@@ -205,9 +221,14 @@ export const DEPENDENCY_ECOSYSTEMS = Object.freeze(
       manifests: ['Chart.yaml', '.pre-commit-config.yaml'],
       pathPatterns: [/\.tf$/, /(^|\/)\.gitmodules$/],
       dependabot: ['terraform', 'opentofu', 'helm', 'pre-commit', 'gitsubmodule'],
+      // `terraform` and `opentofu` both read .tf, so declaring both against the
+      // same directory would open two pull requests for one bump; OpenTofu is
+      // offered only where its own .tofu files are present.
+      dependabotEvidence: { terraform: [/\.tf$/], opentofu: [/\.tofu$/], helm: ['Chart.yaml'], 'pre-commit': ['.pre-commit-config.yaml'], gitsubmodule: ['.gitmodules'] },
+      dependabotFallback: 'terraform',
       updateCommand: 'terraform init -upgrade  •  helm dependency update  •  pre-commit autoupdate  •  git submodule update --remote',
     },
-  ].map(ecosystem => Object.freeze({ ...ecosystem, manifests: Object.freeze(ecosystem.manifests || []), lockfiles: Object.freeze(ecosystem.lockfiles || []), pathPatterns: Object.freeze(ecosystem.pathPatterns || []), dependabot: Object.freeze(ecosystem.dependabot || []) }))
+  ].map(ecosystem => Object.freeze({ ...ecosystem, manifests: Object.freeze(ecosystem.manifests || []), lockfiles: Object.freeze(ecosystem.lockfiles || []), pathPatterns: Object.freeze(ecosystem.pathPatterns || []), dependabot: Object.freeze(ecosystem.dependabot || []), dependabotEvidence: Object.freeze(Object.fromEntries(Object.entries(ecosystem.dependabotEvidence || {}).map(([value, matchers]) => [value, Object.freeze(matchers)]))), dependabotDirectories: Object.freeze(ecosystem.dependabotDirectories || []) }))
 );
 
 export const DEPENDENCY_BEST_PRACTICES_URL = 'https://github.com/link-assistant/hive-mind/blob/main/docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md';
@@ -329,10 +350,112 @@ export function buildEcosystemsSection({ languages, files } = {}) {
   return lines.join('\n').trimEnd();
 }
 
+/** Repository-relative directory of `filePath`, in Dependabot's `/`-rooted form. */
+function dependabotDirectory(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/');
+  const slash = normalized.lastIndexOf('/');
+  return slash === -1 ? '/' : `/${normalized.slice(0, slash)}`;
+}
+
+/** Does `filePath` satisfy one of an evidence entry's matchers? */
+function matchesEvidence(matchers, filePath) {
+  const path = String(filePath || '').replace(/\\/g, '/');
+  if (!path || IGNORED_PATH.test(path)) return false;
+  return matchers.some(matcher => (matcher instanceof RegExp ? matcher.test(path) : baseName(path) === matcher));
+}
+
+/**
+ * At most this many `directories:` entries are spelled out per ecosystem. A
+ * monorepo can hold hundreds of manifests, and an issue body that lists them
+ * all buries the instructions it exists to carry.
+ */
+export const MAX_DEPENDABOT_DIRECTORIES = 10;
+
+/**
+ * Resolve the `updates:` entries a `.github/dependabot.yml` for this repository
+ * should carry (issue #2184).
+ *
+ * A `package-ecosystem` value is emitted only where the repository holds the
+ * file that value actually reads. Several ecosystems in the catalog map to more
+ * than one Dependabot value — npm/yarn/bun read the same package.json and differ
+ * only in the lockfile, maven/gradle/sbt each have their own build file — and
+ * declaring a value whose manifest is absent makes Dependabot fail that entry on
+ * every run. Values with no `dependabotEvidence` entry are unconditional;
+ * `dependabotFallback` covers the case where an ecosystem was detected from its
+ * language alone and no evidence file was found.
+ *
+ * Returns `{ value, directories, truncated }` per entry, ordered as the
+ * ecosystems are.
+ */
+export function resolveDependabotEntries({ languages, files } = {}) {
+  const { detected } = mapRepositoryToEcosystems({ languages, files });
+  const fileList = (Array.isArray(files) ? files : []).map(file => String(file || '').replace(/\\/g, '/')).filter(Boolean);
+  const entries = [];
+  const seen = new Set();
+
+  for (const entry of detected) {
+    const { ecosystem } = entry;
+    // Where the ecosystem itself lives, for values that carry no evidence of
+    // their own (e.g. `pip`, `cargo`, `bundler`).
+    const ecosystemDirectories = [...entry.manifests, ...entry.lockfiles].map(dependabotDirectory);
+    const gated = [];
+    const ungated = [];
+
+    for (const value of ecosystem.dependabot) {
+      const matchers = ecosystem.dependabotEvidence?.[value];
+      if (!matchers) {
+        ungated.push({ value, directories: ecosystemDirectories });
+        continue;
+      }
+      const evidence = fileList.filter(file => matchesEvidence(matchers, file));
+      if (evidence.length > 0) gated.push({ value, directories: evidence.map(dependabotDirectory) });
+    }
+
+    const resolved = [...ungated, ...gated];
+    if (gated.length === 0 && ecosystem.dependabotFallback && !ungated.some(item => item.value === ecosystem.dependabotFallback)) {
+      resolved.push({ value: ecosystem.dependabotFallback, directories: ecosystemDirectories });
+    }
+
+    for (const item of resolved) {
+      if (seen.has(item.value)) continue;
+      seen.add(item.value);
+      const explicit = ecosystem.dependabotDirectories.length > 0 ? [...ecosystem.dependabotDirectories] : [...new Set(item.directories)].sort();
+      const directories = explicit.length > 0 ? explicit : ['/'];
+      entries.push({ value: item.value, directories: directories.slice(0, MAX_DEPENDABOT_DIRECTORIES), truncated: directories.length > MAX_DEPENDABOT_DIRECTORIES });
+    }
+  }
+
+  return entries;
+}
+
+/**
+ * Render the `updates:` entries as a ready-to-commit `.github/dependabot.yml`.
+ *
+ * `package-ecosystem`, a directory and `schedule.interval` are the three keys
+ * GitHub documents as required. `directories` (plural) is used whenever an
+ * ecosystem was found in more than one place, because `directory` takes a single
+ * value.
+ */
+export function buildDependabotConfig(entries = []) {
+  if (entries.length === 0) return '';
+  const lines = ['version: 2', 'updates:'];
+  for (const entry of entries) {
+    lines.push(`  - package-ecosystem: '${entry.value}'`);
+    if (entry.directories.length === 1) {
+      lines.push(`    directory: '${entry.directories[0]}'`);
+    } else {
+      lines.push('    directories:');
+      for (const directory of entry.directories) lines.push(`      - '${directory}'`);
+    }
+    lines.push('    schedule:');
+    lines.push("      interval: 'weekly'");
+  }
+  return lines.join('\n');
+}
+
 /** Render the Dependabot configuration hint for the detected ecosystems. */
 export function buildAutomationSection({ languages, files } = {}) {
-  const { detected } = mapRepositoryToEcosystems({ languages, files });
-  const values = [...new Set(detected.flatMap(entry => entry.ecosystem.dependabot))];
+  const entries = resolveDependabotEntries({ languages, files });
   const hasDependabotConfig = (Array.isArray(files) ? files : []).some(file => /^\.github\/dependabot\.ya?ml$/.test(String(file)));
 
   const lines = [];
@@ -341,9 +464,19 @@ export function buildAutomationSection({ languages, files } = {}) {
   } else {
     lines.push('There is no `.github/dependabot.yml` in this repository, so nothing keeps the versions current after this issue is closed. Add one so the next drift is a pull request instead of another issue.');
   }
-  if (values.length > 0) {
+  if (entries.length > 0) {
     lines.push('');
-    lines.push(`Ecosystems to declare (one \`updates:\` entry per ecosystem **and** per directory): ${values.map(value => `\`${value}\``).join(', ')}.`);
+    lines.push(hasDependabotConfig ? 'The ecosystems found in this repository correspond to these entries:' : 'For the ecosystems found in this repository that is:');
+    lines.push('');
+    lines.push('```yaml');
+    lines.push(buildDependabotConfig(entries));
+    lines.push('```');
+    if (entries.some(entry => entry.truncated)) {
+      lines.push('');
+      lines.push(`Only the first ${MAX_DEPENDABOT_DIRECTORIES} directories are listed per ecosystem — add the remaining ones, or replace the list with a glob (\`directories\` supports \`*\`; \`directory\` does not).`);
+    }
+    lines.push('');
+    lines.push('[Renovate](https://docs.renovatebot.com/) is the alternative if grouped or automerged updates are wanted instead.');
   }
   return lines.join('\n');
 }

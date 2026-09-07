@@ -1,0 +1,66 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/2184",
+  "pull_request": "https://github.com/link-assistant/hive-mind/pull/2214",
+  "branch": "issue-2184-8300c30afbb5",
+  "captured": "2026-09-05",
+  "capture_method": "gh CLI for GitHub records; WebFetch against each tool's own documentation for the update commands and the Dependabot value list. Every command reproduced in DEPENDENCY_ECOSYSTEMS is stored in data/ecosystem-update-commands.json together with the sentence from upstream that justifies it.",
+  "issue_record": {
+    "local_copy": "data/issue-2184.json",
+    "comments": "data/issue-2184-comments.json",
+    "note": "The comment thread is empty, so the issue description is the complete specification. Requirements were enumerated from it in README.md section 3."
+  },
+  "prior_art": [
+    {
+      "url": "https://github.com/link-foundation/links-notation/issues/292",
+      "local_copy": "data/links-notation-issue-292.json",
+      "title": "Update all dependencies in all eight languages, and publish them at one version",
+      "used_for": "Structure of a hand-written instance of the generated issue: per-language sections, each a `dependency | pinned | latest` table with versions resolved from the registries rather than from memory. Also the source of the 'the toolchain is a dependency too' requirement (it flags `edition = \"2021\"` and `rust-version = \"1.70\"` alongside the packages)."
+    },
+    {
+      "url": "https://github.com/link-foundation/lino-objects-codec/issues/47",
+      "local_copy": "data/lino-objects-codec-issue-47.json",
+      "title": "Update all dependencies in all four languages: major versions behind in each, and four different links-notation pins",
+      "used_for": "The 'one version per dependency across the whole repository' paragraph and principle 6 of the best-practices document. Its framing -- the same library pinned at four versions 'changes what documents mean' -- is why that case is called out separately instead of folded into 'update everything'."
+    },
+    {
+      "url": "https://github.com/link-assistant/router/issues/372",
+      "local_copy": "data/router-issue-372.json",
+      "title": "Update all dependencies, including new release of doublet-rs/link-cli (as a library)",
+      "used_for": "The 'use the new features' paragraph, verbatim in intent: 'use all the best new features from them, where relevant, so we reuse modern features, and duplicate code and logic less'. This is the requirement no dependency bot satisfies, and the reason the feature is a generated task rather than a Dependabot configuration."
+    }
+  ],
+  "repository_context": [
+    {
+      "source": "gh api repos/link-assistant/hive-mind/languages",
+      "local_copy": "data/repo-languages.json",
+      "settled": "GitHub reports JavaScript, Shell, Dockerfile and Go Template for this repository -- it names neither npm nor GitHub Actions. Detection therefore unions language signals with file-path signals in mapRepositoryToEcosystems()."
+    },
+    {
+      "source": "git ls-files, filtered through the catalog matchers",
+      "local_copy": "data/hive-mind-manifest-inventory.json",
+      "settled": "12 files: package.json, package-lock.json, five Dockerfiles, five workflows. Used as the real-repository fixture the detection had to get right."
+    }
+  ],
+  "external_facts": [
+    {
+      "topic": "Per-ecosystem 'update everything to latest' commands",
+      "local_copy": "data/ecosystem-update-commands.json",
+      "sources": ["https://github.com/raineorshine/npm-check-updates", "https://docs.astral.sh/uv/concepts/projects/sync/", "https://doc.rust-lang.org/cargo/commands/cargo-update.html", "https://go.dev/ref/mod#go-get", "https://github.com/dotnet-outdated/dotnet-outdated", "https://www.mojohaus.org/versions/versions-maven-plugin/index.html", "https://getcomposer.org/doc/03-cli.md#update-u-upgrade", "https://bundler.io/man/bundle-update.1.html", "https://hexdocs.pm/mix/Mix.Tasks.Deps.Update.html", "https://dart.dev/tools/pub/cmd/pub-upgrade", "https://docs.swift.org/package-manager/PackageDescription/"],
+      "settled": "The obvious command is often the wrong one. Three traps are recorded in the data file and reproduced in the best-practices document: `npm update` stays inside the existing semver ranges and never crosses a major (hence `npm-check-updates -u`, whose default target is the `latest` dist-tag); `cargo update --breaking` is nightly-only, so the stable path is cargo-edit's `cargo upgrade --incompatible`; Maven versions usually live in `<properties>`, so `versions:use-latest-releases` must be paired with `versions:update-properties`."
+    },
+    {
+      "topic": "Dependabot `package-ecosystem` values",
+      "local_copy": "data/dependabot-package-ecosystems.json",
+      "sources": ["https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference", "https://docs.github.com/en/code-security/dependabot/ecosystems-supported-by-dependabot/supported-ecosystems-and-repositories"],
+      "settled": "Exactly 33 values are accepted, and entries are per (ecosystem, directory) pair, so a polyglot repository needs one `updates:` entry per pair. This list is what buildAutomationSection() emits as 'Ecosystems to declare'.",
+      "caught_a_bug": "pnpm is not among the 33. Dependabot covers pnpm-lock.yaml under `npm`, and `package-ecosystem: pnpm` is rejected. DEPENDENCY_ECOSYSTEMS declared it, so the generated issue recommended an invalid dependabot.yml. Fixed in commit 0e01a54c with a regression test that checks every catalog value against this file."
+    },
+    {
+      "topic": "Alternatives to Dependabot",
+      "sources": ["https://docs.renovatebot.com/"],
+      "settled": "Renovate covers more ecosystems and adds grouping and auto-merge rules, but shares the limit that matters here: both are bumpers, not migrators. Neither adapts code to a changed API nor removes a hand-rolled implementation that upstream now provides. Recorded as the alternative in the generated issue's automation section and in the best-practices document."
+    }
+  ],
+  "repository_sources": ["src/fix.mjs", "src/fix.args.lib.mjs", "src/fix.github.lib.mjs", "src/fix.ci-cd.lib.mjs", "src/fix.ci-cd-issue.lib.mjs", "src/fix.update-dependencies.lib.mjs", "src/fix.update-dependencies-issue.lib.mjs", "src/update-dependencies.prompts.lib.mjs", "src/architecture-care.prompts.lib.mjs", "src/handoff.prompts.lib.mjs", "src/solve.config.lib.mjs", "src/hive.config.lib.mjs", "src/option-suggestions.lib.mjs", "src/telegram-fix-command.lib.mjs", "src/telegram-task-command.lib.mjs", "src/solve.keep-working.detect.lib.mjs", "docs/CI-CD-BEST-PRACTICES.md", "docs/case-studies/issue-1733/README.md", "docs/case-studies/issue-1733/research-sources.json"],
+  "reused_from_issue_1733": "The whole /fix pipeline (validate -> prepare -> dry-run -> create -> solve), the `providedBy` tagging that drops prompt paragraphs another enabled /solve option already supplies, the pure-helpers/GitHub-backed split that keeps the issue builders unit-testable without network, and the CI-CD-BEST-PRACTICES.md precedent that DEPENDENCY-UPDATE-BEST-PRACTICES.md follows."
+}

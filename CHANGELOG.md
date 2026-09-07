@@ -1,5 +1,50 @@
 # @link-assistant/hive-mind
 
+## 2.22.0
+
+### Minor Changes
+
+- 1d21991: Add `/fix --update-all-dependencies` and the matching `--update-all-dependencies` option on `/solve`, `/hive`, `/task` and the Telegram bot (issue #2184).
+
+  `/fix` had one mode: point it at a repository, and `--ci-cd` collects the repository's real state from the GitHub API, writes a remediation issue from it, and hands the issue to `/solve --development-log --deep-analysis --auto-merge`. This aims the same machine at dependencies. `/fix owner/repo --update-all-dependencies` detects every ecosystem in the repository from its languages **and** its file tree — GitHub's language stats name neither npm nor GitHub Actions for this repository, so both signals are needed — and generates an issue that says, per ecosystem, which manifests and lockfiles are in play and which command actually brings them to latest.
+
+  - **The command that crosses majors, not the one that looks right.** A catalog of 15 ecosystems carries a verified update command each, with the traps recorded: `npm update` stays inside the existing semver ranges and never crosses a major (so the JavaScript entry is `npx npm-check-updates -u`), `cargo update --breaking` is nightly-only (so the stable path is cargo-edit's `cargo upgrade --incompatible`), and Maven versions usually live in `<properties>` (so `versions:use-latest-releases` is paired with `versions:update-properties`). Every command is quoted from its own upstream documentation in `docs/case-studies/issue-2184/data/ecosystem-update-commands.json`.
+  - **Existing tools are configured, not reimplemented.** The generated issue ends with a ready `.github/dependabot.yml` for exactly the ecosystems detected, and names Renovate as the alternative. What it asks the AI to do is the part neither can: read the migration guide, adapt the code, delete the hand-rolled implementation that upstream now provides, bring a dependency pinned in four places to one version, and report a blocking upstream bug instead of silently pinning back.
+  - **The option is off by default and works anywhere.** `--update-all-dependencies` is one entry in `SOLVE_OPTION_DEFINITIONS`, so it reaches `/solve`, `/hive` and their Telegram commands automatically, and its sub-prompt is wired into all six tool prompt builders (claude, codex, opencode, agent, qwen, gemini) — a test asserts all six. It injects the same paragraphs the generated issue carries, built from one array, so the two carriers cannot drift; paragraphs another enabled option already supplies are dropped rather than repeated. `/task --update-all-dependencies` generates the same issue and stops there, mirroring `/task --ci-cd`.
+  - **Adding the second mode did not fork the first.** Repository parsing, argument partitioning and the GitHub reads moved into `src/fix.args.lib.mjs` and `src/fix.github.lib.mjs`, shared by both modes; `src/fix.mjs` now drives a mode table, so the validate → prepare → dry-run → create → solve flow exists once. A mode is required and exactly one is accepted, and the Telegram `/fix` default no longer implies `--ci-cd` on top of an explicit mode.
+
+  `docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md` — linked from every generated issue and from the sub-prompt, and previously a dead link — is written in all four repository languages, and the analysis behind the feature is in `docs/case-studies/issue-2184/`. Cross-checking the catalog against the captured Dependabot reference caught two shipped defects before release: `pnpm` is not one of the 33 accepted `package-ecosystem` values (pnpm-lock.yaml is covered by `npm`), so the recommended configuration would have been rejected by GitHub; and every value of a detected ecosystem was recommended regardless of whether its manifest exists, so this repository was told to declare `yarn`, `bun`, `terraform` and five more that Dependabot would report as missing on every run. Each value now has to point at a file that is actually committed. `tests/test-fix-update-dependencies.mjs` covers all of it in 52 tests, including the regressions for both, and `examples/fix-update-dependencies-preview.mjs` shows what a local checkout would be told without any GitHub call.
+
+## 2.21.1
+
+### Patch Changes
+
+- f19f9f7: CI/CD guide, principle 10: a serialised writer still checks out `github.sha`
+
+  The concurrency group orders main-writing jobs; it does not refresh their
+  working trees, so the second writer in the queue starts behind the branch and
+  its push is rejected as non-fast-forward. Principle 10 now says so, rules out
+  `ref: main` on the checkout (it publishes a tree CI never validated), and
+  prescribes the recovery: classify the rejection — a GH006/GH013 ruleset
+  rejection prints `rejected` too and can never be satisfied by a rebase — then
+  rebase and retry. Added to all four translations, with the pull-request
+  recovery cross-referenced from principle 9.
+
+## 2.21.0
+
+### Minor Changes
+
+- 72d5911: Prove the release can be published before building it: a `release-preflight` job now gates every publishing job, and the guide gains principle #16 (issue #2221).
+
+  A pull request exists to test the code; a push to `main` exists to produce a release. `release.yml` did not distinguish them: `DOCKERHUB_TOKEN` was first touched by a `docker/login-action` step that runs _after_ npm has already published, so an expired token was discovered at the end of a run whose entire purpose was the release. link-foundation/box#117 is the worked example — run 33972074755 built the whole image matrix, published 2.5.0 and 2.6.0, reported `success`, and delivered no images at all, because the login step was `continue-on-error: true`, the mirror steps were guarded on its outcome, and `skipped` is not `failure`.
+
+  - **The probe attempts a write, because a login proves nothing.** Measured against both registries and recorded in `dev/log/issues/2221/live-probe.log`: docker.io answers an _anonymous_ `pull,push` token request with HTTP 200 and silently narrows the `access` claim to `pull`, so a check that reads 200 as "I can push" passes with no credentials at all; with a credential ghcr.io answers 200 too and hands back the credential base64-encoded. `scripts/registry-probe.lib.mjs` instead opens a blob upload session (`POST /v2/<repo>/blobs/uploads/`) and cancels it with `DELETE <Location>` — one round trip, nothing stored, no blob, no manifest, no tag, no package version.
+  - **Every credential is reported, not just the first.** `scripts/preflight-credentials.mjs` probes all targets and decides the exit code at the end, so a broken pipeline is fixed in one pass rather than one credential per run. On `pull_request` it runs in `report` mode and never blocks: fork PRs have no secrets, and failing there would only block contributors. On a push to `main` or a manual dispatch it fails fast, before the build spends anything.
+  - **`unknown` is never reported as broken, and "no failures" is never reported as a pass.** A registry that times out or answers HTTP 429 has not said the credential is bad, so refusing to release on that basis would invent a new way for a release to fail; a run in which nothing could be verified says so out loud in its job summary.
+  - **Reachability is checked too, and never gates the release.** The preflight asks, with no credentials, what an anonymous consumer gets for the published images — the check that would have contradicted box's release notes, which claimed 28 of 56 image references resolved when anonymously it was 0 of 56.
+
+  `tests/release-preflight-2221.test.mjs` (22 assertions) drives the probes and the decision against a fake registry — including the two cases that make the cheap version of this check useless — and runs the real CLI end to end for both exit codes; `tests/cicd-best-practices-publish-preflight-2221.test.mjs` pins principle #16 in all four translations of `docs/CI-CD-BEST-PRACTICES.md` and asserts this repository follows it. `experiments/issue-2221-registry-probe-live.mjs` reproduces the live measurement.
+
 ## 2.20.0
 
 ### Minor Changes

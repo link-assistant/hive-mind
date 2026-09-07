@@ -1,0 +1,85 @@
+{
+  "captured": "2026-09-05",
+  "captured_with": "WebFetch against each tool's own documentation",
+  "description": "Per-ecosystem 'update everything to latest' commands, each verified against the upstream documentation linked in `source`. These are the commands reproduced by buildEcosystemsSection() in src/fix.update-dependencies.lib.mjs.",
+  "ecosystems": [
+    {
+      "key": "javascript",
+      "command": "npx npm-check-updates -u && npm install",
+      "source": "https://github.com/raineorshine/npm-check-updates",
+      "verified": "README: `ncu -u` — 'Overwrite package file with upgraded versions instead of just outputting to console'; `--target latest` is the default and 'upgrades to whatever the package's latest dist-tag points to'. `npm update` alone stays inside the existing semver ranges and therefore never crosses a major."
+    },
+    {
+      "key": "python",
+      "command": "uv lock --upgrade  (or: pip-compile --upgrade / poetry update)",
+      "source": "https://docs.astral.sh/uv/concepts/projects/sync/",
+      "verified": "uv guide: 'To upgrade all packages: $ uv lock --upgrade'."
+    },
+    {
+      "key": "rust",
+      "command": "cargo upgrade --incompatible && cargo update  (cargo-edit); cargo +nightly update --breaking -Z unstable-options",
+      "source": "https://doc.rust-lang.org/cargo/commands/cargo-update.html",
+      "verified": "Cargo docs: plain `cargo update` 'only updates Cargo.lock to the latest versions allowed by the version requirements already specified in Cargo.toml' and does not modify Cargo.toml. `cargo update --breaking` does modify the requirements but 'is unstable and available only on the nightly channel and requires -Z unstable-options'. Crossing a major therefore needs cargo-edit's `cargo upgrade --incompatible` on stable."
+    },
+    {
+      "key": "go",
+      "command": "go get -u ./... && go mod tidy",
+      "source": "https://go.dev/ref/mod#go-get",
+      "verified": "`go get -u` updates modules providing the named packages to newer minor or patch releases; `go mod tidy` then prunes go.mod/go.sum."
+    },
+    {
+      "key": "csharp",
+      "command": "dotnet outdated -u  (dotnet-outdated global tool); dotnet list package --outdated",
+      "source": "https://github.com/dotnet-outdated/dotnet-outdated",
+      "verified": "README: `dotnet outdated -u` / `--upgrade` automatically upgrades all outdated packages; `-u:prompt` prompts per package."
+    },
+    {
+      "key": "java",
+      "command": "mvn versions:use-latest-releases versions:update-properties  |  ./gradlew dependencyUpdates",
+      "source": "https://www.mojohaus.org/versions/versions-maven-plugin/index.html",
+      "verified": "versions-maven-plugin goals: `versions:display-dependency-updates` reports newer versions; `versions:use-latest-releases` 'searches for release versions and replaces them with the latest release version'. For Gradle, ben-manes' plugin id `io.github.ben-manes.versions` adds the `dependencyUpdates` task (https://github.com/ben-manes/gradle-versions-plugin)."
+    },
+    {
+      "key": "php",
+      "command": "composer update --with-all-dependencies",
+      "source": "https://getcomposer.org/doc/03-cli.md#update-u-upgrade",
+      "verified": "`composer update` resolves inside composer.json constraints; crossing a major needs `composer require vendor/pkg:^X` to rewrite the constraint first."
+    },
+    {
+      "key": "ruby",
+      "command": "bundle update --all",
+      "source": "https://bundler.io/man/bundle-update.1.html",
+      "verified": "`--all` updates every gem in the Gemfile to the newest version allowed by the Gemfile constraints."
+    },
+    {
+      "key": "elixir",
+      "command": "mix deps.update --all",
+      "source": "https://hexdocs.pm/mix/Mix.Tasks.Deps.Update.html",
+      "verified": "Updates all dependencies in mix.lock inside the mix.exs constraints."
+    },
+    {
+      "key": "dart",
+      "command": "dart pub upgrade --major-versions",
+      "source": "https://dart.dev/tools/pub/cmd/pub-upgrade",
+      "verified": "Docs: --major-versions 'gets the packages that dart pub outdated lists as resolvable, ignoring any upper-bound constraint in the pubspec.yaml file. Also updates pubspec.yaml with the new constraints.' Plain `dart pub upgrade` stays inside the constraints."
+    },
+    {
+      "key": "swift",
+      "command": "swift package update",
+      "source": "https://docs.swift.org/package-manager/PackageDescription/",
+      "verified": "Updates Package.resolved within the Package.swift requirements; a major needs the requirement in Package.swift edited first."
+    },
+    {
+      "key": "github-actions",
+      "command": "Pin each `uses:` to the newest release (Dependabot `package-ecosystem: github-actions` automates it)",
+      "source": "https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference",
+      "verified": "`github-actions` is an accepted package-ecosystem value; it reads .github/workflows/*.yml and composite action.yml files."
+    },
+    {
+      "key": "docker",
+      "command": "Bump each `FROM` base-image tag/digest (Dependabot `package-ecosystem: docker`)",
+      "source": "https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference",
+      "verified": "`docker` and `docker-compose` are accepted package-ecosystem values."
+    }
+  ]
+}

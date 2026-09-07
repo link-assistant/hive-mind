@@ -1,0 +1,14 @@
+[
+  ".github/workflows/cleanup-test-repos.yml",
+  ".github/workflows/links.yml",
+  ".github/workflows/release.yml",
+  ".github/workflows/security.yml",
+  ".github/workflows/workflows.yml",
+  "Dockerfile",
+  "Dockerfile.dind",
+  "Dockerfile.formal-ai",
+  "coolify/Dockerfile",
+  "experiments/solve-dockerize/Dockerfile",
+  "package-lock.json",
+  "package.json"
+]

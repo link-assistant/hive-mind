@@ -24,6 +24,11 @@
 
 import { KEEP_WORKING_PROMPT } from './solve.keep-working.detect.lib.mjs';
 
+// Mode-agnostic `/fix` argument handling moved to fix.args.lib.mjs when `/fix`
+// gained its second mode (issue #2184). It is re-exported here so every
+// existing importer of this module keeps working unchanged.
+export { buildSolveArgs, FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, FIX_MODES, FIX_OWNED_BOOLEAN_FLAGS, FIX_SOLVE_OPTIONS, parseFixRepository, partitionFixArgs, solveOptionsForMode } from './fix.args.lib.mjs';
+
 /**
  * Canonical mapping from GitHub Linguist language names to the
  * link-foundation AI-driven-development pipeline templates.
@@ -81,57 +86,6 @@ export const CI_CD_BEST_PRACTICES_URL = 'https://github.com/link-assistant/hive-
 /** Build a browser URL for a `owner/repo` slug. */
 export function templateUrl(repo) {
   return `https://github.com/${repo}`;
-}
-
-/**
- * Parse a `/fix` repository argument into a normalized descriptor.
- * Returns null when the value is not a GitHub repository URL/shorthand.
- *
- * Self-contained on purpose: keeping this module free of the heavy
- * `github.lib.mjs` import chain lets the pure helpers be unit-tested without
- * network access. Accepts:
- *   - https://github.com/owner/repo (with optional .git / trailing slash)
- *   - github.com/owner/repo
- *   - owner/repo shorthand
- * Rejects anything that points deeper than a repository (issues, pulls, …),
- * contains whitespace, or is otherwise malformed.
- */
-export function parseFixRepository(value) {
-  const candidate = String(value || '')
-    .trim()
-    .replace(/^[<([{]+/, '')
-    .replace(/[>\])}.,;:]+$/, '');
-  if (!candidate || /\s/.test(candidate)) return null;
-
-  // Normalize away an optional protocol, then require either a github.com host
-  // or a bare `owner/repo` shorthand. Any other host is rejected.
-  let withoutProtocol = candidate.replace(/^https?:\/\//i, '');
-  const hadProtocol = withoutProtocol !== candidate;
-
-  let pathPart;
-  if (/^github\.com\//i.test(withoutProtocol)) {
-    pathPart = withoutProtocol.replace(/^github\.com\//i, '');
-  } else if (!hadProtocol && !withoutProtocol.includes('.com/') && !/[^/]+\.[^/]+\//.test(withoutProtocol)) {
-    // Bare shorthand like `owner/repo`.
-    pathPart = withoutProtocol;
-  } else {
-    return null;
-  }
-
-  pathPart = pathPart.replace(/\.git$/i, '').replace(/\/+$/, '');
-
-  const segments = pathPart.split('/').filter(Boolean);
-  if (segments.length !== 2) return null;
-
-  const [owner, repo] = segments;
-  if (!/^[A-Za-z0-9._-]+$/.test(owner) || !/^[A-Za-z0-9._-]+$/.test(repo)) return null;
-
-  return {
-    owner,
-    repo,
-    fullName: `${owner}/${repo}`,
-    url: `https://github.com/${owner}/${repo}`,
-  };
 }
 
 /**
@@ -459,93 +413,4 @@ export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, la
   const sections = [`### ${runsHeading}`, '', buildRunsSection(uniqueRuns, { emptyMessage: runsEmptyMessage, includeCommit: runsSource === 'branch' }), '', buildStandardPrompt({ templatesSorted: sortedTemplates, omittedOptions }), '', '---', '', '<details>', '<summary>Context collected by <code>/fix --ci-cd</code></summary>', '', `- **Repository:** [${repository?.fullName}](${repository?.url})`, `- **Default branch:** \`${defaultBranch || 'unknown'}\``, `- **Latest commit:** ${commitLine}`, `- **CI/CD runs found:** ${total} (${failing} not passing)`, '', '**Detected languages**', '', buildLanguagesSection(languages), '', '**Recommended CI/CD templates**', '', buildTemplatesSection(languages), '', '</details>'];
 
   return sections.join('\n');
-}
-
-/**
- * Flags that `/fix` consumes itself and must NOT be forwarded to `/solve`.
- * Boolean flags only — they never take a value.
- */
-export const FIX_OWNED_BOOLEAN_FLAGS = Object.freeze(['--ci-cd', '--dry-run', '--no-solve', '--solve', '--no-auto-solve', '--help', '-h', '--version']);
-
-/**
- * Partition raw CLI args into the options `/fix` consumes and the passthrough
- * args forwarded to `/solve`. Unknown flags (and their values) are preserved in
- * order so that `--tool`, `--model`, `--think`, etc. reach `/solve` untouched.
- */
-export function partitionFixArgs(rawArgs) {
-  const args = Array.isArray(rawArgs) ? rawArgs : [];
-  const result = {
-    repository: null,
-    repositoryRaw: null,
-    ciCd: false,
-    dryRun: false,
-    runSolve: true,
-    help: false,
-    version: false,
-    passthrough: [],
-  };
-
-  for (const arg of args) {
-    if (arg === '--ci-cd') {
-      result.ciCd = true;
-      continue;
-    }
-    if (arg === '--dry-run') {
-      result.dryRun = true;
-      continue;
-    }
-    if (arg === '--no-solve' || arg === '--no-auto-solve') {
-      result.runSolve = false;
-      continue;
-    }
-    if (arg === '--solve') {
-      result.runSolve = true;
-      continue;
-    }
-    if (arg === '--help' || arg === '-h') {
-      result.help = true;
-      continue;
-    }
-    if (arg === '--version') {
-      result.version = true;
-      continue;
-    }
-    // First bare GitHub repository argument becomes the target.
-    if (!result.repository && !arg.startsWith('-')) {
-      const repository = parseFixRepository(arg);
-      if (repository) {
-        result.repository = repository;
-        result.repositoryRaw = arg;
-        continue;
-      }
-    }
-    result.passthrough.push(arg);
-  }
-
-  return result;
-}
-
-/**
- * The options `/fix` always turns on when handing the issue to `/solve`
- * (issue #1733: "do similar to what `/solve --development-log --deep-analysis
- * --auto-merge`"). `--development-log` replaces the superseded case-study
- * workflow, while `--deep-analysis` re-injects the prompt paragraphs
- * `buildCiCdIssueBody` conditionally omits from the issue text.
- */
-export const FIX_SOLVE_OPTIONS = Object.freeze([SOLVE_OPTION_DEVELOPMENT_LOG, SOLVE_OPTION_DEEP_ANALYSIS, '--auto-merge']);
-
-/**
- * Build the argv passed to `solve.mjs`: the created issue URL, the options
- * `/fix` always enables, and every forwarded option. An option the caller
- * already passed through is not duplicated.
- */
-export function buildSolveArgs({ issueUrl, passthrough = [] }) {
-  const args = [issueUrl];
-  for (const option of FIX_SOLVE_OPTIONS) {
-    if (!passthrough.includes(option)) {
-      args.push(option);
-    }
-  }
-  args.push(...passthrough);
-  return args;
 }

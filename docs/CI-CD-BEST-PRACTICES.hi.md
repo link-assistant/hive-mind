@@ -249,6 +249,7 @@ Automated release workflows सुनिश्चित करते हैं:
 - **OIDC trusted publishing** - CI में कोई API tokens आवश्यक नहीं (npm, PyPI, crates.io)
 - **केवल validated releases** - Publishing से पहले सभी checks pass होने चाहिए
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
+- **Rule से रुका हुआ push विफल release नहीं है** - जब repository ruleset यह माँगता है कि बदलाव pull request से आएँ, तब release job अस्वीकृति पर मरने के बजाय अपने version bump के लिए एक PR खोलता है। यह रास्ता और हारी हुई दौड़ का rebase-and-retry रास्ता, एक ही शब्द छापने वाली दो अस्वीकृतियों के दो अलग recovery हैं (देखें सिद्धांत 10)
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -293,6 +294,35 @@ jobs:
 Default रूप से concurrency group में अधिकतम एक running और एक pending job रहता है; नया pending writer पुराने pending writer को बदल देता है। यदि हर queued write चलना आवश्यक है, तो writer के concurrency block में `queue: max` जोड़ें (अधिकतम 100 jobs प्रतीक्षा कर सकते हैं)। `queue: max` को `cancel-in-progress: true` के साथ उपयोग नहीं किया जा सकता, और execution order workflow dispatch order के बजाय jobs के प्रतीक्षा शुरू करने के समय पर आधारित होता है; इसलिए write jobs idempotent होने चाहिए।
 
 Job conditions में `always()` के बजाय `!cancelled()` उपयोग करें ताकि cancellation job graph में सही ढंग से propagate हो। केवल `always()` लगाने से cancellation के बाद भी downstream work चल सकता है।
+
+**Serialisation writer-ों का क्रम तय करता है, उनके लिए rebase नहीं करता।** Concurrency group यह तय करती है कि हर writer _कब_ चलेगा, यह नहीं कि उसने _क्या_ checkout किया है। `actions/checkout` `github.sha` को checkout करता है — वही commit जिसने run शुरू किया — इसलिए queue का दूसरा writer, पहले writer के land करते ही, branch से एक या अधिक commits पीछे शुरू होता है और उसका push अस्वीकार हो जाता है:
+
+```
+ ! [rejected]        main -> main (non-fast-forward)
+```
+
+इस बिंदु के बिना ऊपर की सलाह "दो writers टकराते हैं" को "दूसरा writer हर बार विफल होता है" में बदल देती है — यह बेहतर है, क्योंकि यह deterministic और स्पष्ट है, फिर भी release टूटा हुआ ही रहता है। `link-foundation/browser-commander` ने इस group को अक्षरशः लागू किया (तीन workflow files में तीन भाषाओं के releases, timings में शून्य overlap) और उसके तीन में से दो releases फिर भी इसी line पर समाप्त हुए। हर run सामान्य flaky CI जैसा दिखा, इसलिए नुकसान बिना ध्यान में आए जमा होता रहा: crates.io पर Rust crate 0.10.11 तक पहुँच गया जबकि `main` पर `Cargo.toml` अब भी 0.9.0 कहता था, और Python package कभी publish हुआ ही नहीं, क्योंकि job उस changelog push पर मरता है जो publish step से पहले आता है।
+
+**इसे checkout में `ref: main` से मत "ठीक" करें।** इससे अस्वीकृति तो चुप हो जाती है, पर आप उस tree को build, test और publish करते हैं जिसे CI ने validate नहीं किया, और log में इसका कोई निशान नहीं होता। अस्वीकृति ईमानदार परिणाम है; जो कमी है वह recovery की है।
+
+**हर write job को ऐसा push दें जो पहले अस्वीकृति को वर्गीकृत करे, फिर rebase करके दोबारा कोशिश करे।** Repository ruleset की अस्वीकृति (GH006, GH013 — "Changes must be made through a pull request") भी `[rejected]` छापती है, और कितने भी rebase किसी rule को संतुष्ट नहीं कर सकते; वहाँ pull request वाला रास्ता चाहिए (देखें सिद्धांत 9)। दोबारा कोशिश करना केवल queue slot खर्च करता है और गलत कारण बताता है।
+
+```js
+for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const result = await run('git', ['push', remote, branch]);
+  if (result.code === 0) return { pushed: true, attempt };
+  // Rule को rebase से संतुष्ट नहीं किया जा सकता: वही commit PR के रास्ते land करें।
+  if (isBlockedByRepositoryRule(result)) return landViaPullRequest({ branch, ...ctx });
+  // Auth, network, गायब remote: rebase असली error को छिपा देता।
+  if (!isNonFastForward(result) || attempt === maxAttempts) throw new CommandFailedError('git', ['push', remote, branch], result);
+  await run('git', ['pull', '--rebase', remote, branch]);
+}
+```
+
+- **साझा branch पर कभी `--force` नहीं, और कभी `--force-with-lease` भी नहीं।** दोनों ही हारी हुई दौड़ को उस काम के चुपचाप मिटने में बदल देते हैं जो आपसे आगे वाले writer ने land किया था। Rebase ही मुद्दा है: बाद वाला commit पहले वाले के ऊपर बैठना चाहिए।
+- **Rebase के बाद वह सब दोबारा गणना करें जो उससे पहले निकाला गया था।** पुरानी tip के सापेक्ष चुना गया version number, changelog entry या tag उस writer द्वारा पहले ही लिया जा चुका हो सकता है जिसने queue जीती। योजना दोहराने के बजाय state दोबारा पढ़ें।
+- **सफलता तभी बताएँ जब push land कर चुका हो।** Push की पुष्टि से पहले `version_committed=true` सेट करने वाला step downstream publish job को ऐसे commit पर काम करने देता है जो केवल उसी runner पर मौजूद है।
+- **Retries की सीमा रखें और log में कारण बताएँ।** छोटी देरी के साथ कुछ प्रयास queue के लिए पर्याप्त हैं; वास्तव में protected branch के विरुद्ध अनंत loop तेज़ विफलता को लंबी विफलता बना देता है।
 
 ### 11. Secrets Detection
 
@@ -385,6 +415,36 @@ merge-manifest:
 - **Lockfile का उसी रूप में audit करें जैसे वह commit हुआ है** (`--package-lock-only`)। यह वही रिपोर्ट करता है जो एक consumer को मिलेगा, और इसे किसी ऐसे resolution से हरा नहीं किया जा सकता जो केवल इसी runner पर होता है।
 - **Job को schedule पर रखें**, केवल push पर नहीं। Code बदलना बंद हो जाने के बाद प्रकाशित हुई advisory को केवल एक scheduled run ही पकड़ सकता है।
 - **Level स्पष्ट रूप से सेट करें।** Default `low` है, जो सबको job की अनदेखी करना सिखा देता है; कोई flag न होना और जानबूझकर `--audit-level=high` लगाना — ये दो अलग विफलताएँ हैं।
+
+### 16. Build करने से पहले सिद्ध करें कि आप Publish कर सकते हैं
+
+**Pull request का काम code को test करना है; default branch पर push का काम release बनाना है।** ये दो अलग काम हैं, और एक गुम credential इनके लिए अलग-अलग अर्थ रखता है। Pull request पर यह एक warning है — forks के पास secrets होते ही नहीं, और code फिर भी test किया जा सकता है। Default branch पर यही उत्तर है: यदि किसी भी नियोजित release के लिए ज़रूरी कोई credential अनुपयोगी है, तो उसके बाद run जो कुछ भी करे वह release नहीं बना सकता, और build में बीता हर मिनट व्यर्थ है।
+
+एक `preflight` job सबसे पहले रखें और हर publishing job को उस पर `needs:` करवाएँ।
+
+```yaml
+release-preflight:
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    id-token: write # ताकि probe `npm publish` की ज़रूरत पड़ने से पहले ही OIDC की पुष्टि कर ले
+  steps:
+    - uses: actions/checkout@v7
+    - env:
+        PREFLIGHT_MODE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'release' || 'report' }}
+      run: node scripts/preflight-credentials.mjs --mode "$PREFLIGHT_MODE"
+
+release:
+  needs: [release-preflight]
+  if: ${{ !cancelled() && needs.release-preflight.result == 'success' }}
+```
+
+- **Login से नहीं, एक write से probe करें।** ghcr.io का token endpoint किसी भी scope के लिए 200 लौटाता है और कुछ भी सत्यापित नहीं करता — push तब 403 से विफल होता है। docker.io अनाम push-scope अनुरोध का उत्तर 200 और केवल-pull `access` claim के साथ देता है। एक blob upload session खोलें (`POST /v2/<repo>/blobs/uploads/`) और उसे `DELETE <Location>` से रद्द करें: एक round trip, कुछ भी संग्रहीत नहीं, और जाँच का यही एकमात्र रूप है जो अनुमान नहीं है।
+- **पहली नहीं, हर विफलता रिपोर्ट करें।** Preflight का मूल्य एक ऐसी रिपोर्ट है जो सभी गुम credentials के नाम बताए। Job को रोक देने वाला login step बाकी को छिपा देता है, इसलिए उसे `continue-on-error: true` रखें और निर्णय preflight script को करने दें।
+- **केवल writability नहीं, reachability भी जाँचें।** GHCR package पहली push पर private होता है और तब तक private रहता है जब तक कोई क्लिक न करे; ऐसे package के और versions प्रकाशित करना जिसे कोई pull ही नहीं कर सकता, ठीक वही compute है जिसे यह job छोड़ने के लिए है। GitHub package visibility के लिए कोई API नहीं देता (packages REST API केवल GET/DELETE/restore है), इसलिए यह एक manual step है जिसे pipeline केवल पहचान कर नाम दे सकती है।
+- **Trusted publishing को प्राथमिकता दें।** समाप्त होने वाला credential एक ऐसा release outage है जो कैलेंडर की तारीख का इंतज़ार कर रहा है। npm (`id-token: write` + `--provenance`) और Docker Hub (`DOCKERHUB_OIDC_CONNECTIONID`, कोई `password:` नहीं) दोनों OIDC का समर्थन करते हैं। कोशिश करने से पहले `ACTIONS_ID_TOKEN_REQUEST_URL` जाँचें — runner उसे तभी inject करता है जब `id-token: write` दिया गया हो, ताकि आधा-अधूरा setup token request के बारे में नहीं, permission के बारे में संदेश के साथ विफल हो।
+- **प्रकाशित परिणाम को अनाम रूप से, और अलग से सत्यापित करें।** Release को कभी push पर मत टिकाइए (एक विफल mirror एक अच्छे release को मिटाए नहीं), लेकिन बाद में बिना किसी credential के अवश्य जाँचिए कि जो आपने प्रकाशित किया वह pull हो सकता है या नहीं। Authenticate करने वाली जाँच publisher का दृष्टिकोण मापती है; पाठक को न वह login मिलता है और न ही संदेह का लाभ।
+- **अनुमान नहीं, `unknown` रिपोर्ट करें।** Timeout देने वाली या HTTP 429 लौटाने वाली registry ने यह नहीं कहा कि credential टूटा हुआ है, और जिस run में कुछ भी सत्यापित न हो सका वह pass नहीं है। बताइए कि इनमें से क्या हुआ: "0 सत्यापित, 3 unknown" पर कार्रवाई हो सकती है, "कोई विफलता नहीं" पर नहीं।
 
 ## Quality Enforcement रणनीति
 

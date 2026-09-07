@@ -78,7 +78,7 @@ The full record, including the empty comment thread, is in
 | R2  | It works "similar to how we do `/fix --ci-cd`" — same shape: collect real repository state, generate an issue, hand off to `/solve` | "similar to how we do `/fix --ci-cd`"                                                         | `MODE_HANDLERS` in `src/fix.mjs`; shared `src/fix.args.lib.mjs` + `src/fix.github.lib.mjs`                     |
 | R3  | A matching option on **all** `/solve` commands                                                                                      | "We also should add similar option to all our `/solve` commands"                              | `SOLVE_OPTION_DEFINITIONS['update-all-dependencies']`; hive passthrough; Telegram; all six tool prompts        |
 | R4  | Disabled by default                                                                                                                 | "By default it is disabled"                                                                   | `default: false`; `getUpdateAllDependenciesSubPrompt` returns `''` unless `argv.updateAllDependencies`; tested |
-| R5  | Collect the data about the issue into `./docs/case-studies/issue-2184`                                                              | "compile that data to `./docs/case-studies/issue-{id}` folder"                                | [`data/`](data/) — 9 files                                                                                     |
+| R5  | Collect the data about the issue into `./docs/case-studies/issue-2184`                                                              | "compile that data to `./docs/case-studies/issue-{id}` folder"                                | [`data/`](data/) — 10 files                                                                                    |
 | R6  | Deep case study analysis, including online research                                                                                 | "do deep case study analysis (also make sure to search online for additional facts and data)" | this document; [`research-sources.json`](research-sources.json)                                                |
 | R7  | List each and all requirements from the issue                                                                                       | "list of each and all requirements"                                                           | this table                                                                                                     |
 | R8  | Propose solutions and solution plans per requirement                                                                                | "propose possible solutions and solution plans for each requirement"                          | §6                                                                                                             |
@@ -98,6 +98,7 @@ The full record, including the empty comment thread, is in
 | [`data/links-notation-issue-292.json`](data/links-notation-issue-292.json)           | Prior art: "Update all dependencies in all eight languages…"                                             | `gh issue view` on link-foundation/links-notation#292                                                       |
 | [`data/lino-objects-codec-issue-47.json`](data/lino-objects-codec-issue-47.json)     | Prior art: "Update all dependencies in all four languages…"                                              | `gh issue view` on link-foundation/lino-objects-codec#47                                                    |
 | [`data/router-issue-372.json`](data/router-issue-372.json)                           | Prior art: "Update all dependencies… and use all the best new features from them"                        | `gh issue view` on link-assistant/router#372                                                                |
+| [`data/example-preview-hive-mind.log`](data/example-preview-hive-mind.log)           | A real, offline run of the shipped detection against this repository: 4 ecosystems, 5 Dependabot values  | `node examples/fix-update-dependencies-preview.mjs .`                                                       |
 
 ### 4.1 What the prior art contributed
 
@@ -296,6 +297,9 @@ document the new mode and option where users look for them.
 # Attach the same instructions to an unrelated task:
 ./src/solve.mjs https://github.com/owner/repo/issues/1 --update-all-dependencies
 
+# What a local checkout would be told, offline, with no GitHub call at all:
+node examples/fix-update-dependencies-preview.mjs .
+
 # The tests:
 node tests/test-fix-update-dependencies.mjs
 ```
@@ -315,5 +319,6 @@ docs/case-studies/issue-2184/
     ├── dependabot-package-ecosystems.json     the 33 accepted package-ecosystem values
     ├── links-notation-issue-292.json          prior art (8 languages)
     ├── lino-objects-codec-issue-47.json       prior art (4 languages)
-    └── router-issue-372.json                  prior art ("use the best new features")
+    ├── router-issue-372.json                  prior art ("use the best new features")
+    └── example-preview-hive-mind.log          a real run of the shipped detection here
 ```

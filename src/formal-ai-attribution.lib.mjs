@@ -56,6 +56,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
+
 const execFileAsync = promisify(execFile);
 
 /** The four trailers `scripts/self-hosting-metric.rs` reads. */
@@ -856,6 +858,83 @@ export const createFormalAiAttributionSession = ({ repositoryPath, issueNumber =
 };
 
 /**
+ * `--attribution auto` (the default) means "attribute the work when Formal AI
+ * did it". The explicit spellings exist for the two cases the default cannot
+ * infer: a run that must be attributed even though the model was reached some
+ * other way, and a run that must not be.
+ */
+export const resolveAttributionMode = ({ attribution = 'auto', model = null } = {}) => {
+  const requested = String(attribution ?? 'auto')
+    .trim()
+    .toLowerCase();
+  if (requested === 'none' || requested === 'off') return { mode: 'none', reason: '--attribution none' };
+  if (requested === 'formal-ai' || requested === 'formalai') return { mode: 'formal-ai', reason: '--attribution formal-ai' };
+  if (isFormalAiModel(model)) return { mode: 'formal-ai', reason: `--model ${model}` };
+  return { mode: 'none', reason: model ? `--model ${model} is not Formal AI` : 'no Formal AI model selected' };
+};
+
+/**
+ * The same shape as a real session, doing nothing.
+ *
+ * Every caller can then treat attribution as unconditional, which is what keeps
+ * the wiring in `agent.lib.mjs` free of `if (attribution)` at each of its return
+ * paths — the place a missed branch would silently stop attributing.
+ */
+export const createDisabledAttributionSession = (reason = null) => ({
+  enabled: false,
+  rejection: reason,
+  sessionId: null,
+  evidencePath: null,
+  stagingDir: null,
+  hooksDir: null,
+  gitEnv: {},
+  prepare: async () => ({ enabled: false, reason, env: {} }),
+  noteSessionId: async () => {},
+  setPullRequestUrl: async () => {},
+  recordStreamEvent: async () => {},
+  flush: async () => {},
+  verify: async () => ({ attributed: [], malformed: [], checked: 0 }),
+  backfillPullRequestTrailer: async () => ({ rewritten: 0, reason }),
+  finalize: async () => ({ enabled: false, reason, attributed: [], malformed: [] }),
+});
+
+/**
+ * Build the session for one `solve` run, reading the model version from
+ * `formal-ai --version` as the issue specifies.
+ *
+ * `formal-ai.lib.mjs` is imported lazily: it pulls in the whole wrapper
+ * runtime, which a caller that only wants the builders should not pay for.
+ */
+export const resolveFormalAiAttributionSession = async ({ argv = {}, repositoryPath, issueNumber = null, prNumber = null, prUrl = null, log = async () => {}, env = process.env, readVersion = null, sanitize = undefined, flushRecordThreshold = undefined } = {}) => {
+  const { mode, reason } = resolveAttributionMode({ attribution: argv.attribution, model: argv.model });
+  if (mode !== 'formal-ai') return createDisabledAttributionSession(reason);
+
+  // Attribution is bookkeeping: it may refuse to run, but it may never be the
+  // reason a solve run fails, so every failure here degrades to "unattributed".
+  try {
+    const read = readVersion || (async () => (await import('./formal-ai.lib.mjs')).readFormalAiVersion({ env }));
+    const version = await read();
+
+    return createFormalAiAttributionSession({
+      repositoryPath,
+      issueNumber,
+      prNumber,
+      prUrl,
+      version,
+      model: argv.model,
+      tool: argv.tool,
+      log,
+      env,
+      sanitize,
+      flushRecordThreshold,
+    });
+  } catch (error) {
+    await log(`🛑 Formal AI attribution not enabled: ${error?.message || error}`, { level: 'warning' });
+    return createDisabledAttributionSession(`${error?.message || error}`);
+  }
+};
+
+/**
  * Keep the bundle out of `git status` until it is committed.
  *
  * A commit that is aborted (or made with `--no-verify`) leaves the copied files
@@ -892,6 +971,9 @@ export const ensureEvidenceExcluded = async ({ gitDir, evidencePath, fsImpl = fs
 
 export default {
   buildAttributionGitEnv,
+  createDisabledAttributionSession,
+  resolveAttributionMode,
+  resolveFormalAiAttributionSession,
   buildAttributionTrailers,
   buildEvidenceDirectory,
   buildModelTrailerValue,

@@ -28,6 +28,7 @@ import semver from 'semver';
 import { agentModels, defaultModels, freeToBaseModelMap, isFormalAiModel } from './models/index.mjs';
 import { isPrepareOnly, logPreparedToolCommand, resolveFormalAiToolExecution } from './formal-ai.lib.mjs';
 import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue #2119
+import { createDisabledAttributionSession, resolveFormalAiAttributionSession } from './formal-ai-attribution.lib.mjs'; // Issue #2229
 import { checkPlaywrightMcpPackageAvailability, getAgentPlaywrightMcpDisableEnv } from './playwright-mcp.lib.mjs';
 import { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage } from './agent-token-usage.lib.mjs';
 import { createJsonStreamScanner, parseJsonRecords } from './json-stream.lib.mjs';
@@ -565,13 +566,22 @@ export const executeAgent = async params => {
     repo,
     prNumber,
     issueNumber,
+    // Issue #2229: the pull request is already open by the time the agent runs,
+    // so its URL can go straight onto the commits the agent is about to make.
+    prUrl,
     agentPath,
     $,
   });
 };
 
 export const executeAgentCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, owner, repo, prNumber, issueNumber, prUrl, agentPath, $, calculatePricing = calculateAgentPricing, waitForRetryDelay = waitWithCountdown, createAttributionSession = resolveFormalAiAttributionSession } = params;
+
+  // Issue #2229: commits authored by Formal AI carry the trailers and the
+  // evidence bundle its self-hosting metric reads. Created once for the whole
+  // call so a retried run keeps writing into the same bundle.
+  // --only-prepare-command must not touch the repository, so it gets no hooks.
+  const attribution = isPrepareOnly(argv) ? createDisabledAttributionSession('command was only prepared, not executed') : await createAttributionSession({ argv, repositoryPath: tempDir, issueNumber, prNumber, prUrl, log });
 
   // Retry configuration
   let retryCount = 0;
@@ -612,6 +622,11 @@ export const executeAgentCommand = async params => {
     if (argv.verbose) {
       agentEnv.LINK_ASSISTANT_AGENT_VERBOSE = 'true';
     }
+
+    // Issue #2229: the attribution hooks are handed to the agent process alone,
+    // so only the model's own commits are attributed - Hive Mind's development
+    // log and auto-commit stay unattributed, as they should.
+    Object.assign(agentEnv, (await attribution.prepare()).env);
 
     // Apply Playwright MCP session state before launching Agent.
     if (argv.playwrightMcp === false) {
@@ -775,7 +790,13 @@ export const executeAgentCommand = async params => {
         if (!sessionId && eventSessionId) {
           sessionId = eventSessionId;
           await log(`📌 Session ID: ${sessionId}`);
+          // Issue #2229: from here on the bundle names a real session, so the
+          // next commit the agent makes can be attributed to it.
+          await attribution.noteSessionId(sessionId);
         }
+        // Issue #2229: the stream itself is the evidence formal-ai's metric asks
+        // for; it is also where a silent fallback to a hosted model shows up.
+        await attribution.recordStreamEvent(data);
         // Issue #1250: Accumulate token usage during streaming
         accumulateTokenUsage(data);
         await markBidirectionalStateFromAgentEvent(data);
@@ -1100,6 +1121,9 @@ export const executeAgentCommand = async params => {
         const tokenUsage = streamingTokenUsage;
         const pricingInfo = await calculatePricing(mappedModel, tokenUsage);
         await finalizeAgentBidirectionalHandler();
+        // Issue #2229: report even on failure - a run that stopped part way can
+        // still have left an attributed commit behind.
+        await attribution.finalize({ branchName });
 
         return {
           success: false,
@@ -1171,6 +1195,7 @@ export const executeAgentCommand = async params => {
         await log('📝 Captured result summary from Agent output', { verbose: true });
       }
       await finalizeAgentBidirectionalHandler();
+      await attribution.finalize({ branchName }); // Issue #2229
 
       return {
         success: true,
@@ -1191,6 +1216,7 @@ export const executeAgentCommand = async params => {
       });
 
       await finalizeAgentBidirectionalHandler();
+      await attribution.finalize({ branchName }); // Issue #2229
       await log(`\n\n❌ Error executing Agent command: ${error.message}`, { level: 'error' });
       return {
         success: false,

@@ -25,7 +25,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildAttributionGitEnv, buildAttributionTrailers, buildEvidenceDirectory, buildModelTrailerValue, buildSessionEvidence, collectModelIdentities, createFormalAiAttributionSession, detectHostedModel, ensureEvidenceExcluded, isCanonicalPullRequestUrl, parseCommitTrailers, parseGitConfigEnv, validateEvidencePath, FORMAL_AI_TRAILER_KEYS } from '../src/formal-ai-attribution.lib.mjs';
+import { executeAgentCommand } from '../src/agent.lib.mjs';
+import { buildAttributionGitEnv, buildAttributionTrailers, buildEvidenceDirectory, buildModelTrailerValue, buildSessionEvidence, collectModelIdentities, createFormalAiAttributionSession, detectHostedModel, ensureEvidenceExcluded, isCanonicalPullRequestUrl, parseCommitTrailers, parseGitConfigEnv, resolveAttributionMode, resolveFormalAiAttributionSession, validateEvidencePath, FORMAL_AI_TRAILER_KEYS } from '../src/formal-ai-attribution.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -388,6 +389,129 @@ fs.writeFileSync(path.join(excluded, EVIDENCE, 'session-id.txt'), 'stale\n');
 assertEqual(git(excluded, ['status', '--porcelain']).output.trim(), '', 'so an abandoned commit leaves nothing for git status to report');
 assertEqual(git(excluded, ['add', '-f', '--', EVIDENCE]).code, 0, 'while the hooks can still stage it with -f');
 assertEqual((await ensureEvidenceExcluded({ gitDir: path.join(excluded, '.git'), evidencePath: EVIDENCE })).reason, 'already_present', 'and the exclude entry is written only once');
+
+console.log('\n=== issue #2229: --model formal-ai is what turns attribution on ===');
+
+assertEqual(resolveAttributionMode({ model: 'formal-ai' }).mode, 'formal-ai', '--model formal-ai attributes the run to Formal AI');
+assertEqual(resolveAttributionMode({ model: 'formalai/formal-ai' }).mode, 'formal-ai', 'the fully qualified selector counts too');
+assertEqual(resolveAttributionMode({ model: 'sonnet' }).mode, 'none', "a hosted model is never published as Formal AI's own work");
+assertEqual(resolveAttributionMode({ attribution: 'formal-ai', model: 'sonnet' }).mode, 'formal-ai', '--attribution formal-ai is the explicit override the issue asks for');
+assertEqual(resolveAttributionMode({ attribution: 'none', model: 'formal-ai' }).mode, 'none', '--attribution none turns it off again');
+assertEqual(resolveAttributionMode({}).mode, 'none', 'and a run that never mentions Formal AI is left alone');
+
+const unresolved = await resolveFormalAiAttributionSession({ argv: { model: 'sonnet' }, repositoryPath: workspace });
+assertEqual(unresolved.enabled, false, 'a session for an unattributed run is inert');
+assertEqual((await unresolved.prepare()).env.GIT_CONFIG_COUNT, undefined, 'and hands the agent no hooks at all');
+
+// A missing `formal-ai --version` must not take the run down with it - the
+// commit is simply not attributed.
+const versionless = await resolveFormalAiAttributionSession({
+  argv: { model: 'formal-ai', tool: 'agent' },
+  repositoryPath: makeRepo('versionless'),
+  issueNumber: ISSUE,
+  readVersion: async () => null,
+});
+assertEqual((await versionless.prepare()).enabled, false, 'without a version there is nothing to record in Formal-AI-Model');
+
+console.log('\n=== issue #2229: a solve run attributes the commit the model makes ===');
+
+// The whole path, end to end: executeAgentCommand prepares the session, the
+// agent process commits with the environment it was handed, and the commit that
+// results is the one formal-ai's metric can attribute. The Agent CLI itself is
+// replaced by a stub that reports a session id and then commits - everything
+// between those two events is the real implementation.
+const runAgentCommand = async ({ repository, argv, commitWork = true, prUrl = PR_URL }) => {
+  const logLines = [];
+  let capturedEnv = null;
+  let commitCode = null;
+
+  const $stub = options => {
+    capturedEnv = options.env;
+    const chunks = () =>
+      (async function* stream() {
+        yield { type: 'stdout', data: Buffer.from(`${JSON.stringify({ type: 'session.started', sessionID: SESSION })}\n`) };
+        if (commitWork) {
+          // Exactly what the model does when it finishes a change.
+          fs.writeFileSync(path.join(repository, 'feature.txt'), 'work\n');
+          git(repository, ['add', 'feature.txt']);
+          commitCode = git(repository, ['commit', '--quiet', '-m', 'feat: teach the parser about ranges'], capturedEnv).code;
+        }
+        yield { type: 'stdout', data: Buffer.from(`${JSON.stringify({ type: 'session.idle' })}\n`) };
+        yield { type: 'exit', code: 0 };
+      })();
+    return () => ({ stream: chunks });
+  };
+
+  const result = await executeAgentCommand({
+    tempDir: repository,
+    branchName: 'main',
+    prompt: 'Solve issue 2229',
+    systemPrompt: '',
+    argv: { verbose: false, ...argv },
+    log: async line => logLines.push(String(line)),
+    formatAligned: (_icon, label, value = '') => `${label} ${value}`.trim(),
+    getResourceSnapshot: async () => ({ memory: 'Mem:\n  100 MB available', load: '0.00' }),
+    forkedRepo: null,
+    feedbackLines: [],
+    issueNumber: ISSUE,
+    prNumber: 2230,
+    prUrl,
+    agentPath: 'agent',
+    $: $stub,
+    calculatePricing: async () => ({ totalCostUSD: 0 }),
+    // Hermetic: the version probe and the Secretlint sanitizer are the two
+    // things in this path that would otherwise reach outside the test.
+    createAttributionSession: params => resolveFormalAiAttributionSession({ ...params, readVersion: async () => VERSION, sanitize: async text => text, flushRecordThreshold: 1 }),
+  });
+
+  return { result, logLines, capturedEnv, commitCode };
+};
+
+const solved = makeRepo('solve-run');
+fs.writeFileSync(path.join(solved, 'README.md'), '# repo\n');
+git(solved, ['add', 'README.md']);
+git(solved, ['commit', '--quiet', '-m', 'chore: initial']);
+
+// `--attribution formal-ai` rather than `--model formal-ai`: the two are the
+// same decision (asserted above), but `--model formal-ai` would start a real
+// Formal AI server, and this test is about the attribution wiring alone.
+const run = await runAgentCommand({ repository: solved, argv: { model: 'nemotron-3-super-free', tool: 'agent', attribution: 'formal-ai' } });
+assertEqual(run.result.success, true, 'the run itself succeeds');
+assertEqual(run.result.sessionId, SESSION, 'and reports the session the CLI announced');
+const hooksPathOf = env => Object.fromEntries(parseGitConfigEnv(env))['core.hooksPath'] ?? null;
+assertEqual(typeof hooksPathOf(run.capturedEnv), 'string', 'the agent process is pointed at the attribution hooks through core.hooksPath');
+assertEqual(run.commitCode, 0, "and the model's commit is accepted");
+
+assertEqual(trailerValue(solved, 'HEAD', FORMAL_AI_TRAILER_KEYS.session), SESSION, 'the commit names the session');
+assertEqual(trailerValue(solved, 'HEAD', FORMAL_AI_TRAILER_KEYS.model), `formal-ai/${VERSION}`, 'and the model, read from formal-ai --version');
+assertEqual(trailerValue(solved, 'HEAD', FORMAL_AI_TRAILER_KEYS.evidence), EVIDENCE, 'and the evidence path');
+assertEqual(trailerValue(solved, 'HEAD', FORMAL_AI_TRAILER_KEYS.pullRequest), PR_URL, 'and the pull request it belongs to');
+assertEqual(git(solved, ['show', `HEAD:${EVIDENCE}/session-id.txt`]).output, buildSessionEvidence({ sessionId: SESSION, version: VERSION }), 'the evidence bundle is inside that same commit');
+assertEqual(git(solved, ['show', `HEAD:${EVIDENCE}/agent-stream.jsonl`]).output.includes('session.started'), true, 'together with the Agent CLI stream');
+assertEqual(
+  run.logLines.some(line => line.includes('Formal AI attributed 1 commit')),
+  true,
+  'and the run reports what the metric will count'
+);
+assertEqual(git(solved, ['status', '--porcelain']).output.trim(), '', 'leaving a clean working tree behind');
+
+// The same run with attribution off has to behave exactly as it did before.
+const plain = makeRepo('solve-run-plain');
+fs.writeFileSync(path.join(plain, 'README.md'), '# repo\n');
+git(plain, ['add', 'README.md']);
+git(plain, ['commit', '--quiet', '-m', 'chore: initial']);
+
+const plainRun = await runAgentCommand({ repository: plain, argv: { model: 'nemotron-3-super-free', tool: 'agent', attribution: 'none' } });
+assertEqual(plainRun.result.success, true, '--attribution none still runs the model');
+assertEqual(hooksPathOf(plainRun.capturedEnv), null, 'without pointing it at any hooks');
+assertEqual(trailerValue(plain, 'HEAD', FORMAL_AI_TRAILER_KEYS.session), null, 'and the commit carries no trailers');
+assertEqual(git(plain, ['status', '--porcelain']).output.trim(), '', 'and no evidence residue');
+
+// --only-prepare-command must not touch the repository it was pointed at.
+const prepareOnlyRepo = makeRepo('solve-run-prepared');
+const preparedRun = await runAgentCommand({ repository: prepareOnlyRepo, argv: { model: 'nemotron-3-super-free', tool: 'agent', attribution: 'formal-ai', onlyPrepareCommand: true }, commitWork: false });
+assertEqual(preparedRun.result.preparedOnly, true, 'a prepared-only run stops before executing');
+assertEqual(fs.existsSync(path.join(prepareOnlyRepo, '.git', 'hive-mind-formal-ai-attribution')), false, 'and installs nothing');
 
 fs.rmSync(workspace, { recursive: true, force: true });
 

@@ -15,12 +15,13 @@ import { ensureUseM } from './use-m-bootstrap.lib.mjs';
  *
  * The skill is the one that ships with `@playwright/cli` (`playwright-cli
  * install --skills`). We do not run that installer inside the checkout: it
- * also rewrites the repository's `.gitignore`, which would leak into the pull
- * request. Instead the skill directory is located (the CLI prints its
- * location in `--help`) and copied into the workspace ourselves, following the
- * handoff-skill layout: one real directory under `.claude/skills/` for Claude
- * Code, a relative symlink under `.agents/skills/` for Codex, both listed in
- * `.git/info/exclude` so they never show up as changes.
+ * also initialises a workspace (`.playwright/`), tries to provision a browser,
+ * and touches the home cache, none of which belongs in a pull request. Instead
+ * the skill directory is located (see resolvePlaywrightSkillSource) and copied
+ * into the workspace ourselves, following the handoff-skill layout: one real
+ * directory under `.claude/skills/` for Claude Code, a relative symlink under
+ * `.agents/skills/` for Codex, both listed in `.git/info/exclude` so they never
+ * show up as changes.
  *
  * Nothing is ever written to the global `~/.claude` / `~/.codex` / `~/.agents`
  * folders: a skill is per task and disappears with the workspace. The global
@@ -54,9 +55,26 @@ export const resolvePlaywrightMode = (argv = {}) => {
 };
 
 /**
+ * Where `@playwright/cli` keeps the skill, relative to the package root. The
+ * same files are bundled a second time in the package's own `playwright-core`.
+ */
+export const PLAYWRIGHT_SKILL_PACKAGE_DIRS = Object.freeze([path.join('skills', PLAYWRIGHT_SKILL_NAME), path.join('node_modules', 'playwright-core', 'lib', 'tools', 'skills', PLAYWRIGHT_SKILL_NAME)]);
+
+/**
+ * The skill directories a global npm root would hold, most direct first.
+ */
+export const playwrightSkillDirsUnderNpmRoot = root => PLAYWRIGHT_SKILL_PACKAGE_DIRS.map(rel => path.join(root, PLAYWRIGHT_SKILL_PACKAGE, rel));
+
+/**
  * Extract the skill directory from `playwright-cli --help` output, which
  * prints a line such as `Agent skill: /path/to/playwright-cli/SKILL.md`. The
  * path may be relative to the working directory the CLI ran in.
+ *
+ * playwright-core only prints that line when it believes an agent is reading
+ * (the CLAUDECODE or COPILOT_CLI environment variable is set), so the probes
+ * below set CLAUDECODE=1 for the one call. A plain `playwright-cli --help` in
+ * a Docker build or a cron job has no such line — which is exactly how the
+ * first image build of this feature failed.
  */
 export const parsePlaywrightSkillPathFromHelp = (output, cwd = process.cwd()) => {
   const match = /^\s*Agent skill:\s*(.+?)\s*$/m.exec(String(output || ''));
@@ -77,9 +95,11 @@ const dirHasSkill = async dir => {
 /**
  * Locate the skill directory bundled with `@playwright/cli`.
  *
- * Order: the globally installed `playwright-cli` (fast, offline), then
+ * Order: the package under the global npm root (a plain path check, offline,
+ * and what the image build verifies), then the hint the globally installed
+ * `playwright-cli --help` prints for agents, then the same hint from
  * `npx -y @playwright/cli@latest` (downloads on first use). The result is
- * cached per process. Returns null when neither is available.
+ * cached per process. Returns null when nothing is available.
  */
 let cachedSource;
 export const resolvePlaywrightSkillSource = async ({ $, log = noopLog, cwd = process.cwd(), force = false } = {}) => {
@@ -87,17 +107,25 @@ export const resolvePlaywrightSkillSource = async ({ $, log = noopLog, cwd = pro
   cachedSource = null;
   if (!$) return null;
   const quiet = $({ mirror: false, capture: true });
-  const candidates = [() => quiet`playwright-cli --help 2>/dev/null`, () => quiet`npx -y ${PLAYWRIGHT_SKILL_PACKAGE}@latest --help 2>/dev/null`];
-  for (const command of candidates) {
+  const stdoutOf = result => (result?.stdout || '').toString();
+  const probes = [
+    { label: 'npm root -g', run: () => quiet`npm root -g 2>/dev/null`, dirs: out => (out.trim() ? playwrightSkillDirsUnderNpmRoot(out.trim()) : []) },
+    { label: 'playwright-cli --help', run: () => quiet`CLAUDECODE=1 playwright-cli --help 2>/dev/null`, dirs: out => [parsePlaywrightSkillPathFromHelp(out, cwd)] },
+    { label: `npx ${PLAYWRIGHT_SKILL_PACKAGE}`, run: () => quiet`CLAUDECODE=1 npx -y ${PLAYWRIGHT_SKILL_PACKAGE}@latest --help 2>/dev/null`, dirs: out => [parsePlaywrightSkillPathFromHelp(out, cwd)] },
+  ];
+  for (const probe of probes) {
     try {
-      const result = await command();
-      const dir = parsePlaywrightSkillPathFromHelp((result.stdout || '').toString(), cwd);
-      if (dir && (await dirHasSkill(dir))) {
-        cachedSource = dir;
-        return dir;
+      const candidates = probe.dirs(stdoutOf(await probe.run())).filter(Boolean);
+      for (const dir of candidates) {
+        if (await dirHasSkill(dir)) {
+          await log(`   Playwright skill: found via ${probe.label} at ${dir}`, { verbose: true });
+          cachedSource = dir;
+          return dir;
+        }
       }
+      await log(`   Playwright skill: ${probe.label} did not yield a skill directory`, { verbose: true });
     } catch (error) {
-      await log(`   Playwright skill: probe failed: ${error.message}`, { verbose: true });
+      await log(`   Playwright skill: probe ${probe.label} failed: ${error.message}`, { verbose: true });
     }
   }
   return null;
@@ -238,6 +266,8 @@ export default {
   PLAYWRIGHT_SKILL_PRIMARY_DIR,
   PLAYWRIGHT_SKILL_LINKED_DIRS,
   PLAYWRIGHT_SKILL_DIRS,
+  PLAYWRIGHT_SKILL_PACKAGE_DIRS,
+  playwrightSkillDirsUnderNpmRoot,
   resolvePlaywrightMode,
   parsePlaywrightSkillPathFromHelp,
   resolvePlaywrightSkillSource,

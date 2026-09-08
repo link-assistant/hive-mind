@@ -237,7 +237,7 @@ docker run -dit \
   konard/hive-mind:latest
 ```
 
-在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。`/home/box/.agents/skills` 中的用户技能也会传入 Docker 隔离任务；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
+在启动 `codex exec` 之前，Hive Mind 会扫描 issue 及其评论中的显式插件和 Agent Skill 要求。它将所需提供程序安装到 `/home/box/.codex/hive-mind/repositories/<owner>/<repo>`，因此配置可跨重启持久化，但不会影响其他仓库。自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，Docker 隔离任务只挂载凭据文件和会话目录，而不是整个 `.codex`/`.claude` 目录或 `/home/box/.agents`；每次启动都会审计全局配置并默认清理到最小配置（`--no-agent-config-auto-repair` 可关闭）；若能力不可用，预检会在 AI 会话启动前报告确切标识符和修复命令。
 
 **Docker 的优势：**
 

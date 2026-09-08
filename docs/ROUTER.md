@@ -2,7 +2,7 @@
 
 > **⚠️ EXPERIMENTAL.** The flag exists, the sidecar works, and the parts that are not yet covered are listed under [Coverage gaps](#coverage-gaps) — every routed run prints them too. Read that section before relying on this for isolation.
 
-By default, a Docker-isolated task is handed the operator's real subscription: `~/.claude`, `~/.claude.json`, `~/.codex`, `~/.agents` and `~/.config/gh` are bind-mounted into the container. The agent inside holds the raw vendor OAuth credential, can spend the subscription without limit, and leaves no record of what it did beyond whatever it chose to write itself.
+By default, a Docker-isolated task is handed the operator's real subscription: the credential file (`~/.claude/.credentials.json` or `~/.codex/auth.json`), the session directories (`~/.claude/projects`, `~/.claude/sessions`, `~/.codex/sessions`) and `~/.config/gh` are bind-mounted into the container (the rest of the application folder stays per container since [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190)). The agent inside holds the raw vendor OAuth credential, can spend the subscription without limit, and leaves no record of what it did beyond whatever it chose to write itself.
 
 `--use-router` withholds those mounts. The credentials stay in a single `hive-mind-router` sidecar container, each task receives its own short-lived token, and every model request lands in that token's own log.
 

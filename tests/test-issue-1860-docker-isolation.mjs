@@ -62,7 +62,8 @@ function mountPairs(mounts) {
   return mounts.map(mount => `${mount.source}:${mount.target}`);
 }
 
-const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex', '/home/box/.claude', '/home/box/.claude.json']);
+// Issue #2190: the split layout — credential file + session directories, never the whole application directory.
+const existingPaths = new Set(['/home/box/.config/gh', '/home/box/.codex/auth.json', '/home/box/.codex/sessions', '/home/box/.claude/.credentials.json', '/home/box/.claude/projects', '/home/box/.claude/sessions']);
 const existsSync = path => existingPaths.has(path);
 
 console.log('\n--- Docker isolation image selection ---');
@@ -85,7 +86,7 @@ const codexMounts = getDockerIsolationAuthMounts({
   env: {},
   existsSync,
 });
-assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex:/home/box/.codex'], 'codex tasks receive gh and Codex credentials only');
+assertDeepEqual(mountPairs(codexMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json', '/home/box/.codex/sessions:/home/box/.codex/sessions'], 'codex tasks receive gh and Codex credentials only');
 
 const claudeMounts = getDockerIsolationAuthMounts({
   tool: 'claude',
@@ -93,15 +94,15 @@ const claudeMounts = getDockerIsolationAuthMounts({
   env: {},
   existsSync,
 });
-assertDeepEqual(mountPairs(claudeMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.claude:/home/box/.claude', '/home/box/.claude.json:/home/box/.claude.json'], 'claude tasks receive gh and Claude credentials only');
+assertDeepEqual(mountPairs(claudeMounts), ['/home/box/.config/gh:/home/box/.config/gh', '/home/box/.claude/.credentials.json:/home/box/.claude/.credentials.json', '/home/box/.claude/projects:/home/box/.claude/projects', '/home/box/.claude/sessions:/home/box/.claude/sessions'], 'claude tasks receive gh and Claude credentials only');
 
 const envGhMounts = getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/home/box',
   env: { GH_CONFIG_DIR: '/run/gh-auth' },
-  existsSync: path => path === '/run/gh-auth' || path === '/home/box/.codex',
+  existsSync: path => path === '/run/gh-auth' || path === '/home/box/.codex/auth.json',
 });
-assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex:/home/box/.codex'], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
+assertDeepEqual(mountPairs(envGhMounts), ['/run/gh-auth:/home/box/.config/gh', '/home/box/.codex/auth.json:/home/box/.codex/auth.json'], 'GH_CONFIG_DIR is used when the host exposes gh auth outside the default path');
 
 console.log('\n--- start-command invocation shape ---');
 
@@ -127,7 +128,7 @@ assertEqual(valueAfter(dockerStartArgs, '--session'), '28b8eba8-14a6-4dd0-8782-a
 assertEqual(dockerStartArgs.includes('HOME=/home/box'), true, 'Docker isolation sets HOME so credential mounts under /home/box resolve');
 assertEqual(dockerStartArgs.includes('HIVE_MIND_IMAGE_VARIANT=dind'), true, 'Docker isolation records the dind image variant inside the container');
 assertEqual(dockerStartArgs.includes('/home/box/.config/gh:/home/box/.config/gh'), true, 'Docker isolation mounts gh credentials');
-assertEqual(dockerStartArgs.includes('/home/box/.codex:/home/box/.codex'), true, 'Docker isolation mounts Codex credentials');
+assertEqual(dockerStartArgs.includes('/home/box/.codex/auth.json:/home/box/.codex/auth.json'), true, 'Docker isolation mounts Codex credentials');
 assertNotIncludes(dockerStartArgs.join(' '), '.claude', 'Docker isolation does not mount Claude credentials for a Codex task');
 assertEqual(dockerStartArgs[dockerStartArgs.length - 2], '--', 'start-command receives an explicit command separator before the task command');
 assertIncludes(dockerStartArgs[dockerStartArgs.length - 1], "gate='/tmp/hive-mind-disk-baseline-28b8eba8-14a6-4dd0-8782-a87db8809c11'", 'Docker isolation gates the task until the writable-layer baseline is captured');

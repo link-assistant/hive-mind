@@ -2,7 +2,7 @@
 
 > **⚠️ 实验性功能。** 该选项可用，sidecar 也能正常工作，尚未覆盖的部分列在[尚未覆盖的范围](#尚未覆盖的范围)一节中——每次启用路由器的运行也都会自行打印这些内容。在依赖它做隔离之前请先阅读该节。
 
-默认情况下，Docker 隔离的任务会直接拿到操作者本人的订阅：`~/.claude`、`~/.claude.json`、`~/.codex`、`~/.agents` 和 `~/.config/gh` 会被绑定挂载进容器。容器内的智能体因此持有原始的厂商 OAuth 凭据，可以无限制地消耗订阅，除了它自己愿意写下的内容之外不留任何记录。
+默认情况下，Docker 隔离的任务会直接拿到操作者本人的订阅：凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）、会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）和 `~/.config/gh` 会被绑定挂载进容器（应用目录的其余部分自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起保持每个容器独立）。容器内的智能体因此持有原始的厂商 OAuth 凭据，可以无限制地消耗订阅，除了它自己愿意写下的内容之外不留任何记录。
 
 `--use-router` 会撤销这些挂载。凭据只留在唯一的 `hive-mind-router` sidecar 容器中，每个任务获得自己的短期令牌，每一次模型请求都会落入属于该令牌的日志。
 

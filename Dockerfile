@@ -304,10 +304,13 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
 # deployed per task by --playwright-skill (default stays Playwright MCP only).
 RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force
 
-# Verify both the Playwright CLI fallback and the locally installed MCP package.
+# Verify the Playwright CLI fallback, the locally installed MCP package, and
+# the skill --playwright-skill copies into a task. The skill is checked by path:
+# `playwright-cli --help` prints its `Agent skill:` hint only when CLAUDECODE or
+# COPILOT_CLI is set, so that line is not a build-time signal (issue #2190).
 RUN playwright --version && \
     npx --no-install @playwright/mcp --help | grep -q -- '--headless' && \
-    playwright-cli --help | grep -q 'Agent skill:'
+    test -f "$(npm root -g)/@playwright/cli/skills/playwright-cli/SKILL.md"
 
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \

@@ -107,6 +107,7 @@ Alternatives considered and rejected:
 - Superpowers 6.3.0 skill texts (`data/upstream/superpowers-*-SKILL.md`) as shipped in the curated remote catalog.
 - Router `0.125.4` README (`data/upstream/router-README.md`): `--host` / `ROUTER_HOST` default `0.0.0.0`, no alias binding; open and closed issues at capture time (`data/upstream/router-issues.txt`, 544 entries) contain no request for it.
 - Docker: an `--internal` network has no gateway and no masquerade; `docker network connect` can be applied to a running container and does not affect existing listening sockets.
+- `@playwright/cli` 0.1.19: `playwright-cli --help` prints its `Agent skill: <path>` hint only when `CLAUDECODE` or `COPILOT_CLI` is set (`playwright-core/lib/tools/cli-client/program.js`). The first image build of `--playwright-skill` grepped for that line and failed in CI (run 34202031772, `docker-pr-check`) because the build has neither variable; the skill is now located by path under the global npm root (`@playwright/cli/skills/playwright-cli`), with the env-gated hint only as a fallback. `playwright-cli install --skills` was rejected as the locator: it also initialises a `.playwright/` workspace, tries to provision a browser, and writes to `~/.cache/ms-playwright`.
 
 ## How to reproduce and verify
 

@@ -633,6 +633,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically remove .playwright-mcp/ folder before checking for uncommitted changes. This prevents browser automation artifacts from triggering auto-restart. Use --no-playwright-mcp-auto-cleanup to keep the folder for debugging.',
     default: true,
   },
+  'playwright-skill': {
+    type: 'boolean',
+    description: 'Deploy the Playwright CLI skills (playwright-cli install --skills) into the task workspace so the agent can drive a browser through the CLI instead of, or in addition to, the Playwright MCP server. Default: MCP only. --playwright-skill: MCP + skill. --no-playwright-mcp --playwright-skill: skill only (issue #2190).',
+    default: false,
+  },
   'useless-tools-disabled': {
     type: 'boolean',
     description: 'Disable Claude Code built-in tools and MCP servers that have no value (and may be harmful) in autonomous headless runs: AskUserQuestion, CronCreate/Delete/List, EnterPlanMode/ExitPlanMode, EnterWorktree/ExitWorktree, Monitor, NotebookEdit, PushNotification, RemoteTrigger, ScheduleWakeup, and the claude.ai Gmail/Drive/Calendar OAuth connectors. Default: true. Use --no-useless-tools-disabled to keep them enabled. Supported for --tool claude (issue #1627).',
@@ -641,6 +646,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
   'agent-memory-disabled': {
     type: 'boolean',
     description: "Disable every AI tool's own cross-task memory and permission classifier, so the repository stays the only memory a task keeps. For --tool codex: -c features.memories=false and -c features.external_agent_memory_import=false. For --tool gemini and --tool qwen: tools.exclude=[save_memory] and experimental.autoMemory=false. --tool opencode and --tool agent have no cross-session memory feature. Default: true; --no-agent-memory-disabled lets those tools keep their own memory. For --tool claude the same switches (CLAUDE_CODE_DISABLE_AUTO_MEMORY, CLAUDE_CODE_DISABLE_ORG_MEMORY, autoMemoryEnabled=false, permissions.disableAutoMode=disable) are part of the quiet configuration baked into the Docker image, so they stay off regardless of this flag (issue #2178).",
+    default: true,
+  },
+  'agent-config-auto-repair': {
+    type: 'boolean',
+    description: 'Automatically remove non-minimal items from the global Claude/Codex configuration (plugins, marketplaces, global skills, MCP servers other than Playwright, Codex remote plugin sync) before a task starts (enabled by default). Use --no-agent-config-auto-repair to only warn (issue #2190).',
     default: true,
   },
   'auto-gh-configuration-repair': {

@@ -266,6 +266,15 @@ if (!(await performSystemChecks(argv.minDiskSpace || 10240, skipToolConnectionCh
   }
   await safeExit(1, 'System checks failed');
 }
+// Issue #2190: the global Claude/Codex configuration must stay minimal. Globally
+// synced plugins/skills (e.g. Codex's remote "Superpowers" plugin) rewrite agent
+// behaviour and multiply token usage, so drift is reported and, unless
+// --no-agent-config-auto-repair is given, removed before the tool starts. A
+// dry run only reports.
+if (tool === 'claude' || tool === 'codex') {
+  const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+  await runAgentConfigAudit({ tool, autoRepair: !argv.dryRun && isAgentConfigAutoRepairEnabled({ argv }), log, verbose: argv.verbose });
+}
 // Playwright MCP preflight is local/free and stays independent from paid tool connection checks.
 if (!argv.dryRun && argv.playwrightMcp !== false) {
   const playwrightMcpPreflight = await ensureSolvePlaywrightMcpReady({ argv, log });
@@ -668,6 +677,15 @@ try {
     toolResult = claudeResult;
   }
   toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
+  // Issue #2190: the router auth guard killed the CLI because the task tried to
+  // authenticate with something other than its router token. Not a tool
+  // failure to retry or a mergeability problem — a security stop, with its own
+  // exit code so the supervisor can tell it apart.
+  if (toolResult?.routerAuthViolation) {
+    const { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } = await import('./router-auth-guard.lib.mjs');
+    await log(`❌ ${formatRouterAuthViolation(toolResult.routerAuthViolation)}`, { level: 'error' });
+    await safeExit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router auth guard: the task tried to use a credential other than its router token (issue #2190)');
+  }
   if (toolResult?.formalAiNonExecution) {
     await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
     await log('   The deterministic terminal response will not be retried as a mergeability problem.', { level: 'error' });

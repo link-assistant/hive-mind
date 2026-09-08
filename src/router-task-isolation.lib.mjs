@@ -16,6 +16,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2164
  */
 
+import { spawn as spawnChild } from 'node:child_process';
 import { FORMAL_AI_SIDECAR_NETWORK_NAME, resolveFormalAiSidecarBaseUrl } from './formal-ai-sidecar.lib.mjs';
 import { buildRouterFormalAiProviderArgs, describeRouterCoverageGaps, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting, ROUTER_FORMAL_AI_PROVIDER_NAME } from './router-isolation.lib.mjs';
 import { acquireRouterSidecar, attachRouterToNetwork, attachTaskToRouterNetwork, registerRouterProvider, releaseRouterSidecar, wireRouterTaskContainer } from './router-sidecar.lib.mjs';
@@ -118,4 +119,78 @@ export const releaseRouterForTask = async ({ router, sessionId, env = process.en
   }
 };
 
-export default { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask };
+/**
+ * Revoke the task's token the moment its container stops (issue #2190).
+ *
+ * Until now a token outlived its task: it was revoked by the next acquire's
+ * reconcile or by the maintenance tick, minutes later, and the TTL (24 h /
+ * 5000 requests) was the only hard bound. `docker wait` blocks until the
+ * container exits — for any reason: normal end, crash, `docker rm -f`, host
+ * signal — and returns at once when the container is already gone, so a single
+ * unref'd child per task closes that window without polling. Everything that
+ * held the token a moment earlier is dead by the time it is revoked.
+ *
+ * The maintenance tick and the acquire-time reconcile stay as backstops for
+ * the case where this process itself dies before the task does.
+ *
+ * @returns {{ done: Promise<{released: boolean, reason: string}>, stop: () => void }|null}
+ *   null for an external router or a task with no session (nothing to watch).
+ */
+export const watchRouterTaskContainer = ({ router, sessionId, env = process.env, verbose = false, log = logToConsole, spawn = spawnChild, release = releaseRouterForTask } = {}) => {
+  if (!router || router.external || !sessionId) return null;
+  let child;
+  try {
+    child = spawn('docker', ['wait', sessionId], { stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    console.error(`[router-isolation] Could not start 'docker wait ${sessionId}', the token will be revoked by the next maintenance tick instead: ${error?.message || error}`);
+    return null;
+  }
+  let stdout = '';
+  let stderr = '';
+  let cancelled = false;
+  child.stdout?.on('data', chunk => {
+    stdout += chunk;
+  });
+  child.stderr?.on('data', chunk => {
+    stderr += chunk;
+  });
+  const done = new Promise(resolve => {
+    let settled = false;
+    const finish = async ({ released, reason }) => {
+      if (settled) return;
+      settled = true;
+      if (released) {
+        if (verbose) await log(`[VERBOSE] router-isolation: ${reason}; revoking the token of session ${sessionId} now (issue #2190)`);
+        await release({ router, sessionId, env, verbose, log });
+      }
+      resolve({ released, reason });
+    };
+    child.on('error', error => finish({ released: false, reason: `docker wait could not run: ${error?.message || error}` }));
+    child.on('close', code => {
+      if (cancelled) return finish({ released: false, reason: 'watcher stopped' });
+      const exitStatus = stdout.trim();
+      // A non-zero `docker wait` means the container could not be waited on —
+      // typically because it no longer exists. Either way it is not running,
+      // so the token has nothing left to serve.
+      finish({ released: true, reason: code === 0 ? `container ${sessionId} exited with status ${exitStatus || '?'}` : `docker wait ended (${stderr.trim() || `code ${code}`})` });
+    });
+  });
+  // Never keep the bot alive for a task: the token is also revoked by the
+  // maintenance tick if this process goes first.
+  child.unref();
+  child.stdout?.unref?.();
+  child.stderr?.unref?.();
+  return {
+    done,
+    stop: () => {
+      cancelled = true;
+      try {
+        child.kill();
+      } catch {
+        // already gone
+      }
+    },
+  };
+};
+
+export default { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer };

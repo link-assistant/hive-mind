@@ -237,7 +237,7 @@ docker run -dit \
   konard/hive-mind:latest
 ```
 
-`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। `/home/box/.agents/skills` के user skills भी Docker-isolated tasks में उपलब्ध होते हैं; capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
+`codex exec` शुरू होने से पहले Hive Mind issue और उसकी comments में स्पष्ट plugin तथा Agent Skill requirements खोजता है। आवश्यक provider `/home/box/.codex/hive-mind/repositories/<owner>/<repo>` में install होता है, इसलिए configuration restart के बाद भी रहती है और दूसरे repositories को प्रभावित नहीं करती। [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) से Docker-isolated tasks को केवल credential file और session directories मिलती हैं, पूरा `.codex`/`.claude` folder या `/home/box/.agents` नहीं; हर start पर global configuration audit होकर default रूप से minimal profile तक साफ़ की जाती है (`--no-agent-config-auto-repair` से बंद करें); capability न मिलने पर preflight AI session से पहले exact identifier और remediation command बताता है।
 
 **Docker के लाभ:**
 

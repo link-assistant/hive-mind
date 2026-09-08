@@ -76,8 +76,11 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
 # The two memory switches are policy, not cosmetics: a hive-mind task keeps no
 # memory a reviewer cannot see, so the repository stays the only memory (issue #2178)
+# The marketplace switch keeps the global config minimal: the official plugin
+# marketplace must never be auto-installed into a task (issue #2190)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
@@ -297,11 +300,17 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
-RUN npm install -g @playwright/mcp@latest --no-fund --force
+# Issue #2190: @playwright/cli ships the optional `playwright-cli` Agent Skill
+# deployed per task by --playwright-skill (default stays Playwright MCP only).
+RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force
 
-# Verify both the Playwright CLI fallback and the locally installed MCP package.
+# Verify the Playwright CLI fallback, the locally installed MCP package, and
+# the skill --playwright-skill copies into a task. The skill is checked by path:
+# `playwright-cli --help` prints its `Agent skill:` hint only when CLAUDECODE or
+# COPILOT_CLI is set, so that line is not a build-time signal (issue #2190).
 RUN playwright --version && \
-    npx --no-install @playwright/mcp --help | grep -q -- '--headless'
+    npx --no-install @playwright/mcp --help | grep -q -- '--headless' && \
+    test -f "$(npm root -g)/@playwright/cli/skills/playwright-cli/SKILL.md"
 
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \
@@ -311,6 +320,20 @@ RUN if command -v claude &>/dev/null; then \
 # Configure Playwright MCP for Codex CLI with the same server settings
 RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
+    fi
+
+# Issue #2190: keep the global Codex configuration minimal. Codex syncs the
+# "openai-curated-remote" plugin catalog (Superpowers and friends) into
+# ~/.codex/plugins/cache on every start unless features.remote_plugin is false;
+# those skills force approval gates and multiply token usage in autonomous runs.
+RUN if command -v codex &>/dev/null; then \
+      mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
+      if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false/' "$HOME/.codex/config.toml"; \
+      else \
+        printf '\n[features]\nremote_plugin = false\n' >> "$HOME/.codex/config.toml"; \
+      fi && \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
     fi
 
 # Fail the image build if MCP registration is merely present but unavailable.

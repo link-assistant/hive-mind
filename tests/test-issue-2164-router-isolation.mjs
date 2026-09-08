@@ -48,7 +48,8 @@ const matches = (actual, expected) => JSON.stringify(actual) === JSON.stringify(
 const TASK_TOKEN = 'la_sk_x';
 
 const HOME = '/home/box';
-const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex`, `${HOME}/.agents`, `${HOME}/.claude`, `${HOME}/.claude.json`]);
+// Issue #2190: the split layout — credential file + session directories, never the whole application directory.
+const hostPaths = new Set([`${HOME}/.config/gh`, `${HOME}/.gitconfig`, `${HOME}/.config/git`, `${HOME}/.codex/auth.json`, `${HOME}/.codex/sessions`, `${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects`, `${HOME}/.claude/sessions`]);
 const existsAll = candidate => hostPaths.has(candidate);
 const mountPairs = mounts => mounts.map(mount => `${mount.source}:${mount.target}`);
 // Matched as a whole hostname rather than with `includes`: a substring test on a
@@ -149,7 +150,7 @@ assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'codex' }), ['.codex'
 assertDeepEqual(getRouterSuppressedCredentialPaths({ tool: 'claude', ghRouted: true }), ['.claude', '.claude.json', '.config/gh'], 'the gh credential is withheld once GitHub is routed');
 
 const defaultClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll }));
-assertDeepEqual(defaultClaudeMounts, [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude:${HOME}/.claude`, `${HOME}/.claude.json:${HOME}/.claude.json`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
+assertDeepEqual(defaultClaudeMounts, [`${HOME}/.config/gh:${HOME}/.config/gh`, `${HOME}/.gitconfig:${HOME}/.gitconfig`, `${HOME}/.config/git:${HOME}/.config/git`, `${HOME}/.claude/.credentials.json:${HOME}/.claude/.credentials.json`, `${HOME}/.claude/projects:${HOME}/.claude/projects`, `${HOME}/.claude/sessions:${HOME}/.claude/sessions`], 'default behaviour is unchanged: claude tasks still receive the real subscription (R9)');
 
 const routedClaudeMounts = mountPairs(getDockerIsolationAuthMounts({ tool: 'claude', homeDir: HOME, env: {}, existsSync: existsAll, useRouter: true }));
 assertEqual(

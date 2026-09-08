@@ -41,8 +41,11 @@ import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
+import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
+import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
@@ -581,6 +584,8 @@ export const executeCodex = async params => {
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
+  // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
+  await deployPlaywrightSkill({ tempDir, argv, log, $ });
   const codexBaseEnv = getCodexExecEnv(argv.verbose);
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`
@@ -719,6 +724,11 @@ export const executeCodexCommand = async params => {
     for (const arg of memoryDisableArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #2190: never let this run sync the remote plugin catalog (Superpowers et al.)
+    // into the global ~/.codex, whatever the operator's config.toml says.
+    for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
     if (argv.verbose) {
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
@@ -753,6 +763,23 @@ export const executeCodexCommand = async params => {
         mirror: false,
         env: codexEnv,
       })`sh -lc ${fullCommand}`;
+      // Issue #2190: with --use-router the task may authenticate only with its
+      // router token; see router-auth-guard.lib.mjs. Inert unless
+      // HIVE_MIND_USE_ROUTER and a router token are in the environment.
+      const routerAuthGuard = startRouterAuthGuard({
+        tool: 'codex',
+        cwd: tempDir,
+        env: codexEnv,
+        log,
+        onViolation: async violation => {
+          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
+          try {
+            if (execCommand?.kill) execCommand.kill('SIGKILL');
+          } catch {
+            // already gone
+          }
+        },
+      });
       await log(`${formatAligned('📋', 'Command details:', '')}`);
       await log(formatAligned('📂', 'Working directory:', tempDir, 2));
       await log(formatAligned('🌿', 'Branch:', branchName, 2));
@@ -876,6 +903,13 @@ export const executeCodexCommand = async params => {
       if (codexJsonState.sessionId && codexJsonState.sessionId !== sessionId) {
         sessionId = codexJsonState.sessionId;
         await log(`📌 Session ID: ${sessionId}`);
+      }
+      // Issue #2190: final read after the stream closed; a violation ends the
+      // run here, with no retry.
+      routerAuthGuard.stop();
+      await routerAuthGuard.check();
+      if (routerAuthGuard.violation) {
+        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, codexJsonDetails: codexJsonState, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) }, result: formatRouterAuthViolation(routerAuthGuard.violation), resultSummary: null };
       }
       if (codexJsonState.resultSummary) {
         lastTextContent = codexJsonState.resultSummary;

@@ -16,6 +16,9 @@ export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
   CLAUDE_CODE_DISABLE_FAST_MODE: '1',
   CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY: '1',
   CLAUDE_CODE_DISABLE_MOUSE: '1',
+  // Issue #2190: Claude Code auto-installs the official plugin marketplace on first
+  // start; hive-mind's global configuration must stay minimal (no plugins/skills).
+  CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
   CLAUDE_CODE_ENABLE_AWAY_SUMMARY: '0',
   CLAUDE_CODE_ENABLE_TASKS: '1',
   CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY: '4',

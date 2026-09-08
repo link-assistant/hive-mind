@@ -327,7 +327,7 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。Hive Mind 在 `codex exec` 前读取 issue 及全部评论，解析明确要求的插件和 Agent Skill，并将插件安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。该路径会跨重启保留，同时不会全局启用插件。Docker 隔离任务会同时传播 `.codex` 与 `.agents`，也不会向目标仓库部署或提交技能文件。
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue 及全部评论，解析明确要求的插件和 Agent Skill，并将插件安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。该路径会跨重启保留，同时不会全局启用插件。Docker 隔离任务会同时传播 `.codex` 与 `.agents`，也不会向目标仓库部署或提交技能文件。
 
 若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。父 `.codex` 挂载会覆盖镜像内置配置；仓库作用域会刷新父运行时设置，同时保留自己的插件启用块。
 

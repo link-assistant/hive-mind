@@ -31,6 +31,8 @@ import { classifyRetryableError, createTransientRetryBudget, describeClassificat
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
+import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
@@ -119,6 +121,8 @@ export const executeClaude = async params => {
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
+  // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
+  await deployPlaywrightSkill({ tempDir, argv, log, $ });
   return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
     executeClaudeCommand({
       tempDir,
@@ -384,6 +388,25 @@ export const executeClaudeCommand = async params => {
       // Issue #1516: Kill process group (-pid) so leaked /bin/sh children don't survive
       // prettier-ignore
       const killProcessTree = signal => { try { const pid = execCommand.pid || execCommand._pid; if (pid) { process.kill(-pid, signal); return; } } catch { /* not group leader */ } execCommand.kill(signal); };
+      // Issue #2190: with --use-router the task may authenticate only with its
+      // router token. Any other credential surfacing on disk while Claude runs
+      // is a security violation: the process is killed at once and solve exits
+      // with EXIT_CODE_ROUTER_AUTH_VIOLATION. Inert unless HIVE_MIND_USE_ROUTER
+      // and a router token are present in the environment.
+      const routerAuthGuard = startRouterAuthGuard({
+        tool: argv.tool || 'claude',
+        cwd: tempDir,
+        log,
+        onViolation: async violation => {
+          await log(`\n🛑 ${formatRouterAuthViolation(violation)}`, { level: 'error' });
+          forceExitTriggered = true;
+          try {
+            killProcessTree('SIGKILL');
+          } catch {
+            // already gone
+          }
+        },
+      });
       const forceExitOnTimeout = async () => {
         if (forceExitTriggered) return;
         forceExitTriggered = true;
@@ -808,6 +831,14 @@ export const executeClaudeCommand = async params => {
       if (resultTimeoutId) {
         clearTimeout(resultTimeoutId); // Issue #1280
         await log(forceExitTriggered ? '⚠️ Stream exited via force-kill timeout' : '✅ Stream closed normally after result event', { verbose: true });
+      }
+      // Issue #2190: one last read after the stream closed, so a credential
+      // written in the final moments of the session cannot slip past the
+      // interval; a violation ends the run here, with no retry.
+      routerAuthGuard.stop();
+      await routerAuthGuard.check();
+      if (routerAuthGuard.violation) {
+        return { success: false, sessionId, routerAuthViolation: routerAuthGuard.violation, limitReached: false, limitResetTime: null, limitTimezone: null, messageCount, toolUseCount, anthropicTotalCostUSD, errorDuringExecution: true, resultSummary: null, errorInfo: { hasError: true, message: formatRouterAuthViolation(routerAuthGuard.violation) } };
       }
       if (execCommand.result && typeof execCommand.result.code === 'number') {
         const resultExitCode = execCommand.result.code;

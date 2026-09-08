@@ -208,10 +208,13 @@ const probeFor = async options => {
   return calls[0].join(' ');
 };
 
-assertEqual((await probeFor({ dialect: legacy })).includes('https://127.0.0.1:443/health"'), true, 'the legacy dialect probes /health');
-assertEqual((await probeFor({ dialect: canonical })).includes('https://127.0.0.1:443/api/health"'), true, 'and the canonical one probes /api/health');
-assertEqual((await probeFor({ env: {} })).includes('https://127.0.0.1:443/health"'), true, 'with no dialect passed the probe is derived from the image the sidecar would run');
-assertEqual((await probeFor({ env: { HIVE_MIND_ROUTER_IMAGE: 'ghcr.io/link-assistant/router:1.2.0' } })).includes('https://127.0.0.1:443/api/health"'), true, 'so an overridden image moves the probe with it');
+// Issue #2190 moved the probe off loopback: the router binds only its alias on
+// the internal network, so the health check goes through the same name and
+// socket every task uses.
+assertEqual((await probeFor({ dialect: legacy })).includes('https://link-assistant-router:443/health"'), true, 'the legacy dialect probes /health');
+assertEqual((await probeFor({ dialect: canonical })).includes('https://link-assistant-router:443/api/health"'), true, 'and the canonical one probes /api/health');
+assertEqual((await probeFor({ env: {} })).includes('https://link-assistant-router:443/health"'), true, 'with no dialect passed the probe is derived from the image the sidecar would run');
+assertEqual((await probeFor({ env: { HIVE_MIND_ROUTER_IMAGE: 'ghcr.io/link-assistant/router:1.2.0' } })).includes('https://link-assistant-router:443/api/health"'), true, 'so an overridden image moves the probe with it');
 
 {
   // The wait loop resolved nothing and called the probe with defaults, which

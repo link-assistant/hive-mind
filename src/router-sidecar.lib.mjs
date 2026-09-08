@@ -9,11 +9,16 @@
  *
  * Two properties drive the design and are worth stating outright:
  *
- * 1. **The sidecar keeps its default bridge.** Unlike the Formal AI sidecar,
- *    which only ever talks to tasks, this container must reach api.anthropic.com
- *    and api.github.com. A single `docker run --network hive-mind-router` would
- *    *replace* the bridge with an `--internal` network and leave the router with
- *    no upstream, so the internal network is attached afterwards instead.
+ * 1. **The sidecar listens on the internal network only.** Unlike the Formal
+ *    AI sidecar, which only ever talks to tasks, this container must also reach
+ *    api.anthropic.com and api.github.com, so it sits on two networks: it is
+ *    created on the `--internal` one (that is where its alias resolves) and the
+ *    default bridge is connected afterwards for the upstream route. Because the
+ *    router only accepts a single `--host`, the entrypoint resolves the alias to
+ *    the internal address and binds to *that* — nothing on the bridge, and so
+ *    nothing on the host or in an unrelated container, can open the port
+ *    (issue #2190). Before that change the router bound `0.0.0.0` and any
+ *    container on the default bridge could reach it.
  * 2. **`TOKEN_SECRET` never leaves this process.** It signs every token, so
  *    anyone holding it can mint subscription access — upstream states it plainly:
  *    "Keep it out of the environment of the tasks themselves." It is generated
@@ -44,6 +49,19 @@ const DEFAULT_HEALTH_ATTEMPTS = 60;
 /** HOME inside the isolation image; the wiring script writes under it. */
 const TASK_CONTAINER_HOME = '/home/box';
 const DEFAULT_HEALTH_DELAY_MS = 1000;
+/** Where the sidecar's upstream route comes from unless HIVE_MIND_ROUTER_UPSTREAM_NETWORK says otherwise. */
+export const ROUTER_SIDECAR_UPSTREAM_NETWORK = 'bridge';
+/**
+ * The sidecar's entrypoint (issue #2190).
+ *
+ * Resolves the container's own alias on the internal network — which is its
+ * primary network, so the name is present at start — and serves on that
+ * address alone. `getent` and `sh` were verified to be in the image
+ * (docs/case-studies/issue-2190). Refusing to start when the name does not
+ * resolve is deliberate: falling back to 0.0.0.0 would be the exposure this
+ * script exists to prevent.
+ */
+export const ROUTER_SIDECAR_BIND_COMMAND = [`addr=$(getent hosts ${ROUTER_SIDECAR_NETWORK_ALIAS} | head -n 1 | cut -d ' ' -f 1)`, `[ -n "$addr" ] || { echo "hive-mind-router: '${ROUTER_SIDECAR_NETWORK_ALIAS}' does not resolve on the internal network; refusing to bind 0.0.0.0" >&2; exit 1; }`, `exec router serve --host "$addr" --port ${ROUTER_SIDECAR_PORT}`].join('; ');
 
 /**
  * Default limits stamped onto every task token.
@@ -117,9 +135,16 @@ const hasVendorCredential = mounts => mounts.some(mount => mount.envVar !== ROUT
 export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts = [], containerName = ROUTER_SIDECAR_CONTAINER_NAME, env = process.env } = {}) => {
   const args = ['run', '--detach', '--name', containerName, '--label', `${ROUTER_SIDECAR_LABEL}=sidecar`, '--restart', 'no'];
 
-  // No `--network` here: see the module header. The internal network is attached
-  // after creation so the default bridge, and with it the route to the vendor
-  // APIs the router exists to reach, survives.
+  // Issue #2190: the internal network is the *primary* one, so the alias is
+  // present from the first instant and the bind script below can resolve it.
+  // The upstream bridge is connected after creation (see acquireRouterSidecar):
+  // a container created on an `--internal` network has no default route until
+  // then, which is exactly why the order matters.
+  args.push('--network', ROUTER_SIDECAR_NETWORK_NAME, '--network-alias', ROUTER_SIDECAR_NETWORK_ALIAS);
+  // The router accepts one `--host`; there is no "bind to this interface"
+  // option (reported upstream, see docs/case-studies/issue-2190). The image
+  // ships `sh` and `getent`, so the address is resolved at start instead.
+  args.push('--entrypoint', 'sh');
 
   args.push('--env', `ROUTER_PORT=${ROUTER_SIDECAR_PORT}`, '--env', `TOKEN_SECRET=${tokenSecret}`, '--env', `DATA_DIR=${ROUTER_DATA_MOUNT}`, '--env', `AUDIT_LOG=${ROUTER_DATA_MOUNT}/audit.jsonl`);
 
@@ -151,9 +176,38 @@ export const buildRouterSidecarRunArgs = ({ image, tokenSecret, credentialMounts
   const extraArgs = String(env?.HIVE_MIND_ROUTER_EXTRA_ARGS || '').trim();
   if (extraArgs) args.push(...extraArgs.split(/\s+/));
 
-  args.push(image, 'serve', '--host', '0.0.0.0', '--port', String(ROUTER_SIDECAR_PORT));
+  args.push(image, '-c', ROUTER_SIDECAR_BIND_COMMAND);
   // No `-p`: the endpoint is reachable only from the internal network.
   return args;
+};
+
+/**
+ * Which network gives the sidecar its route to the vendor APIs.
+ *
+ * Docker's default bridge unless the operator names another one (a custom
+ * bridge with its own DNS, say). Never the internal network: that would leave
+ * the router without an upstream, which is the failure the two-network layout
+ * exists to avoid.
+ */
+export const resolveRouterUpstreamNetwork = (env = process.env) => {
+  const configured = String(env?.HIVE_MIND_ROUTER_UPSTREAM_NETWORK || '').trim();
+  if (!configured || configured === ROUTER_SIDECAR_NETWORK_NAME) return ROUTER_SIDECAR_UPSTREAM_NETWORK;
+  return configured;
+};
+
+/**
+ * The network the sidecar was *created* on, or null when it cannot be read.
+ *
+ * A sidecar left behind by a release before issue #2190 was created on the
+ * bridge and bound `0.0.0.0`; it is still healthy, so nothing else would
+ * notice. This is what lets the acquire path recognise and replace it.
+ */
+export const readRouterSidecarPrimaryNetwork = async ({ containerName = ROUTER_SIDECAR_CONTAINER_NAME, run = execFileAsync, timeoutMs } = {}) => {
+  try {
+    return (await dockerText(run, ['inspect', containerName, '--format', '{{.HostConfig.NetworkMode}}'], { timeoutMs })) || null;
+  } catch {
+    return null;
+  }
 };
 
 /**
@@ -169,11 +223,15 @@ export const checkRouterSidecarHealth = async ({ containerName = ROUTER_SIDECAR_
   // wrong one is asked for, which would read as "unhealthy" and stall the
   // acquire loop until it gave up (issue #2202).
   const healthPath = (dialect || resolveRouterDialect({ env }).dialect).health;
-  const probe = `fetch("https://127.0.0.1:${ROUTER_SIDECAR_PORT}${healthPath}").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))`;
-  // The certificate names the alias, not 127.0.0.1, and this probe is a
-  // liveness check on a loopback socket inside the container — there is no
-  // network for anyone to sit in the middle of. Verification is disabled for
-  // this one call rather than shipping the CA back into the router's own image.
+  // Issue #2190: the router no longer binds loopback, only its address on the
+  // internal network, so the probe goes through the alias — the same name and
+  // socket every task will use.
+  const probe = `fetch("https://${ROUTER_SIDECAR_NETWORK_ALIAS}:${ROUTER_SIDECAR_PORT}${healthPath}").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))`;
+  // The self-signed certificate is trusted by the tasks through the CA bundle
+  // they are given; the router's own image does not carry it, and this is a
+  // liveness check from inside the container on an --internal network nothing
+  // else can join. Verification is disabled for this one call rather than
+  // shipping the CA back into an image Hive Mind does not own.
   return dockerOk(run, ['exec', '--env', 'NODE_TLS_REJECT_UNAUTHORIZED=0', containerName, 'bun', '-e', probe], { timeoutMs });
 };
 
@@ -356,6 +414,23 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
     let container = reconciled.container;
     let startedAt = state.startedAt;
 
+    // Issue #2190: a router created before the internal-only bind is still
+    // "running" and healthy, but it listens on the bridge as well. Replace it
+    // the moment nothing is leased on it; while tasks still hold leases the
+    // restart would cut them off, so it is only reported.
+    if (container.running) {
+      const primaryNetwork = await readRouterSidecarPrimaryNetwork({ run, timeoutMs });
+      if (primaryNetwork && primaryNetwork !== ROUTER_SIDECAR_NETWORK_NAME) {
+        if (state.leases.length === 0) {
+          if (log) await log(`🔀 Router sidecar was created on '${primaryNetwork}' and listens beyond the internal network; restarting it bound to '${ROUTER_SIDECAR_NETWORK_NAME}' only (issue #2190)`);
+          await dockerOk(run, ['rm', '--force', ROUTER_SIDECAR_CONTAINER_NAME], { timeoutMs });
+          container = { exists: false, running: false, image: null, imageDigest: null };
+        } else if (log) {
+          await log(`⚠️ Router sidecar was created on '${primaryNetwork}' and is reachable from it; it will be restarted on the internal network once its ${state.leases.length} lease(s) end (issue #2190)`);
+        }
+      }
+    }
+
     if (!container.running) {
       if (container.exists) await dockerOk(run, ['rm', '--force', ROUTER_SIDECAR_CONTAINER_NAME], { timeoutMs });
       if (!(await readDockerImageDigest(image, { run, timeoutMs }))) {
@@ -381,8 +456,20 @@ export const acquireRouterSidecar = async ({ sessionId, githubRepo = null, env =
       if (log) await log(`🔀 Router sidecar started with ${credentialMounts.length} credential mount(s); tasks will not receive vendor credentials directly`);
     }
 
-    // Additive, and a no-op when already attached — so it is safe on every
-    // acquire, including the ones that reuse a running container.
+    // The upstream route. Additive, and a no-op when already attached, so it is
+    // safe on every acquire — including the ones that reuse a running
+    // container. Fail closed when it cannot be made: a router without a route
+    // to the vendor APIs answers every request with an error, and a task would
+    // sit on it until its own timeouts gave up.
+    const upstream = await attachDockerNetwork({ network: resolveRouterUpstreamNetwork(env), container: ROUTER_SIDECAR_CONTAINER_NAME, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
+    if (!upstream.attached) {
+      // Only tear the container down when nobody else is on it; a lease held
+      // by another task means its router is already serving.
+      if (state.leases.length === 0) await dockerOk(run, ['rm', '--force', ROUTER_SIDECAR_CONTAINER_NAME], { timeoutMs });
+      return { baseUrl: null, token: null, tokenId: null, leaseCount: state.leases.length, external: false, error: `router sidecar could not be connected to its upstream network '${resolveRouterUpstreamNetwork(env)}': ${upstream.error}` };
+    }
+    // Same for the internal network, which is normally already the primary one
+    // (issue #2190); this keeps a container that lost it re-attachable.
     await attachDockerNetwork({ network: ROUTER_SIDECAR_NETWORK_NAME, container: ROUTER_SIDECAR_CONTAINER_NAME, alias: ROUTER_SIDECAR_NETWORK_ALIAS, run, timeoutMs, log, verbose, logPrefix: LOG_PREFIX });
 
     const health = await waitForRouterSidecarHealth({ run, attempts: healthAttempts, delayMs: healthDelayMs, sleepImpl, log, verbose, env });

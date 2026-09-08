@@ -210,7 +210,8 @@ re-downloading an image the **host already has**. See
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) and
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879).
 
-The base image (`konard/box-dind`) can seed the inner daemon from the host
+The base image (`ghcr.io/link-foundation/box-dind`) can seed the inner daemon
+from the host
 automatically — **host-image passthrough** — but only when the host Docker
 socket is bind-mounted into the container. **Without the socket mount,
 passthrough is a silent no-op** and the inner daemon stays empty. Mount it and
@@ -308,7 +309,7 @@ docker run --rm -it \
 
 ## Authentication
 
-The production Docker image (`Dockerfile`) extends the pinned full `konard/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
+The production Docker image (`Dockerfile`) extends the pinned full `ghcr.io/link-foundation/box` image, which provides Ubuntu 24.04 plus the general development toolchain. **IMPORTANT:** Authentication is performed **inside the container AFTER** the Docker image is fully installed and running.
 
 **Why Authentication Happens After Installation:**
 
@@ -424,7 +425,7 @@ If the first command shows `playwright` and the second does not, the host-mounte
 
 ```
 .
-├── Dockerfile                    # Production image based on konard/box
+├── Dockerfile                    # Production image based on ghcr.io/link-foundation/box
 ├── experiments/
 │   └── solve-dockerize/
 │       └── Dockerfile            # Legacy Gitpod-compatible image (archived)

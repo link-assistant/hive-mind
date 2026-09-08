@@ -143,7 +143,7 @@ immutable release tag उपयोग करता है। वह nested `dock
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) और
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879)।
 
-Base image (`konard/box-dind`) inner daemon को host से अपने आप seed कर सकती है —
+Base image (`ghcr.io/link-foundation/box-dind`) inner daemon को host से अपने आप seed कर सकती है —
 **host-image passthrough** — लेकिन केवल तभी जब host का Docker socket container में
 bind-mount किया गया हो। **socket mount के बिना, passthrough एक silent no-op है** और
 inner daemon खाली रहता है। इसे mount करें और allowlist set करें:

@@ -272,12 +272,19 @@ await test('recordResourceSnapshot survives an unreadable agent data home', asyn
 // 6. Wiring: unconditional on task completion, reportable from hive-cleanup
 // ---------------------------------------------------------------------------
 
+// Issue #2187 moved the success-path cleanup helpers out of
+// solve.repository.lib.mjs, which re-exports them, into their own module to
+// stay under the 1350-line warning threshold (#1593).
+const cleanupLib = fs.readFileSync(path.join(repoRoot, 'src', 'solve.cleanup.lib.mjs'), 'utf8');
+check(/export const cleanupAgentSnapshotStores/.test(cleanupLib), 'solve exposes an agent-snapshot cleanup step');
+check(/await cleanupAgentSnapshotStores\(\);/.test(cleanupLib), 'the cleanup step is invoked from cleanupTempDirectory');
 const repositoryLib = fs.readFileSync(path.join(repoRoot, 'src', 'solve.repository.lib.mjs'), 'utf8');
-check(/export const cleanupAgentSnapshotStores/.test(repositoryLib), 'solve exposes an agent-snapshot cleanup step');
-check(/await cleanupAgentSnapshotStores\(\);/.test(repositoryLib), 'the cleanup step is invoked from cleanupTempDirectory');
-const cleanupTail = repositoryLib.slice(repositoryLib.indexOf('export const cleanupTempDirectory'));
+check(/export \{[^}]*cleanupTempDirectory[^}]*\} from '\.\/solve\.cleanup\.lib\.mjs';/.test(repositoryLib), 'the cleanup steps are still reachable from solve.repository.lib.mjs');
+const cleanupTail = cleanupLib.slice(cleanupLib.indexOf('export const cleanupTempDirectory'));
 const keepBranchIndex = cleanupTail.indexOf('await cleanupAgentSnapshotStores();');
-check(keepBranchIndex > cleanupTail.indexOf('shouldCleanup'), 'agent snapshots are reclaimed after the keep/delete decision, i.e. regardless of --auto-cleanup (proposal B)');
+// The branch that decides whether the workspace survives is `shouldKeepDirectory`;
+// the reclamation has to come after it, not inside it.
+check(keepBranchIndex > cleanupTail.indexOf('shouldKeepDirectory') && cleanupTail.indexOf('shouldKeepDirectory') >= 0, 'agent snapshots are reclaimed after the keep/delete decision, i.e. regardless of --auto-cleanup (proposal B)');
 
 const cleanupCli = fs.readFileSync(path.join(repoRoot, 'src', 'cleanup.mjs'), 'utf8');
 check(/--no-agent-snapshots/.test(cleanupCli), 'hive-cleanup documents an opt-out for the new category');

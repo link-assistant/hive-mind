@@ -417,6 +417,11 @@ export const SOLVE_OPTION_DEFINITIONS = {
     description: 'Automatically delete temporary working directory on completion (error, success, or CTRL+C). Default: true for private repos, false for public repos. Use explicit flag to override.',
     default: undefined,
   },
+  'docker-image-reclaim': {
+    type: 'string',
+    description: "Reclaim superseded docker images on the success path: 'superseded' (older Hive Mind tags + dangling), 'dangling' (dangling only) or 'none'. Default: follows --auto-cleanup.",
+    default: undefined,
+  },
   'auto-merge-default-branch-to-pull-request-branch': {
     type: 'boolean',
     description: 'Automatically merge the default branch to the pull request branch when continuing work (only in continue mode)',

@@ -169,7 +169,7 @@ dockerd, чьё хранилище образов изначально **пус�
 [issue #1914](https://github.com/link-assistant/hive-mind/issues/1914) и
 [#1879](https://github.com/link-assistant/hive-mind/issues/1879).
 
-Базовый образ (`konard/box-dind`) может автоматически заполнять внутренний daemon
+Базовый образ (`ghcr.io/link-foundation/box-dind`) может автоматически заполнять внутренний daemon
 с хоста — **проброс образов с хоста (host-image passthrough)** — но только если
 сокет Docker хоста смонтирован (bind-mount) в контейнер. **Без монтирования сокета
 проброс является тихой no-op-операцией**, и внутренний daemon остаётся пустым.

@@ -17,7 +17,7 @@ import { acquireRouterSidecar, attachRouterToNetwork, buildRouterSidecarRunArgs,
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from '../src/router-task-isolation.lib.mjs';
 import { runRouterMaintenanceTick, startRouterMaintenance, stopIdleRouterSidecar } from '../src/router-maintenance.lib.mjs';
 import { FORMAL_AI_SIDECAR_NETWORK_NAME } from '../src/formal-ai-sidecar.lib.mjs';
-import { buildRouterFormalAiProviderArgs, getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_FORMAL_AI_MODEL, ROUTER_FORMAL_AI_PROVIDER_NAME, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
+import { buildRouterFormalAiProviderArgs, getInternalRouterBaseUrl, ROUTER_DATA_MOUNT, ROUTER_DATA_VOLUME_NAME, ROUTER_SIDECAR_CONTAINER_NAME, ROUTER_SIDECAR_IMAGE, ROUTER_SIDECAR_NETWORK_ALIAS, ROUTER_FORMAL_AI_MODEL, ROUTER_FORMAL_AI_PROVIDER_NAME, ROUTER_SIDECAR_NETWORK_NAME, ROUTER_SIDECAR_PORT, ROUTER_TLS_DNS_NAMES } from '../src/router-isolation.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -61,10 +61,11 @@ const runArgs = buildRouterSidecarRunArgs({ image: ROUTER_SIDECAR_IMAGE, tokenSe
 
 const flagValue = (args, flag, prefix) => args.filter((value, index) => args[index - 1] === flag && value.startsWith(prefix)).map(value => value.slice(prefix.length));
 
-// The sidecar is the one container that must reach api.anthropic.com. A
-// `--network` here would replace its default bridge with our internal network
-// and silently leave it with no upstream at all.
-assertEqual(runArgs.includes('--network'), false, 'the sidecar is not launched onto the internal network, so it keeps its outbound bridge');
+// The sidecar is created on the internal network so that is the only address it
+// binds (issue #2190); the outbound bridge is connected afterwards by
+// acquireRouterSidecar, and that attach failing is fatal rather than silent.
+assertEqual(flagValue(runArgs, '--network', '').join(''), ROUTER_SIDECAR_NETWORK_NAME, 'the sidecar is launched onto the internal network, the one address it will bind');
+assertEqual(flagValue(runArgs, '--network-alias', '').join(''), ROUTER_SIDECAR_NETWORK_ALIAS, 'under the alias tasks resolve, so the bind script can look its own address up');
 assertEqual(runArgs.includes('-p') || runArgs.includes('--publish'), false, 'no port is published to the host');
 assertEqual(runArgs.slice(0, 2).join(' '), 'run --detach', 'the container is started detached');
 assertEqual(flagValue(runArgs, '--name', '').join(''), ROUTER_SIDECAR_CONTAINER_NAME, 'the container carries the stable reconciliation name');
@@ -101,7 +102,11 @@ assertEqual(
 assertEqual(flagValue(runArgs, '--env', 'GH_CONFIG_DIR=').join(''), '/data/gh', 'and named through GH_CONFIG_DIR, which is where the router looks for it');
 assertEqual(flagValue(runArgs, '--env', 'CLAUDE_CODE_HOME=').join(''), '/data/claude', 'the router is told where each credential home landed');
 assertEqual(flagValue(runArgs, '--env', 'CODEX_HOME=').join(''), '/data/codex', 'the codex credential home is wired too');
-assertEqual(runArgs.slice(-5).join(' '), 'serve --host 0.0.0.0 --port 443', 'the router is started in serve mode on 443, the only port an unmodified gh will build an api.github.com endpoint for');
+assertEqual(runArgs.slice(-3, -1).join(' '), `${ROUTER_SIDECAR_IMAGE} -c`, 'the image runs the bind script through the sh entrypoint');
+assertEqual(flagValue(runArgs, '--entrypoint', '').join(''), 'sh', 'because the router has no bind-to-network option of its own yet (issue #2190)');
+assertEqual(carries(runArgs.at(-1), `router serve --host "$addr" --port ${ROUTER_SIDECAR_PORT}`), true, 'the router is started in serve mode on 443, the only port an unmodified gh will build an api.github.com endpoint for');
+assertEqual(carries(runArgs.at(-1), '0.0.0.0'), true, "and the script's only mention of 0.0.0.0 is its refusal to bind there");
+assertEqual(carries(runArgs.at(-1), '--host 0.0.0.0'), false, 'so no argument ever asks the router to listen on every interface');
 
 // Without TLS there is no interception: gh, git and codex all speak https to
 // api.github.com, and a plaintext router can only be reached by rewriting every
@@ -160,6 +165,10 @@ const makeDocker = ({ tokenSubject = 'aaaaaaaa-0000-4000-8000-00000000000a', liv
     if (verb === 'inspect') {
       if (args[1] === ROUTER_SIDECAR_CONTAINER_NAME) {
         if (!containerRunning) throw new Error('No such object');
+        // The primary-network read (issue #2190) asks for NetworkMode alone; a
+        // fake that answered the running|image|digest triple there would look
+        // like a legacy 0.0.0.0 container and be replaced on every acquire.
+        if (args.includes('{{.HostConfig.NetworkMode}}')) return { stdout: `${ROUTER_SIDECAR_NETWORK_NAME}\n` };
         return { stdout: `true|ghcr.io/link-assistant/router:latest|sha256:abc\n` };
       }
       // Anything else inspected is a task container; only the ones the test
@@ -201,16 +210,16 @@ assertEqual(acquired.error, null, 'the sidecar comes up against a healthy fake d
 assertEqual(acquired.baseUrl, getInternalRouterBaseUrl(), 'the task is pointed at the internal alias over HTTPS');
 assertEqual(acquired.baseUrl, `https://${ROUTER_SIDECAR_NETWORK_ALIAS}`, 'on the default port, so the URL carries no port for gh to disagree about');
 assertEqual(
-  docker.calls.some(call => call.includes('bun') && call.includes('https://127.0.0.1:443/health')),
+  docker.calls.some(call => call.includes('bun') && call.includes(`https://${ROUTER_SIDECAR_NETWORK_ALIAS}:${ROUTER_SIDECAR_PORT}/health`)),
   true,
-  'health is probed over the same TLS endpoint a task will use, not a plaintext one that no longer exists'
+  'health is probed over the same TLS endpoint and alias a task will use; loopback is no longer bound (issue #2190)'
 );
 assertEqual(acquired.tokenId, 'aaaaaaaa-0000-4000-8000-00000000000a', 'the lease records the id of the token it minted');
 assertEqual(acquired.leaseCount, 1, 'the acquiring task holds the only lease');
 assertEqual(
-  docker.calls.some(call => call === `network connect --alias ${ROUTER_SIDECAR_NETWORK_ALIAS} ${ROUTER_SIDECAR_NETWORK_NAME} ${ROUTER_SIDECAR_CONTAINER_NAME}`),
+  docker.calls.some(call => call === `network connect bridge ${ROUTER_SIDECAR_CONTAINER_NAME}`),
   true,
-  'the internal network is attached after creation, not at run time'
+  'the outbound bridge is attached after creation, so it is never the address the router binds (issue #2190)'
 );
 assertEqual(
   docker.calls.some(call => call.includes('tokens issue') && call.includes('hive-mind:session-one')),

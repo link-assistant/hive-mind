@@ -677,6 +677,15 @@ try {
     toolResult = claudeResult;
   }
   toolResult = classifyFormalAiToolResult({ model: argv.model, toolResult });
+  // Issue #2190: the router auth guard killed the CLI because the task tried to
+  // authenticate with something other than its router token. Not a tool
+  // failure to retry or a mergeability problem — a security stop, with its own
+  // exit code so the supervisor can tell it apart.
+  if (toolResult?.routerAuthViolation) {
+    const { EXIT_CODE_ROUTER_AUTH_VIOLATION, formatRouterAuthViolation } = await import('./router-auth-guard.lib.mjs');
+    await log(`❌ ${formatRouterAuthViolation(toolResult.routerAuthViolation)}`, { level: 'error' });
+    await safeExit(EXIT_CODE_ROUTER_AUTH_VIOLATION, 'Router auth guard: the task tried to use a credential other than its router token (issue #2190)');
+  }
   if (toolResult?.formalAiNonExecution) {
     await log(`❌ ${toolResult.errorInfo.message}`, { level: 'error' });
     await log('   The deterministic terminal response will not be retried as a mergeability problem.', { level: 'error' });

@@ -41,6 +41,7 @@ import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
+import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
@@ -717,6 +718,11 @@ export const executeCodexCommand = async params => {
     // Issue #2178: a hive-mind task must not remember anything a reviewer cannot see.
     const memoryDisableArgs = buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv));
     for (const arg of memoryDisableArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
+    // Issue #2190: never let this run sync the remote plugin catalog (Superpowers et al.)
+    // into the global ~/.codex, whatever the operator's config.toml says.
+    for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
     if (argv.verbose) {

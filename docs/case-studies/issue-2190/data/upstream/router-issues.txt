@@ -1,0 +1,544 @@
+544 closed fix: accept omitted usage collections
+543 closed router usage cannot use a selected administrative server or aggregate pooled subscription limits
+542 closed fix: deliver z.ai Codex catalogs and pooled usage
+541 closed router with codex cannot start with a Codex-compatible z.ai provider
+540 closed feat: allow trusted proxies to use Codex-bound clients
+539 closed feat(nix): add flake for build, run, dev shell and checks
+538 closed Make a nix flake configuration
+537 closed fix: make Claude split-auth limits explicit
+536 closed Claude wrapper needs a persistent minimal Router profile and an explicit reset
+535 closed Native model list routes return Router diagnostics and the wrong Anthropic schema
+534 closed Codex history and notes backend routes are missing and the extension is disabled
+533 closed Codex profile is classified as non-OpenAI and strips native Responses state
+532 closed Codex native zstd Responses requests are rejected before routing
+531 closed Codex remote control cannot use an external Router and its backend protocol is missing
+530 closed Codex native analytics bypasses Router or fails after ChatGPT control-plane redirection
+529 closed Codex Apps, hosted MCP, and remote plugins bypass Router or disappear in isolated runs
+528 closed Codex account services bypass Router and can use the wrong ChatGPT workspace
+527 closed Codex workspace-managed config bypasses Router and can apply policies from the wrong ChatGPT account
+526 closed router with turns native CLI subcommands into inference prompts across every supported client
+525 closed Codex Cloud is misparsed or silently bypasses Router depending on launch mode
+524 closed Codex loopback login identifies Router through the official public OAuth client
+523 closed Subscription usage drops current Claude and Codex limit state
+522 closed Anthropic Skills and Skill Versions APIs are missing from the service surface
+521 closed Anthropic Message Batches lifecycle routes are missing and cannot preserve account affinity
+520 closed Router auth precedence disables Claude.ai connectors and native subscription services
+519 closed Codex Apps file uploads bypass Router or fail because the ChatGPT file control plane is not integrated
+518 closed Anthropic Files API routes are absent and break Claude Code file transfer through Router
+517 closed OpenAI Audio API routes are absent and cannot reach native providers through Router
+516 closed Realtime API is absent and Codex Realtime traffic bypasses Router
+515 closed Codex standalone search route is missing for Responses Lite and opt-in web/run
+514 closed OpenAI Images and default Codex image-generation routes are missing
+513 closed OpenAI Responses Input Tokens endpoint is missing and returns 405
+512 closed POST /responses/compact is missing, so OpenAI SDK and Codex fallback receive 405
+511 closed Router drops Codex Cloudflare infrastructure-cookie continuity
+510 closed OAuth refresh requests drift from official Claude, Codex, Gemini, and Qwen clients
+509 closed Chat-to-Codex Responses bridge corrupts multimodal and assistant message history
+508 closed Single-model retrieval is missing from OpenAI and Anthropic service routes
+507 closed OpenAI Conversations resource is not exposed through Router
+506 closed OpenAI Responses WebSocket mode is not exposed through Router
+505 closed Responses include selectors are silently discarded on translated routes
+504 closed Chat predicted output is silently discarded on translated routes
+503 closed Responses reusable prompt templates are discarded or rejected on translated routes
+502 closed Gemini store logging policy is silently discarded on non-Gemini routes
+501 closed Gemini safetySettings are silently discarded on non-Gemini subscription routes
+500 closed Moderation requests are silently discarded on translated OpenAI routes
+499 closed Prompt-cache keys, retention, options, and breakpoints are silently discarded on bridges
+498 closed Stored Chat Completions are discarded and their resource lifecycle routes are missing
+497 closed Anthropic hosted containers, skills, and MCP servers are silently removed on bridges
+496 closed Execution tier, speed, and inference geography are silently discarded on translated routes
+495 closed OpenAI Chat message.name is silently erased on translated routes
+494 closed Context management contracts are silently removed on cross-provider routes
+493 closed Gemini bridges silently drop image input in both directions
+492 closed OpenAI tool loops are silently erased on Gemini subscription routes
+491 closed Chat generation controls are silently discarded on translated provider routes
+490 closed router usage omits configured Gemini and Qwen subscriptions
+489 closed Bridged count_tokens returns an unlabeled four-bytes-per-token estimate as an exact provider count
+488 closed Responses top_p is silently discarded on Claude bridge paths
+487 closed End-user safety identifiers are silently dropped across protocol bridges
+486 closed Responses execution controls are silently discarded on Claude bridge paths
+485 closed Responses lifecycle routes are missing, so background and stored responses cannot be retrieved
+484 closed Anthropic cache tokens are undercounted and Responses streams omit usage
+483 closed Anthropic output_config.effort becomes Router xhigh default on the Codex bridge
+482 closed Strict function-tool schemas are silently weakened on Claude bridge paths
+481 closed Unsupported Chat output contracts are accepted and silently ignored on Claude bridge paths
+480 closed parallel_tool_calls is silently discarded on Claude bridge paths
+479 closed Structured output schemas are silently discarded on Claude bridge paths
+478 closed Chat input_audio is silently discarded when bridged to Claude
+477 closed Responses state fields are ignored when a request is bridged to Claude
+476 closed Citations disappear across Anthropic, Chat, and Responses translations
+475 closed Anthropic pause, refusal, and context stops become invalid or completed OpenAI responses
+474 closed Responses input_image file_id becomes an empty Anthropic image URL
+473 closed Codex custom tool history is silently dropped on bridged Claude routes
+472 closed Responses reasoning history is silently dropped on bridged Claude routes
+471 closed Translated server-tool history disappears on the next Claude Code turn
+470 closed Document and file input blocks disappear on cross-provider bridge paths
+469 closed Anthropic tool_result is reordered after follow-up text during translation
+468 closed Claude thinking history is silently dropped on bridged model switches
+467 closed Anthropic tool_result images are silently dropped on Codex translation
+466 closed Structured Responses function_call_output is replaced with an empty Anthropic tool result
+465 closed Responses refusal content is lost on Chat and Anthropic translations
+464 closed Non-streaming Codex returns raw SSE for response.incomplete
+463 closed Gonka model catalog ignores the live /v1/models endpoint
+462 closed Invalid OAuth expires_in can persist an unusable rotated credential
+461 closed Responses stream errors are discarded or translated as success
+460 closed Gonka provider uses an incompatible signing protocol
+459 closed Gonka buffers stream:true responses until the upstream closes
+458 closed Streaming translators corrupt UTF-8 characters split across network chunks
+457 closed clients doctor codex is rejected by Router and diagnostic fingerprints reach providers
+456 closed Gemini subscription buffers every streaming request and emits SSE only after completion
+455 closed fix: deliver all actionable Router issues
+454 closed GitHub REST and GraphQL buffer the entire upstream body before returning response headers
+453 closed Git smart-HTTP buffers the entire upstream body before returning response headers
+452 closed README omits /api from the canonical GitHub GraphQL route
+451 closed Git smart-HTTP turns a truncated upstream body into 200 with an empty response
+450 closed Ordinary OpenAI-compatible providers drop native client headers
+449 closed A malformed legacy Claude credential file shadows the canonical Claude Code login
+448 closed Cross-protocol responses inject Router-specific headers and body fields
+447 closed Unbounded Retry-After can panic usage and pooled request handlers
+446 closed Anthropic and OpenAI usage probes treat empty HTTP 200 JSON as available limits
+445 closed The usage response size limit is applied after buffering the full provider body
+444 closed Concurrent identical usage requests bypass the cache and duplicate provider probes
+443 closed Unknown usage providers are rejected before client authentication
+442 closed Human router usage output drops window_seconds
+441 closed clients remove cannot revoke tokens minted through a remote management origin
+440 closed GitHub credential discovery selects the first hosts.yml token regardless of upstream host
+439 closed auth import must preserve one vendor-owned refresh chain
+438 closed Gemini credential discovery ignores GEMINI_CLI_HOME
+437 closed Remote auth status reports disk state instead of provider acceptance
+436 closed Canonical route guide contradicts z.ai-only Claude model selection
+435 closed auth import claude advertises Keychain adoption but rejects a newer Keychain credential
+434 closed Duplicate IDs in a z.ai catalog disable the whole provider instead of deduplicating
+433 closed Lefine live test performs inference although the documentation promises a catalog-only check
+432 closed anthropic-auth-token is forwarded through the native proxy because its test never sends it
+431 closed --home is ignored by auth status for Codex, Gemini, and Qwen
+430 closed Redact OAuth refresh response bodies from errors, health, doctor, and logs
+429 closed Add a complete denied-request logging conformance test
+428 closed z.ai provider replacement accepts an unvalidated API key
+427 closed z.ai Coding Plan policy allows unsupported Codex clients by default
+426 closed README manual Anthropic example contradicts client-bound transparent-header policy
+425 closed Ingress IP and forwarding headers leak to provider upstreams
+424 closed Native Claude and Codex login replace working credentials before acceptance validation
+423 closed Codex /model resets the configured reasoning effort with Router's live catalog
+422 closed Add support for Lefine provider
+421 closed Request logging injects x-request-id into upstream traffic and overwrites provider ids
+420 closed Anthropic models route is controlled by the OpenAI API flag
+419 closed z.ai-only Claude setup duplicates one GLM model across every family
+418 closed Normalised per-model metadata on catalogue entries (context, output cap, pricing)
+417 closed Merged model catalogue route across adopted services
+416 closed Add client-scoped subscription usage API and router usage CLI
+415 closed gh cannot reach the 1.x GitHub proxy: /api/v3 is hard-coded client-side and GitHubAdapter is unimplemented
+414 closed Claude Code Bearer requests are denied by x-api-key-only client policy
+413 closed auth import needs a machine-readable recovery outcome for rotating credentials
+412 closed fix: deliver all open router issues
+411 closed Docs still promise provider-qualified model aliases removed by #403
+410 closed fix: deliver all open issues and update every dependency
+409 closed Filter model catalogs by effective client and protocol compatibility
+408 closed Preserve native client identity and protocol transparency upstream
+407 closed clients setup accepts locally signed generic tokens without client/principal binding
+406 closed router with codex leaves foreign model_catalog_json authoritative
+405 closed chore(deps): bump tower-http from 0.7.0 to 0.7.1 in the reviewed-rust-dependencies group
+404 closed chore(deps): bump oven/bun from `5ff6093` to `9e123d5`
+403 closed Discover z.ai models dynamically and merge one deduplicated catalog entry per model
+402 closed Live providers add clears the subscription model catalog until restart
+401 closed fix: restore release CI on Rust 1.98
+400 closed fix: deliver all open Router issues
+399 closed Make client setup and configure transactional and revoke failed candidates
+398 closed Support disjoint management and inference origins in client setup and repair
+397 closed Reject or redact credentials and query secrets in selected server URLs
+396 closed fix: complete Router 1.0 release follow-up guarantees
+395 closed security: remove private deployment references
+394 closed feat!: canonicalize routes and repair client ownership
+393 closed Add ownership-aware client config repair after third-party tools override Router
+392 closed v0.125.4 cannot read token stores written by v0.125.3: absent client_kind/principal_id fail the read, and the real error is swallowed by the legacy fallback
+391 closed Adopt disjoint /api/services and /api/management route namespaces
+390 closed Add policy-gated z.ai GLM Coding Plan routing and mixed Claude Code model discovery
+389 closed Make cross-client consumer subscription routing deny-by-default with explicit per-pair overrides
+388 closed fix: secure subscription routing and add z.ai Coding Plan
+387 closed /v1/chat/completions forwards a missing-messages request as Responses and leaks the wrong dialect error
+386 closed fix: resolve all four open Router issues
+385 closed auth import cannot conditionally provision an empty credential without racing or replacing a working login
+384 closed /health/subscriptions reports absent providers as healthy because every reader is treated as configured
+383 closed OAuth refresh fails open on lock and persistence errors, risking every provider token chain
+382 closed auth status rotates one-time refresh tokens without persisting the replacement
+381 closed fix: resolve all five open router issues
+380 closed Codex Responses Lite loses additional_tools, so gpt-5.6-sol has no terminal or filesystem tools
+379 closed router with codex discards the user config, so reasoning effort and all other settings fall back
+378 closed Gemini CLI cannot use ChatGPT models because topP is forwarded as unsupported top_p
+377 closed Malformed JSON on the Gemini and Vertex surfaces bypasses the dialect error envelope and returns text/plain
+376 closed Remote Codex device login asks for a paste code instead of polling when the response includes its URL
+375 closed fix: keep the capacity of a store written by a previous release (#374)
+374 closed v0.125.0 cannot write to a token store from a previous release: every put fails with 'doublets schema contains an invalid point', yet issue still returns a token
+373 closed chore(deps): update every dependency, adopting link-cli's storage and std's file locks
+372 closed Update all dependencies, including new release of doublet-rs/link-cli (as a library)
+371 closed docs: call it a links network, never a graph, and enforce it in CI
+370 closed fix: do not write duplicate links into the doublets graph
+369 closed test: stop test suites racing each other for ephemeral ports (#368)
+368 closed Five test suites race for ephemeral ports, so one suite's request can reach another suite's router
+367 closed perf: hold one doublets store per process behind a reader-writer lock (#357)
+366 closed test: say why the router did not start on the unix socket (#365)
+365 closed A unix-socket test failure on macOS is undiagnosable: the router's stderr is discarded
+364 closed feat: sliding token expiry (#354); a read no longer re-parses an unchanged store (#356)
+363 closed deps: update everything, and fix #354 #355 #356 #357
+362 closed chore(deps): bump the reviewed-rust-dependencies group with 2 updates
+361 closed chore(deps-dev): bump the reviewed-ui-dependencies group in /ui with 2 updates
+360 closed chore(deps): bump debian from `3a39a05` to `d7e1218`
+359 closed chore(deps): bump rust from 1.97.1-slim-trixie to 1.98.0-slim-trixie
+358 closed chore(deps): bump oven/bun from `e10577f` to `5ff6093`
+357 closed The doublets store is opened, rebuilt and dropped on every access: hold one instance for the process lifetime behind an RwLock
+356 closed Every token-store access rebuilds the complete doublets links network
+355 closed Token rejections carry no facts: client_message is a const fn returning &'static str, so expiry, limits and revocation print no times or counts
+354 closed A per-run token expires on a fixed clock while the session is actively in use: extend it on activity, sliding by default
+353 closed fix: listing tokens no longer rewrites the token store (#351)
+352 closed fix: the request log is links notation its own tools can read (#350)
+351 closed GET /api/tokens/list rewrites the token store during a read and can exceed client deadlines
+350 closed The request log's links notation is a private dialect: parse_lino rejects it and lino-objects-codec decodes each field as [":", key, value]
+349 closed test: stop a login test failing on a loaded machine
+348 closed feat: name the request log requests.lino, for what it holds (#346)
+347 closed docs: the documented storage format matches the shipped one (#346)
+346 closed Track and document the remaining request-log format conversion
+345 closed fix: a release commit records the fragment removals it made
+344 closed feat: write the request log in links notation (#336)
+343 closed cargo test deletes the developer's own server selection: clearing_an_absent_selection_succeeds calls clear_persisted() against the real HOME
+342 closed fix: an empty HOME is unset, and a per-run token outlives its run (#340, #341)
+341 closed with mints a per-run token that expires after 1 hour and never renews it, so any longer session dies mid-work with '401 Token has expired' and the client's own '/login' advice
+340 closed An empty XDG_CONFIG_HOME or HOME is taken as configured, so the config root becomes "" and router writes server.json — with a live token — into the current working directory
+339 closed fix: a release removes the fragments it collected (#337)
+338 closed fix: stop when asked, recognise an absent container, store router state one way (#333, #334)
+337 closed Every release page shows a truncated changelog: CHANGELOG.md is 6.1 MB against a 125,000-character body limit, so fit_release_body fires on every publish
+336 closed Convert the remaining router-owned request log to links notation
+335 closed fix: decode what the log stored, forward only what the vendor needs (#308, #320, #328, #329, #330, #331, #332)
+334 closed serve ignores SIGTERM: every docker stop waits out the full grace period and is then SIGKILLed, so no restart can drain in-flight streams
+333 closed with does not fall back when the selected server is unreachable: it reports 'no such object: link-assistant-router-managed' instead of starting the managed router that flag documents
+332 closed The proxy hides the client's IP but forwards its machine identity: x-stainless-os/arch/runtime, user-agent and a stable session id reach the vendor unchanged
+331 closed Bound the request-log store as a whole, not only each token directory
+330 closed with prints its own advice above the client's banner on the ordinary interactive path: a bare launch is silent, but any client flag earns two note: lines
+329 closed the destructive-operation policy keys on the HTTP method, so PUT branch protection, PUT rulesets, POST transfer and PATCH visibility/archived pass while the DELETE beside each one is denied
+328 closed Decode stored compressed response bodies before deciding stream outcomes
+327 closed fix(ci): a backfilled release must not become 'Latest', and the audit must follow versions
+326 closed fix(ci): backfill a release page for any version that shipped without one
+325 closed fix(ci): publish a release whose changelog exceeds GitHub's body limit
+324 closed README gives CLAUDE_CLI_BIN a default of `claude` while the code and the ladder text say unset, on the one setting that decides whether the router spends the subscription unattended
+323 closed an unadvertised model is refused without naming a single advertised one, so the error withholds the catalog the router is holding at that moment
+322 closed request log: compaction discards the oldest records in place with no marker, so a truncated per-token audit log reads as a complete one
+321 closed A terminal subscription failure is logged at WARN and then restated 146 times: 7223 lines, 20 hours, zero ERROR
+320 closed request_log records only method and uri: the model, provider, and token label it already holds never reach the log line
+319 closed A 403 oauth_not_allowed_for_organization triggers a refresh that spends a just-rotated token, killing a healthy subscription five minutes after recovery succeeded
+318 closed A revoked subscription is invisible to every monitor: /health stays ok, degraded_providers stays empty, and the only signal is a client-facing 'not advertised' error
+317 closed fix: one rule each for launching, configuring and targeting
+316 closed with sends the working directory's name to the router as a token label, so the deployment accumulates a list of every project its users work in
+315 closed help text contradicts behaviour: --local says "authorize" on every family, --managed promises a container it never starts, usage lines name the other binary
+314 closed the CLI vocabulary is inconsistent across families: three verbs for create, four spellings for delete, --token with three meanings, --json on two subcommands
+313 closed the stale-directory sweep treats kill(pid,0) EPERM as dead, so on a shared TMPDIR one user's with run deletes another user's live run directory
+312 closed with --help contradicts itself and advertises ~28 server options that have no effect, plus two flags that do nothing
+311 closed with --server <the already-selected URL> ignores the token stored for it and tells the user to run the command they already ran
+310 closed with silently disables codex's git-repo guard and pre-answers Gemini's workspace-trust prompt, in interactive runs too
+309 closed clients doctor spends a 24576-token adaptive-thinking request at high/xhigh effort to check that a URL answers
+308 closed tls has no target flags and silently answers for the local machine, and TOKEN_SECRET is demanded by commands that sign nothing — including whenever --local is given
+307 closed auth import ignores $CLAUDE_CODE_HOME and $CODEX_HOME that its own help names as the default source
+306 closed accounts list against a selected server drops the healthy column and renders every numeric field as -, so a dead subscription looks identical to a live one
+305 closed auth --clear and --clear-all accept --server and delete the local credentials anyway, reporting success for a machine they never contacted
+304 closed one malformed client config aborts clients list mid-table, silently hiding every client after it
+303 closed clients reports outcomes that contradict what it did: setup grok says nothing changed while minting a token, remove succeeds for unsupported clients, show gemini is always false
+302 closed clients remove claude deletes the user's own ANTHROPIC_BASE_URL instead of restoring it, while codex restores its previous provider
+301 closed gemini and qwen are declared openai clients, so they can never select their own vendor's models — and setup, doctor and with each use a different rule
+300 closed a missing TOKEN_SECRET is replaced by a hardcoded placeholder that still signs tokens and encrypts provider API keys when the command runs locally
+299 closed options after the client name are split between router and client by no stateable rule: --port reaches the client, --model is eaten
+298 closed clients that cannot be extended get a throwaway home every run, so codex, gemini and agent can never resume a session through with
+297 closed any client flag turns with into a one-shot run, so router with claude --resume fails with an error that never mentions the router
+296 closed there is no router configure <client>: permanent setup is two commands that disagree on the server, the credential and the client list
+295 closed with forces a model and a thinking budget over the ones the user configured, so a bare launch silently changes model and effort
+294 closed command targeting is per-family rather than one rule: tokens, accounts, providers, logs and doctor ignore the selected server
+293 closed router tokens cannot target a selected server, so a remote deployment's tokens are unmanageable from the CLI
+292 closed fix(cli): one targeting rule for every command that touches router state
+291 closed auth import accepts --server and honours a server selection in help, but always acts on the local machine
+290 closed fix: honor explicit auth import source directories
+289 closed fix: honor explicit auth import source directories
+288 closed fix: honor explicit auth import source directories
+287 closed fix: honor explicit auth import source directories
+286 closed fix: honor explicit auth import source directories
+285 closed auth import ignores an explicitly named source directory when the platform store is newer
+284 closed fix(auth): make each credential command act on the target it names
+283 closed auth gh is the only auth subcommand that cannot target the selected server, so it stores credentials locally while reporting success
+282 closed a credential stored by auth gh is only found when the data directory came from DATA_DIR, not --data-dir
+281 closed auth status reports a serving single-account deployment as having no accounts configured
+280 closed auth import describes one credential and installs another, so a live login is reported as expired and rejected
+279 closed feat(cli): keep the user's configuration by default, and import as a verb
+278 closed importing an existing login is a per-provider flag rather than an auth import subcommand
+277 closed with isolates the client's configuration by default, so an interactive user lands in first-run onboarding
+276 closed feat(auth): adopt existing vendor logins, and recover Codex credentials too
+275 closed the vendor-CLI recovery rung covers Claude only, and its probe may spend tokens unnecessarily
+274 closed auth can import an existing gh login but not an existing Claude or Codex one
+273 closed fix: close every open issue — force-push mediation, socket access, gh trust docs, credential withdrawal
+272 closed git proxy: force-push detection keys on a capability git never sends, so history rewrites are forwarded to GitHub
+271 closed LISTEN_UNIX_SOCKET is fixed at 0600 with no mode or group setting, so a router container cannot serve a non-root client
+270 closed gh honours SSL_CERT_FILE on Linux, so the TLS listener does cover gh there — the docs say it cannot
+269 closed fix(tests): survive losing the port race in the admin endpoint tests
+268 closed auth can store a credential but not withdraw one
+267 closed chore(build): bound the local cache and cache compilations in CI
+266 closed fix(serve): answer on a unix socket so gh can reach the proxy
+265 closed gh cannot be told to trust the self-signed certificate the TLS feature generates
+264 closed feat: mediate git and GitHub traffic, route stored providers, serve TLS
+263 closed No built-in TLS listener, so GH_HOST/gh cannot reach a router on an internal network without an external terminator
+262 closed GitHub proxy credential and policy are per-deployment: a token cannot be scoped to specific repositories
+261 closed Destructive git-transport operations bypass the GitHub policy engine: force-push and branch deletion never reach /github/* routes
+260 closed Automatic routing ignores stored OpenAI-compatible providers, so one deployment cannot serve both vendor subscriptions and a local OpenAI-compatible endpoint
+259 closed fix(logs): settle a stream from its recorded body, and settle every stream
+258 closed no_terminal_record fires on streams whose terminator is present in the recorded body
+257 closed fix(logs): report a compressed stream as unverifiable, not as truncated
+256 closed chore(deps): update every dependency to its latest version
+255 closed a gzip-compressed SSE stream is reported as ending without its terminator
+254 closed chore(deps): bump the reviewed-actions group with 2 updates
+253 closed fix(logs): decide streaming from evidence, not from having a body
+252 closed logs anomalies reports complete non-streamed exchanges as streams with an unknown ending
+251 closed fix: read the vendor's live credential store and reuse a router already running
+250 closed with and auth start a managed container instead of reusing a router already listening locally
+249 closed macOS subscription credentials may live in Keychain rather than the credential file
+248 closed fix(auth): authorize the selected server, not a local directory
+247 closed fix(accounts): report a refused refresh chain as rejected, not refreshable
+246 closed auth ignores the selected server that with honours
+245 closed accounts list still reports a revoked chain as refreshable and healthy
+244 closed fix(accounts,docker): report credential health, ship `router` in the image
+243 closed router alias missing inside the container image
+242 closed accounts list reports a revoked subscription as healthy
+241 closed Jkk
+240 closed fix(refresh): adopt a rotated refresh token instead of declaring the subscription revoked
+239 closed A rotated refresh token is treated as revoked: one invalid_grant disables the subscription until manual re-authentication
+238 closed feat(storage): store all router state as readable links notation
+237 closed feat(with, logs): forward colliding options, keep user config, analyse the log
+236 closed with captures a client argument when its name collides with a router option that was already given
+235 closed Store all router state as links notation: the token store already does, the request log and three smaller stores still use JSON
+234 closed Add a log diagnostics command: hand-written greps over a 100 MB request log produce false positives and false negatives
+233 closed with replaces the user's configuration wholesale: sessions and settings are invisible, so work cannot be resumed through the router
+232 closed fix(request-log): record how a stream ended, and stop destroying compressed bodies
+231 closed Request log stores gzip-encoded bodies as UTF-8-mangled bytes, so compressed exchanges are unreadable and unrecoverable
+230 closed A streamed turn that ends without its terminator is logged as status=200 with no warning
+229 closed fix(with): give Gemini CLI a home it actually reads
+228 closed Implement Cursor CLI support: the checklist is ready, and prior art exists for capturing its HTTP/2 traffic
+227 closed with gemini writes settings to GEMINI_CLI_HOME, which the CLI does not read, so every run fails auth selection
+226 closed fix(with): stop substituting a foreign-vendor model
+225 closed with substitutes a foreign-vendor model when the client's own owner has none, instead of reporting it
+224 closed fix(release): ship the `router` binary in the release archives
+223 closed feat(cli): ship the command as `router`
+222 closed The primary binary is link-assistant-router, but the project is called router everywhere else
+221 closed fix(clients): name clients after the commands they install as
+220 closed Client names shown to users do not match the installed commands: claude-code vs claude, qwen-code vs qwen
+219 closed fix(responses): stream tool calls instead of an empty output_text
+218 closed /v1/responses drops tool calls when streaming: a tool-only turn arrives as an empty output_text
+217 closed fix: let Codex and Gemini CLI drive Claude models
+216 closed Gemini CLI cannot use Claude models: temperature and top_p are both forwarded, which Anthropic rejects
+215 closed Codex CLI cannot use Claude models: one untranslatable tool type rejects the whole request
+214 closed fix: truthful rejected-request logs, aligned status column, OpenAI-dialect upstream errors, and a recorded-client fixture tier
+213 closed OpenAI surfaces return upstream vendor errors raw, in the wrong dialect and carrying operator account fields
+212 closed auth status column is misaligned: Display for SubscriptionProvider uses write_str, which discards the requested width
+211 closed Fast tests assert hand-written request shapes that no real client sends, and the real-client tier never runs in CI
+210 closed Request log records an empty body for every request rejected at authentication
+209 closed fix(auth): accept the Gemini credential carrier, and state Cursor's real status
+208 closed fix(auth): refresh on a vendor 401 instead of trusting the exp claim
+207 closed Cursor CLI is the only gap in the client matrix: reconsider "unsupported by design"
+206 closed Gemini surface rejects x-goog-api-key: the documented Gemini CLI setup 401s on every request
+205 closed A vendor-invalidated access token is never refreshed: exp is trusted over the 401 that disproves it
+204 closed fix(auth): classify refresh failures by status and parsed error code
+203 closed Refresh failure classification is a substring match: a 429 marks the subscription permanently revoked
+202 closed fix: resolve all open issues (#192, #193, #194, #195) and the failing release provenance guard
+201 closed fix: build and label every release artifact from the release tag commit
+200 closed fix: revoke client tokens minted by setup when removing a client
+199 closed feat(admin): use the scoped JWT model for first-visitor web and chat admin credentials
+198 closed feat(clients): macOS-ready client setup with secret-safe token input
+197 closed fix(codex): emulate output-token caps and preserve requested model identity
+196 closed fix(gemini): serve every subscription natively and stop forced server-tool requests from hanging
+195 closed Enforce max_tokens without allowing one response to overshoot the budget
+194 closed Expose full token budgets and account controls in web, Telegram, and VK admin surfaces
+193 closed Published v0.77 image cannot run the documented setup-token login alternative
+192 closed Remove hardcoded model catalogs and bridge defaults; derive all routing from live provider catalogs
+191 closed v0.77 image provenance revision does not match the release tag commit
+190 closed v0.77 regression: clients remove deletes credentials but leaves its minted token active
+189 closed Use the scoped JWT model for first-visitor web/chat admin credentials
+188 closed Make client setup usable on macOS and secret-safe for remote routers
+187 closed Complete cross-provider client matrix: Gemini native namespace and Cursor CLI adapter
+186 closed v0.77 compatibility regressions: OpenCode output limits fail and catalog alias changes model identity
+185 closed Fix CI false positives, warnings, and release gaps
+184 closed Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all
+183 closed chore: update all dependencies to latest stable releases
+182 closed chore(deps): bump the reviewed-actions group with 5 updates
+181 closed chore(deps): bump the reviewed-rust-dependencies group across 1 directory with 15 updates
+180 closed chore(deps): bump rust from 1.96.1-slim-bookworm to 1.97.1-slim-bookworm
+179 closed chore(deps): bump alpine from 3.23 to 3.24 in /docker/tunnel
+178 closed Resolve all open compatibility, durability, proxy, and release issues
+177 closed Tool loop broken on translated paths: tool_call_id dropped (Chat→Anthropic), Responses-shaped tools silently discarded
+176 closed Pin verified-working behaviour with unit tests: server-side tools, tool translation, cross-protocol matrix, tunnel
+175 closed Server-side tools (web_search, web_fetch) break on translated paths: downgraded to client tool_use or silently dropped
+174 closed Cursor CLI: the refusal reason is wrong — CURSOR_API_ENDPOINT exists, and the protocol is Connect-RPC, not MCP
+173 closed Client integrations: with default models absent from catalog, doctor probes the priciest model, remove leaves a live token
+172 closed with/with-router: --server after the client name is silently ignored, and the error tells you to pass it
+171 closed Quota headers lost on every surface: stripping operator plan details also removed client rate-limit state
+170 closed Adopt proven solutions from comparable proxies: thinking-budget reconciliation, capability matrix, SSE robustness
+169 closed Protocol fidelity: drop router-specific headers from translated responses; the signal reaches no client
+168 closed --help no longer shows the default for --request-log-max-bytes (regression from hiding env values)
+167 closed feat(tokens): add spend and rate controls
+166 closed Superseded: issue #133 already fixed by #139
+165 closed fix: configure clients from live model catalog
+164 closed feat: add temporary agentic CLI launcher
+163 closed Hardening: Pin release actions and attest published artifacts
+162 closed Hardening: Make persisted state durable across processes and power loss
+161 closed Security: Restrict audit log permissions to its owner
+160 closed Security: Authenticate proxy admin routes before JSON parsing
+159 closed Security: Authenticate client routes before parsing and discovery
+158 closed Security: Remove authenticated arbitrary upstream catch-all
+157 closed fix(routing): keep automatic model ownership cataloged
+156 closed feat(logging): isolate request logs by token
+155 closed Security: audit and enforce network boundaries
+154 closed ci: enforce test coverage ratchet
+153 closed fix(ci): require public GHCR package
+152 closed fix(storage): adopt associative token stores
+151 closed Add 'router with <tool>' and 'with-router': temporary-by-default launcher for every agentic CLI
+150 closed CI: enforce 80% test coverage floor and a ratchet so coverage never decreases
+149 closed Full security audit: minimise network exposure surface, cover the token-holder threat model
+148 closed Storage does not use the associative stack: no doublets, and tokens.lino is hand-built string concatenation
+147 closed Docs bury the sharing-and-isolation use case, and blast-radius controls cap requests rather than spend
+146 closed Feature: GitHub API proxy with destructive operations blocked by default
+145 closed Request log cannot attribute an exchange to a token: split logs by token hash and redact credentials partially
+144 closed Fail releases unless the GHCR package is public
+143 closed Model routing hardcodes Claude: OpenAI names demand a Claude credential, and name collisions always resolve to Claude
+142 closed clients setup writes a hardcoded Claude model for every client, so opencode/qwen-code/grok-cli do not work out of the box
+141 closed fix(storage): prevent concurrent token corruption
+140 closed fix(cli): enforce documented CLI behavior
+139 closed fix(proxy): enforce client dialect contracts
+138 closed fix(logging): prevent request log credential leaks
+137 closed fix(security): close unauthenticated state leaks
+136 closed fix(auth): back off failed token refreshes
+135 closed Concurrent requests corrupt the token store: both stores share one temp path, surfacing as bogus 429 rate_limit_error
+134 closed CLI: --help prints env secrets in cleartext; documented =1 boolean spelling rejected; invalid enum values silently defaulted
+133 closed Dialect translation: max_tokens silently dropped on Anthropic surface, cross-dialect error leakage, missing stream usage, upstream plan headers relayed
+132 closed Request log stores secrets verbatim (query string, camelCase body fields, unlisted headers) and is world-readable
+131 closed Unauthenticated /metrics leaks token IDs and labels; /v1/messages answers catalog and credential-health probes before auth
+130 closed Terminal invalid_grant refresh failures are retried per request, rate-limiting the vendor token endpoint
+129 closed fix(ci): scope the release guard to the version being published
+128 closed Orphan tag v0.56.0 fails the release guard, blocking Docker images for v0.57.0 and v0.58.0
+127 closed fix(proxy): relay headers through translations
+126 closed fix(auth): reject unsupported provider flows
+125 closed fix(auth): persist Claude PKCE login
+124 closed Vendor rate-limit and request-id headers are dropped on translated dialects (/v1/responses, /v1/chat/completions)
+123 closed Unsupported --flow values are advertised in --help and exit 0 instead of failing
+122 closed auth claude --code can never succeed: it regenerates the PKCE login before redeeming the code
+121 closed fix(auth): restore Claude OAuth login paths
+120 closed Native Claude OAuth fails: redirect_uri is hardcoded to the manual callback, so PKCE exchange is rejected
+119 closed fix(ci): detect missing GitHub releases
+118 closed 22 of 50 tags have no GitHub Release: backfill them and add a check so a skipped release fails loudly
+117 closed feat(auth): ship native Claude OAuth in one image
+116 closed Ship one image: implement Claude OAuth in-process, download vendor CLIs on demand with bun as fallback
+115 closed perf(ci): publish releases before Docker images
+114 closed fix(ci): build release images on native runners
+113 closed arm64 images are built under QEMU emulation on x86 runners; four tagged versions have no GitHub Release as a result
+112 closed Release is gated on a throwaway Docker build and published after the image push; no build cache
+111 closed fix(codex): restore Anthropic Messages requests
+110 closed fix(models): hide rejected subscription catalogs
+109 closed Revoked subscription still appears in /v1/models, as a stale fallback list with no degradation signal
+108 closed Regression: /v1/messages is unusable for Codex models — max_tokens is required by the spec but now rejected
+107 closed test(router): add stubbed end-to-end coverage
+106 closed fix(proxy): relay vendor response headers
+105 closed No end-to-end test drives a request through the router: the layer where #91, #92, #94, #100, #102, #104 all hid
+104 closed Vendor quota and request-id headers are dropped on a Codex subscription but relayed on Claude
+103 closed fix(codex): reject unsupported output limits
+102 closed max_tokens is silently dropped on a Codex subscription: 16 requested, ~170 returned, reported as a natural stop
+101 closed feat(logging): add bounded request exchange logs
+100 closed Requests are not logged: nothing by default, no headers or bodies at any level, RUST_LOG overridden, and no size bound
+99 closed fix(api): complete Claude Responses streams
+98 closed fix(auth): protect live model catalogs
+97 closed fix: translate tools for Codex subscriptions
+96 closed fix(api): translate Codex chat responses
+95 closed fix(ci): publish multi-architecture Docker images
+94 closed Claude-backed /v1/responses stream omits output-item lifecycle events and event: lines, so Codex CLI never renders a reply
+93 closed GET /v1/models is unauthenticated: live catalog and connected-subscription fingerprint served to anyone
+92 closed Tools are not translated for Codex: definitions rejected on both surfaces and tool results break the multi-turn loop
+91 closed Chat Completions on a Codex subscription returns the raw Responses envelope and ignores stream: true
+90 closed Publish multi-architecture Docker images for linux/amd64 and linux/arm64
+89 closed feat(auth): add Codex device authorization
+88 closed feat(auth): add provider-aware authorization
+87 closed POST /api/login authorizes Claude only: add ChatGPT/Codex, whose OAuth uses a loopback callback rather than a pasted code
+86 closed fix: normalise string Responses input and treat expiresAt as a hint
+85 closed String 'input' to /v1/responses regressed to 400, and a still-working credential is judged dead by expiresAt
+84 closed fix: refresh expired subscription credentials
+83 closed Expired Claude token is dropped instead of refreshed, and the active provider's catalog failure is invisible in doctor
+82 closed fix: reconcile subscription API semantics
+81 closed ChatGPT subscription path: non-streaming /v1/responses returns empty output, and 'store: false' is not sent
+80 closed feat: configure every documented CLI client
+79 closed fix: fetch live subscription model catalogs
+78 closed Extend 'clients' to every documented CLI plus link-assistant/agent, and report clients that gate before reaching the router
+77 closed Model catalogs are hardcoded and already wrong: fetch live lists from each subscription instead
+76 closed fix: reject silent model substitution
+75 closed fix: translate Codex Responses input for Anthropic
+74 closed feat: configure local Codex and Claude clients
+73 closed feat: route across mounted subscriptions
+72 closed Model substitution is silent and misreported: response echoes the requested id, and unknown models fall through to a default tier
+71 closed One token should reach every connected subscription: /v1/models must union across providers and requests must route by model
+70 closed /v1/responses cannot serve Codex CLI: developer role and typed input_text parts are passed through to Anthropic unmapped
+69 closed Add a 'clients' subcommand to configure local agentic CLIs (codex, claude-code, …) against the router
+68 closed fix: preserve authorization codes pasted into Claude TUI
+67 closed A rejected authorization code is reported as "no credential was produced" after a full timeout: FAILURE_MARKERS misses the CLI's actual OAuth error text
+66 closed feat: use full-scope TUI login by default
+65 closed Login should drive the TUI /login flow by default, with setup-token as an explicit alternative (scope differs)
+64 closed fix(ci): eliminate release false positives and warnings
+63 closed Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all
+62 closed fix: recognize claude.com login URLs
+61 closed POST /api/login never recognises the CLI's authorization URL: AUTH_HOSTS is missing claude.com
+60 closed fix(docker): include embedded admin UI
+59 closed Docker build is broken on main: Dockerfile never copies the committed ui/dist that RustEmbed requires
+58 closed security: deliberate review pass over the login, admin-token, console and bot surface
+57 closed feat(chat): optional Telegram and VK admin bots sharing the web UI admin claim
+56 closed Add a minimal Chakra UI v3 admin console on a separate, opt-in port, claimed by a two-phase first-visitor handshake
+55 closed feat(admin): model admin access as a scoped JWT and close the open default
+54 closed feat: renew Claude credentials without the CLI, and publish a with-claude-cli image
+53 closed feat: authorize a deployment over HTTP with POST /api/login
+52 closed Security review pass once the admin/auth work lands (#47, #49, #50, #51)
+51 closed Optional Telegram (and VK) admin bots in-container, sharing one system-wide admin claim with the web UI
+50 closed Add a minimal React (Chakra v3) admin UI on a separate, opt-in port, with a two-phase first-visitor admin claim
+49 closed Admin access is a flat shared secret and open by default: model it as a scoped JWT and close the default
+48 closed Runtime image cannot obtain or renew a Claude credential: no Claude CLI, and no router-driven refresh for Claude
+47 closed Add a REST login API so a Docker deployment can be authorized without a pre-existing credential file
+46 closed docs: document and verify every supported use case (issue #45)
+45 closed Make sure we have documented and supported use cases
+44 closed feat(codex): detect token expiry via JWT exp and persist rotated token to disk
+43 closed feat(issue-42): add provider-neutral multi-subscription routing
+42 closed Use best practices from https://github.com/razzant/claudexor for multi subscription switching and support as well as support for single subscriptions
+41 closed feat(codex): send version header so backend serves newer models (gpt-5.6-luna)
+40 closed fix(codex): normalize Responses body for ChatGPT backend (strip max_output_tokens, require instructions)
+39 closed Codex subscription proxy forwards Responses bodies the ChatGPT backend rejects (max_output_tokens / missing instructions → HTTP 400)
+38 closed feat(issue-37): multi-provider subscription engine (Codex, Gemini, Qwen) + token refresh
+37 closed Make sure we use all the best experience from https://github.com/heyhuynhgiabuu/proxypal
+36 closed Test it locally: fix nested Claude MAX credential read, add per-token request budget, verify end-to-end
+35 closed Test it locally
+34 closed Add Crater ForgeFed OpenAI compatibility provider
+33 closed Make a crater provider
+32 closed feat: add LiteLLM-compatible provider routing
+31 closed Research
+30 closed Fix GitHub release changelog parsing
+29 closed CI/CD fails
+28 closed fix: install Docker builder OpenSSL dependencies
+27 closed CI/CD fails
+26 closed fix: update Docker builder Rust toolchain
+25 closed CI/CD fails
+24 closed Publish synchronized Docker Hub releases
+23 closed Use docker hub token (DOCKERHUB_TOKEN in organization secrets) to publish docker image to konard user
+22 closed fix: harden crates.io release publishing
+21 closed We need have fallback in CARGO_TOKEN at Rust release
+20 closed ci: publish release container to GitHub Packages
+19 closed Support MPP charges on OpenAI endpoints
+18 closed Support MPP
+17 closed Publish a docker container into github
+16 closed Add support docs and deployment templates
+15 closed Support docs
+14 closed Add optional Gonka upstream provider
+13 closed Add Gonka Support to Link.Assistant Router
+12 closed feat: add ActivityPub ForgeFed actor
+11 closed Create a forgefed api
+10 closed docs(issue-9): case study and roadmap for OmniRoute best-practices alignment
+9 closed Use best practices from https://github.com/diegosouzapw/OmniRoute
+8 closed feat(issue-7): full Claude MAX router — OpenAI surface, multi-account, persistent tokens, CLI
+7 closed Double check all the best experience of all these projects, and make sure we support all the features they have, and we can switch between them and all of them are configurable
+6 closed feat: add full Claude Code LLM Gateway compliance
+5 closed Double check we fully support all use cases and requirements of https://code.claude.com/docs/en/llm-gateway
+4 closed docs: comprehensive README.md with usage, deployment, and testing guide
+3 closed Based on implementation in https://github.com/link-assistant/router/pull/2 make sure to reconstruct detailed README.md on how to use (and test this router locally or on VPS machine)
+2 closed feat: Link.Assistant.Router prototype — Claude MAX OAuth proxy + token gateway
+1 closed Link.Assistant.Router prototype

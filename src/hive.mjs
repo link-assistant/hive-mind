@@ -1306,6 +1306,12 @@ if (isRunningDirectly) {
     // the 1350-line early-warning threshold (issue #2175, warning from #1593).
     const startupChecksLib = await import('./hive.startup-checks.lib.mjs');
     await startupChecksLib.runStartupChecks({ argv, log, safeExit, ensureDiskSpaceForWorker, checkSystem, validateToolConnection, validateClaudeConnection, EXIT_CODE_INSUFFICIENT_DISK_SPACE });
+    // Issue #2190: warn about (and by default remove) globally installed plugins,
+    // skills, and extra MCP servers before any worker inherits them.
+    if (argv.tool === 'claude' || argv.tool === 'codex') {
+      const { isAgentConfigAutoRepairEnabled, runAgentConfigAudit } = await import('./agent-config-audit.lib.mjs');
+      await runAgentConfigAudit({ tool: argv.tool, autoRepair: isAgentConfigAutoRepairEnabled({ argv }), log, verbose: argv.verbose });
+    }
     // Wrap monitor function with Sentry error tracking
     const monitorWithSentry = !argv.sentry ? monitor : withSentry(monitor, 'hive.monitor', 'command');
     // Start monitoring

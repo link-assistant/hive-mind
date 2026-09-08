@@ -321,6 +321,20 @@ RUN if command -v codex &>/dev/null; then \
       codex mcp add playwright -- npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080; \
     fi
 
+# Issue #2190: keep the global Codex configuration minimal. Codex syncs the
+# "openai-curated-remote" plugin catalog (Superpowers and friends) into
+# ~/.codex/plugins/cache on every start unless features.remote_plugin is false;
+# those skills force approval gates and multiply token usage in autonomous runs.
+RUN if command -v codex &>/dev/null; then \
+      mkdir -p "$HOME/.codex" && touch "$HOME/.codex/config.toml" && \
+      if grep -q '^\[features\]' "$HOME/.codex/config.toml"; then \
+        sed -i 's/^\[features\]$/[features]\nremote_plugin = false/' "$HOME/.codex/config.toml"; \
+      else \
+        printf '\n[features]\nremote_plugin = false\n' >> "$HOME/.codex/config.toml"; \
+      fi && \
+      grep -q '^remote_plugin = false' "$HOME/.codex/config.toml" && cat "$HOME/.codex/config.toml"; \
+    fi
+
 RUN if command -v claude >/dev/null 2>&1; then \
       CLAUDE_MCP_OUTPUT="$(claude mcp list 2>&1)" && \
       echo "$CLAUDE_MCP_OUTPUT" && \

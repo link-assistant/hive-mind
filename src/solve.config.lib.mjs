@@ -453,6 +453,15 @@ export const SOLVE_OPTION_DEFINITIONS = {
     choices: ['claude', 'opencode', 'codex', 'agent', 'qwen', 'gemini'],
     default: 'claude',
   },
+  // Issue #2229: commits authored by Formal AI have to carry the trailers and
+  // the evidence bundle its self-hosting metric reads, or they cannot be
+  // attributed. 'auto' derives that from --model, which is what most runs want.
+  attribution: {
+    type: 'string',
+    description: "Attribution recorded on commits the AI authors. 'auto' attributes to Formal AI when --model formal-ai is used, 'formal-ai' forces it, 'none' disables it.",
+    choices: ['auto', 'formal-ai', 'none'],
+    default: 'auto',
+  },
   plan: {
     type: 'boolean',
     description: 'Enable plan mode: uses opus for planning, sonnet for execution (shortcut for --plan-model opus --worker-model sonnet). Only works with --tool claude.',

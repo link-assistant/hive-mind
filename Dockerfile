@@ -76,8 +76,11 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # Quiet, deterministic Claude Code defaults for autonomous solve runs (issue #1642)
 # The two memory switches are policy, not cosmetics: a hive-mind task keeps no
 # memory a reviewer cannot see, so the repository stays the only memory (issue #2178)
+# The marketplace switch keeps the global config minimal: the official plugin
+# marketplace must never be auto-installed into a task (issue #2190)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \
     CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
@@ -297,11 +300,14 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
 # Box 2.1.1 pre-installs Playwright browsers and @playwright/test.
 # We only add @playwright/mcp (AI-specific MCP server for Claude/Codex).
 # --force handles the shared 'playwright' binary conflict between packages.
-RUN npm install -g @playwright/mcp@latest --no-fund --force
+# Issue #2190: @playwright/cli ships the optional `playwright-cli` Agent Skill
+# deployed per task by --playwright-skill (default stays Playwright MCP only).
+RUN npm install -g @playwright/mcp@latest @playwright/cli@latest --no-fund --force
 
 # Verify both the Playwright CLI fallback and the locally installed MCP package.
 RUN playwright --version && \
-    npx --no-install @playwright/mcp --help | grep -q -- '--headless'
+    npx --no-install @playwright/mcp --help | grep -q -- '--headless' && \
+    playwright-cli --help | grep -q 'Agent skill:'
 
 # Configure Playwright MCP for Claude CLI — fail the build if registration fails (issue #1514)
 RUN if command -v claude &>/dev/null; then \

@@ -44,6 +44,7 @@ import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agen
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
@@ -582,6 +583,8 @@ export const executeCodex = async params => {
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Codex loads
   // it natively from .agents/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
+  // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
+  await deployPlaywrightSkill({ tempDir, argv, log, $ });
   const codexBaseEnv = getCodexExecEnv(argv.verbose);
   // Issue #2102: the target repository's own agent instruction files are part of
   // the requirement corpus, so the preflight needs the checkout; `--require-codex-plugin`

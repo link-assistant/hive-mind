@@ -31,6 +31,7 @@ import { classifyRetryableError, createTransientRetryBudget, describeClassificat
 import { resolveSubSessionSize } from './sub-session-size.lib.mjs'; // Issue #1706
 import { withAgentsMdAsClaudeMd } from './agents-md-claude-support.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
+import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
@@ -119,6 +120,8 @@ export const executeClaude = async params => {
   // Issue #1877: deploy the experimental HANDOFF.md Agent Skill so Claude loads
   // it natively from .claude/skills/handoff/SKILL.md (no-op unless --use-handoff).
   await deployHandoffSkill({ tempDir, argv, log, $ });
+  // Issue #2190: optional Playwright CLI skill (default is Playwright MCP only).
+  await deployPlaywrightSkill({ tempDir, argv, log, $ });
   return await withAgentsMdAsClaudeMd({ tempDir, branchName, argv, prompt, fs, path, $, log, formatAligned }, () =>
     executeClaudeCommand({
       tempDir,

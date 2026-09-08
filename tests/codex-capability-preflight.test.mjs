@@ -32,21 +32,22 @@ const statePath = buildCodexCapabilityStatePath({ baseCodexHome: baseHome, owner
 assert.equal(statePath, '/persistent/.codex/hive-mind/repositories/CEHR2005/GCS-TS');
 assert.deepEqual(applyCodexCapabilityEnv({ PATH: '/bin' }, { codexHome: statePath, baseCodexHome: baseHome }), { PATH: '/bin', CODEX_HOME: statePath, HIVE_MIND_PARENT_CODEX_HOME: baseHome }, 'direct codex execution receives the repository-scoped state');
 
+// Issue #2190: a Docker-isolated task no longer inherits the whole `.codex`
+// directory (nor `.agents`). Only `auth.json` and `sessions/` are shared; the
+// repository-scoped capability state is installed per task container from the
+// image defaults, so one task can never enable a plugin for the tasks after it.
 const mounts = getDockerIsolationAuthMounts({
   tool: 'codex',
   homeDir: '/persistent',
-  existsSync: candidate => candidate === baseHome,
+  existsSync: candidate => candidate === `${baseHome}/auth.json` || candidate === `${baseHome}/sessions`,
 });
-assert.deepEqual(mounts, [{ source: baseHome, target: '/home/box/.codex' }]);
-assert(statePath.startsWith(`${baseHome}/`), 'repository-scoped capability state is included in the existing Docker .codex mount');
-assert.deepEqual(
-  getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true }).slice(-2),
-  [
-    { source: '/persistent/.codex', target: '/home/box/.codex' },
-    { source: '/persistent/.agents', target: '/home/box/.agents' },
-  ],
-  'Docker isolation propagates both persistent Codex state and standard user Agent Skills'
-);
+assert.deepEqual(mounts, [
+  { source: `${baseHome}/auth.json`, target: '/home/box/.codex/auth.json' },
+  { source: `${baseHome}/sessions`, target: '/home/box/.codex/sessions' },
+]);
+const everything = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: '/persistent', existsSync: () => true });
+assert(!everything.some(mount => mount.source === baseHome || mount.source === '/persistent/.agents'), 'Docker isolation no longer propagates the whole .codex directory or the user Agent Skills folder (issue #2190)');
+assert(!everything.some(mount => statePath.startsWith(`${mount.source}/`)), 'repository-scoped capability state stays inside the task container (issue #2190)');
 
 const fixtureRoot = await mkdtemp(path.join(os.tmpdir(), 'codex-capability-preflight-'));
 const pluginRoot = path.join(fixtureRoot, 'marketplace', 'plugins', 'superpowers');

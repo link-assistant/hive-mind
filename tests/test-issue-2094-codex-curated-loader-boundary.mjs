@@ -185,8 +185,12 @@ const preflight = async ({ fixture, codex }) =>
   assert.equal(execution.success, true);
   assert.equal(actualExecOptions.cwd, fixture.projectDir, 'codex exec uses the same target checkout as preflight');
   assert.deepEqual(actualExecOptions.env, promptProbeEnv, 'executeCodexCommand receives exactly the environment verified by prompt-input');
-  assert.deepEqual(getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome }), [{ source: fixture.baseCodexHome, target: '/home/box/.codex' }], 'Docker execution mounts the operator home that contains the repaired repository scope');
-  assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path inside that Docker mount');
+  // Issue #2190: Docker execution shares only auth.json and sessions/ with the
+  // task; the operator home (and with it the repaired repository scope) stays
+  // per container, so the scope is rebuilt from the image defaults every task.
+  const dockerMounts = getDockerIsolationAuthMounts({ tool: 'codex', homeDir: fixture.root, existsSync: candidate => candidate === fixture.baseCodexHome || candidate === path.join(fixture.baseCodexHome, 'auth.json') });
+  assert.deepEqual(dockerMounts, [{ source: path.join(fixture.baseCodexHome, 'auth.json'), target: '/home/box/.codex/auth.json' }], 'Docker execution mounts the credential file, not the whole operator home (issue #2190)');
+  assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path under the (per-container) codex home');
 
   // A continued/restarted run refreshes operator settings but retains the
   // scoped boundary override and does not churn an already healthy payload.

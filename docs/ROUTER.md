@@ -12,22 +12,22 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## What changes
 
-|                        | Default                    | `--use-router`                                              |
-| ---------------------- | -------------------------- | ----------------------------------------------------------- |
-| Vendor credential      | Bind-mounted into the task | Mounted only into the sidecar                               |
-| Task's model endpoint  | api.anthropic.com          | `https://link-assistant-router`                             |
-| Task's GitHub endpoint | api.github.com directly    | api.github.com, resolved to the router inside the container |
-| Task's git remote      | github.com                 | `https://link-assistant-router/git/<owner>/<repo>`          |
-| Task's credential      | The subscription itself    | `la_sk_…` token scoped to that one task                     |
-| Token lifetime         | —                          | 24 h or 5000 requests, revoked when the task ends           |
-| Request log            | None                       | One redacted JSONL file per token, kept after revocation    |
-| Network                | Task's own                 | Task also joined to the internal `hive-mind-router` network |
+|                        | Default                    | `--use-router`                                                                                  |
+| ---------------------- | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| Vendor credential      | Bind-mounted into the task | Mounted only into the sidecar                                                                   |
+| Task's model endpoint  | api.anthropic.com          | `https://link-assistant-router`                                                                 |
+| Task's GitHub endpoint | api.github.com directly    | api.github.com, resolved to the router inside the container                                     |
+| Task's git remote      | github.com                 | `https://link-assistant-router/git/<owner>/<repo>`                                              |
+| Task's credential      | The subscription itself    | `la_sk_…` token scoped to that one task                                                         |
+| Token lifetime         | —                          | Revoked the moment the task container exits; the 24 h / 5000-request limits are only a backstop |
+| Request log            | None                       | One redacted JSONL file per token, kept after revocation                                        |
+| Network                | Task's own                 | Task also joined to the internal `hive-mind-router` network                                     |
 
 Nothing changes without the flag. The default path is untouched, which is deliberate: this is opt-in isolation, not a migration.
 
 ## How it works
 
-1. **Sidecar.** The first routed task starts `ghcr.io/link-assistant/router:0.125.4` — a pinned version, so an upstream release never changes what a task talks to without a commit here — as `hive-mind-router`, attached to an `--internal` Docker network that nothing on the host can reach. It terminates TLS itself on port 443 with a self-signed certificate whose names cover both `link-assistant-router` and `api.github.com`. The operator's `~/.claude`, `~/.codex`, `~/.gemini` and `~/.qwen` are mounted into it and pointed at by `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` and `QWEN_HOME`. This is the only place the subscription exists (R3).
+1. **Sidecar.** The first routed task starts `ghcr.io/link-assistant/router:0.125.4` — a pinned version, so an upstream release never changes what a task talks to without a commit here — as `hive-mind-router`, created on an `--internal` Docker network that nothing on the host can reach. It binds only the address it holds on that network — the entrypoint resolves its own `link-assistant-router` alias and passes it as `--host`, refusing to start on `0.0.0.0` — and is connected to the upstream network (`bridge`, or `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`) only afterwards, so the listener never covers an address other containers or the host could reach ([router#545](https://github.com/link-assistant/router/issues/545) asks for this as a native option). A sidecar left over from an earlier version, created on the bridge itself, is replaced as soon as no task still holds it. It terminates TLS itself on port 443 with a self-signed certificate whose names cover both `link-assistant-router` and `api.github.com`. The operator's `~/.claude`, `~/.codex`, `~/.gemini` and `~/.qwen` are mounted into it and pointed at by `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` and `QWEN_HOME`. This is the only place the subscription exists (R3).
 2. **Token.** Hive Mind mints one token per task through `router tokens issue`, labelled with the session id and scoped with `--github-repo` to the one repository the task works on. Tokens are never shared between tasks — that is what makes each task's log its own (R6).
 3. **Task.** The task container is joined to the router network in addition to its own, and receives `ANTHROPIC_BASE_URL` (or a generated provider entry for the OpenAI-compatible tools) pointing at the sidecar, plus the token. Claude Code sends _every_ request through `ANTHROPIC_BASE_URL`, including agentic sub-loops, so there is no path that quietly escapes the proxy.
 4. **Trust and interception.** While the start gate still holds the task's command, Hive Mind writes the router's CA into the container, points `api.github.com` at the router in `/etc/hosts`, and configures git to push through `https://link-assistant-router/git/…`. Each client is told about the CA the way it expects: `NODE_EXTRA_CA_CERTS` for Node, `SSL_CERT_FILE` for `gh` and Rust clients — which _replaces_ the system store, so they are handed a bundle of the public roots plus the router CA — `CURL_CA_BUNDLE` for curl, and `http.<url>.sslCAInfo` for git. An unmodified `gh` therefore reaches the router without knowing it exists, and the task carries no GitHub token of its own (R12).
@@ -53,23 +53,26 @@ node examples/collect-logs.mjs --out ./audit
 
 ## Configuration
 
-| Variable                             | Meaning                                                                                                       |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`             | Same as passing `--use-router`; how the bot and nested `solve` runs inherit the decision                      |
-| `HIVE_MIND_ROUTER_URL`               | Use an already-running router instead of starting a sidecar. Must be a bare `http(s)://host[:port]` origin    |
-| `HIVE_MIND_ROUTER_TOKEN`             | Token for that external router. Required when `HIVE_MIND_ROUTER_URL` is set                                   |
-| `HIVE_MIND_ROUTER_SIDECAR=0`         | Never start or stop a sidecar (for operators who manage the router themselves)                                |
-| `HIVE_MIND_ROUTER_IMAGE`             | Override the router image                                                                                     |
-| `HIVE_MIND_ROUTER_ROUTES`            | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)     |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | Extra `docker run` arguments for the sidecar                                                                  |
-| `CODEX_CLIENT_VERSION`               | Codex client version the router claims to the ChatGPT backend; unset means the router's own recent default    |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | Supply the token signing secret instead of generating one                                                     |
-| `HIVE_MIND_ROUTER_GH_HOST`           | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router) |
-| `HIVE_MIND_ROUTER_GITHUB=0`          | Do not route GitHub traffic at all; the task keeps its own `gh` credential                                    |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | Do not archive session data at end of task                                                                    |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | Archive session data to this host directory instead of the router volume                                      |
-| `HIVE_MIND_GIT_HOOKS_DIR`            | Host directory holding the generated `pre-push` guard (default `~/.hive-mind/git-hooks`)                      |
-| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | Let a routed task force-push or delete remote refs anyway                                                     |
+| Variable                                  | Meaning                                                                                                                         |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`                  | Same as passing `--use-router`; how the bot and nested `solve` runs inherit the decision                                        |
+| `HIVE_MIND_ROUTER_URL`                    | Use an already-running router instead of starting a sidecar. Must be a bare `http(s)://host[:port]` origin                      |
+| `HIVE_MIND_ROUTER_TOKEN`                  | Token for that external router. Required when `HIVE_MIND_ROUTER_URL` is set                                                     |
+| `HIVE_MIND_ROUTER_SIDECAR=0`              | Never start or stop a sidecar (for operators who manage the router themselves)                                                  |
+| `HIVE_MIND_ROUTER_IMAGE`                  | Override the router image                                                                                                       |
+| `HIVE_MIND_ROUTER_ROUTES`                 | Force the route dialect, `legacy` or `canonical`, when the image tag does not say (a digest, or `latest`)                       |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | Extra `docker run` arguments for the sidecar                                                                                    |
+| `CODEX_CLIENT_VERSION`                    | Codex client version the router claims to the ChatGPT backend; unset means the router's own recent default                      |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`           | Supply the token signing secret instead of generating one                                                                       |
+| `HIVE_MIND_ROUTER_GH_HOST`                | Reach GitHub through this HTTPS host instead of intercepting `api.github.com` (needed for an external router)                   |
+| `HIVE_MIND_ROUTER_GITHUB=0`               | Do not route GitHub traffic at all; the task keeps its own `gh` credential                                                      |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`       | Do not archive session data at end of task                                                                                      |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`           | Archive session data to this host directory instead of the router volume                                                        |
+| `HIVE_MIND_GIT_HOOKS_DIR`                 | Host directory holding the generated `pre-push` guard (default `~/.hive-mind/git-hooks`)                                        |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | Let a routed task force-push or delete remote refs anyway                                                                       |
+| `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | Network the bound sidecar is connected to afterwards for upstream access (default `bridge`; an `--internal` network is refused) |
+| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | Do not stop the task when a credential other than the router token appears inside the container (debugging the guard only)      |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | How often the guard re-reads the credential files, in milliseconds (default `1000`, minimum `100`)                              |
 
 ### The signing secret
 
@@ -156,6 +159,13 @@ That was measured against `0.109.0`, before the fix, and the pin has since moved
 
 Layer 2 is a speed bump, not a cage: an agent that reads this page can get past it. It removes the accident, not the adversary. Layers 1 and 3 are the ones a task cannot talk past — with the caveat in the next section that layer 1 is itself reachable through the GitHub API.
 
+## One credential, and only the router's (issue #2190)
+
+A routed task has exactly one credential: the `la_sk_…` token the router issued for it. Two mechanisms keep it that way.
+
+- **Revocation on exit.** Hive Mind runs `docker wait` on the task container in the background and revokes the token the instant the container stops, whatever the reason — normal completion, a crash, `docker kill`, or the host killing the process. The 24 h / 5000-request limits on the token exist only for the case where the `solve` process itself dies before it can revoke.
+- **Auth guard.** While the CLI runs, Hive Mind re-reads the credential surfaces inside the container once per second: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` and `settings.local.json`, `~/.codex/auth.json` and `config.toml`, the repository's own `.codex/config.toml`, `gh`'s `hosts.yml`, `~/.git-credentials` and `.netrc`. The first check runs before the CLI is allowed to do anything. If any of them turns into a credential that is not the router token — an OAuth login, an API key, a `model_provider` or `base_url` that points anywhere except the router — the task is stopped at once with exit code **77** and a `Security violation (issue #2190)` message that names the file. This is treated as a security violation, not a recoverable error: a task that switched credentials would be talking to the vendor with something the router never saw and never logged. `HIVE_MIND_ROUTER_AUTH_GUARD=0` disables the guard for debugging the guard itself.
+
 ## Coverage gaps
 
 Every routed run prints these before it starts. They are the honest limits of the experimental state:
@@ -171,6 +181,7 @@ Every routed run prints these before it starts. They are the honest limits of th
 
 - `--isolation docker`. Router isolation has no meaning without a container to isolate.
 - Docker able to pull `ghcr.io/link-assistant/router:0.125.4` (override with `HIVE_MIND_ROUTER_IMAGE`). `0.110.0` is the floor — earlier versions forward a force push, and below `0.120.0` new Codex models are unreachable. `1.x` images work too, with the `gh` caveat above.
+- The router image must contain `sh`, `getent` and `awk`: the sidecar entrypoint uses them to bind the internal-network address only. The pinned image does.
 - If the router cannot be reached, the task is **not launched**. Falling back to direct credentials would silently undo the isolation the flag was asked for.
 
 ## See also
@@ -180,3 +191,4 @@ Every routed run prints these before it starts. They are the honest limits of th
 - [Branch protection policy](./BRANCH_PROTECTION_POLICY.md) — the control for destructive git operations
 - [Case study: issue #2164](./case-studies/issue-2164/README.md) — requirement-by-requirement analysis behind this design
 - [Case study: issue #2202](./case-studies/issue-2202/README.md) — the route-dialect measurements and the reasoning behind the pin
+- [Case study: issue #2190](./case-studies/issue-2190/README.md) — why the sidecar binds one address, revokes on exit and guards the credential files

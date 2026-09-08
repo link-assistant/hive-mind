@@ -12,22 +12,22 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## 有何变化
 
-|                    | 默认                | 使用 `--use-router`                                |
-| ------------------ | ------------------- | -------------------------------------------------- |
-| 厂商凭据           | 绑定挂载进任务      | 仅挂载进 sidecar                                   |
-| 任务的模型端点     | api.anthropic.com   | `https://link-assistant-router`                    |
-| 任务的 GitHub 端点 | 直连 api.github.com | api.github.com，在容器内被解析到路由器             |
-| 任务的 git remote  | github.com          | `https://link-assistant-router/git/<owner>/<repo>` |
-| 任务持有的凭据     | 订阅本身            | 仅限该任务的 `la_sk_…` 令牌                        |
-| 令牌有效期         | —                   | 24 小时或 5000 次请求，任务结束时吊销              |
-| 请求日志           | 无                  | 每个令牌一份脱敏 JSONL 日志，吊销后仍保留          |
-| 网络               | 任务自身的网络      | 任务另外接入内部网络 `hive-mind-router`            |
+|                    | 默认                | 使用 `--use-router`                                       |
+| ------------------ | ------------------- | --------------------------------------------------------- |
+| 厂商凭据           | 绑定挂载进任务      | 仅挂载进 sidecar                                          |
+| 任务的模型端点     | api.anthropic.com   | `https://link-assistant-router`                           |
+| 任务的 GitHub 端点 | 直连 api.github.com | api.github.com，在容器内被解析到路由器                    |
+| 任务的 git remote  | github.com          | `https://link-assistant-router/git/<owner>/<repo>`        |
+| 任务持有的凭据     | 订阅本身            | 仅限该任务的 `la_sk_…` 令牌                               |
+| 令牌有效期         | —                   | 任务容器一退出即吊销；24 小时 / 5000 次请求的上限只是兜底 |
+| 请求日志           | 无                  | 每个令牌一份脱敏 JSONL 日志，吊销后仍保留                 |
+| 网络               | 任务自身的网络      | 任务另外接入内部网络 `hive-mind-router`                   |
 
 不加该选项则一切照旧。默认路径保持不变是有意为之：这是可选启用的隔离，而不是一次迁移。
 
 ## 工作原理
 
-1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.125.4`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`。网络是内部的，因此 sidecar 除 Docker 给它的通路外没有对外出口，宿主机上的任何进程也无法访问它。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
+1. **Sidecar。** 第一个使用路由器的任务会在 `--internal` Docker 网络上启动 `ghcr.io/link-assistant/router:0.125.4`——版本是固定的，因此上游发新版不会在本仓库没有提交的情况下改变任务所对话的对象——容器名为 `hive-mind-router`，宿主机上的任何进程都无法访问该网络。它只监听自己在该网络上持有的那个地址：入口脚本解析自身的 `link-assistant-router` 别名并作为 `--host` 传入，拒绝在 `0.0.0.0` 上启动；随后才接入用于上游访问的网络（`bridge`，或 `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`），因此监听套接字永远不会覆盖其他容器或宿主机能触及的地址（[router#545](https://github.com/link-assistant/router/issues/545) 请求将其作为原生选项）。旧版本遗留、直接建在 bridge 上的 sidecar，会在没有任务再持有它时被替换。它自己在 443 端口终结 TLS，使用的自签名证书同时覆盖 `link-assistant-router` 和 `api.github.com` 两个名字。操作者的 `~/.claude`、`~/.codex`、`~/.gemini` 和 `~/.qwen` 挂载进去，并由 `CLAUDE_CODE_HOME`、`CODEX_HOME`、`GEMINI_HOME` 和 `QWEN_HOME` 指向。这是订阅唯一存在的地方（R3）。
 2. **令牌。** Hive Mind 通过 `router tokens issue` 为每个任务签发一个令牌，以会话 id 标注，并用 `--github-repo` 将其限定在该任务所要处理的那一个仓库上。令牌绝不在任务之间共享——正是这一点让每个任务的日志只属于它自己（R6）。
 3. **任务。** 任务容器在自身网络之外再接入路由器网络，并获得指向 sidecar 的 `ANTHROPIC_BASE_URL`（OpenAI 兼容工具则是一条生成的 provider 记录）以及令牌。Claude Code 的*每一次*请求都经由 `ANTHROPIC_BASE_URL` 发出，包括智能体的子循环，因此没有任何路径能悄悄绕开代理。
 4. **信任与拦截。** 在启动闸门仍扣住任务命令的这段时间里，Hive Mind 会把路由器的 CA 写进容器，在 `/etc/hosts` 中把 `api.github.com` 指向路由器，并把 git 配置成经由 `https://link-assistant-router/git/…` 推送。每个客户端都按它自己期待的方式被告知该 CA：Node 用 `NODE_EXTRA_CA_CERTS`，`gh` 和 Rust 客户端用 `SSL_CERT_FILE`——后者会*替换*系统信任库，因此交给它们的是公共根证书加上路由器 CA 的合集——curl 用 `CURL_CA_BUNDLE`，git 用 `http.<url>.sslCAInfo`。因此未经改动的 `gh` 会在毫不知情的情况下访问到路由器，而任务本身不持有任何 GitHub 令牌（R12）。
@@ -53,23 +53,26 @@ node examples/collect-logs.mjs --out ./audit
 
 ## 配置
 
-| 变量                                 | 含义                                                                                   |
-| ------------------------------------ | -------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`             | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定                   |
-| `HIVE_MIND_ROUTER_URL`               | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源          |
-| `HIVE_MIND_ROUTER_TOKEN`             | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                               |
-| `HIVE_MIND_ROUTER_SIDECAR=0`         | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                                 |
-| `HIVE_MIND_ROUTER_IMAGE`             | 覆盖路由器镜像                                                                         |
-| `HIVE_MIND_ROUTER_ROUTES`            | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical` |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar 的额外 `docker run` 参数                                                       |
-| `CODEX_CLIENT_VERSION`               | 路由器向 ChatGPT 后端声明的 Codex 客户端版本；未设置时使用它自带的较新默认值           |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | 自行提供令牌签名密钥，而不是生成一个                                                   |
-| `HIVE_MIND_ROUTER_GH_HOST`           | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）              |
-| `HIVE_MIND_ROUTER_GITHUB=0`          | 完全不路由 GitHub 流量；任务保留自己的 `gh` 凭据                                       |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | 任务结束时不归档会话数据                                                               |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | 将会话数据归档到该宿主机目录而非路由器数据卷                                           |
-| `HIVE_MIND_GIT_HOOKS_DIR`            | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）                |
-| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | 仍然允许启用路由器的任务强制推送或删除远端 ref                                         |
+| 变量                                      | 含义                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`                  | 等同于传入 `--use-router`；机器人和嵌套的 `solve` 运行以此继承该决定                        |
+| `HIVE_MIND_ROUTER_URL`                    | 使用已在运行的路由器而不启动 sidecar。必须是纯粹的 `http(s)://host[:port]` 源               |
+| `HIVE_MIND_ROUTER_TOKEN`                  | 该外部路由器的令牌。设置了 `HIVE_MIND_ROUTER_URL` 时必填                                    |
+| `HIVE_MIND_ROUTER_SIDECAR=0`              | 永不启动或停止 sidecar（适用于自行管理路由器的操作者）                                      |
+| `HIVE_MIND_ROUTER_IMAGE`                  | 覆盖路由器镜像                                                                              |
+| `HIVE_MIND_ROUTER_ROUTES`                 | 当镜像标签无法判断版本时（摘要或 `latest`），强制指定路由方言：`legacy` 或 `canonical`      |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | sidecar 的额外 `docker run` 参数                                                            |
+| `CODEX_CLIENT_VERSION`                    | 路由器向 ChatGPT 后端声明的 Codex 客户端版本；未设置时使用它自带的较新默认值                |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`           | 自行提供令牌签名密钥，而不是生成一个                                                        |
+| `HIVE_MIND_ROUTER_GH_HOST`                | 经由该 HTTPS 主机访问 GitHub，而不拦截 `api.github.com`（外部路由器需要）                   |
+| `HIVE_MIND_ROUTER_GITHUB=0`               | 完全不路由 GitHub 流量；任务保留自己的 `gh` 凭据                                            |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`       | 任务结束时不归档会话数据                                                                    |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`           | 将会话数据归档到该宿主机目录而非路由器数据卷                                                |
+| `HIVE_MIND_GIT_HOOKS_DIR`                 | 存放生成的 `pre-push` 守卫的宿主机目录（默认 `~/.hive-mind/git-hooks`）                     |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | 仍然允许启用路由器的任务强制推送或删除远端 ref                                              |
+| `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | 已完成绑定的 sidecar 之后为访问上游而接入的网络（默认 `bridge`；`--internal` 网络会被拒绝） |
+| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | 当容器内出现路由器令牌以外的凭据时不终止任务（仅用于调试守卫本身）                          |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | 守卫重新读取凭据文件的间隔，单位毫秒（默认 `1000`，最小 `100`）                             |
 
 ### 签名密钥
 
@@ -123,6 +126,13 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 
 第二层是减速带，不是牢笼：读过本页的智能体可以绕过它。它消除的是意外，而非对手。第一层和第三层才是任务无法绕开的——但要注意下一节的说明：第一层本身可以通过 GitHub API 触及。
 
+## 唯一的凭据，而且只能是路由器的（issue #2190）
+
+启用路由器的任务只有一份凭据：路由器为它签发的 `la_sk_…` 令牌。两套机制保证这一点不变。
+
+- **退出即吊销。** Hive Mind 在后台对任务容器执行 `docker wait`，容器一停止就立刻吊销令牌，无论原因是正常结束、崩溃、`docker kill` 还是宿主机杀掉了进程。令牌上 24 小时 / 5000 次请求的上限，只是为 `solve` 进程自身在来得及吊销之前就死掉的情形兜底。
+- **凭据守卫。** CLI 运行期间，Hive Mind 每秒重新读取容器内的凭据面：`~/.claude/.credentials.json`、`~/.claude.json`、`~/.claude/settings.json` 与 `settings.local.json`、`~/.codex/auth.json` 与 `config.toml`、仓库自己的 `.codex/config.toml`、`gh` 的 `hosts.yml`、`~/.git-credentials` 和 `.netrc`。第一次检查在 CLI 做任何事情之前完成。只要其中任何一个变成了不是路由器令牌的凭据——OAuth 登录、API 密钥、指向路由器以外任何地方的 `model_provider` 或 `base_url`——任务就会立即以退出码 **77** 终止，并打印指明文件的 `Security violation (issue #2190)` 信息。这被视为安全违规而非可恢复的错误：换掉凭据的任务，是在用路由器从未见过也从未记录的东西同厂商对话。`HIVE_MIND_ROUTER_AUTH_GUARD=0` 可关闭守卫，仅用于调试守卫本身。
+
 ## 尚未覆盖的范围
 
 每次启用路由器的运行都会在开始前打印这些内容。它们是实验阶段如实的边界：
@@ -138,6 +148,7 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 
 - `--isolation docker`。没有要隔离的容器，路由器隔离便无从谈起。
 - Docker 能够拉取 `ghcr.io/link-assistant/router:0.125.4`（可用 `HIVE_MIND_ROUTER_IMAGE` 覆盖）。下限是 `0.110.0`：更早的版本会放行强制推送，而低于 `0.120.0` 则无法使用新的 Codex 模型。`1.x` 镜像同样可用，但有上文所述的 `gh` 注意事项。
+- 路由器镜像必须包含 `sh`、`getent` 和 `awk`：sidecar 的入口脚本靠它们只绑定内部网络地址。固定版本的镜像满足这一点。
 - 如果无法连上路由器，任务**不会启动**。退回直接使用凭据会悄悄取消掉该选项本要提供的隔离。
 
 ## 另见
@@ -147,3 +158,4 @@ issue 中的 R13 要求让智能体在物理上失去销毁数据的能力。三
 - [分支保护策略](./BRANCH_PROTECTION_POLICY.zh.md) —— 针对破坏性 git 操作的控制手段
 - [案例研究：issue #2164](./case-studies/issue-2164/README.md) —— 该设计背后逐条需求的分析
 - [案例研究：issue #2202](./case-studies/issue-2202/README.md) —— 路由方言的测量结果，以及固定版本背后的推理
+- [案例研究：issue #2190](./case-studies/issue-2190/README.md) —— sidecar 为何只绑定一个地址、退出即吊销并守卫凭据文件

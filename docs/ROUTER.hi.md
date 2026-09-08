@@ -12,22 +12,22 @@ solve https://github.com/owner/repo/issues/42 --isolation docker --use-router
 
 ## क्या बदलता है
 
-|                          | डिफ़ॉल्ट                          | `--use-router` के साथ                                           |
-| ------------------------ | --------------------------------- | --------------------------------------------------------------- |
-| वेंडर क्रेडेंशियल        | कार्य में bind-mount किया जाता है | केवल sidecar में mount किया जाता है                             |
-| कार्य का मॉडल endpoint   | api.anthropic.com                 | `https://link-assistant-router`                                 |
-| कार्य का GitHub endpoint | सीधे api.github.com               | api.github.com, जो कंटेनर के भीतर राउटर पर हल होता है           |
-| कार्य का git remote      | github.com                        | `https://link-assistant-router/git/<owner>/<repo>`              |
-| कार्य का क्रेडेंशियल     | सदस्यता स्वयं                     | केवल उसी कार्य के लिए जारी `la_sk_…` टोकन                       |
-| टोकन की अवधि             | —                                 | 24 घंटे या 5000 अनुरोध; कार्य समाप्त होने पर रद्द               |
-| अनुरोध लॉग               | कोई नहीं                          | प्रति टोकन एक redacted JSONL फ़ाइल, रद्दीकरण के बाद भी सुरक्षित |
-| नेटवर्क                  | कार्य का अपना                     | कार्य आंतरिक `hive-mind-router` नेटवर्क से भी जुड़ता है         |
+|                          | डिफ़ॉल्ट                          | `--use-router` के साथ                                                            |
+| ------------------------ | --------------------------------- | -------------------------------------------------------------------------------- |
+| वेंडर क्रेडेंशियल        | कार्य में bind-mount किया जाता है | केवल sidecar में mount किया जाता है                                              |
+| कार्य का मॉडल endpoint   | api.anthropic.com                 | `https://link-assistant-router`                                                  |
+| कार्य का GitHub endpoint | सीधे api.github.com               | api.github.com, जो कंटेनर के भीतर राउटर पर हल होता है                            |
+| कार्य का git remote      | github.com                        | `https://link-assistant-router/git/<owner>/<repo>`                               |
+| कार्य का क्रेडेंशियल     | सदस्यता स्वयं                     | केवल उसी कार्य के लिए जारी `la_sk_…` टोकन                                        |
+| टोकन की अवधि             | —                                 | कार्य का कंटेनर बंद होते ही रद्द; 24 घंटे / 5000 अनुरोध की सीमाएँ केवल बैकअप हैं |
+| अनुरोध लॉग               | कोई नहीं                          | प्रति टोकन एक redacted JSONL फ़ाइल, रद्दीकरण के बाद भी सुरक्षित                  |
+| नेटवर्क                  | कार्य का अपना                     | कार्य आंतरिक `hive-mind-router` नेटवर्क से भी जुड़ता है                          |
 
 विकल्प के बिना कुछ नहीं बदलता। डिफ़ॉल्ट रास्ता जान-बूझकर अछूता है: यह वैकल्पिक आइसोलेशन है, माइग्रेशन नहीं।
 
 ## यह काम कैसे करता है
 
-1. **Sidecar।** राउटर वाला पहला कार्य `ghcr.io/link-assistant/router:0.125.4` को — संस्करण स्थिर है, इसलिए ऊपर कोई नया release आने से यह नहीं बदल जाता कि कार्य किससे बात करता है, जब तक यहाँ commit न हो — `hive-mind-router` नाम से एक `--internal` Docker नेटवर्क पर चलाता है — आंतरिक, यानी Docker जो रास्ता देता है उसके अलावा sidecar का बाहरी दुनिया से कोई मार्ग नहीं, और होस्ट से भी उस तक कोई नहीं पहुँच सकता। TLS वह स्वयं पोर्ट 443 पर एक self-signed प्रमाणपत्र से समाप्त करता है जिसके नाम `link-assistant-router` और `api.github.com` दोनों को ढँकते हैं। ऑपरेटर के `~/.claude`, `~/.codex`, `~/.gemini` और `~/.qwen` उसमें mount किए जाते हैं और `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` तथा `QWEN_HOME` उन्हीं की ओर इशारा करते हैं। सदस्यता केवल यहीं मौजूद है (R3)।
+1. **Sidecar।** राउटर वाला पहला कार्य `ghcr.io/link-assistant/router:0.125.4` को — संस्करण स्थिर है, इसलिए ऊपर कोई नया release आने से यह नहीं बदल जाता कि कार्य किससे बात करता है, जब तक यहाँ commit न हो — `hive-mind-router` नाम से एक `--internal` Docker नेटवर्क पर बनाता है, जहाँ होस्ट से कोई नहीं पहुँच सकता। वह केवल उसी पते पर सुनता है जो उसे इस नेटवर्क पर मिला है: entrypoint अपना ही `link-assistant-router` alias resolve करके उसे `--host` के रूप में देता है और `0.0.0.0` पर शुरू होने से मना करता है — और upstream पहुँच के लिए नेटवर्क (`bridge`, या `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`) से उसके बाद ही जोड़ा जाता है, इसलिए सुनने वाला socket कभी उस पते को नहीं ढँकता जहाँ दूसरे कंटेनर या होस्ट पहुँच सकें ([router#545](https://github.com/link-assistant/router/issues/545) इसे मूल विकल्प बनाने की माँग करता है)। पुराने संस्करण का, सीधे bridge पर बना sidecar, जैसे ही कोई कार्य उसे थामे न रहे, बदल दिया जाता है। TLS वह स्वयं पोर्ट 443 पर एक self-signed प्रमाणपत्र से समाप्त करता है जिसके नाम `link-assistant-router` और `api.github.com` दोनों को ढँकते हैं। ऑपरेटर के `~/.claude`, `~/.codex`, `~/.gemini` और `~/.qwen` उसमें mount किए जाते हैं और `CLAUDE_CODE_HOME`, `CODEX_HOME`, `GEMINI_HOME` तथा `QWEN_HOME` उन्हीं की ओर इशारा करते हैं। सदस्यता केवल यहीं मौजूद है (R3)।
 2. **टोकन।** Hive Mind `router tokens issue` के ज़रिए प्रति कार्य एक टोकन जारी करता है, जिस पर session id का लेबल होता है और जिसे `--github-repo` से उसी एक repository तक सीमित किया जाता है जिस पर कार्य चल रहा है। टोकन कभी दो कार्यों के बीच साझा नहीं होते — यही बात हर कार्य के लॉग को उसका अपना बनाती है (R6)।
 3. **कार्य।** कार्य का कंटेनर अपने नेटवर्क के अतिरिक्त राउटर नेटवर्क से भी जुड़ता है और उसे sidecar की ओर इशारा करता `ANTHROPIC_BASE_URL` (OpenAI-संगत टूल्स के लिए एक उत्पन्न provider प्रविष्टि) तथा टोकन मिलता है। Claude Code _हर_ अनुरोध `ANTHROPIC_BASE_URL` से भेजता है, एजेंटिक sub-loops सहित, इसलिए ऐसा कोई रास्ता नहीं बचता जो चुपचाप प्रॉक्सी से बच निकले।
 4. **भरोसा और अवरोधन।** जब तक start gate कार्य की कमांड को रोके हुए है, Hive Mind राउटर का CA कंटेनर में लिख देता है, `/etc/hosts` में `api.github.com` को राउटर की ओर मोड़ देता है, और git को `https://link-assistant-router/git/…` से push करने के लिए कॉन्फ़िगर कर देता है। हर क्लाइंट को CA के बारे में उसी तरह बताया जाता है जैसी वह अपेक्षा करता है: Node के लिए `NODE_EXTRA_CA_CERTS`, `gh` तथा Rust क्लाइंटों के लिए `SSL_CERT_FILE` — जो सिस्टम store को _बदल_ देता है, इसलिए उन्हें सार्वजनिक roots और राउटर CA का एक bundle दिया जाता है — curl के लिए `CURL_CA_BUNDLE`, और git के लिए `http.<url>.sslCAInfo`। इस तरह बिना बदला हुआ `gh` राउटर तक पहुँचता है, यह जाने बिना कि वह मौजूद भी है, और कार्य के पास अपना कोई GitHub टोकन नहीं होता (R12)।
@@ -53,23 +53,26 @@ node examples/collect-logs.mjs --out ./audit
 
 ## कॉन्फ़िगरेशन
 
-| वेरिएबल                              | अर्थ                                                                                                            |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_USE_ROUTER=1`             | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                         |
-| `HIVE_MIND_ROUTER_URL`               | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए |
-| `HIVE_MIND_ROUTER_TOKEN`             | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                               |
-| `HIVE_MIND_ROUTER_SIDECAR=0`         | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                 |
-| `HIVE_MIND_ROUTER_IMAGE`             | राउटर image बदलें                                                                                               |
-| `HIVE_MIND_ROUTER_ROUTES`            | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`           |
-| `HIVE_MIND_ROUTER_EXTRA_ARGS`        | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                       |
-| `CODEX_CLIENT_VERSION`               | Codex क्लाइंट का वह संस्करण जो राउटर ChatGPT बैकएंड को बताता है; न देने पर उसका अपना हालिया डिफ़ॉल्ट चलता है    |
-| `HIVE_MIND_ROUTER_TOKEN_SECRET`      | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                            |
-| `HIVE_MIND_ROUTER_GH_HOST`           | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                  |
-| `HIVE_MIND_ROUTER_GITHUB=0`          | GitHub ट्रैफ़िक को बिल्कुल route न करें; कार्य अपना `gh` क्रेडेंशियल रखता है                                    |
-| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`  | कार्य के अंत में session डेटा संग्रहित न करें                                                                   |
-| `HIVE_MIND_SESSION_ARCHIVE_DIR`      | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                  |
-| `HIVE_MIND_GIT_HOOKS_DIR`            | उत्पन्न `pre-push` पहरे को रखने वाली होस्ट डायरेक्टरी (डिफ़ॉल्ट `~/.hive-mind/git-hooks`)                       |
-| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1` | routed कार्य को फिर भी force push या remote ref हटाने दें                                                       |
+| वेरिएबल                                   | अर्थ                                                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HIVE_MIND_USE_ROUTER=1`                  | `--use-router` देने के समान; बॉट और nested `solve` रन इसी से निर्णय विरासत में लेते हैं                                                              |
+| `HIVE_MIND_ROUTER_URL`                    | sidecar शुरू करने के बजाय पहले से चल रहे राउटर का उपयोग करें। यह केवल `http(s)://host[:port]` origin होना चाहिए                                      |
+| `HIVE_MIND_ROUTER_TOKEN`                  | उस बाहरी राउटर का टोकन। `HIVE_MIND_ROUTER_URL` सेट होने पर आवश्यक                                                                                    |
+| `HIVE_MIND_ROUTER_SIDECAR=0`              | sidecar को कभी शुरू या बंद न करें (उन ऑपरेटरों के लिए जो राउटर स्वयं चलाते हैं)                                                                      |
+| `HIVE_MIND_ROUTER_IMAGE`                  | राउटर image बदलें                                                                                                                                    |
+| `HIVE_MIND_ROUTER_ROUTES`                 | जब image टैग से संस्करण पता न चले (digest, या `latest`), तब route बोली चुनें: `legacy` या `canonical`                                                |
+| `HIVE_MIND_ROUTER_EXTRA_ARGS`             | sidecar के लिए अतिरिक्त `docker run` तर्क                                                                                                            |
+| `CODEX_CLIENT_VERSION`                    | Codex क्लाइंट का वह संस्करण जो राउटर ChatGPT बैकएंड को बताता है; न देने पर उसका अपना हालिया डिफ़ॉल्ट चलता है                                         |
+| `HIVE_MIND_ROUTER_TOKEN_SECRET`           | टोकन signing secret स्वयं दें, उत्पन्न कराने के बजाय                                                                                                 |
+| `HIVE_MIND_ROUTER_GH_HOST`                | `api.github.com` को रोकने के बजाय इस HTTPS होस्ट से GitHub तक जाएँ (बाहरी राउटर के लिए आवश्यक)                                                       |
+| `HIVE_MIND_ROUTER_GITHUB=0`               | GitHub ट्रैफ़िक को बिल्कुल route न करें; कार्य अपना `gh` क्रेडेंशियल रखता है                                                                         |
+| `HIVE_MIND_ROUTER_DRAIN_SESSIONS=0`       | कार्य के अंत में session डेटा संग्रहित न करें                                                                                                        |
+| `HIVE_MIND_SESSION_ARCHIVE_DIR`           | session डेटा को राउटर वॉल्यूम के बजाय होस्ट की इस डायरेक्टरी में संग्रहित करें                                                                       |
+| `HIVE_MIND_GIT_HOOKS_DIR`                 | उत्पन्न `pre-push` पहरे को रखने वाली होस्ट डायरेक्टरी (डिफ़ॉल्ट `~/.hive-mind/git-hooks`)                                                            |
+| `HIVE_MIND_ALLOW_DESTRUCTIVE_PUSH=1`      | routed कार्य को फिर भी force push या remote ref हटाने दें                                                                                            |
+| `HIVE_MIND_ROUTER_UPSTREAM_NETWORK`       | वह नेटवर्क जिससे पहले से bind हो चुका sidecar upstream पहुँच के लिए बाद में जोड़ा जाता है (डिफ़ॉल्ट `bridge`; `--internal` नेटवर्क अस्वीकार होता है) |
+| `HIVE_MIND_ROUTER_AUTH_GUARD=0`           | कंटेनर के भीतर राउटर टोकन के अलावा कोई क्रेडेंशियल दिखे तो कार्य न रोकें (केवल पहरे की ही debugging के लिए)                                          |
+| `HIVE_MIND_ROUTER_AUTH_GUARD_INTERVAL_MS` | पहरा क्रेडेंशियल फ़ाइलें कितनी बार दोबारा पढ़े, मिलीसेकंड में (डिफ़ॉल्ट `1000`, न्यूनतम `100`)                                                       |
 
 ### Signing secret
 
@@ -123,6 +126,13 @@ Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`)
 
 दूसरी परत एक speed breaker है, पिंजरा नहीं: यह पन्ना पढ़ चुका एजेंट इसे पार कर सकता है। यह दुर्घटना हटाती है, प्रतिद्वंद्वी नहीं। परत 1 और 3 ही वे हैं जिन्हें कार्य पार नहीं कर सकता — अगले खंड की इस चेतावनी के साथ कि परत 1 स्वयं GitHub API से पहुँच में है।
 
+## एक ही क्रेडेंशियल, और वह भी केवल राउटर का (issue #2190)
+
+routed कार्य के पास ठीक एक क्रेडेंशियल होता है: राउटर द्वारा उसी के लिए जारी `la_sk_…` टोकन। दो तंत्र इसे ऐसा ही बनाए रखते हैं।
+
+- **बाहर निकलते ही रद्द।** Hive Mind पृष्ठभूमि में कार्य के कंटेनर पर `docker wait` चलाता है और कंटेनर रुकते ही टोकन रद्द कर देता है, कारण चाहे जो हो — सामान्य समाप्ति, crash, `docker kill`, या होस्ट द्वारा प्रक्रिया मारा जाना। टोकन की 24 घंटे / 5000 अनुरोध की सीमाएँ केवल उस स्थिति के लिए हैं जब `solve` प्रक्रिया स्वयं रद्द करने से पहले ही मर जाए।
+- **क्रेडेंशियल पहरा।** CLI चलते समय Hive Mind हर सेकंड कंटेनर के भीतर की क्रेडेंशियल सतहें दोबारा पढ़ता है: `~/.claude/.credentials.json`, `~/.claude.json`, `~/.claude/settings.json` और `settings.local.json`, `~/.codex/auth.json` और `config.toml`, repository की अपनी `.codex/config.toml`, `gh` की `hosts.yml`, `~/.git-credentials` और `.netrc`। पहली जाँच CLI के कुछ भी करने से पहले होती है। यदि इनमें से कोई भी ऐसे क्रेडेंशियल में बदल जाए जो राउटर टोकन नहीं है — OAuth login, API key, या राउटर के अलावा कहीं और इशारा करता `model_provider` या `base_url` — तो कार्य तुरंत exit code **77** और फ़ाइल का नाम बताने वाले `Security violation (issue #2190)` संदेश के साथ रोक दिया जाता है। इसे सुरक्षा उल्लंघन माना जाता है, सुधार-योग्य त्रुटि नहीं: क्रेडेंशियल बदल चुका कार्य वेंडर से उस चीज़ से बात कर रहा होता जिसे राउटर ने कभी देखा या दर्ज नहीं किया। `HIVE_MIND_ROUTER_AUTH_GUARD=0` पहरे को बंद करता है — केवल पहरे की ही debugging के लिए।
+
 ## अभी क्या कवर नहीं है
 
 राउटर वाला हर रन शुरू होने से पहले यही सूची छापता है। ये प्रयोगात्मक स्थिति की ईमानदार सीमाएँ हैं:
@@ -138,6 +148,7 @@ Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`)
 
 - `--isolation docker`। जिस कंटेनर को आइसोलेट करना है वही न हो तो राउटर आइसोलेशन का कोई अर्थ नहीं।
 - Docker, जो `ghcr.io/link-assistant/router:0.125.4` खींच सके (`HIVE_MIND_ROUTER_IMAGE` से बदला जा सकता है)। निचली सीमा `0.110.0` है: उससे पुराने संस्करण force push आगे भेज देते हैं, और `0.120.0` से नीचे नए Codex मॉडल तक पहुँच नहीं बनती। `1.x` image भी चलते हैं, ऊपर बताई `gh` वाली चेतावनी के साथ।
+- राउटर image में `sh`, `getent` और `awk` होने चाहिए: sidecar का entrypoint इन्हीं से केवल आंतरिक नेटवर्क का पता bind करता है। पिन किए गए image में ये हैं।
 - यदि राउटर तक पहुँच न बने तो कार्य **शुरू नहीं किया जाता**। सीधे क्रेडेंशियल पर लौट आना उसी आइसोलेशन को चुपचाप पलट देता जिसके लिए विकल्प माँगा गया था।
 
 ## यह भी देखें
@@ -147,3 +158,4 @@ Hook होस्ट पर `~/.hive-mind/git-hooks` (`HIVE_MIND_GIT_HOOKS_DIR`)
 - [Branch protection नीति](./BRANCH_PROTECTION_POLICY.hi.md) — विनाशकारी git ऑपरेशनों का नियंत्रण
 - [केस स्टडी: issue #2164](./case-studies/issue-2164/README.md) — इस डिज़ाइन के पीछे आवश्यकता-दर-आवश्यकता विश्लेषण
 - [केस स्टडी: issue #2202](./case-studies/issue-2202/README.md) — route बोलियों के माप, और पिन के पीछे का तर्क
+- [केस स्टडी: issue #2190](./case-studies/issue-2190/README.md) — sidecar एक ही पता क्यों bind करता है, बाहर निकलते ही रद्द क्यों करता है और क्रेडेंशियल फ़ाइलों पर पहरा क्यों देता है

@@ -142,7 +142,8 @@ const repairedSettings = JSON.parse(fs.readFileSync(path.join(home, '.claude', '
 assertDeepEqual(repairedSettings, { model: 'opus', enabledPlugins: {} }, 'only the plugin enable entry left settings.json');
 const repairedClaudeJson = JSON.parse(fs.readFileSync(path.join(home, '.claude.json'), 'utf8'));
 assertDeepEqual(Object.keys(repairedClaudeJson.mcpServers), ['playwright'], 'only playwright MCP remains in ~/.claude.json');
-assertEqual(repairedClaudeJson.oauthAccount.emailAddress, 'x@example.com', 'auth state in ~/.claude.json survives');
+// Compare first and pass only the verdict on, so the assertion never prints the account field (CodeQL js/clear-text-logging).
+assertEqual(repairedClaudeJson.oauthAccount?.emailAddress === 'x@example.com', true, 'auth state in ~/.claude.json survives');
 
 console.log('\n4. A repaired home is clean');
 const after = auditAgentConfig({ homeDir: home });

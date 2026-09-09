@@ -25,7 +25,7 @@
  */
 
 import { execFile, spawn } from 'node:child_process';
-import { appendFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 
 import { buildDockerArgv, buildSolveArgv, DEFAULT_HIVE_MIND_IMAGE, decideDraft, formatDecisionOutputs, keepPullRequestAsDraftArgs, labelPullRequestArgs, readIssueEvent, selectDraftPullRequest } from './formal-ai-draft.lib.mjs';
@@ -93,6 +93,11 @@ if (decideOnly || !decision.run) process.exit(0);
 const hostLogDir = env.FORMAL_AI_DRAFT_LOG_DIR || `${env.RUNNER_TEMP || '/tmp'}/formal-ai-draft-logs`;
 const containerLogDir = '/home/box/logs';
 mkdirSync(hostLogDir, { recursive: true });
+// The runner creates this directory as its own user; the container writes to it
+// as `box`, whose uid is not the runner's. Without this, solve's session log —
+// the one artefact a failed draft is judged by — fails to write, and the
+// failure looks like the model's rather than the mount's.
+chmodSync(hostLogDir, 0o777);
 
 const dockerArgv = buildDockerArgv({
   solveArgv: buildSolveArgv({ issueUrl: issueUrlFor(issue), logDir: containerLogDir }),

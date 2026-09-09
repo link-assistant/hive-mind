@@ -1,0 +1,99 @@
+# Open a Formal AI draft for every new issue (issue #2233).
+#
+# Every issue opened here gets one attempt from
+# `solve --tool agent --model formal-ai --attach-logs --verbose` within minutes,
+# on a branch nobody depends on. A wrong attempt costs nothing; a right one
+# saves the first commit. The failure policy is deliberate and is documented in
+# docs/FORMAL-AI-DRAFTS.md: a failed draft stays open and red until a later run
+# succeeds, it is never hand-corrected and merged, and a poor draft is closed
+# with the defect filed against the meta algorithm rather than patched on the
+# branch. That is why nothing below merges, closes or fixes anything.
+#
+# The trigger is `issues: opened`, not a curated label, because the point is
+# volume of evidence per day rather than a human deciding which issues deserve
+# an attempt. `scripts/formal-ai-draft.lib.mjs` holds every decision this
+# workflow makes, and tests/formal-ai-draft-2233.test.mjs parses the command it
+# builds through solve's own strict argument parser.
+name: Formal AI Draft
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to re-attempt a draft for'
+        required: true
+        type: string
+
+# Least privilege: everything this workflow writes (the branch, the pull
+# request, the label) goes through FORMAL_AI_DRAFT_TOKEN, never GITHUB_TOKEN.
+# A pull request opened with GITHUB_TOKEN does not trigger `pull_request`
+# workflows, so its checks would never run and the draft could not be red.
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  draft:
+    name: Formal AI draft
+    runs-on: ubuntu-latest
+    # One attempt is a full working session. 90 minutes is the ceiling at which
+    # a hung session is cheaper to kill and re-attempt than to wait out; solve's
+    # own restart loop is disabled for this run, so nothing legitimately runs
+    # longer.
+    timeout-minutes: 90
+    # Per-issue, and never cancelling: two attempts on the same issue must not
+    # race for the same branch, and an attempt already writing to a branch must
+    # not be killed halfway through by a manual replay.
+    concurrency:
+      group: formal-ai-draft-${{ github.repository }}-${{ github.event.issue.number || github.event.inputs.issue_number }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
+
+      # The issue title and body are never interpolated into a `run:` block;
+      # the script reads the payload from GITHUB_EVENT_PATH itself.
+      - name: Decide whether to attempt a draft
+        id: decide
+        env:
+          FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
+          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: node scripts/formal-ai-draft.mjs --decide
+
+      - name: Free disk space for the hive-mind image
+        if: steps.decide.outputs.should_run == 'true'
+        run: node scripts/free-disk-space.mjs
+
+      - name: Open the Formal AI draft
+        if: steps.decide.outputs.should_run == 'true'
+        env:
+          FORMAL_AI_DRAFT_ISSUE: ${{ github.event.inputs.issue_number }}
+          FORMAL_AI_DRAFT_IMAGE: ${{ vars.FORMAL_AI_DRAFT_IMAGE || 'konard/hive-mind:latest' }}
+          FORMAL_AI_DRAFT_LOG_DIR: ${{ runner.temp }}/formal-ai-draft-logs
+          FORMAL_AI_DRAFT_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
+          GH_TOKEN: ${{ secrets.FORMAL_AI_DRAFT_TOKEN }}
+        run: node scripts/formal-ai-draft.mjs
+
+      # `--attach-logs` already puts the session log on the pull request. This
+      # is the copy for the case where no pull request was opened at all, which
+      # is exactly the failure mode worth reading. `!cancelled()` rather than
+      # `always()`: see tests/ci-workflow-cancellation-2082.test.mjs.
+      - name: Upload the session log
+        if: ${{ !cancelled() && steps.decide.outputs.should_run == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: formal-ai-draft-session-${{ steps.decide.outputs.issue_number }}
+          path: ${{ runner.temp }}/formal-ai-draft-logs
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,21 @@
+built command line:
+  solve https://github.com/link-assistant/hive-mind/issues/2233 --tool agent --model formal-ai --attach-logs --verbose --attribution formal-ai --no-auto-restart-until-mergeable --log-dir /home/box/logs 
+
+parsed: {
+  "_": [],
+  "issueUrl": "https://github.com/link-assistant/hive-mind/issues/2233",
+  "tool": "agent",
+  "model": "formal-ai",
+  "attachLogs": true,
+  "verbose": true,
+  "attribution": "formal-ai",
+  "logDir": "/home/box/logs",
+  "autoRestartUntilMergeable": false,
+  "autoMerge": false,
+  "autoClosePullRequestOnFail": false
+}
+
+flags passed: --tool agent --model formal-ai --attach-logs --verbose --attribution formal-ai --no-auto-restart-until-mergeable
+flags never passed: --auto-merge --auto-close-pull-request-on-fail
+
+strict mode rejects a typo (--attatch-logs): true

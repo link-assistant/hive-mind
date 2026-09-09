@@ -62,6 +62,30 @@ commit committer      -> github-actions[bot] <41898282+github-actions[bot]@users
 | Done-when: no human commit on the branch                                   | `buildGitIdentityEnv()`, measured above                                                         |
 | Done-when: a failed draft leaves its session log attached                  | `--attach-logs --verbose`, plus the `!cancelled()` artifact upload for runs that opened no PR   |
 
+## The one local test failure, and why it is not this branch
+
+Running the full suite on this branch, `tests/test-graceful-shutdown-waits-1823.mjs` failed one assertion in Suite 5:
+
+```
+❌ FAIL: non-detached child IS interrupted by the group SIGINT (reproduces the bug)
+   marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+```
+
+It is a race in the test, and it is older than this branch.
+
+The mechanism is readable in the output. The test's harness prints `READY` as soon as `spawn()` returns, then the test waits a fixed 150 ms and sends `SIGINT` to the whole process group. But `spawn()` returning does not mean the child has run any JavaScript: it is still booting node, and it has not yet reached `process.on('SIGINT', …)`. If the signal arrives first, the default disposition kills the child — so no marker file is written, and the harness reports `CHILD_CLOSED:null` (killed by a signal) instead of `CHILD_CLOSED:1` (the handler's `process.exit(1)`). `null` for the exit code is the tell.
+
+`experiments/issue-2233/probe-graceful-shutdown-race.sh` runs the file five times per cell, with and without sixteen busy-loop workers on a six-core machine ([`data/probe-graceful-shutdown-race.log`](data/probe-graceful-shutdown-race.log)):
+
+| Runs passing  | no added load | 16 CPU workers |
+| ------------- | ------------- | -------------- |
+| `origin/main` | 5 / 5         | 2 / 5          |
+| this branch   | 5 / 5         | 1 / 5          |
+
+The assertion fails on `origin/main` with nothing from this branch applied, and only under contention. The static check agrees: the file loads exactly one repository module, `src/exit-handler.lib.mjs`, and `git diff origin/main --name-only` shows this branch adds nothing under `src/` — only two new files under `scripts/`.
+
+Fixing it is out of scope here — it belongs to #1823 — but the fix is to have the child announce its own readiness rather than infer it from `spawn()`, so the signal is sent after the handler is installed instead of 150 ms after an unrelated event.
+
 ## When the action does appear
 
 Replace the `Open the Formal AI draft` step with `uses: link-assistant/formal-ai@<tag>` and pass it the same inputs the script assembles. The trigger, the skip decisions, the concurrency group, the failure policy and the artifact are all independent of who executes the attempt, so nothing else moves.

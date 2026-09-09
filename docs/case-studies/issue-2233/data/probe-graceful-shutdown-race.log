@@ -1,0 +1,37 @@
+# tests/test-graceful-shutdown-waits-1823.mjs, Suite 5:
+#   "non-detached child IS interrupted by the group SIGINT (reproduces the bug)"
+#
+# Captured 2026-09-09 on a 6-core machine with
+#   experiments/issue-2233/probe-graceful-shutdown-race.sh <repo> 5 <load-workers>
+#
+# The assertion fails on origin/main, without any change from this branch,
+# whenever the machine is under CPU contention. Same signature every time.
+
+repo=/tmp/hm-main-check commit=0ca17394 runs=5 load-workers=16
+  run 1: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 2: PASS
+  run 3: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 4: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 5: PASS
+result: 2 passed, 3 failed
+repo=/tmp/hm-main-check commit=0ca17394 runs=5 load-workers=0
+  run 1: PASS
+  run 2: PASS
+  run 3: PASS
+  run 4: PASS
+  run 5: PASS
+result: 5 passed, 0 failed
+repo=. commit=d335361f runs=5 load-workers=0
+  run 1: PASS
+  run 2: PASS
+  run 3: PASS
+  run 4: PASS
+  run 5: PASS
+result: 5 passed, 0 failed
+repo=. commit=d335361f runs=5 load-workers=16
+  run 1: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 2: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 3: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 4: FAIL  marker="", stdout="READY\nHARNESS_SIGINT\nCHILD_CLOSED:null\n"
+  run 5: PASS
+result: 1 passed, 4 failed

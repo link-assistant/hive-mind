@@ -1,5 +1,18 @@
 # @link-assistant/hive-mind
 
+## 2.27.0
+
+### Minor Changes
+
+- 6189e9a: Stop every AI tool from making the model calls nobody in an autonomous run reads, and keep the one that matters (issue #2236).
+
+  A hive-mind task is a disposable container that opens a pull request and is destroyed. The classifier summary, the session title, the narration, the follow-up suggestions and the per-tool-batch labels every CLI has grown are made for a person watching a terminal — in a task there is no such person, and each one bills against the same rate limit and credit balance as the work itself. The full inventory, with how each knob was verified, is in `docs/case-studies/issue-2236/`.
+
+  - **Summarization stays on, everywhere, and that is now tested.** Claude's auto-compaction (`DISABLE_AUTO_COMPACT`/`DISABLE_COMPACT` never appear in the quiet config or any Dockerfile), Codex's `remote_compaction_v2` and `compaction_image_budget`, Gemini's `model.compressionThreshold`, Qwen's `context.autoCompactThreshold`/`model.chatCompression` and OpenCode's `compaction` agent are all untouched. Eleven negative assertions enforce it, because a carve-out that is only an omission stops being true the first time someone adds "one more thing to disable".
+  - **`--auxiliary-model-calls-disabled` (default `true`)** applies the policy per tool: codex `features.goals=false`/`features.personality=false`; gemini `model.skipNextSpeakerCheck`/`tools.disableLLMCorrection`; qwen `model.skipNextSpeakerCheck`, `experimental.emitToolUseSummaries=false`, `ui.enableFollowupSuggestions=false`; opencode's hidden `title` and `summary` agents disabled in the per-task `opencode.json`. `agent` already ships with them off. Opting out adds no arguments and writes no keys, rather than writing them set to `true`.
+  - **Five Claude switches are pinned to `0`** — `CLAUDE_CODE_CLASSIFIER_SUMMARY`, `CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES`, `CLAUDE_CODE_ENABLE_NARRATION`, `CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION`, `CLAUDE_CODE_ENABLE_REMOTE_RECAP` — in the quiet configuration and in all three Dockerfiles. Pinned rather than left unset: three of them fall through to a remote rollout flag when undefined, so "unset" means "whatever the rollout says today".
+  - **A live regression in the #2178 memory policy was found and fixed.** `experimental.autoMemory` does not occur anywhere in qwen-code 0.23.0 — the feature was renamed after the fork, so hive-mind had been writing a setting Qwen stopped reading and auto-memory was silently back on for every `--tool qwen` run. `memory.enableManagedAutoMemory=false` and `memory.enableManagedAutoDream=false` are now written for qwen; the legacy key is kept, inert on 0.23.0 and still correct on older pinned builds.
+
 ## 2.26.0
 
 ### Minor Changes

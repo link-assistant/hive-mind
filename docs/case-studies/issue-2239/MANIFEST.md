@@ -5,19 +5,21 @@ screenshots that prompted the issue are in a third-party repository that may be
 renamed, merged or deleted, so the facts that depend on it are captured here
 rather than left as links.
 
-| File                         | Produced by                                              | Size   | Why it is kept                                                                                                                                                                               |
-| ---------------------------- | -------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `solve-log-sanitized.log.gz` | The sanitized solve log linked from issue #2239, gzipped | 553 KB | The primary record: 33,477 lines covering fork detection, the system prompt, the compaction, and the publication. Every line number in `README.md` and `solve-log-excerpts.md` refers to it. |
-| `solve-log-excerpts.md`      | `python3` over the log, line numbers matching `grep -n`  | 3 KB   | The six lines that carry the argument, so the case is readable without decompressing 3.2 MB — and the mention counts behind root cause RC2.                                                  |
-| `compaction-summary.txt`     | Line 18415 of the log, extracted verbatim                | 17 KB  | The evidence for root cause RC3: the summary the session resumed from names the upstream repository five times and the fork once.                                                            |
-| `pr-body-as-published.md`    | `gh api repos/Godmy/frontend/pulls/2 --jq .body`         | 4.5 KB | The description exactly as it was published, with the three broken `<img>` tags. The input the regression test reproduces.                                                                   |
-| `pull-request-facts.json`    | `gh api repos/Godmy/frontend/pulls/2 --jq '{...}'`       | 158 B  | Proves the pull request is cross-repository, and records which repository holds the head branch.                                                                                             |
-| `url-verification.txt`       | `node experiments/issue-2239/verify-broken-links.mjs`    | 793 B  | Live HTTP evidence: 3/3 published links 404 in the base repository, 3/3 resolve in the fork, with the blob SHAs.                                                                             |
+| File                         | Produced by                                              | Size   | Why it is kept                                                                                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `solve-log-sanitized.log.gz` | The sanitized solve log linked from issue #2239, gzipped | 553 KB | The primary record: 33,477 lines covering fork detection, the system prompt, the compaction, and the publication. Every line number in `README.md` and `solve-log-excerpts.md` refers to it.                        |
+| `solve-log-excerpts.md`      | `python3` over the log, line numbers matching `grep -n`  | 3 KB   | The six lines that carry the argument, so the case is readable without decompressing 3.2 MB — and the mention counts behind root cause RC2.                                                                         |
+| `compaction-summary.txt`     | Line 18415 of the log, extracted verbatim                | 17 KB  | The evidence for root cause RC3: the summary the session resumed from names the upstream repository five times and the fork once.                                                                                   |
+| `pr-body-as-published.md`    | `gh api repos/Godmy/frontend/pulls/2 --jq .body`         | 4.5 KB | The description exactly as it was published, with the three broken `<img>` tags. The input the regression test reproduces.                                                                                          |
+| `pull-request-facts.json`    | `gh api repos/Godmy/frontend/pulls/2 --jq '{...}'`       | 158 B  | Proves the pull request is cross-repository, and records which repository holds the head branch.                                                                                                                    |
+| `dry-run-repair.txt`         | `node experiments/issue-2239/dry-run-repair.mjs`         | 1.5 KB | The repair pointed at the real pull request with `dryRun` on: it proposes exactly the three rewrites, to the right repository, and touches nothing else. The end-to-end counterpart to the offline regression test. |
+| `url-verification.txt`       | `node experiments/issue-2239/verify-broken-links.mjs`    | 793 B  | Live HTTP evidence: 3/3 published links 404 in the base repository, 3/3 resolve in the fork, with the blob SHAs.                                                                                                    |
 
 ## Reproducing
 
-`url-verification.txt` and `pull-request-facts.json` are regenerated by the
-commands above with an authenticated `gh`; both are read-only. They will change
+`url-verification.txt`, `dry-run-repair.txt` and `pull-request-facts.json` are
+regenerated by the commands above with an authenticated `gh`; all three are
+read-only. They will change
 if `Godmy/frontend#2` is merged and the branch deleted, or if the fork is
 removed — at which point the copies here become the only record.
 

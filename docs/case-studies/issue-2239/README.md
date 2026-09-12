@@ -242,8 +242,20 @@ about.
 # Live reproduction against the real pull request (read-only, needs gh auth)
 node experiments/issue-2239/verify-broken-links.mjs
 
+# The repair itself against the real pull request, read-only (needs gh auth)
+node experiments/issue-2239/dry-run-repair.mjs
+
 # The regression test: the exact URLs from Godmy/frontend#2
 node tests/test-pr-image-link-repair-2239.mjs
+```
+
+Run against `Godmy/frontend#2` as it stands today, the repair proposes exactly
+the three rewrites and nothing else — output committed as
+`data/dry-run-repair.txt`:
+
+```
+WOULD FIX  https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true
+       ->  https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true
 ```
 
 The test drives the real code path with the published body, a scripted `gh`, and

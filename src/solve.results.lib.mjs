@@ -33,6 +33,7 @@ const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublica
 // comments and the PR description. This external repair boundary always runs
 // when PR coordinates are available.
 const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
+const { reportPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
 
 // Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -594,6 +595,13 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
   }
+
+  // Issue #2239: verify the GitHub file links this session published and repair
+  // the ones proven broken — in fork mode the branch lives in the fork while the
+  // pull request lives upstream, so an upstream path in an image URL is a 404.
+  // Runs before the sanitization sweep so the sanitizer still has the last word
+  // on anything it edits, and is never disabled by local bypass flags.
+  await reportPullRequestLinkRepair({ $, owner: argv.owner, repo: argv.repo, prNumber: argv.prNumber, log, verbose: Boolean(argv.verbose) });
 
   // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
   // bot-authored PR comments and the PR description, runs them through

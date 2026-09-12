@@ -6,8 +6,9 @@
  * Tests verify that:
  * 1. Fork mode → screenshot URL uses forked repo path instead of original repo
  * 2. Non-fork mode → screenshot URL uses original owner/repo (unchanged behavior)
- * 3. Same behavior in all prompt modules: claude, agent, codex, and opencode
- * 4. Source code uses screenshotRepoPath variable for fork-aware URL generation
+ * 3. Each prompt contains one case-specific screenshot-link example
+ * 4. Same behavior in all prompt modules
+ * 5. Source code uses screenshotRepoPath variable for fork-aware URL generation
  *
  * Run with: node tests/test-fork-screenshot-url-1561.mjs
  *
@@ -31,7 +32,9 @@ try {
     claude: await import('../src/claude.prompts.lib.mjs'),
     agent: await import('../src/agent.prompts.lib.mjs'),
     codex: await import('../src/codex.prompts.lib.mjs'),
+    gemini: await import('../src/gemini.prompts.lib.mjs'),
     opencode: await import('../src/opencode.prompts.lib.mjs'),
+    qwen: await import('../src/qwen.prompts.lib.mjs'),
   };
 } catch (e) {
   console.error(`Failed to import prompt modules: ${e.message}`);
@@ -51,6 +54,10 @@ const baseParams = {
 
 const forkUrl = 'github.com/fork-user/original-repo/blob/issue-1790-abc123';
 const originalUrl = 'github.com/original-owner/original-repo/blob/issue-1790-abc123';
+const forkExample = `https://${forkUrl}/docs/screenshots/result.png?raw=true`;
+const originalExample = `https://${originalUrl}/docs/screenshots/result.png?raw=true`;
+const occurrences = (text, value) => text.split(value).length - 1;
+const screenshotLinkExamples = text => text.match(/(?:https:\/\/github\.com\/|gh api repos\/)[^\s)]*docs\/screenshots\/[^\s)]*/gu) || [];
 
 // ===== Fork mode tests for all prompt modules =====
 for (const [name, mod] of Object.entries(modules)) {
@@ -64,9 +71,17 @@ for (const [name, mod] of Object.entries(modules)) {
     assert.ok(!prompt.includes(originalUrl), 'Should NOT use original repo in screenshot URL when in fork mode');
   });
 
+  test(`[${name}] Fork mode → exposes one fork-specific screenshot-link example`, () => {
+    const prompt = buildSystemPrompt({ ...baseParams, argv: { fork: true }, forkedRepo: 'fork-user/original-repo' });
+    assert.equal(occurrences(prompt, forkExample), 1, 'Should include the working fork URL exactly once');
+    assert.equal(screenshotLinkExamples(prompt).length, 1, 'Should not add a second screenshot-link example');
+  });
+
   test(`[${name}] Non-fork mode → screenshot URL uses original repo`, () => {
     const prompt = buildSystemPrompt({ ...baseParams, argv: {} });
     assert.ok(prompt.includes(originalUrl), 'Should use original owner/repo in screenshot URL');
+    assert.equal(occurrences(prompt, originalExample), 1, 'Should include the working same-repository URL exactly once');
+    assert.equal(screenshotLinkExamples(prompt).length, 1, 'Should not add a second screenshot-link example');
   });
 
   test(`[${name}] Fork mode without forkedRepo → falls back to original repo`, () => {

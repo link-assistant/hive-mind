@@ -72,4 +72,3 @@ the 70% required by the issue. `eslint` and `prettier` are clean on all touched 
   exist.
 
 Closes #1
-

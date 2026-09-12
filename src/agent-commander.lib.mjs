@@ -15,6 +15,7 @@ import { applyFormalAiPricingOverride } from './formal-ai-pricing.lib.mjs'; // I
 import { getCacheReadTokenCount, getCumulativeContextInputTokens, getOutputTokenCount } from './context-fill.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { CLAUDE_MEMORY_DISABLE_ENV, buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
+import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
 export const AGENT_COMMANDER_TOOLS = new Set(['claude', 'codex', 'opencode', 'agent', 'qwen', 'gemini']);
 
@@ -81,6 +82,7 @@ const buildCodexToolOptions = (argv = {}) => {
 
   appendExtraArgs(options, buildCodexDisable1mContextConfigArgs(!!argv.disable1mContext));
   appendExtraArgs(options, buildCodexMemoryDisableConfigArgs(isAgentMemoryDisabled(argv))); // Issue #2178
+  appendExtraArgs(options, buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv))); // Issue #2236
   try {
     appendExtraArgs(options, buildCodexSubSessionSizeConfigArgs(parseSubSessionSize(argv.subSessionSize)));
   } catch {

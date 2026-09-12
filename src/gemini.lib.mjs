@@ -32,6 +32,7 @@ import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-
 import { getTerminalEventCompletionHealth } from './tool-run-health.lib.mjs'; // Issue #1990
 import { takeJsonRecords } from './json-stream.lib.mjs'; // Issue #2119
 import { ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
+import { ensureGeminiFamilyAuxiliaryDisabled, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
 const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
@@ -426,6 +427,10 @@ export const executeGeminiCommand = async params => {
     // `save_memory` and the background auto-memory extractor are switched off
     // before the CLI reads its settings.
     if (isAgentMemoryDisabled(argv)) await ensureGeminiFamilyMemoryDisabled({ tool: 'gemini', log });
+    // Issue #2236: Gemini's next-speaker probe and LLM tool-call correction are both extra
+    // calls in a run nobody is watching; compaction (model.compressionThreshold)
+    // is deliberately left alone.
+    if (isAuxiliaryModelCallsDisabled(argv)) await ensureGeminiFamilyAuxiliaryDisabled({ tool: 'gemini', log });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'gemini', model: argv.model || defaultModels.gemini, toolPath: geminiPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
     const geminiEnv = { ...process.env, ...toolInvocation.env };

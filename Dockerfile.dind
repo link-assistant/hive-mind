@@ -116,8 +116,19 @@ ENV RBENV_ROOT="/home/box/.rbenv"
 # memory a reviewer cannot see, so the repository stays the only memory (issue #2178)
 # The marketplace switch keeps the global config minimal: the official plugin
 # marketplace must never be auto-installed into a task (issue #2190)
+# The five CLASSIFIER/RECAP/NARRATION/SUGGESTION/TOOL_USE_SUMMARIES switches are
+# pinned to 0 rather than left unset because Claude Code falls through to a remote
+# rollout flag when they are undefined: they are auxiliary model calls nobody in an
+# autonomous run reads, and they bill against the same limit as the task (issue #2236)
+# Compaction is deliberately NOT disabled here — DISABLE_AUTO_COMPACT and
+# DISABLE_COMPACT must never appear in this image (issue #2236)
 ENV CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 \
     CLAUDE_CODE_DISABLE_ORG_MEMORY=1 \
+    CLAUDE_CODE_CLASSIFIER_SUMMARY=0 \
+    CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES=0 \
+    CLAUDE_CODE_ENABLE_NARRATION=0 \
+    CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION=0 \
+    CLAUDE_CODE_ENABLE_REMOTE_RECAP=0 \
     CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL=1 \
     CLAUDE_CODE_DISABLE_CRON=1 \
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE=1 \

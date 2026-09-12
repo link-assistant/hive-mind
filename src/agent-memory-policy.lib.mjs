@@ -31,13 +31,16 @@
  *
  * Verified against claude-code 2.1.246, codex-cli 0.148.0, gemini-cli 0.51.0,
  * qwen-code 0.7.1 and opencode 1.18.5; see `docs/case-studies/issue-2178/`.
+ * Re-verified against claude-code 2.1.269, codex-cli 0.153.4, gemini-cli 0.58.0,
+ * qwen-code 0.23.0 and opencode 1.18.29 while solving issue #2236, which is where
+ * the Qwen keys below come from — see `docs/case-studies/issue-2236/`.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2178
  */
 
-import fsPromises from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
+import { GEMINI_FAMILY_SETTINGS_PATHS, ensureGeminiFamilySettings, resolveGeminiFamilySettingsPath } from './gemini-family-settings.lib.mjs';
+
+export { GEMINI_FAMILY_SETTINGS_PATHS, resolveGeminiFamilySettingsPath };
 
 /** Tools `solve --tool` accepts that this policy has something to say about. */
 export const AGENT_MEMORY_POLICY_TOOLS = Object.freeze(['claude', 'codex', 'gemini', 'qwen', 'opencode', 'agent']);
@@ -127,10 +130,33 @@ export const GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS = Object.freeze({
   experimental: Object.freeze({ autoMemory: false }),
 });
 
-/** Where each Gemini-family CLI keeps its user settings. */
-export const GEMINI_FAMILY_SETTINGS_PATHS = Object.freeze({
-  gemini: Object.freeze(['.gemini', 'settings.json']),
-  qwen: Object.freeze(['.qwen', 'settings.json']),
+/**
+ * Qwen Code's own memory switches, on top of the shared Gemini-family ones.
+ *
+ * Qwen renamed the feature after the fork. In qwen-code 0.23.0 the string
+ * `experimental.autoMemory` does not occur anywhere in the bundle — the only
+ * remaining `autoMemory` occurrences are internal variable names like
+ * `autoMemoryDir` — so the shared setting above has quietly become a no-op for
+ * Qwen. The replacements are `memory.enableManagedAutoMemory` ("Enable
+ * background extraction of memories from conversations") and
+ * `memory.enableManagedAutoDream` ("Enable automatic consolidation (dream) of
+ * collected memories"), and both default to `true`:
+ *
+ *   enableManagedAutoMemory: bareMode || safeMode ? false : settings.memory?.enableManagedAutoMemory ?? true,
+ *   enableManagedAutoDream:  bareMode || safeMode ? false : settings.memory?.enableManagedAutoDream  ?? true,
+ *
+ * The shared `experimental.autoMemory` is still written for Qwen as well: it is
+ * inert on 0.23.0 and correct on the older Qwen builds an operator may still
+ * have pinned, and an inert key costs nothing.
+ */
+export const QWEN_MEMORY_DISABLE_SETTINGS = Object.freeze({
+  memory: Object.freeze({ enableManagedAutoMemory: false, enableManagedAutoDream: false }),
+});
+
+/** Which memory settings each Gemini-family CLI gets. */
+export const GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL = Object.freeze({
+  gemini: GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS,
+  qwen: Object.freeze({ ...GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS, ...QWEN_MEMORY_DISABLE_SETTINGS }),
 });
 
 /**
@@ -154,75 +180,9 @@ export const TOOLS_WITHOUT_MEMORY_FEATURE = Object.freeze(['opencode', 'agent'])
  */
 export const isAgentMemoryDisabled = (argv = {}) => argv?.agentMemoryDisabled !== false;
 
-const isPlainObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
-
 /**
- * Merge `desired` into `target` in place, returning the dotted paths that changed.
- *
- * Arrays are unioned rather than replaced so an operator's own `tools.exclude`
- * entries survive; scalars are overwritten, because the whole point is that the
- * policy wins.
- *
- * `__proto__`, `constructor` and `prototype` are skipped outright. Today this
- * function is only ever handed {@link GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS}, a
- * frozen literal whose keys are all ordinary, so none of them can occur — but
- * that is a fact about the caller, not about the function, and callers change
- * (CodeQL `js/prototype-pollution-utility`). The guard is written as explicit
- * comparisons rather than a lookup in a shared set because that is the shape the
- * query recognises as a barrier, and a guard a scanner cannot see is one that
- * gets reported again every time someone touches the file.
- */
-const mergeSettings = (target, desired, prefix = '') => {
-  const changed = [];
-  for (const [key, value] of Object.entries(desired)) {
-    if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
-    const dotted = prefix ? `${prefix}.${key}` : key;
-    if (isPlainObject(value)) {
-      if (!isPlainObject(target[key])) target[key] = {};
-      changed.push(...mergeSettings(target[key], value, dotted));
-      continue;
-    }
-    if (Array.isArray(value)) {
-      const existing = Array.isArray(target[key]) ? target[key] : [];
-      const merged = [...existing];
-      let added = false;
-      for (const entry of value) {
-        if (!merged.includes(entry)) {
-          merged.push(entry);
-          added = true;
-        }
-      }
-      if (added || !Array.isArray(target[key])) {
-        target[key] = merged;
-        changed.push(dotted);
-      }
-      continue;
-    }
-    if (target[key] !== value) {
-      target[key] = value;
-      changed.push(dotted);
-    }
-  }
-  return changed;
-};
-
-/**
- * Resolve the settings file a Gemini-family CLI reads.
- *
- * @param {'gemini'|'qwen'} tool
- * @param {Object} [options]
- * @param {string} [options.homeDir]
- * @returns {string|null} null when the tool has no Gemini-family settings file.
- */
-export const resolveGeminiFamilySettingsPath = (tool, { homeDir = os.homedir() } = {}) => {
-  const segments = GEMINI_FAMILY_SETTINGS_PATHS[tool];
-  if (!segments) return null;
-  return path.join(homeDir, ...segments);
-};
-
-/**
- * Write {@link GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS} into a Gemini-family
- * settings file, preserving everything already there.
+ * Write the memory policy into a Gemini-family settings file, preserving
+ * everything already there.
  *
  * Never throws. A task that cannot write the settings file is still a task worth
  * running: the failure costs inference, not correctness, and the caller logs it.
@@ -235,36 +195,16 @@ export const resolveGeminiFamilySettingsPath = (tool, { homeDir = os.homedir() }
  * @param {Object} [params.fsImpl] - `node:fs/promises`-shaped, for tests.
  * @returns {Promise<{applied: boolean, path: string|null, changed: string[], error: string|null}>}
  */
-export const ensureGeminiFamilyMemoryDisabled = async ({ tool, settingsPath, homeDir = os.homedir(), log, fsImpl = fsPromises } = {}) => {
-  const resolvedPath = settingsPath || resolveGeminiFamilySettingsPath(tool, { homeDir });
-  if (!resolvedPath) return { applied: false, path: null, changed: [], error: null };
-
-  let settings = {};
-  try {
-    const parsed = JSON.parse(await fsImpl.readFile(resolvedPath, 'utf-8'));
-    if (isPlainObject(parsed)) settings = parsed;
-  } catch (error) {
-    if (error?.code !== 'ENOENT' && log) {
-      await log(`⚠️  Could not read ${resolvedPath}: ${error.message}`, { verbose: true });
-    }
-  }
-
-  const changed = mergeSettings(settings, GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS);
-  try {
-    if (changed.length > 0) {
-      await fsImpl.mkdir(path.dirname(resolvedPath), { recursive: true });
-      await fsImpl.writeFile(resolvedPath, JSON.stringify(settings, null, 2));
-    }
-    if (log) {
-      await log(`🧠 Cross-task memory ${changed.length > 0 ? 'disabled' : 'already disabled'} for ${tool} in ${resolvedPath} (issue #2178)`, { verbose: true });
-    }
-    return { applied: true, path: resolvedPath, changed, error: null };
-  } catch (error) {
-    const message = error?.message || String(error);
-    if (log) await log(`⚠️  Could not write ${resolvedPath}: ${message}`, { verbose: true });
-    return { applied: false, path: resolvedPath, changed: [], error: message };
-  }
-};
+export const ensureGeminiFamilyMemoryDisabled = async ({ tool, settingsPath, homeDir, log, fsImpl } = {}) =>
+  ensureGeminiFamilySettings({
+    tool,
+    settings: GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL[tool] || GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS,
+    settingsPath,
+    homeDir,
+    log,
+    describe: '\u{1F9E0} Cross-task memory policy (issue #2178)',
+    fsImpl,
+  });
 
 /**
  * One line describing what the policy does for a tool, for `--verbose` logs and
@@ -281,7 +221,7 @@ export const describeAgentMemoryPolicy = tool => {
       return buildCodexMemoryDisableConfigArgs(true).join(' ');
     case 'gemini':
     case 'qwen':
-      return `settings ${JSON.stringify(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS)}`;
+      return `settings ${JSON.stringify(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL[tool])}`;
     default:
       return TOOLS_WITHOUT_MEMORY_FEATURE.includes(tool) ? 'no cross-session memory feature to disable' : 'no policy recorded for this tool';
   }
@@ -294,8 +234,10 @@ export default {
   CLAUDE_MEMORY_DISABLE_SETTINGS,
   CODEX_MEMORY_DISABLE_FEATURES,
   GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS,
+  GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL,
   GEMINI_FAMILY_MEMORY_TOOL,
   GEMINI_FAMILY_SETTINGS_PATHS,
+  QWEN_MEMORY_DISABLE_SETTINGS,
   TOOLS_WITHOUT_MEMORY_FEATURE,
   buildCodexMemoryDisableConfigArgs,
   describeAgentMemoryPolicy,

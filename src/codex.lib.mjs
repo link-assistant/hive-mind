@@ -41,6 +41,7 @@ import { buildFormalAiPricingInfo } from './formal-ai-pricing.lib.mjs'; // Issue
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { parseSubSessionSize, buildCodexSubSessionSizeConfigArgs, buildCodexDisable1mContextConfigArgs } from './sub-session-size.lib.mjs'; // Issue #1706
 import { buildCodexMemoryDisableConfigArgs, isAgentMemoryDisabled } from './agent-memory-policy.lib.mjs'; // Issue #2178
+import { buildCodexAuxiliaryDisableConfigArgs, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 import { CODEX_REMOTE_PLUGIN_DISABLE_ARGS } from './agent-config-audit.lib.mjs'; // Issue #2190
 import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
@@ -724,6 +725,13 @@ export const executeCodexCommand = async params => {
     for (const arg of memoryDisableArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }
+    // Issue #2236: no auxiliary model calls nobody in an autonomous run will read.
+    // Compaction is deliberately untouched — `remote_compaction_v2` and
+    // `compaction_image_budget` stay on, they are what makes long tasks survivable.
+    const auxiliaryDisableArgs = buildCodexAuxiliaryDisableConfigArgs(isAuxiliaryModelCallsDisabled(argv));
+    for (const arg of auxiliaryDisableArgs) {
+      codexArgs += ` ${shellQuote(arg)}`;
+    }
     // Issue #2190: never let this run sync the remote plugin catalog (Superpowers et al.)
     // into the global ~/.codex, whatever the operator's config.toml says.
     for (const arg of CODEX_REMOTE_PLUGIN_DISABLE_ARGS) {
@@ -733,6 +741,7 @@ export const executeCodexCommand = async params => {
       if (disable1mArgs.length) await log(`📊 Codex --disable-1m-context: ${disable1mArgs.join(' ')}`, { verbose: true });
       if (subSessionSizeArgs.length) await log(`📊 Codex --sub-session-size: ${subSessionSizeArgs.join(' ')}`, { verbose: true });
       if (memoryDisableArgs.length) await log(`🧠 Codex cross-task memory disabled: ${memoryDisableArgs.join(' ')} (issue #2178)`, { verbose: true });
+      if (auxiliaryDisableArgs.length) await log(`🔕 Codex non-essential model calls disabled: ${auxiliaryDisableArgs.join(' ')} (issue #2236)`, { verbose: true });
     }
     // Issue #2130: re-export the Formal AI environment inside the `sh -lc` script so a
     // stale `formal-ai with --global` block in the operator profile cannot override it.

@@ -145,9 +145,14 @@ request description and the bot's own comments, extracts every repo-and-ref
 qualified GitHub file link, and checks each one against
 `repos/{owner}/{repo}/contents/{path}?ref={ref}`.
 
-A link is rewritten only when both halves are proven:
+A link is rewritten only when all three hold:
 
-- the link **as written** answers 404, and
+- the link names a ref the pull request **owns** — its head ref or head SHA. A
+  link at the base branch, or at anything belonging to an unrelated repository,
+  is never a candidate, so a 404 elsewhere on the internet can never be
+  "repaired" into this pull request's fork on the coincidence of a matching ref
+  name and path;
+- the link **as written** answers 404; and
 - the same `path` at the same `ref` **is present** in the pull request's head
   repository (`head.repo.full_name`, read from the pull request itself — no
   dependence on `argv.fork` or the `forkedRepo` plumbing).
@@ -170,8 +175,8 @@ back to GitHub — and the repair's own PATCH payloads go through
 `sanitizeForPublication` as well.
 
 Per R8, `--verbose` traces every decision: each link examined, each rewrite, and
-each skip with its reason (`existence-unknown`, `missing-in-head-repo`,
-`head-repo-unknown`).
+each skip with its reason (`foreign-ref`, `existence-unknown`,
+`missing-in-head-repo`, `head-repo-unknown`).
 
 ### `src/screenshot-links.prompts.lib.mjs`
 

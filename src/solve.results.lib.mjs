@@ -33,7 +33,7 @@ const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublica
 // comments and the PR description. This external repair boundary always runs
 // when PR coordinates are available.
 const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
-const { runPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
+const { reportPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
 
 // Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
@@ -596,40 +596,12 @@ export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl
     await log(`📁 Log file available: ${logFilePath}`);
   }
 
-  // Issue #2239: post-finish image-link repair. In fork mode the working
-  // branch lives in the fork while the pull request lives upstream, and a tool
-  // that writes the upstream path into an image URL publishes a 404. Issue
-  // #1561 made the prompt example fork-aware; this verifies what was actually
-  // published and rewrites only links proven broken as written and proven
-  // resolvable in the head repository. It runs before the sanitization sweep so
-  // the sanitizer still has the last word on anything it edits. Publication
-  // repair is a strict external boundary, so local diagnostic bypass flags
-  // never disable it.
-  try {
-    const owner = argv.owner;
-    const repo = argv.repo;
-    const prNumber = argv.prNumber;
-    if (owner && repo && prNumber) {
-      const repairResult = await runPullRequestLinkRepair({
-        $,
-        owner,
-        repo,
-        prNumber,
-        log,
-        verbose: Boolean(argv.verbose),
-      });
-      if (repairResult.totalEdited > 0) {
-        await log(`🖼️  Image-link repair: fixed ${repairResult.totalRepaired} broken link(s) across ${repairResult.totalEdited} published item(s).`);
-        for (const repair of [...repairResult.body.repairs, ...repairResult.comments.repairs]) {
-          await log(`   ${repair.from} → ${repair.to}`);
-        }
-      } else if (argv.verbose) {
-        await log(`ℹ️  Image-link repair: checked ${repairResult.body.scanned + repairResult.comments.scanned} GitHub link(s); nothing needed repair.`);
-      }
-    }
-  } catch (repairErr) {
-    await log(`⚠️ Post-finish image-link repair failed: ${repairErr.message || repairErr}`);
-  }
+  // Issue #2239: verify the GitHub file links this session published and repair
+  // the ones proven broken — in fork mode the branch lives in the fork while the
+  // pull request lives upstream, so an upstream path in an image URL is a 404.
+  // Runs before the sanitization sweep so the sanitizer still has the last word
+  // on anything it edits, and is never disabled by local bypass flags.
+  await reportPullRequestLinkRepair({ $, owner: argv.owner, repo: argv.repo, prNumber: argv.prNumber, log, verbose: Boolean(argv.verbose) });
 
   // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
   // bot-authored PR comments and the PR description, runs them through

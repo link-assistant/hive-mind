@@ -207,13 +207,15 @@ export const createContentsProbe = ({ $ }) => {
  * @param {string} options.body
  * @param {string} options.headRepo - `owner/repo` the PR's head branch lives in
  * @param {string[]} [options.refCandidates]
+ * @param {string[]} [options.ownRefs] - refs the pull request itself owns; when
+ *   given, only links at one of these refs may be repaired
  * @param {Function} options.pathExists
  * @param {boolean} [options.imagesOnly=false] - restrict repairs to image links
  * @param {Function} [options.log]
  * @param {boolean} [options.verbose=false]
  * @returns {Promise<{body: string, changed: boolean, scanned: number, repairs: Array, skipped: Array}>}
  */
-export const planLinkRepairs = async ({ body, headRepo, refCandidates = [], pathExists, imagesOnly = false, log = async () => {}, verbose = false }) => {
+export const planLinkRepairs = async ({ body, headRepo, refCandidates = [], ownRefs = [], pathExists, imagesOnly = false, log = async () => {}, verbose = false }) => {
   const original = typeof body === 'string' ? body : '';
   const result = { body: original, changed: false, scanned: 0, repairs: [], skipped: [] };
   if (!original || !headRepo || typeof pathExists !== 'function') return result;
@@ -225,10 +227,20 @@ export const planLinkRepairs = async ({ body, headRepo, refCandidates = [], path
   result.scanned = links.length;
   if (links.length === 0) return result;
 
+  // A link may only be moved to the head repository when it names a ref the
+  // pull request owns. Without this, a 404 on an unrelated repository's link
+  // could be "repaired" into the head repository purely because the same ref
+  // name and path happen to exist there.
+  const repairableRefs = new Set(ownRefs.filter(Boolean));
+
   let repaired = original;
   for (const link of links) {
     if (link.owner.toLowerCase() === headOwner.toLowerCase() && link.repo.toLowerCase() === headName.toLowerCase()) continue;
     if (!link.path) continue;
+    if (repairableRefs.size > 0 && !repairableRefs.has(link.ref)) {
+      result.skipped.push({ url: link.url, reason: 'foreign-ref' });
+      continue;
+    }
 
     const presentAsWritten = await pathExists({ owner: link.owner, repo: link.repo, ref: link.ref, path: link.path });
     if (presentAsWritten !== false) {
@@ -304,6 +316,7 @@ export const repairPullRequestBodyLinks = async ({ $, owner, repo, prNumber, log
     body: pr.body,
     headRepo: pr.headRepo,
     refCandidates: [pr.headRef, pr.baseRef, pr.headSha].filter(Boolean),
+    ownRefs: [pr.headRef, pr.headSha].filter(Boolean),
     pathExists: createContentsProbe({ $ }),
     log,
     verbose,
@@ -367,12 +380,13 @@ export const repairPullRequestCommentLinks = async ({ $, owner, repo, prNumber, 
 
   const pathExists = createContentsProbe({ $ });
   const refCandidates = [pr.headRef, pr.baseRef, pr.headSha].filter(Boolean);
+  const ownRefs = [pr.headRef, pr.headSha].filter(Boolean);
 
   for (const comment of comments) {
     if (comment?.user?.login !== botLogin) continue;
     const body = typeof comment.body === 'string' ? comment.body : '';
     if (!body) continue;
-    const plan = await planLinkRepairs({ body, headRepo: pr.headRepo, refCandidates, pathExists, log, verbose });
+    const plan = await planLinkRepairs({ body, headRepo: pr.headRepo, refCandidates, ownRefs, pathExists, log, verbose });
     stats.scanned += plan.scanned;
     stats.repairs.push(...plan.repairs);
     stats.skipped.push(...plan.skipped);
@@ -435,6 +449,43 @@ export const runPullRequestLinkRepair = async ({ $, owner, repo, prNumber, log =
   return result;
 };
 
+/**
+ * Run the repair for a finished session and report what it changed, swallowing
+ * any failure: a session that produced a correct pull request must not be
+ * reported as failed because a read-only link probe could not reach the API.
+ *
+ * Lives here rather than at the call site so `src/solve.results.lib.mjs` stays
+ * under the file-line warning threshold enforced by
+ * `scripts/check-file-line-limits.sh`.
+ *
+ * @param {Object} args
+ * @param {Function} args.$ - command-stream tag
+ * @param {string} args.owner - owner of the repository hosting the pull request
+ * @param {string} args.repo
+ * @param {number|string} args.prNumber
+ * @param {Function} args.log
+ * @param {boolean} [args.verbose]
+ * @returns {Promise<Object|null>} the repair result, or null when it did not run
+ */
+export const reportPullRequestLinkRepair = async ({ $, owner, repo, prNumber, log = async () => {}, verbose = false }) => {
+  if (!owner || !repo || !prNumber) return null;
+  try {
+    const result = await runPullRequestLinkRepair({ $, owner, repo, prNumber, log, verbose });
+    if (result.totalEdited > 0) {
+      await log(`🖼️  Image-link repair: fixed ${result.totalRepaired} broken link(s) across ${result.totalEdited} published item(s).`);
+      for (const repair of [...result.body.repairs, ...result.comments.repairs]) {
+        await log(`   ${repair.from} → ${repair.to}`);
+      }
+    } else if (verbose) {
+      await log(`ℹ️  Image-link repair: checked ${result.body.scanned + result.comments.scanned} GitHub link(s); nothing needed repair.`);
+    }
+    return result;
+  } catch (err) {
+    await log(`⚠️ Post-finish image-link repair failed: ${err.message || err}`);
+    return null;
+  }
+};
+
 export default {
   splitRefAndPath,
   looksLikeImageLink,
@@ -445,4 +496,5 @@ export default {
   repairPullRequestBodyLinks,
   repairPullRequestCommentLinks,
   runPullRequestLinkRepair,
+  reportPullRequestLinkRepair,
 };

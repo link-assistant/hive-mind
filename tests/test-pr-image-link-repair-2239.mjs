@@ -19,7 +19,7 @@
  * @hive-mind-test-suite default
  */
 
-import { splitRefAndPath, extractGitHubFileLinks, rewriteLinkRepository, planLinkRepairs, repairPullRequestBodyLinks, repairPullRequestCommentLinks, runPullRequestLinkRepair } from '../src/pr-image-link-repair.lib.mjs';
+import { splitRefAndPath, extractGitHubFileLinks, rewriteLinkRepository, planLinkRepairs, repairPullRequestBodyLinks, repairPullRequestCommentLinks, runPullRequestLinkRepair, reportPullRequestLinkRepair } from '../src/pr-image-link-repair.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -187,8 +187,10 @@ await run('repairPullRequestBodyLinks probes each distinct path once', async () 
   ]);
   await repairPullRequestBodyLinks({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2 });
   const contentCalls = $.calls.filter(c => /\/contents\//.test(c.raw));
-  // 3 screenshots probed in the base repo (404) + 3 in the fork + README once.
-  assert(contentCalls.length === 7, `expected 7 content probes, got ${contentCalls.length}: ${contentCalls.map(c => c.raw).join(' | ')}`);
+  // 3 screenshots probed in the base repo (404) + 3 in the fork. The README
+  // link names the base branch, which this pull request does not own, so it is
+  // never a repair candidate and costs no probe at all.
+  assert(contentCalls.length === 6, `expected 6 content probes, got ${contentCalls.length}: ${contentCalls.map(c => c.raw).join(' | ')}`);
 });
 
 await run('repairPullRequestBodyLinks does not edit in dryRun mode', async () => {
@@ -250,7 +252,79 @@ await run('an unreachable GitHub API never rewrites anything', async () => {
   const stats = await repairPullRequestBodyLinks({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2 });
   assert(stats.edited === 0, 'a network failure must not be read as "the file is missing"');
   assert(stats.repairs.length === 0);
-  assert(stats.skipped.every(s => s.reason === 'existence-unknown'));
+  assert(
+    stats.skipped.filter(s => s.reason !== 'foreign-ref').every(s => s.reason === 'existence-unknown'),
+    `every probed link must be skipped as unknown, got ${JSON.stringify(stats.skipped)}`
+  );
+});
+
+await run('reportPullRequestLinkRepair logs every link it rewrote', async () => {
+  const $ = makeFakeDollar([
+    { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
+    { match: /gh api user --jq \.login/, respond: { code: 0, stdout: 'bot-user\n', stderr: '' } },
+    { match: /issues\/2\/comments --paginate/, respond: { code: 0, stdout: '[]', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/Godmy\/frontend\/contents\/README\.md\?ref=main/, respond: { code: 0, stdout: 'def456\n', stderr: '' } },
+    { match: /-X PATCH --input -/, respond: { code: 0, stdout: '{}', stderr: '' } },
+  ]);
+  const lines = [];
+  const result = await reportPullRequestLinkRepair({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2, log: async line => lines.push(String(line)) });
+  assert(result && result.totalEdited === 1, `the description should have been edited, got ${result && result.totalEdited}`);
+  assert(
+    lines.some(l => l.includes('fixed 4 broken link(s)')),
+    `expected a summary line, got: ${JSON.stringify(lines)}`
+  );
+  // Four occurrences over three distinct URLs: the report names each URL once.
+  const arrows = lines.filter(l => l.includes('\u2192'));
+  assert(arrows.length === 3, `expected one from \u2192 to line per distinct repaired URL, got ${arrows.length}`);
+  assert(
+    arrows.every(l => l.includes('konard/Godmy-frontend')),
+    'each reported target must be the head repository'
+  );
+});
+
+await run('reportPullRequestLinkRepair never fails the session', async () => {
+  // A session that produced a correct pull request must not be reported as
+  // failed because a read-only probe could not run at all.
+  const $ = () => {
+    throw new Error('gh is not installed');
+  };
+  const lines = [];
+  const result = await reportPullRequestLinkRepair({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2, log: async line => lines.push(String(line)) });
+  assert(result !== null, 'the repair must return rather than throw');
+  assert(result.totalEdited === 0 && result.totalRepaired === 0, 'nothing may be rewritten when the pull request could not be read');
+  assert(result.body.errors === 1, `the failure must be counted, got ${result.body.errors}`);
+  assert(
+    lines.some(l => l.includes('failed to fetch PR 2')),
+    `the failure must still be visible in the log, got: ${JSON.stringify(lines)}`
+  );
+});
+
+await run('reportPullRequestLinkRepair does nothing without pull request coordinates', async () => {
+  const $ = makeFakeDollar([]);
+  const lines = [];
+  const result = await reportPullRequestLinkRepair({ $, owner: 'Godmy', repo: 'frontend', prNumber: undefined, log: async line => lines.push(String(line)) });
+  assert(result === null && $.calls.length === 0 && lines.length === 0, 'no probe, no log line');
+});
+
+await run('a link at a ref this pull request does not own is never repaired', async () => {
+  // Without this guard a 404 on an unrelated repository could be "repaired"
+  // into the head repository just because the same ref name and path exist
+  // there — inventing a link that was never the author's.
+  const body = 'See ![upstream](https://github.com/some/other-repo/blob/main/docs/screenshots/graph-force.png?raw=true).';
+  const probes = [];
+  const pathExists = async target => {
+    probes.push(`${target.owner}/${target.repo}`);
+    return target.owner === 'some' ? false : true;
+  };
+  const plan = await planLinkRepairs({ body, headRepo: HEAD_REPO, refCandidates: [BRANCH, 'main'], ownRefs: [BRANCH], pathExists });
+  assert(!plan.changed, 'a foreign ref must never be rewritten');
+  assert(plan.body === body, 'the body must be returned untouched');
+  assert(probes.length === 0, `a foreign ref must not even be probed, got ${JSON.stringify(probes)}`);
+  assert(
+    plan.skipped.some(s => s.reason === 'foreign-ref'),
+    `the skip must be reported, got ${JSON.stringify(plan.skipped)}`
+  );
 });
 
 console.log(`\nResults: ${passed} passed, ${failed} failed`);

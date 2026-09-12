@@ -4,6 +4,7 @@
  */
 
 import { getArchitectureCareSubPrompt } from './architecture-care.prompts.lib.mjs';
+import { buildForkScreenshotLinkWarning } from './screenshot-links.prompts.lib.mjs';
 import { getUpdateAllDependenciesSubPrompt } from './update-dependencies.prompts.lib.mjs';
 import { getExperimentsExamplesSubPrompt } from './experiments-examples.prompts.lib.mjs';
 import { getThinkingPromptInstruction } from './thinking-prompt.lib.mjs';
@@ -92,6 +93,10 @@ export const buildSystemPrompt = params => {
   if (isFormalAiModel(argv?.model)) return '';
 
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
+
+  // Issue #2239: the fork-aware example alone did not stop the upstream path from being published
+
+  const forkScreenshotLinkWarning = buildForkScreenshotLinkWarning({ isFork: Boolean(argv?.fork && forkedRepo), screenshotRepoPath, upstreamRepoPath: `${owner}/${repo}`, branchName });
 
   let workspaceInstructions = '';
   if (workspaceTmpDir) {
@@ -248,7 +253,7 @@ Playwright MCP usage (browser automation via MCP tools).
 
 Visual UI work and screenshots.
    - When you work on visual UI changes, include a render or screenshot of the final result in the pull request description.
-   - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.`
+   - When you save screenshots to the repository, use permanent links in the PR description such as https://github.com/${screenshotRepoPath}/blob/${branchName}/docs/screenshots/result.png?raw=true.${forkScreenshotLinkWarning}`
        : ''
    }${ciExamples}${getArchitectureCareSubPrompt(argv)}${getUpdateAllDependenciesSubPrompt(argv)}${buildWorkLanguageDirective()}`;
 };

@@ -13,7 +13,7 @@ import { promisify } from 'node:util';
 const run = promisify(execFile);
 
 const BASE_REPO = 'Godmy/frontend';
-const HEAD_REPO = 'konard/frontend';
+const HEAD_REPO = 'konard/Godmy-frontend'; // the log names it konard/frontend; that is a rename alias GitHub still redirects
 const BRANCH = 'issue-1-46ba053c';
 const SHOTS = ['graph-force.png', 'graph-sankey.png', 'graph-network.png'];
 

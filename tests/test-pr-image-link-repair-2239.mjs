@@ -8,10 +8,10 @@
  *   <img src="https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true" width="260">
  *
  * The branch `issue-1-46ba053c` only ever existed in the fork
- * `konard/frontend`, so all three screenshots rendered as broken images.
+ * `konard/Godmy-frontend`, so all three screenshots rendered as broken images.
  * Verified against the live API while investigating:
  *   repos/Godmy/frontend/contents/docs/screenshots/graph-force.png?ref=issue-1-46ba053c → 404
- *   repos/konard/frontend/contents/docs/screenshots/graph-force.png?ref=issue-1-46ba053c → 200
+ *   repos/konard/Godmy-frontend/contents/docs/screenshots/graph-force.png?ref=issue-1-46ba053c → 200
  *
  * The repair must rewrite those links to the head repository, and must leave
  * every link it cannot prove broken exactly as the author wrote it.
@@ -41,7 +41,7 @@ const run = async (name, fn) => {
 };
 
 const BASE_REPO = 'Godmy/frontend';
-const HEAD_REPO = 'konard/frontend';
+const HEAD_REPO = 'konard/Godmy-frontend'; // the log names it konard/frontend; that is a rename alias GitHub still redirects
 const BRANCH = 'issue-1-46ba053c';
 const SHOTS = ['graph-force.png', 'graph-sankey.png', 'graph-network.png'];
 
@@ -109,7 +109,7 @@ await run('extractGitHubFileLinks finds both HTML and Markdown embeds', async ()
 
 await run('rewriteLinkRepository preserves ref, path and ?raw=true', async () => {
   const [link] = extractGitHubFileLinks(`https://github.com/${BASE_REPO}/blob/${BRANCH}/docs/screenshots/x.png?raw=true`, { refCandidates: [BRANCH] });
-  assert(rewriteLinkRepository(link, 'konard', 'frontend') === `https://github.com/${HEAD_REPO}/blob/${BRANCH}/docs/screenshots/x.png?raw=true`);
+  assert(rewriteLinkRepository(link, 'konard', 'Godmy-frontend') === `https://github.com/${HEAD_REPO}/blob/${BRANCH}/docs/screenshots/x.png?raw=true`);
 });
 
 await run('planLinkRepairs repoints the broken fork screenshots (issue #2239 reproduction)', async () => {
@@ -163,7 +163,7 @@ await run('planLinkRepairs repairs raw.githubusercontent.com links', async () =>
 await run('repairPullRequestBodyLinks PATCHes the description with the repaired body', async () => {
   const $ = makeFakeDollar([
     { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
-    { match: /repos\/konard\/frontend\/contents\/docs\/screenshots\/[\w.-]+\?ref=/, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\/docs\/screenshots\/[\w.-]+\?ref=/, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
     { match: /repos\/Godmy\/frontend\/contents\/README\.md\?ref=main/, respond: { code: 0, stdout: 'def456\n', stderr: '' } },
     { match: /pulls\/2 -X PATCH --input -/, respond: { code: 0, stdout: '{}', stderr: '' } },
   ]);
@@ -181,7 +181,7 @@ await run('repairPullRequestBodyLinks PATCHes the description with the repaired 
 await run('repairPullRequestBodyLinks probes each distinct path once', async () => {
   const $ = makeFakeDollar([
     { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
-    { match: /repos\/konard\/frontend\/contents\/docs\/screenshots\/[\w.-]+\?ref=/, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\/docs\/screenshots\/[\w.-]+\?ref=/, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
     { match: /repos\/Godmy\/frontend\/contents\/README\.md\?ref=main/, respond: { code: 0, stdout: 'def456\n', stderr: '' } },
     { match: /pulls\/2 -X PATCH --input -/, respond: { code: 0, stdout: '{}', stderr: '' } },
   ]);
@@ -194,7 +194,7 @@ await run('repairPullRequestBodyLinks probes each distinct path once', async () 
 await run('repairPullRequestBodyLinks does not edit in dryRun mode', async () => {
   const $ = makeFakeDollar([
     { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
-    { match: /repos\/konard\/frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
     { match: /repos\/Godmy\/frontend\/contents\/README\.md\?ref=main/, respond: { code: 0, stdout: 'def456\n', stderr: '' } },
   ]);
   const stats = await repairPullRequestBodyLinks({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2, dryRun: true });
@@ -211,7 +211,7 @@ await run('repairPullRequestCommentLinks only edits comments the bot authored', 
   const $ = makeFakeDollar([
     { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
     { match: /issues\/2\/comments --paginate/, respond: { code: 0, stdout: JSON.stringify(comments), stderr: '' } },
-    { match: /repos\/konard\/frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
     { match: /issues\/comments\/11 -X PATCH --input -/, respond: { code: 0, stdout: '{}', stderr: '' } },
   ]);
   const stats = await repairPullRequestCommentLinks({ $, owner: 'Godmy', repo: 'frontend', prNumber: 2, botLogin: 'bot-user' });
@@ -227,7 +227,7 @@ await run('runPullRequestLinkRepair reports the combined totals', async () => {
     { match: /repos\/Godmy\/frontend\/pulls\/2$/, respond: { code: 0, stdout: JSON.stringify(prPayload), stderr: '' } },
     { match: /gh api user --jq \.login/, respond: { code: 0, stdout: 'bot-user\n', stderr: '' } },
     { match: /issues\/2\/comments --paginate/, respond: { code: 0, stdout: JSON.stringify(comments), stderr: '' } },
-    { match: /repos\/konard\/frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
+    { match: /repos\/konard\/Godmy-frontend\/contents\//, respond: { code: 0, stdout: 'abc123\n', stderr: '' } },
     { match: /repos\/Godmy\/frontend\/contents\/README\.md\?ref=main/, respond: { code: 0, stdout: 'def456\n', stderr: '' } },
     { match: /-X PATCH --input -/, respond: { code: 0, stdout: '{}', stderr: '' } },
   ]);

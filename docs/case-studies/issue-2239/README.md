@@ -10,7 +10,7 @@ The fork-aware prompt example added by issue #1561 was present and correct in
 this session — the system prompt said `konard/frontend` — and the tool wrote
 `Godmy/frontend` anyway. The instruction was never the missing piece; the
 missing piece is that nothing ever checked what was published. This pull request
-adds that check, and makes the fork-mode instruction say _why_ as well as _what_.
+adds that check while keeping the prompt to one case-specific link example.
 
 ## Problem statement
 
@@ -178,37 +178,39 @@ Per R8, `--verbose` traces every decision: each link examined, each rewrite, and
 each skip with its reason (`foreign-ref`, `existence-unknown`,
 `missing-in-head-repo`, `head-repo-unknown`).
 
-### `src/screenshot-links.prompts.lib.mjs`
+### One case-specific prompt example
 
-In fork mode the prompt now carries the reason, not only the example: which
-repository holds the branch, that a branch file requested from the other one
-answers 404 and renders broken, and a `gh api …/contents/…?ref=…` command to
-check before finishing. It deliberately never spells out the upstream blob URL,
-even as a counter-example — a counter-example is still a copyable string, which
-is what the issue #1561 test asserts against.
+The existing `screenshotRepoPath` selection remains the entire prompt-side
+solution: a fork pull request receives one example naming its fork, while a
+same-repository pull request receives one example naming that repository. The
+prompt does not add a second verification-command example or repeat the fork
+rule in prose. `tests/test-fork-screenshot-url-1561.mjs` now exercises that
+single-example contract against all six prompt builders. The deterministic
+read-back check above handles the failure mode that advisory prompt text cannot
+prevent.
 
 ## Entire-codebase sweep
 
 Per R10, every place the defect can occur:
 
-| Place                                                           | Action                                                                              |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `src/{claude,codex,agent,opencode,qwen,gemini}.prompts.lib.mjs` | All six prompt builders get the fork warning, via one shared module                 |
-| `src/locales/{en,ru,hi,zh}.lino`                                | The parallel translated instruction set gets an equivalent line in all four locales |
-| Pull request **description**                                    | Repaired                                                                            |
-| Bot-authored pull request **comments**                          | Repaired — issue #1561's broken screenshot was in a comment, not a description      |
-| Issue bodies and human-authored comments                        | Never touched, matching the boundary drawn by issue #1745                           |
-| `raw.githubusercontent.com` links                               | Repaired, same as `github.com/blob`                                                 |
+| Place                                                           | Action                                                                                                             |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `src/{claude,codex,agent,opencode,qwen,gemini}.prompts.lib.mjs` | Each already selects the correct repository for its one screenshot-link example; the regression now covers all six |
+| `src/locales/{en,ru,hi,zh}.lino`                                | Each keeps its single dynamic screenshot-link example, without a repeated fork warning                             |
+| Pull request **description**                                    | Repaired                                                                                                           |
+| Bot-authored pull request **comments**                          | Repaired — issue #1561's broken screenshot was in a comment, not a description                                     |
+| Issue bodies and human-authored comments                        | Never touched, matching the boundary drawn by issue #1745                                                          |
+| `raw.githubusercontent.com` links                               | Repaired, same as `github.com/blob`                                                                                |
 
 ## Solutions considered
 
-| Option                                                           | Verdict                                                                                                                            |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **A. Post-publication verification and repair**                  | **Implemented.** Deterministic, evidence-based, needs no cooperation from the model, and fixes pull requests already open.         |
-| **B. Harden the fork-mode instruction**                          | **Implemented**, as a complement to A. On its own it is what already failed here: #1561 shipped an instruction and #2239 followed. |
-| **C. Pin image links to a commit SHA instead of a branch**       | Not done here. Addresses RC4 rather than #2239, changes URLs the model is told to write, and is better proposed on its own.        |
-| **D. Upload images to a hidden `refs/hive-mind-media/pr-N` ref** | Not done. `src/interactive-image-upload.lib.mjs` already does this for interactive uploads; extending it is a larger change.       |
-| **E. Block `gh pr ready` until links resolve**                   | Rejected. Turns a cosmetic defect into a failed run, and cannot help the pull requests that are already broken.                    |
+| Option                                                           | Verdict                                                                                                                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **A. Post-publication verification and repair**                  | **Implemented.** Deterministic, evidence-based, needs no cooperation from the model, and fixes pull requests already open.                             |
+| **B. Harden the fork-mode instruction**                          | Not extended. The existing case-specific example was correct and still failed; repeating it would enlarge every system prompt without closing the gap. |
+| **C. Pin image links to a commit SHA instead of a branch**       | Not done here. Addresses RC4 rather than #2239, changes URLs the model is told to write, and is better proposed on its own.                            |
+| **D. Upload images to a hidden `refs/hive-mind-media/pr-N` ref** | Not done. `src/interactive-image-upload.lib.mjs` already does this for interactive uploads; extending it is a larger change.                           |
+| **E. Block `gh pr ready` until links resolve**                   | Rejected. Turns a cosmetic defect into a failed run, and cannot help the pull requests that are already broken.                                        |
 
 Option A also repairs historical damage: it is a plain function over a pull
 request number, so it can be pointed at an existing broken pull request.
@@ -219,7 +221,7 @@ request number, so it can be pointed at an existing broken pull request.
 | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/post-finish-sanitization-sweep.lib.mjs`    | Wrong concern (secrets, not links), but the right **shape**: read-back, decide, PATCH in place, bot-authored content only. The new module follows its structure and its `quietProbe` / `$({ stdin })` conventions deliberately.                                                                                                     |
 | `src/interactive-image-upload.lib.mjs`          | Solves permanence for _interactive_ uploads (`buildRawBlobUrl`, hidden media refs). It builds correct URLs; it does not check URLs someone else wrote. Its `buildRawBlobUrl` is the reference for option C.                                                                                                                         |
-| `screenshotRepoPath` (issue #1561)              | Already in place and already correct in this session. Kept and extended, not replaced.                                                                                                                                                                                                                                              |
+| `screenshotRepoPath` (issue #1561)              | Already in place and already correct in this session. Kept unchanged; its one-example behavior is now covered across all six prompt builders.                                                                                                                                                                                       |
 | Link checkers (`lychee`, `markdown-link-check`) | They answer "is this URL reachable", not "which repository should this have named". They cannot propose the repair, they add a binary dependency, and a 404 on a private repository is indistinguishable from a wrong path without authentication. The GitHub contents API answers both questions with credentials already at hand. |
 | `gh api repos/{o}/{r}/contents/{p}?ref={r}`     | **Used.** Authoritative, authenticated, works on private repositories, and distinguishes "no such ref" from "no such file".                                                                                                                                                                                                         |
 

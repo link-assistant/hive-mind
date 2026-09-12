@@ -949,7 +949,6 @@ zh
              - 当你处理视觉 UI 更改（前端、CSS、HTML、设计）时，在 PR 描述中包含最终结果的渲染或截图。
              - 当你需要展示视觉结果时，截图并保存到仓库（例如 docs/screenshots/ 或 assets/ 文件夹）。
              - 当你将截图保存到仓库时，在 PR 描述 markdown 中使用永久链接（例如 https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true）。
-             - 当你编写图片链接时，URL 中的仓库必须是存放该分支的仓库；在 fork 模式下这是你的 fork，而不是托管该 pull request 的仓库。从错误的仓库请求分支文件会返回 404，图片将显示为损坏。
              - 当你上传图片时，先将其提交到分支，然后使用带 ?raw=true 后缀的 GitHub blob URL 格式引用（适用于公开和私有仓库）。
              - 当视觉结果对审阅很重要时，在 PR 描述中以嵌入图片明确提及。
              - 当修复 UI bug 时，捕获"修复前"（问题）和"修复后"（已修复）的截图作为人工审阅证据。

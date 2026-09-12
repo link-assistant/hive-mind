@@ -949,7 +949,6 @@ hi
              - जब आप visual UI परिवर्तनों (frontend, CSS, HTML, design) पर काम करें, अंतिम परिणाम का render या screenshot PR विवरण में शामिल करें।
              - जब आपको visual परिणाम दिखाने की आवश्यकता हो, screenshot लें और इसे repository में सहेजें (जैसे docs/screenshots/ या assets/ folder में)।
              - जब आप screenshots को repository में सहेजें, PR विवरण markdown में स्थायी links का उपयोग करें (जैसे https://github.com/{{screenshotRepoPath}}/blob/{{branchName}}/docs/screenshots/result.png?raw=true)।
-             - जब आप image link लिखें, URL में वही repository होनी चाहिए जिसमें branch मौजूद है; fork mode में यह आपका fork है, न कि वह repository जिसमें pull request खुला है। गलत repository से branch की file माँगने पर 404 मिलता है और image टूटी हुई दिखती है।
              - जब आप images अपलोड करें, पहले उन्हें branch में commit करें, फिर ?raw=true suffix के साथ GitHub blob URL प्रारूप का उपयोग करके उन्हें संदर्भित करें (सार्वजनिक और निजी repositories दोनों के लिए काम करता है)।
              - जब visual परिणाम समीक्षा के लिए महत्वपूर्ण हो, embedded image के साथ PR विवरण में स्पष्ट रूप से इसका उल्लेख करें।
              - जब UI bugs ठीक कर रहे हों, मानव सत्यापन के लिए "पहले" (समस्या) और "बाद" (फ़िक्स) दोनों screenshots कैप्चर करें।

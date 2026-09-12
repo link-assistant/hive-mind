@@ -31,6 +31,7 @@ import { createJsonStreamScanner } from './json-stream.lib.mjs';
 import { calculateAgentPricing } from './agent.lib.mjs';
 import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterError, waitWithCountdown } from './tool-retry.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { buildOpencodeAuxiliaryAgentConfig, isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236
 
 export { parseOpenCodeTokenUsage };
 
@@ -288,11 +289,22 @@ export const executeOpenCodeCommand = async params => {
         external_directory: 'allow', // File operations outside working directory (default: ask)
       },
     };
+    // Issue #2236: OpenCode's hidden `title` and `summary` agents are separate
+    // model calls made for a session list nobody in an autonomous run opens —
+    // `SessionPrompt.ensureTitle` fires on every fresh `opencode run`, because the
+    // session title is still the generated "New session - <timestamp>" default.
+    // The `compaction` agent is deliberately left enabled: it is the summarization
+    // that keeps a long task inside its context window.
+    const disabledAgents = buildOpencodeAuxiliaryAgentConfig(isAuxiliaryModelCallsDisabled(argv));
+    if (Object.keys(disabledAgents).length > 0) opencodeConfig.agent = disabledAgents;
     try {
       await fs.writeFile(opencodeConfigPath, JSON.stringify(opencodeConfig, null, 2));
       if (argv.verbose) {
         await log(`   Created OpenCode config: ${opencodeConfigPath}`, { verbose: true });
         await log('   Permissions set: edit=allow, bash=allow, webfetch=allow, skill=allow, doom_loop=allow, external_directory=allow', { verbose: true });
+        if (Object.keys(disabledAgents).length > 0) {
+          await log(`   🔕 Non-essential agents disabled: ${Object.keys(disabledAgents).join(', ')} (compaction stays on, issue #2236)`, { verbose: true });
+        }
       }
     } catch (configError) {
       await log(`⚠️  Warning: Could not create OpenCode config file: ${configError.message}`, { level: 'warning' });

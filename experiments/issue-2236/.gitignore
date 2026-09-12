@@ -1,0 +1,17 @@
+# Raw string dumps of third-party binaries: ~110 MB, reproducible in minutes
+# from the commands in README.md. The distilled results live in
+# docs/case-studies/issue-2236/data/.
+claude-js.txt
+codex-strings.txt
+opencode-strings.txt
+tengu-events.txt
+querysource-contexts.txt
+envctx.txt
+qs2.txt
+
+# Distilled results are committed under docs/case-studies/issue-2236/data/;
+# the copies this directory regenerates are not committed twice.
+claude-env-vars.txt
+codex-features.txt
+codex-files.txt
+qwen-schema.txt

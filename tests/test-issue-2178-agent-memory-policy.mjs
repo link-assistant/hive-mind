@@ -23,7 +23,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { AGENT_MEMORY_POLICY_TOOLS, CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS, CLAUDE_MEMORY_DISABLE_ENV, CLAUDE_MEMORY_DISABLE_SETTINGS, CODEX_MEMORY_DISABLE_FEATURES, GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS, GEMINI_FAMILY_MEMORY_TOOL, TOOLS_WITHOUT_MEMORY_FEATURE, buildCodexMemoryDisableConfigArgs, describeAgentMemoryPolicy, ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled, resolveGeminiFamilySettingsPath } from '../src/agent-memory-policy.lib.mjs';
+import { AGENT_MEMORY_POLICY_TOOLS, CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS, CLAUDE_MEMORY_DISABLE_ENV, CLAUDE_MEMORY_DISABLE_SETTINGS, CODEX_MEMORY_DISABLE_FEATURES, GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS, GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL, GEMINI_FAMILY_MEMORY_TOOL, QWEN_MEMORY_DISABLE_SETTINGS, TOOLS_WITHOUT_MEMORY_FEATURE, buildCodexMemoryDisableConfigArgs, describeAgentMemoryPolicy, ensureGeminiFamilyMemoryDisabled, isAgentMemoryDisabled, resolveGeminiFamilySettingsPath } from '../src/agent-memory-policy.lib.mjs';
 import { REQUIRED_CLAUDE_QUIET_ENV, REQUIRED_CLAUDE_QUIET_PERMISSIONS, REQUIRED_CLAUDE_QUIET_SETTINGS, ensureClaudeQuietConfig } from '../src/claude-quiet-config.lib.mjs';
 import { getClaudeEnv } from '../src/config.lib.mjs';
 import { TASK_TOOL_CHOICES } from '../src/task.config.lib.mjs';
@@ -156,6 +156,33 @@ check('the Gemini-family settings name the memory tool and the background extrac
   assert.deepEqual(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS.tools.exclude, [GEMINI_FAMILY_MEMORY_TOOL], 'tools.exclude is the nested form both CLIs resolve to');
   assert.equal(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS.experimental.autoMemory, false, 'experimental.autoMemory gates the background extraction agent, which is the expensive one');
   assert.equal(GEMINI_FAMILY_MEMORY_TOOL, 'save_memory');
+});
+
+check('Qwen gets the renamed memory switches on top of the shared ones', () => {
+  // qwen-code renamed the feature after forking Gemini CLI: in 0.23.0 the string
+  // `experimental.autoMemory` does not occur in the bundle at all, so the shared
+  // setting alone had silently become a no-op for Qwen. Both replacements default
+  // to true and are only otherwise gated by bare/safe mode.
+  assert.equal(QWEN_MEMORY_DISABLE_SETTINGS.memory.enableManagedAutoMemory, false, 'background memory extraction must be off for qwen');
+  assert.equal(QWEN_MEMORY_DISABLE_SETTINGS.memory.enableManagedAutoDream, false, 'memory consolidation ("dream") must be off for qwen');
+  assert.equal(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL.qwen.memory.enableManagedAutoMemory, false, 'the qwen settings bundle must carry the renamed keys');
+  assert.equal(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL.qwen.experimental.autoMemory, false, 'the legacy key stays: it is inert on 0.23.0 and correct on older pinned builds');
+  assert.equal(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL.gemini, GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS, 'gemini keeps exactly the shared settings — the renamed keys do not exist there');
+  assert.equal(Object.prototype.hasOwnProperty.call(GEMINI_FAMILY_MEMORY_DISABLE_SETTINGS_BY_TOOL.gemini, 'memory'), false, 'gemini-cli has no `memory` settings section; writing one would be noise');
+});
+
+await checkAsync('a fresh qwen settings file comes out with the renamed switches off', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'issue-2178-qwen-renamed-'));
+  try {
+    const result = await ensureGeminiFamilyMemoryDisabled({ tool: 'qwen', homeDir: tmp });
+    assert.equal(result.applied, true);
+    const written = JSON.parse(await fs.readFile(path.join(tmp, '.qwen', 'settings.json'), 'utf-8'));
+    assert.equal(written.memory.enableManagedAutoMemory, false);
+    assert.equal(written.memory.enableManagedAutoDream, false);
+    assert.deepEqual(written.tools.exclude, ['save_memory']);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
 });
 
 check('settings paths resolve per tool and nowhere else', () => {

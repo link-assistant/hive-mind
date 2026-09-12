@@ -7,9 +7,13 @@ import path from 'node:path';
 // Issue #2178: memory and auto mode are governed by one cross-tool policy module
 // so `solve` cannot disagree with the Docker image baseline about what "off" means.
 import { CLAUDE_AUTO_MODE_DISABLE_PERMISSIONS, CLAUDE_MEMORY_DISABLE_ENV, CLAUDE_MEMORY_DISABLE_SETTINGS } from './agent-memory-policy.lib.mjs';
+// Issue #2236: the classifier/recap/narration/suggestion/tool-summary calls are
+// governed by the same kind of policy module, for the same reason.
+import { CLAUDE_AUXILIARY_DISABLE_ENV } from './auxiliary-model-calls-policy.lib.mjs';
 
 export const REQUIRED_CLAUDE_QUIET_ENV = Object.freeze({
   ...CLAUDE_MEMORY_DISABLE_ENV,
+  ...CLAUDE_AUXILIARY_DISABLE_ENV,
   CLAUDE_CODE_DISABLE_CRON: '1',
   CLAUDE_CODE_DISABLE_TERMINAL_TITLE: '1',
   CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1',

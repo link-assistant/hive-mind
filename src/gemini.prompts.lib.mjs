@@ -95,7 +95,6 @@ export const buildSystemPrompt = params => {
   const screenshotRepoPath = argv?.fork && forkedRepo ? forkedRepo : `${owner}/${repo}`;
 
   // Issue #2239: the fork-aware example alone did not stop the upstream path from being published
-
   const forkScreenshotLinkWarning = buildForkScreenshotLinkWarning({ isFork: Boolean(argv?.fork && forkedRepo), screenshotRepoPath, upstreamRepoPath: `${owner}/${repo}`, branchName });
 
   let workspaceInstructions = '';

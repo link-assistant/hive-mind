@@ -230,12 +230,17 @@ await test('executeToolIteration restores the PR from a finally block', () => {
   assert(finallyBlock !== -1 && finallyBlock < readyCall, 'the ready conversion must live in a finally block so a crashing AI tool cannot skip it');
 });
 
-await test('solve.mjs marks the PR ready BEFORE the auto-merge watch loop starts', () => {
-  const readyCall = solveSrc.indexOf("reason: 'AI working session finished'");
+await test('solve.mjs ends the AI working session BEFORE the auto-merge watch loop starts', () => {
+  // Issue #2246 moved the transition itself into pr-ready-transition.lib.mjs, where a
+  // mergeable mode defers it until the ready-to-merge state is verified. The session end
+  // still happens here, before a loop that can run for days, and every exit path of that
+  // loop marks the pull request ready for review — which is what #2182 guarantees.
+  const readyCall = solveSrc.indexOf('await endAiSessionReadyTransition(');
   const watchLoop = solveSrc.indexOf('await startAutoRestartUntilMergeable(');
   assert(readyCall !== -1, 'solve.mjs must end the AI working session explicitly');
   assert(watchLoop !== -1, 'the auto-merge watch loop must still be started');
   assert(readyCall < watchLoop, 'the ready conversion must happen before a loop that can run for days (issue #2182)');
+  assert(readSrc('pr-ready-transition.lib.mjs').includes("reason: 'AI working session finished'"), 'the session end must still be the reason the PR is marked ready for review');
 });
 
 await test('the fatal-error path restores pull requests left in draft', () => {

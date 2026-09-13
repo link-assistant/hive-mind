@@ -208,7 +208,9 @@ await test('the auto-merge watch loop self-heals a draft PR', () => {
 });
 
 await test('getMergeBlockers emits a dedicated draft blocker on every path', () => {
-  assert(helpersSrc.includes("type: mergeStatus.isDraft ? 'draft' : 'not_mergeable'"), 'the main path must emit a draft blocker');
+  // Issue #2246 added the `ignoreDraft` option for the one caller that keeps the pull
+  // request in draft on purpose; the draft blocker itself must stay in place otherwise.
+  assert(/type: mergeStatus\.isDraft.*\? 'draft' : 'not_mergeable'/.test(helpersSrc), 'the main path must emit a draft blocker');
   assert(helpersSrc.includes('earlyMergeStatus.isDraft'), 'the no_checks path must emit a draft blocker before its early returns');
 });
 

@@ -7,6 +7,9 @@ import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
 // Issue #2192: send the token preemptively so clones/pushes are never counted
 // against GitHub's anonymous-download budget.
 import { ensureAuthenticatedGitTransport } from './src/git-auth-transport.lib.mjs';
+// Issue #2247 (H9): the single source of truth for which languages a task
+// container can build and run.
+import { listTaskImageLanguages, pickTaskImageLanguage, TASK_IMAGE_BASE } from './src/task-image-languages.lib.mjs';
 
 const use = await ensureUseM();
 
@@ -30,11 +33,11 @@ function generateUUIDv7() {
   return uuid;
 }
 
-// List of programming languages for random selection
-const languages = ['Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'Ruby', 'Java', 'C++', 'C#', 'Swift', 'Kotlin', 'Scala', 'Haskell', 'Elixir', 'Clojure', 'F#', 'OCaml', 'Erlang', 'Julia', 'R', 'PHP', 'Perl', 'Lua', 'Dart', 'Zig', 'Nim', 'Crystal', 'V', 'D', 'Pascal', 'COBOL', 'Fortran', 'Ada', 'Prolog', 'Scheme', 'Racket', 'Common Lisp', 'Elm', 'PureScript', 'ReasonML'];
-
-// Select random language
-const randomLanguage = languages[Math.floor(Math.random() * languages.length)];
+// Issue #2247 (H9): pick only from toolchains the task image actually ships.
+// The old pool held 40 languages; the image has 16 of them. A Scala task was
+// created on 2026-09-13 and the container answered `/bin/sh: 1: scalac: not
+// found` - no tool or model could have finished it.
+const randomLanguage = pickTaskImageLanguage();
 
 // Generate repository name with UUIDv7
 const uuid = generateUUIDv7();
@@ -42,7 +45,7 @@ const repoName = `test-hello-world-${uuid}`;
 
 console.log('🚀 Creating test repository for solve.mjs testing');
 console.log(`📦 Repository: ${repoName}`);
-console.log(`💻 Language: ${randomLanguage}`);
+console.log(`💻 Language: ${randomLanguage} (one of ${listTaskImageLanguages().length} shipped by ${TASK_IMAGE_BASE})`);
 console.log('');
 
 try {

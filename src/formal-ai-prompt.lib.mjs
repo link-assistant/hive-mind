@@ -22,7 +22,12 @@ export const buildFormalAiRepositoryPrompt = params => {
   // the intent-classification request.
   if (feedbackLines?.length && prUrl) lines.push('Review and address all feedback recorded on that pull request.');
 
-  lines.push('', 'Implement and verify the solution before reporting completion.', isContinueMode ? 'Continue.' : 'Proceed.');
+  // Issue #2247 (H6): the Scala reproduction run wrote `Main.scala`, reported
+  // "Created and verified", and left the file untracked — the pull request was
+  // converted to ready with an empty diff. The claude/codex prompts state the
+  // commit/push contract explicitly; this one only said "keep the solution on
+  // branch X", which a model can satisfy without ever running `git commit`.
+  lines.push('', 'Implement and verify the solution before reporting completion.', 'Commit the changes and push them to the branch before reporting completion.', isContinueMode ? 'Continue.' : 'Proceed.');
   return `${lines.join('\n')}\n`;
 };
 

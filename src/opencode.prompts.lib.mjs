@@ -12,6 +12,7 @@ import { buildRequestedBaseBranchDirective } from './solve-option-contract.promp
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
+import { getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
 
 /**
  * Build the user prompt for OpenCode
@@ -213,7 +214,7 @@ Preparing pull request.
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.
-   - When you finish implementation, use gh pr ready ${prNumber}.
+${getPullRequestLifecycleSubPrompt(argv, { prNumber })}
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Regression coverage for issue #2247 (H4).
+ * Regression coverage for issue #2247 (H4 and H10).
  *
  * The 2026-09-13 Kotlin run (`solve --model formal-ai --tool claude` against a
  * fresh `konard/test-hello-world-*` repository) made 547
@@ -15,6 +15,10 @@
  *   2. Playwright MCP was attached to a `--model formal-ai` task that reads its
  *      issue through `gh`/WebFetch and never needs a browser.
  *
+ * A third defect (H10) made the first one hard to diagnose: the *Solution Draft
+ * Failed* comment reported `Prompt is too long`, the provider's reply to a full
+ * context, and said nothing about the 547 clicks that filled it.
+ *
  * @hive-mind-test-suite default
  */
 
@@ -23,7 +27,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-import { buildToolCallSignature, createRepeatedToolCallBreaker, describeRepeatedToolCall, getRepeatedToolCallLimit, REPEATED_TOOL_CALL_LIMIT_DEFAULT } from '../src/repeated-tool-call-breaker.lib.mjs';
+import { buildToolCallSignature, createRepeatedToolCallBreaker, describeRepeatedToolCall, DOMINANT_FAILURE_MIN_COUNT, explainFailureWithToolHistory, getRepeatedToolCallLimit, REPEATED_TOOL_CALL_LIMIT_DEFAULT } from '../src/repeated-tool-call-breaker.lib.mjs';
 import { cascadePlaywrightMcpDisable, shouldSkipPlaywrightMcpForFormalAi, wasPlaywrightMcpRequestedExplicitly } from '../src/playwright-mcp.lib.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -134,6 +138,72 @@ assert.ok(/if \(repeatedToolCallFailure\) \{\n\s+commandFailed = true;\n\s+lastM
 assert.ok(claudeSource.includes('repeatedToolCall: repeatedToolCallFailure'), 'the verdict is carried out to the caller for failure classification');
 
 // ---------------------------------------------------------------------------
+// 2b. Issue #2247 (H10): the failure is classified from the tool-call history
+// before the provider's error string is used.
+//
+// The Kotlin *Solution Draft Failed* comment said `Prompt is too long`. That is
+// what Anthropic replied, but it is the consequence: the context was full
+// because one failing click had been repeated 547 times. A reader given only
+// the provider's string has nothing to act on.
+// ---------------------------------------------------------------------------
+
+const PROMPT_TOO_LONG = 'Prompt is too long';
+
+{
+  // A session that fails without tripping the breaker (the limit was raised, or
+  // the provider gave up first) still names the call it kept failing.
+  const breaker = createRepeatedToolCallBreaker({ limit: 1000 });
+  replayClicks(breaker, 547);
+  assert.equal(breaker.tripped, false, 'this session ends the way the Kotlin run did: the provider stops it');
+
+  const dominant = breaker.dominantFailure();
+  assert.equal(dominant.tool, 'mcp__playwright__browser_click');
+  assert.equal(dominant.count, 547);
+  assert.equal(dominant.error, CLICK_ERROR);
+
+  const reported = explainFailureWithToolHistory({ message: PROMPT_TOO_LONG, dominant });
+  assert.match(reported, /Identical tool call repeated 547 times, failing every time: mcp__playwright__browser_click/, 'the cause comes first');
+  assert.ok(reported.indexOf('repeated 547 times') < reported.indexOf(PROMPT_TOO_LONG), 'the provider error is kept, but after the cause');
+  assert.ok(reported.includes(PROMPT_TOO_LONG), 'nothing the provider said is thrown away');
+}
+
+{
+  // The most frequent failing call wins, and a call that failed once is noise,
+  // not a pattern: a session with no repetition is reported unchanged.
+  const breaker = createRepeatedToolCallBreaker({ limit: 1000 });
+  replayClicks(breaker, 4, { target: '#a' });
+  replayClicks(breaker, 9, { target: '#b' });
+  assert.deepEqual(breaker.dominantFailure().input, { target: '#b' });
+
+  const sparse = createRepeatedToolCallBreaker({ limit: 1000 });
+  replayClicks(sparse, 1, { target: '#a' });
+  replayClicks(sparse, 1, { target: '#b' });
+  assert.equal(sparse.dominantFailure(), null, 'one failure per call is ordinary work, not a loop');
+  assert.equal(explainFailureWithToolHistory({ message: PROMPT_TOO_LONG, dominant: null }), PROMPT_TOO_LONG, 'without a pattern the provider string is the report');
+  assert.equal(DOMINANT_FAILURE_MIN_COUNT, 2);
+  assert.equal(sparse.dominantFailure({ minimum: 1 }).count, 1, 'the threshold is adjustable');
+}
+
+{
+  // Successful calls are not part of the history that explains a failure.
+  const breaker = createRepeatedToolCallBreaker({ limit: 1000 });
+  for (let i = 0; i < 20; i++) {
+    const { id, event } = toolUseEvent({ target: '#ok' });
+    breaker.observe(event);
+    breaker.observe(toolResultEvent(id, { isError: false, content: 'clicked' }));
+  }
+  assert.equal(breaker.dominantFailure(), null);
+}
+
+assert.ok(claudeSource.includes('explainFailureWithToolHistory'), 'the Claude runner classifies from the tool-call history');
+assert.ok(/const dominantToolCallFailure = repeatedToolCallFailure \? null : repeatedToolCallBreaker\.dominantFailure\(\);/.test(claudeSource), 'the history is consulted only when the breaker did not already name the loop');
+assert.ok(claudeSource.includes('dominant: dominantToolCallFailure'), 'the reported errorInfo.message is built from it');
+assert.ok(claudeSource.includes('repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure'), 'callers get the structured verdict either way');
+// The transient-error classifier compares `lastMessage` exactly, so the tool
+// history must not be spliced into it (`lastMessage === \'Request timed out\'`).
+assert.ok(!/lastMessage = explainFailureWithToolHistory/.test(claudeSource), 'the retry classification input is left alone');
+
+// ---------------------------------------------------------------------------
 // 3. Playwright MCP is not attached to a `--model formal-ai` run.
 // ---------------------------------------------------------------------------
 
@@ -163,4 +233,4 @@ assert.equal(wasPlaywrightMcpRequestedExplicitly(['--no-playwright-mcp']), false
   assert.equal(argv.playwrightMcp, undefined, 'a normal run is untouched');
 }
 
-console.log('PASS: issue #2247 (H4) repeated-failing-tool-call breaker and formal-ai Playwright policy');
+console.log('PASS: issue #2247 (H4/H10) repeated-failing-tool-call breaker, failure classification and formal-ai Playwright policy');

@@ -34,6 +34,13 @@ const PENDING_TOOL_USE_LIMIT = 256;
 /** Keep the reason line readable in a GitHub comment. */
 const INPUT_PREVIEW_LENGTH = 200;
 
+/**
+ * Issue #2247 (H10): how often one failing call must recur before it is worth
+ * naming in the failure report. Two is already a pattern the reader needs; the
+ * breaker's own limit (3) is about stopping, this one is about explaining.
+ */
+export const DOMINANT_FAILURE_MIN_COUNT = 2;
+
 /** Separator that cannot occur in a tool name or in JSON output. */
 const SIGNATURE_SEPARATOR = '\u0000';
 
@@ -65,6 +72,25 @@ export const describeRepeatedToolCall = ({ tool, input, count, error = null }) =
   return `Identical tool call repeated ${count} times, failing every time: ${tool}(${inputPreview}).${errorPreview}`;
 };
 
+/**
+ * Issue #2247 (H10): put the cause in front of the consequence.
+ *
+ * The Kotlin run's *Solution Draft Failed* comment said `Prompt is too long`,
+ * which is what the provider replied after 547 identical failing clicks had
+ * filled the context. The provider's error is true and useless; the repeated
+ * call is what the reader has to fix.
+ *
+ * @param {Object} params
+ * @param {string} params.message - the provider's error message
+ * @param {Object|null} [params.dominant] - from `dominantFailure()`
+ * @returns {string}
+ */
+export const explainFailureWithToolHistory = ({ message, dominant = null }) => {
+  if (!dominant) return message;
+  const cause = describeRepeatedToolCall(dominant);
+  return message ? `${cause} The session then ended with: ${message}` : cause;
+};
+
 const asArray = value => (Array.isArray(value) ? value : value ? [value] : []);
 
 const normalizeToolResultError = content => {
@@ -89,6 +115,9 @@ const normalizeToolResultError = content => {
 export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit() } = {}) => {
   const pending = new Map();
   const failures = new Map();
+  // Issue #2247 (H10): the call behind each signature, so a failure report can
+  // name it even when the count stayed below the breaker's limit.
+  const details = new Map();
   let verdict = null;
 
   const rememberToolUse = item => {
@@ -107,8 +136,9 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
     const signature = buildToolCallSignature(call);
     const count = (failures.get(signature) || 0) + 1;
     failures.set(signature, count);
-    if (!(limit > 0) || count < limit) return null;
     const error = normalizeToolResultError(item.content);
+    details.set(signature, { tool: call.name, input: call.input, error });
+    if (!(limit > 0) || count < limit) return null;
     verdict = { tool: call.name, input: call.input, count, limit, error, reason: describeRepeatedToolCall({ tool: call.name, input: call.input, count, error }) };
     return verdict;
   };
@@ -121,6 +151,22 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
       return verdict;
     },
     counts: () => new Map(failures),
+    /**
+     * The failing call this session made most often, when it recurred enough to
+     * be worth reporting.
+     *
+     * @param {Object} [options]
+     * @param {number} [options.minimum]
+     * @returns {{tool: string, input: any, error: string|null, count: number}|null}
+     */
+    dominantFailure({ minimum = DOMINANT_FAILURE_MIN_COUNT } = {}) {
+      let best = null;
+      for (const [signature, count] of failures) {
+        if (best && count <= best.count) continue;
+        best = { ...(details.get(signature) || { tool: 'unknown', input: null, error: null }), count };
+      }
+      return best && best.count >= minimum ? best : null;
+    },
     observe(event) {
       if (verdict) return verdict;
       if (!event || typeof event !== 'object') return null;
@@ -134,4 +180,4 @@ export const createRepeatedToolCallBreaker = ({ limit = getRepeatedToolCallLimit
   };
 };
 
-export default { createRepeatedToolCallBreaker, buildToolCallSignature, describeRepeatedToolCall, getRepeatedToolCallLimit, REPEATED_TOOL_CALL_LIMIT_DEFAULT };
+export default { createRepeatedToolCallBreaker, buildToolCallSignature, describeRepeatedToolCall, explainFailureWithToolHistory, getRepeatedToolCallLimit, DOMINANT_FAILURE_MIN_COUNT, REPEATED_TOOL_CALL_LIMIT_DEFAULT };

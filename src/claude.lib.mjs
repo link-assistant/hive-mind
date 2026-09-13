@@ -35,7 +35,7 @@ import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #21
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
-import { createRepeatedToolCallBreaker } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4)
+import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
@@ -936,6 +936,13 @@ export const executeClaudeCommand = async params => {
         lastMessage = repeatedToolCallFailure.reason;
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
+      // Issue #2247 (H10): the breaker only trips on its own limit, and it can be raised or
+      // switched off (HIVE_MIND_REPEATED_TOOL_CALL_LIMIT). When a session fails without tripping
+      // it, the call it kept failing is still the most useful thing to report.
+      const dominantToolCallFailure = repeatedToolCallFailure ? null : repeatedToolCallBreaker.dominantFailure();
+      if (dominantToolCallFailure) {
+        await log(`🔁 Repeated failing tool call in this session: ${dominantToolCallFailure.tool} x${dominantToolCallFailure.count}`, { verbose: true });
+      }
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1121,7 +1128,13 @@ export const executeClaudeCommand = async params => {
           resultSummary, // Issue #1263: Include result summary
           // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content filtering policy").
           // Issue #1941: a lone "}" fragment at interrupt time must not become "CLAUDE execution failed with }".
-          errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode, repeatedToolCall: repeatedToolCallFailure }, // Issue #2247 (H4)
+          // Issue #2247 (H10): classify from the tool-call history before falling back to the
+          // provider's error string. When the breaker itself tripped, `lastMessage` already holds
+          // the loop; otherwise the history is consulted here so a session that died of
+          // `Prompt is too long` still names the call that filled the context. The explanation is
+          // built at the reporting boundary rather than by mutating `lastMessage`, because the
+          // transient-error classifier above compares that string exactly (`Request timed out`).
+          errorInfo: { message: explainFailureWithToolHistory({ message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), dominant: dominantToolCallFailure }), exitCode, repeatedToolCall: repeatedToolCallFailure || dominantToolCallFailure }, // Issue #2247 (H4/H10)
           subscriptionError, // Issue #2161: terminal account block — /solve stops and preserves the work
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };

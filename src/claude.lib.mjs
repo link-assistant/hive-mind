@@ -35,6 +35,7 @@ import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #21
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
+import { createRepeatedToolCallBreaker } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4)
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
@@ -254,6 +255,12 @@ export const executeClaudeCommand = async params => {
     // reported as the session error, but still available as the last-resort detail for a
     // truncated stream that has nothing better to point at (issue #2023).
     let lastBenignToolResultError = null;
+    // Issue #2247 (H4): set when the same failing tool call has repeated often
+    // enough to be a loop. Applied after the stream ends so it is the reported
+    // reason even if the provider's own error (`Prompt is too long`) arrives
+    // later, which is exactly what hid the loop in the Kotlin run.
+    let repeatedToolCallFailure = null;
+    const repeatedToolCallBreaker = createRepeatedToolCallBreaker();
     // Issue #1590: Track sub-agent calls (Agent tool invocations) for per-call stats
     const subAgentCalls = [];
     // Issue #1590: Map tool_use_id -> subAgentCalls index for accumulating per-call usage from parent_tool_use_id events
@@ -543,6 +550,21 @@ export const executeClaudeCommand = async params => {
                 } else {
                   lastToolResultError = eventFacts.toolResultError;
                   await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
+                }
+              }
+              // Issue #2247 (H4): a session that keeps making the same failing tool
+              // call is not working, it is looping. Stop it here instead of letting
+              // it spend the whole context budget (547 repeats in the Kotlin run).
+              if (!repeatedToolCallFailure) {
+                const toolCallLoop = repeatedToolCallBreaker.observe(data);
+                if (toolCallLoop) {
+                  repeatedToolCallFailure = toolCallLoop;
+                  await log(`\n🛑 ${toolCallLoop.reason}`, { level: 'error' });
+                  await log('   Stopping the session — repeating it cannot make progress (issue #2247).', { level: 'error' });
+                  if (!forceExitTriggered && execCommand?.kill) {
+                    forceExitTriggered = true;
+                    killProcessTree('SIGTERM');
+                  }
                 }
               }
               // Issue #1708: signal busy/idle to the bidirectional handler so
@@ -906,6 +928,14 @@ export const executeClaudeCommand = async params => {
         lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
+      // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what
+      // gets reported. Without this the Kotlin run was filed as `Prompt is too long`,
+      // which described the consequence and hid the cause.
+      if (repeatedToolCallFailure) {
+        commandFailed = true;
+        lastMessage = repeatedToolCallFailure.reason;
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
       const retryableLastError = classifyRetryableError(lastMessage);
       // Issue #1834: Corrupted extended-thinking blocks → try to resume the session first, then fall
       // back to a fresh restart (PR #1835 feedback). When both caps are reached, tryThinkingBlockRecovery
@@ -1091,7 +1121,7 @@ export const executeClaudeCommand = async params => {
           resultSummary, // Issue #1263: Include result summary
           // Issue #1845: surface the core error (e.g. "API Error: Output blocked by content filtering policy").
           // Issue #1941: a lone "}" fragment at interrupt time must not become "CLAUDE execution failed with }".
-          errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode },
+          errorInfo: { message: buildToolErrorMessage({ lastMessage, exitCode, fallback: `Claude command failed with exit code ${exitCode}`, toolLabel: 'Claude' }), exitCode, repeatedToolCall: repeatedToolCallFailure }, // Issue #2247 (H4)
           subscriptionError, // Issue #2161: terminal account block — /solve stops and preserves the work
           queuedFeedback, // Issue #817: Bidirectional mode feedback
         };

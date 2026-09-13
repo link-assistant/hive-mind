@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { ensureUseM } from './use-m-bootstrap.lib.mjs';
+import { isFormalAiModel } from './formal-ai-model.lib.mjs';
 // Playwright MCP session-level disable/restore utilities.
 if (typeof globalThis.use === 'undefined') {
   await ensureUseM();
@@ -445,8 +446,32 @@ export const buildMcpConfigWithoutPlaywright = async log => {
   }
 };
 
+/**
+ * Issue #2247 (H4): the Kotlin reproduction run was a `--model formal-ai --tool
+ * claude` task whose only job was to read an issue through `gh`, write a Hello
+ * World program and push it. Playwright MCP was attached anyway, because it is
+ * on by default, and the session spent its whole context on 547 identical
+ * `mcp__playwright__browser_click` calls before dying with `Prompt is too
+ * long` — nothing was ever written. A browser is not part of that flow, so a
+ * Formal AI task does not get one unless it is asked for on the command line.
+ *
+ * `--playwright-mcp` has `default: true`, so the parsed `argv` cannot tell an
+ * explicit request from the default. The raw arguments can.
+ */
+export const wasPlaywrightMcpRequestedExplicitly = (rawArgs = process.argv.slice(2)) => (Array.isArray(rawArgs) ? rawArgs : []).some(arg => arg === '--playwright-mcp' || String(arg).startsWith('--playwright-mcp='));
+
+export const shouldSkipPlaywrightMcpForFormalAi = ({ argv = {}, rawArgs = process.argv.slice(2) } = {}) => {
+  if (argv.playwrightMcp === false) return false;
+  if (!isFormalAiModel(argv.model)) return false;
+  return !wasPlaywrightMcpRequestedExplicitly(rawArgs);
+};
+
 /** Cascade --no-playwright-mcp to disable related flags */
-export const cascadePlaywrightMcpDisable = async (argv, log) => {
+export const cascadePlaywrightMcpDisable = async (argv, log, { rawArgs = process.argv.slice(2) } = {}) => {
+  if (shouldSkipPlaywrightMcpForFormalAi({ argv, rawArgs })) {
+    argv.playwrightMcp = false;
+    if (log) await log('🎭 Playwright MCP not attached: --model formal-ai reads issues through gh/WebFetch and needs no browser (issue #2247). Pass --playwright-mcp to attach it anyway.');
+  }
   if (argv.playwrightMcp === false) {
     if (log) await log('🎭 Playwright MCP physically disabled via --no-playwright-mcp', { verbose: true });
     argv.promptPlaywrightMcp = false;

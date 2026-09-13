@@ -158,6 +158,7 @@ const ignoredWithReason = [
   ['https://www.npmjs.com/package/@link-assistant/hive-mind', '403 to any client, bot protection'],
   ['https://claude.ai/code', '403 to any client, bot protection'],
   ['https://github.com/link-assistant/hive-mind/stargazers', '404 unless signed in; GitHub gates the stargazers list behind login for every public repository'],
+  ['https://github.com/Time0utXC/digitalstructures.pro/pull/4', 'private repository: 404 to any signed-out client, quoted as the evidence of issue #2246'],
 ];
 
 const ignorePatterns = readFileSync(join(repoRoot, '.lycheeignore'), 'utf8')

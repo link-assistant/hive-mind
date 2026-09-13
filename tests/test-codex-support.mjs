@@ -878,7 +878,8 @@ await asyncTest('Agent resume uses --resume with --no-fork to preserve the same 
 
   assert.equal(result.success, true);
   assert.ok(
-    commands.some(command => command.includes('agent --model opencode/grok-code --resume session-agent-1666 --no-fork')),
+    // Issue #2247 (H5): the two `--no-*` atoms sit between `--model` and `--resume`.
+    commands.some(command => command.includes('agent --model opencode/grok-code --no-summarize-session --no-generate-title --resume session-agent-1666 --no-fork')),
     `Expected --resume --no-fork command, got: ${commands.join('\n')}`
   );
 });

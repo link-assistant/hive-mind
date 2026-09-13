@@ -1,5 +1,14 @@
 # @link-assistant/hive-mind
 
+## 2.28.1
+
+### Patch Changes
+
+- c57a3c4: Update all Docker variants to Box 2.10.2 after the upstream multi-architecture
+  publishing fix, align the image runtime floor with its Node.js 24.21.0 and Bun
+  1.4.2 toolchains, and refresh Formal AI, Agent, use-m, Sentry, and development
+  dependencies.
+
 ## 2.28.0
 
 ### Minor Changes

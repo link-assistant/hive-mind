@@ -3,6 +3,9 @@
 // record their exhaustion in this shared module, so the run exits non-zero
 // instead of reporting success with the blocker still unresolved.
 import { getAutoRestartLimitFailure, hasAutoRestartLimitFailure } from './auto-restart-exhaustion.lib.mjs';
+// Issue #2247 (H3): stopping because two consecutive sessions were identical is
+// a failure for the same reason an exhausted budget is - the task is unfinished.
+import { getNoProgressFailure, hasNoProgressFailure } from './session-progress.lib.mjs';
 
 export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, getLogFile, log, closeSentry, logActiveHandles, cleanupTempDirectory, safeExit }) {
   const runFinalizationStep = async (label, step) => {
@@ -43,6 +46,16 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     await log(`\n❌ Auto-restart limit reached after ${failure.iterationsUsed} iteration${failure.iterationsUsed !== 1 ? 's' : ''} - the blocker was never resolved.`, { level: 'error' });
     await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
     await safeExit(1, 'Auto-restart limit reached');
+    return;
+  }
+
+  // Issue #2247 (H3): the run stopped early on purpose, with restart budget left
+  // over, because repeating an identical session cannot finish the task either.
+  if (hasNoProgressFailure()) {
+    const failure = getNoProgressFailure();
+    await log('\n❌ Stopped after two consecutive AI sessions produced identical results - no restart can make progress.', { level: 'error' });
+    await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
+    await safeExit(1, 'No progress between sessions');
     return;
   }
 

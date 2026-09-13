@@ -92,8 +92,11 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // sessions and the two loops published incompatible progress labels
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+// Issue #2247 (H3): a restart is only worth its cost when the previous session
+// changed something. Five byte-identical sessions is a stall, not progress.
+const { failOnNoProgressBetweenSessions, getLastSessionProgress } = await import('./session-progress.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #1895: explicitly close linked issues after merging a PR into a
@@ -782,6 +785,30 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
             subsystem: 'auto-restart-until-mergeable',
           });
           return { success: false, reason: exhaustion.reason, latestSessionId, latestAnthropicCost };
+        }
+
+        // Issue #2247 (H3): the previous session ended exactly like the one
+        // before it - same final message, same working tree, same commit. The
+        // Rust reproduction run spent five iterations that way. Stop here and
+        // leave the rest of the budget unspent rather than buy the same session
+        // again.
+        const sessionProgress = getLastSessionProgress();
+        if (sessionProgress?.repeated) {
+          const stall = await failOnNoProgressBetweenSessions({
+            owner,
+            repo,
+            prNumber,
+            tempDir,
+            branchName: prBranch || branchName,
+            $,
+            log,
+            formatAligned,
+            verdict: sessionProgress,
+            mode: 'auto-restart-until-mergeable',
+            remainingIterations: getRemainingAutoRestartIterations(),
+            verbose: argv.verbose,
+          });
+          return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
         }
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility

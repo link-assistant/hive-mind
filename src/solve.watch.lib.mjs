@@ -64,6 +64,9 @@ const { interruptibleSleep } = await import('./interruptible-sleep.lib.mjs');
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
 const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+// Issue #2247 (H3): the Scala reproduction run restarted five times, each
+// session byte-identical to the last, and committed nothing in any of them.
+const { failOnNoProgressBetweenSessions, getLastSessionProgress } = await import('./session-progress.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
@@ -143,6 +146,8 @@ export const watchForFeedback = async params => {
   let firstIterationInTemporaryMode = isTemporaryWatch;
   // Issue #2119: set when the budget runs out, so the caller learns the run failed.
   let budgetExhaustion = null;
+  // Issue #2247 (H3): set when the loop stopped because two sessions were identical.
+  let noProgressStop = null;
 
   while (true) {
     iteration++;
@@ -318,6 +323,29 @@ export const watchForFeedback = async params => {
             await log(formatAligned('', `• ${line}`, '', 4));
           }
           await log('');
+
+          // Issue #2247 (H3): the previous session ended exactly like the one
+          // before it, so re-running it would leave these same changes
+          // uncommitted a sixth time. Stop, preserve the work, and leave the
+          // remaining budget unspent.
+          const sessionProgress = getLastSessionProgress();
+          if (sessionProgress?.repeated) {
+            noProgressStop = await failOnNoProgressBetweenSessions({
+              owner,
+              repo,
+              prNumber,
+              tempDir,
+              branchName: prBranch || branchName,
+              $,
+              log,
+              formatAligned,
+              verdict: sessionProgress,
+              mode: 'watch',
+              remainingIterations: getRemainingAutoRestartIterations(),
+              verbose: argv.verbose,
+            });
+            break;
+          }
 
           // Issue #2119: claim one iteration from the run-wide budget shared with
           // the auto-merge restart loop.
@@ -793,8 +821,10 @@ export const watchForFeedback = async params => {
     lastIterationLogUploaded, // True if the last iteration's logs were uploaded
     // Issue #2119: false when the shared auto-restart budget ran out, so the run
     // is reported as failed instead of silently exiting with work still pending.
-    success: !budgetExhaustion,
-    reason: budgetExhaustion?.reason || null,
+    success: !budgetExhaustion && !noProgressStop,
+    // Issue #2247 (H3): stopping for lack of progress is a failure too - the
+    // task is unfinished, the run just refused to pay for a sixth identical try.
+    reason: budgetExhaustion?.reason || noProgressStop?.reason || null,
     autoRestartLimitReached: Boolean(budgetExhaustion),
   };
 };

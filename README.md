@@ -385,6 +385,8 @@ solve <issue-url> [options]
 
 > **📖 Full options list**: See [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options) for all available options including forking, auto-continue, watch mode, and experimental features.
 
+> **🚦 Pull request status**: by default solve keeps the pull request a **draft** until it has verified that the pull request is mergeable, and only then marks it ready for review and posts a `✅ Ready to merge` comment. Merging before that signal discards AI work that is still in progress — see [docs/PULL-REQUEST-STATUS.md](./docs/PULL-REQUEST-STATUS.md).
+
 ## 🔧 hive Options
 
 ```bash

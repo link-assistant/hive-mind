@@ -1,0 +1,14 @@
+---
+'@link-assistant/hive-mind': minor
+---
+
+Keep a pull request in draft until hive-mind has verified it is mergeable, and tell the user what the state means (issue #2246).
+
+In `Time0utXC/digitalstructures.pro#4` a user merged the pull request while the AI was still working on it, losing the work in progress. Nothing in the pull request said that hive-mind was going to keep working until every CI/CD check passed, and the pull request was not a draft: the tool prompts told the AI worker to run `gh pr ready <n>` as its last step, and `solve.mjs` marked the pull request ready for review *before* starting the `--auto-restart-until-mergeable` monitoring loop.
+
+- **`src/pr-readiness-policy.lib.mjs` is the single definition of the operating mode** (`--auto-merge`, `--auto-restart-until-mergeable`, or a single working session) and of the user-facing text for it. The notice — which state to expect, and that the `✅ Ready to merge` comment is the signal to wait for before reviewing or merging — is embedded in the pull request body at creation, and its one-line form goes into every work-session start/end comment.
+- **The draft state is now owned by hive-mind end to end.** A "ready hold" in `src/pr-draft-state.lib.mjs` turns any non-forced ready-for-review transition into a draft re-assertion, so a pull request that an AI worker (or a human) takes out of draft mid-run is put back. The hold is engaged when a mergeable mode starts monitoring and released only when the ready-to-merge state is verified, or on an exit path — the "a finished session never leaves a draft" invariant of #2182 is preserved.
+- **Leaving draft is now part of reaching the ready-to-merge state.** The watch loop asks for mergeability with `ignoreDraft` while the draft is intentional, and once the pull request is mergeable it takes it out of draft and re-verifies strictly, because GitHub hides `BLOCKED`/`BEHIND`/`UNSTABLE` behind `mergeStateStatus: DRAFT`. The `✅ Ready to merge` comment states the transition.
+- **The tool prompts no longer ask the AI to change the pull request state.** All six builders now share `getPullRequestLifecycleSubPrompt()`, which says the draft/ready state is handled by the Hive Mind system, and that the goal of the work is a mergeable pull request: every CI/CD check must pass, including the ones that look unrelated to the issue.
+- **`gh pr create --draft` is verified instead of assumed**: the post-create check now reads `isDraft` and converts the pull request if the repository ignored the flag.
+- **The behaviour is documented for the user**: `docs/PULL-REQUEST-STATUS.md` (with its `zh`/`hi`/`ru` translations) explains the three states, the three modes, who owns the draft flag and how to read a state you did not expect; the READMEs and `docs/CONFIGURATION.md` link to it.

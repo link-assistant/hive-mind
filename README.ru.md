@@ -379,6 +379,8 @@ solve <issue-url> [options]
 
 > **📖 Полный список параметров**: см. [docs/CONFIGURATION.ru.md](./docs/CONFIGURATION.ru.md#solve-options), включая форкинг, автопродолжение, режим наблюдения и экспериментальные функции.
 
+> **🚦 Состояние pull request**: по умолчанию solve держит pull request **черновиком**, пока не убедится, что его можно влить, и только затем помечает его готовым к ревью и публикует комментарий `✅ Ready to merge`. Слияние до этого сигнала уничтожает незавершённую работу ИИ — см. [docs/PULL-REQUEST-STATUS.ru.md](./docs/PULL-REQUEST-STATUS.ru.md).
+
 ## 🔧 Параметры hive
 
 ```bash

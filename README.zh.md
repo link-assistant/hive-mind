@@ -379,6 +379,8 @@ solve <issue-url> [options]
 
 > **📖 完整选项列表**：包含 Fork、自动续行、监视模式及实验性功能在内的所有可用选项，请参见 [docs/CONFIGURATION.zh.md](./docs/CONFIGURATION.zh.md#solve-options)。
 
+> **🚦 Pull request 状态**：默认情况下，solve 会让 pull request 保持**草稿**状态，直到它验证该 pull request 可以合并，之后才将其标记为准备好评审并发布 `✅ Ready to merge` 评论。在该信号出现之前合并，会丢弃仍在进行中的 AI 工作 —— 参见 [docs/PULL-REQUEST-STATUS.zh.md](./docs/PULL-REQUEST-STATUS.zh.md)。
+
 ## 🔧 hive 选项
 
 ```bash

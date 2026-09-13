@@ -12,12 +12,13 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 import crypto from 'crypto';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { lookup as lookupHost } from 'node:dns/promises';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
 // The image references live in their own module so the Formal AI sidecar can
@@ -57,6 +58,12 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. The parent releases the gate immediately after `docker inspect --size`; the fallback keeps the task from hanging forever if the parent exits at the wrong time.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
+// `docker inspect --size` asks the storage driver to walk the writable layer and
+// can block indefinitely even while ordinary inspect calls remain responsive.
+// Keep this below the child's 30-second fallback gate so an optional disk metric
+// can never hold the launch lifecycle open (issue #2244).
+export const DOCKER_SIZE_INSPECT_TIMEOUT_MS = 10_000;
+const execFileAsync = promisify(execFile);
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -256,7 +263,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, verbose = false } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -277,6 +284,15 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  // Box normally redirects dockerd into /var/log/dockerd.log inside the task
+  // container. That file was unavailable after issue #2244's startup SIGKILL,
+  // leaving only the entrypoint's first line in the preserved session log.
+  // Opt-in verbose mode redirects the daemon to container stderr so the next
+  // startup failure retains its root-cause evidence; quiet runs are unchanged.
+  const dindDiagnosticsEnabled = verbose || args.includes('--verbose');
+  if (dindDiagnosticsEnabled && shouldRunPrivilegedDockerIsolation(image, env)) {
+    startArgs.push('-e', 'DIND_LOG_FILE=/dev/stderr');
+  }
   // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
@@ -789,14 +805,22 @@ export function parseDockerContainerWritableLayerSizeOutput(output) {
  *
  * @param {string} containerName - Container name (the session UUID)
  * @param {boolean} [verbose] - Enable verbose logging
+ * @param {Object} [options] - Test/timeout overrides
+ * @param {number} [options.timeoutMs] - Maximum Docker inspection duration
+ * @param {Function} [options.execFileImpl] - Injectable execFile implementation
  * @returns {Promise<number|null>} Writable layer bytes, or null when unavailable.
  */
-export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
+export async function getDockerContainerWritableLayerSize(containerName, verbose = false, options = {}) {
   if (!containerName) return null;
+  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : DOCKER_SIZE_INSPECT_TIMEOUT_MS;
+  const execFileImpl = options.execFileImpl || execFileAsync;
   try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
-    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
+    const result = await execFileImpl('docker', ['inspect', '--size', '-f', '{{.SizeRw}}', containerName], {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      maxBuffer: 4096,
+    });
+    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout || '');
     if (verbose) {
       const label = bytes === null ? 'unknown' : `${bytes} bytes`;
       console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
@@ -805,7 +829,12 @@ export async function getDockerContainerWritableLayerSize(containerName, verbose
   } catch (error) {
     if (verbose) {
       const stderr = error?.stderr?.toString?.().trim();
-      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+      const timedOut = error?.killed === true || error?.code === 'ETIMEDOUT';
+      if (timedOut) {
+        console.log(`[VERBOSE] isolation-runner: docker writable layer inspection for '${containerName}' timed out after ${timeoutMs}ms; start gate will still be released`);
+      } else {
+        console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
+      }
     }
     return null;
   }

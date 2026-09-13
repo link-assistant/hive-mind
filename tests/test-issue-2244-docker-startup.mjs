@@ -9,7 +9,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { DOCKER_SIZE_INSPECT_TIMEOUT_MS, getDockerContainerWritableLayerSize } from '../src/isolation-runner.lib.mjs';
+import { buildDockerIsolationStartArgs, DOCKER_SIZE_INSPECT_TIMEOUT_MS, getDockerContainerWritableLayerSize } from '../src/isolation-runner.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -71,6 +71,22 @@ await test('an invalid Docker size remains an unavailable best-effort metric', a
     execFileImpl: async () => ({ stdout: 'not-a-size\n', stderr: '' }),
   });
   assert.equal(bytes, null);
+});
+
+await test('verbose DinD launches expose daemon startup logs without changing the default', () => {
+  const launchArgs = (verbose, args = ['https://example.test/issues/2244']) =>
+    buildDockerIsolationStartArgs('solve', args, {
+      sessionId: `issue-2244-${verbose ? 'verbose' : 'quiet'}`,
+      tool: 'claude',
+      verbose,
+      env: { HIVE_MIND_IMAGE_VARIANT: 'dind' },
+      homeDir: '/missing',
+      existsSync: () => false,
+    });
+
+  assert.equal(launchArgs(false).includes('DIND_LOG_FILE=/dev/stderr'), false);
+  assert.equal(launchArgs(true).includes('DIND_LOG_FILE=/dev/stderr'), true);
+  assert.equal(launchArgs(false, ['https://example.test/issues/2244', '--verbose']).includes('DIND_LOG_FILE=/dev/stderr'), true);
 });
 
 console.log(`issue #2244 Docker startup: ${passed} passed, ${failed} failed`);

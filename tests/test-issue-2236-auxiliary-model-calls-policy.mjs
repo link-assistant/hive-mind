@@ -68,10 +68,14 @@ check('every policy tool either has a knob or is recorded as already compliant',
   for (const tool of AUXILIARY_MODEL_CALLS_POLICY_TOOLS) {
     assert.notEqual(describeAuxiliaryModelCallsPolicy(tool), 'no policy recorded for this tool', `${tool} needs either a knob or a TOOLS_ALREADY_COMPLIANT entry`);
   }
-  // `agent` is @link-assistant/agent: --generate-title already defaults to false
-  // and --summarize-session already defaults to true. Changing this list means
-  // re-reading its run-options, not just editing the array.
-  assert.deepEqual([...TOOLS_ALREADY_COMPLIANT], ['agent'], 'agent was checked and already ships with non-essential model calls off');
+  // `agent` used to be the single entry here, on the reading that
+  // --generate-title already defaults to false and --summarize-session is
+  // summarization, which this policy keeps. Issue #2247 falsified both halves:
+  // --summarize-session gates SessionSummary.summarizeMessage, not compaction,
+  // and its calls go to the compaction-model cascade rather than to --model.
+  // Adding a tool back here means re-reading its run-options, not just editing
+  // the array.
+  assert.deepEqual([...TOOLS_ALREADY_COMPLIANT], [], 'no tool has been verified as shipping with non-essential model calls already off');
 });
 
 // ---------------------------------------------------------------------------

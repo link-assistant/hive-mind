@@ -48,6 +48,8 @@ Swift|swift --version
 PHP|php --version
 Perl|perl --version
 R|Rscript --version
+OCaml|ocaml -version
+Fortran|gfortran --version
 PROBES
 
 echo
@@ -60,7 +62,6 @@ Scala|command -v scalac
 Haskell|command -v ghc
 Elixir|command -v elixir
 Clojure|command -v clojure
-OCaml|command -v ocaml
 Erlang|command -v erl
 Julia|command -v julia
 Lua|command -v lua
@@ -70,7 +71,6 @@ Nim|command -v nim
 Crystal|command -v crystal
 Pascal|command -v fpc
 COBOL|command -v cobc
-Fortran|command -v gfortran
 Ada|command -v gnat
 Prolog|command -v swipl
 Racket|command -v racket

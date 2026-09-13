@@ -13,9 +13,10 @@
  * assembly, cpp, dotnet, go, java, js, kotlin, lean, perl, php, python, r,
  * rocq, ruby, rust and swift (one `ubuntu/24.04` Dockerfile each in
  * link-foundation/box), with .NET, R, cmake/clang/llvm and nasm added by apt in
- * the full-box Dockerfile. Twenty-six of the forty languages in the old pool
- * were in the same position as Scala - the task could not have succeeded
- * whichever tool or model ran it.
+ * the full-box Dockerfile - plus OCaml, which arrives with the `rocq` stage's
+ * opam switch, and gfortran, which comes with gcc. Twenty-three of the forty
+ * languages in the old pool were in the same position as Scala - the task could
+ * not have succeeded whichever tool or model ran it.
  *
  * Both sides now read this list: the pool `create-test-repo.mjs` draws from is
  * this list, so a task is only ever created for a toolchain the image ships.
@@ -29,7 +30,10 @@ export const TASK_IMAGE_BASE = 'ghcr.io/link-foundation/box:2.10.2';
 /**
  * Languages the task image can compile and run, each with the command that
  * proves it. `experiments/verify-task-image-languages.sh` runs every probe
- * inside the image.
+ * inside the image; `experiments/verify-task-image-hello-world.sh` goes further
+ * and requires each one to actually compile and print `Hello, World!`, which is
+ * how OCaml and Fortran - present in box, absent from box's own language-stage
+ * list - were found and kept.
  */
 export const TASK_IMAGE_LANGUAGES = [
   { name: 'JavaScript', probe: 'node --version' },
@@ -48,6 +52,8 @@ export const TASK_IMAGE_LANGUAGES = [
   { name: 'PHP', probe: 'php --version' },
   { name: 'Perl', probe: 'perl --version' },
   { name: 'R', probe: 'Rscript --version' },
+  { name: 'OCaml', probe: 'ocaml -version' },
+  { name: 'Fortran', probe: 'gfortran --version' },
 ];
 
 /**
@@ -55,7 +61,7 @@ export const TASK_IMAGE_LANGUAGES = [
  * deleted so the next reader can see that the omission is deliberate and what
  * would have to change in box for the language to come back.
  */
-export const LANGUAGES_WITHOUT_TASK_IMAGE_TOOLCHAIN = ['Scala', 'Haskell', 'Elixir', 'Clojure', 'OCaml', 'Erlang', 'Julia', 'Lua', 'Dart', 'Zig', 'Nim', 'Crystal', 'V', 'D', 'Pascal', 'COBOL', 'Fortran', 'Ada', 'Prolog', 'Scheme', 'Racket', 'Common Lisp', 'Elm', 'PureScript', 'ReasonML'];
+export const LANGUAGES_WITHOUT_TASK_IMAGE_TOOLCHAIN = ['Scala', 'Haskell', 'Elixir', 'Clojure', 'Erlang', 'Julia', 'Lua', 'Dart', 'Zig', 'Nim', 'Crystal', 'V', 'D', 'Pascal', 'COBOL', 'Ada', 'Prolog', 'Scheme', 'Racket', 'Common Lisp', 'Elm', 'PureScript', 'ReasonML'];
 
 /** Just the names, in pool order. */
 export const listTaskImageLanguages = () => TASK_IMAGE_LANGUAGES.map(language => language.name);

@@ -338,7 +338,10 @@ check('every tool description mentions something concrete', () => {
   assert.match(describeAuxiliaryModelCallsPolicy('gemini'), /skipNextSpeakerCheck/);
   assert.match(describeAuxiliaryModelCallsPolicy('qwen'), /emitToolUseSummaries/);
   assert.match(describeAuxiliaryModelCallsPolicy('opencode'), /"title":\{"disable":true\}/);
-  assert.match(describeAuxiliaryModelCallsPolicy('agent'), /already off/);
+  // Revised by issue #2247 (H5): `agent` was recorded as already compliant
+  // because `--generate-title` defaults to false, but `SessionSummary` makes the
+  // calls anyway after every user message.
+  assert.match(describeAuxiliaryModelCallsPolicy('agent'), /--no-summarize-session --no-generate-title/);
 });
 
 console.log(`\n🔕 ${passed} issue-2236 assertions passed`);

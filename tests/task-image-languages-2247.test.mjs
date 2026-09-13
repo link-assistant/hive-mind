@@ -11,12 +11,13 @@
  *     /bin/sh: 1: scala: not found         (line 5548)
  *
  * The image is built `FROM ghcr.io/link-foundation/box:2.10.2` and box ships no
- * Scala toolchain - twenty-five other languages in that pool were in the same
+ * Scala toolchain - twenty-two other languages in that pool were in the same
  * position. The task was impossible before any AI tool was chosen.
  *
  * `experiments/verify-task-image-languages.sh` runs one probe per language
- * inside the image itself; this test keeps the published list and its consumer
- * in agreement without needing Docker.
+ * inside the image itself, and `experiments/verify-task-image-hello-world.sh`
+ * compiles and runs a Hello World for each; this test keeps the published list
+ * and its consumers in agreement without needing Docker.
  *
  * @hive-mind-test-suite default
  */
@@ -55,8 +56,8 @@ for (const language of TASK_IMAGE_LANGUAGES) {
 }
 
 // Languages box does ship, spot-checked against its own Dockerfile stages.
-for (const shipped of ['Kotlin', 'Java', 'Rust', 'Go', 'Python', 'Swift', 'PHP', 'Perl', 'Ruby', 'C#']) {
-  assert.equal(isLanguageSupportedByTaskImage(shipped), true, `box has a ${shipped} stage`);
+for (const shipped of ['Kotlin', 'Java', 'Rust', 'Go', 'Python', 'Swift', 'PHP', 'Perl', 'Ruby', 'C#', 'OCaml', 'Fortran']) {
+  assert.equal(isLanguageSupportedByTaskImage(shipped), true, `${shipped} compiles and runs a Hello World in ${TASK_IMAGE_BASE}`);
 }
 
 // Matching is case- and whitespace-insensitive, since the name travels through

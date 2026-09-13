@@ -30,7 +30,7 @@ const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 // Import GitHub merge functions
 const githubMergeLib = await import('./github-merge.lib.mjs');
-const { mergePullRequest, getRepoVisibility, BILLING_LIMIT_ERROR_PATTERN, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
+const { mergePullRequest, getDetailedCIStatus, rerunWorkflowRun, getWorkflowRunsForSha, getAllActiveRepoRuns, checkCIConsensus } = githubMergeLib;
 // Issue #2182: guard rails for this loop (wall-clock ceiling, draft self-heal,
 // classified merge failures). See solve.auto-merge-guards.lib.mjs.
 const autoMergeGuards = await import('./solve.auto-merge-guards.lib.mjs');
@@ -92,11 +92,12 @@ const { formatAutoIterationLimit, hasReachedAutoIterationLimit, normalizeAutoIte
 // sessions and the two loops published incompatible progress labels
 // ("Auto-restart triggered (iteration 1)" vs "Auto-restart 1/5 Log").
 const autoRestartBudget = await import('./auto-restart-budget.lib.mjs');
-const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, getRemainingAutoRestartIterations, hasExhaustedAutoRestartBudget } = autoRestartBudget;
+const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLabel, formatAutoRestartLimit, hasExhaustedAutoRestartBudget } = autoRestartBudget;
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
+const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs');
 // Issue #2247 (H3): a restart is only worth its cost when the previous session
 // changed something. Five byte-identical sessions is a stall, not progress.
-const { failOnNoProgressBetweenSessions, getLastSessionProgress } = await import('./session-progress.lib.mjs');
+const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
 // Issue #1895: explicitly close linked issues after merging a PR into a
@@ -545,65 +546,13 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push('');
         feedbackLines.push('Please re-read the updated issue and make sure your solution still matches the requirements.');
       }
-      // Issue #1314: Check for billing limit errors BEFORE regular CI failures
-      // Billing limits require human intervention and should NOT trigger AI restarts
+      // Issue #1314: a billing limit is checked before regular CI failures,
+      // because it needs a human, not an AI restart.
       const billingBlocker = blockers.find(b => b.type === 'billing_limit');
       if (billingBlocker) {
-        await log('');
-        await log(formatAligned('💳', 'GITHUB ACTIONS BILLING LIMIT DETECTED', ''));
-        await log(formatAligned('', 'Affected jobs:', billingBlocker.details.join(', '), 2));
-        await log(formatAligned('', 'All jobs affected:', billingBlocker.allJobsAffected ? 'Yes' : 'No', 2));
-        await log('');
-        // Check if this is a private repository
-        const repoInfo = await getRepoVisibility(owner, repo, argv.verbose);
-        if (repoInfo.isPrivate) {
-          // For private repos, human intervention is required - stop and post comment
-          await log(formatAligned('🛑', 'STOPPING', 'Private repository - billing limit requires human intervention'));
-          await log(formatAligned('', 'Action required:', "Check the 'Billing & plans' section in your GitHub settings", 2));
-          // Post comment explaining the billing limit issue
-          try {
-            const commentBody = `## 💳 GitHub Actions Billing Limit Reached
-
-The CI/CD jobs could not start due to billing/spending limits.
-
-**Affected jobs:**
-${billingBlocker.details.map(j => `- ${j}`).join('\n')}
-
-**Error message:**
-> ${billingBlocker.billingMessage || BILLING_LIMIT_ERROR_PATTERN}
-
-**Action Required:**
-Please check the 'Billing & plans' section in your GitHub settings and either:
-1. Add or update your payment method
-2. Increase your spending limit
-3. Wait for the free tier limits to reset (if applicable)
-
-Once the billing issue is resolved, you can re-run the CI checks or push a new commit to trigger a new run.
-
----
-*Detected by hive-mind with --auto-restart-until-mergeable flag. This is NOT a code issue - human intervention is required.*`;
-            await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-            await log(formatAligned('', '💬 Posted billing limit notification to PR', '', 2));
-          } catch (commentError) {
-            reportError(commentError, {
-              context: 'post_billing_limit_comment',
-              owner,
-              repo,
-              prNumber,
-              operation: 'comment_on_pr',
-            });
-            await log(formatAligned('', '⚠️  Could not post comment to PR', '', 2));
-          }
-          return { success: false, reason: 'billing_limit', latestSessionId, latestAnthropicCost };
-        } else {
-          // For public repos (unusual case), apply exponential backoff and wait
-          // Public repos typically have unlimited free CI, so this is unexpected
-          await log(formatAligned('⏳', 'Public repository with billing limit (unusual)', 'Applying exponential backoff'));
-          await log(formatAligned('', 'Next check in:', `${currentBackoffSeconds} seconds`, 2));
-          // Don't trigger AI restart - just wait and check again
-          // The backoff will be applied at the end of the loop
-          currentBackoffSeconds = Math.min(currentBackoffSeconds * 2, 3600); // Max 1 hour
-        }
+        const billing = await handleBillingLimitBlocker({ blocker: billingBlocker, owner, repo, prNumber, $, log, formatAligned, postComment: postTrackedComment, reportError, backoffSeconds: currentBackoffSeconds, verbose: argv.verbose });
+        currentBackoffSeconds = billing.backoffSeconds;
+        if (billing.stopped) return { success: false, reason: 'billing_limit', latestSessionId, latestAnthropicCost };
       }
       // Issue #1314: Handle cancelled CI/CD checks - re-trigger them instead of restarting AI
       // Cancelled checks (e.g., manually cancelled, cancelled by another workflow) should be
@@ -792,24 +741,8 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
         // Rust reproduction run spent five iterations that way. Stop here and
         // leave the rest of the budget unspent rather than buy the same session
         // again.
-        const sessionProgress = getLastSessionProgress();
-        if (sessionProgress?.repeated) {
-          const stall = await failOnNoProgressBetweenSessions({
-            owner,
-            repo,
-            prNumber,
-            tempDir,
-            branchName: prBranch || branchName,
-            $,
-            log,
-            formatAligned,
-            verdict: sessionProgress,
-            mode: 'auto-restart-until-mergeable',
-            remainingIterations: getRemainingAutoRestartIterations(),
-            verbose: argv.verbose,
-          });
-          return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
-        }
+        const stall = await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'auto-restart-until-mergeable', verbose: argv.verbose });
+        if (stall) return { success: false, reason: stall.reason, latestSessionId, latestAnthropicCost };
 
         // Add standard instructions for auto-restart-until-mergeable mode using shared utility
         feedbackLines.push(...buildAutoRestartInstructions());

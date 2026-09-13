@@ -204,17 +204,23 @@ assert.ok(restartShared.includes('const sessionProgress = await captureSessionOu
 const solveMain = await read('src/solve.mjs');
 assert.ok(/captureSessionOutcome\(\{ tempDir, toolResult, \$, log, logFile: getLogFile\(\), label: 'Primary session' \}\)/.test(solveMain), 'the primary session is fingerprinted too, so the first restart can already be refused');
 
+// Both loops ask the same question through the same helper, which reads the
+// verdict and the unspent budget itself.
+const sessionProgressSource = await read('src/session-progress.lib.mjs');
+assert.ok(sessionProgressSource.includes('export const stopWhenSessionRepeated'), 'the guard the restart loops share');
+assert.ok(sessionProgressSource.includes('const verdict = getLastSessionProgress();'), 'it reads the verdict of the session that just ran');
+assert.ok(sessionProgressSource.includes('if (!verdict?.repeated) return null;'), 'and lets a session that differed from the last one through');
+assert.ok(sessionProgressSource.includes('remainingIterations: getRemainingAutoRestartIterations()'), 'and reports the budget left unused');
+
 for (const [file, mode] of [
   ['src/solve.watch.lib.mjs', 'watch'],
   ['src/solve.auto-merge.lib.mjs', 'auto-restart-until-mergeable'],
 ]) {
   const source = await read(file);
-  assert.ok(source.includes('failOnNoProgressBetweenSessions'), `${file} stops on a repeated session`);
-  assert.ok(source.includes('const sessionProgress = getLastSessionProgress();'), `${file} reads the verdict of the session it just ran`);
+  assert.ok(source.includes('stopWhenSessionRepeated({'), `${file} stops on a repeated session`);
   assert.ok(source.includes(`mode: '${mode}'`), `${file} names itself in the stop comment`);
-  assert.ok(source.includes('remainingIterations: getRemainingAutoRestartIterations()'), `${file} reports the budget it left unused`);
   // The check must come before the budget is charged for another iteration.
-  assert.ok(source.indexOf('failOnNoProgressBetweenSessions({') < source.indexOf('consumeAutoRestartIteration();', source.indexOf('failOnNoProgressBetweenSessions({')), `${file} stops before claiming another iteration`);
+  assert.ok(source.indexOf('stopWhenSessionRepeated({') < source.indexOf('consumeAutoRestartIteration();', source.indexOf('stopWhenSessionRepeated({')), `${file} stops before claiming another iteration`);
 }
 
 const finalize = await read('src/solve.finalize.lib.mjs');

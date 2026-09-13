@@ -42,6 +42,7 @@ import { createHash } from 'node:crypto';
 import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
 import { filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { reportAutomationStop } from './automation-stop-reporting.lib.mjs';
+import { getRemainingAutoRestartIterations } from './auto-restart-budget.lib.mjs';
 
 /** Stop reason published through the #2144 automation-stop registry. */
 export const NO_PROGRESS_STOP_REASON = 'no_progress_between_sessions';
@@ -271,4 +272,23 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
   return noProgressFailure;
 };
 
-export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildSessionFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress };
+/**
+ * The guard both restart loops run before spending an iteration.
+ *
+ * `watchUntilMergeable` and the watch loop reached the same conclusion the same
+ * way in the 2026-09-13 runs - five identical sessions each - so they ask the
+ * same question here rather than each keeping their own copy of it.
+ *
+ * @param {Object} params - as {@link failOnNoProgressBetweenSessions}, minus
+ *   the verdict and the remaining budget, which are read from this module and
+ *   from the shared restart budget.
+ * @returns {Promise<Object|null>} the stop, or null when the last session
+ *   differed from the one before it and the loop should continue
+ */
+export const stopWhenSessionRepeated = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned, mode = null, verbose = false }) => {
+  const verdict = getLastSessionProgress();
+  if (!verdict?.repeated) return null;
+  return await failOnNoProgressBetweenSessions({ owner, repo, prNumber, tempDir, branchName, $: command, log, formatAligned, verdict, mode, remainingIterations: getRemainingAutoRestartIterations(), verbose });
+};
+
+export default { NO_PROGRESS_STOP_REASON, buildNoProgressDetails, buildSessionFingerprint, captureSessionOutcome, failOnNoProgressBetweenSessions, getLastSessionProgress, getNoProgressFailure, getRecordedSessions, hasNoProgressFailure, normalizeSessionMessage, recordSessionOutcome, reportNoProgressStop, resetNoProgressFailure, resetSessionProgress, stopWhenSessionRepeated };

@@ -66,7 +66,7 @@ const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLa
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 // Issue #2247 (H3): the Scala reproduction run restarted five times, each
 // session byte-identical to the last, and committed nothing in any of them.
-const { failOnNoProgressBetweenSessions, getLastSessionProgress } = await import('./session-progress.lib.mjs');
+const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 
 // Issue #1625: Central marker constants + tracked comment posting
 const toolComments = await import('./tool-comments.lib.mjs');
@@ -328,24 +328,8 @@ export const watchForFeedback = async params => {
           // before it, so re-running it would leave these same changes
           // uncommitted a sixth time. Stop, preserve the work, and leave the
           // remaining budget unspent.
-          const sessionProgress = getLastSessionProgress();
-          if (sessionProgress?.repeated) {
-            noProgressStop = await failOnNoProgressBetweenSessions({
-              owner,
-              repo,
-              prNumber,
-              tempDir,
-              branchName: prBranch || branchName,
-              $,
-              log,
-              formatAligned,
-              verdict: sessionProgress,
-              mode: 'watch',
-              remainingIterations: getRemainingAutoRestartIterations(),
-              verbose: argv.verbose,
-            });
-            break;
-          }
+          noProgressStop = await stopWhenSessionRepeated({ owner, repo, prNumber, tempDir, branchName: prBranch || branchName, $, log, formatAligned, mode: 'watch', verbose: argv.verbose });
+          if (noProgressStop) break;
 
           // Issue #2119: claim one iteration from the run-wide budget shared with
           // the auto-merge restart loop.

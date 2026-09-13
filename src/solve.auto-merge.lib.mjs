@@ -72,7 +72,7 @@ const { buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopF
 
 // Issue #1625: Shared marker constants + posting/tracking helpers
 const toolComments = await import('./tool-comments.lib.mjs');
-const { READY_TO_MERGE_MARKER, READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
+const { READY_FOR_REVIEW_MARKER, AUTO_RESUME_ON_LIMIT_RESET_MARKER, AUTO_RESTART_MARKER, AUTO_RESTART_UNTIL_MERGEABLE_LOG_MARKER, AUTO_MERGED_MARKER, postTrackedComment } = toolComments;
 // Issue #2148: in-process usage-limit continuations bypass startWorkSession,
 // so post their session boundary explicitly before invoking `--resume`.
 const sessionLib = await import('./solve.session.lib.mjs');
@@ -96,6 +96,13 @@ const { beginAutoRestartBudget, consumeAutoRestartIteration, formatAutoRestartLa
 const { failOnAutoRestartBudgetExhausted } = await import('./auto-restart-exhaustion.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+// Issue #2246: while this loop is still making the pull request mergeable, the pull
+// request stays a draft — "ready for review" is published only together with the
+// `Ready to merge` signal, so a human cannot merge half-finished AI work. The transition
+// itself, and the strict re-verification the draft state hides, live in their own module.
+const { isReadyForReviewHeld } = await import('./pr-draft-state.lib.mjs');
+const { announceReadyToMerge, confirmReadyToMergeState } = await import('./pr-ready-transition.lib.mjs');
+
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
@@ -127,6 +134,8 @@ export const watchUntilMergeable = async params => {
   let limitResumeCount = 0;
   // Issue #1371: In-memory dedup for "Ready to merge" comment (per-session, not all-time)
   let readyToMergeCommentPosted = false;
+  // Issue #2246: did this loop take the pull request out of draft when it became mergeable?
+  let leftDraftOnMergeable = false;
   let currentBackoffSeconds = watchInterval;
   // Issue #1503: Track consecutive "no workflow runs" checks per-SHA (reset on new push)
   let consecutiveNoRunsChecks = 0;
@@ -150,6 +159,7 @@ export const watchUntilMergeable = async params => {
   await log(formatAligned('🔄', 'AUTO-RESTART-UNTIL-MERGEABLE MODE ACTIVE', ''));
   await log(formatAligned('', 'Monitoring PR:', `#${prNumber}`, 2));
   await log(formatAligned('', 'Mode:', isAutoMerge ? 'Auto-merge (will merge when ready)' : 'Auto-restart-until-mergeable (will NOT auto-merge)', 2));
+  await log(formatAligned('', 'Draft policy:', isReadyForReviewHeld() ? 'PR stays a draft until the ready-to-merge state is verified (#2246)' : 'PR draft state is not held by this loop', 2));
   await log(formatAligned('', 'Checking interval:', `${watchInterval} seconds (minimum: ${MIN_CI_CHECK_INTERVAL_SECONDS}s)`, 2));
   await log(formatAligned('', 'Initial cooldown:', `${INITIAL_COOLDOWN_SECONDS} seconds`, 2));
   await log(formatAligned('', 'Max restart iterations:', formatAutoRestartLimit(), 2));
@@ -252,8 +262,13 @@ export const watchUntilMergeable = async params => {
       }
       // Issue #1503: Increment counter; getMergeBlockers uses it as a safety valve
       consecutiveNoRunsChecks++;
+      // Issue #2246: the draft state is this loop's own doing while the hold is engaged,
+      // so it must not be reported as a merge blocker — otherwise resolveDraftBlocker()
+      // below would un-draft the pull request and, after MAX_DRAFT_SELF_HEALS, stop the
+      // automation over a state hive-mind deliberately set.
+      const draftIsIntentional = isReadyForReviewHeld();
       // Get merge blockers
-      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch);
+      const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch, { ignoreDraft: draftIsIntentional });
       const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');
       if (terminalGitHubBlocker) {
         await log('');
@@ -272,7 +287,7 @@ export const watchUntilMergeable = async params => {
       // so nothing else in this loop notices — the merge then fails with
       // "Pull Request is still a draft" on every single check. Restore
       // "ready for review" here instead of burning an AI restart iteration.
-      if (blockers.find(b => b.type === 'draft')) {
+      if (!draftIsIntentional && blockers.find(b => b.type === 'draft')) {
         const decision = await resolveDraftBlocker({ owner, repo, prNumber, $, log, formatAligned, reportError, reportAutomationStop, verbose: argv.verbose, state: guardState });
         if (decision.action === 'stop') {
           return { success: false, reason: decision.reason, latestSessionId, latestAnthropicCost };
@@ -394,6 +409,16 @@ export const watchUntilMergeable = async params => {
           }
         }
         await log(formatAligned('✅', 'PR IS MERGEABLE!', ''));
+        // Issue #2246: the only moment the pull request may leave draft in a mergeable
+        // mode. Leaving draft also unmasks the merge state GitHub hides behind
+        // mergeStateStatus=DRAFT, so the decision is re-verified on the real pull request.
+        const readyTransition = await confirmReadyToMergeState({ owner, repo, prNumber, verbose: argv.verbose, $, log, formatAligned, reportError, guardState });
+        leftDraftOnMergeable = leftDraftOnMergeable || readyTransition.leftDraft;
+        if (!readyTransition.confirmed) {
+          lastCheckTime = currentTime;
+          await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
+          continue;
+        }
         // Issue #2144: the pull request is ready. A closed/unavailable linked
         // issue blocks only the *automatic* merge — the loop already did its
         // job of making the pull request mergeable. Ask the user to reopen the
@@ -461,46 +486,23 @@ export const watchUntilMergeable = async params => {
           // Just report that PR is mergeable and exit
           await log(formatAligned('', 'PR is ready to be merged manually', '', 2));
           await log(formatAligned('', 'Exiting auto-restart-until-mergeable mode', '', 2));
-          // Issue #1371: Post success comment only if not already posted in this session.
-          // Issue #1567: Also check PR comment history as a cross-process guard.
-          // Two layers of deduplication:
-          //   1. In-memory flag (readyToMergeCommentPosted) — prevents duplicates within this process
-          //   2. checkForExistingComment — prevents duplicates from concurrent processes
-          // The in-memory flag is reset when HEAD SHA changes (line 614), so a new commit
-          // will allow a fresh "Ready to merge" comment.
-          try {
-            if (!readyToMergeCommentPosted) {
-              // Issue #1567: Cross-process deduplication — check if another process already
-              // posted a "Ready to merge" comment. This catches the case where two concurrent
-              // watchUntilMergeable processes both detect mergeability simultaneously.
-              const hasExistingReadyComment = await checkForExistingComment(owner, repo, prNumber, `## ✅ ${READY_TO_MERGE_MARKER}`, argv.verbose);
-              if (hasExistingReadyComment) {
-                await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment (already posted by another process)`, '', 2));
-                readyToMergeCommentPosted = true;
-              } else {
-                // Issue #1345: Differentiate message when no CI is configured
-                const ciLine = noCiConfigured ? '- No CI/CD checks are configured for this repository' : noCiTriggered ? (workflowRunConclusions ? `- CI workflows completed without executing (${workflowRunConclusions})` : '- CI workflows exist but were not triggered for this commit') : '- All CI checks have passed';
-                // Issue #2144: a closed/unavailable linked issue does not stop this
-                // mode, but it is worth stating in the comment so the reader knows
-                // why no automatic merge will follow.
-                const issueLine =
-                  issueMergeBlockers.length > 0
-                    ? `\n\nNote: ${issueMergeBlockers.map(b => b.message).join(' ')} ${issueMergeBlockers
-                        .map(b => b.resolution)
-                        .filter(Boolean)
-                        .join(' ')}`
-                    : '';
-                const commentBody = `## ✅ ${READY_TO_MERGE_MARKER}\n\nThis pull request is now ready to be merged:\n${ciLine}\n- No merge conflicts\n- No pending changes${issueLine}\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*`;
-                // Issue #1625: Track this comment ID so it can't falsely count as an AI-authored comment
-                await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
-                readyToMergeCommentPosted = true;
-              }
-            } else {
-              await log(formatAligned('', `Skipping duplicate "${READY_TO_MERGE_MARKER}" comment (already posted this session)`, '', 2));
-            }
-          } catch {
-            // Don't fail if comment posting fails
-          }
+          // Issue #1371/#1567: deduplicated per process (the flag below, reset when the HEAD
+          // SHA changes) and across processes (a search of the PR's comments).
+          readyToMergeCommentPosted = await announceReadyToMerge({
+            owner,
+            repo,
+            prNumber,
+            $,
+            log,
+            formatAligned,
+            verbose: argv.verbose,
+            alreadyPosted: readyToMergeCommentPosted,
+            noCiConfigured,
+            noCiTriggered,
+            workflowRunConclusions,
+            issueMergeBlockers,
+            leftDraft: leftDraftOnMergeable,
+          });
           return { success: true, reason: 'mergeable', latestSessionId, latestAnthropicCost };
         }
       }
@@ -966,6 +968,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                 log,
                 formatAligned,
                 sessionType: SESSION_TYPES.AUTO_RESUME,
+                argv,
               });
               const resumeArgv = { ...argv, resume: resumeSessionId };
               const resumeResult = await executeToolIteration({

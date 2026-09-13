@@ -457,10 +457,11 @@ export async function checkPRCIStatus(owner, repo, prNumber, verbose = false) {
  * @param {boolean} verbose - Whether to log verbose output
  * @param {Object} [options] - Extra options
  * @param {Function} [options.isCancelled] - Issue #2072: polled during the retry delay so a cancel aborts the wait
+ * @param {boolean} [options.ignoreDraft=false] - Issue #2246: do not treat an intentional draft as a blocker
  * @returns {Promise<{mergeable: boolean, mergeableState?: string|null, mergeStateStatus?: string|null, reason: string|null, terminal?: boolean, cancelled?: boolean}>}
  */
 export async function checkPRMergeable(owner, repo, prNumber, verbose = false, options = {}) {
-  const { isCancelled = null } = options;
+  const { isCancelled = null, ignoreDraft = false } = options;
   // Issue #1339: GitHub computes mergeability asynchronously. When mergeStateStatus is
   // 'UNKNOWN', it means GitHub hasn't calculated the merge state yet. Retry a few times.
   const MAX_UNKNOWN_RETRIES = 3;
@@ -494,7 +495,7 @@ export async function checkPRMergeable(owner, repo, prNumber, verbose = false, o
         return { mergeable: false, mergeableState: pr.mergeable, mergeStateStatus: pr.mergeStateStatus, reason: `Merge state: UNKNOWN (GitHub could not compute mergeability after ${MAX_UNKNOWN_RETRIES} attempts)` };
       }
 
-      const evaluation = evaluatePullRequestMergeability(pr);
+      const evaluation = evaluatePullRequestMergeability(pr, { ignoreDraft });
 
       if (verbose) {
         // Issue #2182: isDraft is logged explicitly. In the reported 4.5-day run

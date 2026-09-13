@@ -1259,9 +1259,15 @@ try {
   // run for days and endWorkSession() (further down) is unreachable until it returns.
   // In the reported run the PR was left in draft by an auto-restart iteration and
   // `gh pr merge` answered "Pull Request is still a draft" 2692 times over 4d 12h.
+  //
+  // Issue #2246: "the AI working session is over" is not "the work is over" when
+  // hive-mind itself keeps restarting the AI until the pull request is mergeable. In
+  // those modes the ready transition is held back (the pull request stays a draft and is
+  // put back into draft if the AI un-drafted it), and the hold is released exactly when
+  // the ready-to-merge state is verified — or on any exit path, which preserves #2182.
   if (prNumber) {
-    const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
-    await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'AI working session finished', reportError });
+    const { endAiSessionReadyTransition } = await import('./pr-ready-transition.lib.mjs');
+    await endAiSessionReadyTransition({ owner, repo, prNumber, argv, $, log, formatAligned, reportError });
   }
 
   // Start auto-restart-until-mergeable mode if enabled This runs after the normal watch mode completes (if any) --auto-merge implies --auto-restart-until-mergeable
@@ -1290,6 +1296,11 @@ try {
         }
       }
     }
+  }
+  // Issue #2246: the monitoring loop is over, so the ready-for-review hold must go.
+  if (prNumber) {
+    const { releaseReadyTransitionHold } = await import('./pr-ready-transition.lib.mjs');
+    await releaseReadyTransitionHold({ owner, repo, prNumber, $, log, formatAligned, reportError });
   }
   // Issue #1952: Final --attach-logs safety net + logsAttached reconciliation. See attach-logs-guarantee.lib.mjs.
   logsAttached = (await attachFinalLogIfMissing({ shouldAttachLogs, prNumber, owner, repo, $, log, sanitizeLogContent, getLogFile, attachLogToGitHub, argv, sessionId, tempDir, anthropicTotalCostUSD, resultModelUsage })) || logsAttached;

@@ -336,6 +336,93 @@ export const buildFormalAiClientEnv = async ({ client, home, apiKey = FORMAL_AI_
 };
 
 /**
+ * Issue #2247 (H7): the only files of the operator's Codex home a Formal AI task
+ * is allowed to inherit.
+ *
+ * `auth.json` is the one credential the CLI needs to start; `config.toml` is
+ * seeded with every `mcp_servers` entry removed (see {@link stripCodexMcpServers}).
+ * Everything else in `~/.codex` — `plugins/`, `skills/`, `sessions/`,
+ * `history.jsonl` — is operator state that a task has no reason to read and
+ * that upstream re-creates on demand.
+ */
+export const CODEX_SEEDED_FILES = Object.freeze(['auth.json', 'config.toml']);
+
+/**
+ * Remove every `mcp_servers` declaration from a Codex `config.toml`.
+ *
+ * Issue #2247 (H7). The Rust reproduction run fetched the GitHub issue through
+ * the operator's ChatGPT connector rather than through `gh`:
+ *
+ *   mcp_server=codex_apps mcp_server_origin=https://chatgpt.com … auth_mode="Chatgpt"
+ *
+ * and echoed the raw JSON it got back as its final answer. The connector was
+ * reachable because {@link seedFormalAiClientHome} copied the operator's whole
+ * `~/.codex` into the task home. That directory routinely declares MCP servers —
+ * the container this was reproduced in has
+ *
+ *   [mcp_servers.playwright]
+ *   command = "npx"
+ *
+ * in `~/.codex/config.toml` — so a formal-ai routed task inherited tool access
+ * that its own flow never asked for (#2227, formal-ai#1075).
+ *
+ * Both TOML spellings are handled: `[mcp_servers]` / `[mcp_servers.name]` /
+ * `[[mcp_servers.name]]` tables, and root-scope `mcp_servers = { … }` or
+ * `mcp_servers.name.url = …` dotted keys. A `mcp_servers` key *inside* another
+ * table belongs to that table and is left alone.
+ *
+ * @param {string} config - the file's text.
+ * @returns {string} the same text without any `mcp_servers` declaration.
+ */
+export const stripCodexMcpServers = config => {
+  if (typeof config !== 'string' || config.length === 0) return config;
+  const headerPattern = /^\s*\[\[?([^\]]+)\]\]?\s*(?:#.*)?$/u;
+  const out = [];
+  let inMcpTable = false;
+  let atRootScope = true;
+  for (const line of config.split('\n')) {
+    const header = line.match(headerPattern);
+    if (header) {
+      const name = header[1].trim();
+      atRootScope = false;
+      inMcpTable = name === 'mcp_servers' || name.startsWith('mcp_servers.');
+      if (inMcpTable) continue;
+    } else if (!inMcpTable && atRootScope && /^\s*mcp_servers\s*[.=]/u.test(line)) {
+      continue;
+    }
+    if (!inMcpTable) out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/gu, '\n\n');
+};
+
+/**
+ * Seed a Codex home with one credential and a config that declares no MCP
+ * servers — issue #2247 (H7).
+ */
+const seedCodexClientHome = async ({ source, destination, cpImpl, mkdirImpl, readFileImpl, writeFileImpl }) => {
+  const seeded = [];
+  await mkdirImpl(destination, { recursive: true });
+
+  try {
+    await cpImpl(join(source, 'auth.json'), join(destination, 'auth.json'), { verbatimSymlinks: true, force: true });
+    seeded.push({ file: 'auth.json', note: null });
+  } catch {
+    // Not signed in yet — Formal AI's provider block carries the API key.
+  }
+
+  try {
+    const config = await readFileImpl(join(source, 'config.toml'), 'utf8');
+    const stripped = stripCodexMcpServers(config);
+    await writeFileImpl(join(destination, 'config.toml'), stripped);
+    seeded.push({ file: 'config.toml', note: stripped === config ? null : 'mcp_servers removed' });
+  } catch {
+    // No global config — `formal-ai with --global` writes a fresh one.
+  }
+
+  return seeded;
+};
+
+/**
  * Copy the operator's existing directory-based tool configuration into the
  * isolated HOME before Formal AI patches it, so authentication, plugin state
  * and MCP settings survive a Formal AI run. Upstream then merges its provider
@@ -344,15 +431,24 @@ export const buildFormalAiClientEnv = async ({ client, home, apiKey = FORMAL_AI_
  * `shell_env` configs are deliberately skipped: `.profile` is a shell startup
  * file, and Hive Mind reads the exports back out of it — importing the
  * operator's own exports would leak unrelated environment into the CLI.
+ *
+ * Codex is the exception (issue #2247, H7): only {@link CODEX_SEEDED_FILES} are
+ * seeded, and the config loses its `mcp_servers` tables on the way in.
  */
-export const seedFormalAiClientHome = async ({ client, home, env = process.env, realHome = homedir(), cpImpl = cp }) => {
+export const seedFormalAiClientHome = async ({ client, home, env = process.env, realHome = homedir(), cpImpl = cp, mkdirImpl = mkdir, readFileImpl = readFile, writeFileImpl = writeFile }) => {
   const seeded = [];
   for (const config of client?.global_configs || []) {
     if (config.format === 'shell_env') continue;
     const relativeDir = dirname(config.path);
     if (!relativeDir || relativeDir === '.' || relativeDir.startsWith('..')) continue;
     // Codex reads CODEX_HOME, which Hive Mind may already have repointed at a repository-scoped home (issue #2074).
-    const source = client.id === 'codex' && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    const isCodex = client.id === 'codex';
+    const source = isCodex && env.CODEX_HOME ? env.CODEX_HOME : join(realHome, relativeDir);
+    if (isCodex) {
+      const files = await seedCodexClientHome({ source, destination: join(home, relativeDir), cpImpl, mkdirImpl, readFileImpl, writeFileImpl });
+      for (const { file, note } of files) seeded.push(`${join(source, file)} → ${join(relativeDir, file)}${note ? ` (${note})` : ''}`);
+      continue;
+    }
     try {
       await cpImpl(source, join(home, relativeDir), { recursive: true, verbatimSymlinks: true, force: true });
       seeded.push(`${source} → ${relativeDir}`);

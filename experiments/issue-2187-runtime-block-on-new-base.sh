@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
 # Issue #2187: run the Dockerfile's runtime block against the NEW box base
-# (ghcr.io/link-foundation/box:2.7.0) without a full image build, to check that
+# (ghcr.io/link-foundation/box:2.10.2) without a full image build, to check that
 # a base which already ships the pinned versions makes the block a no-op rather
 # than a second installation next to the first.
 #
 # The block below is copied verbatim from Dockerfile's
 # `ARG HIVE_MIND_NODE_VERSION` RUN step — keep it in sync if that step changes.
 #
-# Result on 2026-09-07 against ghcr.io/link-foundation/box:2.7.0: one node
-# version before and after (v24.20.0), nvm default already pointing at
+# Result on 2026-09-13 against ghcr.io/link-foundation/box:2.10.2: one node
+# version before and after (v24.21.0), nvm default already pointing at
 # it, "Removing superseded node" never printed, bun 1.4.2 unchanged.
 set -euo pipefail
 
-BASE="${1:-ghcr.io/link-foundation/box:2.7.0}"
+BASE="${1:-ghcr.io/link-foundation/box:2.10.2}"
 
 docker run --rm -i --entrypoint bash "$BASE" -s <<'RUNTIME_BLOCK_EOF'
 export HOME=/home/box
 export NVM_DIR=/home/box/.nvm
 export BUN_INSTALL=/home/box/.bun
-HIVE_MIND_NODE_VERSION=24.20.0
+HIVE_MIND_NODE_VERSION=24.21.0
 HIVE_MIND_BUN_VERSION=1.4.2
 
 echo "=== BEFORE ==="

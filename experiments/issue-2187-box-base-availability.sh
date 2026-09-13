@@ -2,23 +2,24 @@
 # Issue #2187 / link-foundation/box#112 follow-up: is the fixed Box base
 # pullable, and for BOTH architectures this repository builds?
 #
-# box 2.7.0 carries the #112 fix (one current runtime per language). Whether
-# hive-mind's `FROM .../box*:<tag>` pin can use it is not answered by "does the
-# tag resolve" — the release publishes `linux/amd64` on `ubuntu-latest` and
+# Current Box releases carry the #112 fix (one current runtime per language).
+# Whether hive-mind's `FROM .../box*:<tag>` pin can use it is not answered by
+# merely asking whether the tag resolves: the release publishes `linux/amd64`
+# on `ubuntu-latest` and
 # `linux/arm64` natively on `ubuntu-24.04-arm`, so a tag that resolves to amd64
 # alone is as unusable as a tag that is missing. This script therefore reports
 # the PLATFORM LIST behind each reference, not just its existence.
 #
-# Last run 2026-09-07 (recorded here because these are the facts the base pin
-# and link-foundation/box#119 rest on):
+# Last run 2026-09-13 after box PR #120 closed box#119:
 #
-#   ghcr.io/link-foundation/box:2.7.0        amd64 arm64   <- the new pin
-#   ghcr.io/link-foundation/box-dind:2.7.0   amd64 arm64   <- the new pin
-#   konard/box:2.7.0                         amd64         (amd64 only)
-#   konard/box:latest                        amd64         (regression: 2.4.0 was multi-arch)
-#   konard/box:2.4.0                         amd64 arm64   (the old pin)
-#   konard/box-dind:2.7.0                    MISSING
-#   konard/box-dind:latest                   amd64 arm64   (2026-06-21 image, pre-#112)
+#   ghcr.io/link-foundation/box:2.10.2       amd64 arm64   <- the new pin
+#   ghcr.io/link-foundation/box-dind:2.10.2  amd64 arm64   <- the new pin
+#   konard/box:2.10.2                        amd64 arm64   <- mirror repaired
+#   konard/box-dind:2.10.2                   amd64 arm64   <- mirror repaired
+#   ghcr.io/link-foundation/box:latest       amd64 arm64
+#   ghcr.io/link-foundation/box-dind:latest  amd64 arm64
+#   konard/box:latest                        amd64 arm64
+#   konard/box-dind:latest                   amd64 arm64
 #
 # Read-only: it inspects manifests, pulls nothing.
 set -uo pipefail
@@ -47,14 +48,14 @@ probe "$PINNED_BOX_DIND" "<- Dockerfile.dind"
 
 echo
 echo "GHCR (box's registry of record since link-foundation/box#115):"
-for tag in 2.4.0 2.7.0 latest; do
+for tag in 2.7.0 2.10.2 latest; do
   probe "ghcr.io/link-foundation/box:$tag"
   probe "ghcr.io/link-foundation/box-dind:$tag"
 done
 
 echo
-echo "Docker Hub (mirror; broken for 2.7.0 — link-foundation/box#119):"
-for tag in 2.4.0 2.7.0 latest; do
+echo "Docker Hub (mirror; box#119 fixed by box PR #120):"
+for tag in 2.7.0 2.10.2 latest; do
   probe "konard/box:$tag"
   probe "konard/box-dind:$tag"
 done

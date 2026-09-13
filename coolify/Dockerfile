@@ -19,7 +19,7 @@
 #
 # Build: docker build -f coolify/Dockerfile -t konard/hive-mind .
 
-ARG FORMAL_AI_VERSION=0.345.0
+ARG FORMAL_AI_VERSION=0.349.2
 # Bookworm's glibc 2.36 remains compatible with the Ubuntu 24.04 Box runtime.
 FROM rust:1.98-slim-bookworm AS formal-ai-builder
 ARG FORMAL_AI_VERSION
@@ -40,18 +40,12 @@ RUN apt-get update && \
 ENV OPENSSL_STATIC=1
 RUN cargo install formal-ai --version "${FORMAL_AI_VERSION}" --locked
 
-# Pinned at box 2.7.0 pulled from GHCR — box's registry of record — because
-# GHCR is the only registry that actually carries the fix for
-# link-foundation/box#112: 2.7.0 ships one Node.js (v24.20.0), one Bun (1.4.2)
-# and one Rust toolchain (stable, rustc 1.98.1) where 2.4.0 stacked a stale
-# runtime beside a current one. Docker Hub cannot be used for it —
-# `konard/box:2.7.0` and `:latest` were written by box's amd64 job alone and
-# carry no arm64 manifest, and `konard/box-dind:2.7.0` does not exist there at
-# all, because box's `docker manifest create` cannot combine per-architecture
-# tags that its own mirror wrote as single-platform indexes. These images are
-# built for linux/arm64 natively as well, so an amd64-only base is not an
-# option (reported upstream as link-foundation/box#119).
-FROM ghcr.io/link-foundation/box:2.7.0
+# Box 2.10.2 keeps the box#112 one-toolchain invariant and refreshes the base
+# runtimes: Node.js v24.21.0, Bun 1.4.2 and stable Rust 1.98.1. Box PR #120
+# repaired the Docker Hub multi-arch publishing failure reported in box#119;
+# both registries now carry amd64 and arm64 manifests. Keep GHCR, Box's registry
+# of record, as the reproducible source for this pin.
+FROM ghcr.io/link-foundation/box:2.10.2
 ARG HIVE_MIND_VERSION=latest
 # Release builds pass the exact published package version here. Bake it as the
 # default child isolation image tag so a parent started via :latest still runs
@@ -131,7 +125,7 @@ SHELL ["/bin/bash", "-c"]
 # need something newer used to download their own node/bun into /tmp on every
 # run and leave the copy behind — a second accumulation of versions on top of
 # the image's own. Reported upstream as link-foundation/box#112 and fixed in
-# box 2.7.0, the base the FROM pin above now uses: it already ships exactly the
+# box 2.7.0. The current 2.10.2 base already ships exactly the
 # versions pinned below, so on that base this layer adds no second version —
 # nvm reports the pin already installed and the prune loop removes nothing
 # (checked by experiments/issue-2187-runtime-block-on-new-base.sh).
@@ -157,7 +151,7 @@ SHELL ["/bin/bash", "-c"]
 # pointing at browsers the image does not have), then every other version
 # directory is removed. `.node-bin`, `nvm use default` and a bare `node` then
 # all resolve to the same, newest runtime (issue #2187, item A).
-ARG HIVE_MIND_NODE_VERSION=24.20.0
+ARG HIVE_MIND_NODE_VERSION=24.21.0
 ARG HIVE_MIND_BUN_VERSION=1.4.2
 RUN set -e && \
     . "$NVM_DIR/nvm.sh" && \

@@ -47,6 +47,9 @@ assert.match(dindDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${expected.forma
 assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${expected.node}$`, 'm'), `Dockerfile.dind should align Node.js with Box ${expected.box}`);
 assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${expected.bun}$`, 'm'), `Dockerfile.dind should align Bun with Box ${expected.box}`);
 
+const formalAiDockerfile = read('Dockerfile.formal-ai');
+assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${expected.formalAi}$`, 'm'), `Dockerfile.formal-ai should pin Formal AI ${expected.formalAi}`);
+
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const source = read(file);
   assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${expected.agent}`), `${file} should pin Agent ${expected.agent}`);

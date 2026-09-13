@@ -993,6 +993,7 @@ Once the billing issue is resolved, you can re-run the CI checks or push a new c
                 log,
                 formatAligned,
                 sessionType: SESSION_TYPES.AUTO_RESUME,
+                argv,
               });
               const resumeArgv = { ...argv, resume: resumeSessionId };
               const resumeResult = await executeToolIteration({

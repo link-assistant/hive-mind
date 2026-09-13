@@ -53,7 +53,8 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
-import { assertSupportedFormalAiVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion } from './formal-ai-version.lib.mjs';
+import { assertSupportedFormalAiVersion, assertSupportedHiveMindVersion, FORMAL_AI_MINIMUM_VERSION, isFormalAiVersionAtLeast, readFormalAiBinaryVersion, readRequiredHiveMindVersion } from './formal-ai-version.lib.mjs';
+import { getVersion } from './version.lib.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -260,9 +261,11 @@ export const probeFormalAiBackend = async ({ baseUrl, apiKey = null, path = FORM
  * @param {string} context.baseUrl
  * @param {string} [context.minimumVersion]
  * @param {string|null} [context.expectedVersion] - Version the leased sidecar image was verified at.
- * @returns {{version: string, memory: object|null}}
+ * @param {string|null} [context.hiveMindVersion] - This Hive Mind's version, for the backend's own floor (#2247 H1).
+ * @param {object} [context.env]
+ * @returns {{version: string, memory: object|null, requiredHiveMindVersion: string|null}}
  */
-export const assertSupportedFormalAiBackend = (probe, { baseUrl, minimumVersion = FORMAL_AI_MINIMUM_VERSION, expectedVersion = null } = {}) => {
+export const assertSupportedFormalAiBackend = (probe, { baseUrl, minimumVersion = FORMAL_AI_MINIMUM_VERSION, expectedVersion = null, hiveMindVersion = null, env = process.env } = {}) => {
   const where = `the Formal AI endpoint ${baseUrl}`;
   if (!probe?.ok) {
     const detail = probe?.error ? `: ${probe.error}` : '';
@@ -284,7 +287,11 @@ export const assertSupportedFormalAiBackend = (probe, { baseUrl, minimumVersion 
     // Mind verified and leased.
     throw new Error(`${where} serves Formal AI ${probe.version}, but the leased Hive Mind sidecar image was verified as ${expectedVersion}. Refusing to record provenance for a backend that is not the accepted release.`);
   }
-  return { version: probe.version, memory: probe.memory ?? null };
+  // Issue #2247 (H1): the backend may require a newer Hive Mind than this one.
+  // On 2026-09-13 three tasks ran `solve v2.22.0` against a backend published
+  // after it and nothing anywhere compared the two.
+  const requiredHiveMindVersion = assertSupportedHiveMindVersion({ version: hiveMindVersion, required: readRequiredHiveMindVersion(probe.health, env), where });
+  return { version: probe.version, memory: probe.memory ?? null, requiredHiveMindVersion };
 };
 
 /** Read the machine-readable client registry (`formal-ai clients --format json`). */
@@ -587,11 +594,23 @@ const describeFormalAiBackend = backend => [`${backend.version} at ${backend.bas
 const resolveFormalAiBackend = async ({ baseUrl, apiKey, env, deps, startedLocally }) => {
   const sidecar = readFormalAiSidecarProvenance(env);
   const probe = await (deps.probeBackendImpl || probeFormalAiBackend)({ baseUrl, apiKey, env });
-  const { version, memory } = assertSupportedFormalAiBackend(probe, { baseUrl, expectedVersion: sidecar?.version ?? null });
+  // A version that cannot be read is passed through as null: the floor check
+  // below decides whether that is fatal, and it is only fatal when a backend
+  // actually declares a floor.
+  let hiveMindVersion;
+  try {
+    hiveMindVersion = await (deps.hiveMindVersionImpl || getVersion)();
+  } catch {
+    hiveMindVersion = null;
+  }
+  const { version, memory, requiredHiveMindVersion } = assertSupportedFormalAiBackend(probe, { baseUrl, expectedVersion: sidecar?.version ?? null, hiveMindVersion, env });
   return {
     baseUrl,
     version,
     memory,
+    /** This Hive Mind's version, and the floor the backend published for it (#2247 H1). */
+    hiveMindVersion,
+    requiredHiveMindVersion,
     image: sidecar?.image ?? null,
     imageDigest: sidecar?.imageDigest ?? null,
     imageSource: sidecar?.imageSource ?? null,

@@ -96,6 +96,87 @@ export const formatWorkingSessionSummaryMarkdown = text => {
 };
 
 /**
+ * Issue #2247 (H8): bound what a working session summary publishes.
+ *
+ * The summary comment republishes the AI tool's last message verbatim. On
+ * konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b#2 that message
+ * was a Formal AI plan record whose `goal` field embedded the entire request
+ * prompt, so each comment carried ~13 KB of machine text
+ * (comment 5284660663 is 13624 bytes), and one was posted per session - six on
+ * that single pull request. A reader scrolling the conversation has to page
+ * through the run's own input to find its output.
+ *
+ * The cap is deliberately generous: the 2026-09-13 summaries on the same pull
+ * request are 542 bytes and are published unchanged. Only a summary that is
+ * already unreadable in a conversation gets folded.
+ */
+
+/** Lines shown before the summary is folded. */
+export const SUMMARY_VISIBLE_LINES = 16;
+
+/** Characters shown before the summary is folded. */
+export const SUMMARY_VISIBLE_CHARACTERS = 1200;
+
+/** Characters kept inside the `<details>` block; the rest lives in the log. */
+export const SUMMARY_DETAILS_CHARACTERS = 3000;
+
+/**
+ * Pick a fence longer than any backtick run in the quoted text, so a summary
+ * that itself contains a code block cannot close the block that quotes it.
+ */
+const fenceFor = text => {
+  const longest = (String(text).match(/`+/gu) || []).reduce((max, run) => Math.max(max, run.length), 0);
+  return '```'.padEnd(Math.max(3, longest + 1), '`');
+};
+
+/** Close a fence the head opened, so the rest of the comment still renders. */
+const closeOpenFence = head => {
+  let fence = null;
+  for (const line of head.split('\n')) {
+    const match = /^\s*(```|~~~)/u.exec(line);
+    if (!match) continue;
+    if (!fence) fence = match[1];
+    else if (line.trimStart().startsWith(fence)) fence = null;
+  }
+  return fence ? head + '\n' + fence : head;
+};
+
+const describeSize = characters => (characters >= 1024 ? Math.round(characters / 1024) + ' KB' : characters + ' characters');
+
+/**
+ * Fold an oversized summary into a short head plus a collapsed remainder.
+ *
+ * @param {string} text - the summary as the AI wrote it
+ * @param {Object} [options]
+ * @param {string|null} [options.logUrl] - the uploaded session log, when known
+ * @param {number} [options.visibleLines]
+ * @param {number} [options.visibleCharacters]
+ * @param {number} [options.detailsCharacters]
+ * @returns {{body: string, folded: boolean, omittedCharacters: number}}
+ */
+export const capWorkingSessionSummary = (text, { logUrl = null, visibleLines = SUMMARY_VISIBLE_LINES, visibleCharacters = SUMMARY_VISIBLE_CHARACTERS, detailsCharacters = SUMMARY_DETAILS_CHARACTERS } = {}) => {
+  if (typeof text !== 'string' || !text) return { body: text, folded: false, omittedCharacters: 0 };
+  const lines = text.split('\n');
+  if (lines.length <= visibleLines && text.length <= visibleCharacters) return { body: text, folded: false, omittedCharacters: 0 };
+
+  let head = lines.slice(0, visibleLines).join('\n');
+  if (head.length > visibleCharacters) head = head.slice(0, visibleCharacters);
+  const rest = text.slice(head.length).replace(/^\n+/u, '');
+  const shown = rest.slice(0, detailsCharacters);
+  const omitted = rest.length - shown.length;
+  const fence = fenceFor(shown);
+
+  // What is dropped is never lost: the whole session output, this summary
+  // included, is in the log attached to the pull request.
+  const whereTheRestIs = logUrl ? 'the full session output is in the [session log](' + logUrl + ').' : 'the full session output is in the session log attached to this pull request.';
+  const tail = omitted > 0 ? '\n\n' + describeSize(omitted) + ' more is not shown here; ' + whereTheRestIs : '';
+
+  const body = [closeOpenFence(head), '', '<details>', '<summary>Rest of the working session summary (' + describeSize(rest.length) + ')</summary>', '', fence + 'text', shown, fence + tail, '', '</details>'].join('\n');
+
+  return { body, folded: true, omittedCharacters: omitted };
+};
+
+/**
  * The line appended when the pull request still has an empty diff.
  *
  * @param {{measured: boolean, hasChanges: boolean}|null} changeStats - from
@@ -108,4 +189,4 @@ export const buildNoChangesNotice = changeStats => {
   return '> ⚠️ This pull request still contains no changes - nothing was implemented yet.';
 };
 
-export default { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, WORKSPACE_PATH_PLACEHOLDER };
+export default { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths, SUMMARY_DETAILS_CHARACTERS, SUMMARY_VISIBLE_CHARACTERS, SUMMARY_VISIBLE_LINES, WORKSPACE_PATH_PLACEHOLDER };

@@ -62,7 +62,7 @@ const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
-const { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -1114,7 +1114,7 @@ export const buildWorkingSessionSummaryDetails = () => '';
 /** Issue #2247 (H2): see src/solve.session-comments.lib.mjs. */
 export const postNoChangesProducedComment = async options => sessionComments.postNoChangesProducedComment({ $, log, ...options });
 
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null }) => {
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null, logUrl = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1131,7 +1131,15 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
-    const summaryBody = formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary));
+    // Issue #2247 (H8): an oversized summary is folded into a `<details>` block
+    // and the overflow is left to the session log. The Scala run published a
+    // ~13 KB plan record - with the whole request prompt inside it - once per
+    // session, six times on one pull request.
+    const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });
+    if (capped.folded) {
+      await log(`📏 Working session summary folded into a <details> block${capped.omittedCharacters > 0 ? ` (${capped.omittedCharacters} characters left to the session log)` : ''}`, { verbose: true });
+    }
+    const summaryBody = capped.body;
 
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}

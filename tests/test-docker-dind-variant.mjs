@@ -42,9 +42,10 @@ await assertFileExists('scripts/verify-dind-exec-defaults.sh');
 const dindDockerfile = await read('Dockerfile.dind');
 const verifyDindExecDefaults = await read('scripts/verify-dind-exec-defaults.sh');
 
-// Bumped with the box base image itself (2.4.0 -> 2.7.0), from GHCR: Docker
-// Hub never received a `konard/box-dind:2.7.0` at all (link-foundation/box#119).
-assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.7.0', 'Dockerfile.dind');
+// Keep the DinD variant on the same current Box release as the regular image.
+// Box 2.10.2 includes the box#119 release-pipeline repair and is multi-arch in
+// both GHCR and the repaired Docker Hub mirror.
+assertIncludes(dindDockerfile, 'FROM ghcr.io/link-foundation/box-dind:2.10.2', 'Dockerfile.dind');
 assertExcludes(dindDockerfile, 'FROM konard/box-dind:', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'host-image passthrough allowlist', 'Dockerfile.dind');
 assertIncludes(dindDockerfile, 'ARG HIVE_MIND_VERSION=latest', 'Dockerfile.dind');

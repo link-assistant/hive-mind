@@ -4,11 +4,12 @@
  * Issue #2187, items A and C — the images must ship ONE current runtime per
  * language, not a stale one plus whatever each task downloads for itself.
  *
- * The Box base installs Node.js 20 (`nvm install 20` in box's
+ * Box releases through 2.4.0 installed Node.js 20 (`nvm install 20` in box's
  * ubuntu/24.04/js/install.sh), while this package declares `engines.node >= 24`,
- * so tasks were downloading their own node/bun into /tmp on every run. The
- * hive-mind layer now installs a pinned current Node.js and Bun and deletes the
- * superseded node version instead of stacking a second copy next to it.
+ * so tasks downloaded their own node/bun into /tmp on every run. Box 2.10.2 now
+ * ships the same pinned Node.js and Bun versions. The hive-mind layer reasserts
+ * those pins and deletes any superseded Node.js version so future base-image
+ * drift cannot recreate stacked runtime copies.
  *
  * What is pinned here:
  *   - the pinned node satisfies package.json `engines.node`;
@@ -38,6 +39,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
 
 const DOCKERFILES = ['Dockerfile', 'Dockerfile.dind', 'coolify/Dockerfile'];
+const BOX_RELEASE = '2.10.2';
+const BOX_NODE_VERSION = '24.21.0';
+const BOX_BUN_VERSION = '1.4.2';
 
 const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
 
@@ -50,10 +54,14 @@ const pins = new Map();
 
 for (const dockerfile of DOCKERFILES) {
   const source = read(dockerfile);
+  const baseVersion = source.match(/^FROM ghcr\.io\/link-foundation\/box(?:-dind)?:(\S+)$/m)?.[1];
   const nodeVersion = source.match(/^ARG HIVE_MIND_NODE_VERSION=(\S+)$/m)?.[1];
   const bunVersion = source.match(/^ARG HIVE_MIND_BUN_VERSION=(\S+)$/m)?.[1];
   pins.set(dockerfile, { nodeVersion, bunVersion, source });
 
+  check(baseVersion === BOX_RELEASE, `${dockerfile}: pins current Box ${BOX_RELEASE} (${baseVersion})`);
+  check(nodeVersion === BOX_NODE_VERSION, `${dockerfile}: Node.js pin matches Box ${BOX_RELEASE} (${nodeVersion})`);
+  check(bunVersion === BOX_BUN_VERSION, `${dockerfile}: Bun pin matches Box ${BOX_RELEASE} (${bunVersion})`);
   check(/^\d+\.\d+\.\d+$/.test(nodeVersion || ''), `${dockerfile}: pins an exact Node.js version (${nodeVersion})`);
   check(/^\d+\.\d+\.\d+$/.test(bunVersion || ''), `${dockerfile}: pins an exact Bun version (${bunVersion})`);
   check(Number(String(nodeVersion).split('.')[0]) >= enginesNodeFloor, `${dockerfile}: pinned Node.js ${nodeVersion} satisfies engines.node >= ${enginesNodeFloor}`);

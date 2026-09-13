@@ -21,8 +21,8 @@
  *   1. the floor constant and its predicate,
  *   2. that `validateAgentConnection` refuses a leaking CLI *before* asking it
  *      to answer anything, and accepts the fixed one,
- *   3. that both images pin exactly the version the runtime guard demands, so
- *      the pin and the guard cannot drift apart.
+ *   3. that both images pin a current version at or above the runtime guard,
+ *      so dependency refreshes do not require weakening the safety floor.
  *
  * @hive-mind-test-suite default
  * @see https://github.com/link-assistant/hive-mind/issues/2186
@@ -39,6 +39,7 @@ import { assert as check, printSummary, getFailCount } from './test-helpers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
+const CURRENT_AGENT_IMAGE_VERSION = '0.26.2';
 
 const { agentCliPrunesOrphanSnapshots, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 
@@ -105,7 +106,7 @@ await withFakeAgentCli(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, async ({ requested })
 });
 
 // ---------------------------------------------------------------------------
-// 3. Both images pin exactly what the runtime guard demands
+// 3. Both images pin a current version that satisfies the runtime guard
 // ---------------------------------------------------------------------------
 console.log('\n3. Image pins match the runtime floor\n');
 
@@ -113,9 +114,10 @@ for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = fs.readFileSync(path.join(repoRoot, file), 'utf8');
   const installs = [...text.matchAll(/bun install -g @link-assistant\/agent(@[^\s\\]+)?/g)].map(match => match[1]);
   check(installs.length > 0, `${file} installs the Agent CLI`);
+  check(asNumber(CURRENT_AGENT_IMAGE_VERSION) >= asNumber(MIN_AGENT_SNAPSHOT_HYGIENE_VERSION), `the current Agent image pin satisfies the ${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} snapshot floor`);
   check(
-    installs.every(pin => pin === `@${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION}`),
-    `${file} pins @link-assistant/agent@${MIN_AGENT_SNAPSHOT_HYGIENE_VERSION} (found ${JSON.stringify(installs)})`
+    installs.every(pin => pin === `@${CURRENT_AGENT_IMAGE_VERSION}`),
+    `${file} pins current @link-assistant/agent@${CURRENT_AGENT_IMAGE_VERSION} (found ${JSON.stringify(installs)})`
   );
 }
 

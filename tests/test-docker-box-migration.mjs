@@ -21,12 +21,11 @@ const dockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const filePath of dockerfiles) {
   const content = await read(filePath);
 
-  // Bumped with the base image itself: 2.7.0 carries the box#112 fix (one
-  // Node.js, one Bun, one Rust toolchain per image — issue #2187, item A).
-  // Pulled from GHCR, box's registry of record, because Docker Hub's 2.7.0
-  // tags are amd64-only and these images build for arm64 too
-  // (link-foundation/box#119).
-  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.7.0', filePath);
+  // Box 2.10.2 includes the box#112 one-toolchain fix and the box#119 release
+  // pipeline repair. Pin the current multi-arch release from GHCR, box's
+  // registry of record, rather than leaving the image on the affected 2.7.0
+  // release after the upstream blocker has closed.
+  assertIncludes(content, 'FROM ghcr.io/link-foundation/box:2.10.2', filePath);
   assertExcludes(content, 'FROM konard/box:', filePath);
   assertIncludes(content, 'Keep this in lockstep with the DinD base-image release.', filePath);
   assertIncludes(content, 'USER box', filePath);

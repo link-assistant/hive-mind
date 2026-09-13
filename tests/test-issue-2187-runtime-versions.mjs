@@ -4,11 +4,12 @@
  * Issue #2187, items A and C — the images must ship ONE current runtime per
  * language, not a stale one plus whatever each task downloads for itself.
  *
- * The Box base installs Node.js 20 (`nvm install 20` in box's
+ * Box releases through 2.4.0 installed Node.js 20 (`nvm install 20` in box's
  * ubuntu/24.04/js/install.sh), while this package declares `engines.node >= 24`,
- * so tasks were downloading their own node/bun into /tmp on every run. The
- * hive-mind layer now installs a pinned current Node.js and Bun and deletes the
- * superseded node version instead of stacking a second copy next to it.
+ * so tasks downloaded their own node/bun into /tmp on every run. Box 2.10.2 now
+ * ships the same pinned Node.js and Bun versions. The hive-mind layer reasserts
+ * those pins and deletes any superseded Node.js version so future base-image
+ * drift cannot recreate stacked runtime copies.
  *
  * What is pinned here:
  *   - the pinned node satisfies package.json `engines.node`;

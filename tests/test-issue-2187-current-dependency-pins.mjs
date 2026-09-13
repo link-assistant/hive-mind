@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
   agent: '0.26.2',
@@ -35,33 +36,33 @@ const expected = {
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
 for (const file of regularDockerfiles) {
   const source = read(file);
-  assert.match(source, new RegExp(`^FROM ghcr\\.io/link-foundation/box:${expected.box}$`, 'm'), `${file} should pin Box ${expected.box}`);
-  assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${expected.formalAi}$`, 'm'), `${file} should pin Formal AI ${expected.formalAi}`);
-  assert.match(source, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${expected.node}$`, 'm'), `${file} should align Node.js with Box ${expected.box}`);
-  assert.match(source, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${expected.bun}$`, 'm'), `${file} should align Bun with Box ${expected.box}`);
+  assert.match(source, new RegExp(`^FROM ghcr\\.io/link-foundation/box:${escapeRegExp(expected.box)}$`, 'm'), `${file} should pin Box ${expected.box}`);
+  assert.match(source, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegExp(expected.formalAi)}$`, 'm'), `${file} should pin Formal AI ${expected.formalAi}`);
+  assert.match(source, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `${file} should align Node.js with Box ${expected.box}`);
+  assert.match(source, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${escapeRegExp(expected.bun)}$`, 'm'), `${file} should align Bun with Box ${expected.box}`);
 }
 
 const dindDockerfile = read('Dockerfile.dind');
-assert.match(dindDockerfile, new RegExp(`^FROM ghcr\\.io/link-foundation/box-dind:${expected.box}$`, 'm'), `Dockerfile.dind should pin Box ${expected.box}`);
-assert.match(dindDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${expected.formalAi}$`, 'm'), `Dockerfile.dind should pin Formal AI ${expected.formalAi}`);
-assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${expected.node}$`, 'm'), `Dockerfile.dind should align Node.js with Box ${expected.box}`);
-assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${expected.bun}$`, 'm'), `Dockerfile.dind should align Bun with Box ${expected.box}`);
+assert.match(dindDockerfile, new RegExp(`^FROM ghcr\\.io/link-foundation/box-dind:${escapeRegExp(expected.box)}$`, 'm'), `Dockerfile.dind should pin Box ${expected.box}`);
+assert.match(dindDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegExp(expected.formalAi)}$`, 'm'), `Dockerfile.dind should pin Formal AI ${expected.formalAi}`);
+assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_NODE_VERSION=${escapeRegExp(expected.node)}$`, 'm'), `Dockerfile.dind should align Node.js with Box ${expected.box}`);
+assert.match(dindDockerfile, new RegExp(`^ARG HIVE_MIND_BUN_VERSION=${escapeRegExp(expected.bun)}$`, 'm'), `Dockerfile.dind should align Bun with Box ${expected.box}`);
 
 const formalAiDockerfile = read('Dockerfile.formal-ai');
-assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${expected.formalAi}$`, 'm'), `Dockerfile.formal-ai should pin Formal AI ${expected.formalAi}`);
+assert.match(formalAiDockerfile, new RegExp(`^ARG FORMAL_AI_VERSION=${escapeRegExp(expected.formalAi)}$`, 'm'), `Dockerfile.formal-ai should pin Formal AI ${expected.formalAi}`);
 
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const source = read(file);
-  assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${expected.agent}`), `${file} should pin Agent ${expected.agent}`);
-  assert.match(source, new RegExp(`bun install -g start-command@${expected.startCommand}`), `${file} should pin start-command ${expected.startCommand}`);
+  assert.match(source, new RegExp(`bun install -g @link-assistant/agent@${escapeRegExp(expected.agent)}(?:\\s|$)`), `${file} should pin Agent ${expected.agent}`);
+  assert.match(source, new RegExp(`bun install -g start-command@${escapeRegExp(expected.startCommand)}(?:\\s|$)`), `${file} should pin start-command ${expected.startCommand}`);
 }
 
 const formalAiVersionSource = read('src/formal-ai-version.lib.mjs');
-assert.match(formalAiVersionSource, new RegExp(`FORMAL_AI_BOOTSTRAP_VERSION = '${expected.formalAi}'`), 'the Formal AI runtime and image pins should match');
+assert.match(formalAiVersionSource, new RegExp(`FORMAL_AI_BOOTSTRAP_VERSION = '${escapeRegExp(expected.formalAi)}'`), 'the Formal AI runtime and image pins should match');
 
 const useMSource = read('src/use-m-bootstrap.lib.mjs');
-assert.match(useMSource, new RegExp(`unpkg\\.com/use-m@${expected.useM}/use\\.js`), `the primary use-m bootstrap should pin ${expected.useM}`);
-assert.match(useMSource, new RegExp(`jsdelivr\\.net/npm/use-m@${expected.useM}/use\\.js`), `the fallback use-m bootstrap should pin ${expected.useM}`);
+assert.match(useMSource, new RegExp(`unpkg\\.com/use-m@${escapeRegExp(expected.useM)}/use\\.js`), `the primary use-m bootstrap should pin ${expected.useM}`);
+assert.match(useMSource, new RegExp(`jsdelivr\\.net/npm/use-m@${escapeRegExp(expected.useM)}/use\\.js`), `the fallback use-m bootstrap should pin ${expected.useM}`);
 
 const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.devDependencies.eslint, `^${expected.eslint}`);

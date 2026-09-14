@@ -8,7 +8,7 @@ Hive Mind 创建的 pull request 有三种状态，只有最后一种表示"可�
 | **准备好评审 (Ready for review)** | Hive Mind 已验证可合并状态 —— 在可合并模式下，这就是信号。 | 评审。                        |
 | **`✅ Ready to merge`** 评论      | 所有 CI/CD 检查通过，且没有合并冲突。                      | 合并，或交给 `--auto-merge`。 |
 
-pull request 正文中带有 **🚦 How to read this pull request status** 提示，说明下列哪种模式处于活动状态；工作会话评论会用一行重复同样的信息。如果你只看一处，就看这条提示：它指明了你需要等待的信号。
+pull request 正文中带有 **🚦 如何理解此拉取请求的状态** 提示；它按照配置的 `--work-language` 呈现，并说明下列哪种模式处于活动状态。工作会话评论会用一行重复同样的信息。如果你只看一处，就看这条提示：它指明了你需要等待的信号。
 
 > 为什么这很重要：在 [`Time0utXC/digitalstructures.pro#4`](https://github.com/Time0utXC/digitalstructures.pro/pull/4) 中，pull request 在 AI 仍在处理时就被合并了。进行中的工作 —— 以及为此消耗的 AI 资源 —— 都丢失了。参见 [issue #2246](https://github.com/link-assistant/hive-mind/issues/2246)。
 
@@ -38,10 +38,10 @@ Hive Mind 会持续工作，直到 pull request 可以合并：**所有** CI/CD 
 工具提示词在「Preparing pull request」一节中用一行把同样的内容告诉 AI 工作者：
 
 ```
-   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+   - When you finish implementation, leave the draft, ready for review, and ready to merge states to the Hive Mind system.
 ```
 
-这一行取决于模式。使用 `--no-auto-restart-until-mergeable` 时没有监控循环，也没有暂缓机制 —— 会话结束就是工作结束 —— 因此提示词保留原先的 `use gh pr ready <number>`。在可合并模式下，同一节还会去掉旧的 `check that all CI checks are passing if they exist before you finish` 条目：上面那一行的要求已经更严格，而系统提示词在每一轮对话中都要付费。所有候选写法以及选定规则见 [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) —— 运行 `node experiments/issue-2246-render-prompt.mjs --variants` 可以打印它们及其长度。
+生命周期这一行取决于模式。使用 `--no-auto-restart-until-mergeable` 时没有监控循环，也没有暂缓机制 —— 会话结束就是工作结束 —— 因此提示词保留原先的 `use gh pr ready <number>`。独立的通用 CI 指令在所有模式下都会保留，并明确要求通常应让全部 CI/CD 检查通过，包括早于本次更改就已失败或看起来与 issue 无关的检查。生产代码用一次直接的模式判断选择生命周期行；用于选定措辞的候选项只保存在 [`experiments/issue-2246-prompt-variants.mjs`](../experiments/issue-2246-prompt-variants.mjs) 中。运行 `node experiments/issue-2246-render-prompt.mjs --variants` 可以打印候选项及其长度。
 
 ## 当状态出乎意料时
 

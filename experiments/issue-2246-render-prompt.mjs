@@ -6,7 +6,7 @@
 //   node experiments/issue-2246-render-prompt.mjs [claude|agent|codex|gemini|opencode|qwen]
 //   node experiments/issue-2246-render-prompt.mjs --variants
 const arg = process.argv[2] || 'claude';
-const { ACTIVE_VARIANT_ID, PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS, SINGLE_PASS_VARIANT_ID, getPullRequestLifecycleSubPrompt, isVariantComplete, selectActiveVariantId } = await import('../src/pr-lifecycle.prompts.lib.mjs');
+const { ACTIVE_VARIANT_ID, PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS, SINGLE_PASS_VARIANT_ID, isVariantComplete, selectActiveVariantId } = await import('./issue-2246-prompt-variants.mjs');
 
 if (arg === '--variants') {
   const rows = PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.map(variant => ({
@@ -22,7 +22,7 @@ if (arg === '--variants') {
   console.table(rows);
   console.log(`active: ${ACTIVE_VARIANT_ID} (selection rule picks: ${selectActiveVariantId()}), single pass: ${SINGLE_PASS_VARIANT_ID}`);
   for (const variant of PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS) {
-    console.log(`\n[${variant.id}] ${variant.note}\n${getPullRequestLifecycleSubPrompt({ variantId: variant.id, prNumber: 2, repoSuffix: '' })}`);
+    console.log(`\n[${variant.id}] ${variant.note}\n   - ${variant.text.replace('{{prNumber}}', '2').replace('{{repoSuffix}}', '')}`);
   }
   process.exit(0);
 }

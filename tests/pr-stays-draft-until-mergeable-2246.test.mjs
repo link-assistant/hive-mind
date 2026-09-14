@@ -28,8 +28,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getOutstandingWorkingSessionDrafts, getPullRequestLeftInDraft, holdReadyForReview, isReadyForReviewHeld, markPullRequestLeftInDraft, releaseReadyForReviewHold, resetWorkingSessionDrafts, restorePullRequestsLeftInDraft } from '../src/pr-draft-state.lib.mjs';
 import { buildPullRequestStatusNotice, buildWorkSessionStatusLine, describeReadinessMode, getReadinessMode, isMergeableModeActive, READINESS_MODES } from '../src/pr-readiness-policy.lib.mjs';
-import { ACTIVE_VARIANT_ID, getFinalizeCiChecksSubPrompt, getPullRequestLifecycleSubPrompt, isVariantComplete, PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS, REQUIRED_FACTS, selectActiveVariantId, SINGLE_PASS_VARIANT_ID } from '../src/pr-lifecycle.prompts.lib.mjs';
-import { buildSystemPrompt as buildClaudeSystemPrompt } from '../src/claude.prompts.lib.mjs';
+import { getPullRequestLifecycleSubPrompt } from '../src/pr-lifecycle.prompts.lib.mjs';
+import { ACTIVE_VARIANT_ID, isVariantComplete, PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS, REQUIRED_FACTS, selectActiveVariantId, SINGLE_PASS_VARIANT_ID } from '../experiments/issue-2246-prompt-variants.mjs';
+import { getSupportedLocales, initI18n, t } from '../src/i18n.lib.mjs';
 import { buildReadyToMergeComment, confirmReadyToMergeState, endAiSessionReadyTransition, MAX_READY_FOR_REVIEW_RECHECKS, releaseReadyTransitionHold } from '../src/pr-ready-transition.lib.mjs';
 import { evaluatePullRequestMergeability } from '../src/merge-error-classification.lib.mjs';
 
@@ -58,6 +59,8 @@ const assert = (condition, message) => {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const readSrc = name => readFileSync(join(__dirname, '..', 'src', name), 'utf8');
+
+await initI18n('en');
 
 /** Fake command-stream `$` that answers `gh pr view` from `state` and applies `gh pr ready`. */
 const makeFakeDollar = state => {
@@ -132,6 +135,41 @@ await test('the session-comment line carries the same expectation', () => {
   const line = buildWorkSessionStatusLine({ autoRestartUntilMergeable: true });
   assert(line.includes('Ready to merge') && /wait/i.test(line), `session line must manage expectations, got: ${line}`);
   assert(describeReadinessMode({ autoMerge: true }).flag === '--auto-merge', 'mode description must expose the flag');
+});
+
+await test('readiness notices follow every supported work language', async () => {
+  const expectedHeadings = {
+    en: 'How to read this pull request status',
+    hi: 'इस पुल अनुरोध की स्थिति को कैसे समझें',
+    ru: 'Как понимать статус этого pull request',
+    zh: '如何理解此拉取请求的状态',
+  };
+  const expectedAutonomy = {
+    en: 'work autonomously',
+    hi: 'स्वायत्त रूप से काम करें',
+    ru: 'работай автономно',
+    zh: '自主工作',
+  };
+  const expectedExistingFailureScope = {
+    en: 'failures that predate your changes',
+    hi: 'आपके परिवर्तनों से पहले मौजूद थीं',
+    ru: 'существовавших до твоих изменений',
+    zh: '早于你的更改就已存在的失败',
+  };
+  for (const locale of getSupportedLocales()) {
+    await initI18n({ uiLanguage: 'en', workLanguage: locale });
+    const notice = buildPullRequestStatusNotice({ autoRestartUntilMergeable: true });
+    const sessionLine = buildWorkSessionStatusLine({ autoRestartUntilMergeable: true });
+    const autonomyReference = t('prompt.system.initial.research.tail', {}, { locale });
+    const pullRequestReference = t('prompt.system.preparing.pr', { prNumber: 2 }, { locale });
+    assert(notice.includes(expectedHeadings[locale]), `${locale} notice must use its translated heading, got: ${notice}`);
+    assert(!notice.includes('pr.readiness.'), `${locale} notice must not expose a missing translation key`);
+    assert(!sessionLine.includes('pr.readiness.'), `${locale} session line must not expose a missing translation key`);
+    assert(autonomyReference.includes(expectedAutonomy[locale]), `${locale} prompt reference must preserve the autonomous-delivery instruction`);
+    assert(pullRequestReference.includes(expectedExistingFailureScope[locale]), `${locale} prompt reference must cover pre-existing CI/CD failures`);
+    assert(pullRequestReference.includes('Hive Mind'), `${locale} prompt reference must assign pull request states to Hive Mind`);
+  }
+  await initI18n('en');
 });
 
 console.log('\nThe ready hold — "ready for review" means "ready to merge" in mergeable modes:\n');
@@ -267,9 +305,9 @@ for (const argv of MERGEABLE_ARGV) {
   await test(`in a mergeable mode (${JSON.stringify(argv)}) the sub-prompt hands the state to hive-mind`, () => {
     const subPrompt = getPullRequestLifecycleSubPrompt({ argv, prNumber: 2 });
     assert(/Hive Mind system/.test(subPrompt), 'the prompt must say the Hive Mind system handles the state');
+    assert(/draft/.test(subPrompt), 'the prompt must mention the draft state');
+    assert(/ready for review/.test(subPrompt), 'the prompt must mention the ready for review state');
     assert(/ready to merge/.test(subPrompt), 'the prompt must mention the ready to merge state');
-    assert(/CI\/CD checks pass/.test(subPrompt), 'the goal is a mergeable pull request');
-    assert(/unrelated/.test(subPrompt), 'even unrelated checks must pass (issue #2246)');
     assert(!/gh pr ready/.test(subPrompt), 'the AI must not be told to take the pull request out of draft');
   });
 }
@@ -291,7 +329,7 @@ await test('a tool that needs an explicit repository gets it in the single-pass 
 // so the replacement for "use gh pr ready <n>" must stay one line, not a paragraph.
 await test('every lifecycle sub-prompt variant is a single prompt line', () => {
   for (const variant of PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS) {
-    const line = getPullRequestLifecycleSubPrompt({ variantId: variant.id, prNumber: 2 });
+    const line = `   - ${variant.text.replace('{{prNumber}}', '2').replace('{{repoSuffix}}', '')}`;
     assert(!line.includes('\n'), `variant ${variant.id} must be one line, got:\n${line}`);
     assert(line.startsWith('   - '), `variant ${variant.id} must be formatted as one item of the surrounding list`);
     // A budget, not a measurement: this line is paid for on every turn of every session.
@@ -308,12 +346,12 @@ await test("the catalogue offers at least 10 phrasings and the active one is the
   assert(ids.includes(ACTIVE_VARIANT_ID), `the active variant ${ACTIVE_VARIANT_ID} must be in the catalogue`);
   assert(ids.includes(SINGLE_PASS_VARIANT_ID), `the single-pass variant ${SINGLE_PASS_VARIANT_ID} must be in the catalogue`);
   assert(ACTIVE_VARIANT_ID === selectActiveVariantId(), `the active variant must be the shortest complete when-clause phrasing, which is ${selectActiveVariantId()}`);
+  const active = PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.find(variant => variant.id === ACTIVE_VARIANT_ID);
+  assert(getPullRequestLifecycleSubPrompt({ argv: { autoRestartUntilMergeable: true }, prNumber: 2 }) === `   - ${active.text}`, 'production must use the wording selected during development without selecting it at runtime');
 });
 
 await test('the coverage flags of every variant match its own text', () => {
   const evidence = {
-    ci: /CI\/CD/,
-    unrelated: /unrelated/,
     states: /ready to merge/,
     ownership: /Hive Mind system/,
     noChange: /do not change|no need to change|no need to touch|not by you|not you|leave the draft|Do not do its job/,
@@ -332,18 +370,34 @@ await test('the coverage flags of every variant match its own text', () => {
   );
 });
 
-// Review feedback on #2248: "Or may be double check it, we don't duplicate it in other
-// places of system prompt."
-await test('the CI/CD demand is stated once per system prompt', () => {
+await test('the universal CI/CD checklist remains in every mode and covers pre-existing failures', async () => {
   const params = { owner: 'o', repo: 'r', issueNumber: 1, prNumber: 2, branchName: 'b', workspaceTmpDir: '/tmp', modelSupportsVision: false };
-  const mergeable = buildClaudeSystemPrompt({ ...params, argv: { autoRestartUntilMergeable: true } });
-  assert(!mergeable.includes('check that all CI checks are passing if they exist before you finish'), 'the finalize checklist must not repeat what the lifecycle line already demands');
-  assert(mergeable.split('make all CI/CD checks pass').length === 2, 'the lifecycle line must appear exactly once');
-  assert(getFinalizeCiChecksSubPrompt({ autoRestartUntilMergeable: true }) === '', 'the duplicate checklist item is dropped in a mergeable mode');
+  for (const file of promptFiles) {
+    const { buildSystemPrompt } = await import(`../src/${file}`);
+    for (const argv of [{}, { autoRestartUntilMergeable: true }, { autoMerge: true }]) {
+      const prompt = buildSystemPrompt({ ...params, argv });
+      assert(prompt.includes('check that all CI checks are passing if they exist before you finish'), `${file} must preserve the universal CI instruction in ${JSON.stringify(argv)}`);
+      assert(prompt.includes('usually this includes all CI/CD checks'), `${file} must clarify the universal CI/CD scope in ${JSON.stringify(argv)}`);
+      assert(/predate your changes/.test(prompt), `${file} must cover pre-existing failures in ${JSON.stringify(argv)}`);
+      assert(/seem unrelated to the issue/.test(prompt), `${file} must cover unrelated failures in ${JSON.stringify(argv)}`);
+    }
+  }
+});
 
-  const singlePass = buildClaudeSystemPrompt({ ...params, argv: {} });
-  assert(singlePass.includes('check that all CI checks are passing if they exist before you finish'), 'without a mergeable mode the checklist item is the only CI/CD instruction, so it stays');
-  assert(singlePass.length < mergeable.length, 'the single-pass prompt stays the smaller of the two');
+await test('all tool prompts prefer autonomous delivery over avoidable clarification', () => {
+  for (const file of promptFiles) {
+    const src = readSrc(file);
+    assert(/work autonomously/.test(src), `${file} must tell the worker to choose autonomously`);
+    assert(/fully implement the best option/.test(src), `${file} must require the selected option to be delivered`);
+    assert(/document the options considered/.test(src), `${file} must preserve alternatives for review`);
+    assert(/ask for human input only when work cannot safely continue/.test(src), `${file} must reserve questions for true blockers`);
+  }
+});
+
+await test('production lifecycle rendering contains no variant catalogue or selection', () => {
+  const src = readSrc('pr-lifecycle.prompts.lib.mjs');
+  assert(!/PROMPT_VARIANTS|selectActiveVariantId|\.sort\(/.test(src), 'variant analysis belongs in experiments/tests, not production');
+  assert(src.split('\n').length <= 60, `the runtime lifecycle module should stay concise, got ${src.split('\n').length} lines`);
 });
 
 console.log('\nWiring (RC-B, RC-C, RC-D):\n');

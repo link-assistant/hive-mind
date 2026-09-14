@@ -8,7 +8,7 @@ A pull request opened by Hive Mind has three states, and only the last one means
 | **Ready for review**            | Hive Mind has verified the mergeable state — in a mergeable mode, this is the signal. | Review.                             |
 | **`✅ Ready to merge`** comment | All CI/CD checks pass and there are no merge conflicts.                               | Merge, or let `--auto-merge` do it. |
 
-The pull request body carries a **🚦 How to read this pull request status** notice saying which of the modes below is active, and work-session comments repeat it in one line. If you read only one thing, read that notice: it names the signal to wait for.
+The pull request body carries a **🚦 How to read this pull request status** notice, rendered in the configured `--work-language`, saying which of the modes below is active. Work-session comments repeat it in one line. If you read only one thing, read that notice: it names the signal to wait for.
 
 > Why this matters: in [`Time0utXC/digitalstructures.pro#4`](https://github.com/Time0utXC/digitalstructures.pro/pull/4) a pull request was merged while the AI was still working on it. The work in progress — and the AI resources spent on it — were lost. See [issue #2246](https://github.com/link-assistant/hive-mind/issues/2246).
 
@@ -38,10 +38,10 @@ Hive Mind does, not the AI worker.
 The tool prompts say the same to the AI worker, in one line of their "Preparing pull request" section:
 
 ```
-   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+   - When you finish implementation, leave the draft, ready for review, and ready to merge states to the Hive Mind system.
 ```
 
-The line depends on the mode. With `--no-auto-restart-until-mergeable` there is no monitoring loop and no hold — the session ending really is the end of the work — so the prompt keeps its previous line, `use gh pr ready <number>`. In a mergeable mode the same section also drops its old `check that all CI checks are passing if they exist before you finish` item: the line above already demands more than that, and a system prompt is paid for on every conversation turn. The phrasings that were considered, and the rule that picks the active one, live in [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) — `node experiments/issue-2246-render-prompt.mjs --variants` prints them with their sizes.
+The lifecycle line depends on the mode. With `--no-auto-restart-until-mergeable` there is no monitoring loop and no hold — the session ending really is the end of the work — so the prompt keeps its previous line, `use gh pr ready <number>`. The separate universal CI instruction remains in every mode and now says that all CI/CD checks should normally pass, including failures that predate the change or appear unrelated to the issue. Production selects the lifecycle line with one direct mode check. The candidate phrasings used to choose it live only in [`experiments/issue-2246-prompt-variants.mjs`](../experiments/issue-2246-prompt-variants.mjs); `node experiments/issue-2246-render-prompt.mjs --variants` prints them with their sizes.
 
 ## Reading a state you did not expect
 

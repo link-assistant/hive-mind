@@ -8,7 +8,7 @@ Hive Mind द्वारा खोले गए pull request की तीन �
 | **Ready for review**            | Hive Mind ने mergeable स्थिति सत्यापित कर ली है — mergeable मोड में यही संकेत है।    | समीक्षा करें।                              |
 | **`✅ Ready to merge`** टिप्पणी | सभी CI/CD जाँचें पास हैं और कोई merge conflict नहीं है।                              | Merge करें, या `--auto-merge` को करने दें। |
 
-pull request के विवरण में **🚦 How to read this pull request status** सूचना होती है जो बताती है कि नीचे दिए गए मोड में से कौन सा सक्रिय है; work-session टिप्पणियाँ वही बात एक पंक्ति में दोहराती हैं। यदि आप केवल एक चीज़ पढ़ें, तो यही सूचना पढ़ें: यह उस संकेत का नाम बताती है जिसकी प्रतीक्षा करनी है।
+pull request के विवरण में **🚦 इस पुल अनुरोध की स्थिति को कैसे समझें** सूचना होती है, जो कॉन्फ़िगर किए गए `--work-language` में दिखाई देती है और बताती है कि नीचे दिए गए मोड में से कौन सा सक्रिय है। Work-session टिप्पणियाँ वही बात एक पंक्ति में दोहराती हैं। यदि आप केवल एक चीज़ पढ़ें, तो यही सूचना पढ़ें: यह उस संकेत का नाम बताती है जिसकी प्रतीक्षा करनी है।
 
 > यह क्यों मायने रखता है: [`Time0utXC/digitalstructures.pro#4`](https://github.com/Time0utXC/digitalstructures.pro/pull/4) में एक pull request तब merge कर दिया गया जब AI अभी भी उस पर काम कर रहा था। अधूरा काम — और उस पर खर्च हुए AI संसाधन — नष्ट हो गए। देखें [issue #2246](https://github.com/link-assistant/hive-mind/issues/2246)।
 
@@ -38,10 +38,10 @@ Hive Mind, न कि AI worker।
 Tool prompts अपने "Preparing pull request" खंड की एक पंक्ति में AI worker को यही बात बताते हैं:
 
 ```
-   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+   - When you finish implementation, leave the draft, ready for review, and ready to merge states to the Hive Mind system.
 ```
 
-यह पंक्ति मोड पर निर्भर करती है। `--no-auto-restart-until-mergeable` के साथ न monitoring loop है और न रोक — session का अंत ही काम का अंत है — इसलिए prompt अपनी पिछली पंक्ति `use gh pr ready <number>` रखता है। mergeable मोड में वही खंड पुराना `check that all CI checks are passing if they exist before you finish` आइटम भी हटा देता है: ऊपर की पंक्ति उससे अधिक की माँग पहले ही कर चुकी है, और system prompt की कीमत हर conversation turn पर चुकानी पड़ती है। जिन रूपों पर विचार हुआ और सक्रिय रूप चुनने का नियम [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) में हैं — `node experiments/issue-2246-render-prompt.mjs --variants` उन्हें उनके आकार के साथ छापता है।
+Lifecycle पंक्ति मोड पर निर्भर करती है। `--no-auto-restart-until-mergeable` के साथ न monitoring loop है और न रोक — session का अंत ही काम का अंत है — इसलिए prompt अपनी पिछली पंक्ति `use gh pr ready <number>` रखता है। अलग universal CI निर्देश हर मोड में रहता है और अब साफ़ कहता है कि आम तौर पर सभी CI/CD checks पास होने चाहिए, जिनमें मौजूदा बदलाव से पहले की विफलताएँ या issue से असंबंधित दिखने वाली विफलताएँ भी शामिल हैं। Production code एक सीधे mode check से lifecycle पंक्ति चुनता है। चुनी हुई wording तक पहुँचने के लिए इस्तेमाल किए गए candidates केवल [`experiments/issue-2246-prompt-variants.mjs`](../experiments/issue-2246-prompt-variants.mjs) में हैं; `node experiments/issue-2246-render-prompt.mjs --variants` उन्हें उनके आकार के साथ छापता है।
 
 ## जब स्थिति अपेक्षा से अलग दिखे
 

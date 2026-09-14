@@ -12,7 +12,7 @@ import { buildRequestedBaseBranchDirective } from './solve-option-contract.promp
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
-import { getFinalizeCiChecksSubPrompt, getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
+import { getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Qwen Code
@@ -150,7 +150,8 @@ Initial research.
    - When you study related work, study the most recent related pull requests.`
        : ''
    }
-   - When the issue is not defined clearly enough, write a comment with clarifying questions.
+   - When requirements leave room for judgment, work autonomously: choose and fully implement the best option from the available evidence instead of asking the user to decide.
+   - If uncertainty remains, document the options considered and the implemented choice in the pull request (use a markdown document plus a pull request comment if needed), invite review, and ask for human input only when work cannot safely continue.
    - When accessing GitHub Gists, use gh gist view command instead of direct URL fetching.
    - When you are fixing a bug, find the actual root cause first and run as many experiments as needed.
    - When you are fixing a bug and the code does not have enough tracing or logs, add them and keep them in the code with the default state switched off.
@@ -172,7 +173,6 @@ Solution development and testing.
    - When you test solution draft, include automated checks in pr.
    - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
    - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
-   - When the issue is unclear, write a comment on the issue with questions.
    - When you encounter any problems that you are unable to solve yourself, write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" to comment on existing PR.
 
@@ -195,7 +195,8 @@ Preparing pull request.
       check that the pull request title and description are updated (the PR may start with a [WIP] prefix and a placeholder description that should be replaced with the actual title and description of the changes),
       follow style from merged prs for code, title, and description,
       check that no uncommitted changes corresponding to the original requirements are left behind,
-      check that the default branch is merged into the pull request branch,${getFinalizeCiChecksSubPrompt(argv)}
+      check that the default branch is merged into the pull request branch,
+      check that all CI checks are passing if they exist before you finish; usually this includes all CI/CD checks, even failures that predate your changes or seem unrelated to the issue,
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.

@@ -18,9 +18,7 @@
  */
 
 import { READY_TO_MERGE_MARKER } from './tool-comments.lib.mjs';
-
-/** Marker for the mode notice, so the notice can be recognized and deduplicated. */
-export const PR_STATUS_NOTICE_MARKER = 'How to read this pull request status';
+import { tWork } from './i18n.lib.mjs';
 
 export const READINESS_MODES = {
   /** `--auto-merge`: hive-mind verifies mergeability and merges the pull request itself. */
@@ -54,6 +52,16 @@ export const getReadinessMode = argv => {
  */
 export const isMergeableModeActive = argv => getReadinessMode(argv) !== READINESS_MODES.SINGLE_PASS;
 
+const translate = (key, params = {}) => tWork(`pr.readiness.${key}`, params);
+
+const modeDescription = (mode, flag, key) => ({
+  mode,
+  flag,
+  title: translate(`mode.${key}.title`),
+  summary: translate(`mode.${key}.summary`),
+  waitFor: translate(`mode.${key}.wait.for`, { marker: READY_TO_MERGE_MARKER }),
+});
+
 /**
  * Human-readable description of the active mode.
  * @returns {{mode: string, flag: string, title: string, summary: string, waitFor: string}}
@@ -62,29 +70,11 @@ export const describeReadinessMode = argv => {
   const mode = getReadinessMode(argv);
   switch (mode) {
     case READINESS_MODES.AUTO_MERGE:
-      return {
-        mode,
-        flag: '--auto-merge',
-        title: 'Auto-merge',
-        summary: 'hive-mind keeps working until this pull request is mergeable (all CI/CD checks pass, no conflicts) and then merges it automatically.',
-        waitFor: `the \`✅ ${READY_TO_MERGE_MARKER}\` state`,
-      };
+      return modeDescription(mode, '--auto-merge', 'auto.merge');
     case READINESS_MODES.ENSURE_MERGEABLE:
-      return {
-        mode,
-        flag: '--auto-restart-until-mergeable',
-        title: 'Ensure mergeable',
-        summary: 'hive-mind keeps working until this pull request is mergeable: all CI/CD checks pass and there are no merge conflicts.',
-        waitFor: `the \`✅ ${READY_TO_MERGE_MARKER}\` comment`,
-      };
+      return modeDescription(mode, '--auto-restart-until-mergeable', 'ensure.mergeable');
     default:
-      return {
-        mode,
-        flag: '--no-auto-restart-until-mergeable',
-        title: 'Single working session',
-        summary: 'hive-mind runs one working session and does not monitor CI/CD afterwards.',
-        waitFor: 'the end of the working session',
-      };
+      return modeDescription(mode, '--no-auto-restart-until-mergeable', 'single.pass');
   }
 };
 
@@ -104,20 +94,20 @@ export const buildPullRequestStatusNotice = (argv, { includeHeading = true, head
   const lines = [];
 
   if (includeHeading) {
-    lines.push(`${headingLevel} 🚦 ${PR_STATUS_NOTICE_MARKER}`, '');
+    lines.push(`${headingLevel} 🚦 ${translate('heading')}`, '');
   }
 
-  lines.push(`**Mode:** \`${description.flag}\` — ${description.summary}`, '');
+  lines.push(`**${translate('mode.label')}:** \`${description.flag}\` — ${description.summary}`, '');
 
   if (description.mode === READINESS_MODES.SINGLE_PASS) {
-    lines.push('- This pull request is a **draft** while the working session is running.', '- It is marked **ready for review** by hive-mind when the session ends. CI/CD checks may still be running at that point.', '- Nobody should have to ask the AI to change the draft/ready state: hive-mind owns it.');
+    lines.push(translate('notice.single.pass').trim());
     return lines.join('\n');
   }
 
-  lines.push('- This pull request stays a **draft** for as long as hive-mind is still working on it.', `- hive-mind marks it **ready for review** itself, and posts a \`✅ ${READY_TO_MERGE_MARKER}\` comment, only once the mergeable state is verified.`, `- **Please wait for ${description.waitFor} before reviewing or merging.** Merging earlier discards the AI work that is still in progress.`, '- The draft/ready state is owned by hive-mind, not by the AI worker: if the state is changed manually mid-run, hive-mind restores it.');
+  lines.push(translate('notice.mergeable', { marker: READY_TO_MERGE_MARKER, waitFor: description.waitFor }).trim());
 
   if (description.mode === READINESS_MODES.AUTO_MERGE) {
-    lines.push('- Once that state is reached, hive-mind merges this pull request automatically — no manual merge is needed.');
+    lines.push(translate('notice.auto.merge'));
   }
 
   return lines.join('\n');
@@ -131,13 +121,12 @@ export const buildPullRequestStatusNotice = (argv, { includeHeading = true, head
 export const buildWorkSessionStatusLine = argv => {
   const description = describeReadinessMode(argv);
   if (description.mode === READINESS_MODES.SINGLE_PASS) {
-    return `Mode: \`${description.flag}\` — the pull request is marked ready for review when this session ends.`;
+    return translate('session.single.pass', { flag: description.flag });
   }
-  return `Mode: \`${description.flag}\` — the pull request stays a draft until hive-mind verifies it is mergeable and posts the \`✅ ${READY_TO_MERGE_MARKER}\` comment. Please wait for that signal before reviewing or merging.`;
+  return translate('session.mergeable', { flag: description.flag, marker: READY_TO_MERGE_MARKER });
 };
 
 export default {
-  PR_STATUS_NOTICE_MARKER,
   READINESS_MODES,
   getReadinessMode,
   isMergeableModeActive,

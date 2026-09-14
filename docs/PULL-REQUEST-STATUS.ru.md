@@ -8,7 +8,7 @@
 | **Готов к ревью (ready for review)** | Hive Mind подтвердил, что pull request можно влить — в режимах доведения до mergeable это и есть сигнал. | Проверять.                             |
 | Комментарий **`✅ Ready to merge`**  | Все проверки CI/CD проходят, конфликтов слияния нет.                                                     | Влить или доверить это `--auto-merge`. |
 
-В описании pull request есть блок **🚦 How to read this pull request status**, где указан активный режим из перечисленных ниже; комментарии рабочих сессий повторяют то же самое одной строкой. Если читать только что-то одно, читайте этот блок: он называет сигнал, которого нужно дождаться.
+В описании pull request есть блок **🚦 Как понимать статус этого pull request**, который выводится на языке `--work-language` и указывает активный режим из перечисленных ниже. Комментарии рабочих сессий повторяют то же самое одной строкой. Если читать только что-то одно, читайте этот блок: он называет сигнал, которого нужно дождаться.
 
 > Почему это важно: в [`Time0utXC/digitalstructures.pro#4`](https://github.com/Time0utXC/digitalstructures.pro/pull/4) pull request влили, пока ИИ ещё работал над ним. Незавершённая работа — и потраченные на неё ресурсы ИИ — пропали. См. [issue #2246](https://github.com/link-assistant/hive-mind/issues/2246).
 
@@ -38,10 +38,10 @@ Hive Mind, а не ИИ-исполнитель.
 То же самое сказано и в подсказках для ИИ-исполнителя — одной строкой раздела «Preparing pull request»:
 
 ```
-   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+   - When you finish implementation, leave the draft, ready for review, and ready to merge states to the Hive Mind system.
 ```
 
-Строка зависит от режима. С `--no-auto-restart-until-mergeable` нет ни цикла наблюдения, ни удержания — конец сессии и есть конец работы, — поэтому подсказка сохраняет прежнюю строку `use gh pr ready <number>`. В режимах доведения до mergeable из того же раздела убран старый пункт `check that all CI checks are passing if they exist before you finish`: строка выше требует большего, а системная подсказка оплачивается на каждом ходе диалога. Рассмотренные формулировки и правило выбора активной лежат в [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) — `node experiments/issue-2246-render-prompt.mjs --variants` печатает их вместе с длиной.
+Строка жизненного цикла зависит от режима. С `--no-auto-restart-until-mergeable` нет ни цикла наблюдения, ни удержания — конец сессии и есть конец работы, — поэтому подсказка сохраняет прежнюю строку `use gh pr ready <number>`. Отдельная универсальная инструкция о CI остаётся во всех режимах и теперь прямо говорит, что обычно должны проходить все проверки CI/CD, включая ошибки, возникшие до текущих изменений или выглядящие не связанными с задачей. В production строка жизненного цикла выбирается одной прямой проверкой режима. Кандидаты, использованные для выбора формулировки, находятся только в [`experiments/issue-2246-prompt-variants.mjs`](../experiments/issue-2246-prompt-variants.mjs); `node experiments/issue-2246-render-prompt.mjs --variants` печатает их вместе с длиной.
 
 ## Если состояние оказалось неожиданным
 

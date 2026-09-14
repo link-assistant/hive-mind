@@ -104,7 +104,7 @@ const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import
 // request stays a draft — "ready for review" is published only together with the
 // `Ready to merge` signal, so a human cannot merge half-finished AI work. The transition
 // itself, and the strict re-verification the draft state hides, live in their own module.
-const { ensurePullRequestIsDraft, isReadyForReviewHeld } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsDraft, holdReadyForReview, isReadyForReviewHeld } = await import('./pr-draft-state.lib.mjs');
 const { announceReadyToMerge, confirmReadyToMergeState } = await import('./pr-ready-transition.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
@@ -270,7 +270,7 @@ export const watchUntilMergeable = async params => {
       // so it must not be reported as a merge blocker — otherwise resolveDraftBlocker()
       // below would un-draft the pull request and, after MAX_DRAFT_SELF_HEALS, stop the
       // automation over a state hive-mind deliberately set.
-      const draftIsIntentional = isReadyForReviewHeld();
+      let draftIsIntentional = isReadyForReviewHeld();
       // Issue #2246: and because the state is this loop's own doing, it has to still be
       // true. An AI worker that ran `gh pr ready` from its own shell, or a human who
       // clicked "Ready for review", bypasses the hold entirely — nothing in
@@ -293,6 +293,17 @@ export const watchUntilMergeable = async params => {
         await log('');
         await reportAutomationStop({ $, owner, repo, targetNumber: prNumber, reason: 'terminal_github_entity_error', mode: 'auto-restart-until-mergeable', message: terminalGitHubBlocker.message, details: terminalGitHubBlocker.details, verbose: argv.verbose, log });
         return { success: false, reason: 'terminal_github_entity_error', latestSessionId, latestAnthropicCost };
+      }
+      // A ready-to-merge verdict belongs to one observed state. Auto-merge can keep this
+      // loop alive after that verdict (for example, after a retryable merge failure); if a
+      // later check finds any blocker, the earlier ready state is stale and Hive Mind owns
+      // the draft again until the new state is verified.
+      if (!draftIsIntentional && leftDraftOnMergeable && blockers.length > 0) {
+        holdReadyForReview({ reason: 'the previously verified ready-to-merge state changed' });
+        await ensurePullRequestIsDraft({ owner, repo, prNumber, $, log, formatAligned, reason: 'mergeability must be verified again', reportError, preserveDeliberateDraft: true });
+        draftIsIntentional = true;
+        leftDraftOnMergeable = false;
+        guardState.readyRecheckFailures = 0;
       }
       // Issue #2182: a pull request that is still a draft while no AI session is
       // running is a leftover from a restart iteration (executeToolIteration

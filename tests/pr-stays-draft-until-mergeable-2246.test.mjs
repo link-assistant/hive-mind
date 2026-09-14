@@ -426,6 +426,13 @@ await test('the watch loop takes the PR out of draft when it becomes mergeable',
   assert(/leftDraft: leftDraftOnMergeable/.test(autoMergeSrc), 'the "Ready to merge" comment must state that the PR left draft');
 });
 
+await test('continued monitoring reclaims draft ownership when readiness becomes stale', () => {
+  const reclaim = autoMergeSrc.match(/if \(!draftIsIntentional && leftDraftOnMergeable && blockers\.length > 0\) \{([\s\S]*?)\n\s*\}/)?.[1] || '';
+  assert(reclaim.includes('holdReadyForReview('), 'a new blocker after leaving draft must restore the ready hold');
+  assert(reclaim.includes('ensurePullRequestIsDraft('), 'a pull request with newly stale readiness must return to draft');
+  assert(reclaim.includes('leftDraftOnMergeable = false'), 'the next verified transition must report its own draft change');
+});
+
 await test('the "Ready to merge" comment says the PR was taken out of draft', () => {
   const announced = buildReadyToMergeComment({ leftDraft: true });
   assert(announced.includes('Taken out of draft'), `the comment must state the transition, got: ${announced}`);

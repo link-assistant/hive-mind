@@ -9,6 +9,8 @@
  * @see https://core.telegram.org/bots/features#privacy-mode
  */
 
+import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
+
 /**
  * Check if a message was sent before the bot started.
  * Prevents processing old/pending messages from before the current bot instance startup.
@@ -194,17 +196,10 @@ export function isForwardedOrReply(ctx, options = {}) {
  * @see https://github.com/link-assistant/hive-mind/issues/1207
  */
 export function extractCommandFromText(text, botUsername = null) {
-  if (!text || typeof text !== 'string') {
-    return null;
-  }
+  const prefix = parseTelegramCommandPrefix(text);
+  if (!prefix) return null;
 
-  const match = text.match(/^\/(\w+)(?:@(\S+))?\s*/);
-  if (!match) {
-    return null;
-  }
-
-  const command = match[1].toLowerCase();
-  const botMention = match[2] || null;
+  const { command, botMention } = prefix;
 
   // If command mentions a specific bot, verify it matches ours
   if (botMention && botUsername) {
@@ -233,8 +228,10 @@ export function extractGitHubUrl(text, { parseGitHubUrl, cleanNonPrintableChars 
     return { url: null, error: null, linkCount: 0 };
   }
 
-  text = cleanNonPrintableChars(text); // Clean non-printable chars before processing
-  const words = text.split(/\s+/);
+  // Establish Unicode whitespace boundaries before cleanup. Some cleanup
+  // policies remove C1 controls such as U+0085; cleaning the whole message
+  // first would fuse the words on either side into one unrecoverable token.
+  const words = text.split(/\p{White_Space}+/u).map(cleanNonPrintableChars);
   const foundUrls = [];
 
   for (const word of words) {

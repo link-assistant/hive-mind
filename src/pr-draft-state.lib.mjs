@@ -328,11 +328,20 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
 /**
  * Put a pull request into draft mode when a working session starts/restarts/resumes.
  * No-op when the PR is already a draft, merged, or closed.
+ *
+ * @param {Object} options
+ * @param {boolean} [options.preserveDeliberateDraft=false] - issue #2246: this call is not
+ *   a new working session, it only re-asserts a draft hive-mind already decided on (the
+ *   mergeable-mode watch loop does this once per check). It must therefore leave #2247's
+ *   "this pull request was left in draft because its diff is empty" verdict alone, which
+ *   a session start is expected to clear.
  */
-export const ensurePullRequestIsDraft = async options => {
+export const ensurePullRequestIsDraft = async ({ preserveDeliberateDraft = false, ...options } = {}) => {
   // Issue #2247: a new session invalidates a previous session's "nothing to
   // review" verdict; it is about to try again.
-  clearPullRequestLeftInDraft({ owner: options?.owner, repo: options?.repo, prNumber: options?.prNumber });
+  if (!preserveDeliberateDraft) {
+    clearPullRequestLeftInDraft({ owner: options?.owner, repo: options?.repo, prNumber: options?.prNumber });
+  }
   return setPullRequestDraftState({ ...options, target: 'draft' });
 };
 

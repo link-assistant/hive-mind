@@ -32,10 +32,16 @@ Hive Mind, न कि AI worker।
 
 - pull request `gh pr create --draft` से बनाया जाता है, और फिर स्थिति **वापस पढ़ी जाती है** — जो repository draft pull request की अनुमति नहीं देती वह इस flag को चुपचाप अनदेखा कर देती है, इसलिए यदि pull request ready for review बना हो तो उसे स्पष्ट रूप से draft में बदल दिया जाता है।
 - हर work session शुरू होते ही pull request को draft में बदल देता है।
-- mergeable मोड में ready-for-review में जाने को तब तक **रोक कर रखा जाता है** जब तक mergeable स्थिति सत्यापित न हो जाए। यदि AI worker या कोई व्यक्ति बीच में pull request को draft से बाहर निकालता है, तो Hive Mind उसे वापस draft कर देता है और `⏸️ PR stays draft` लॉग करता है।
+- mergeable मोड में ready-for-review में जाने को तब तक **रोक कर रखा जाता है** जब तक mergeable स्थिति सत्यापित न हो जाए। यदि AI worker या कोई व्यक्ति बीच में pull request को draft से बाहर निकालता है, तो Hive Mind उसे वापस draft कर देता है और `⏸️ PR stays draft` लॉग करता है। shell में सीधे चलाया गया `gh pr ready` Hive Mind तक कभी नहीं पहुँचता, इसलिए monitoring loop हर जाँच पर draft स्थिति फिर से लागू करता है।
 - पूरा हुआ run कभी भी pull request को draft में नहीं छोड़ता। हर exit path पर — सामान्य समाप्ति, `CTRL+C`, या घातक त्रुटि — रोक हटा दी जाती है और pull request ready for review कर दिया जाता है।
 
-Tool prompts यह सब AI worker को भी एक ही पंक्ति में बताते हैं: उसे pull request की स्थिति स्वयं नहीं बदलनी चाहिए, स्थिति Hive Mind सिस्टम द्वारा संभाली जाती है, और उसके काम का लक्ष्य एक _mergeable_ pull request है — हर विफल जाँच उसकी ज़िम्मेदारी है, भले ही वह उसे दिए गए issue से असंबंधित लगे।
+Tool prompts अपने "Preparing pull request" खंड की एक पंक्ति में AI worker को यही बात बताते हैं:
+
+```
+   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+```
+
+यह पंक्ति मोड पर निर्भर करती है। `--no-auto-restart-until-mergeable` के साथ न monitoring loop है और न रोक — session का अंत ही काम का अंत है — इसलिए prompt अपनी पिछली पंक्ति `use gh pr ready <number>` रखता है। mergeable मोड में वही खंड पुराना `check that all CI checks are passing if they exist before you finish` आइटम भी हटा देता है: ऊपर की पंक्ति उससे अधिक की माँग पहले ही कर चुकी है, और system prompt की कीमत हर conversation turn पर चुकानी पड़ती है। जिन रूपों पर विचार हुआ और सक्रिय रूप चुनने का नियम [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) में हैं — `node experiments/issue-2246-render-prompt.mjs --variants` उन्हें उनके आकार के साथ छापता है।
 
 ## जब स्थिति अपेक्षा से अलग दिखे
 

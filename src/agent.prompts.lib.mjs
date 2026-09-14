@@ -12,7 +12,7 @@ import { buildRequestedBaseBranchDirective } from './solve-option-contract.promp
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
-import { getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
+import { getFinalizeCiChecksSubPrompt, getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Agent
@@ -210,13 +210,12 @@ Preparing pull request.
       check that the pull request title and description are updated (the PR may start with a [WIP] prefix and a placeholder description that should be replaced with the actual title and description of the changes),
       follow style from merged prs for code, title, and description,
       check that no uncommitted changes corresponding to the original requirements are left behind,
-      check that the default branch is merged into the pull request branch,
-      check that all CI checks are passing if they exist before you finish,
+      check that the default branch is merged into the pull request branch,${getFinalizeCiChecksSubPrompt(argv)}
       check for latest comments on the issue and pull request to ensure no recent feedback was missed,
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.
-${getPullRequestLifecycleSubPrompt()}
+${getPullRequestLifecycleSubPrompt({ argv, prNumber })}
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

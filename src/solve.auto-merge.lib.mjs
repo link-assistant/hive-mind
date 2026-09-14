@@ -104,7 +104,7 @@ const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import
 // request stays a draft — "ready for review" is published only together with the
 // `Ready to merge` signal, so a human cannot merge half-finished AI work. The transition
 // itself, and the strict re-verification the draft state hides, live in their own module.
-const { isReadyForReviewHeld } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsDraft, isReadyForReviewHeld } = await import('./pr-draft-state.lib.mjs');
 const { announceReadyToMerge, confirmReadyToMergeState } = await import('./pr-ready-transition.lib.mjs');
 
 // Issue #1895: explicitly close linked issues after merging a PR into a
@@ -271,6 +271,15 @@ export const watchUntilMergeable = async params => {
       // below would un-draft the pull request and, after MAX_DRAFT_SELF_HEALS, stop the
       // automation over a state hive-mind deliberately set.
       const draftIsIntentional = isReadyForReviewHeld();
+      // Issue #2246: and because the state is this loop's own doing, it has to still be
+      // true. An AI worker that ran `gh pr ready` from its own shell, or a human who
+      // clicked "Ready for review", bypasses the hold entirely — nothing in
+      // pr-draft-state.lib.mjs sees a transition it did not perform. Re-assert it here:
+      // the call is a no-op (one `gh pr view`) whenever the pull request is already a
+      // draft, which is every iteration but the ones where someone interfered.
+      if (draftIsIntentional) {
+        await ensurePullRequestIsDraft({ owner, repo, prNumber, $, log, formatAligned, reason: 'ready-to-merge state not verified yet', reportError, preserveDeliberateDraft: true });
+      }
       // Get merge blockers
       const { blockers, noCiConfigured, noCiTriggered, workflowRunConclusions, ciStatus, noWorkflowRunsForCommit } = await getMergeBlockers(owner, repo, prNumber, argv.verbose, consecutiveNoRunsChecks, prBranch, { ignoreDraft: draftIsIntentional });
       const terminalGitHubBlocker = blockers.find(b => b.type === 'terminal_github_entity_error');

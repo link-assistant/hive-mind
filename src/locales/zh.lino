@@ -874,12 +874,11 @@ zh
                 在代码、标题和描述上沿用已合并 PR 的风格，
                 检查没有遗留与原始需求相对应的未提交更改，
                 检查默认分支已合并到 PR 分支，
-                在结束前检查所有 CI 检查（如有）已通过，
                 检查 issue 与 PR 上最新评论以确保未遗漏近期反馈，
                 仔细复核 PR 中所有变更确实满足 issue 的原始需求，
                 认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                 检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
-             - 当你完成实现时，使用 gh pr ready {{prNumber}}。
+             - 当你完成实现时，让所有 CI/CD 检查通过，即使看起来与该 issue 无关的检查也要通过，并把 draft、ready 和 ready to merge 状态交给 Hive Mind 系统管理。
         """
       workflow """
         工作流与协作。

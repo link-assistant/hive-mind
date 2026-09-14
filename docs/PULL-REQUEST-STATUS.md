@@ -32,10 +32,16 @@ Hive Mind does, not the AI worker.
 
 - The pull request is created with `gh pr create --draft`, and the state is then **read back** — a repository that does not allow draft pull requests silently ignores the flag, so the pull request is converted explicitly if it came out ready for review.
 - Every working session converts the pull request to draft when it starts.
-- In a mergeable mode the ready-for-review transition is **held back** until the mergeable state is verified. If the AI worker, or a human, takes the pull request out of draft mid-run, Hive Mind puts it back and logs `⏸️ PR stays draft`.
+- In a mergeable mode the ready-for-review transition is **held back** until the mergeable state is verified. If the AI worker, or a human, takes the pull request out of draft mid-run, Hive Mind puts it back and logs `⏸️ PR stays draft`. A `gh pr ready` typed into a shell never reaches Hive Mind, so the monitoring loop re-asserts the draft on every check as well.
 - A finished run never leaves a pull request in draft. On every exit path — normal end, `CTRL+C`, or a fatal error — the hold is released and the pull request is marked ready for review.
 
-The tool prompts say all of this to the AI worker as well, in a single line: it must not change the pull request state itself, the state is owned by the Hive Mind system, and the goal of its work is a _mergeable_ pull request — every failing check is its problem, even one that looks unrelated to the issue it was given.
+The tool prompts say the same to the AI worker, in one line of their "Preparing pull request" section:
+
+```
+   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+```
+
+The line depends on the mode. With `--no-auto-restart-until-mergeable` there is no monitoring loop and no hold — the session ending really is the end of the work — so the prompt keeps its previous line, `use gh pr ready <number>`. In a mergeable mode the same section also drops its old `check that all CI checks are passing if they exist before you finish` item: the line above already demands more than that, and a system prompt is paid for on every conversation turn. The phrasings that were considered, and the rule that picks the active one, live in [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) — `node experiments/issue-2246-render-prompt.mjs --variants` prints them with their sizes.
 
 ## Reading a state you did not expect
 

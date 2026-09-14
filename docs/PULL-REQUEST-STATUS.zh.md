@@ -32,10 +32,16 @@ Hive Mind 会持续工作，直到 pull request 可以合并：**所有** CI/CD 
 
 - pull request 使用 `gh pr create --draft` 创建，之后会**回读**状态 —— 不允许草稿 pull request 的仓库会静默忽略该标志，因此如果它以准备好评审的状态创建出来，就会被显式转换为草稿。
 - 每个工作会话开始时都会把 pull request 转为草稿。
-- 在可合并模式下，转为准备好评审的操作会被**暂缓**，直到可合并状态得到验证。如果 AI 工作者或人在运行过程中把 pull request 撤出草稿，Hive Mind 会把它放回去，并记录 `⏸️ PR stays draft`。
+- 在可合并模式下，转为准备好评审的操作会被**暂缓**，直到可合并状态得到验证。如果 AI 工作者或人在运行过程中把 pull request 撤出草稿，Hive Mind 会把它放回去，并记录 `⏸️ PR stays draft`。在 shell 中直接执行的 `gh pr ready` 不会经过 Hive Mind，因此监控循环在每次检查时都会重新确认草稿状态。
 - 已完成的运行绝不会把 pull request 留在草稿状态。在每一条退出路径上 —— 正常结束、`CTRL+C` 或致命错误 —— 暂缓都会被解除，pull request 会被标记为准备好评审。
 
-工具提示词也用一行把这些告诉了 AI 工作者：它不应自行更改 pull request 状态，状态由 Hive Mind 系统管理，而它工作的目标是一个_可合并的_ pull request —— 每一项失败的检查都是它的问题，即使那项检查看起来与分配给它的 issue 无关。
+工具提示词在「Preparing pull request」一节中用一行把同样的内容告诉 AI 工作者：
+
+```
+   - When you finish implementation, make all CI/CD checks pass, even unrelated ones, and leave the draft, ready and ready to merge states to the Hive Mind system.
+```
+
+这一行取决于模式。使用 `--no-auto-restart-until-mergeable` 时没有监控循环，也没有暂缓机制 —— 会话结束就是工作结束 —— 因此提示词保留原先的 `use gh pr ready <number>`。在可合并模式下，同一节还会去掉旧的 `check that all CI checks are passing if they exist before you finish` 条目：上面那一行的要求已经更严格，而系统提示词在每一轮对话中都要付费。所有候选写法以及选定规则见 [`src/pr-lifecycle.prompts.lib.mjs`](../src/pr-lifecycle.prompts.lib.mjs) —— 运行 `node experiments/issue-2246-render-prompt.mjs --variants` 可以打印它们及其长度。
 
 ## 当状态出乎意料时
 

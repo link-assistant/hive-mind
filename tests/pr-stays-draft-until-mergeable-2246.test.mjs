@@ -26,9 +26,10 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getOutstandingWorkingSessionDrafts, holdReadyForReview, isReadyForReviewHeld, markPullRequestLeftInDraft, releaseReadyForReviewHold, resetWorkingSessionDrafts, restorePullRequestsLeftInDraft } from '../src/pr-draft-state.lib.mjs';
+import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getOutstandingWorkingSessionDrafts, getPullRequestLeftInDraft, holdReadyForReview, isReadyForReviewHeld, markPullRequestLeftInDraft, releaseReadyForReviewHold, resetWorkingSessionDrafts, restorePullRequestsLeftInDraft } from '../src/pr-draft-state.lib.mjs';
 import { buildPullRequestStatusNotice, buildWorkSessionStatusLine, describeReadinessMode, getReadinessMode, isMergeableModeActive, READINESS_MODES } from '../src/pr-readiness-policy.lib.mjs';
-import { getPullRequestLifecycleSubPrompt } from '../src/pr-lifecycle.prompts.lib.mjs';
+import { ACTIVE_VARIANT_ID, getFinalizeCiChecksSubPrompt, getPullRequestLifecycleSubPrompt, isVariantComplete, PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS, REQUIRED_FACTS, selectActiveVariantId, SINGLE_PASS_VARIANT_ID } from '../src/pr-lifecycle.prompts.lib.mjs';
+import { buildSystemPrompt as buildClaudeSystemPrompt } from '../src/claude.prompts.lib.mjs';
 import { buildReadyToMergeComment, confirmReadyToMergeState, endAiSessionReadyTransition, MAX_READY_FOR_REVIEW_RECHECKS, releaseReadyTransitionHold } from '../src/pr-ready-transition.lib.mjs';
 import { evaluatePullRequestMergeability } from '../src/merge-error-classification.lib.mjs';
 
@@ -162,6 +163,36 @@ await test('an AI worker that runs the ready transition itself is put back into 
   resetWorkingSessionDrafts();
 });
 
+await test("a pull request taken out of draft behind hive-mind's back is re-drafted by the watch loop", async () => {
+  // The hold only sees transitions hive-mind performs itself. `gh pr ready 42` typed by an
+  // AI worker into its own shell — or a human clicking "Ready for review" between two
+  // checks — never reaches pr-draft-state.lib.mjs, so the monitoring loop re-asserts the
+  // state on every check instead of trusting it (issue #2246).
+  resetWorkingSessionDrafts();
+  const state = { isDraft: true, state: 'OPEN' };
+  const $ = makeFakeDollar(state);
+  await ensurePullRequestIsDraft(baseArgs($, { reason: 'session start' }));
+  holdReadyForReview({ reason: 'ensuring the pull request is mergeable' });
+  state.isDraft = false; // somebody published the pull request while no session was running
+  const result = await ensurePullRequestIsDraft(baseArgs($, { reason: 'ready-to-merge state not verified yet', preserveDeliberateDraft: true }));
+  assert(result.changed === true && state.isDraft === true, `the loop must put the pull request back into draft, got ${JSON.stringify(result)}`);
+  const noop = await ensurePullRequestIsDraft(baseArgs($, { reason: 'ready-to-merge state not verified yet', preserveDeliberateDraft: true }));
+  assert(noop.changed === false && noop.reason === 'already_in_target_state', `re-asserting an untouched draft must be a no-op, got ${JSON.stringify(noop)}`);
+  resetWorkingSessionDrafts();
+});
+
+await test('re-asserting the draft does not erase the empty-diff verdict of #2247', async () => {
+  resetWorkingSessionDrafts();
+  const state = { isDraft: true, state: 'OPEN' };
+  const $ = makeFakeDollar(state);
+  markPullRequestLeftInDraft({ owner: 'o', repo: 'r', prNumber: 42, reason: 'no changes were produced by this session' });
+  await ensurePullRequestIsDraft(baseArgs($, { preserveDeliberateDraft: true }));
+  assert(getPullRequestLeftInDraft({ owner: 'o', repo: 'r', prNumber: 42 }) !== null, 'a re-assertion is not a new session, so the verdict must survive');
+  await ensurePullRequestIsDraft(baseArgs($, { reason: 'session start' }));
+  assert(getPullRequestLeftInDraft({ owner: 'o', repo: 'r', prNumber: 42 }) === null, 'a real session start does clear it, as #2247 requires');
+  resetWorkingSessionDrafts();
+});
+
 await test('ignoreReadyHold: true bypasses the hold (the ready-to-merge state was reached)', async () => {
   resetWorkingSessionDrafts();
   const state = { isDraft: true, state: 'OPEN' };
@@ -218,35 +249,101 @@ console.log('\nPrompts: the AI must not drive the draft/ready state (RC-A):\n');
 const promptFiles = ['claude.prompts.lib.mjs', 'agent.prompts.lib.mjs', 'codex.prompts.lib.mjs', 'gemini.prompts.lib.mjs', 'opencode.prompts.lib.mjs', 'qwen.prompts.lib.mjs'];
 
 for (const file of promptFiles) {
-  await test(`${file} no longer asks the AI to run "gh pr ready"`, () => {
+  await test(`${file} no longer hardcodes "gh pr ready"`, () => {
     const src = readSrc(file);
-    assert(!/use gh pr ready/.test(src), `${file} must not instruct the model to change the pull request state (issue #2246)`);
+    assert(!/use gh pr ready/.test(src), `${file} must not hardcode a pull request state change (issue #2246)`);
   });
 
   await test(`${file} uses the shared pull request lifecycle sub-prompt`, () => {
     const src = readSrc(file);
     assert(src.includes("from './pr-lifecycle.prompts.lib.mjs'"), `${file} must import the shared sub-prompt`);
-    assert(src.includes('getPullRequestLifecycleSubPrompt('), `${file} must render the shared sub-prompt`);
+    assert(/getPullRequestLifecycleSubPrompt\(\{ argv, prNumber/.test(src), `${file} must render the shared sub-prompt with the run's mode and pull request`);
   });
 }
 
-await test('the lifecycle sub-prompt states who owns the state and what the goal is', () => {
-  const subPrompt = getPullRequestLifecycleSubPrompt();
-  assert(/Hive Mind system/.test(subPrompt), 'the prompt must say the Hive Mind system handles the state');
-  assert(/do not change the pull request state/.test(subPrompt), 'the prompt must tell the AI not to change the state itself');
-  assert(/ready to merge/.test(subPrompt), 'the prompt must mention the ready to merge state');
-  assert(/all CI\/CD checks must pass/.test(subPrompt), 'the goal is a mergeable pull request');
-  assert(/unrelated to the issue/.test(subPrompt), 'even unrelated checks must pass (issue #2246)');
+const MERGEABLE_ARGV = [{ autoRestartUntilMergeable: true }, { autoMerge: true }, { 'auto-restart-until-mergeable': true }];
+
+for (const argv of MERGEABLE_ARGV) {
+  await test(`in a mergeable mode (${JSON.stringify(argv)}) the sub-prompt hands the state to hive-mind`, () => {
+    const subPrompt = getPullRequestLifecycleSubPrompt({ argv, prNumber: 2 });
+    assert(/Hive Mind system/.test(subPrompt), 'the prompt must say the Hive Mind system handles the state');
+    assert(/ready to merge/.test(subPrompt), 'the prompt must mention the ready to merge state');
+    assert(/CI\/CD checks pass/.test(subPrompt), 'the goal is a mergeable pull request');
+    assert(/unrelated/.test(subPrompt), 'even unrelated checks must pass (issue #2246)');
+    assert(!/gh pr ready/.test(subPrompt), 'the AI must not be told to take the pull request out of draft');
+  });
+}
+
+// Review feedback on #2248: "what if no --auto-restart-until-mergeable option selected?
+// I think we should keep previous line for that case." With a single working session
+// there is no monitoring loop and no ready hold, so the pre-#2246 line still applies.
+await test('without a mergeable mode the sub-prompt keeps the previous "gh pr ready" line', () => {
+  const subPrompt = getPullRequestLifecycleSubPrompt({ argv: {}, prNumber: 2 });
+  assert(subPrompt === '   - When you finish implementation, use gh pr ready 2.', `unexpected single-pass line: ${subPrompt}`);
+});
+
+await test('a tool that needs an explicit repository gets it in the single-pass line', () => {
+  const subPrompt = getPullRequestLifecycleSubPrompt({ argv: {}, prNumber: 2, repoSuffix: ' --repo o/r' });
+  assert(subPrompt === '   - When you finish implementation, use gh pr ready 2 --repo o/r.', `unexpected gemini-style line: ${subPrompt}`);
 });
 
 // Review feedback on #2248: the system prompt is re-sent on every conversation turn,
 // so the replacement for "use gh pr ready <n>" must stay one line, not a paragraph.
-await test('the lifecycle sub-prompt stays a single prompt line', () => {
-  const subPrompt = getPullRequestLifecycleSubPrompt();
-  assert(!subPrompt.includes('\n'), `the sub-prompt must be one line, got:\n${subPrompt}`);
-  assert(subPrompt.startsWith('   - '), 'the sub-prompt must be formatted as one item of the surrounding list');
-  // A budget, not a measurement: this line is paid for on every turn of every session.
-  assert(subPrompt.length <= 330, `the sub-prompt must stay compact, got ${subPrompt.length} characters`);
+await test('every lifecycle sub-prompt variant is a single prompt line', () => {
+  for (const variant of PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS) {
+    const line = getPullRequestLifecycleSubPrompt({ variantId: variant.id, prNumber: 2 });
+    assert(!line.includes('\n'), `variant ${variant.id} must be one line, got:\n${line}`);
+    assert(line.startsWith('   - '), `variant ${variant.id} must be formatted as one item of the surrounding list`);
+    // A budget, not a measurement: this line is paid for on every turn of every session.
+    assert(line.length <= 280, `variant ${variant.id} must stay compact, got ${line.length} characters`);
+  }
+});
+
+// Review feedback on #2248: "we should propose at least 10-20 options, try to find the
+// most compact/concise version. And use it, yet keep other options."
+await test("the catalogue offers at least 10 phrasings and the active one is the rule's pick", () => {
+  assert(PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.length >= 10, `expected at least 10 candidate phrasings, got ${PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.length}`);
+  const ids = PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.map(v => v.id);
+  assert(new Set(ids).size === ids.length, `variant ids must be unique: ${ids.join(', ')}`);
+  assert(ids.includes(ACTIVE_VARIANT_ID), `the active variant ${ACTIVE_VARIANT_ID} must be in the catalogue`);
+  assert(ids.includes(SINGLE_PASS_VARIANT_ID), `the single-pass variant ${SINGLE_PASS_VARIANT_ID} must be in the catalogue`);
+  assert(ACTIVE_VARIANT_ID === selectActiveVariantId(), `the active variant must be the shortest complete when-clause phrasing, which is ${selectActiveVariantId()}`);
+});
+
+await test('the coverage flags of every variant match its own text', () => {
+  const evidence = {
+    ci: /CI\/CD/,
+    unrelated: /unrelated/,
+    states: /ready to merge/,
+    ownership: /Hive Mind system/,
+    noChange: /do not change|no need to change|no need to touch|not by you|not you|leave the draft|Do not do its job/,
+  };
+  for (const variant of PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS) {
+    for (const fact of REQUIRED_FACTS) {
+      assert(typeof variant.covers[fact] === 'boolean', `variant ${variant.id} must declare coverage of "${fact}"`);
+      if (variant.covers[fact]) {
+        assert(evidence[fact].test(variant.text), `variant ${variant.id} claims to cover "${fact}" but its text does not say it`);
+      }
+    }
+  }
+  assert(
+    PULL_REQUEST_LIFECYCLE_PROMPT_VARIANTS.some(v => !isVariantComplete(v)),
+    'incomplete phrasings are kept on purpose, so the choice can be revisited'
+  );
+});
+
+// Review feedback on #2248: "Or may be double check it, we don't duplicate it in other
+// places of system prompt."
+await test('the CI/CD demand is stated once per system prompt', () => {
+  const params = { owner: 'o', repo: 'r', issueNumber: 1, prNumber: 2, branchName: 'b', workspaceTmpDir: '/tmp', modelSupportsVision: false };
+  const mergeable = buildClaudeSystemPrompt({ ...params, argv: { autoRestartUntilMergeable: true } });
+  assert(!mergeable.includes('check that all CI checks are passing if they exist before you finish'), 'the finalize checklist must not repeat what the lifecycle line already demands');
+  assert(mergeable.split('make all CI/CD checks pass').length === 2, 'the lifecycle line must appear exactly once');
+  assert(getFinalizeCiChecksSubPrompt({ autoRestartUntilMergeable: true }) === '', 'the duplicate checklist item is dropped in a mergeable mode');
+
+  const singlePass = buildClaudeSystemPrompt({ ...params, argv: {} });
+  assert(singlePass.includes('check that all CI checks are passing if they exist before you finish'), 'without a mergeable mode the checklist item is the only CI/CD instruction, so it stays');
+  assert(singlePass.length < mergeable.length, 'the single-pass prompt stays the smaller of the two');
 });
 
 console.log('\nWiring (RC-B, RC-C, RC-D):\n');
@@ -361,6 +458,11 @@ await test('ending a single-pass session publishes the PR for review immediately
   await endAiSessionReadyTransition({ ...baseArgs($), argv: {}, formatAligned: (...parts) => parts.join(' ') });
   assert(!isReadyForReviewHeld(), 'a single-pass run has nothing left to wait for');
   assert(state.isDraft === false, 'the PR must be ready for review when the only session ends (issue #2182)');
+});
+
+await test('the watch loop re-asserts the draft on every check while the hold is engaged', () => {
+  assert(/if \(draftIsIntentional\) \{\s*\n\s*await ensurePullRequestIsDraft\(/.test(autoMergeSrc), "the monitoring loop must restore a draft that somebody removed behind hive-mind's back (issue #2246)");
+  assert(/preserveDeliberateDraft: true/.test(autoMergeSrc), 'the re-assertion must not count as a new session for #2247');
 });
 
 await test('an intentional draft is not reported as a merge blocker', () => {

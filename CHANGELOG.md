@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.29.1
+
+### Patch Changes
+
+- 9e4bb88: Recover Telegram command arguments separated by Unicode whitespace and preserve per-tool aliases across invisible command boundaries.
+
 ## 2.29.0
 
 ### Minor Changes

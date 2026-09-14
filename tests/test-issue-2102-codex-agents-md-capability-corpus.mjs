@@ -334,7 +334,10 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
       const filtered = fixture.pluginId.endsWith('@openai-curated') && remoteCatalogActive;
       const { skills } = await readMaterializedPluginSkills({ codexHome, pluginId: fixture.pluginId });
       const exposed = filtered ? [] : [...skills].sort();
-      const rendered = ['- imagegen: Generate images. (file: /system/SKILL.md)', ...exposed.map(skill => `- ${skill}: Skill. (file: ${cacheRoot}/SKILL.md)`)].join('\n');
+      const core = path.join(codexHome, 'skills', '.system', 'imagegen', 'SKILL.md');
+      await mkdir(path.dirname(core), { recursive: true });
+      await writeFile(core, '---\nname: imagegen\n---\n');
+      const rendered = [`- imagegen: Generate images. (file: ${core})`, ...exposed.map(skill => `- ${skill}: Skill. (file: ${path.join(cacheRoot, PLUGIN_VERSION, 'skills', skill.slice(skill.indexOf(':') + 1), 'SKILL.md')})`)].join('\n');
       return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
     }
     throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -433,7 +436,7 @@ const makeCodexRunCommand = (fixture, { catalogHasPlugin = true } = {}) => {
   });
   assert.equal(result.required, false);
   assert(
-    logs.some(entry => entry.message === '🔌 Codex capability preflight: no plugin or skill requirements detected (sources: issue #5, 1 comment, AGENTS.md)' && entry.options?.verbose),
+    logs.some(entry => entry.message === '🔌 Codex capability preflight: no plugin or skill requirements detected; verifying the empty plugin contract (sources: issue #5, 1 comment, AGENTS.md)' && entry.options?.verbose),
     `the negative result names its sources; got: ${JSON.stringify(logs.map(entry => entry.message))}`
   );
   await rm(fixture.root, { recursive: true, force: true });

@@ -466,7 +466,7 @@ The mounted Codex directory keeps the files we rely on:
 - `/home/box/.codex/auth.json`
 - `/home/box/.codex/config.toml`
 - `/home/box/.codex/sessions/`
-- `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped plugin enablement)
+- `/home/box/.codex/hive-mind/repositories/<owner>/<repo>/` (repository-scoped capability working state, rebuilt before each task)
 
 The optional `/home/box/.agents/skills/` mount stores user-level Agent Skills for the long-running container itself. It is **not** propagated into `--isolation docker` task containers (see the next section). Hive Mind does not deploy or commit these capabilities to the target repository.
 
@@ -493,9 +493,13 @@ On top of the mount split, every `solve`/`hive` start audits the global Claude/C
 
 ### Required Codex capability preflight
 
-For Codex tasks, Hive Mind reads the issue and all issue comments before launching `codex exec`. Explicitly required plugin selectors (for example, `superpowers@openai-curated`) and skill names (for example, `superpowers:using-superpowers`) are resolved against `codex plugin list --available --json`. Missing repository enablement is installed into the repository-scoped Codex home above and verified before execution.
+For Codex tasks, Hive Mind reads the issue, all issue comments and repository instruction files before launching `codex exec`. Explicitly required plugin selectors (for example, `superpowers@openai-curated`) and skill names (for example, `superpowers:using-superpowers`) are resolved against `codex plugin list --available --json`. Selected providers are installed into the repository-scoped Codex home above and verified before execution.
 
-The scoped home copies current authentication and runtime settings from the mounted parent `.codex`, reuses its marketplace snapshot, and preserves only that repository's plugin blocks. Thus an image update or parent configuration change remains visible while one repository's plugins are not enabled globally. If the mounted directory predates an image-provided marketplace or MCP configuration, refresh that parent configuration first; the preflight reports the missing snapshot or exact capability and a remediation command.
+Every task rebuilds that scope from an empty plugin and skill state. It copies current authentication and non-plugin runtime settings, disables remote plugin synchronization, and materializes only explicitly selected providers from the inspected marketplace. It never copies the parent's plugin cache or global Agent Skills. Thus an image or parent configuration update remains visible without allowing stale or unrequested instructions to enter a task.
+
+The preflight always inspects the exact catalog rendered by `codex debug prompt-input`, even when the task declares no optional capabilities. Every visible entry must resolve to a core skill under the scoped `skills/.system`, an explicitly required repository skill, or a skill under a selected scoped plugin payload. The verbose log records each accepted name, provider, version and normalized path. An unexpected skill, an untrusted path, or an unavailable/unparseable probe on a Codex version that supports it stops execution; capability advisory mode cannot bypass this security check.
+
+If the mounted directory predates an image-provided marketplace or MCP configuration, refresh that parent configuration first; the preflight reports the missing snapshot or exact capability and a remediation command.
 
 Because this mount fully overrides the image's `/home/box/.codex` directory, it can also preserve an older `config.toml` that does not include the Playwright MCP registration added by newer images. After starting a container with an older persisted Codex directory, re-run:
 

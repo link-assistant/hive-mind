@@ -171,7 +171,7 @@ export const getCodexPluginProvisioningHealth = (codexJsonState, { capabilityPre
   const guidance = [];
   if (detected) {
     reasons.push(`Codex called request_plugin_install${requestedPlugins.length > 0 ? ` for ${requestedPlugins.join(', ')}` : ''} and codex rejected it: ${PLUGIN_INSTALL_MESSAGE_TEXT}. Under codex exec this tool can never install a plugin, so the model cannot recover on its own.`);
-    reasons.push(capabilityPreflight?.required ? `The Hive Mind Codex capability preflight ran for ${(capabilityPreflight.plugins || []).join(', ') || 'no plugins'}, so the plugin the model asked for was not among the requirements it discovered.` : 'The Hive Mind Codex capability preflight detected no requirements for this task, so nothing was provisioned before codex exec.');
+    reasons.push(capabilityPreflight?.required ? `The Hive Mind Codex capability preflight ran for ${(capabilityPreflight.plugins || []).join(', ') || 'no plugins'}, so the plugin the model asked for was not among the requirements it discovered.` : 'The Hive Mind Codex capability preflight verified an empty optional-capability set, so the plugin the model asked for was not declared before codex exec.');
     for (const plugin of requestedPlugins.length > 0 ? requestedPlugins : ['<plugin>@<marketplace>']) {
       // Issue #2102: the model asks for `@openai-curated-remote`, which is a
       // synthesized namespace that `codex plugin add` cannot install; the

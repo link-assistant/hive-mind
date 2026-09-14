@@ -7,11 +7,11 @@
  */
 
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
+import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildPluginCachePath, detectRequiredCodexCapabilities, normalizePluginSelector, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
 const issueText = `
@@ -86,12 +86,21 @@ const fakeRunCommand = async ({ command, args, env }) => {
   }
   if (args[0] === 'plugin' && args[1] === 'add') {
     fakePluginInstalled = true;
+    const cacheRoot = path.join(buildPluginCachePath({ codexHome: env.CODEX_HOME, pluginId: args[2] }), '1.0.0');
+    await cp(path.join(pluginRoot, 'skills'), path.join(cacheRoot, 'skills'), { recursive: true });
+    const configPath = path.join(env.CODEX_HOME, 'config.toml');
+    const config = await readFile(configPath, 'utf8');
+    await writeFile(configPath, `${config.trimEnd()}\n\n[plugins."${args[2]}"]\nenabled = true\n`);
     return { stdout: JSON.stringify({ pluginId: args[2] }), stderr: '', code: 0 };
   }
   // Issue #2084: the preflight confirms requirements against the skill catalog
   // Codex renders into the prompt, not against plugin enablement alone.
   if (args[0] === 'debug' && args[1] === 'prompt-input') {
-    const rendered = fakePluginInstalled ? '- superpowers:using-superpowers: Use superpowers. (file: /cache/SKILL.md)\\n- superpowers:test-driven-development: TDD. (file: /cache/SKILL.md)' : '';
+    const systemSkill = path.join(env.CODEX_HOME, 'skills', '.system', 'imagegen', 'SKILL.md');
+    await mkdir(path.dirname(systemSkill), { recursive: true });
+    await writeFile(systemSkill, '---\nname: imagegen\n---\n');
+    const scopedCache = path.join(buildPluginCachePath({ codexHome: env.CODEX_HOME, pluginId: 'superpowers@openai-curated' }), '1.0.0', 'skills');
+    const rendered = fakePluginInstalled ? `- imagegen: Generate images. (file: ${systemSkill})\\n- superpowers:using-superpowers: Use superpowers. (file: ${path.join(scopedCache, 'using-superpowers', 'SKILL.md')})\\n- superpowers:test-driven-development: TDD. (file: ${path.join(scopedCache, 'test-driven-development', 'SKILL.md')})` : `- imagegen: Generate images. (file: ${systemSkill})`;
     return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
   }
   throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -129,15 +138,15 @@ assert(
   'installation and verification use repository-scoped state'
 );
 
-// A later invocation refreshes runtime settings without erasing repository
-// plugin enablement written by the first invocation.
+// A later invocation refreshes runtime settings and rebuilds exactly the
+// selected repository plugin enablement.
 await writeFile(path.join(preflight.codexHome, 'config.toml'), '[features]\nmulti_agent = true\n\n[plugins."superpowers@openai-curated"]\nenabled = true\n');
 await writeFile(path.join(scopedBaseHome, 'config.toml'), 'model = "gpt-updated"\n');
 await runCodexCapabilityPreflight({ owner: 'CEHR2005', repo: 'GCS-TS', issueNumber: 1, baseCodexHome: scopedBaseHome, runCommand: fakeRunCommand });
 const refreshedConfig = await readFile(path.join(preflight.codexHome, 'config.toml'), 'utf8');
 assert.match(refreshedConfig, /model = "gpt-updated"/u, 'operator runtime configuration is refreshed');
-assert.match(refreshedConfig, /\[plugins\."superpowers@openai-curated"\]/u, 'repository plugin enablement survives restart/preflight');
-assert.match(refreshedConfig, /enabled = true/u, 'repository plugin settings survive restart/preflight');
+assert.match(refreshedConfig, /\[plugins\."superpowers@openai-curated"\]/u, 'selected repository plugin enablement is rebuilt');
+assert.match(refreshedConfig, /enabled = true/u, 'selected repository plugin settings are rebuilt');
 
 await assert.rejects(
   () =>

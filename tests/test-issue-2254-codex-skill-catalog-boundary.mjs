@@ -13,7 +13,7 @@ import { access, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/pro
 import os from 'node:os';
 import path from 'node:path';
 
-import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildPluginCachePath, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
+import { CodexCapabilityPreflightError, applyCodexCapabilityEnv, buildCodexCapabilityStatePath, buildPluginCachePath, runCodexCapabilityPreflight, verifyCodexCapabilityExecutionCatalog } from '../src/codex-capability-preflight.lib.mjs';
 
 const SYSTEM_VERSION = 'system-fixture-v1';
 const PLUGIN_VERSION = '1.2.3';
@@ -307,10 +307,15 @@ for (const [label, debugPrompt, diagnostic] of [
 // parent execution and all child agents spawned by that Codex process.
 {
   const { selected, codex, result } = healthySelected;
-  const promptCall = codex.calls.find(call => call.args?.[0] === 'debug' && call.args?.[1] === 'prompt-input');
   const executionEnv = applyCodexCapabilityEnv({ TRACE: 'same-for-parent-and-children' }, result);
-  assert.equal(promptCall.env.CODEX_HOME, executionEnv.CODEX_HOME);
-  assert.equal(promptCall.env.HIVE_MIND_PARENT_CODEX_HOME, executionEnv.HIVE_MIND_PARENT_CODEX_HOME);
+  const finalCatalog = await verifyCodexCapabilityExecutionCatalog({ capabilityPreflight: result, projectDir: selected.fixture.projectDir, env: executionEnv, runCommand: codex.runCommand });
+  const promptCalls = codex.calls.filter(call => call.args?.[0] === 'debug' && call.args?.[1] === 'prompt-input');
+  assert(promptCalls.length >= 2, 'the inherited catalog is rechecked immediately before execution');
+  for (const promptCall of promptCalls) {
+    assert.equal(promptCall.env.CODEX_HOME, executionEnv.CODEX_HOME);
+    assert.equal(promptCall.env.HIVE_MIND_PARENT_CODEX_HOME, executionEnv.HIVE_MIND_PARENT_CODEX_HOME);
+  }
+  assert.equal(finalCatalog.skillCatalogFingerprint, result.skillCatalogFingerprint, 'parent and child-agent execution inherits the exact probed identities and versions');
   assert.equal(result.skillCatalogFingerprint.length, 64, 'a stable fingerprint identifies the exact inherited catalog');
   await rm(selected.fixture.root, { recursive: true, force: true });
 }

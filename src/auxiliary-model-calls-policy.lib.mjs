@@ -37,6 +37,7 @@
  * @see https://github.com/link-assistant/hive-mind/issues/2236
  */
 
+import { AGENT_AUXILIARY_DISABLE_ARGS } from './agent-command.lib.mjs'; // Issue #2247 (H5)
 import { ensureGeminiFamilySettings } from './gemini-family-settings.lib.mjs';
 
 /** Tools `solve --tool` accepts that this policy has something to say about. */
@@ -238,15 +239,52 @@ export const buildOpencodeAuxiliaryAgentConfig = (disabled = true) => {
 };
 
 /**
+ * Agent CLI flags that switch off its non-essential model calls.
+ *
+ * This list started out empty: issue #2236 recorded `agent` as already
+ * compliant, on the reading that `--generate-title` defaults to false and
+ * `--summarize-session` is summarization, which this policy keeps. Issue #2247
+ * showed both halves of that reading to be wrong.
+ *
+ * `--summarize-session` is not compaction. It gates
+ * `SessionSummary.summarizeMessage` (`src/session/summary.ts`), which runs after
+ * every user message and writes a summary plus a title into the session store.
+ * Compaction is a different subsystem — `src/session/compaction.ts`, selected by
+ * `--compaction-model`/`--compaction-models` — and it never reads
+ * `config.summarizeSession`, so turning the summary off leaves the
+ * context-window rescue this policy calls load-bearing fully intact
+ * ({@link AGENT_SUMMARIZATION_KEEP_FLAGS}).
+ *
+ * Worse, neither call uses `--model`. Both resolve `userMsg.compactionModel`,
+ * whose default cascade starts at `opencode/big-pickle` — a provider a
+ * hive-mind task is not authenticated for. The three Formal AI runs in issue
+ * #2247 recorded 12 failures per session, each
+ * `HTTP 400 {"type":"MissingSessionID", ...}`, for a summary nobody reads.
+ *
+ * `--generate-title` is pinned rather than assumed: it defaults to false in
+ * agent 0.26.1, but the reproduction run generated titles anyway.
+ */
+export const AGENT_AUXILIARY_DISABLE_FLAGS = AGENT_AUXILIARY_DISABLE_ARGS;
+
+/**
+ * The Agent CLI knobs that must stay untouched so compaction survives.
+ *
+ * `--compaction-model`/`--compaction-models` select the model
+ * `src/session/compaction.ts` uses when the context window fills. Disabling
+ * them would not make compaction cheaper — it would remove it.
+ */
+export const AGENT_SUMMARIZATION_KEEP_FLAGS = Object.freeze(['--compaction-model', '--compaction-models']);
+
+/**
  * Tools that already ship compliant with this policy.
  *
- * `agent` (`@link-assistant/agent`) defaults `--generate-title` to false — its
- * own help text says "Disabling saves tokens and prevents rate limit issues" —
- * and keeps `--summarize-session` on, which is exactly the split this issue
- * asks for. Recorded explicitly because "we looked and there was nothing to fix"
- * and "nobody looked" are different states, and only the first stays true.
+ * Empty since issue #2247: `agent` was the only entry, and it was wrong. See
+ * {@link AGENT_AUXILIARY_DISABLE_FLAGS} for what it actually does and what that
+ * cost. Kept as an exported constant because "we looked and there was nothing
+ * to fix" and "nobody looked" are different states, and only the first stays
+ * true — the next tool to be checked gets recorded here rather than silently.
  */
-export const TOOLS_ALREADY_COMPLIANT = Object.freeze(['agent']);
+export const TOOLS_ALREADY_COMPLIANT = Object.freeze([]);
 
 /**
  * Is the policy on for this run?
@@ -279,12 +317,16 @@ export const describeAuxiliaryModelCallsPolicy = tool => {
       return `settings ${JSON.stringify(GEMINI_FAMILY_AUXILIARY_DISABLE_SETTINGS[tool])}`;
     case 'opencode':
       return `opencode.json agent ${JSON.stringify(buildOpencodeAuxiliaryAgentConfig(true))}`;
+    case 'agent':
+      return `flags ${AGENT_AUXILIARY_DISABLE_FLAGS.join(' ')}`;
     default:
       return TOOLS_ALREADY_COMPLIANT.includes(tool) ? 'ships with non-essential model calls already off' : 'no policy recorded for this tool';
   }
 };
 
 export default {
+  AGENT_AUXILIARY_DISABLE_FLAGS,
+  AGENT_SUMMARIZATION_KEEP_FLAGS,
   AUXILIARY_MODEL_CALLS_POLICY_TOOLS,
   CLAUDE_AUXILIARY_DISABLE_ENV,
   CLAUDE_SUMMARIZATION_KEEP_ENV,

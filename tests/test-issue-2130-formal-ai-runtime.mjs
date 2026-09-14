@@ -154,15 +154,23 @@ test('seedFormalAiClientHome copies directory-based configuration and skips shel
 
 test('seedFormalAiClientHome seeds codex from the repository-scoped CODEX_HOME (issue #2074)', async () => {
   const calls = [];
+  const written = [];
   await seedFormalAiClientHome({
     client: { id: 'codex', global_configs: [{ format: 'toml', path: '.codex/config.toml' }] },
     home: '/tmp/isolated-home',
     realHome: '/home/operator',
     env: { CODEX_HOME: '/tmp/hive-codex-home-abc' },
     cpImpl: async (source, destination) => void calls.push({ source, destination }),
+    mkdirImpl: async () => {},
+    readFileImpl: async () => 'model = "gpt-5"\n',
+    writeFileImpl: async (path, contents) => void written.push({ path, contents }),
   });
 
-  assert.deepEqual(calls, [{ source: '/tmp/hive-codex-home-abc', destination: '/tmp/isolated-home/.codex' }]);
+  // Issue #2247 (H7): the seeding is now per file rather than a recursive copy
+  // of the whole Codex home, but its source is still the repository-scoped
+  // CODEX_HOME. See tests/codex-home-seeding-2247.test.mjs.
+  assert.deepEqual(calls, [{ source: '/tmp/hive-codex-home-abc/auth.json', destination: '/tmp/isolated-home/.codex/auth.json' }]);
+  assert.deepEqual(written, [{ path: '/tmp/isolated-home/.codex/config.toml', contents: 'model = "gpt-5"\n' }]);
 });
 
 test('seedFormalAiClientHome ignores a tool that has never been configured', async () => {

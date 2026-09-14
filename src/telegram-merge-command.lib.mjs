@@ -23,6 +23,7 @@ import { safeReply, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { extractMergeTargetUrlFromText, parseMergeTargetUrl } from './github-merge-targets.lib.mjs';
 import { createMergeQueueProcessor, MergeStatus, MERGE_QUEUE_CONFIG } from './telegram-merge-queue.lib.mjs';
 import { executeStartScreen } from './telegram-command-execution.lib.mjs';
+import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 
 /**
  * Active merge operations map (repoKey -> { processor, chatId, messageId })
@@ -47,50 +48,6 @@ function getRepoKey(owner, repo) {
  */
 function escapeMarkdownV2(text) {
   return String(text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-}
-
-/**
- * Parse command arguments for /merge
- * @param {string} text - Message text
- * @returns {string[]} Array of arguments
- */
-function parseCommandArgs(text) {
-  const firstLine = text.split('\n')[0].trim();
-  const argsText = firstLine.replace(/^\/\w+\s*/, '');
-
-  if (!argsText.trim()) {
-    return [];
-  }
-
-  const args = [];
-  let currentArg = '';
-  let inQuotes = false;
-  let quoteChar = null;
-
-  for (let i = 0; i < argsText.length; i++) {
-    const char = argsText[i];
-
-    if ((char === '"' || char === "'") && !inQuotes) {
-      inQuotes = true;
-      quoteChar = char;
-    } else if (char === quoteChar && inQuotes) {
-      inQuotes = false;
-      quoteChar = null;
-    } else if (char === ' ' && !inQuotes) {
-      if (currentArg) {
-        args.push(currentArg);
-        currentArg = '';
-      }
-    } else {
-      currentArg += char;
-    }
-  }
-
-  if (currentArg) {
-    args.push(currentArg);
-  }
-
-  return args;
 }
 
 /**
@@ -288,7 +245,7 @@ function formatUserError(error, verbose) {
 export function registerMergeCommand(bot, options) {
   const { VERBOSE = false, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage } = options;
 
-  bot.command(/^merge$/i, async ctx => {
+  const handleMergeCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /merge command received');
 
     await addBreadcrumb({
@@ -525,7 +482,9 @@ export function registerMergeCommand(bot, options) {
         VERBOSE && console.error('[VERBOSE] /merge: Failed to edit error message:', editError);
       }
     }
-  });
+  };
+
+  bot.command(/^merge$/i, handleMergeCommand);
 
   // Handle cancel button callback
   bot.action(/^merge_cancel_(.+)$/, async ctx => {
@@ -582,6 +541,8 @@ export function registerMergeCommand(bot, options) {
       await ctx.answerCbQuery('Error acknowledged.');
     }
   });
+
+  return { handleMergeCommand };
 }
 
 /**

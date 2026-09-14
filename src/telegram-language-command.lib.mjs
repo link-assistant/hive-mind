@@ -12,6 +12,7 @@
 
 import { t, getSupportedLocales, normalizeLocale, setUserLocale, clearUserLocale, resolveLocaleFromTelegramCtx } from './i18n.lib.mjs';
 import { safeReply } from './telegram-safe-reply.lib.mjs';
+import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 
 export function registerLanguageCommand(bot, options = {}) {
   const { VERBOSE = false, isOldMessage, isForwardedOrReply } = options;
@@ -23,9 +24,7 @@ export function registerLanguageCommand(bot, options = {}) {
     const locale = resolveLocaleFromTelegramCtx(ctx);
     const supported = getSupportedLocales();
     const supportedList = supported.join(', ');
-    const text = ctx.message?.text || '';
-    const parts = text.trim().split(/\s+/);
-    const arg = parts.length > 1 ? parts[1] : null;
+    const [arg = null] = parseCommandArgs(ctx.message?.text || '');
     if (!arg) {
       const langName = t(`language.${locale}`, {}, { locale });
       await safeReply(ctx, t('telegram.language_current', { language: langName, supported: supportedList }, { locale }), { reply_to_message_id: ctx.message.message_id });

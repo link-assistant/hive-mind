@@ -30,6 +30,7 @@
 
 import { extractSessionIdFromText } from './telegram-log-command.lib.mjs';
 import { parseGitHubUrl } from './github.lib.mjs';
+import { getTelegramCommandArgumentsText } from './telegram-command-text.lib.mjs';
 import { cleanNonPrintableChars } from './telegram-markdown.lib.mjs';
 // Issue #2166: every reply/edit in this module goes through the one send funnel
 // (validated, logged, plain-text fallback) even when a caller does not inject it.
@@ -124,7 +125,7 @@ export function getStoppedChatRejectMessage(chatId, commandName = 'Command') {
 export function extractStopSessionId(text, repliedTo) {
   // Strip the leading `/stop` (or `/stop@botname`) before looking for a UUID,
   // so we don't accidentally match digits inside the command name itself.
-  const argText = String(text || '').replace(/^\/stop(?:@\w+)?\s*/i, '');
+  const argText = getTelegramCommandArgumentsText(String(text || ''));
   const direct = extractSessionIdFromText(argText);
   if (direct) return { sessionId: direct, source: 'argument' };
   const replyText = repliedTo ? `${repliedTo.text || ''}\n${repliedTo.caption || ''}` : '';
@@ -144,8 +145,8 @@ export function extractStopSessionId(text, repliedTo) {
  */
 function findFirstIssueOrPullUrl(text) {
   if (!text || typeof text !== 'string') return null;
-  const cleaned = cleanNonPrintableChars(text);
-  for (const word of cleaned.split(/\s+/)) {
+  for (const rawWord of text.split(/\p{White_Space}+/u)) {
+    const word = cleanNonPrintableChars(rawWord);
     if (!word) continue;
     const parsed = parseGitHubUrl(word);
     if (parsed.valid && (parsed.type === 'issue' || parsed.type === 'pull')) {
@@ -177,7 +178,7 @@ function findFirstIssueOrPullUrl(text) {
  * @see https://github.com/link-assistant/hive-mind/issues/1780
  */
 export function extractStopTarget(text, repliedTo) {
-  const argText = String(text || '').replace(/^\/stop(?:@\w+)?\s*/i, '');
+  const argText = getTelegramCommandArgumentsText(String(text || ''));
   const replyText = repliedTo ? `${repliedTo.text || ''}\n${repliedTo.caption || ''}` : '';
 
   const argUuid = extractSessionIdFromText(argText);
@@ -558,7 +559,7 @@ export function registerStartStopCommands(bot, options) {
   //   3. bare `/stop` (optionally with a free-text reason) — pause new task
   //      acceptance for the chat (issue #1081).
   // Only accessible by chat owner (creator) in modes 1, 2 (in groups).
-  bot.command('stop', async ctx => {
+  const handleStopCommand = async ctx => {
     VERBOSE && console.log('[VERBOSE] /stop command received');
     if (isOldMessage(ctx)) {
       VERBOSE && console.log('[VERBOSE] /stop ignored: old message');
@@ -727,7 +728,7 @@ export function registerStartStopCommands(bot, options) {
     // Parse optional reason from message text (anything after "/stop ")
     // Supports: /stop reason, /stop "reason", /stop 'reason'
     const messageText = ctx.message.text || '';
-    let reason = messageText.replace(/^\/stop(@\w+)?\s*/i, '').trim() || null;
+    let reason = getTelegramCommandArgumentsText(messageText).trim() || null;
     // Strip surrounding quotes (single or double) from reason
     if (reason && ((reason.startsWith('"') && reason.endsWith('"')) || (reason.startsWith("'") && reason.endsWith("'")))) {
       reason = reason.slice(1, -1).trim() || null;
@@ -754,7 +755,9 @@ export function registerStartStopCommands(bot, options) {
       parse_mode: 'Markdown',
       reply_to_message_id: ctx.message.message_id,
     });
-  });
+  };
+
+  bot.command('stop', handleStopCommand);
 
   // /start command - resume accepting new tasks in this chat
   // Only accessible by chat owner (creator)
@@ -807,4 +810,6 @@ export function registerStartStopCommands(bot, options) {
       reply_to_message_id: ctx.message.message_id,
     });
   });
+
+  return { handleStopCommand };
 }

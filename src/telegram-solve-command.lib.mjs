@@ -10,6 +10,7 @@
 
 import { normalizeCliArgs } from './argument-normalization.lib.mjs';
 import { enhanceUnknownArgumentError } from './option-suggestions.lib.mjs';
+import { getTelegramCommandArgumentsText, isTelegramCommandArgumentSeparator, parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 
 export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
   claude: 'claude',
@@ -23,8 +24,7 @@ export const TOOL_SOLVE_COMMAND_ALIASES = Object.freeze({
 export const SOLVE_COMMAND_NAMES = Object.freeze(['solve', 'do', 'continue', ...Object.keys(TOOL_SOLVE_COMMAND_ALIASES)]);
 
 export function parseCommandArgs(text) {
-  const firstLine = text.split('\n')[0].trim();
-  const argsText = firstLine.replace(/^\/\w+(?:@\S+)?\s*/, '');
+  const argsText = getTelegramCommandArgumentsText(text);
 
   if (!argsText.trim()) {
     return [];
@@ -35,16 +35,14 @@ export function parseCommandArgs(text) {
   let inQuotes = false;
   let quoteChar = null;
 
-  for (let i = 0; i < argsText.length; i++) {
-    const char = argsText[i];
-
+  for (const char of argsText) {
     if ((char === '"' || char === "'") && !inQuotes) {
       inQuotes = true;
       quoteChar = char;
     } else if (char === quoteChar && inQuotes) {
       inQuotes = false;
       quoteChar = null;
-    } else if (char === ' ' && !inQuotes) {
+    } else if (isTelegramCommandArgumentSeparator(char) && !inQuotes) {
       if (currentArg) {
         args.push(currentArg);
         currentArg = '';
@@ -128,8 +126,7 @@ export function getSolveCommandNameFromText(text) {
   }
 
   const firstLine = text.split('\n')[0].trim();
-  const match = firstLine.match(/^\/(\w+)(?:@\S+)?(?:\s|$)/);
-  return match ? match[1].toLowerCase() : null;
+  return parseTelegramCommandPrefix(firstLine)?.command || null;
 }
 
 export function getSolveToolAliasFromText(text) {

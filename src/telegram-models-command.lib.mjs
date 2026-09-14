@@ -22,6 +22,7 @@ import { ensureAgenticCliFreshness, describeFreshnessResult } from './agentic-cl
 import { MODEL_CATALOGUE_TOOLS, getMergedModelCatalogue } from './model-catalogue.lib.mjs';
 import { formatModelCatalogueTelegram } from './model-catalogue-render.lib.mjs';
 import { safeReply as defaultSafeReply } from './telegram-safe-reply.lib.mjs';
+import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 
 const GROUP_ONLY_MESSAGE = '❌ The /models command only works in group chats. Please add this bot to a group and make it an admin.';
 
@@ -38,7 +39,7 @@ export const DEFAULT_MODELS_COMMAND_TOOL = 'claude';
  */
 export const parseModelsCommandArgs = (text = '') => {
   const result = { tools: [], all: false, refresh: false, details: false, update: true, error: null };
-  const tokens = String(text).trim().split(/\s+/).slice(1).filter(Boolean);
+  const tokens = parseCommandArgs(String(text));
 
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];

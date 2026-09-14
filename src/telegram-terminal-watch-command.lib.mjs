@@ -11,6 +11,7 @@ import { readLogTailText } from './log-bounded-read.lib.mjs';
 import { parseSessionExitFooter } from './isolation-runner.lib.mjs';
 import { safeReply, safeSendMessage, safeEditMessageText } from './telegram-safe-reply.lib.mjs';
 import { classifyExitStatus, isFailureSessionStatus } from './session-status.lib.mjs';
+import { parseCommandArgs } from './telegram-solve-command.lib.mjs';
 
 const DEFAULT_WIDTH = 120;
 const DEFAULT_HEIGHT = 25;
@@ -23,13 +24,6 @@ const DEFAULT_MAX_CHARS = 3400;
 const TERMINAL_WATCH_TAIL_BYTES = 256 * 1024;
 const GITHUB_URL_RE = /https:\/\/github\.com\/[^\s"'`<>]+/i;
 const activeWatches = new Map();
-
-function splitCommandArgs(text) {
-  const body = String(text || '')
-    .replace(/^\/(?:terminal_watch|watch)(?:@\w+)?\b/i, '')
-    .trim();
-  return body.match(/"[^"]*"|'[^']*'|\S+/g)?.map(token => token.replace(/^(['"])(.*)\1$/, '$2')) || [];
-}
 
 function readOptionValue(tokens, index, inlineValue, optionName, errors) {
   if (inlineValue !== null) return { value: inlineValue, nextIndex: index };
@@ -51,7 +45,7 @@ function parseIntegerOption(value, optionName, errors, { min = 1, max = Number.M
 }
 
 export function parseTerminalWatchArgs(text) {
-  const tokens = splitCommandArgs(text);
+  const tokens = parseCommandArgs(String(text || ''));
   const options = { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT, intervalMs: DEFAULT_INTERVAL_MS, maxChars: DEFAULT_MAX_CHARS };
   const errors = [];
   let sessionId = extractSessionIdFromText(text);

@@ -9,6 +9,7 @@ import { FIX_MODE_CI_CD, FIX_MODE_UPDATE_ALL_DEPENDENCIES, parseFixRepository } 
 import { createTaskIssue, parseTaskIssueCreationInput, resolveTaskIssueCreationInput } from './task.issue-creation.lib.mjs';
 import { parseTaskIssueUrl } from './task.split.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
+import { parseTelegramCommandPrefix } from './telegram-command-text.lib.mjs';
 import { extractIsolationFromArgs, isValidPerCommandIsolation } from './telegram-isolation.lib.mjs';
 import { moveArgumentToFront, parseArgsWithYargs, parseCommandArgs } from './telegram-solve-command.lib.mjs';
 import { formatStartingWorkSessionMessage } from './work-session-formatting.lib.mjs';
@@ -18,8 +19,7 @@ export const TASK_COMMAND_NAMES = Object.freeze(['task', 'split']);
 export function getTaskCommandNameFromText(text) {
   if (!text || typeof text !== 'string') return null;
   const firstLine = text.split('\n')[0].trim();
-  const match = firstLine.match(/^\/(\w+)(?:@\S+)?(?:\s|$)/);
-  const command = match ? match[1].toLowerCase() : null;
+  const command = parseTelegramCommandPrefix(firstLine)?.command || null;
   return TASK_COMMAND_NAMES.includes(command) ? command : null;
 }
 

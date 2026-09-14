@@ -53,7 +53,14 @@ export const confirmReadyToMergeState = async ({ owner, repo, prNumber, verbose 
   }
 
   release();
-  await markReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'ready-to-merge state reached', reportError, ignoreReadyHold: true });
+  const ready = await markReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'ready-to-merge state reached', reportError, ignoreReadyHold: true });
+  const stayedDraftOnPurpose = ready?.reason === 'left_in_draft_on_purpose' || ready?.reason === 'no_changes';
+  if (ready?.ok === false || stayedDraftOnPurpose) {
+    const reason = ready.error || ready.reason || 'could not take the pull request out of draft';
+    hold({ reason: 'ready-for-review transition was not completed' });
+    await log(formatAligned('⚠️', 'Could not leave draft:', reason, 2), { level: 'warning' });
+    return { confirmed: false, leftDraft: false, reason };
+  }
 
   const recheck = await checkMergeable(owner, repo, prNumber, verbose);
   if (recheck.mergeable) {

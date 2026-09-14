@@ -450,7 +450,10 @@ const transitionHarness = () => {
         calls.push('hold');
         held = true;
       },
-      markReady: async ({ ignoreReadyHold }) => calls.push(`ready(ignoreReadyHold=${ignoreReadyHold === true})`),
+      markReady: async ({ ignoreReadyHold }) => {
+        calls.push(`ready(ignoreReadyHold=${ignoreReadyHold === true})`);
+        return { ok: true, changed: true, skipped: false, reason: null, error: null };
+      },
       markDraft: async () => calls.push('draft'),
       checkMergeable: async () => {
         calls.push('recheck');
@@ -465,6 +468,32 @@ await test('the ready-to-merge transition leaves draft and re-verifies without t
   const result = await confirmReadyToMergeState({ owner: 'o', repo: 'r', prNumber: 1, log: harness.log, formatAligned: harness.formatAligned, guardState: {}, deps: harness.deps(true) });
   assert(result.confirmed === true && result.leftDraft === true, `expected a confirmed transition, got ${JSON.stringify(result)}`);
   assert(harness.calls.join(',') === 'release,ready(ignoreReadyHold=true),recheck', `unexpected call order: ${harness.calls.join(',')}`);
+});
+
+await test('a failed ready-for-review conversion is not reported as a successful transition', async () => {
+  const harness = transitionHarness();
+  const deps = harness.deps(true);
+  deps.markReady = async ({ ignoreReadyHold }) => {
+    harness.calls.push(`ready(ignoreReadyHold=${ignoreReadyHold === true})`);
+    return { ok: false, changed: false, skipped: false, reason: 'conversion_failed', error: 'permission denied' };
+  };
+  const result = await confirmReadyToMergeState({ owner: 'o', repo: 'r', prNumber: 1, log: harness.log, formatAligned: harness.formatAligned, guardState: {}, deps });
+  assert(result.confirmed === false && result.leftDraft === false, `a failed conversion must keep monitoring, got ${JSON.stringify(result)}`);
+  assert(result.reason === 'permission denied', `the conversion error must be preserved, got ${JSON.stringify(result)}`);
+  assert(harness.calls.includes('hold'), `the ready hold must be restored, got ${harness.calls.join(',')}`);
+  assert(!harness.calls.includes('recheck'), `GitHub mergeability cannot be strictly rechecked while the PR is still a draft, got ${harness.calls.join(',')}`);
+});
+
+await test('a deliberate empty-diff draft is not mistaken for a completed transition', async () => {
+  const harness = transitionHarness();
+  const deps = harness.deps(true);
+  deps.markReady = async ({ ignoreReadyHold }) => {
+    harness.calls.push(`ready(ignoreReadyHold=${ignoreReadyHold === true})`);
+    return { ok: true, changed: false, skipped: true, reason: 'left_in_draft_on_purpose', error: null };
+  };
+  const result = await confirmReadyToMergeState({ owner: 'o', repo: 'r', prNumber: 1, log: harness.log, formatAligned: harness.formatAligned, guardState: {}, deps });
+  assert(result.confirmed === false && result.leftDraft === false, `an intentionally retained draft must keep monitoring, got ${JSON.stringify(result)}`);
+  assert(harness.calls.includes('hold') && !harness.calls.includes('recheck'), `the draft must remain held without a masked recheck, got ${harness.calls.join(',')}`);
 });
 
 await test('a PR that is not mergeable once the draft is gone goes back into draft', async () => {

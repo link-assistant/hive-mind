@@ -433,6 +433,14 @@ await test('continued monitoring reclaims draft ownership when readiness becomes
   assert(reclaim.includes('leftDraftOnMergeable = false'), 'the next verified transition must report its own draft change');
 });
 
+await test('only a confirmed transition is tracked as previously verified', () => {
+  const transition = autoMergeSrc.indexOf('const readyTransition = await confirmReadyToMergeState(');
+  const confirmationGate = autoMergeSrc.indexOf('if (!readyTransition.confirmed)', transition);
+  const rememberTransition = autoMergeSrc.indexOf('leftDraftOnMergeable = leftDraftOnMergeable || readyTransition.leftDraft', transition);
+  assert(transition !== -1 && confirmationGate > transition, 'the watch loop must inspect the transition result');
+  assert(rememberTransition > confirmationGate, 'an unconfirmed transition must not be recorded as previously verified or the bounded flapping guard can be reset');
+});
+
 await test('the "Ready to merge" comment says the PR was taken out of draft', () => {
   const announced = buildReadyToMergeComment({ leftDraft: true });
   assert(announced.includes('Taken out of draft'), `the comment must state the transition, got: ${announced}`);

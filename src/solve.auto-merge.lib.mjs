@@ -437,12 +437,16 @@ export const watchUntilMergeable = async params => {
         // mode. Leaving draft also unmasks the merge state GitHub hides behind
         // mergeStateStatus=DRAFT, so the decision is re-verified on the real pull request.
         const readyTransition = await confirmReadyToMergeState({ owner, repo, prNumber, verbose: argv.verbose, $, log, formatAligned, reportError, guardState });
-        leftDraftOnMergeable = leftDraftOnMergeable || readyTransition.leftDraft;
         if (!readyTransition.confirmed) {
           lastCheckTime = currentTime;
           await interruptibleSleep(DRAFT_RECHECK_DELAY_MS);
           continue;
         }
+        // Only a confirmed transition may become stale later. The bounded re-check guard
+        // can deliberately leave an unconfirmed PR ready for review; recording that as a
+        // verified transition would make the stale-state branch re-draft it and reset the
+        // guard, defeating the bound and allowing draft/ready flapping to continue.
+        leftDraftOnMergeable = leftDraftOnMergeable || readyTransition.leftDraft;
         // Issue #2144: the pull request is ready. A closed/unavailable linked
         // issue blocks only the *automatic* merge — the loop already did its
         // job of making the pull request mergeable. Ask the user to reopen the

@@ -12,7 +12,7 @@ import { buildRequestedBaseBranchDirective } from './solve-option-contract.promp
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
-import { getFinalizeCiChecksSubPrompt, getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
+import { getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Gemini

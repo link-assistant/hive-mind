@@ -231,12 +231,20 @@ for (const file of promptFiles) {
 }
 
 await test('the lifecycle sub-prompt states who owns the state and what the goal is', () => {
-  const subPrompt = getPullRequestLifecycleSubPrompt({ autoRestartUntilMergeable: true }, { prNumber: 7 });
+  const subPrompt = getPullRequestLifecycleSubPrompt();
   assert(/Hive Mind system/.test(subPrompt), 'the prompt must say the Hive Mind system handles the state');
   assert(/no need to change the pull request state manually/.test(subPrompt), 'the prompt must say manual state changes are unnecessary');
   assert(/ready to merge/.test(subPrompt), 'the prompt must mention the ready to merge state');
   assert(/all CI\/CD checks must pass/.test(subPrompt), 'the goal is a mergeable pull request');
   assert(/unrelated to the boundaries of the issue/.test(subPrompt), 'even unrelated checks must pass (issue #2246)');
+});
+
+// Review feedback on #2248: the system prompt is re-sent on every conversation turn,
+// so the replacement for "use gh pr ready <n>" must stay one line, not a paragraph.
+await test('the lifecycle sub-prompt stays a single prompt line', () => {
+  const subPrompt = getPullRequestLifecycleSubPrompt();
+  assert(!subPrompt.includes('\n'), `the sub-prompt must be one line, got:\n${subPrompt}`);
+  assert(subPrompt.startsWith('   - '), 'the sub-prompt must be formatted as one item of the surrounding list');
 });
 
 console.log('\nWiring (RC-B, RC-C, RC-D):\n');

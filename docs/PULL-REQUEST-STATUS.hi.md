@@ -35,7 +35,7 @@ Hive Mind, न कि AI worker।
 - mergeable मोड में ready-for-review में जाने को तब तक **रोक कर रखा जाता है** जब तक mergeable स्थिति सत्यापित न हो जाए। यदि AI worker या कोई व्यक्ति बीच में pull request को draft से बाहर निकालता है, तो Hive Mind उसे वापस draft कर देता है और `⏸️ PR stays draft` लॉग करता है।
 - पूरा हुआ run कभी भी pull request को draft में नहीं छोड़ता। हर exit path पर — सामान्य समाप्ति, `CTRL+C`, या घातक त्रुटि — रोक हटा दी जाती है और pull request ready for review कर दिया जाता है।
 
-Tool prompts यह सब AI worker को भी बताते हैं: उसे कहा जाता है कि वह `gh pr ready` न चलाए, कि स्थिति Hive Mind सिस्टम द्वारा संभाली जाती है, और कि उसके काम का लक्ष्य एक _mergeable_ pull request है — हर विफल जाँच उसकी ज़िम्मेदारी है, भले ही वह उसे दिए गए issue से असंबंधित लगे।
+Tool prompts यह सब AI worker को भी एक ही पंक्ति में बताते हैं: उसे pull request की स्थिति स्वयं बदलने की आवश्यकता नहीं है, स्थिति Hive Mind सिस्टम द्वारा संभाली जाती है, और उसके काम का लक्ष्य एक _mergeable_ pull request है — हर विफल जाँच उसकी ज़िम्मेदारी है, भले ही वह उसे दिए गए issue से असंबंधित लगे।
 
 ## जब स्थिति अपेक्षा से अलग दिखे
 

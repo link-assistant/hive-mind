@@ -205,7 +205,7 @@ Preparing pull request.
    - When there is a package with version and GitHub Actions workflows for automatic release, update the version (or other necessary release trigger) in your pull request to prepare for next release.
    - When you update existing pr ${prNumber}, use gh pr edit ${prNumber} --repo ${owner}/${repo} to modify title and description.
    - When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines.
-${getPullRequestLifecycleSubPrompt(argv, { prNumber })}
+${getPullRequestLifecycleSubPrompt()}
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

@@ -200,7 +200,7 @@ Preparing pull request.
       double-check that all changes in the pull request address the original requirements of the issue,
       check for newly introduced bugs in the pull request by carefully reading gh pr diff,
       check that no previously existing features were removed without an explicit request in the issue description, issue comments, or pull request comments.
-${getPullRequestLifecycleSubPrompt(argv, { prNumber })}
+${getPullRequestLifecycleSubPrompt()}
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

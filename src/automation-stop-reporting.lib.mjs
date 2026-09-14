@@ -98,6 +98,11 @@ export const STOP_REASONS = {
     detail: 'The pull request is ready to merge. A missing issue never stops work on the pull request — it only blocks the automatic merge.',
     nextSteps: ['Restore or re-create the linked issue and re-run the command so auto-merge can complete.', 'Or merge this pull request manually — it is ready.'],
   },
+  no_progress_between_sessions: {
+    title: 'two consecutive AI sessions produced identical results',
+    detail: 'Issue #2247: the AI session ended with the same final message, the same working tree and the same commit as the session before it. Restarting again would repeat the same session at the same cost, so the remaining restart budget was left unused.',
+    nextSteps: ['Read the two working session logs named below to see what the AI kept doing.', 'Fix the blocker it kept hitting (a missing toolchain, an unreachable service, an impossible instruction), then re-run the command.', 'Or re-run with different instructions so the next session has something new to work with.'],
+  },
   watch_stopped: {
     title: 'watch mode stopped',
     detail: 'The watch loop reached a state where it can no longer make progress.',

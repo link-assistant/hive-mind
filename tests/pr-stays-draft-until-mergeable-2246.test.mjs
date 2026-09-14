@@ -26,7 +26,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getOutstandingWorkingSessionDrafts, holdReadyForReview, isReadyForReviewHeld, releaseReadyForReviewHold, resetWorkingSessionDrafts, restorePullRequestsLeftInDraft } from '../src/pr-draft-state.lib.mjs';
+import { ensurePullRequestIsDraft, ensurePullRequestIsReady, getOutstandingWorkingSessionDrafts, holdReadyForReview, isReadyForReviewHeld, markPullRequestLeftInDraft, releaseReadyForReviewHold, resetWorkingSessionDrafts, restorePullRequestsLeftInDraft } from '../src/pr-draft-state.lib.mjs';
 import { buildPullRequestStatusNotice, buildWorkSessionStatusLine, describeReadinessMode, getReadinessMode, isMergeableModeActive, READINESS_MODES } from '../src/pr-readiness-policy.lib.mjs';
 import { getPullRequestLifecycleSubPrompt } from '../src/pr-lifecycle.prompts.lib.mjs';
 import { buildReadyToMergeComment, confirmReadyToMergeState, endAiSessionReadyTransition, MAX_READY_FOR_REVIEW_RECHECKS, releaseReadyTransitionHold } from '../src/pr-ready-transition.lib.mjs';
@@ -162,14 +162,29 @@ await test('an AI worker that runs the ready transition itself is put back into 
   resetWorkingSessionDrafts();
 });
 
-await test('force: true bypasses the hold (the ready-to-merge state was reached)', async () => {
+await test('ignoreReadyHold: true bypasses the hold (the ready-to-merge state was reached)', async () => {
   resetWorkingSessionDrafts();
   const state = { isDraft: true, state: 'OPEN' };
   const $ = makeFakeDollar(state);
   await ensurePullRequestIsDraft(baseArgs($));
   holdReadyForReview({ reason: 'ensuring the pull request is mergeable' });
-  const result = await ensurePullRequestIsReady(baseArgs($, { force: true, reason: 'ready to merge' }));
-  assert(result.changed === true && state.isDraft === false, `forced transition must go through, got ${JSON.stringify(result)}`);
+  const result = await ensurePullRequestIsReady(baseArgs($, { ignoreReadyHold: true, reason: 'ready to merge' }));
+  assert(result.changed === true && state.isDraft === false, `the exit-path transition must go through, got ${JSON.stringify(result)}`);
+  resetWorkingSessionDrafts();
+});
+
+await test('bypassing the hold does not publish a pull request left in draft for an empty diff (#2247)', async () => {
+  // The two reasons to keep a draft are independent: #2246's hold is about "hive-mind is
+  // not done yet", #2247's deliberate draft is about "there is nothing to review". An exit
+  // path that ends the first must not silently end the second.
+  resetWorkingSessionDrafts();
+  const state = { isDraft: true, state: 'OPEN' };
+  const $ = makeFakeDollar(state);
+  holdReadyForReview({ reason: 'ensuring the pull request is mergeable' });
+  markPullRequestLeftInDraft({ owner: 'o', repo: 'r', prNumber: 42, reason: 'no changes were produced by this session' });
+  const result = await ensurePullRequestIsReady(baseArgs($, { ignoreReadyHold: true, reason: 'hive-mind finished working on the pull request' }));
+  assert(result.reason === 'left_in_draft_on_purpose', `the empty-diff draft must survive, got ${JSON.stringify(result)}`);
+  assert(state.isDraft === true, 'a pull request with an empty diff must not be published for review');
   resetWorkingSessionDrafts();
 });
 
@@ -274,7 +289,7 @@ const transitionHarness = () => {
         calls.push('hold');
         held = true;
       },
-      markReady: async ({ force }) => calls.push(`ready(force=${force === true})`),
+      markReady: async ({ ignoreReadyHold }) => calls.push(`ready(ignoreReadyHold=${ignoreReadyHold === true})`),
       markDraft: async () => calls.push('draft'),
       checkMergeable: async () => {
         calls.push('recheck');
@@ -288,7 +303,7 @@ await test('the ready-to-merge transition leaves draft and re-verifies without t
   const harness = transitionHarness();
   const result = await confirmReadyToMergeState({ owner: 'o', repo: 'r', prNumber: 1, log: harness.log, formatAligned: harness.formatAligned, guardState: {}, deps: harness.deps(true) });
   assert(result.confirmed === true && result.leftDraft === true, `expected a confirmed transition, got ${JSON.stringify(result)}`);
-  assert(harness.calls.join(',') === 'release,ready(force=true),recheck', `unexpected call order: ${harness.calls.join(',')}`);
+  assert(harness.calls.join(',') === 'release,ready(ignoreReadyHold=true),recheck', `unexpected call order: ${harness.calls.join(',')}`);
 });
 
 await test('a PR that is not mergeable once the draft is gone goes back into draft', async () => {

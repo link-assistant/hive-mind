@@ -53,7 +53,7 @@ export const confirmReadyToMergeState = async ({ owner, repo, prNumber, verbose 
   }
 
   release();
-  await markReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'ready-to-merge state reached', reportError, force: true });
+  await markReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'ready-to-merge state reached', reportError, ignoreReadyHold: true });
 
   const recheck = await checkMergeable(owner, repo, prNumber, verbose);
   if (recheck.mergeable) {
@@ -163,7 +163,7 @@ export const releaseReadyTransitionHold = async ({ owner, repo, prNumber, $, log
   if (!releaseReadyForReviewHold()) {
     return false;
   }
-  await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'hive-mind finished working on the pull request', reportError, force: true });
+  await ensurePullRequestIsReady({ owner, repo, prNumber, $, log, formatAligned, reason: 'hive-mind finished working on the pull request', reportError, ignoreReadyHold: true });
   return true;
 };
 

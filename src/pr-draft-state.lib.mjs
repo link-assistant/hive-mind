@@ -27,12 +27,25 @@
  * https://github.com/Time0utXC/digitalstructures.pro/pull/4. The *ready hold* below lets
  * the mergeable-mode caller say "not yet": while it is engaged, every ready transition is
  * turned back into a draft transition, so the AI cannot take the pull request out of
- * draft either. `force: true` bypasses the hold and is what the exit paths (mergeable
- * state reached, interrupt, fatal error) use to preserve #2182's invariant.
+ * draft either. `ignoreReadyHold: true` bypasses the hold and is what the exit paths
+ * (mergeable state reached, interrupt, fatal error) use to preserve #2182's invariant.
+ * It is deliberately a different option from #2247's `force`: skipping the hold must not
+ * also publish a pull request that was left in draft because it has an empty diff.
+ *
+ * Issue #2247: the ready transition needs one exception, and exactly one. A session
+ * that produced no diff at all has nothing to review, so converting its pull request
+ * to "ready for review" publishes a claim ("solution draft verified") that the diff
+ * contradicts — all three reproduction runs did this, one of them with zero commits.
+ * {@link ensurePullRequestIsReady} therefore accepts `requireChanges`, and an empty
+ * measured diff records a *deliberate* draft: it is removed from the outstanding
+ * registry, so neither `endWorkSession()` nor the interrupt/fatal-error safety nets
+ * undo the decision, and the next session start clears it again. An unmeasured diff
+ * (`measured: false` — gh failed) is never treated as empty.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2246
+ * @see https://github.com/link-assistant/hive-mind/issues/2247
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
@@ -52,6 +65,19 @@ const noopLog = async () => {};
  * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), since: string}>}
  */
 const outstandingWorkingSessionDrafts = new Map();
+
+/**
+ * Issue #2247: pull requests this process is leaving in draft on purpose, because the
+ * session that just ended produced an empty diff.
+ *
+ * Separate from {@link outstandingWorkingSessionDrafts} because the two mean opposite
+ * things: an outstanding draft is an obligation to convert, a deliberate draft is a
+ * decision not to. Keeping the decision in the same module as the transition is what
+ * makes it survive the later `endWorkSession()` call, which knows nothing about diffs.
+ *
+ * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), changeStats: (Object|null), since: string}>}
+ */
+const deliberateDrafts = new Map();
 
 const draftKey = (owner, repo, prNumber) => `${owner}/${repo}#${prNumber}`;
 
@@ -113,6 +139,30 @@ export const getOutstandingWorkingSessionDrafts = () => Array.from(outstandingWo
 export const resetWorkingSessionDrafts = () => {
   outstandingWorkingSessionDrafts.clear();
   readyForReviewHold = null;
+  deliberateDrafts.clear();
+};
+
+/**
+ * Issue #2247: record that this process is leaving `prNumber` in draft on purpose.
+ * Drops it from the outstanding registry, so the safety nets do not "restore" it.
+ */
+export const markPullRequestLeftInDraft = ({ owner, repo, prNumber, reason = null, changeStats = null }) => {
+  untrackWorkingSessionDraft({ owner, repo, prNumber });
+  deliberateDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason, changeStats, since: new Date().toISOString() });
+};
+
+/** The deliberate-draft record for a pull request, or null. */
+export const getPullRequestLeftInDraft = ({ owner, repo, prNumber }) => deliberateDrafts.get(draftKey(owner, repo, prNumber)) || null;
+
+/** Every pull request this process is leaving in draft on purpose. */
+export const getPullRequestsLeftInDraft = () => Array.from(deliberateDrafts.values());
+
+/**
+ * Forget the decision for one pull request. A new working session clears it: the
+ * next session may well produce the diff the previous one did not.
+ */
+export const clearPullRequestLeftInDraft = ({ owner, repo, prNumber }) => {
+  deliberateDrafts.delete(draftKey(owner, repo, prNumber));
 };
 
 /**
@@ -146,7 +196,7 @@ export const restorePullRequestsLeftInDraft = async ({ $, log = noopLog, formatA
   await log(`🩹 Restoring ${pending.length} pull request(s) left in draft by this working session...`);
   const results = [];
   for (const entry of pending) {
-    results.push(await ensurePullRequestIsReady({ owner: entry.owner, repo: entry.repo, prNumber: entry.prNumber, $, log, formatAligned, reason, reportError, force: true }));
+    results.push(await ensurePullRequestIsReady({ owner: entry.owner, repo: entry.repo, prNumber: entry.prNumber, $, log, formatAligned, reason, reportError, ignoreReadyHold: true }));
   }
   return results;
 };
@@ -194,12 +244,12 @@ export const getPullRequestDraftState = async ({ owner, repo, prNumber, $, log =
  * @param {'draft'|'ready'} options.target - Desired state
  * @returns {Promise<{ok: boolean, changed: boolean, skipped: boolean, reason: (string|null), error: (string|null)}>}
  */
-const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log = noopLog, formatAligned = null, indent = 2, reason = null, reportError = null, force = false }) => {
+const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log = noopLog, formatAligned = null, indent = 2, reason = null, reportError = null, ignoreReadyHold = false }) => {
   // Issue #2246: while the hold is engaged the pull request must stay a draft, because
   // hive-mind has not finished making it mergeable yet. A ready transition therefore
   // becomes a draft transition: this covers both hive-mind's own end-of-session call and
   // an AI worker that ran `gh pr ready` against the prompt's instructions.
-  if (target === 'ready' && !force && isReadyForReviewHeld()) {
+  if (target === 'ready' && !ignoreReadyHold && isReadyForReviewHeld()) {
     const held = getReadyForReviewHold();
     await log(formatAligned ? formatAligned('⏸️', 'PR stays draft:', `${held.reason || 'ready-to-merge state not reached yet'}${reason ? ` (requested by: ${reason})` : ''}`, indent) : `⏸️ PR stays draft: ${held.reason || 'ready-to-merge state not reached yet'}`);
     const reassert = await setPullRequestDraftState({ target: 'draft', owner, repo, prNumber, $, log, formatAligned, indent, reason: `ready for review held back: ${held.reason || 'ready-to-merge state not reached yet'}`, reportError });
@@ -279,26 +329,82 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
  * Put a pull request into draft mode when a working session starts/restarts/resumes.
  * No-op when the PR is already a draft, merged, or closed.
  */
-export const ensurePullRequestIsDraft = async options => setPullRequestDraftState({ ...options, target: 'draft' });
+export const ensurePullRequestIsDraft = async options => {
+  // Issue #2247: a new session invalidates a previous session's "nothing to
+  // review" verdict; it is about to try again.
+  clearPullRequestLeftInDraft({ owner: options?.owner, repo: options?.repo, prNumber: options?.prNumber });
+  return setPullRequestDraftState({ ...options, target: 'draft' });
+};
+
+/** Default source of truth for "did this pull request change anything?". */
+const defaultGetChangeStats = async ({ owner, repo, prNumber, $, log }) => {
+  const { getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+  return getPullRequestChangeStats({ owner, repo, prNumber, $, log });
+};
 
 /**
  * Put a pull request back to "ready for review" when a working session ends.
  * No-op when the PR is already ready, merged, or closed.
  *
  * Issue #2246: suppressed (and the draft re-asserted) while the ready hold is engaged,
- * unless the caller passes `force: true`.
+ * unless the caller passes `ignoreReadyHold: true`.
+ *
+ * @param {Object} options
+ * @param {boolean} [options.requireChanges=false] - issue #2247: refuse to convert a
+ *   pull request whose measured diff against base is empty, and record the refusal so
+ *   later ready transitions in the same process do not override it.
+ * @param {Object} [options.changeStats] - already-measured stats, to avoid a second
+ *   `gh pr diff` when the caller has them.
+ * @param {Function} [options.getChangeStats] - injection point for tests.
+ * @param {boolean} [options.force=false] - convert even if a previous call in this
+ *   process decided to leave the pull request in draft (#2247).
+ * @param {boolean} [options.ignoreReadyHold=false] - issue #2246: convert even while the
+ *   ready hold is engaged. Used by the exit paths, which is what preserves #2182's
+ *   invariant; it does not override an empty-diff draft (#2247).
+ * @returns {Promise<{ok: boolean, changed: boolean, skipped: boolean, reason: (string|null), error: (string|null), changeStats: (Object|null)}>}
  */
-export const ensurePullRequestIsReady = async options => setPullRequestDraftState({ ...options, target: 'ready' });
+export const ensurePullRequestIsReady = async ({ requireChanges = false, changeStats = null, getChangeStats = defaultGetChangeStats, force = false, ignoreReadyHold = false, ...options } = {}) => {
+  const { owner, repo, prNumber, $, log = noopLog } = options;
+
+  if (!force) {
+    const deliberate = getPullRequestLeftInDraft({ owner, repo, prNumber });
+    if (deliberate) {
+      await log(`  ℹ️  PR #${prNumber} stays a draft: ${deliberate.reason || 'this session produced no changes'}`);
+      return { ok: true, changed: false, skipped: true, reason: 'left_in_draft_on_purpose', error: null, changeStats: deliberate.changeStats };
+    }
+  }
+
+  if (requireChanges) {
+    // `measured: false` means the diff could not be read, not that it is empty;
+    // treating that as "no changes" would leave real work stuck in draft.
+    const stats = changeStats || (await getChangeStats({ owner, repo, prNumber, $, log }));
+    if (stats && stats.measured && !stats.hasChanges) {
+      const reason = 'no changes were produced by this session';
+      markPullRequestLeftInDraft({ owner, repo, prNumber, reason, changeStats: stats });
+      await log(`  ⚠️  PR #${prNumber} keeps its draft status: ${reason}`, { level: 'warning' });
+      return { ok: true, changed: false, skipped: true, reason: 'no_changes', error: null, changeStats: stats };
+    }
+    const result = await setPullRequestDraftState({ ...options, target: 'ready', ignoreReadyHold });
+    return { ...result, changeStats: stats || null };
+  }
+
+  const result = await setPullRequestDraftState({ ...options, target: 'ready', ignoreReadyHold });
+  return { ...result, changeStats: null };
+};
 
 export default {
+  clearPullRequestLeftInDraft,
   getPullRequestDraftState,
   holdReadyForReview,
   releaseReadyForReviewHold,
   isReadyForReviewHeld,
   getReadyForReviewHold,
+  getPullRequestLeftInDraft,
+  getPullRequestsLeftInDraft,
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,
   getOutstandingWorkingSessionDrafts,
+  markPullRequestLeftInDraft,
   restorePullRequestsLeftInDraft,
   resetWorkingSessionDrafts,
 };

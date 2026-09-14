@@ -62,7 +62,7 @@ const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking
 
 // Issue #2119: the one place that decides whether a pull request changed anything.
 const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
-const { buildNoChangesNotice, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
 /**
  * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
  * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
@@ -814,8 +814,16 @@ Fixes ${issueRef}
           // Issue #2182: this used to be an inline `gh pr ready` that bypassed
           // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
           // session draft registry that guarantees the ready transition on every exit path.
+          //
+          // Issue #2247: `requireChanges` is what makes "solution draft verified"
+          // mean something. All three reproduction runs converted a pull request
+          // with an empty diff — the Rust one had zero commits on the branch —
+          // and the reason string was published as if the diff had been read.
           const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
-          await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified' });
+          const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
+          if (readyResult.reason === 'no_changes') {
+            await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+          }
         }
 
         // Upload log file to PR if requested
@@ -1063,123 +1071,13 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
 // from solve.results.lib.mjs.
 const toolComments = await import('./tool-comments.lib.mjs');
 export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackToolCommentId, isToolTrackedCommentId, getTrackedToolCommentIds, postTrackedComment } = toolComments;
+const sessionComments = await import('./solve.session-comments.lib.mjs');
 /**
- * Check if new comments were created by the AI during the session.
- * This is used by --auto-attach-solution-summary to determine if the AI
- * already provided feedback.
- *
- * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
- * Issue #1625: Filter out comments produced by solve.mjs itself (session start,
- * log upload, auto-restart, etc.) so they do not falsely count as AI-authored.
- *
- * @param {Date} sessionStartTime - The timestamp when this solve work session started
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {number} prNumber - Pull request number (null if working on issue only)
- * @param {number} issueNumber - Issue number
- * @returns {Promise<boolean>} - True if AI created comments during the session
+ * Issue #2247: extracted to src/solve.session-comments.lib.mjs (the file was at
+ * the 1350-line warning threshold). Re-exported with its original positional
+ * signature so every existing caller and test keeps working.
  */
-export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => {
-  try {
-    // Get the current user's GitHub username
-    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
-    if (userResult.code !== 0) {
-      return false; // Cannot determine, default to not attaching
-    }
-    const currentUser = userResult.stdout.toString().trim();
-    if (!currentUser) {
-      return false;
-    }
-
-    await log(`🔎 Checking comments by '${currentUser}' after session start ${sessionStartTime.toISOString()} (PR #${prNumber ?? 'none'}, issue #${issueNumber ?? 'none'})`, { verbose: true });
-    // Issue #1625: A comment counts as an "AI comment" only if it was posted
-    // by the current user AFTER sessionStartTime AND solve.mjs did NOT post it
-    // itself. We identify tool-posted comments in two ways, in order:
-    //   1. Primary: comment ID is in the in-memory tracked set populated by
-    //      every solve.mjs posting site (postTrackedComment / trackToolCommentId).
-    //      This is robust to comment-body changes.
-    //   2. Fallback: comment body matches a known TOOL_GENERATED_COMMENT_MARKERS
-    //      marker. This catches comments whose IDs weren't captured — for
-    //      example, on resumed sessions where the posting happened in an
-    //      earlier process, or legacy code paths that predate tracking.
-    // Review-type inline comments cannot be posted by solve.mjs, so they are
-    // treated as AI-authored by default.
-    const filterNewAiComments = (comments, kind) => {
-      const filtered = [];
-      const skippedCounts = {};
-      const skippedByIdCount = { n: 0 };
-      for (const comment of comments) {
-        if (!comment || !comment.user || comment.user.login !== currentUser) continue;
-        if (!(new Date(comment.created_at) > sessionStartTime)) continue;
-        const isReview = kind === 'review';
-        if (!isReview) {
-          if (isToolTrackedCommentId(comment.id)) {
-            skippedByIdCount.n += 1;
-            continue;
-          }
-          if (isToolGeneratedComment(comment.body)) {
-            const markerMatch = TOOL_GENERATED_COMMENT_MARKERS.find(m => (comment.body || '').includes(m)) || 'unknown';
-            skippedCounts[markerMatch] = (skippedCounts[markerMatch] || 0) + 1;
-            continue;
-          }
-        }
-        filtered.push(comment);
-      }
-      if (skippedByIdCount.n > 0) {
-        log(`   ⏭️  Skipped ${kind} tool-tracked comment IDs: ${skippedByIdCount.n}`, { verbose: true }).catch(() => {});
-      }
-      if (Object.keys(skippedCounts).length > 0) {
-        const summary = Object.entries(skippedCounts)
-          .map(([m, c]) => `${m}=${c}`)
-          .join(', ');
-        log(`   ⏭️  Skipped ${kind} tool-generated comments (marker fallback): ${summary}`, { verbose: true }).catch(() => {});
-      }
-      return filtered;
-    };
-
-    // Check comments on the PR first (if we have a PR)
-    if (prNumber) {
-      // Check PR conversation comments
-      const prCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${prNumber}/comments --paginate`;
-      if (prCommentsResult.code === 0) {
-        const prComments = JSON.parse(prCommentsResult.stdout.toString().trim() || '[]');
-        const newPrComments = filterNewAiComments(prComments, 'pr');
-        await log(`   📨 PR conversation comments after session start by '${currentUser}' (excluding tool-generated): ${newPrComments.length}`, { verbose: true });
-        if (newPrComments.length > 0) {
-          return true;
-        }
-      }
-      // Check PR review comments (inline code comments)
-      const reviewCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}/comments --paginate`;
-      if (reviewCommentsResult.code === 0) {
-        const reviewComments = JSON.parse(reviewCommentsResult.stdout.toString().trim() || '[]');
-        const newReviewComments = filterNewAiComments(reviewComments, 'review');
-        await log(`   📝 PR review (inline) comments after session start by '${currentUser}': ${newReviewComments.length}`, { verbose: true });
-        if (newReviewComments.length > 0) {
-          return true;
-        }
-      }
-    }
-
-    // Check issue comments (if different from PR number or no PR)
-    if (issueNumber && issueNumber !== prNumber) {
-      const issueCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
-      if (issueCommentsResult.code === 0) {
-        const issueComments = JSON.parse(issueCommentsResult.stdout.toString().trim() || '[]');
-        const newIssueComments = filterNewAiComments(issueComments, 'issue');
-        await log(`   📨 Issue comments after session start by '${currentUser}' (excluding tool-generated): ${newIssueComments.length}`, { verbose: true });
-        if (newIssueComments.length > 0) {
-          return true;
-        }
-      }
-    }
-    return false;
-  } catch (error) {
-    // On error, default to not attaching (safer choice)
-    await log(`⚠️  Could not check for AI comments: ${error.message}`, { verbose: true });
-    return false;
-  }
-};
+export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => sessionComments.checkForAiCreatedComments({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log });
 /**
  * Attach the AI's working session summary as a comment to the PR or issue.
  * The summary is extracted from the tool's result field and posted
@@ -1213,7 +1111,10 @@ export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, p
  */
 export const buildWorkingSessionSummaryDetails = () => '';
 
-export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null }) => {
+/** Issue #2247 (H2): see src/solve.session-comments.lib.mjs. */
+export const postNoChangesProducedComment = async options => sessionComments.postNoChangesProducedComment({ $, log, ...options });
+
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null, logUrl = null }) => {
   if (!resultSummary || typeof resultSummary !== 'string') {
     await log('⚠️  No working session summary available to attach', { verbose: true });
     return false;
@@ -1230,7 +1131,15 @@ export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumb
     // summary said "The `pwd` command completed" and printed the solver's own
     // /tmp workspace, on a pull request that was still empty.
     const noChangesNotice = buildNoChangesNotice(changeStats);
-    const summaryBody = formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary));
+    // Issue #2247 (H8): an oversized summary is folded into a `<details>` block
+    // and the overflow is left to the session log. The Scala run published a
+    // ~13 KB plan record - with the whole request prompt inside it - once per
+    // session, six times on one pull request.
+    const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });
+    if (capped.folded) {
+      await log(`📏 Working session summary folded into a <details> block${capped.omittedCharacters > 0 ? ` (${capped.omittedCharacters} characters left to the session log)` : ''}`, { verbose: true });
+    }
+    const summaryBody = capped.body;
 
     const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
 ## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}

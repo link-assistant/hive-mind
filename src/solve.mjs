@@ -721,6 +721,11 @@ try {
   let resultModelUsage = toolResult.resultModelUsage || null;
   let streamTokenUsage = toolResult.streamTokenUsage || null;
   let subAgentCalls = toolResult.subAgentCalls || null; // Issue #1590
+  // Issue #2247 (H3): fingerprint the primary session too, so the very first
+  // auto-restart is refused when it reproduces this session exactly, instead of
+  // needing two restarts to notice.
+  const { captureSessionOutcome } = await import('./session-progress.lib.mjs');
+  await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: 'Primary session' });
   const applyRestartResult = result => {
     if (!result) return;
     sessionId = result.sessionId || sessionId;

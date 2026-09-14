@@ -19,6 +19,12 @@ import { ensurePullRequestIsDraft, ensurePullRequestIsReady } from './pr-draft-s
 // wait for, instead of promising a "ready for review" flip that a mergeable mode will
 // only perform once CI/CD actually passes.
 import { buildWorkSessionStatusLine, isMergeableModeActive } from './pr-readiness-policy.lib.mjs';
+
+// Issue #2247 (H1): a session comment that does not name the versions it ran
+// leaves version drift invisible - all three 2026-09-13 tasks ran solve v2.22.0
+// while v2.28.1 was published, and no comment said so.
+import { resolveSessionRuntime } from './session-runtime-provenance.lib.mjs';
+
 /**
  * Session type definitions for different work session contexts
  * See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -36,38 +42,42 @@ export const SESSION_TYPES = {
  * @param {Date} timestamp - Session start timestamp
  * @param {Object} [argv=null] - Parsed command line arguments; when given, the comment
  *   states the operating mode and the signal to wait for (issue #2246)
+ * @param {string} [runtimeLine=''] - Issue #2247 (H1): the runtime provenance line
  * @returns {Object} - { emoji, header, description }
  */
-function getSessionCommentContent(sessionType, timestamp, argv = null) {
+function getSessionCommentContent(sessionType, timestamp, argv = null, runtimeLine = '') {
   const isoTime = timestamp.toISOString();
   // Issue #2246: without argv the mode is unknown, so nothing is claimed about it.
   const modeLine = argv ? `\n\n${buildWorkSessionStatusLine(argv)}` : '';
+  // Issue #2247 (H1): stated on every session type, not only the first one - an
+  // auto-restart can pick up a different image than the session before it.
+  const runtime = runtimeLine ? `\n\n${runtimeLine}` : '';
 
   switch (sessionType) {
     case SESSION_TYPES.RESUME:
       return {
         emoji: '🔄',
         header: AI_WORK_SESSION_RESUMED_MARKER,
-        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.AUTO_RESUME:
       return {
         emoji: '⏰',
         header: AUTO_RESUME_ON_LIMIT_RESET_MARKER,
-        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.AUTO_RESTART:
       return {
         emoji: '🔄',
         header: AUTO_RESTART_ON_LIMIT_RESET_MARKER,
-        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._`,
+        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.NEW:
     default:
       return {
         emoji: '🤖',
         header: AI_WORK_SESSION_STARTED_MARKER,
-        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.${modeLine}\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
   }
 }
@@ -91,9 +101,19 @@ function getSessionCommentContent(sessionType, timestamp, argv = null) {
  * @param {Date} [options.timestamp]
  * @param {Object} [options.argv] - Issue #2246: makes the comment state the operating mode
  */
-export async function postWorkSessionStartComment({ owner, repo, prNumber, $, log, formatAligned, sessionType, timestamp = new Date(), argv = null }) {
+export async function postWorkSessionStartComment({ owner, repo, prNumber, $, log, formatAligned, sessionType, timestamp = new Date(), argv = null, resolveRuntime = resolveSessionRuntime }) {
   try {
-    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp, argv);
+    // Never fatal: the provenance is a fact about the session, not a condition
+    // for starting one.
+    let runtimeLine = '';
+    try {
+      const runtime = await resolveRuntime({ model: argv?.model ?? null, tool: argv?.tool ?? null });
+      runtimeLine = runtime?.line || '';
+      if (runtimeLine) await log(formatAligned('🧾', 'Runtime:', runtimeLine.replace(/^_Runtime: /, '').replace(/_$/, ''), 2));
+    } catch {
+      runtimeLine = '';
+    }
+    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp, argv, runtimeLine);
     const startComment = `${emoji} **${header}**\n\n${description}`;
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: startComment });
     if (ok) {

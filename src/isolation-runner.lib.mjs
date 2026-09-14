@@ -25,6 +25,8 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 // importing this runner and creating a cycle. Re-exported here because callers
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
+// Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
+import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
@@ -256,7 +258,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -277,6 +279,12 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
+  // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
+  // comment said so. The image the container was created from - and the digest
+  // it resolved to - travel with the task so its session comment can state them.
+  for (const [name, value] of Object.entries(buildTaskImageProvenanceEnv(imageProvenance || { image, digest: null }))) {
+    startArgs.push('-e', `${name}=${value}`);
+  }
   // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
@@ -476,7 +484,21 @@ export async function executeWithIsolation(command, args, options = {}) {
     for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
     for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
   }
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null });
+  // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still
+  // "present", so Docker's default pull policy reused it and every task on
+  // 2026-09-13 ran `solve v2.22.0` while v2.28.1 was published. Refresh the
+  // reference before the container is created - once per process, and only when
+  // the tag is mutable, so a pinned image seeded into a nested daemon (#1879) is
+  // left exactly as it is - and resolve the digest either way.
+  let imageProvenance = null;
+  if (backend === 'docker') {
+    imageProvenance = await refreshTaskImage({
+      image: getDockerIsolationImage({ env: effectiveOptions.env || process.env }),
+      env: hostEnv,
+      log: verbose ? message => console.log(`[VERBOSE] isolation-runner: ${message}`) : null,
+    });
+  }
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance });
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
@@ -486,7 +508,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
-      console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
+      console.log(`[VERBOSE] isolation-runner: Docker isolation pull: ${imageProvenance?.pulled ? 'refreshed from the registry' : `local copy reused (${imageProvenance?.reason || 'start-command default'})`}; digest ${imageProvenance?.digest || 'unknown'}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
       const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);

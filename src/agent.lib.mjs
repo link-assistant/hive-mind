@@ -37,6 +37,7 @@ import { classifyRetryableError, createTransientRetryBudget, prepareRetryAfterEr
 import { attachStreamingInput, finalizeBidirectionalHandler, setupBidirectionalHandler } from './bidirectional-interactive.lib.mjs';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
 import { buildAgentArgs, detectFormalAiAgentRoutingMismatch, formatAgentArgsForDisplay, isAgentIdleEvent, isAgentStrongCompletionEvent } from './agent-command.lib.mjs';
+import { isAuxiliaryModelCallsDisabled } from './auxiliary-model-calls-policy.lib.mjs'; // Issue #2236 / #2247 (H5)
 
 export { createAgentTokenUsage, accumulateAgentStepFinishUsage, parseAgentTokenUsage };
 
@@ -677,7 +678,11 @@ export const executeAgentCommand = async params => {
       // Issue #2146: command-stream treats an interpolated string as one argv
       // atom. The old `--model formalai/formal-ai --verbose` string made Agent
       // ignore the requested model and contact its default provider.
-      const agentArgs = buildAgentArgs({ model: mappedModel, verbose: argv.verbose, resume: argv.resume, streamingInput });
+      // Issue #2247 (H5): the summary/title generators route to the compaction
+      // model cascade, not to `--model`, so they failed 12 times per session
+      // against opencode/big-pickle. `--no-auxiliary-model-calls-disabled`
+      // (issue #2236) remains the single opt-out.
+      const agentArgs = buildAgentArgs({ model: mappedModel, verbose: argv.verbose, resume: argv.resume, streamingInput, auxiliaryModelCallsDisabled: isAuxiliaryModelCallsDisabled(argv) });
       const displayedAgentArgs = formatAgentArgsForDisplay(agentArgs);
 
       let promptFile = null;

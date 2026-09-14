@@ -28,7 +28,7 @@
  *
  * @returns {string}
  */
-export const getPullRequestLifecycleSubPrompt = () => '   - When you finish implementation, there is no need to change the pull request state manually: the Hive Mind system owns the draft, ready for review and ready to merge states, and your goal is a mergeable pull request, so all CI/CD checks must pass, even the ones that look unrelated to the boundaries of the issue.';
+export const getPullRequestLifecycleSubPrompt = () => '   - When you finish implementation, do not change the pull request state: the Hive Mind system owns the draft, ready for review and ready to merge states, and your goal is a mergeable pull request, so all CI/CD checks must pass, even ones that look unrelated to the issue.';
 
 export default {
   getPullRequestLifecycleSubPrompt,

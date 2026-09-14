@@ -35,7 +35,7 @@ Hive Mind does, not the AI worker.
 - In a mergeable mode the ready-for-review transition is **held back** until the mergeable state is verified. If the AI worker, or a human, takes the pull request out of draft mid-run, Hive Mind puts it back and logs `⏸️ PR stays draft`.
 - A finished run never leaves a pull request in draft. On every exit path — normal end, `CTRL+C`, or a fatal error — the hold is released and the pull request is marked ready for review.
 
-The tool prompts say all of this to the AI worker as well, in a single line: there is no need for it to change the pull request state manually, the state is handled by the Hive Mind system, and the goal of its work is a _mergeable_ pull request — every failing check is its problem, even one that looks unrelated to the issue it was given.
+The tool prompts say all of this to the AI worker as well, in a single line: it must not change the pull request state itself, the state is owned by the Hive Mind system, and the goal of its work is a _mergeable_ pull request — every failing check is its problem, even one that looks unrelated to the issue it was given.
 
 ## Reading a state you did not expect
 

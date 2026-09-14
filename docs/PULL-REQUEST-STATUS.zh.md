@@ -35,7 +35,7 @@ Hive Mind 会持续工作，直到 pull request 可以合并：**所有** CI/CD 
 - 在可合并模式下，转为准备好评审的操作会被**暂缓**，直到可合并状态得到验证。如果 AI 工作者或人在运行过程中把 pull request 撤出草稿，Hive Mind 会把它放回去，并记录 `⏸️ PR stays draft`。
 - 已完成的运行绝不会把 pull request 留在草稿状态。在每一条退出路径上 —— 正常结束、`CTRL+C` 或致命错误 —— 暂缓都会被解除，pull request 会被标记为准备好评审。
 
-工具提示词也用一行把这些告诉了 AI 工作者：它无需手动更改 pull request 状态，状态由 Hive Mind 系统处理，而它工作的目标是一个_可合并的_ pull request —— 每一项失败的检查都是它的问题，即使那项检查看起来与分配给它的 issue 无关。
+工具提示词也用一行把这些告诉了 AI 工作者：它不应自行更改 pull request 状态，状态由 Hive Mind 系统管理，而它工作的目标是一个_可合并的_ pull request —— 每一项失败的检查都是它的问题，即使那项检查看起来与分配给它的 issue 无关。
 
 ## 当状态出乎意料时
 

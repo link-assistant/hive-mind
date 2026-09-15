@@ -19,6 +19,9 @@
  */
 
 import assert from 'node:assert/strict';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { CodexCapabilityPreflightError, detectRequiredCodexCapabilities, isCapabilityName, resolveRequiredPlugins, runCodexCapabilityPreflight } from '../src/codex-capability-preflight.lib.mjs';
 
@@ -73,10 +76,18 @@ const catalog = { installed: [], available: [] };
 await assert.rejects(() => resolveRequiredPlugins({ requirements: { plugins: ['missing@openai-curated'], skills: [] }, catalog }), CodexCapabilityPreflightError, 'the resolver still reports an actionable error to its caller (issue #2074)');
 
 const logs = [];
-const runCommand = async ({ command, args }) => {
+const fallbackRoot = await mkdtemp(path.join(os.tmpdir(), 'issue-2077-fallback-'));
+const fallbackHome = path.join(fallbackRoot, '.codex');
+const runCommand = async ({ command, args, env }) => {
   if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
   if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: 'This task requires missing:workflow to run.' }), stderr: '', code: 0 };
   if (args[0] === 'plugin') return { stdout: JSON.stringify(catalog), stderr: '', code: 0 };
+  if (args[0] === 'debug') {
+    const core = path.join(env.CODEX_HOME, 'skills', '.system', 'imagegen', 'SKILL.md');
+    await mkdir(path.dirname(core), { recursive: true });
+    await writeFile(core, '---\nname: imagegen\n---\n');
+    return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n- imagegen: Generate images. (file: ${core})\n</skills_instructions>` }), stderr: '', code: 0 };
+  }
   throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
 };
 
@@ -84,7 +95,7 @@ const degraded = await runCodexCapabilityPreflight({
   owner: 'suenot',
   repo: 'marketmaker-images',
   issueNumber: 81,
-  baseCodexHome: '/nonexistent-codex-home',
+  baseCodexHome: fallbackHome,
   runCommand,
   env: {},
   log: async message => logs.push(String(message)),
@@ -92,7 +103,7 @@ const degraded = await runCodexCapabilityPreflight({
 
 assert.equal(degraded.required, false, 'an unresolvable requirement does not stop execution');
 assert.equal(degraded.degraded, true);
-assert.equal(degraded.codexHome, null, 'execution falls back to the operator Codex home');
+assert.equal(degraded.codexHome, path.join(fallbackHome, 'hive-mind', 'repositories', 'suenot', 'marketmaker-images'), 'degraded execution still uses a provenance-checked repository scope');
 assert(
   logs.some(message => message.includes('Codex capability preflight skipped')),
   'the operator is warned about the skipped preflight'
@@ -105,12 +116,14 @@ await assert.rejects(
       owner: 'suenot',
       repo: 'marketmaker-images',
       issueNumber: 81,
-      baseCodexHome: '/nonexistent-codex-home',
+      baseCodexHome: fallbackHome,
       runCommand,
       env: { HIVE_MIND_CODEX_CAPABILITY_STRICT: '1' },
     }),
   CodexCapabilityPreflightError,
   'HIVE_MIND_CODEX_CAPABILITY_STRICT=1 restores the fail-fast behaviour'
 );
+
+await rm(fallbackRoot, { recursive: true, force: true });
 
 console.log('✅ issue #2077: Codex capability preflight no longer invents requirements from prose');

@@ -66,6 +66,11 @@ export const createYargsConfig = yargsInstance =>
       description: 'Enable /fix command (use --no-fix to disable)',
       default: getenv('TELEGRAM_FIX', 'true') !== 'false',
     })
+    .option('organize', {
+      type: 'boolean',
+      description: 'Enable /organize issue taxonomy command (use --no-organize to disable)',
+      default: getenv('TELEGRAM_ORGANIZE', 'true') !== 'false',
+    })
     .option('auth', {
       type: 'boolean',
       description: 'Enable experimental private /auth command for allowlisted chat owners (use --no-auth to disable)',

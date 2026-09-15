@@ -616,6 +616,21 @@ issue-generation step. They return the created issue URL; reply with
 `--update-all-dependencies` for the dependency issue) to continue through the
 normal solve workflow.
 
+#### `/organize` - Classify Open Issues
+
+```text
+/organize https://github.com/owner/repository
+/organize https://github.com/owner/repository --dry-run
+```
+
+`/organize` reviews every open issue and applies only existing GitHub Issue
+Types and labels. It never edits issue text, closes issues, creates taxonomy,
+changes code, or creates a pull request. Reply to a message containing the
+repository URL, or put optional classification guidance on a new line. Apply is
+the default; use `--dry-run` for a complete no-write preview. See
+[Organizing open issues](docs/ORGANIZE.md) for permissions, safety, and exact
+field behavior.
+
 #### `/limits` - Show Usage Limits
 
 ```

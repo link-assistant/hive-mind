@@ -62,7 +62,7 @@ const entry = { pluginId: 'superpowers@openai-curated', name: 'superpowers', sou
 const scopedCache = path.join(baseCodexHome, 'hive-mind', 'repositories', 'CEHR2005', 'GCS-TS', 'plugins', 'cache', 'openai-curated', 'superpowers', '5.1.3', 'skills');
 const makeRunCommand =
   ({ skillsVisible }) =>
-  async ({ command, args }) => {
+  async ({ command, args, env }) => {
     if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
     if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: issueText }), stderr: '', code: 0 };
     if (args[0] === 'plugin' && args[1] === 'add') {
@@ -74,7 +74,10 @@ const makeRunCommand =
       return { stdout: JSON.stringify({ installed: [{ ...entry, installed: true, enabled: true, version: '2f1a8948' }], available: [entry] }), stderr: '', code: 0 };
     }
     if (args[0] === 'debug' && args[1] === 'prompt-input') {
-      const rendered = skillsVisible ? '- superpowers:using-superpowers: Use superpowers. (file: /cache/SKILL.md)' : '- imagegen: Generate images. (file: /system/SKILL.md)';
+      const core = path.join(env.CODEX_HOME, 'skills', '.system', 'imagegen', 'SKILL.md');
+      await mkdir(path.dirname(core), { recursive: true });
+      await writeFile(core, '---\nname: imagegen\n---\n');
+      const rendered = skillsVisible ? `- imagegen: Generate images. (file: ${core})\n- superpowers:using-superpowers: Use superpowers. (file: ${path.join(scopedCache, 'using-superpowers', 'SKILL.md')})` : `- imagegen: Generate images. (file: ${core})`;
       return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
     }
     throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -134,7 +137,7 @@ assert(
 // --- the probe must never make things worse ---------------------------------
 
 const withoutProbe = async ({ command, args }) => {
-  if (args?.[0] === 'debug') return { stdout: '', stderr: 'error: unrecognized subcommand', code: 2 };
+  if (args?.[0] === 'debug') return { stdout: '', stderr: "error: unrecognized subcommand 'prompt-input'", code: 2 };
   return makeRunCommand({ skillsVisible: false })({ command, args });
 };
 

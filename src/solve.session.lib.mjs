@@ -13,6 +13,11 @@ import { wrapDollarWithGhRetry as _wrapDollarWithGhRetry } from './github-rate-l
 // Issue #2123: draft/ready transitions live in one shared module so every session
 // start/restart/resume path behaves identically.
 import { ensurePullRequestIsDraft, ensurePullRequestIsReady } from './pr-draft-state.lib.mjs';
+
+// Issue #2247 (H1): a session comment that does not name the versions it ran
+// leaves version drift invisible - all three 2026-09-13 tasks ran solve v2.22.0
+// while v2.28.1 was published, and no comment said so.
+import { resolveSessionRuntime } from './session-runtime-provenance.lib.mjs';
 /**
  * Session type definitions for different work session contexts
  * See: https://github.com/link-assistant/hive-mind/issues/1152
@@ -30,34 +35,37 @@ export const SESSION_TYPES = {
  * @param {Date} timestamp - Session start timestamp
  * @returns {Object} - { emoji, header, description }
  */
-function getSessionCommentContent(sessionType, timestamp) {
+function getSessionCommentContent(sessionType, timestamp, runtimeLine = '') {
   const isoTime = timestamp.toISOString();
+  // Issue #2247 (H1): stated on every session type, not only the first one - an
+  // auto-restart can pick up a different image than the session before it.
+  const runtime = runtimeLine ? `\n\n${runtimeLine}` : '';
 
   switch (sessionType) {
     case SESSION_TYPES.RESUME:
       return {
         emoji: '🔄',
         header: AI_WORK_SESSION_RESUMED_MARKER,
-        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Resuming automated work session at ${isoTime}\n\nThis session continues from a previous session using the \`--resume\` flag.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the resumption of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.AUTO_RESUME:
       return {
         emoji: '⏰',
         header: AUTO_RESUME_ON_LIMIT_RESET_MARKER,
-        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Auto-resuming automated work session at ${isoTime}\n\nThis session automatically resumed after the usage limit reset, continuing with the previous context preserved.\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is an auto-resumed session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.AUTO_RESTART:
       return {
         emoji: '🔄',
         header: AUTO_RESTART_ON_LIMIT_RESET_MARKER,
-        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._`,
+        description: `Auto-restarting automated work session at ${isoTime}\n\nThis session automatically restarted after the usage limit reset (fresh start without previous context).\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This is a fresh restart after limit reset. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
     case SESSION_TYPES.NEW:
     default:
       return {
         emoji: '🤖',
         header: AI_WORK_SESSION_STARTED_MARKER,
-        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._`,
+        description: `Starting automated work session at ${isoTime}\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._${runtime}`,
       };
   }
 }
@@ -80,9 +88,19 @@ function getSessionCommentContent(sessionType, timestamp) {
  * @param {string} options.sessionType
  * @param {Date} [options.timestamp]
  */
-export async function postWorkSessionStartComment({ owner, repo, prNumber, $, log, formatAligned, sessionType, timestamp = new Date() }) {
+export async function postWorkSessionStartComment({ owner, repo, prNumber, $, log, formatAligned, sessionType, timestamp = new Date(), argv = null, resolveRuntime = resolveSessionRuntime }) {
   try {
-    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp);
+    // Never fatal: the provenance is a fact about the session, not a condition
+    // for starting one.
+    let runtimeLine = '';
+    try {
+      const runtime = await resolveRuntime({ model: argv?.model ?? null, tool: argv?.tool ?? null });
+      runtimeLine = runtime?.line || '';
+      if (runtimeLine) await log(formatAligned('🧾', 'Runtime:', runtimeLine.replace(/^_Runtime: /, '').replace(/_$/, ''), 2));
+    } catch {
+      runtimeLine = '';
+    }
+    const { emoji, header, description } = getSessionCommentContent(sessionType, timestamp, runtimeLine);
     const startComment = `${emoji} **${header}**\n\n${description}`;
     const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: startComment });
     if (ok) {
@@ -152,6 +170,7 @@ export async function startWorkSession({ isContinueMode, prNumber, argv, log, fo
       formatAligned,
       sessionType,
       timestamp: workStartTime,
+      argv,
     });
   }
 

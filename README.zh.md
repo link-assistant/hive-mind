@@ -583,6 +583,15 @@ issue 的情况下预览，使用 `--no-solve` 可只创建 issue 而不启动 `
 `/solve --development-log --deep-analysis --auto-merge`（对依赖 issue 再加上
 `--update-all-dependencies`）即可通过常规 solve 流程继续。
 
+#### `/organize` - 分类开放议题
+
+```text
+/organize https://github.com/owner/repository
+/organize https://github.com/owner/repository --dry-run
+```
+
+`/organize` 检查所有开放议题，并且只应用仓库已有的 GitHub 议题类型和标签。它不会编辑议题内容、关闭议题、创建分类、修改代码或创建拉取请求。也可回复包含仓库 URL 的消息，并在新行提供可选分类说明。默认应用更改；`--dry-run` 提供完整的无写入预览。详见[整理开放议题](docs/ORGANIZE.zh.md)。
+
 #### `/limits` - 显示用量限制
 
 ```

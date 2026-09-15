@@ -20,7 +20,9 @@ import { formatWorkingSessionSummaryMarkdown } from '../src/working-session-summ
 
 // Agent flags must be distinct argv atoms. An interpolated command-stream
 // string preserves the whole string as one atom, which caused the reported run.
-assert.deepEqual(buildAgentArgs({ model: 'formalai/formal-ai', verbose: true, resume: 'session with spaces', streamingInput: true }), ['--model', 'formalai/formal-ai', '--verbose', '--resume', 'session with spaces', '--no-fork', '--input-format', 'stream-json', '--output-format', 'stream-json']);
+// The two `--no-*` atoms are issue #2247 (H5); their own coverage lives in
+// tests/agent-auxiliary-calls-2247.test.mjs.
+assert.deepEqual(buildAgentArgs({ model: 'formalai/formal-ai', verbose: true, resume: 'session with spaces', streamingInput: true }), ['--model', 'formalai/formal-ai', '--no-summarize-session', '--no-generate-title', '--verbose', '--resume', 'session with spaces', '--no-fork', '--input-format', 'stream-json', '--output-format', 'stream-json']);
 
 // Even if an upstream parser regresses, a Formal AI run must stop before the
 // Agent can silently select and contact another provider.

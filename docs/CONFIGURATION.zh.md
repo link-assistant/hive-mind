@@ -273,6 +273,7 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 | `TELEGRAM_HIVE`                            | true     | 启用 /hive 命令                                                 |
 | `TELEGRAM_TASK`                            | true     | 启用 /task 和 /split 命令                                       |
 | `TELEGRAM_FIX`                             | true     | 启用 /fix 命令                                                  |
+| `TELEGRAM_ORGANIZE`                        | true     | 启用 /organize 议题分类命令                                     |
 | `TELEGRAM_AUTH`                            | true     | 为白名单聊天所有者启用实验性的私聊 /auth 命令                   |
 | `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false    | 为公开仓库的 /solve 会话自动启动单独的 live terminal watch 消息 |
 | `TELEGRAM_BOT_VERBOSE`                     | false    | 启用详细日志                                                    |

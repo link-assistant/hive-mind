@@ -594,6 +594,20 @@ manifests, फिर से generate किए जाने वाले lockfil
 `/solve --development-log --deep-analysis --auto-merge` (dependency issue के लिए
 `--update-all-dependencies` भी जोड़कर) से reply करें।
 
+#### `/organize` - खुले issues को वर्गीकृत करें
+
+```text
+/organize https://github.com/owner/repository
+/organize https://github.com/owner/repository --dry-run
+```
+
+`/organize` हर खुले issue की समीक्षा करता है और केवल मौजूदा GitHub Issue Types
+और labels लगाता है। यह issue text को edit या close नहीं करता, taxonomy नहीं
+बनाता, code नहीं बदलता और pull request नहीं बनाता। Repository URL वाले message
+का reply किया जा सकता है; वैकल्पिक classification निर्देश नई line पर दें।
+Changes डिफ़ॉल्ट रूप से लागू होते हैं; `--dry-run` पूरा no-write preview देता है।
+विवरण के लिए [खुले issues व्यवस्थित करना](docs/ORGANIZE.hi.md) देखें।
+
 #### `/limits` - उपयोग सीमाएँ दिखाएँ
 
 ```

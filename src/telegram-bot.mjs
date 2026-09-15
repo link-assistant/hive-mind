@@ -70,6 +70,7 @@ const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
 const taskEnabled = config.task;
 const fixEnabled = config.fix;
+const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
@@ -146,7 +147,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, auth: authEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -377,6 +378,7 @@ bot.command('help', async ctx => {
     solveEnabled,
     taskEnabled,
     fixEnabled,
+    organizeEnabled,
     hiveEnabled,
     solveOverrides,
     hiveOverrides,
@@ -468,7 +470,7 @@ const { registerAcceptInvitesCommand } = await import('./telegram-accept-invitat
 const sharedCommandOpts = { VERBOSE, isOldMessage, isForwarded, isForwardedOrReply, isGroupChat: _isGroupChat, isChatAuthorized, isTopicAuthorized, buildAuthErrorMessage, addBreadcrumb, isChatStopped, getStoppedChatRejectMessage, safeReply, safeEditMessageText };
 registerAcceptInvitesCommand(bot, sharedCommandOpts);
 const { registerMergeCommand } = await import('./telegram-merge-command.lib.mjs');
-registerMergeCommand(bot, sharedCommandOpts);
+const { handleMergeCommand } = registerMergeCommand(bot, sharedCommandOpts);
 const { registerSolveQueueCommand } = await import('./telegram-solve-queue-command.lib.mjs');
 const { handleSolveQueueCommand } = registerSolveQueueCommand(bot, { ...sharedCommandOpts, getSolveQueue, safeReply, resolveLocale: resolveLocaleFromTelegramCtx });
 // Issue #2202 (R5): /models lists the merged model catalogue per tool.
@@ -480,6 +482,13 @@ const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs')
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerFixCommand } = await import('./telegram-fix-command.lib.mjs');
 const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
+const { registerOrganizeCommand } = await import('./telegram-organize-command.lib.mjs');
+const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
+  ...sharedCommandOpts,
+  organizeEnabled,
+  safeReply,
+  safeEditMessageText: (ctx, message, text) => safeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }),
+});
 const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
 const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
 
@@ -927,7 +936,7 @@ const { registerTopCommand } = await import('./telegram-top-command.lib.mjs');
 const { registerStartStopCommands } = await import('./telegram-start-stop-command.lib.mjs');
 const { registerLogCommand } = await import('./telegram-log-command.lib.mjs');
 registerTopCommand(bot, sharedCommandOpts);
-registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
+const { handleStopCommand } = registerStartStopCommands(bot, { ...sharedCommandOpts, getSolveQueue, findRunningSessionByUrl: (url, verbose) => findStoppableSessionByUrl(url, verbose) });
 await registerLogCommand(bot, sharedCommandOpts);
 await registerTerminalWatchCommand(bot, sharedCommandOpts);
 // Issue #1745: hidden /tokens command for chat owners (private DMs only,
@@ -1033,7 +1042,8 @@ bot.on('message', async (ctx, next) => {
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, queue: handleSolveQueueCommand, models: handleModelsCommand };
+  const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1051,6 +1061,7 @@ bot.catch((error, ctx) => {
     message: error.message,
     stack: error.stack?.split('\n').slice(0, 10).join('\n'),
   });
+  const failedCommand = extractCommandFromText(ctx.message?.text);
   if (VERBOSE) {
     console.log('[VERBOSE] Error context:', {
       chatId: ctx.chat?.id,
@@ -1067,7 +1078,7 @@ bot.catch((error, ctx) => {
       chatId: ctx.chat?.id,
       chatType: ctx.chat?.type,
       updateId: ctx.update.update_id,
-      command: ctx.message?.text?.split(' ')[0],
+      command: failedCommand ? `/${failedCommand.command}` : undefined,
       userId: ctx.from?.id,
       username: ctx.from?.username,
     },
@@ -1083,7 +1094,7 @@ bot.catch((error, ctx) => {
       const userInfo = ctx.from ? { id: ctx.from.id, username: ctx.from.username, first_name: ctx.from.first_name, last_name: ctx.from.last_name } : 'unknown';
       const errorKind = isTelegramTextLimitError ? 'Message length error' : 'Parsing error';
       console.error(`[telegram-bot] ${errorKind}: ${error.message}`);
-      console.error(`[telegram-bot] ${errorKind} context - user: ${JSON.stringify(userInfo)}, command: ${ctx.message?.text?.split(' ')[0] || 'unknown'}`);
+      console.error(`[telegram-bot] ${errorKind} context - user: ${JSON.stringify(userInfo)}, command: ${failedCommand ? `/${failedCommand.command}` : 'unknown'}`);
       console.error(`[telegram-bot] User input text: ${ctx.message?.text || 'none'}`);
       if (ctx.message?.text) {
         const visibleInput = makeSpecialCharsVisible(ctx.message.text, { maxLength: 500 });
@@ -1137,7 +1148,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, auth: authEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

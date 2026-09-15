@@ -40,6 +40,8 @@ const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResou
 const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
 const { ensurePullRequestIsDraft, ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+// Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
+const { captureSessionOutcome } = await import('./session-progress.lib.mjs');
 
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
@@ -529,6 +531,16 @@ export const executeToolIteration = async params => {
     // this iteration's part of the log.
     const { finalizeActiveDevelopmentLog } = await import('./development-log.finalize.lib.mjs');
     await (toolResult?.sessionId ? finalizeActiveDevelopmentLog({ sessionId: toolResult.sessionId }) : finalizeActiveDevelopmentLog({ force: true }));
+
+    // Issue #2247 (H3): record what this session ended with. Every restart path
+    // funnels through here, so one call covers watch mode, auto-restart-until-
+    // mergeable, keep-working, escalation and auto-ensure. The loops read the
+    // verdict before they claim their next iteration from the shared budget.
+    const sessionProgress = await captureSessionOutcome({ tempDir, toolResult, $, log, logFile: getLogFile(), label: params.sessionLabel || null });
+    if (sessionProgress?.repeated) {
+      await log(formatAligned('⚠️', 'No progress:', 'this session ended exactly like the previous one', 2));
+    }
+    if (toolResult && typeof toolResult === 'object') toolResult.sessionProgress = sessionProgress;
 
     return toolResult;
   } finally {

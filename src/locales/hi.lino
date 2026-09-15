@@ -585,6 +585,11 @@ hi
         usage "उपयोग: `/fix <github-repository-url> [options]`"
         example "उदाहरण: `/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ अक्षम"
+      organize
+        enabled "*/organize* - मौजूदा Issue Types और लेबल से सभी खुले मुद्दों का वर्गीकरण करें"
+        usage "उपयोग: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`; वैकल्पिक निर्देश नई पंक्ति पर दें"
+        example "उदाहरण: `/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ अक्षम"
       hive
         enabled "*/hive* - hive command चलाएँ"
         usage "उपयोग: `/hive <github-url> [options]`"
@@ -612,7 +617,7 @@ hi
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
+        note "⚠️ *नोट:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop और /start commands केवल group chats में काम करती हैं। /terminal\\_watch, /watch, /subscribe और /unsubscribe private और group chats में काम करती हैं।"
       common
         options "🔧 *Common Options:*"
       model

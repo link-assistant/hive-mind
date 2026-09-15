@@ -80,10 +80,46 @@ function buildShellCommand(command, args = []) {
 function buildDockerStartGatePath(sessionId) {
   return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
 }
-function buildDockerStartGatedCommand(taskCommand, sessionId) {
+/**
+ * Wrap the task command in the disk-baseline start gate, narrating every step.
+ *
+ * Issue #2244: the original loop was completely silent for up to 30 seconds. A
+ * container SIGKILLed inside that window produced an *empty* stdout, so the
+ * preserved session log could not distinguish "still waiting for the parent" from
+ * "the task started and died instantly" — the incident's only evidence was the
+ * absence of evidence. The markers below cost three lines in a normal run and go
+ * to stderr, so the task's own stdout stays byte-identical for log parsers.
+ *
+ * Every construct here is POSIX `sh` (busybox included): the isolation images run
+ * the inner command with `sh -c` (see DOCKER_ISOLATION_SHELL).
+ */
+export function buildDockerStartGatedCommand(taskCommand, sessionId, { waitTenths = DOCKER_START_GATE_WAIT_TENTHS } = {}) {
   const gatePath = buildDockerStartGatePath(sessionId);
   if (!gatePath) return taskCommand;
-  return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
+  const waitSeconds = Math.round(waitTenths / 10);
+  const stamp = '$(date -u +%H:%M:%S)';
+  const heartbeatTenths = Math.max(1, Math.min(50, waitTenths));
+  return [`gate=${shellQuote(gatePath)}`, 'i=0', `echo "[hive-mind] start-gate: waiting up to ${waitSeconds}s at ${stamp} for the parent to release $gate" >&2`, `while [ ! -e "$gate" ] && [ "$i" -lt ${waitTenths} ]; do i=$((i+1)); if [ $((i % ${heartbeatTenths})) -eq 0 ]; then echo "[hive-mind] start-gate: still waiting after $((i / 10))s at ${stamp}" >&2; fi; sleep 0.1; done`, `if [ -e "$gate" ]; then echo "[hive-mind] start-gate: released after $((i / 10))s at ${stamp}" >&2; else echo "[hive-mind] start-gate: not released within ${waitSeconds}s; starting the task anyway at ${stamp}" >&2; fi`, 'rm -f "$gate"', `echo "[hive-mind] start-gate: starting task command at ${stamp}" >&2`, `exec ${taskCommand}`].join('; ');
+}
+/**
+ * Should a DinD task container stream dockerd's own log to container stderr?
+ *
+ * Box writes the nested daemon's log to `DIND_LOG_FILE` (default
+ * `/var/log/dockerd.log`) *inside* the container and only echoes a tail of it
+ * when the readiness wait fails. Issue #2244's container was killed before that
+ * point, so the file died with the container and the single line
+ * `[dind-entrypoint] Starting dockerd (...)` was the whole record of a
+ * six-second life. Sending the daemon to stderr keeps that evidence in the
+ * session log start-command already preserves. Quiet runs are exactly the ones
+ * nobody is attached to, so this is on by default; a deployment that finds the
+ * daemon chatter noisy can set `HIVE_MIND_DIND_DAEMON_LOG=0`.
+ */
+export function shouldStreamDindDaemonLog({ env = process.env } = {}) {
+  const raw = String(env.HIVE_MIND_DIND_DAEMON_LOG ?? '')
+    .trim()
+    .toLowerCase();
+  if (raw === '') return true;
+  return !['0', 'off', 'false', 'no', 'disabled'].includes(raw);
 }
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
@@ -263,7 +299,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, verbose = false } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -284,13 +320,10 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
-  // Box normally redirects dockerd into /var/log/dockerd.log inside the task
-  // container. That file was unavailable after issue #2244's startup SIGKILL,
-  // leaving only the entrypoint's first line in the preserved session log.
-  // Opt-in verbose mode redirects the daemon to container stderr so the next
-  // startup failure retains its root-cause evidence; quiet runs are unchanged.
-  const dindDiagnosticsEnabled = verbose || args.includes('--verbose');
-  if (dindDiagnosticsEnabled && shouldRunPrivilegedDockerIsolation(image, env)) {
+  // Issue #2244: keep the nested daemon's startup log in the session log instead
+  // of in a container-local file that dies with the container. See
+  // shouldStreamDindDaemonLog for why this defaults to on.
+  if (shouldRunPrivilegedDockerIsolation(image, env) && shouldStreamDindDaemonLog({ env })) {
     startArgs.push('-e', 'DIND_LOG_FILE=/dev/stderr');
   }
   // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.

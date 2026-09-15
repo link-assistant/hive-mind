@@ -1,0 +1,30 @@
+693254b4-70b0-4d2f-84e2-80faa77ff23d
+  uuid 693254b4-70b0-4d2f-84e2-80faa77ff23d
+  pid 60023
+  processIds
+      wrapperPid 60023
+      containerId 14a817e9f417630b392ba03450fac65cb615d07ae423e87a522a83b2c43c9d4a
+  status executed
+  exitCode 137
+  command "sleep 300"
+  logPath /tmp/start-command/logs/isolation/docker/693254b4-70b0-4d2f-84e2-80faa77ff23d.log
+  startTime "2026-09-15T22:21:40.013Z"
+  endTime "2026-09-15T22:21:50.337Z"
+  oomKilled false
+  exitReason "signal (SIGKILL)"
+  workingDirectory /tmp/gh-issue-solver-1789509892930
+  shell /bin/bash
+  platform linux
+  options
+    isolated docker
+    isolationMode detached
+    sessionName 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+    image "alpine:3.20"
+    user false
+    keepAlive false
+    autoRemoveDockerContainer false
+    alwaysCleanupContainer false
+    keepContainer false
+    keepContainerOnFail false
+    useCommandStream false
+    containerId 14a817e9f417630b392ba03450fac65cb615d07ae423e87a522a83b2c43c9d4a

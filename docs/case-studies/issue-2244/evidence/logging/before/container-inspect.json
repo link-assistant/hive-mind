@@ -1,0 +1,190 @@
+[
+    {
+        "Id": "81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664",
+        "Created": "2026-09-15T22:19:41.415208416Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "gate='/tmp/hive-mind-disk-baseline-45ee6a19-84af-4b45-b771-d1295e97a969'; i=0; while [ ! -e \"$gate\" ] && [ \"$i\" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f \"$gate\"; echo WORKLOAD_STARTED; sleep 300"
+        ],
+        "State": {
+            "Status": "exited",
+            "Running": false,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 0,
+            "ExitCode": 137,
+            "Error": "",
+            "StartedAt": "2026-09-15T22:19:41.747143055Z",
+            "FinishedAt": "2026-09-15T22:19:47.944421189Z"
+        },
+        "Image": "sha256:bf8527eb54c3680e728d5b4b383a8ba730d72dae7236fbc8dff97ed6b224a731",
+        "ResolvConfPath": "/var/lib/docker/containers/81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664/hostname",
+        "HostsPath": "/var/lib/docker/containers/81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664/hosts",
+        "LogPath": "/var/lib/docker/containers/81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664/81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664-json.log",
+        "Name": "/45ee6a19-84af-4b45-b771-d1295e97a969",
+        "RestartCount": 0,
+        "Driver": "fuse-overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664",
+                "LowerDir": "/var/lib/docker/fuse-overlayfs/bde06ed99a1390c3eb14813f1784d4831b588f2b0c5c4ec4275ad1ca1b3d77f1-init/diff:/var/lib/docker/fuse-overlayfs/a6948bf649a1f86e6621542503f083e1e05bda7c0b6dc0f9e9b82c420ef72602/diff",
+                "MergedDir": "/var/lib/docker/fuse-overlayfs/bde06ed99a1390c3eb14813f1784d4831b588f2b0c5c4ec4275ad1ca1b3d77f1/merged",
+                "UpperDir": "/var/lib/docker/fuse-overlayfs/bde06ed99a1390c3eb14813f1784d4831b588f2b0c5c4ec4275ad1ca1b3d77f1/diff",
+                "WorkDir": "/var/lib/docker/fuse-overlayfs/bde06ed99a1390c3eb14813f1784d4831b588f2b0c5c4ec4275ad1ca1b3d77f1/work"
+            },
+            "Name": "fuse-overlayfs"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "81f7125a7d66",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "HIVE_MIND_PARENT_SESSION_ID=45ee6a19-84af-4b45-b771-d1295e97a969",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": [
+                "sh",
+                "-c",
+                "gate='/tmp/hive-mind-disk-baseline-45ee6a19-84af-4b45-b771-d1295e97a969'; i=0; while [ ! -e \"$gate\" ] && [ \"$i\" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f \"$gate\"; echo WORKLOAD_STARTED; sleep 300"
+            ],
+            "Image": "alpine:3.20",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": null,
+            "Labels": {}
+        },
+        "NetworkSettings": {
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "719a9b35ec8fbf3aa1a88e0744bc9520978f6a738bff4394072fae86037c9dd2",
+                    "EndpointID": "",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

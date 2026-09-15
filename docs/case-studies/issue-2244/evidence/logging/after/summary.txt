@@ -1,0 +1,15 @@
+session=4640c2e1-e8d6-4cab-ba60-93742c563fda
+image=alpine:3.20
+session_log=/tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.log
+diagnostics_dir=/tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics
+
+PASS container output records that the gate was waiting
+PASS container output records a heartbeat, so the task had not started yet
+PASS session log carries the live markers, not only the echoed command
+PASS container state was snapshotted before removal
+PASS snapshot names the signal behind exit 137
+PASS snapshot keeps the real container timestamps
+PASS container output survived the container
+
+note: the nested daemon log (dockerd.log) is only present for DinD images;
+with alpine:3.20 the capture reports it as missing, which is the expected miss.

@@ -1,0 +1,35 @@
+=== Start Command Log ===
+Execution ID: d5fa7a0b-78dc-4614-9d8d-82c53c95ebec
+Timestamp: 2026-09-15 22:19:12.857
+Command: gate='/tmp/hive-mind-disk-baseline-4640c2e1-e8d6-4cab-ba60-93742c563fda'; i=0; echo "[hive-mind] start-gate: waiting up to 30s at $(date -u +%H:%M:%S) for the parent to release $gate" >&2; while [ ! -e "$gate" ] && [ "$i" -lt 300 ]; do i=$((i+1)); if [ $((i % 50)) -eq 0 ]; then echo "[hive-mind] start-gate: still waiting after $((i / 10))s at $(date -u +%H:%M:%S)" >&2; fi; sleep 0.1; done; if [ -e "$gate" ]; then echo "[hive-mind] start-gate: released after $((i / 10))s at $(date -u +%H:%M:%S)" >&2; else echo "[hive-mind] start-gate: not released within 30s; starting the task anyway at $(date -u +%H:%M:%S)" >&2; fi; rm -f "$gate"; echo "[hive-mind] start-gate: starting task command at $(date -u +%H:%M:%S)" >&2; exec echo WORKLOAD_STARTED; sleep 300
+Environment: docker
+Mode: detached
+Session: 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Image: alpine:3.20
+Platform: linux
+Node Version: v26.3.0
+Working Directory: /tmp/gh-issue-solver-1789509892930
+==================================================
+
+Command started in detached docker container: 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Container ID: 3cb3c46d004d
+Container will exit automatically after command completes.
+Container will be removed after successful completion.
+Container will be kept if the command fails or Docker reports OOMKilled.
+Remove when done: docker rm -f 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Attach with: $ --attach 4640c2e1-e8d6-4cab-ba60-93742c563fda (or docker attach 4640c2e1-e8d6-4cab-ba60-93742c563fda)
+View logs: docker logs 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Live log: /tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.log
+[hive-mind] start-gate: waiting up to 30s at 22:19:14 for the parent to release /tmp/hive-mind-disk-baseline-4640c2e1-e8d6-4cab-ba60-93742c563fda
+[hive-mind] start-gate: still waiting after 5s at 22:19:19
+
+Container kept for investigation: 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Reason: exitCode=137 oomKilled=false
+Re-enter while running: $ --attach 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Continue the stored command: $ --resume 4640c2e1-e8d6-4cab-ba60-93742c563fda
+Run another command in the same container: $ --resume 4640c2e1-e8d6-4cab-ba60-93742c563fda -- <command>
+Remove when done: docker rm -f 4640c2e1-e8d6-4cab-ba60-93742c563fda
+
+==================================================
+Finished: 2026-09-15 22:19:20.788
+Exit Code: 137

@@ -1,0 +1,23 @@
+│ session   693254b4-70b0-4d2f-84e2-80faa77ff23d
+│ start     2026-09-15 22:21:40.009
+│
+│ isolation docker
+│ mode      detached
+│ image     alpine:3.20
+│ container 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+│
+$ sleep 300
+
+
+✓
+│ finish    2026-09-15 22:21:41.474
+│ duration  1.483s
+│ exit      0
+│
+│ isolation docker
+│ mode      detached
+│ image     alpine:3.20
+│ container 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+│
+│ log       /tmp/start-command/logs/isolation/docker/693254b4-70b0-4d2f-84e2-80faa77ff23d.log
+│ session   693254b4-70b0-4d2f-84e2-80faa77ff23d

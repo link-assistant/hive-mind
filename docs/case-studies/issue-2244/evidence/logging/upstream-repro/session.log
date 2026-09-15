@@ -1,0 +1,33 @@
+=== Start Command Log ===
+Execution ID: 693254b4-70b0-4d2f-84e2-80faa77ff23d
+Timestamp: 2026-09-15 22:21:40.009
+Command: sleep 300
+Environment: docker
+Mode: detached
+Session: 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Image: alpine:3.20
+Platform: linux
+Node Version: v26.3.0
+Working Directory: /tmp/gh-issue-solver-1789509892930
+==================================================
+
+Command started in detached docker container: 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Container ID: 14a817e9f417
+Container will exit automatically after command completes.
+Container will be removed after successful completion.
+Container will be kept if the command fails or Docker reports OOMKilled.
+Remove when done: docker rm -f 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Attach with: $ --attach 04d07ec8-1e0e-4866-b7a3-cea8049552c3 (or docker attach 04d07ec8-1e0e-4866-b7a3-cea8049552c3)
+View logs: docker logs 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Live log: /tmp/start-command/logs/isolation/docker/693254b4-70b0-4d2f-84e2-80faa77ff23d.log
+
+Container kept for investigation: 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Reason: exitCode=137 oomKilled=false
+Re-enter while running: $ --attach 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Continue the stored command: $ --resume 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+Run another command in the same container: $ --resume 04d07ec8-1e0e-4866-b7a3-cea8049552c3 -- <command>
+Remove when done: docker rm -f 04d07ec8-1e0e-4866-b7a3-cea8049552c3
+
+==================================================
+Finished: 2026-09-15 22:21:47.014
+Exit Code: 137

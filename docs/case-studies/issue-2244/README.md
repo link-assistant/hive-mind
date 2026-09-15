@@ -24,34 +24,47 @@ The change in PR #2245:
 - gives the writable-layer probe a 10-second deadline, safely below the child's
   30-second fallback gate;
 - keeps the probe best-effort and releases the gate even when it times out;
-- sends the DinD daemon log to the retained task log only when Hive Mind or the
-  task is run with `--verbose`; and
-- adds unit and exact-image regression coverage plus a reusable reproduction
-  harness.
+- makes the start gate narrate itself, so a log written during startup says
+  whether the task command had begun;
+- streams the DinD daemon log into the retained task log **by default**, with
+  `HIVE_MIND_DIND_DAEMON_LOG=0` as the per-deployment opt-out;
+- snapshots the task container to the host (`docker inspect`, `docker logs`,
+  the nested `dockerd.log`) **before** the retention policy removes it, and
+  quotes the decoded signal and `OOMKilled` in the completion notification; and
+- adds unit, shell-level, and exact-image regression coverage plus reusable
+  reproduction and verification harnesses.
 
-The `docker inspect --size` hang was reported upstream as
-[moby/moby#53641](https://github.com/moby/moby/issues/53641), including the
-reproducer, workaround, and a suggested daemon/API fix. The original SIGKILL's
-sender remains unknown; the new opt-in diagnostics are intended to distinguish
-a daemon bootstrap failure from an external kill if it recurs.
+Three upstream defects were reported with reproducers, workarounds, and
+code-level fix suggestions:
+[moby/moby#53641](https://github.com/moby/moby/issues/53641) for the
+`docker inspect --size` hang, and
+[link-foundation/start#170](https://github.com/link-foundation/start/issues/170)
+and [#171](https://github.com/link-foundation/start/issues/171) for the two
+reasons the preserved session record could not describe its own ending.
+
+The original SIGKILL's sender remains unknown, and the spontaneous kill itself
+was **not** reproduced — see
+[Reproduction and verification](#reproduction-and-verification) for exactly what
+was and was not reproduced. The new default diagnostics are designed so that a
+recurrence arrives with the evidence this one lacked.
 
 ## Scope and requirements
 
 The issue asks for more than a code patch. This table maps every explicit
 requirement to its result.
 
-| Requirement                                                | Result                                                                                                                                                                                                                                                                                 |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Download all related logs and data                         | The original gist log, issue/PR metadata and comments, authenticated screenshot, relevant merged PR metadata, exact released sources, image manifest, reproduction outputs, and upstream report are under [`evidence/`](evidence/). [`MANIFEST.md`](MANIFEST.md) describes provenance. |
-| Compile data under `docs/case-studies/issue-2244`          | This document, the manifest, checksums, and all immutable investigation artifacts live in this directory.                                                                                                                                                                              |
-| Search online for facts and existing solutions             | Primary Docker, Node.js, Bash, Linux signal, and cgroup documentation is cited below. Related Hive Mind changes and exact dependency sources were inspected.                                                                                                                           |
-| Reconstruct the timeline                                   | The evidence-backed UTC timeline is below. It distinguishes actual execution time from a status record reconciled four days later.                                                                                                                                                     |
-| List every requirement and find each problem's cause       | This table and the findings section cover the external SIGKILL, unbounded size probe, and diagnostic gap separately. Confidence and missing evidence are stated.                                                                                                                       |
-| Propose solutions and plans, including existing components | The solution matrix compares the implemented standard-library timeout and existing Box logging switch with alternatives.                                                                                                                                                               |
-| Add diagnostics when root cause data is insufficient       | Existing quiet behavior is unchanged. Verbose launches now set Box's existing `DIND_LOG_FILE=/dev/stderr`, retaining dockerd startup output in the task log. Both outer verbose mode and the task's `--verbose` argument enable it.                                                    |
-| Report related external-project defects                    | The reproducible size hang was reported to Moby in [#53641](https://github.com/moby/moby/issues/53641). The submitted body and API response are archived.                                                                                                                              |
-| Apply the fix across the codebase                          | All production `SizeRw` sampling routes through `getDockerContainerWritableLayerSize`; both startup and session-monitor callers receive the deadline. The shared DinD argument builder covers all privileged DinD launches.                                                            |
-| Plan and execute in one PR                                 | Code, tests, changeset, experiment, evidence, and this analysis are all in [PR #2245](https://github.com/link-assistant/hive-mind/pull/2245).                                                                                                                                          |
+| Requirement                                                | Result                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Download all related logs and data                         | The original gist log, issue/PR metadata and comments, authenticated screenshot, relevant merged PR metadata, exact released sources, image manifest, reproduction outputs, and upstream report are under [`evidence/`](evidence/). [`MANIFEST.md`](MANIFEST.md) describes provenance.                                                                                                                           |
+| Compile data under `docs/case-studies/issue-2244`          | This document, the manifest, checksums, and all immutable investigation artifacts live in this directory.                                                                                                                                                                                                                                                                                                        |
+| Search online for facts and existing solutions             | Primary Docker, Node.js, Bash, Linux signal, and cgroup documentation is cited below. Related Hive Mind changes and exact dependency sources were inspected.                                                                                                                                                                                                                                                     |
+| Reconstruct the timeline                                   | The evidence-backed UTC timeline is below. It distinguishes actual execution time from a status record reconciled four days later.                                                                                                                                                                                                                                                                               |
+| List every requirement and find each problem's cause       | This table and the findings section cover the external SIGKILL, unbounded size probe, and diagnostic gap separately. Confidence and missing evidence are stated.                                                                                                                                                                                                                                                 |
+| Propose solutions and plans, including existing components | The solution matrix compares the implemented standard-library timeout and existing Box logging switch with alternatives.                                                                                                                                                                                                                                                                                         |
+| Add diagnostics when root cause data is insufficient       | Three layers were added: a self-narrating start gate, default-on DinD daemon logging (`HIVE_MIND_DIND_DAEMON_LOG=0` opts out), and a host-side container snapshot taken before reaping. Finding 4 explains why each was required.                                                                                                                                                                                |
+| Report related external-project defects                    | The size hang went to Moby as [#53641](https://github.com/moby/moby/issues/53641); the two session-record defects went to start-command as [#170](https://github.com/link-foundation/start/issues/170) and [#171](https://github.com/link-foundation/start/issues/171). Each carries a runnable reproducer, measured output, workaround, and a code-level fix suggestion. Bodies and API responses are archived. |
+| Apply the fix across the codebase                          | All production `SizeRw` sampling routes through `getDockerContainerWritableLayerSize`; both startup and session-monitor callers receive the deadline. The shared DinD argument builder covers all privileged DinD launches.                                                                                                                                                                                      |
+| Plan and execute in one PR                                 | Code, tests, changeset, experiment, evidence, and this analysis are all in [PR #2245](https://github.com/link-assistant/hive-mind/pull/2245).                                                                                                                                                                                                                                                                    |
 
 ## Preserved incident
 
@@ -164,22 +177,81 @@ original retained-session log therefore contains the banner but none of the
 daemon's startup decisions or errors. By the time this investigation began,
 the retained container and its internal log were unavailable.
 
-Box already provides the correct opt-in component: setting
-`DIND_LOG_FILE=/dev/stderr`. The launch builder now applies that setting only
-when either Hive Mind verbose mode or the task's `--verbose` argument is active.
-The exact-image verbose experiment captured 111 console lines including dockerd
-output, while quiet behavior stayed unchanged. This does not reveal who sends
-a future uncatchable SIGKILL, but it will establish whether daemon bootstrap
-was healthy up to the kill.
+Box already provides the correct component: setting `DIND_LOG_FILE=/dev/stderr`.
+The launch builder now applies it to every privileged DinD launch, not only
+verbose ones — see finding 4 for why the verbose-only version was the wrong
+call. `HIVE_MIND_DIND_DAEMON_LOG=0` restores the previous behavior for
+deployments that do not want it. The exact-image verbose experiment captured
+111 console lines including dockerd output. This does not reveal who sends a
+future uncatchable SIGKILL, but it establishes whether daemon bootstrap was
+healthy up to the kill.
+
+### 4. Root cause of the missing logs: every layer wrote its evidence inside the container
+
+Finding 3 named one stranded artifact. Measuring the whole pipeline showed the
+same failure mode at three layers at once, which is why the incident produced a
+37-line log for a six-second task. This was measured, not inferred: the harness
+[`experiments/issue-2244-start-command-log-gaps.sh`](../../../experiments/issue-2244-start-command-log-gaps.sh)
+reproduces the incident's shape (a gated, detached Docker session SIGKILLed 5.5
+seconds in) with a small image, and captures what each layer preserved. The
+before/after artifacts are under [`evidence/logging/`](evidence/logging/).
+
+| Layer                     | What it should have recorded              | What it actually preserved                                                                                             |
+| ------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Hive Mind start gate      | Whether the task command had even started | **Nothing.** The gate polled silently for up to 30 s, so a kill inside that window leaves no stdout _by construction_. |
+| Box DinD entrypoint       | Daemon bootstrap progress and errors      | One banner line. dockerd went to `/var/log/dockerd.log` inside the container and died with it.                         |
+| Hive Mind session monitor | The container's own state before cleanup  | **Nothing.** The retention policy removed the container; no `inspect`/`logs` snapshot was ever copied to the host.     |
+| start-command record      | Exit code, signal, real finish time       | `Reason: exitCode=137 oomKilled=false` — and a store record still reading `status "executing"`, `exitCode null`.       |
+
+The measured pre-fix run confirms each cell. `docker logs` for the entire
+six-second container life was **empty** (0 bytes,
+[`evidence/logging/before/docker-logs.txt`](evidence/logging/before/docker-logs.txt)),
+and the session log never contains the words "signal" or "SIGKILL"
+(`session_log_mentions_signal=0`). So the incident log is not evidence that the
+task started and died instantly; it is equally consistent with the task never
+starting at all — and nothing in the preserved artifacts can tell those two
+apart. That ambiguity, not the kill itself, is why the investigation stalled.
+
+The start-command record adds two more distortions, both reproduced three times
+and reported upstream:
+
+- The terminal state is **never persisted.** After a 137 exit the store still
+  held `status "executing"`, `exitCode (null`, `endTime (null`
+  ([`evidence/logging/before/stored-record.txt`](evidence/logging/before/stored-record.txt)).
+- `$ --status` therefore recomputes the outcome on every query and fills
+  `endTime` with `new Date()`. Two queries four seconds apart returned
+  `22:19:51.688Z` and `22:19:55.735Z`, while Docker's `FinishedAt` was
+  `22:19:47.944Z`. **This is the source of the issue's four-day-old `endTime`**:
+  it was never a finish time, it was the time we happened to run the query, and
+  the investigation initially read it as a task that had run for days.
+
+Reported as
+[link-foundation/start#170](https://github.com/link-foundation/start/issues/170)
+(terminal state not persisted, `endTime` fabricated) and
+[#171](https://github.com/link-foundation/start/issues/171) (the "kept for
+investigation" log omits the signal and the container timestamps that were
+available at that exact moment). Both include the runnable reproducer
+[`experiments/start-command-detached-terminal-state.sh`](../../../experiments/start-command-detached-terminal-state.sh),
+the measured output, a workaround, and file-and-line fix suggestions
+(`src/lib/docker-cleanup.js` `buildDetachedDockerCompletionScript`, which
+already reads `.State.ExitCode`/`.State.OOMKilled` and discards them; and
+`src/lib/status-formatter.js:271,285,327`, where `endTime` is invented).
+
+The Hive Mind side does not wait for those fixes. All three of its own gaps are
+closed in this PR, and the after-state is verified end to end by
+[`experiments/issue-2244-verify-full-logs.sh`](../../../experiments/issue-2244-verify-full-logs.sh).
 
 ## Solution design
 
-| Problem                                       | Implemented solution                                                                                           | Existing component used                                                                    | Why this choice                                                                                                                      |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Optional `SizeRw` walk can block forever      | Execute the Docker CLI directly with a 10,000 ms timeout and a 4 KiB output cap; return `null` on any failure. | Node.js `child_process.execFile` and `util.promisify`                                      | No shell interpolation or new dependency; Node supplies process timeout and buffer enforcement. The metric was already best-effort.  |
-| Start gate depends on the metric              | Keep the size call inside the existing `try/finally`, with its deadline below the 30-second child fallback.    | Existing Hive Mind gate release                                                            | Preserves pre-workload baseline ordering without allowing an optional observation to own task liveness.                              |
-| DinD daemon log disappears with the container | In verbose mode, set `DIND_LOG_FILE=/dev/stderr`.                                                              | Existing Box entrypoint switch                                                             | Captures diagnostics in the already-retained start-command log; no Box fork or quiet-log noise.                                      |
-| Original SIGKILL sender is unknown            | Preserve confidence boundaries and document the host artifacts needed on recurrence.                           | Existing start-command failed-container retention and Hive Mind killed-session diagnostics | Automatic retry cannot identify a kill source and may duplicate task side effects. Better evidence is required before adding policy. |
+| Problem                                       | Implemented solution                                                                                                                       | Existing component used                                                                    | Why this choice                                                                                                                                                                       |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Optional `SizeRw` walk can block forever      | Execute the Docker CLI directly with a 10,000 ms timeout and a 4 KiB output cap; return `null` on any failure.                             | Node.js `child_process.execFile` and `util.promisify`                                      | No shell interpolation or new dependency; Node supplies process timeout and buffer enforcement. The metric was already best-effort.                                                   |
+| Start gate depends on the metric              | Keep the size call inside the existing `try/finally`, with its deadline below the 30-second child fallback.                                | Existing Hive Mind gate release                                                            | Preserves pre-workload baseline ordering without allowing an optional observation to own task liveness.                                                                               |
+| DinD daemon log disappears with the container | Set `DIND_LOG_FILE=/dev/stderr` on every privileged DinD launch; `HIVE_MIND_DIND_DAEMON_LOG=0` opts out.                                   | Existing Box entrypoint switch                                                             | Captures diagnostics in the already-retained start-command log; no Box fork. Quiet runs are precisely the ones nobody is watching.                                                    |
+| Start gate is silent, so its log is ambiguous | The gate announces its wait, a heartbeat every 5 s, its outcome, and the hand-off — all on stderr.                                         | The existing POSIX gate loop                                                               | Keeps the task's stdout byte-identical and the wait semantics unchanged, while making "not started yet" a positive statement.                                                         |
+| Container state dies with the container       | Snapshot `docker inspect`, `docker logs`, and the nested `dockerd.log` into `<session>.log.diagnostics/` before the retention policy runs. | `src/docker-task-diagnostics.lib.mjs` (new), driven from the existing completion path      | The host is the only place that outlives the container. Every probe has a finite timeout and is non-fatal — repeating the original unbounded-probe mistake here would be inexcusable. |
+| Exit 137 is reported without its meaning      | Decode `128 + N` to a signal name and quote `State.OOMKilled` in the completion notification.                                              | Existing `buildKillCompletionSections`                                                     | The one fact the incident log never stated. Ground truth now comes from the container, not from a guess about the exit code.                                                          |
+| Original SIGKILL sender is unknown            | Preserve confidence boundaries and document the host artifacts needed on recurrence.                                                       | Existing start-command failed-container retention and Hive Mind killed-session diagnostics | Automatic retry cannot identify a kill source and may duplicate task side effects. Better evidence is required before adding policy.                                                  |
 
 ### Alternatives considered
 
@@ -191,9 +263,12 @@ was healthy up to the kill.
 - **Add a Docker SDK:** would add dependency and transport surface, while an API
   client deadline still cannot guarantee that the daemon cancels its internal
   size calculation. The Docker CLI is already a runtime prerequisite.
-- **Always stream dockerd:** provides more data but substantially expands normal
-  task logs. The reported invocation already requested `--verbose`, making an
-  opt-in switch the least surprising behavior.
+- **Stream dockerd only in verbose mode:** this was the original choice in this
+  PR, and it was wrong. The incident run did request `--verbose`, but that
+  argument reaches the _task_, not the launch, and the runs that go
+  uninvestigated are exactly the quiet ones. Daemon output for a short-lived
+  container is a few dozen lines against a log that routinely runs to thousands;
+  the opt-out (`HIVE_MIND_DIND_DAEMON_LOG=0`) covers deployments that disagree.
 - **Automatically restart every exit 137:** unsafe because 137 has multiple
   causes and the workload may have side effects. Existing killed-session
   diagnosis and bounded resume mechanisms remain the correct recovery layer.
@@ -217,6 +292,45 @@ No second unbounded production implementation was found.
 
 ## Reproduction and verification
 
+### What was and was not reproduced
+
+Stated plainly, because the distinction matters more than any single fix here:
+
+| Claim                                                               | Reproduced?                                                                                                                                                                    |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The `docker inspect --size` hang on the incident image              | **Yes, deterministically**, on the exact image pinned by digest. This is a confirmed defect with a confirmed fix.                                                              |
+| The exit-137 / near-empty-log _signature_                           | **Yes**, by injecting the kill (`docker kill --signal KILL` at 5.5 s). The reproduction shows the signature is produced by the logging pipeline, not by any particular killer. |
+| The missing-logs root cause (all four layers in finding 4)          | **Yes**, measured directly, before and after the fix.                                                                                                                          |
+| start-command's unpersisted terminal state and fabricated `endTime` | **Yes**, three separate runs, on 0.33.0 (latest published).                                                                                                                    |
+| **The spontaneous SIGKILL of the original task**                    | **No.** It was never observed again, its sender was never identified, and the host artifacts that could name it were gone before the investigation began.                      |
+
+So the honest answer to "did we reproduce it?" is: we reproduced everything
+_around_ the kill and nothing _of_ the kill. The value of this PR is therefore
+not that it fixes the SIGKILL — it does not — but that the next occurrence
+cannot be this opaque: the gate says whether the task started, the daemon log is
+on the host, and the container's own state is snapshotted before it is reaped.
+
+### Verifying the after-state
+
+[`experiments/issue-2244-verify-full-logs.sh`](../../../experiments/issue-2244-verify-full-logs.sh)
+runs the shipping `buildDockerStartGatedCommand` and
+`captureDockerTaskContainerDiagnostics` against a real container killed at
+5.5 s, and asserts seven properties. All pass
+([`evidence/logging/after/summary.txt`](evidence/logging/after/summary.txt)):
+the container's own output now carries
+`[hive-mind] start-gate: waiting up to 30s at …` and
+`still waiting after 5s` — positive proof the task had not started — and the
+host snapshot survives `docker rm -f` with `signal=SIGKILL`, real
+`startedAt`/`finishedAt`, and `lifetime=6.2s`.
+
+Two honest limitations are recorded there rather than papered over: with a plain
+`alpine` image there is no nested daemon, so `dockerd.log` is legitimately absent
+and the capture reports it as an error; and when the container is killed _inside_
+the gate, no outcome line is printed, because the process never reaches it. The
+waiting and heartbeat lines are what carry the information in that case.
+
+### The exact-image harness
+
 The reusable harness is
 [`experiments/issue-2244-reproduce-dind-startup.sh`](../../../experiments/issue-2244-reproduce-dind-startup.sh).
 It pins the incident image by digest and creates four short-lived containers:
@@ -237,9 +351,19 @@ checks:
 - the exact Docker CLI arguments and finite timeout;
 - the production timeout is below the child gate;
 - a timeout is non-fatal and observable;
-- malformed size output remains best-effort; and
-- daemon logs are enabled for outer or task-level verbose mode, never by
-  default.
+- malformed size output remains best-effort;
+- daemon logs are on by default for DinD launches, never for non-DinD images,
+  and can be switched off per deployment;
+- the gate emits its waiting/heartbeat/outcome/hand-off markers, on stderr only,
+  with unchanged wait semantics — asserted both on the generated string and by
+  executing it under a real `sh` on both the released and timed-out paths;
+- the container snapshot decodes signals, honors its policy, resolves its
+  destination, writes every artifact, bounds every probe with a finite timeout,
+  and degrades without throwing when `inspect`/`cp` fail or the destination is
+  unwritable (`tests/test-issue-2244-container-diagnostics.mjs`); and
+- the monitor captures **before** it removes the container and before it
+  notifies, and the notification names the signal, or out-of-memory when
+  `State.OOMKilled` is true (`tests/test-issue-2244-monitor-diagnostics.mjs`).
 
 Related Docker isolation suites cover the existing argument builder, native
 Docker backend, size parsing, and launch behavior.
@@ -258,9 +382,17 @@ journalctl -k --since <start-time> --until <finish-time> > kernel.log
 
 On cgroup v2, also resolve the container's actual cgroup and preserve its
 `memory.events` file. Record host/container memory limits and the supervising
-service journal. The new verbose switch should already put dockerd output in the
-start-command log, but these host-side records are still necessary to identify
-an external `SIGKILL` sender.
+service journal.
+
+The first three of those commands are now run automatically: the monitor writes
+`container-inspect.json`, `container-logs.txt`, `dockerd.log`, and a decoded
+`summary.txt` into `<session-log>.diagnostics/` before the container is removed,
+and the completion notification points at the directory. The remaining
+host-scoped records (`docker events`, the daemon journal, the kernel log, and
+cgroup counters) still have to be collected by hand, because only they can
+identify an external `SIGKILL` sender. Set
+`HIVE_MIND_DOCKER_DIAGNOSTICS=always` to capture the snapshot on successful runs
+too when chasing an intermittent startup failure.
 
 ## External references
 
@@ -279,13 +411,32 @@ an external `SIGKILL` sender.
   documents `memory.events`, including `oom` and `oom_kill` counters.
 - [Moby daemon monitor source](https://github.com/moby/moby/blob/master/daemon/monitor.go)
   shows Docker setting its OOM-killed state on the daemon's OOM event path.
+- [moby/moby#53641](https://github.com/moby/moby/issues/53641) — the
+  `docker inspect --size` hang reported from this investigation.
+- [link-foundation/start#170](https://github.com/link-foundation/start/issues/170)
+  — detached Docker terminal state is never persisted and `endTime` is
+  fabricated at query time.
+- [link-foundation/start#171](https://github.com/link-foundation/start/issues/171)
+  — the "kept for investigation" log omits the post-mortem facts available at
+  that moment.
 
 ## Conclusion
 
 The original task did not merely “fail to start”: it was externally killed
-during DinD bootstrap, and the surviving evidence cannot name the sender. The
-investigation nevertheless found and reproduced an independent unbounded
-operation in the same startup path. Bounding that optional metric restores
-launch liveness, while the default-off DinD log streaming makes the next early
-failure materially diagnosable. The implementation avoids inventing an OOM
-story from exit 137 and avoids unsafe unconditional retries.
+during DinD bootstrap, and the surviving evidence cannot name the sender. That
+kill was never reproduced and its sender is still unknown.
+
+What _was_ reproduced is arguably the more consequential defect. The reason the
+incident was undiagnosable is not that logging failed under stress; it is that
+every layer wrote its evidence into the container that was about to die, and the
+one durable record — start-command's session log — described the ending without
+ever naming it. A silent 30-second gate, a daemon log on a doomed filesystem, a
+container reaped before anyone looked at it, and an `endTime` invented at query
+time together turned a six-second failure into an unanswerable question.
+
+Bounding the optional size metric restores launch liveness. The narrated gate,
+the default-on daemon log, and the host-side container snapshot mean the next
+early failure arrives already explained — or, where it cannot be explained, with
+the boundary of what is known stated honestly rather than filled in with a
+plausible story. The implementation still refuses to invent an OOM story from
+exit 137, and still refuses to retry blindly.

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.29.3
+
+### Patch Changes
+
+- 5a1103d: Probe Codex MCP registrations with the task's effective environment so Formal AI runs do not recreate stripped servers as invalid disable-only tables.
+
 ## 2.29.2
 
 ### Patch Changes

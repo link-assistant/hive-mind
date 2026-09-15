@@ -70,6 +70,7 @@ const solveEnabled = config.solve;
 const hiveEnabled = config.hive;
 const taskEnabled = config.task;
 const fixEnabled = config.fix;
+const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
@@ -146,7 +147,7 @@ if (config.dryRun) {
   if (allowedTopics && allowedTopics.length > 0) {
     console.log('  Allowed topics:', lino.formatLinks(allowedTopics));
   }
-  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, auth: authEnabled });
+  console.log('  Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
   if (solveOverrides.length > 0) {
     console.log('  Solve overrides:', lino.format(solveOverrides));
   }
@@ -377,6 +378,7 @@ bot.command('help', async ctx => {
     solveEnabled,
     taskEnabled,
     fixEnabled,
+    organizeEnabled,
     hiveEnabled,
     solveOverrides,
     hiveOverrides,
@@ -480,6 +482,13 @@ const { registerTaskCommands } = await import('./telegram-task-command.lib.mjs')
 const { handleTaskCommand, TASK_COMMAND_NAMES } = registerTaskCommands(bot, { ...sharedCommandOpts, taskEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx });
 const { registerFixCommand } = await import('./telegram-fix-command.lib.mjs');
 const { handleFixCommand, FIX_COMMAND_NAMES } = registerFixCommand(bot, { ...sharedCommandOpts, fixEnabled, safeReply, executeAndUpdateMessage, resolveLocale: resolveLocaleFromTelegramCtx, solveOverrides });
+const { registerOrganizeCommand } = await import('./telegram-organize-command.lib.mjs');
+const { handleOrganizeCommand, ORGANIZE_COMMAND_NAMES } = registerOrganizeCommand(bot, {
+  ...sharedCommandOpts,
+  organizeEnabled,
+  safeReply,
+  safeEditMessageText: (ctx, message, text) => safeEditMessageText(ctx.telegram, message.chat.id, message.message_id, undefined, text, { verbose: VERBOSE }),
+});
 const { registerAuthCommand } = await import('./telegram-auth-command.lib.mjs');
 const { handleAuthCommand } = registerAuthCommand(bot, { ...sharedCommandOpts, allowedChats, authEnabled, safeReply });
 
@@ -1033,7 +1042,8 @@ bot.on('message', async (ctx, next) => {
   const solveHandlers = Object.fromEntries(SOLVE_COMMAND_NAMES.map(command => [command, handleSolveCommand]));
   const taskHandlers = Object.fromEntries(TASK_COMMAND_NAMES.map(command => [command, handleTaskCommand]));
   const fixHandlers = Object.fromEntries(FIX_COMMAND_NAMES.map(command => [command, handleFixCommand]));
-  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
+  const organizeHandlers = Object.fromEntries(ORGANIZE_COMMAND_NAMES.map(command => [command, handleOrganizeCommand]));
+  const handlers = { ...solveHandlers, ...taskHandlers, ...fixHandlers, ...organizeHandlers, auth: handleAuthCommand, hive: handleHiveCommand, merge: handleMergeCommand, queue: handleSolveQueueCommand, models: handleModelsCommand, stop: handleStopCommand };
 
   const handler = handlers[extracted.command];
   if (!handler) return next();
@@ -1138,7 +1148,7 @@ if (allowedChats && allowedChats.length > 0) {
 if (allowedTopics && allowedTopics.length > 0) {
   console.log('Allowed topics (lino):', lino.formatLinks(allowedTopics));
 }
-console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, auth: authEnabled });
+console.log('Commands enabled:', { solve: solveEnabled, hive: hiveEnabled, task: taskEnabled, fix: fixEnabled, organize: organizeEnabled, auth: authEnabled });
 if (solveOverrides.length > 0) console.log('Solve overrides (lino):', lino.format(solveOverrides));
 if (hiveOverrides.length > 0) console.log('Hive overrides (lino):', lino.format(hiveOverrides));
 if (VERBOSE) {

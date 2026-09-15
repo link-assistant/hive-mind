@@ -585,6 +585,11 @@ zh
         usage "用法：`/fix <github-repository-url> [options]`"
         example "示例：`/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ 已禁用"
+      organize
+        enabled "*/organize* - 使用现有议题类型和标签分类所有开放议题"
+        usage "用法：`/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`；可在新行添加说明"
+        example "示例：`/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ 已禁用"
       hive
         enabled "*/hive* - 运行 hive 命令"
         usage "用法：`/hive <github-url> [options]`"
@@ -612,7 +617,7 @@ zh
       isolation
         mode "🔒 *隔离模式：* `{{isolationBackend}}`（实验性）"
       group
-        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
+        note "⚠️ *注意：* /solve、/do、/continue、/claude、/codex、/opencode、/agent、/gemini、/qwen、/task、/split、/fix、/organize、/hive、/queue、/models、/limits、/version、/accept\\_invites、/merge、/stop 和 /start 仅在群聊中有效。/terminal\\_watch、/watch、/subscribe 和 /unsubscribe 在私聊和群聊中有效。"
       common
         options "🔧 *常用选项：*"
       model

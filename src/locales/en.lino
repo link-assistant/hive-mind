@@ -585,6 +585,11 @@ en
         usage "Usage: `/fix <github-repository-url> [options]`"
         example "Example: `/fix https://github.com/owner/repo --model sonnet`"
         disabled "*/fix* - ❌ Disabled"
+      organize
+        enabled "*/organize* - Classify every open issue with existing Issue Types and labels"
+        usage "Usage: `/organize <github-repository-url> [--dry-run] [--tool <tool>] [--model <model>]`, with optional instructions on a new line"
+        example "Example: `/organize https://github.com/owner/repo --dry-run`"
+        disabled "*/organize* - ❌ Disabled"
       hive
         enabled "*/hive* - Run hive command"
         usage "Usage: `/hive <github-url> [options]`"
@@ -612,7 +617,7 @@ en
       isolation
         mode "🔒 *Isolation Mode:* `{{isolationBackend}}` (experimental)"
       group
-        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
+        note "⚠️ *Note:* /solve, /do, /continue, /claude, /codex, /opencode, /agent, /gemini, /qwen, /task, /split, /fix, /organize, /hive, /queue, /models, /limits, /version, /accept\\_invites, /merge, /stop and /start commands only work in group chats. /terminal\\_watch, /watch, /subscribe and /unsubscribe work in private and group chats."
       common
         options "🔧 *Common Options:*"
       model

@@ -61,6 +61,14 @@ await test('/help has translated strings for every supported Telegram locale', (
   }
 });
 
+await test('/help shows whether /organize is enabled', () => {
+  const enabled = buildHelp('en');
+  const disabled = buildTelegramHelpMessage({ locale: 'en', chatId: 123, organizeEnabled: false });
+  assert.ok(enabled.includes('*/organize* - Classify every open issue'));
+  assert.ok(disabled.includes('*/organize* - ❌ Disabled'));
+  assert.ok(!disabled.includes('Classify every open issue'));
+});
+
 await test('/solve info and queue messages are locale-aware', () => {
   const infoBlock = buildTelegramInfoBlock({
     locale: 'ru',

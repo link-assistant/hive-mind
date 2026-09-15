@@ -7,7 +7,7 @@
  *
  * The option surface was extracted from telegram-bot.mjs so it can be parsed
  * without starting the bot; these tests pin the command toggles, including the
- * /fix toggle added for issue #1733.
+ * /fix toggle added for issue #1733 and /organize for issue #2256.
  */
 
 import assert from 'assert/strict';
@@ -58,12 +58,19 @@ function parseArgs(args = [], env = {}) {
 }
 
 await test('every command is enabled by default', () => {
-  const config = parseArgs([], { TELEGRAM_SOLVE: undefined, TELEGRAM_HIVE: undefined, TELEGRAM_TASK: undefined, TELEGRAM_FIX: undefined, TELEGRAM_AUTH: undefined });
+  const config = parseArgs([], { TELEGRAM_SOLVE: undefined, TELEGRAM_HIVE: undefined, TELEGRAM_TASK: undefined, TELEGRAM_FIX: undefined, TELEGRAM_ORGANIZE: undefined, TELEGRAM_AUTH: undefined });
   assert.equal(config.solve, true);
   assert.equal(config.hive, true);
   assert.equal(config.task, true);
   assert.equal(config.fix, true);
+  assert.equal(config.organize, true);
   assert.equal(config.auth, true);
+});
+
+await test('/organize can be disabled by CLI or environment', () => {
+  assert.equal(parseArgs(['--no-organize'], { TELEGRAM_ORGANIZE: undefined }).organize, false);
+  assert.equal(parseArgs([], { TELEGRAM_ORGANIZE: 'false' }).organize, false);
+  assert.equal(parseArgs(['--organize'], { TELEGRAM_ORGANIZE: 'false' }).organize, true);
 });
 
 await test('--no-fix disables the /fix command (issue #1733)', () => {

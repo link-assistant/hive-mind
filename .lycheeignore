@@ -48,3 +48,9 @@ https://github\.com/[^/]+/[^/]+/(stargazers|watchers|forks)$
 # been deleted (404 to any client). Rewriting or removing the URL would
 # falsify the incident record, so the link is suppressed instead of "fixed".
 https://github\.com/40Think/AgogeDigitalTwin
+
+# The pull request quoted as evidence in issue #2246 (a user merged it while the
+# AI was still working on it) lives in a private repository: GitHub answers 404
+# to any signed-out client, so a link checker can never reach it. The URL is the
+# incident record, so it is suppressed rather than removed.
+https://github\.com/Time0utXC/digitalstructures\.pro

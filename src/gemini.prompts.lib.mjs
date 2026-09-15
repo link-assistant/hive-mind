@@ -12,6 +12,7 @@ import { buildRequestedBaseBranchDirective } from './solve-option-contract.promp
 import { buildIssueResearchPrompt } from './deep-analysis.lib.mjs';
 import { buildFormalAiRepositoryPrompt } from './formal-ai-prompt.lib.mjs';
 import { isFormalAiModel } from './formal-ai-model.lib.mjs';
+import { getPullRequestLifecycleSubPrompt } from './pr-lifecycle.prompts.lib.mjs';
 
 /**
  * Build the user prompt for Gemini
@@ -162,7 +163,8 @@ Initial research.
    - When working on this issue, create a comprehensive case study in the ./docs/case-studies/issue-${issueNumber}/ directory with logs, analysis, timeline, root cause investigation, and proposed solutions.`
        : ''
    }
-   - When the issue is not defined clearly enough, write a comment with clarifying questions.
+   - When requirements leave room for judgment, work autonomously: choose and fully implement the best option from the available evidence instead of asking the user to decide.
+   - If uncertainty remains, document the options considered and the implemented choice in the pull request (use a markdown document plus a pull request comment if needed), invite review, and ask for human input only when work cannot safely continue.
    - When accessing GitHub Gists (especially private ones), use gh gist view command instead of direct URL fetching to ensure proper authentication.
    - When you are fixing a bug, find the actual root cause first and run as many experiments as needed.
    - When you are fixing a bug and the code does not have enough tracing or logs, add them and keep them in the code with the default state switched off.
@@ -184,7 +186,6 @@ Solution development and testing.
    - When you test solution draft, include automated checks in pr.
    - When you write or modify tests, consider setting reasonable timeouts at test, suite, and CI job levels so failures surface quickly instead of hanging.
    - When you see repeated test timeout patterns in CI, investigate the root cause rather than increasing timeouts.
-   - When the issue is unclear, write a comment on the issue with questions.
    - When you encounter any problems that you are unable to solve yourself (any human feedback or help), write a comment to the pull request asking for help.
    - When you need human help, use gh pr comment ${prNumber} --body "your message" --repo ${owner}/${repo}.
 
@@ -204,7 +205,8 @@ Preparing pull request.
    - When there is a package with version and GitHub Actions workflows for automatic release, update the version (or other necessary release trigger) in your pull request to prepare for next release.
    - When you update existing pr ${prNumber}, use gh pr edit ${prNumber} --repo ${owner}/${repo} to modify title and description.
    - When you are about to commit or push code, run local CI checks first if they are available in contributing guidelines.
-   - When you finish implementation, use gh pr ready ${prNumber} --repo ${owner}/${repo}.
+   - When you finalize the pull request, check that all CI checks are passing if they exist before you finish; usually this includes all CI/CD checks, even failures that predate your changes or seem unrelated to the issue.
+${getPullRequestLifecycleSubPrompt({ argv, prNumber, repoSuffix: ` --repo ${owner}/${repo}` })}
 
 Workflow and collaboration.
    - When you check branch, verify with git branch --show-current.

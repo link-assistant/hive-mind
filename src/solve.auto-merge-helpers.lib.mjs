@@ -480,8 +480,15 @@ export const reconcileStaleCIBlockers = (blockers, ciStatus, mergeStatus) => {
   return blockers.filter(blocker => blocker.type !== 'ci_failure' && blocker.type !== 'ci_cancelled');
 };
 
-export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null) => {
+/**
+ * Issue #2246: `options.ignoreDraft` is set by the watch loop while hive-mind
+ * deliberately keeps the pull request in draft until the ready-to-merge state is
+ * verified. In that mode the draft is not a blocker to fix, so no `draft` blocker
+ * is emitted and the mergeability checks below are told to look past it.
+ */
+export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, checkCount = 1, prBranchRef = null, { ignoreDraft = false } = {}) => {
   const blockers = [];
+  const mergeableOptions = { ignoreDraft };
 
   // Issue #1918: Tracks whether we are still waiting for PR-triggered workflow runs to
   // register for the current commit (0 runs observed). When true, the caller must NOT
@@ -503,13 +510,13 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     // If GitHub says the PR is MERGEABLE (mergeStateStatus === 'CLEAN'),
     // then no CI is required and we should not block indefinitely.
     // Otherwise (e.g. mergeStateStatus === 'BLOCKED'), treat as pending race condition.
-    const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+    const earlyMergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose, mergeableOptions);
     // Issue #2182: a draft pull request reports mergeable=false now, which would
     // otherwise fall into the "checks have not started yet" race-condition branch
     // below and hide the real reason behind a ci_pending blocker forever. The
     // `no_checks` branch owns several early returns, so the draft blocker has to
     // be emitted here to reach the caller through every one of them.
-    if (earlyMergeStatus.isDraft) {
+    if (earlyMergeStatus.isDraft && !ignoreDraft) {
       blockers.push({
         type: 'draft',
         message: earlyMergeStatus.reason || 'PR is a draft',
@@ -595,7 +602,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
                 details: invalidWorkflowRuns.map(r => `${r.path || r.name} — see ${r.html_url}`),
               });
               // Continue to the mergeability check below so other blockers are surfaced too.
-              const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+              const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose, mergeableOptions);
               if (!mergeStatus.mergeable) {
                 blockers.push({
                   type: 'not_mergeable',
@@ -964,7 +971,7 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
   }
 
   // Check mergeability
-  const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose);
+  const mergeStatus = await checkPRMergeable(owner, repo, prNumber, verbose, mergeableOptions);
   if (mergeStatus.terminal) {
     blockers.push({
       type: 'terminal_github_entity_error',
@@ -992,7 +999,10 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
     // 4d 12h. The dedicated type also lets the caller self-heal (mark ready)
     // instead of burning an AI restart iteration on it.
     blockers.push({
-      type: mergeStatus.isDraft ? 'draft' : 'not_mergeable',
+      // Issue #2246: with ignoreDraft the draft is intentional, so a remaining
+      // blocker is something else (conflicts, failing checks) and must not be
+      // reported as a draft the caller should self-heal by marking ready.
+      type: mergeStatus.isDraft && !ignoreDraft ? 'draft' : 'not_mergeable',
       message: mergeStatus.reason || 'PR is not mergeable',
       details: [],
     });

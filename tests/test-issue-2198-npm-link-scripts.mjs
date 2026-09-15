@@ -29,7 +29,10 @@
  *
  * The first block reproduces all of that from scratch against whatever npm is
  * on PATH, so the day npm fixes `linkPkg()` these tests start failing and tell
- * us the workaround can be dropped. The last block pins the call site.
+ * us the workaround can be dropped. npm 12 blocks the unreviewed script instead
+ * of running it, but still emits the warning, so that enforcement change does
+ * not mean the `--ignore-scripts` warning workaround can be dropped. The last
+ * block pins the call site.
  *
  * What the warning is *called* is not part of any of that. npm 11.19 renamed
  * the log prefix `npm warn allow-scripts` to `npm warn install-scripts` and
@@ -92,6 +95,7 @@ const warnsAboutUnreviewedScripts = output => /not yet covered by allowScripts|n
 const SHIPPED_WARNING_SAMPLES = {
   '11.17.0': 'npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:',
   '11.19.0': 'npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:',
+  '12.0.2': 'npm warn install-scripts 1 package had install scripts blocked because they are not covered by allowScripts:',
 };
 
 const linkFixture = (extraArgs, allowScripts) => {
@@ -141,10 +145,11 @@ if (!npmHasAllowScripts) {
   const ignored = linkFixture(['--ignore-scripts']);
   assert(!warnsAboutUnreviewedScripts(ignored.output), `\`npm link --ignore-scripts\` emits no unreviewed-scripts warning (npm ${npmVersion}, output: ${JSON.stringify(ignored.output.trim().slice(0, 400))})`);
   assert(!ignored.prepareRan, "`npm link --ignore-scripts` does not run the linked package's prepare script");
-  // What --ignore-scripts actually costs, stated rather than assumed: a bare
-  // link does run `prepare`. For this repository that is `husky`, already run
-  // by the install step of the same job.
-  assert(bare.prepareRan, "a bare `npm link` does run the linked package's prepare script");
+  // npm 11 runs an unreviewed linked script after warning; npm 12's warning says
+  // it blocked the script and does so. In either case --ignore-scripts remains
+  // necessary at the call site to suppress the warning deterministically.
+  const barePrepareWasBlocked = /had install scripts blocked/.test(bare.output);
+  assert(bare.prepareRan !== barePrepareWasBlocked, barePrepareWasBlocked ? "npm's blocked-script warning means bare `npm link` does not run prepare" : 'a bare `npm link` does run prepare when npm only warns about the unreviewed script');
 
   // None of the documented ways to review an install script reach a linked
   // package, so none of them is an alternative to --ignore-scripts here.

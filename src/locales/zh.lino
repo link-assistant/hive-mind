@@ -725,6 +725,48 @@ zh
           needed "正在运行的进程：`{{processVersion}}`（需要重启）"
     system "系统"
     version "版本"
+  pr
+    readiness
+      heading "如何理解此拉取请求的状态"
+      mode
+        label "模式"
+        auto
+          merge
+            title "自动合并"
+            summary "hive-mind 会持续工作，直到此拉取请求可合并（所有 CI/CD 检查通过且无冲突），然后自动合并。"
+            wait
+              for "`✅ {{marker}}` 状态"
+        ensure
+          mergeable
+            title "确保可合并"
+            summary "hive-mind 会持续工作，直到此拉取请求可合并：所有 CI/CD 检查通过且不存在合并冲突。"
+            wait
+              for "`✅ {{marker}}` 评论"
+        single
+          pass
+            title "单次工作会话"
+            summary "hive-mind 运行一次工作会话，之后不再监控 CI/CD。"
+            wait
+              for "工作会话结束"
+      notice
+        single
+          pass """
+            - 工作会话运行期间，此拉取请求处于 **draft** 状态。
+            - 会话结束时，hive-mind 会将其标记为 **ready for review**。此时 CI/CD 检查可能仍在运行。
+            - 无需要求 AI 更改 draft/ready 状态：该状态由 hive-mind 管理。
+          """
+        mergeable """
+          - 只要 hive-mind 仍在处理，此拉取请求就会保持 **draft** 状态。
+          - 只有确认可合并后，hive-mind 才会将其标记为 **ready for review** 并发布 `✅ {{marker}}` 评论。
+          - **请等待 {{waitFor}} 后再审阅或合并。** 提前合并会丢弃仍在进行的 AI 工作。
+          - draft/ready 状态由 hive-mind 而非 AI 工作器管理；若运行期间被手动更改，hive-mind 会恢复该状态。
+        """
+        auto
+          merge "- 达到该状态后，hive-mind 会自动合并此拉取请求，无需手动合并。"
+      session
+        single
+          pass "模式：`{{flag}}` — 此会话结束时，拉取请求会被标记为 ready for review。"
+        mergeable "模式：`{{flag}}` — 拉取请求会保持 draft，直到 hive-mind 确认其可合并并发布 `✅ {{marker}}` 评论。请等待该信号后再审阅或合并。"
   prompt
     user
       issue
@@ -820,7 +862,8 @@ zh
                - 当你需要仓库上下文时，阅读你工作目录中的文件。
           """
           tail """
-               - 当 issue 描述不够清晰时，写评论提出澄清问题。
+               - 当需求留有判断空间时，自主工作：根据现有证据选择并完整实现最佳方案，而不是等待用户做决定。
+               - 若仍有不确定性，在 PR 中记录考虑过的选项和已实现的选择（内容较长时使用 Markdown 文档并附 PR 评论），邀请审阅；只有在无法安全继续工作时才请求人工输入。
                - 当访问 GitHub Gists（尤其是私有的）时，使用 gh gist view 命令而非直接 URL fetch，以确保正确的身份验证。
                - 当你修复 bug 时，先找出真正的根因并进行尽可能多的实验。
                - 当你修复 bug 而代码缺乏足够的跟踪或日志时，添加它们并保留在代码中（默认关闭）。
@@ -851,7 +894,6 @@ zh
              - 当你测试解决方案草稿时，将自动检查纳入 PR。
              - 当你编写或修改测试时，考虑在测试、套件和 CI 作业级别设置合理的超时，使失败迅速暴露而非挂起。
              - 当你看到 CI 中重复的测试超时模式时，调查根因而不是增加超时。
-             - 当 issue 不清楚时，写评论提出问题。
              - 当你遇到无法自行解决的问题且需要人类协助时，写评论到 PR 请求帮助。
              - 当你需要人类帮助时，使用 gh pr comment {{prNumber}} --body "你的消息" 在现有 PR 上发表评论。
         """
@@ -879,12 +921,12 @@ zh
                 在代码、标题和描述上沿用已合并 PR 的风格，
                 检查没有遗留与原始需求相对应的未提交更改，
                 检查默认分支已合并到 PR 分支，
-                在结束前检查所有 CI 检查（如有）已通过，
+                在结束前检查所有 CI/CD 检查（如有）已通过；通常这包括修复早于你的更改就已存在的失败，以及看似与 issue 无关的失败，
                 检查 issue 与 PR 上最新评论以确保未遗漏近期反馈，
                 仔细复核 PR 中所有变更确实满足 issue 的原始需求，
                 认真阅读 gh pr diff 以排查 PR 中新引入的 bug，
                 检查没有未经 issue 描述、issue 评论或 PR 评论明确请求而被移除的旧功能。
-             - 当你完成实现时，使用 gh pr ready {{prNumber}}。
+             - 当你完成实现时，把 draft、ready for review 和 ready to merge 状态交给 Hive Mind 系统管理。
         """
       workflow """
         工作流与协作。

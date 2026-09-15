@@ -15,6 +15,8 @@ import { quietProbe } from './quiet-probe.lib.mjs'; // issue #2130: keep read-on
 import { stagePlaceholderFileOrExplain, explainNothingStagedAndThrow } from './solve.auto-pr-placeholder.lib.mjs'; // Issue #1825: handles the seed placeholder when the target repo gitignores it.
 import { sanitizeForPublication, writeSanitizedPublicationFile } from './token-sanitization.lib.mjs';
 import { isPullRequestAlreadyExistsError, findExistingPullRequestUrl } from './github-pr-idempotency.lib.mjs'; // Issue #2168: a retried `gh pr create` must not fail because the first (5xx'd) attempt already created the PR.
+import { buildPullRequestStatusNotice } from './pr-readiness-policy.lib.mjs'; // Issue #2246: tells the reader which mode hive-mind runs in and when the pull request is safe to review or merge.
+import { ensurePullRequestIsDraft } from './pr-draft-state.lib.mjs'; // Issue #2246: the pull request is created with --draft, and that is verified instead of assumed.
 
 export async function handleAutoPrCreation({ argv, tempDir, branchName, issueNumber, owner, repo, defaultBranch, forkedRepo, isContinueMode, prNumber, log, formatAligned, $, reportError, path, fs }) {
   // Skip auto-PR creation if:
@@ -752,6 +754,8 @@ Fixes ${issueRef}
 ### 📝 Implementation Details
 _Details will be added as the solution draft is developed..._
 
+${buildPullRequestStatusNotice(argv)}
+
 ---
 *This PR was created automatically by the AI issue solver*`;
 
@@ -924,6 +928,7 @@ ${prBody}`,
               let prVerified = false;
               let verifyAttempts = 0;
               const maxVerifyAttempts = 5;
+              let prCreatedAsDraft = null;
               let lastVerifyResult = null;
 
               while (!prVerified && verifyAttempts < maxVerifyAttempts) {
@@ -938,7 +943,7 @@ ${prBody}`,
 
                 lastVerifyResult = await $({
                   silent: true,
-                })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state 2>&1`;
+                })`gh pr view ${localPrNumber} --repo ${owner}/${repo} --json number,url,state,isDraft 2>&1`;
 
                 if (lastVerifyResult.code === 0) {
                   try {
@@ -948,6 +953,11 @@ ${prBody}`,
                       // Update prUrl and localPrNumber from verified data
                       prUrl = prData.url;
                       localPrNumber = String(prData.number);
+                      // Issue #2246: `gh pr create --draft` is not proof the pull request
+                      // is a draft - the flag is silently ignored by repositories that do
+                      // not allow draft pull requests. The verification query now asks for
+                      // isDraft, so the actual state is known instead of assumed.
+                      prCreatedAsDraft = prData.isDraft === true;
                       prVerified = true;
                     }
                   } catch {
@@ -974,6 +984,15 @@ ${prBody}`,
               global.createdPR = { number: localPrNumber, url: prUrl };
               await log(formatAligned('✅', 'PR created:', `#${localPrNumber}`));
               await log(formatAligned('📍', 'PR URL:', prUrl));
+              // Issue #2246: if the pull request did not come out as a draft, convert it
+              // now, so "work in progress" is visible from the first second instead of
+              // only from the first session-start conversion.
+              if (prCreatedAsDraft === false) {
+                await log(formatAligned('⚠️', 'Not a draft:', 'PR was created as ready for review - converting to draft', 2), { level: 'warning' });
+                await ensurePullRequestIsDraft({ owner, repo, prNumber: localPrNumber, $, log, formatAligned, reason: 'pull request was not created as a draft', reportError });
+              } else if (prCreatedAsDraft === true) {
+                await log(formatAligned('📝', 'Draft state:', 'PR created as a draft (verified)', 2), { verbose: true });
+              }
               if (assigneeFailed) {
                 // Show detailed information about why assignee failed and how to fix it
                 await log('');

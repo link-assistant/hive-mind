@@ -86,20 +86,30 @@ export const classifyMergeError = errorMessage => {
  * `mergeStateStatus`, because GitHub reports `CLEAN`/`MERGEABLE` for a draft
  * pull request that has no other blockers, while `gh pr merge` still refuses it.
  *
+ * Issue #2246: `options.ignoreDraft` exists for the one caller that *wants* the
+ * pull request to be a draft: while hive-mind is working in a mergeable mode it
+ * keeps the pull request in draft on purpose, so the draft state is not a
+ * blocker to report, it is the expected state. The draft is still taken into
+ * account elsewhere: GitHub answers `mergeStateStatus: 'DRAFT'` for drafts and
+ * hides BLOCKED/BEHIND/UNSTABLE behind it, so the caller re-evaluates without
+ * this option once the pull request actually leaves draft.
+ *
  * @param {{isDraft?: boolean, mergeable?: string|null, mergeStateStatus?: string|null}} pr
+ * @param {Object} [options]
+ * @param {boolean} [options.ignoreDraft=false] - Do not treat an intentional draft as a blocker
  * @returns {{mergeable: boolean, isDraft: boolean, mergeableState: string|null, mergeStateStatus: string|null, reason: string|null}}
  */
-export const evaluatePullRequestMergeability = (pr = {}) => {
+export const evaluatePullRequestMergeability = (pr = {}, { ignoreDraft = false } = {}) => {
   const isDraft = pr.isDraft === true;
   const mergeableState = pr.mergeable ?? null;
   const mergeStateStatus = pr.mergeStateStatus ?? null;
 
-  if (isDraft) {
+  if (isDraft && !ignoreDraft) {
     return { mergeable: false, isDraft: true, mergeableState, mergeStateStatus, reason: 'PR is a draft' };
   }
 
   if (mergeableState === 'MERGEABLE') {
-    return { mergeable: true, isDraft: false, mergeableState, mergeStateStatus, reason: null };
+    return { mergeable: true, isDraft, mergeableState, mergeStateStatus, reason: null };
   }
 
   let reason;
@@ -117,13 +127,15 @@ export const evaluatePullRequestMergeability = (pr = {}) => {
       reason = 'PR has failing required status checks';
       break;
     case 'DRAFT':
-      reason = 'PR is a draft';
+      // Issue #2246: with ignoreDraft the draft itself is expected, so say what
+      // is actually unknown: GitHub hides the real merge state behind DRAFT.
+      reason = ignoreDraft ? 'Merge state is hidden by GitHub while the PR is a draft' : 'PR is a draft';
       break;
     default:
       reason = `Merge state: ${mergeStateStatus || 'unknown'}`;
   }
 
-  return { mergeable: false, isDraft: false, mergeableState, mergeStateStatus, reason };
+  return { mergeable: false, isDraft, mergeableState, mergeStateStatus, reason };
 };
 
 export default {

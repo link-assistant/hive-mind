@@ -500,8 +500,11 @@ runTest('Cross-module: comment bodies posted at each site embed the centralized 
   assertTrue(githubLib.includes('NOW_WORKING_SESSION_IS_ENDED_MARKER'), 'github.lib.mjs should reference NOW_WORKING_SESSION_IS_ENDED_MARKER');
   assertFalse(githubLib.includes('Administrator-only CLI details'), 'issue failure log comments should not include stale admin-only boilerplate');
   const autoMerge = fs.readFileSync('./src/solve.auto-merge.lib.mjs', 'utf-8');
-  assertTrue(autoMerge.includes('READY_TO_MERGE_MARKER'), 'solve.auto-merge.lib.mjs should reference READY_TO_MERGE_MARKER');
   assertTrue(autoMerge.includes('AUTO_MERGED_MARKER'), 'solve.auto-merge.lib.mjs should reference AUTO_MERGED_MARKER');
+  // Issue #2246: the "Ready to merge" comment is composed and posted by the module that
+  // owns the draft -> ready transition it announces, so the marker is referenced there.
+  const readyTransition = fs.readFileSync('./src/pr-ready-transition.lib.mjs', 'utf-8');
+  assertTrue(readyTransition.includes('READY_TO_MERGE_MARKER'), 'pr-ready-transition.lib.mjs should reference READY_TO_MERGE_MARKER');
   const watch = fs.readFileSync('./src/solve.watch.lib.mjs', 'utf-8');
   assertTrue(watch.includes('AUTO_RESTART_MARKER'), 'solve.watch.lib.mjs should reference AUTO_RESTART_MARKER');
   const claudeLib = fs.readFileSync('./src/claude.lib.mjs', 'utf-8');

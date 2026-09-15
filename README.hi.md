@@ -379,6 +379,8 @@ solve <issue-url> [options]
 
 > **📖 पूर्ण विकल्प सूची**: फोर्किंग, ऑटो-कंटिन्यू, वॉच मोड और प्रयोगात्मक विशेषताओं सहित सभी उपलब्ध विकल्पों के लिए [docs/CONFIGURATION.hi.md](./docs/CONFIGURATION.hi.md#solve-options) देखें।
 
+> **🚦 Pull request की स्थिति**: डिफ़ॉल्ट रूप से solve pull request को तब तक **draft** रखता है जब तक वह सत्यापित न कर ले कि pull request mergeable है, और उसके बाद ही उसे ready for review करता है और `✅ Ready to merge` टिप्पणी पोस्ट करता है। उस संकेत से पहले merge करने पर अभी चल रहा AI काम नष्ट हो जाता है — देखें [docs/PULL-REQUEST-STATUS.hi.md](./docs/PULL-REQUEST-STATUS.hi.md)।
+
 ## 🔧 hive विकल्प
 
 ```bash

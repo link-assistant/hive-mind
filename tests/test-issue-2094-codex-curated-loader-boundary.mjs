@@ -15,7 +15,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight, setTomlTableBoolean } from '../src/codex-capability-preflight.lib.mjs';
+import { applyCodexCapabilityEnv, buildPluginCachePath, readMaterializedPluginSkills, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from '../src/codex-capability-preflight.lib.mjs';
 import { executeCodexCommand } from '../src/codex.lib.mjs';
 import { getDockerIsolationAuthMounts } from '../src/isolation-runner.lib.mjs';
 
@@ -108,7 +108,10 @@ const makeCodex = fixture => {
       const reservedPluginFiltered = fixture.pluginId.endsWith('@openai-curated') && remoteCatalogActive;
       const { skills } = await readMaterializedPluginSkills({ codexHome, pluginId: fixture.pluginId });
       const exposed = reservedPluginFiltered ? [] : [...skills].sort();
-      const rendered = ['- imagegen: Generate images. (file: /system/SKILL.md)', ...exposed.map(skill => `- ${skill}: Skill. (file: ${cacheRoot}/SKILL.md)`)].join('\n');
+      const core = path.join(codexHome, 'skills', '.system', 'imagegen', 'SKILL.md');
+      await mkdir(path.dirname(core), { recursive: true });
+      await writeFile(core, '---\nname: imagegen\n---\n');
+      const rendered = [`- imagegen: Generate images. (file: ${core})`, ...exposed.map(skill => `- ${skill}: Skill. (file: ${path.join(cacheRoot, VERSION, 'skills', skill.slice(skill.indexOf(':') + 1), 'SKILL.md')})`)].join('\n');
       return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
     }
     throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -181,6 +184,7 @@ const preflight = async ({ fixture, codex }) =>
     prNumber: null,
     capabilityPreflight: { ...first, codexBaseEnv: CODEX_BASE_ENV },
     calculatePricing: async () => null,
+    verifyCapabilityExecutionCatalog: options => verifyCodexCapabilityExecutionCatalog({ ...options, runCommand: firstCodex.runCommand }),
   });
   assert.equal(execution.success, true);
   assert.equal(actualExecOptions.cwd, fixture.projectDir, 'codex exec uses the same target checkout as preflight');
@@ -192,13 +196,16 @@ const preflight = async ({ fixture, codex }) =>
   assert.deepEqual(dockerMounts, [{ source: path.join(fixture.baseCodexHome, 'auth.json'), target: '/home/box/.codex/auth.json' }], 'Docker execution mounts the credential file, not the whole operator home (issue #2190)');
   assert.equal(path.relative(fixture.baseCodexHome, first.codexHome), path.join('hive-mind', 'repositories', 'CEHR2005', 'GCS-TS'), 'the scoped state keeps the same relative path under the (per-container) codex home');
 
-  // A continued/restarted run refreshes operator settings but retains the
-  // scoped boundary override and does not churn an already healthy payload.
+  // A continued/restarted task refreshes operator settings and rematerializes
+  // the selected provider after sanitizing the repository scope.
   const secondCodex = makeCodex(fixture);
   const second = await preflight({ fixture, codex: secondCodex });
   assert.equal(second.codexHome, first.codexHome);
-  assert.deepEqual(second.repairs, [], 'a fresh process reuses healthy scoped state');
-  assert(!secondCodex.calls.some(call => call.args[1] === 'add' || call.args[1] === 'remove'), 'continued execution does not reinstall the plugin');
+  assert.deepEqual(second.repairs, [`install:${fixture.pluginId}`], 'a fresh process rebuilds selected plugin state');
+  assert(
+    secondCodex.calls.some(call => call.args[1] === 'add'),
+    'continued execution starts from a clean provider cache'
+  );
   assert.match(await readFile(path.join(second.codexHome, 'config.toml'), 'utf8'), /^remote_plugin\s*=\s*false\s*$/mu);
 
   await rm(fixture.root, { recursive: true, force: true });
@@ -218,15 +225,15 @@ const preflight = async ({ fixture, codex }) =>
   await rm(fixture.root, { recursive: true, force: true });
 }
 
-// A renamed/personal marketplace is not filtered by Codex and must not cause
-// Hive to turn off the remote catalog unnecessarily.
+// Personal marketplace selection still disables unrelated remote/account sync;
+// the explicitly selected local provider remains available.
 {
   const fixture = await makeFixture({ label: 'personal', marketplace: 'personal' });
   const codex = makeCodex(fixture);
   const result = await preflight({ fixture, codex });
   const scopedConfig = await readFile(path.join(result.codexHome, 'config.toml'), 'utf8');
 
-  assert.match(scopedConfig, /^remote_plugin\s*=\s*true\s*$/mu, 'non-reserved marketplaces preserve the operator remote catalog setting');
+  assert.match(scopedConfig, /^remote_plugin\s*=\s*false\s*$/mu, 'all repository scopes block unrequested remote cache rehydration');
   assert.match(scopedConfig, /\[plugins\."superpowers@personal"\]/u);
 
   await rm(fixture.root, { recursive: true, force: true });

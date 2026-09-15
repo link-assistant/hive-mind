@@ -327,9 +327,9 @@ docker volume create box-home
 docker run -it -v box-home:/home/box konard/hive-mind:latest
 ```
 
-若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue 及全部评论，解析明确要求的插件和 Agent Skill，并将插件安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。该路径会跨重启保留，同时不会全局启用插件。Docker 隔离任务会同时传播 `.codex` 与 `.agents`，也不会向目标仓库部署或提交技能文件。
+若不挂载整个 home，请分别持久化 `/home/box/.codex` 和可选的 `/home/box/.agents`。`--isolation docker` 任务**不会**整体继承这些目录：自 [issue #2190](https://github.com/link-assistant/hive-mind/issues/2190) 起，任务容器只挂载凭据文件（`~/.claude/.credentials.json` 或 `~/.codex/auth.json`）和会话目录（`~/.claude/projects`、`~/.claude/sessions`、`~/.codex/sessions`）；插件、marketplace、技能、MCP 和设置均来自镜像，并随容器一起消失。每次启动 `solve`/`hive` 时都会审计全局配置，并默认清理到最小配置（可用 `--no-agent-config-auto-repair` 关闭）。Hive Mind 在 `codex exec` 前读取 issue、全部评论和仓库指令文件，解析明确要求的插件和 Agent Skill，并将选定的提供者安装到 `.codex/hive-mind/repositories/<owner>/<repo>`。每个任务都从空的插件/技能状态重建此作用域，关闭远程插件同步，且不复制主机缓存或全局技能。技能文件不会部署或提交到目标仓库。
 
-若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。父 `.codex` 挂载会覆盖镜像内置配置；仓库作用域会刷新父运行时设置，同时保留自己的插件启用块。
+若 catalog 中没有要求的提供程序，预检会在 AI harness 启动前报告确切能力。请在父容器中运行 `codex plugin list --available --json` 以检查或刷新 marketplace。预检会为每个任务通过 `codex debug prompt-input` 验证完整的模型可见目录，即使没有声明可选能力也会执行。仅允许作用域内的核心技能、明确要求的仓库技能，以及选定作用域插件的技能；意外技能、不受信任的路径，或在支持该命令的 CLI 上不可用/无法解析的探测结果都会停止执行。详细日志会显示每个已接受技能的名称、提供者、版本和规范化路径。
 
 如果持久化的 `/home/box/.codex/config.toml` 来自较旧镜像，可能缺少新版镜像添加的 Playwright MCP 注册。容器启动后可重新运行：
 

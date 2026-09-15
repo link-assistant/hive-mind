@@ -75,9 +75,12 @@ export function argvFromSessionArgs(args) {
  * @param {boolean} [options.verbose]
  * @param {Function} [options.readFile]
  * @param {Object} [options.env]
+ * @param {boolean|null} [options.containerOomKilled] - Docker's own `State.OOMKilled`,
+ *   read from the container before it was reaped (issue #2244). Ground truth that
+ *   outranks nothing but is available even when the `$` status record has no such field.
  * @returns {Promise<{sections: string[], diagnosis: Object|null, killed: boolean, recovered: boolean, policy: string|null, observedAt: string|null}>}
  */
-export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, verbose = false, readFile = fs.readFile, env = process.env } = {}) {
+export async function buildKillCompletionSections({ sessionName, sessionInfo, statusResult = null, exitCode = null, status = null, verbose = false, readFile = fs.readFile, env = process.env, containerOomKilled = null } = {}) {
   const empty = { sections: [], diagnosis: null, killed: false, recovered: false, policy: null, observedAt: null };
   try {
     const outcome = classifySessionOutcome({ exitCode, status });
@@ -91,7 +94,7 @@ export async function buildKillCompletionSections({ sessionName, sessionInfo, st
     const { section, diagnosis } = await buildKillDiagnosticsSection(logPath, {
       verbose,
       readFile,
-      oomKilled: statusResult?.oomKilled === true || recovered,
+      oomKilled: statusResult?.oomKilled === true || containerOomKilled === true || recovered,
       exitCode,
       stopRequestedByUser: sessionInfo?.stopRequestedByUser === true,
       locale,

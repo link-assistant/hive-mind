@@ -1,0 +1,190 @@
+[
+    {
+        "Id": "3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69",
+        "Created": "2026-09-15T22:19:13.710476662Z",
+        "Path": "sh",
+        "Args": [
+            "-c",
+            "gate='/tmp/hive-mind-disk-baseline-4640c2e1-e8d6-4cab-ba60-93742c563fda'; i=0; echo \"[hive-mind] start-gate: waiting up to 30s at $(date -u +%H:%M:%S) for the parent to release $gate\" >&2; while [ ! -e \"$gate\" ] && [ \"$i\" -lt 300 ]; do i=$((i+1)); if [ $((i % 50)) -eq 0 ]; then echo \"[hive-mind] start-gate: still waiting after $((i / 10))s at $(date -u +%H:%M:%S)\" >&2; fi; sleep 0.1; done; if [ -e \"$gate\" ]; then echo \"[hive-mind] start-gate: released after $((i / 10))s at $(date -u +%H:%M:%S)\" >&2; else echo \"[hive-mind] start-gate: not released within 30s; starting the task anyway at $(date -u +%H:%M:%S)\" >&2; fi; rm -f \"$gate\"; echo \"[hive-mind] start-gate: starting task command at $(date -u +%H:%M:%S)\" >&2; exec echo WORKLOAD_STARTED; sleep 300"
+        ],
+        "State": {
+            "Status": "exited",
+            "Running": false,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 0,
+            "ExitCode": 137,
+            "Error": "",
+            "StartedAt": "2026-09-15T22:19:13.993496569Z",
+            "FinishedAt": "2026-09-15T22:19:20.305477974Z"
+        },
+        "Image": "sha256:bf8527eb54c3680e728d5b4b383a8ba730d72dae7236fbc8dff97ed6b224a731",
+        "ResolvConfPath": "/var/lib/docker/containers/3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69/hostname",
+        "HostsPath": "/var/lib/docker/containers/3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69/hosts",
+        "LogPath": "/var/lib/docker/containers/3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69/3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69-json.log",
+        "Name": "/4640c2e1-e8d6-4cab-ba60-93742c563fda",
+        "RestartCount": 0,
+        "Driver": "fuse-overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": null,
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "bridge",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "3cb3c46d004d56e7248781fd872de3d0a6f3a609c021533b4b578e65a848ed69",
+                "LowerDir": "/var/lib/docker/fuse-overlayfs/fd4db6403907b63b7f1c49b0f998b7fe4e3638daf2e7fde4359ffdc1be3445c8-init/diff:/var/lib/docker/fuse-overlayfs/a6948bf649a1f86e6621542503f083e1e05bda7c0b6dc0f9e9b82c420ef72602/diff",
+                "MergedDir": "/var/lib/docker/fuse-overlayfs/fd4db6403907b63b7f1c49b0f998b7fe4e3638daf2e7fde4359ffdc1be3445c8/merged",
+                "UpperDir": "/var/lib/docker/fuse-overlayfs/fd4db6403907b63b7f1c49b0f998b7fe4e3638daf2e7fde4359ffdc1be3445c8/diff",
+                "WorkDir": "/var/lib/docker/fuse-overlayfs/fd4db6403907b63b7f1c49b0f998b7fe4e3638daf2e7fde4359ffdc1be3445c8/work"
+            },
+            "Name": "fuse-overlayfs"
+        },
+        "Mounts": [],
+        "Config": {
+            "Hostname": "3cb3c46d004d",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "HIVE_MIND_PARENT_SESSION_ID=4640c2e1-e8d6-4cab-ba60-93742c563fda",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+            ],
+            "Cmd": [
+                "sh",
+                "-c",
+                "gate='/tmp/hive-mind-disk-baseline-4640c2e1-e8d6-4cab-ba60-93742c563fda'; i=0; echo \"[hive-mind] start-gate: waiting up to 30s at $(date -u +%H:%M:%S) for the parent to release $gate\" >&2; while [ ! -e \"$gate\" ] && [ \"$i\" -lt 300 ]; do i=$((i+1)); if [ $((i % 50)) -eq 0 ]; then echo \"[hive-mind] start-gate: still waiting after $((i / 10))s at $(date -u +%H:%M:%S)\" >&2; fi; sleep 0.1; done; if [ -e \"$gate\" ]; then echo \"[hive-mind] start-gate: released after $((i / 10))s at $(date -u +%H:%M:%S)\" >&2; else echo \"[hive-mind] start-gate: not released within 30s; starting the task anyway at $(date -u +%H:%M:%S)\" >&2; fi; rm -f \"$gate\"; echo \"[hive-mind] start-gate: starting task command at $(date -u +%H:%M:%S)\" >&2; exec echo WORKLOAD_STARTED; sleep 300"
+            ],
+            "Image": "alpine:3.20",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": null,
+            "Labels": {}
+        },
+        "NetworkSettings": {
+            "SandboxID": "",
+            "SandboxKey": "",
+            "Ports": {},
+            "Networks": {
+                "bridge": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "719a9b35ec8fbf3aa1a88e0744bc9520978f6a738bff4394072fae86037c9dd2",
+                    "EndpointID": "",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

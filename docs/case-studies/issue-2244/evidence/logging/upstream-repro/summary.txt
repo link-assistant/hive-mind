@@ -1,0 +1,8 @@
+container_started_at=2026-09-15T22:21:40.942007645Z
+container_finished_at=2026-09-15T22:21:46.740817278Z
+status_endTime_query_1=endTime "2026-09-15T22:21:50.337Z"
+status_endTime_query_2=endTime "2026-09-15T22:21:54.723Z"
+persisted status = "executing"
+persisted exitCode = (null
+persisted endTime = (null
+session_log_mentions_signal=0

@@ -1,0 +1,19 @@
+# Docker task container diagnostics (issue #2244)
+capturedAt=2026-09-15T22:19:24.191Z
+container=4640c2e1-e8d6-4cab-ba60-93742c563fda
+sessionStatus=killed
+exitCode=137
+signal=SIGKILL
+meaning=the container was killed outright (kernel OOM killer, a container memory limit, or an explicit `docker kill`/`rm -f`); nothing it could print survives this
+oomKilled=false
+dockerState=exited
+dockerError=none
+startedAt=2026-09-15T22:19:13.993496569Z
+finishedAt=2026-09-15T22:19:20.305477974Z
+lifetime=6.3s
+image=alpine:3.20
+privileged=false
+restartCount=0
+captureErrors=docker cp /var/log/dockerd.log failed: Command failed: docker cp 4640c2e1-e8d6-4cab-ba60-93742c563fda:/var/log/dockerd.log /tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics/dockerd.log
+Error response from daemon: Could not find the file /var/log/dockerd.log in container 4640c2e1-e8d6-4cab-ba60-93742c563fda
+

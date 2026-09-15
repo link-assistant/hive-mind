@@ -1,0 +1,28 @@
+[VERBOSE] Docker diagnostics for '4640c2e1-e8d6-4cab-ba60-93742c563fda': saved container-inspect.json, container-logs.txt, summary.txt to /tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics (docker cp /var/log/dockerd.log failed: Command failed: docker cp 4640c2e1-e8d6-4cab-ba60-93742c563fda:/var/log/dockerd.log /tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics/dockerd.log
+Error response from daemon: Could not find the file /var/log/dockerd.log in container 4640c2e1-e8d6-4cab-ba60-93742c563fda
+)
+{
+  "captured": true,
+  "directory": "/tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics",
+  "files": [
+    "container-inspect.json",
+    "container-logs.txt",
+    "summary.txt"
+  ],
+  "facts": {
+    "exitCode": 137,
+    "signal": "SIGKILL",
+    "oomKilled": false,
+    "error": null,
+    "status": "exited",
+    "startedAt": "2026-09-15T22:19:13.993496569Z",
+    "finishedAt": "2026-09-15T22:19:20.305477974Z",
+    "lifetimeMs": 6312,
+    "image": "alpine:3.20",
+    "privileged": false,
+    "restartCount": 0
+  },
+  "errors": [
+    "docker cp /var/log/dockerd.log failed: Command failed: docker cp 4640c2e1-e8d6-4cab-ba60-93742c563fda:/var/log/dockerd.log /tmp/start-command/logs/isolation/docker/d5fa7a0b-78dc-4614-9d8d-82c53c95ebec.diagnostics/dockerd.log\nError response from daemon: Could not find the file /var/log/dockerd.log in container 4640c2e1-e8d6-4cab-ba60-93742c563fda\n"
+  ]
+}

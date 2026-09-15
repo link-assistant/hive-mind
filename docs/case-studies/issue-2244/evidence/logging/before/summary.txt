@@ -1,0 +1,14 @@
+session=45ee6a19-84af-4b45-b771-d1295e97a969
+image=alpine:3.20
+observed_at=2026-09-15T22:19:55.939Z
+container_started_at=2026-09-15T22:19:41.747143055Z
+container_finished_at=2026-09-15T22:19:47.944421189Z
+container_exit_code=137
+container_oom_killed=false
+status_end_time_line=endTime "2026-09-15T22:19:51.688Z"
+status_end_time_second_query=endTime "2026-09-15T22:19:55.202Z"
+status_after_container_removed=  status executed
+stored_record=persisted status = "executing" persisted exitCode = (null persisted endTime = (null 
+session_log_bytes=1733
+session_log_mentions_signal=0
+session_log_mentions_finished_at=0

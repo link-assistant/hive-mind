@@ -1,0 +1,53 @@
+{
+  "generatedAt": "2026-09-13T18:28:27.474Z",
+  "normal": {
+    "name": "/hive-mind-issue-2244-normal",
+    "image": "docker.io/konard/hive-mind-dind@sha256:b5e71481abcc540a881d805007051211c09661911379f40e248fa4bd064fe6d7",
+    "status": "exited",
+    "exitCode": 0,
+    "oomKilled": false,
+    "error": "",
+    "startedAt": "2026-09-13T18:27:31.434869655Z",
+    "finishedAt": "2026-09-13T18:27:47.383460268Z",
+    "durationMilliseconds": 15949
+  },
+  "boundedProbe": {
+    "name": "/hive-mind-issue-2244-fixed",
+    "image": "docker.io/konard/hive-mind-dind@sha256:b5e71481abcc540a881d805007051211c09661911379f40e248fa4bd064fe6d7",
+    "status": "exited",
+    "exitCode": 0,
+    "oomKilled": false,
+    "error": "",
+    "startedAt": "2026-09-13T18:27:47.946114367Z",
+    "finishedAt": "2026-09-13T18:28:06.097400661Z",
+    "durationMilliseconds": 10028,
+    "bytes": null
+  },
+  "deliberateSigkill": {
+    "name": "/hive-mind-issue-2244-killed",
+    "image": "docker.io/konard/hive-mind-dind@sha256:b5e71481abcc540a881d805007051211c09661911379f40e248fa4bd064fe6d7",
+    "status": "exited",
+    "exitCode": 137,
+    "oomKilled": false,
+    "error": "",
+    "startedAt": "2026-09-13T18:28:07.392209157Z",
+    "finishedAt": "2026-09-13T18:28:13.653396233Z",
+    "durationMilliseconds": 6261
+  },
+  "verboseDiagnostics": {
+    "name": "/hive-mind-issue-2244-verbose",
+    "image": "docker.io/konard/hive-mind-dind@sha256:b5e71481abcc540a881d805007051211c09661911379f40e248fa4bd064fe6d7",
+    "status": "exited",
+    "exitCode": 0,
+    "oomKilled": false,
+    "error": "",
+    "startedAt": "2026-09-13T18:28:14.533490708Z",
+    "finishedAt": "2026-09-13T18:28:26.618781326Z",
+    "durationMilliseconds": 12085,
+    "consoleIncludesDockerd": true
+  },
+  "normalSizeProbe": {
+    "completed": false,
+    "value": null
+  }
+}

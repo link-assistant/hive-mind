@@ -37,6 +37,9 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+// Issue #2244: host-side snapshot of a task container, taken before the
+// retention policy below removes it.
+import { captureDockerTaskContainerDiagnostics, formatDockerDiagnosticsSection, shouldCaptureDockerDiagnostics } from './docker-task-diagnostics.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -933,6 +936,37 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
         const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
+        // Issue #2244: a task container that ends abnormally takes its own
+        // evidence with it — `docker inspect` state, whatever it printed, and
+        // box's nested-daemon log at /var/log/dockerd.log — because
+        // applyDockerTaskContainerCompletionAction removes it a few lines below.
+        // Copy all three to the host FIRST, and tell the reader where they are.
+        const dockerDiagnosticsExtraSections = [];
+        let dockerDiagnostics = null;
+        try {
+          const diagnosticsEnv = options.env || process.env;
+          if (shouldCaptureDockerDiagnostics({ isolationBackend: sessionInfo?.isolationBackend || null, exitCode: finalExitCode, status: resolvedStatus, env: diagnosticsEnv })) {
+            const captureDiagnostics = options.captureDockerDiagnostics || captureDockerTaskContainerDiagnostics;
+            const capture = await captureDiagnostics({
+              containerName: dockerTaskContainerAction?.containerName || sessionInfo.sessionId || sessionName,
+              logPath: statusResult?.logPath || sessionInfo?.logPath || null,
+              exitCode: finalExitCode,
+              status: resolvedStatus,
+              verbose,
+            });
+            dockerDiagnostics = capture || null;
+            const diagnosticsSection = formatDockerDiagnosticsSection(capture);
+            if (diagnosticsSection) dockerDiagnosticsExtraSections.push(diagnosticsSection);
+            if (capture?.captured && capture.directory && sessionInfo.dockerDiagnosticsPath !== capture.directory) {
+              sessionInfo.dockerDiagnosticsPath = capture.directory;
+              persistSessionSnapshot(sessionName, sessionInfo);
+            }
+          }
+        } catch (diagnosticsError) {
+          if (verbose) {
+            console.log(`[VERBOSE] Could not capture docker diagnostics for ${sessionName}: ${diagnosticsError?.message || diagnosticsError}`);
+          }
+        }
         // Issue #2161: a blocked subscription/account explains every other
         // symptom of the run, so it goes first in the completion message.
         const subscriptionBlockedExtraSections = [];
@@ -960,6 +994,9 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           verbose,
           readFile: options.readFile,
           env: options.env || process.env,
+          // Issue #2244: the container's own OOMKilled flag, snapshotted above
+          // while the container still existed.
+          containerOomKilled: dockerDiagnostics?.facts?.oomKilled ?? null,
         });
         // Issue #2134: `--on-session-kill=resume` must actually start a new
         // working session, and both surfaces must say so. Done before the
@@ -1002,7 +1039,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
           pullRequestState,
-          extraSections: [...subscriptionBlockedExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          extraSections: [...subscriptionBlockedExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerDiagnosticsExtraSections, ...dockerTaskContainerExtraSections],
         });
         if (killReport.killed || killReport.recovered) {
           const notice = await announceKillOnPullRequest({

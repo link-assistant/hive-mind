@@ -1,0 +1,2 @@
+2026-09-15T22:19:14.430127437Z [hive-mind] start-gate: waiting up to 30s at 22:19:14 for the parent to release /tmp/hive-mind-disk-baseline-4640c2e1-e8d6-4cab-ba60-93742c563fda
+2026-09-15T22:19:19.866747560Z [hive-mind] start-gate: still waiting after 5s at 22:19:19

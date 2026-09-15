@@ -98,7 +98,10 @@ const makeCodex = ({ fixture, installable = true }) => {
     if (args[0] === 'debug' && args[1] === 'prompt-input') {
       // Exposure follows the materialized payload, exactly like the real CLI.
       const { skills } = await readMaterializedPluginSkills({ codexHome, pluginId: PLUGIN_ID });
-      const rendered = ['- imagegen: Generate images. (file: /system/SKILL.md)', ...[...skills].sort().map(skill => `- ${skill}: Skill. (file: ${cacheRoot}/SKILL.md)`)].join('\\n');
+      const core = path.join(codexHome, 'skills', '.system', 'imagegen', 'SKILL.md');
+      await mkdir(path.dirname(core), { recursive: true });
+      await writeFile(core, '---\nname: imagegen\n---\n');
+      const rendered = [`- imagegen: Generate images. (file: ${core})`, ...[...skills].sort().map(skill => `- ${skill}: Skill. (file: ${path.join(cacheRoot, VERSION, 'skills', skill.slice(skill.indexOf(':') + 1), 'SKILL.md')})`)].join('\\n');
       return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n${rendered}\n</skills_instructions>` }), stderr: '', code: 0 };
     }
     throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
@@ -158,11 +161,15 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
     'verification is reported against the prompt the model receives'
   );
 
-  // 1b. repeated execution is idempotent: no repair, no reinstall, same state.
+  // 1b. a new task starts clean and deterministically rematerializes only the
+  // selected provider in the same repository scope.
   const second = makeCodex({ fixture });
   const repeat = await preflight({ fixture, codex: second });
-  assert.deepEqual(repeat.result.repairs, [], 'a healthy scoped payload is left alone');
-  assert(!second.calls.some(call => call.args?.[1] === 'add' || call.args?.[1] === 'remove'), 'provisioning does not churn state it already provisioned');
+  assert.deepEqual(repeat.result.repairs, [`install:${PLUGIN_ID}`], 'each task rebuilds the selected payload after clearing stale state');
+  assert(
+    second.calls.some(call => call.args?.[1] === 'add'),
+    'the selected provider is materialized into the clean task scope'
+  );
   assert.equal(repeat.result.codexHome, scoped, 'the scoped home is stable across runs, so it survives a container restart');
 
   await rm(fixture.root, { recursive: true, force: true });
@@ -187,7 +194,7 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
   await rm(fixture.root, { recursive: true, force: true });
 }
 
-// --- 3. unreachable marketplace: fall back to the operator payload -----------
+// --- 3. unreachable marketplace: never trust the operator payload ------------
 
 {
   const fixture = await makeFixture('operator-fallback');
@@ -195,15 +202,15 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
   await cp(path.join(fixture.marketplace, 'skills'), operatorCache, { recursive: true });
 
   const codex = makeCodex({ fixture, installable: false });
-  const { result } = await preflight({ fixture, codex });
-
-  assert.equal(result.required, true, 'a scoped home that cannot reach its marketplace is repaired from the operator payload');
-  assert(
-    result.repairs.some(step => step.startsWith('copy-operator-payload')),
-    'the fallback strategy is recorded for the operator'
+  const failure = await preflight({ fixture, codex }).then(
+    () => null,
+    error => error
   );
+
+  assert(failure instanceof CodexCapabilityPreflightError, 'a host cache is not copied when the selected marketplace is unreachable');
+  assert(!String(failure.message).includes('copy-operator-payload'), 'the diagnostic never claims an unsafe host-cache fallback was attempted');
   const { skills } = await readMaterializedPluginSkills({ codexHome: scopedHomeFor(fixture), pluginId: PLUGIN_ID });
-  assert(skills.has('superpowers:using-superpowers'));
+  assert.equal(skills.size, 0, 'operator instructions never enter the repository scope');
 
   await rm(fixture.root, { recursive: true, force: true });
 }
@@ -254,10 +261,16 @@ assert.equal(isExplicitRequirement(detectRequiredCodexCapabilities('Use the `for
     issueNumber: 81,
     baseCodexHome: fixture.baseCodexHome,
     env: {},
-    runCommand: async ({ command, args }) => {
+    runCommand: async ({ command, args, env: commandEnv }) => {
       if (command === 'gh' && args[2]?.endsWith('/comments')) return { stdout: '[]', stderr: '', code: 0 };
       if (command === 'gh') return { stdout: JSON.stringify({ title: 'Task', body: 'The required `renderer` skill must produce 16:9 images.' }), stderr: '', code: 0 };
       if (args[0] === 'plugin') return { stdout: JSON.stringify({ installed: [], available: [fixture.entry] }), stderr: '', code: 0 };
+      if (args[0] === 'debug') {
+        const core = path.join(commandEnv.CODEX_HOME, 'skills', '.system', 'imagegen', 'SKILL.md');
+        await mkdir(path.dirname(core), { recursive: true });
+        await writeFile(core, '---\nname: imagegen\n---\n');
+        return { stdout: JSON.stringify({ text: `<skills_instructions>\n### Available skills\n- imagegen: Generate images. (file: ${core})\n</skills_instructions>` }), stderr: '', code: 0 };
+      }
       throw new Error(`Unexpected command: ${command} ${args.join(' ')}`);
     },
     log: async message => logs.push(String(message)),

@@ -47,7 +47,7 @@ import { getCumulativeContextInputTokens } from './context-fill.lib.mjs';
 import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
-import { applyCodexCapabilityEnv, runCodexCapabilityPreflight } from './codex-capability-preflight.lib.mjs'; // Issue #2074
+import { applyCodexCapabilityEnv, runCodexCapabilityPreflight, setTomlTableBoolean, verifyCodexCapabilityExecutionCatalog } from './codex-capability-preflight.lib.mjs'; // Issues #2074 and #2254
 import { createPullRequestBaseBranchCommandIntervention } from './solve.pr-base-command-intervention.lib.mjs';
 import Decimal from 'decimal.js-light';
 import { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
@@ -614,7 +614,7 @@ export const executeCodex = async params => {
 };
 
 export const executeCodexCommand = async params => {
-  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown } = params;
+  const { tempDir, branchName, prompt, systemPrompt, argv, log, formatAligned, getResourceSnapshot, forkedRepo, feedbackLines, codexPath, $, owner, repo, prNumber, capabilityPreflight, calculatePricing = calculateCodexPricing, waitForRetryDelay = waitWithCountdown, verifyCapabilityExecutionCatalog = verifyCodexCapabilityExecutionCatalog } = params;
   const shellQuote = value => `"${String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
   const expectedBaseBranch = String(argv?.baseBranch || '').trim();
   // Retry configuration
@@ -661,7 +661,30 @@ export const executeCodexCommand = async params => {
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'codex', model: argv.model, toolPath: codexPath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv), env: codexEnv });
     // Issue #2130: "run codex login" is wrong advice for a Formal-AI-served model.
     const codexAuthRemedyLines = buildAuthRemedyLines({ model: argv.model, vendorRemedy: 'Please run: codex login' });
+    // Formal AI writes its provider block into an isolated Codex home after the
+    // capability probe. Bring that config back into the already-sanitized
+    // repository scope, then pin Formal AI to that same home. Otherwise the
+    // execution would silently replace the exact environment issue #2254
+    // verified and would also lose its selected plugin payloads.
+    const formalCodexHome = toolInvocation.env?.CODEX_HOME;
+    if (toolInvocation.formalAi && capabilityPreflight?.codexHome && formalCodexHome && formalCodexHome !== capabilityPreflight.codexHome) {
+      const formalConfig = await fs.readFile(path.join(formalCodexHome, 'config.toml'), 'utf8');
+      const safeFormalConfig = setTomlTableBoolean({ config: formalConfig, table: 'features', key: 'remote_plugin', value: false });
+      await fs.writeFile(path.join(capabilityPreflight.codexHome, 'config.toml'), safeFormalConfig);
+      toolInvocation.env.CODEX_HOME = capabilityPreflight.codexHome;
+      await log(`   🧭 Formal AI pinned to verified Codex capability state: ${capabilityPreflight.codexHome}`, { verbose: true });
+    }
+    // `sh -lc` sources the operator profile. Re-export the verified scope in
+    // the command itself as well as the process environment so a stale profile
+    // assignment cannot swap CODEX_HOME after the final probe.
+    if (capabilityPreflight?.codexHome) {
+      Object.assign(toolInvocation.env, applyCodexCapabilityEnv({}, capabilityPreflight));
+    }
     Object.assign(codexEnv, toolInvocation.env);
+    if (capabilityPreflight?.codexHome) {
+      const verified = await verifyCapabilityExecutionCatalog({ capabilityPreflight, projectDir: tempDir, codexPath, env: codexEnv, log });
+      Object.assign(capabilityPreflight, verified);
+    }
     // For Codex, we combine system and user prompts into a single message
     // Codex doesn't have separate system prompt support in CLI mode
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;

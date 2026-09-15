@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.30.0
+
+### Minor Changes
+
+- 4623752: Add a safe Telegram `/organize` workflow for classifying every open repository issue with existing Issue Types and labels, including dry-run previews, strict plan validation, stale-write protection, bounded retries, final verification, and audit records.
+
 ## 2.29.3
 
 ### Patch Changes

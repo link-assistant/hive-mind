@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.29.2
+
+### Patch Changes
+
+- c46949d: Fail closed when Codex exposes unrequested or untrusted Agent Skills, and rebuild each task's repository-scoped plugin state from an explicit allowlist.
+
 ## 2.29.1
 
 ### Patch Changes

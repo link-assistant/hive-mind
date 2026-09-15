@@ -710,7 +710,10 @@ export const executeCodexCommand = async params => {
     } else {
       codexArgs += ` --model ${shellQuote(mappedModel)}`;
     }
-    const codexPlaywrightMcpDisableConfigArgs = argv.playwrightMcp === false ? await getCodexPlaywrightMcpDisableConfigArgs(log) : [];
+    // Issue #2259: discovery and execution must read the same CODEX_HOME. Formal
+    // AI strips MCP tables from its task config, so probing the operator home
+    // here would recreate an orphan `enabled=false` table in the task config.
+    const codexPlaywrightMcpDisableConfigArgs = argv.playwrightMcp === false ? await getCodexPlaywrightMcpDisableConfigArgs({ log, env: codexEnv }) : [];
     for (const arg of codexPlaywrightMcpDisableConfigArgs) {
       codexArgs += ` ${shellQuote(arg)}`;
     }

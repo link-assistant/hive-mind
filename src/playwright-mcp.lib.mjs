@@ -192,9 +192,21 @@ export const parseCodexMcpServerNames = output =>
     .map(line => line.split(/\s+/)[0])
     .filter(name => /^[A-Za-z0-9_-]+$/.test(name));
 
-export const getCodexPlaywrightMcpDisableConfigArgs = async log => {
+/**
+ * Build session-scoped disable overrides from the Codex configuration that the
+ * eventual command will actually read.
+ *
+ * Issue #2259: probing without `env` read the operator's CODEX_HOME even after
+ * Formal AI had selected an MCP-free task home. An override for an operator
+ * server then recreated that server with only `enabled=false`, which Codex
+ * rejected as an invalid transport before its first model request.
+ *
+ * The legacy `log`-only call shape remains accepted for downstream callers.
+ */
+export const getCodexPlaywrightMcpDisableConfigArgs = async (options = {}) => {
+  const { log, env = process.env } = typeof options === 'function' ? { log: options } : options || {};
   try {
-    const result = await $`timeout 5 codex mcp list 2>&1`.catch(() => null);
+    const result = await $({ env })`timeout 5 codex mcp list 2>&1`.catch(() => null);
     if (!isCommandResultSuccess(result)) return [];
     const names = parseCodexMcpServerNames(getCommandResultOutput(result)).filter(name => name.toLowerCase().includes('playwright'));
     if (names.length === 0) {

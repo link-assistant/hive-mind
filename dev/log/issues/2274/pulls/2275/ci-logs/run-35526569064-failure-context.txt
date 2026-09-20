@@ -1,0 +1,69 @@
+44789-Release	Version packages and commit to main	2026-09-20T17:47:07.4578558Z  delete mode 100644 .changeset/calm-repositories-rest.md
+44790-Release	Version packages and commit to main	2026-09-20T17:47:07.4579336Z  delete mode 100644 .changeset/calm-topics-report.md
+44791-Release	Version packages and commit to main	2026-09-20T17:47:07.4580081Z  delete mode 100644 .changeset/fresh-ravens-check.md
+44792:Release	Version packages and commit to main	2026-09-20T17:47:08.7088674Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+44793-Release	Version packages and commit to main	2026-09-20T17:47:08.7090665Z remote: Review all repository rules at https://github.com/link-assistant/hive-mind/rules?ref=refs%2Fheads%2Fmain
+44794-Release	Version packages and commit to main	2026-09-20T17:47:08.7092388Z remote:
+44795-Release	Version packages and commit to main	2026-09-20T17:47:08.7093366Z remote: - Changes must be made through a pull request.
+44796-Release	Version packages and commit to main	2026-09-20T17:47:08.7094269Z remote:
+44797:Release	Version packages and commit to main	2026-09-20T17:47:08.7095033Z remote: - Required status check "Pipeline Status" is expected.
+44798-Release	Version packages and commit to main	2026-09-20T17:47:08.7095758Z remote:
+44799-Release	Version packages and commit to main	2026-09-20T17:47:08.7133598Z To https://github.com/link-assistant/hive-mind
+44800-Release	Version packages and commit to main	2026-09-20T17:47:08.7134597Z  ! [remote rejected]   main -> main (push declined due to repository rule violations)
+--
+44814-Release	Version packages and commit to main	2026-09-20T17:47:16.1941182Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_fb80548a-b801-4d75-a91d-51bea2886515
+44815-Release	Version packages and commit to main	2026-09-20T17:47:17.8470803Z GraphQL: Repository rule violations found
+44816-Release	Version packages and commit to main	2026-09-20T17:47:17.8471117Z
+44817:Release	Version packages and commit to main	2026-09-20T17:47:17.8471371Z Required status check "Pipeline Status" is expected.
+44818-Release	Version packages and commit to main	2026-09-20T17:47:17.8471675Z
+44819-Release	Version packages and commit to main	2026-09-20T17:47:17.8471800Z  (mergePullRequest)
+44820-Release	Version packages and commit to main	2026-09-20T17:47:17.8497233Z Merge attempt 1 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44821:Release	Version packages and commit to main	2026-09-20T17:47:23.3413926Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44822-Release	Version packages and commit to main	2026-09-20T17:47:23.3415180Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44823-Release	Version packages and commit to main	2026-09-20T17:47:23.3416054Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44824-Release	Version packages and commit to main	2026-09-20T17:47:23.3440667Z Merge attempt 2 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44825:Release	Version packages and commit to main	2026-09-20T17:47:28.8844672Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44826-Release	Version packages and commit to main	2026-09-20T17:47:28.8845601Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44827-Release	Version packages and commit to main	2026-09-20T17:47:28.8846399Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44828-Release	Version packages and commit to main	2026-09-20T17:47:28.8868916Z Merge attempt 3 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44829:Release	Version packages and commit to main	2026-09-20T17:47:34.3468449Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44830-Release	Version packages and commit to main	2026-09-20T17:47:34.3469848Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44831-Release	Version packages and commit to main	2026-09-20T17:47:34.3471109Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44832-Release	Version packages and commit to main	2026-09-20T17:47:34.3494649Z Merge attempt 4 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44833:Release	Version packages and commit to main	2026-09-20T17:47:39.7781199Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44834-Release	Version packages and commit to main	2026-09-20T17:47:39.7783192Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44835-Release	Version packages and commit to main	2026-09-20T17:47:39.7784512Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44836-Release	Version packages and commit to main	2026-09-20T17:47:39.7808596Z Merge attempt 5 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44837:Release	Version packages and commit to main	2026-09-20T17:47:45.2190288Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44838-Release	Version packages and commit to main	2026-09-20T17:47:45.2191797Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44839-Release	Version packages and commit to main	2026-09-20T17:47:45.2193067Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44840-Release	Version packages and commit to main	2026-09-20T17:47:45.2211002Z Merge attempt 6 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44841:Release	Version packages and commit to main	2026-09-20T17:47:50.6603114Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44842-Release	Version packages and commit to main	2026-09-20T17:47:50.6604397Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44843-Release	Version packages and commit to main	2026-09-20T17:47:50.6605263Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44844-Release	Version packages and commit to main	2026-09-20T17:47:50.6629530Z Merge attempt 7 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44845:Release	Version packages and commit to main	2026-09-20T17:47:56.2381604Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44846-Release	Version packages and commit to main	2026-09-20T17:47:56.2382510Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44847-Release	Version packages and commit to main	2026-09-20T17:47:56.2383286Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44848-Release	Version packages and commit to main	2026-09-20T17:47:56.2406402Z Merge attempt 8 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44849:Release	Version packages and commit to main	2026-09-20T17:48:01.7298288Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44850-Release	Version packages and commit to main	2026-09-20T17:48:01.7299911Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44851-Release	Version packages and commit to main	2026-09-20T17:48:01.7301322Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44852-Release	Version packages and commit to main	2026-09-20T17:48:01.7321967Z Merge attempt 9 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44853:Release	Version packages and commit to main	2026-09-20T17:48:07.3837998Z X Pull request link-assistant/hive-mind#2276 is not mergeable: the base branch policy prohibits the merge.
+44854-Release	Version packages and commit to main	2026-09-20T17:48:07.3838952Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44855-Release	Version packages and commit to main	2026-09-20T17:48:07.3839766Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44856-Release	Version packages and commit to main	2026-09-20T17:48:07.3860391Z Error: Command failed with exit code 1: gh pr merge https://github.com/link-assistant/hive-mind/pull/2276 --merge
+44857:Release	Version packages and commit to main	2026-09-20T17:48:07.3957727Z ##[error]Process completed with exit code 1.
+44858-Release	Post Run actions/checkout@v7	﻿2026-09-20T17:48:07.4125843Z Post job cleanup.
+44859-Release	Post Run actions/checkout@v7	2026-09-20T17:48:07.4995059Z [command]/usr/bin/git version
+44860-Release	Post Run actions/checkout@v7	2026-09-20T17:48:07.5040360Z git version 2.55.0
+--
+45232-Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7257418Z ##[endgroup]
+45233-Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7759900Z Failed jobs:    release
+45234-Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7760396Z Cancelled jobs: <none>
+45235:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7772670Z ##[error]Pipeline failed. Failing jobs: release
+45236:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7781238Z ##[error]Process completed with exit code 1.
+45237-Pipeline Status	Post Run actions/checkout@v7	﻿2026-09-20T17:48:30.7884834Z Post job cleanup.
+45238-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:48:30.8497372Z [command]/usr/bin/git version
+45239-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:48:30.8531976Z git version 2.55.0

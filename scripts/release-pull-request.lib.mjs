@@ -35,6 +35,7 @@ import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs
 
 const DEFAULT_MERGE_ATTEMPTS = 10;
 const DEFAULT_MERGE_DELAY_MS = 5000;
+const DEFAULT_VALIDATION_WORKFLOW = 'release.yml';
 
 /**
  * Default publication sanitizer.
@@ -107,6 +108,39 @@ export async function findOpenPullRequest({ runner, head, base, verbose = false,
 }
 
 /**
+ * Explicitly validate an automation-created pull request head.
+ *
+ * GitHub leaves pull_request runs created by GITHUB_TOKEN in action_required.
+ * A required status check therefore never appears, no matter how many times
+ * the merge is retried. workflow_dispatch is the documented exception: it
+ * always starts a run. `validate-pr` keeps that run on the ordinary check path
+ * and prevents either manual release job from publishing.
+ *
+ * @param {object} opts
+ * @param {(command: string, args: string[], opts?: object) => Promise<{code:number, stdout?:string, stderr?:string}>} opts.runner
+ * @param {string} opts.head
+ * @param {string} [opts.workflow]
+ * @param {Console} [opts.logger]
+ * @param {boolean} [opts.verbose]
+ * @returns {Promise<{runId: string, url: string}>}
+ */
+export async function dispatchPullRequestValidation({ runner, head, workflow = DEFAULT_VALIDATION_WORKFLOW, logger = console, verbose = false }) {
+  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
+  const dispatched = await strict('gh', ['workflow', 'run', workflow, '--ref', head, '--raw-field', 'release_mode=validate-pr', '--raw-field', 'bump_type=patch']);
+  const output = `${dispatched.stdout || ''}\n${dispatched.stderr || ''}`;
+  const match = output.match(/https:\/\/github\.com\/[^\s]+\/actions\/runs\/(\d+)/);
+  if (!match) {
+    throw new Error(`GitHub did not return the validation run URL after dispatching ${workflow} for ${head}`);
+  }
+
+  const [url, runId] = match;
+  logger.log(`Waiting for release pull request validation run ${url}...`);
+  await strict('gh', ['run', 'watch', runId, '--exit-status', '--compact']);
+  logger.log(`Release pull request validation run ${url} succeeded.`);
+  return { runId, url };
+}
+
+/**
  * Merge a pull request, retrying while GitHub is still computing mergeability.
  *
  * `gh pr merge` fails with "Pull request is not mergeable" for a few seconds
@@ -162,9 +196,10 @@ export async function mergePullRequestWithRetry({ runner, url, maxAttempts = DEF
  * @param {boolean} [opts.verbose]
  * @param {(key: string, value: string) => void} [opts.output]
  * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication]
+ * @param {string} [opts.validationWorkflow]
  * @returns {Promise<{landed: true, head: string, url: string}>}
  */
-export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer }) {
+export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer, validationWorkflow = DEFAULT_VALIDATION_WORKFLOW }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
   const head = releaseBranchName({ version, runId });
 
@@ -187,6 +222,7 @@ export async function landViaPullRequest({ runner = runCommand, version, branch 
     output('release_pull_request', url);
   }
 
+  await dispatchPullRequestValidation({ runner, head, workflow: validationWorkflow, logger, verbose });
   await mergePullRequestWithRetry({ runner, url, sleeper, logger, verbose });
   logger.log(`Pull request ${url} merged into ${branch}.`);
 

@@ -1,0 +1,10 @@
+e4f23d74e6679c24b584980977c74ab631f41576
+commit e4f23d74e6679c24b584980977c74ab631f41576
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-15T23:23:56+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-15T23:23:56+07:00
+
+    Merge pull request #191 from link-foundation/issue-190-f965a60d7b29
+
+    Harden CI pipeline verdicts and process cleanup

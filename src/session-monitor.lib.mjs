@@ -404,13 +404,13 @@ export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = fals
   }
 }
 /**
- * Issue #2161: Replay the `🚫 SUBSCRIPTION/ACCESS BLOCKED` report from the
- * captured solve log into the Telegram completion message, so the operator is
- * told that the account itself lost access (and not that "claude failed") on the
- * surface they actually watch. Returns '' when the session hit no such block.
+ * Issue #2161/#2267: Replay the subscription/access report from a failed solve
+ * into the Telegram completion message. Successful sessions are never scanned:
+ * their transcript may quote an older run's provider error.
  */
-export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = false, readFile = fs.readFile, locale = null } = {}) {
+export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = false, readFile = fs.readFile, locale = null, outcome = null, expectedTool = null } = {}) {
   if (!logPath) return '';
+  if (outcome && outcome.failed !== true) return '';
   try {
     let logText = '';
     try {
@@ -425,7 +425,7 @@ export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = 
       return '';
     }
     const telegramLib = await import('./subscription-block-telegram.lib.mjs');
-    const parsed = telegramLib.parseSubscriptionBlockFromLog(logText);
+    const parsed = telegramLib.parseSubscriptionBlockFromLog(logText, { expectedTool });
     if (!parsed) return '';
     return telegramLib.formatSubscriptionBlockedSection(parsed, { locale });
   } catch (error) {
@@ -434,6 +434,13 @@ export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = 
     }
     return '';
   }
+}
+
+/** Preserve a forum topic when completion text overflows into follow-up messages. */
+export function buildSessionNotificationOptions(sessionInfo, verbose = false) {
+  const options = { verbose };
+  if (sessionInfo?.messageThreadId !== null && sessionInfo?.messageThreadId !== undefined) options.message_thread_id = sessionInfo.messageThreadId;
+  return options;
 }
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
@@ -941,6 +948,8 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
             verbose,
             readFile: options.readFile,
             locale: sessionInfo?.locale || null,
+            outcome: completionOutcome,
+            expectedTool: sessionInfo?.tool || null,
           });
           if (blockedSection) subscriptionBlockedExtraSections.push(blockedSection);
         } catch (blockedError) {
@@ -1030,12 +1039,13 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         // Update the original reply message if messageId is available, otherwise send new message
         let notifyFromChatId = null;
         let notifyMessageId = null;
+        const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
         if (sessionInfo.messageId) {
-          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, { verbose });
+          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
           notifyFromChatId = sessionInfo.chatId;
           notifyMessageId = sessionInfo.messageId;
         } else {
-          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, { verbose });
+          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, notificationOptions);
           notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
           notifyMessageId = sent?.message_id || null;
         }

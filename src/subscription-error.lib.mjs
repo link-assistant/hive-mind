@@ -8,11 +8,10 @@
  *      subscription access for Claude Code · Use an Anthropic API key instead,
  *      or ask your admin to enable access
  *
- * That sentence is not a transient API fault and not a usage limit: it means the
- * *account itself* is no longer permitted to use the tool. Waiting does not help,
- * retrying does not help, switching to a fallback model does not help — the run
- * must stop immediately, preserve the work, and tell the operator exactly what to
- * do.
+ * That sentence is not a transient API fault and not a usage limit: the provider
+ * reports that this tool's subscription access is inactive. It does not establish
+ * that the whole account is blocked. The run must stop immediately, preserve the
+ * work, and tell the operator exactly what the provider reported and what to do.
  *
  * This module is the single place that recognises that whole class of errors for
  * every tool hive-mind can drive. Two detection layers are used, strongest first:
@@ -33,7 +32,7 @@
  */
 
 /** Emitted verbatim into the log so /hive, the Telegram monitor and humans can grep for it. */
-export const SUBSCRIPTION_BLOCKED_MARKER = '🚫 SUBSCRIPTION/ACCESS BLOCKED';
+export const SUBSCRIPTION_BLOCKED_MARKER = '⚠️ SUBSCRIPTION/ACCESS UNAVAILABLE';
 
 export const SUBSCRIPTION_ERROR_KINDS = {
   ORG_SUBSCRIPTION_DISABLED: 'org_subscription_disabled',
@@ -71,6 +70,23 @@ export const SUBSCRIPTION_ERROR_CODES = Object.freeze({
   not_chatgpt_auth: K.LOGIN_REQUIRED,
 });
 
+/** Provider ownership prevents one tool from claiming another tool's quoted error. */
+const SUBSCRIPTION_ERROR_CODE_TOOLS = Object.freeze({
+  oauth_org_not_allowed: 'claude',
+  authentication_failed: 'claude',
+  token_revoked: 'claude',
+  invalid_api_key: 'claude',
+  billing_error: 'claude',
+  credit_balance_low: 'claude',
+  missing_codex_entitlement: 'codex',
+  disabled_by_admin: 'codex',
+  plan_not_eligible: 'codex',
+  required_app_unavailable: 'codex',
+  refresh_token_expired: 'codex',
+  refresh_token_invalidated: 'codex',
+  not_chatgpt_auth: 'codex',
+});
+
 /**
  * Substrings that look authentication-ish but are explicitly transient. Checked
  * before every other rule so a network blip is never reported as a cancelled
@@ -79,9 +95,9 @@ export const SUBSCRIPTION_ERROR_CODES = Object.freeze({
 const TRANSIENT_AUTH_PATTERNS = ['this may be a temporary network issue', 'could not authenticate with its upstream provider', 'temporary failure in name resolution'];
 
 /**
- * Verbatim strings from the shipped CLIs, lower-cased. `tool` is informational:
- * a message is matched regardless of which tool produced it, because hive-mind
- * often only sees the rendered text several layers away from its origin.
+ * Verbatim strings from the shipped CLIs, lower-cased. Provider-specific rules
+ * must agree with an explicitly supplied tool. Calls without a tool retain the
+ * old rendered-text fallback used by retry classification.
  */
 const MESSAGE_RULES = [
   // ---- Claude Code -------------------------------------------------------
@@ -132,7 +148,7 @@ const MESSAGE_RULES = [
 ];
 
 const KIND_LABELS = Object.freeze({
-  [K.ORG_SUBSCRIPTION_DISABLED]: 'Subscription access disabled for this organization',
+  [K.ORG_SUBSCRIPTION_DISABLED]: 'Subscription access is inactive for this organization',
   [K.ACCOUNT_NO_ACCESS]: 'Account is not authorized to use this tool',
   [K.LOGIN_REQUIRED]: 'Authentication expired — re-login required',
   [K.BILLING]: 'Subscription/billing problem',
@@ -141,7 +157,7 @@ const KIND_LABELS = Object.freeze({
 });
 
 const KIND_REASONS = Object.freeze({
-  [K.ORG_SUBSCRIPTION_DISABLED]: 'The provider rejected the request because the organization/account behind the subscription is no longer allowed to use this CLI. This is an account-level block, not a rate limit — it will not clear on its own.',
+  [K.ORG_SUBSCRIPTION_DISABLED]: "The provider reports that this organization's subscription access to the selected tool is inactive. This does not mean the whole account is blocked, and the provider did not give a reset time.",
   [K.ACCOUNT_NO_ACCESS]: 'The provider accepted the credentials but the account has no entitlement for this product. Access must be granted before any further run can succeed.',
   [K.LOGIN_REQUIRED]: 'The stored OAuth credentials are gone, revoked or unrefreshable. Every request will fail until the tool is logged in again.',
   [K.BILLING]: 'The subscription is expired, cancelled or out of credit. Requests stay rejected until billing is restored.',
@@ -194,7 +210,7 @@ const buildGuidance = (kind, tool) => {
   const steps = [];
   switch (kind) {
     case K.ORG_SUBSCRIPTION_DISABLED:
-      steps.push('Ask the organization/workspace admin to re-enable CLI access for this account.');
+      steps.push('Ask the organization/workspace admin to renew or enable subscription access to this tool.');
       steps.push('Or switch this run to API-key billing instead of the subscription.');
       break;
     case K.ACCOUNT_NO_ACCESS:
@@ -236,8 +252,11 @@ export const detectSubscriptionError = input => {
   const rawCode = descriptor.errorCode ? String(descriptor.errorCode).toLowerCase().trim() : null;
   const apiErrorStatus = Number.isFinite(descriptor.apiErrorStatus) ? descriptor.apiErrorStatus : null;
 
-  // Layer 1: machine-readable code. Trusted even when the message is missing.
+  // Layer 1: machine-readable code. Trusted even when the message is missing,
+  // but never across an explicitly different provider/tool.
   if (rawCode && Object.hasOwn(SUBSCRIPTION_ERROR_CODES, rawCode)) {
+    const codeTool = SUBSCRIPTION_ERROR_CODE_TOOLS[rawCode] || null;
+    if (tool && codeTool && tool !== codeTool) return null;
     const kind = SUBSCRIPTION_ERROR_CODES[rawCode];
     return {
       isSubscriptionError: true,
@@ -259,6 +278,9 @@ export const detectSubscriptionError = input => {
   // Layer 2: verbatim provider strings.
   for (const rule of MESSAGE_RULES) {
     if (!rule.needles.every(n => lower.includes(n))) continue;
+    // Provider rules precede generic rules. If text clearly belongs to another
+    // provider, stop here instead of letting the generic wording reclassify it.
+    if (tool && rule.tool && tool !== rule.tool) return null;
     return {
       isSubscriptionError: true,
       kind: rule.kind,
@@ -294,8 +316,8 @@ export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = n
   if (info.code) lines.push(`   Error code: ${info.code}${info.apiErrorStatus ? ` (HTTP ${info.apiErrorStatus})` : ''}`);
   else if (info.apiErrorStatus) lines.push(`   HTTP status: ${info.apiErrorStatus}`);
   lines.push(`   Why this stops the run: ${info.reason}`);
-  lines.push('   This is NOT a usage limit and NOT a transient API error — retrying, waiting for a reset');
-  lines.push('   or switching to a fallback model cannot fix it, so the task is stopped now.');
+  lines.push('   This is NOT a usage limit and NOT a transient API error. The provider gave no reset time,');
+  lines.push('   so retrying, waiting, or switching only the model is not expected to restore access.');
   lines.push('');
   lines.push('   What to do:');
   for (const step of info.guidance || []) lines.push(`     • ${step}`);

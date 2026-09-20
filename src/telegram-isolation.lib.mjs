@@ -87,6 +87,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
           {
             chatId: item.ctx?.chat?.id,
             messageId: item.messageInfo?.messageId,
+            messageThreadId: item.messageInfo?.messageThreadId ?? item.ctx?.message?.message_thread_id ?? null,
             startTime: new Date(),
             url: item.url,
             command: item.command || 'solve',

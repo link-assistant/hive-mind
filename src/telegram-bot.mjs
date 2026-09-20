@@ -74,15 +74,8 @@ const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
-const { resolveTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
-let CONTAINER_RESOURCE_LIMITS, containerResourceLimitsSummary;
-try {
-  ({ limits: CONTAINER_RESOURCE_LIMITS, summary: containerResourceLimitsSummary } = resolveTelegramContainerResourceLimits(config, ISOLATION_BACKEND));
-} catch (error) {
-  console.error(`Error: Invalid container resource limit: ${error?.message || error}`);
-  process.exit(1);
-}
-if (containerResourceLimitsSummary) console.log(`📏 Docker task limits enabled: ${containerResourceLimitsSummary}`);
+const { initializeTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
+const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {

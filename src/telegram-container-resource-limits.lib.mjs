@@ -12,3 +12,15 @@ export function resolveTelegramContainerResourceLimits(config = {}, isolationBac
   if (isolationBackend !== 'docker') throw new Error('--container-cpu, --container-memory, and --container-disk require --isolation docker');
   return { limits, summary: `CPU=${limits.cpu || 'unlimited'}, RAM=${limits.memory || 'unlimited'}, disk=${limits.disk || 'unlimited'}` };
 }
+
+export function initializeTelegramContainerResourceLimits(config = {}, isolationBackend = '', { log = console.log, logError = console.error, exit = code => process.exit(code) } = {}) {
+  try {
+    const result = resolveTelegramContainerResourceLimits(config, isolationBackend);
+    if (result.summary) log(`📏 Docker task limits enabled: ${result.summary}`);
+    return result.limits;
+  } catch (error) {
+    logError(`Error: Invalid container resource limit: ${error?.message || error}`);
+    exit(1);
+    return { cpu: null, memory: null, disk: null };
+  }
+}

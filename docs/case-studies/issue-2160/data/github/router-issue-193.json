@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Reproduction\n\nRun the published base image with the documented explicit alternative:\n\n```text\nTOKEN_SECRET=...\nALLOW_ANONYMOUS_ADMIN=true\nLOGIN_CLI_ARGS=setup-token\n```\n\nThen `POST /api/login` returns HTTP 502:\n\n```text\ncould not start the login flow: Unable to spawn claude because:\nNo viable candidates found in PATH \"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n```\n\nThe same v0.77 image can start the default full-scope/native Claude flow, but the `setup-token` alternative promised by #65 and the documentation still depends on an absent vendor binary. The on-demand download/fallback promised by #116 does not make this path viable in the published runtime image.\n\n## Expected behavior\n\n- One published runtime image supports both modes without a custom rebuild:\n  - full Claude Code `/login`-equivalent scopes by default;\n  - narrow `setup-token` (`user:inference`) only when explicitly selected.\n- Prefer an in-process narrow OAuth implementation if legally/protocol-wise possible; otherwise download a pinned/checksummed Claude CLI into a writable cache on demand, with clear supply-chain metadata and no shell installer.\n- `doctor` reports whether each auth mode is available before login starts.\n- `POST /api/login` and a direct `auth claude` option expose the same explicit mode selection.\n- Add a test from the exact published image digest that starts each mode in a fresh container, verifies the expected authorize host/scopes and confirms the waiting session remains alive; no preinstalled host binary or hidden build variant may satisfy the test.",
+  "closedAt": "2026-08-17T06:07:59Z",
+  "createdAt": "2026-08-15T16:03:26Z",
+  "labels": [],
+  "number": 193,
+  "state": "CLOSED",
+  "title": "Published v0.77 image cannot run the documented setup-token login alternative",
+  "updatedAt": "2026-08-17T06:07:59Z",
+  "url": "https://github.com/link-assistant/router/issues/193"
+}

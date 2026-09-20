@@ -1,0 +1,456 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Closes #187 partially — see \"Not included\" below.\n\n## What was broken\n\n1. **The native Gemini namespace routed by provider, not by model.** `/api/gemini/v1beta/*` only worked under `UPSTREAM_PROVIDER=gemini`, so with a healthy Codex subscription `GET /api/gemini/v1beta/models` returned `{\"models\":[]}` while `/v1/models`, `/api/openai/v1/models`, `/api/codex/v1/models`, `/api/anthropic/v1/models` and `/api/qwen/v1/models` all returned the same 8 live models, and `…/gpt-5.4-mini:generateContent` returned `400 no healthy gemini credential is available`.\n2. **A request could hang forever.** An Anthropic `POST /v1/messages` to a Codex model carrying only `{\"type\":\"web_search_20250305\",\"name\":\"web_search\",\"max_uses\":1}` with `tool_choice: {\"type\":\"any\"}` returned nothing for 80+ seconds.\n\n## Root causes and fixes\n\n**Gemini namespace.** The handlers resolved credentials from the configured upstream instead of from the requested model. They now resolve the owning subscription via `available_provider_for_model` over `healthy_providers`: Gemini-owned models keep the Code Assist path, and Codex/Claude/Qwen models are translated through `proxy::openai_chat_completions` so routing, budgets, auditing, metrics and capability gating stay in one place. The model list is the live catalog union, so a disconnected provider contributes nothing — no model is ever synthesized.\n\n**The hang has two independent causes, both fixed.**\n\n- `tool_choice: any`/`required` demands a *function* call, but a server-side tool is executed by the backend and never surfaces as one. A request offering only server tools leaves the upstream with no way to comply. It is now refused with a fast `400` on the Anthropic, Chat Completions and Responses surfaces (`capabilities::unhonourable_server_tool_request`), before reaching the vendor.\n- The shared upstream `reqwest` client had **no timeout at all**. It now carries a 120 s *read* timeout (`UPSTREAM_READ_TIMEOUT_SECS`, `0` disables) — a per-read bound, so a legitimately long agentic stream stays legal while a silent backend errors out instead of hanging.\n\n## Tests\n\n- `tests/gemini_namespace_test.rs` — 8 new end-to-end tests over a stub vendor: list equals the `/v1/models` union; disconnected subscriptions are omitted; model metadata resolves and unknown models 404 in the Gemini error shape; `generateContent` serves both Codex and Claude models; `streamGenerateContent` emits Gemini SSE cross-provider; a full client tool-call/result loop completes over Codex; an unavailable model reports in the Gemini envelope; `generationConfig.maxOutputTokens` is honoured on both a Codex- and a Claude-owned model, leaving a fitting answer intact with `finishReason: \"STOP\"` and truncating an over-budget one with `finishReason: \"MAX_TOKENS\"`.\n  **Reproduction verified**: with `src/gemini.rs` reverted, all 8 fail, including the exact reported `no healthy gemini credential is available`.\n- `tests/router_e2e/cases_regressions.rs::a_forced_call_on_server_tools_only_fails_fast_on_every_surface` — the reported request on all three input protocols, wrapped in `tokio::time::timeout` so the time bound is asserted, not assumed; each must answer `400` well inside 10 s and must never reach the stub.\n- `an_uncoerced_server_tool_search_still_reaches_codex` — proves the guard narrows nothing that previously worked.\n- Unit tests for the capability gate and for `UPSTREAM_READ_TIMEOUT_SECS` parsing.\n\nFull suite green; `cargo fmt` and `cargo clippy --all-targets --all-features` clean.\n\n## Not included, deliberately\n\n- **Cursor CLI Connect-RPC adapter.** Cursor speaks an unversioned private `agent.v1`/`aiserver.v1` Connect-RPC protobuf protocol over HTTP/2, and building or verifying an adapter needs a real Cursor account and a captured protocol. It cannot be implemented honestly here, so it is left out rather than stubbed. `clients list`/`doctor` already report it as unsupported with that rationale (`src/clients.rs`), which matches reality.\n- **Refusing `max_uses` on backends that cannot enforce it.** Implementing this broke the pre-existing test `cases_core::anthropic_web_search_translates_to_codex_without_becoming_a_client_tool`, which deliberately covers translating `max_uses: 2` to Codex. Removing tested behaviour was out of scope, so `max_uses` is still translated as before; it is a known limitation. The hang it was reported alongside is fixed by the two causes above.\n\n## Docs\n\n`docs/use-cases/cli-gemini-cli.md` no longer claims the namespace needs `UPSTREAM_PROVIDER=gemini`, and documents both how `maxOutputTokens` is honoured per provider and the forced-tool-choice refusal. `README.md` documents `UPSTREAM_READ_TIMEOUT_SECS` and the cross-provider Gemini routes. Changelog fragment added (`minor`); `Cargo.toml` is intentionally untouched — the release workflow bumps it and manual edits are blocked by `version-check`.\n\n\n\n## Merge with `main`\n\n`main` gained #186 (PR #198) meanwhile, which replaced the router's *refusal* of `max_output_tokens` on Codex-backed surfaces with local emulation: the field is stripped from the upstream request and the router truncates the answer itself (`src/output_limit.rs`). The native Gemini namespace routes cross-provider models through the same Chat Completions handler, so it inherits that behaviour and can no longer refuse an output cap. Resolved by:\n\n- rebuilding `tests/router_e2e/cases_regressions.rs`, which both branches appended tests to, so all tests from both survive;\n- replacing this branch's cap-refusal test with `generate_content_emulates_the_output_cap_natively`, asserting the emulation on a Codex- and a Claude-owned model;\n- teaching the Anthropic stub to honour `max_tokens`, since Anthropic enforces the cap upstream rather than relying on the router's emulation;\n- updating `docs/use-cases/cli-gemini-cli.md` and the changelog fragment;\n- re-measuring `coverage-baseline.txt` on the merged tree (79.227252%, above both branches' pre-merge numbers).\n",
+  "closedAt": "2026-08-16T19:36:41Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T17:28:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T17:28:08Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/187",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "4b8f479cfa36ea3012517296026e398e88d9a547"
+    },
+    {
+      "authoredDate": "2026-08-16T17:50:31Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T17:50:31Z",
+      "messageBody": "…space\n\nThe Gemini namespace routed by endpoint instead of model ownership, so\nwith only a Codex subscription connected /api/gemini/v1beta/models\nanswered {\"models\":[]} and :generateContent answered 400 \"no healthy\ngemini credential is available\" while /v1/models listed the live Codex\ncatalog (issue #187).\n\nModel listing now unions the live catalogs of every healthy\nsubscription, and a native request resolves its owning subscription from\nthe model id. Gemini-owned models keep the Code Assist path; Codex,\nClaude and Qwen models are translated into OpenAI Chat Completions,\ndelegated to the existing proxy handler so routing, budgets, auditing,\nmetrics and capability gating stay in one place, and translated back\ninto GenerateContentResponse. Nothing is synthesized: a disconnected\nprovider contributes no models.",
+      "messageHeadline": "feat(gemini): serve every connected subscription over the native name…",
+      "oid": "a7e6c664d799127a85fe0fdda2e1a3503104cc05"
+    },
+    {
+      "authoredDate": "2026-08-16T18:04:28Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:04:28Z",
+      "messageBody": "… reads\n\nA request offering only server-side tools with tool_choice any/required can\nnever be satisfied: the backend executes those tools itself and never emits a\nfunction call, so the upstream went quiet and the client waited indefinitely\n(issue #187 comment: 80+ seconds with no response). Refuse such requests up\nfront on the Anthropic, Chat Completions and Responses surfaces.\n\nIndependently, the shared upstream client had no timeout at all, so any silent\nbackend stalled forever. Bound it with a 120 s read timeout\n(UPSTREAM_READ_TIMEOUT_SECS, 0 disables) — a per-read bound so long agentic\nanswers stay legal while a dead connection errors out.",
+      "messageHeadline": "fix(tools): refuse unsatisfiable forced tool calls and bound upstream…",
+      "oid": "b9187c1db789a6c82602a8c0d7da70facb137650"
+    },
+    {
+      "authoredDate": "2026-08-16T18:06:07Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:06:07Z",
+      "messageBody": "…bound",
+      "messageHeadline": "docs: describe the cross-provider Gemini namespace and upstream read …",
+      "oid": "276be9ed940e71c781e4d927db030cec66fe4715"
+    },
+    {
+      "authoredDate": "2026-08-16T18:20:12Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:20:12Z",
+      "messageBody": "…modules\n\nBoth src/gemini.rs and src/config.rs grew past the repository's 1000-line\nlimit. Move the native namespace handlers to src/gemini/native.rs and the\nupstream client construction to src/upstream_client.rs, and record the new\ncoverage baseline.",
+      "messageHeadline": "refactor: split the native Gemini namespace and upstream client into …",
+      "oid": "a575da87991390578be50e50b85043271d2819bf"
+    },
+    {
+      "authoredDate": "2026-08-16T18:41:13Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:41:13Z",
+      "messageBody": "",
+      "messageHeadline": "chore: retrigger CI",
+      "oid": "972e028bca50bb5ecb807e51c5d06b2d00564902"
+    },
+    {
+      "authoredDate": "2026-08-16T18:51:17Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:51:17Z",
+      "messageBody": "",
+      "messageHeadline": "chore: record the measured coverage baseline",
+      "oid": "64473d5e3a32115ac3784e00a8199f895aa12884"
+    },
+    {
+      "authoredDate": "2026-08-16T19:15:09Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:15:09Z",
+      "messageBody": "Issue #186 (merged into main as PR #198) replaced the router's refusal of\n`max_output_tokens` on Codex-backed surfaces with local emulation: the field\nis stripped from the upstream request and the router truncates the answer\nitself. The native Gemini namespace added for issue #187 routes cross-provider\nmodels through the same Chat Completions handler, so it inherits that\nbehaviour and can no longer refuse an output cap.\n\n- Rebuild tests/router_e2e/cases_regressions.rs to keep both branches' tests.\n- Replace the Gemini cap-refusal test with one asserting the emulation:\n  a generous cap leaves the answer intact with finishReason STOP, a tight cap\n  truncates it with finishReason MAX_TOKENS, on both a Codex- and a\n  Claude-owned model.\n- Teach the Anthropic stub to honour max_tokens, since Anthropic enforces the\n  cap upstream rather than relying on the router's emulation.\n- Update the Gemini CLI use-case doc and changelog fragment accordingly.",
+      "messageHeadline": "merge: resolve conflicts with main and reconcile the Gemini output cap",
+      "oid": "50d57b32a96eaf96df95f0d4199b530ab9323831"
+    },
+    {
+      "authoredDate": "2026-08-16T19:19:30Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:19:30Z",
+      "messageBody": "Both branches raised the baseline independently (78.60% on main, 78.87% on\nthis branch). The merged tree measures 79.227252%, so record that instead of\neither side's pre-merge number and keep CI's ratchet check idempotent.",
+      "messageHeadline": "chore: record the coverage baseline measured after the merge",
+      "oid": "2a0317381d0004cdac4d8b80d29413b0b3468b66"
+    }
+  ],
+  "createdAt": "2026-08-16T17:28:18Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "README.md",
+      "additions": 3,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_120000_issue_187_gemini_namespace_and_forced_tool_calls.md",
+      "additions": 14,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "coverage-baseline.txt",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/cli-gemini-cli.md",
+      "additions": 22,
+      "deletions": 5,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/anthropic_bridge.rs",
+      "additions": 9,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/capabilities.rs",
+      "additions": 84,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/gemini.rs",
+      "additions": 7,
+      "deletions": 254,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/gemini/native.rs",
+      "additions": 404,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/gemini_bridge.rs",
+      "additions": 460,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/lib.rs",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/main.rs",
+      "additions": 1,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/model_catalog.rs",
+      "additions": 5,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/proxy_openai.rs",
+      "additions": 22,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/upstream_client.rs",
+      "additions": 59,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/gemini_namespace_test.rs",
+      "additions": 591,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/router_e2e/cases_regressions.rs",
+      "additions": 83,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-187-fa8abda3a835",
+  "headRefOid": "2a0317381d0004cdac4d8b80d29413b0b3468b66",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T19:36:41Z",
+  "number": 196,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:26:08Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214640834",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T19:25:20Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:27:06Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214641054",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T19:26:01Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:26:14Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214640901",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T19:25:59Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:23:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214641604",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T19:23:33Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:27:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214955468",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T19:26:16Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:27:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214955370",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T19:26:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:29:23Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95214955373",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T19:26:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:29:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215080236",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T19:27:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:28:56Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215080272",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T19:27:13Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:30:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215080243",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T19:27:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:29:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215080253",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T19:27:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215445365",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T19:30:19Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750253",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T19:32:44Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750472",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750524",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:45Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750879",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:45Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750775",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:45Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750908",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T19:32:45Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31967238520/job/95215750910",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-16T19:32:45Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "fix(gemini): serve every subscription natively and stop forced server-tool requests from hanging",
+  "updatedAt": "2026-08-16T19:36:42Z",
+  "url": "https://github.com/link-assistant/router/pull/196"
+}

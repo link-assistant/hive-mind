@@ -1,0 +1,26 @@
+[
+  {
+    "createdAt": "2026-05-01T11:27:39Z",
+    "number": 35,
+    "state": "OPEN",
+    "title": "Add qwen and gemini prompt-file and passthrough parity",
+    "updatedAt": "2026-05-01T11:27:39Z",
+    "url": "https://github.com/link-assistant/agent-commander/issues/35"
+  },
+  {
+    "createdAt": "2026-05-01T05:12:29Z",
+    "number": 29,
+    "state": "CLOSED",
+    "title": "Expose hive-mind execution parity options for claude/codex/opencode/agent",
+    "updatedAt": "2026-05-01T10:53:52Z",
+    "url": "https://github.com/link-assistant/agent-commander/issues/29"
+  },
+  {
+    "createdAt": "2026-05-01T05:12:38Z",
+    "number": 30,
+    "state": "CLOSED",
+    "title": "Expose normalized result metadata for hive-mind solve sessions",
+    "updatedAt": "2026-05-01T09:06:54Z",
+    "url": "https://github.com/link-assistant/agent-commander/issues/30"
+  }
+]

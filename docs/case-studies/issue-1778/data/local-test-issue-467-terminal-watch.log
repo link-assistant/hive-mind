@@ -1,0 +1,53 @@
+================================================================================
+Unit Tests: Telegram terminal watch (Issue #467)
+================================================================================
+
+--- parseTerminalWatchArgs() ---
+  ✅ extracts session id from direct command
+  ✅ parses --size width
+  ✅ parses --size height
+  ✅ parses --interval-ms
+  ✅ parses --max-chars inline form
+  ✅ accepts valid options without errors
+  ✅ reports invalid size, height, and unknown option
+  ✅ extracts session id from /watch alias
+  ✅ accepts /watch alias without treating it as an argument
+
+--- tailTextForTerminal() ---
+  ✅ keeps last height lines and trims long lines from the left
+  ✅ renders empty logs explicitly
+
+--- formatTerminalWatchMessage() ---
+  ✅ formats live watch title
+  ✅ includes session id
+  ✅ sanitizes nested code fences in logs
+  ✅ includes repository description
+
+--- resolveTerminalWatchRepository() ---
+  ✅ derives repo from $ --status command when in-memory tracking is missing
+  ✅ returns detected visibility
+
+--- watchTerminalLogSession() ---
+  ✅ edits the watch message while running and at completion
+  ✅ does not attach the full log when the session reaches terminal status (issue #1720)
+  ✅ freezes final message as complete
+
+--- watchTerminalLogSession() change detection (Issue #1750) ---
+  ✅ polls the session more than once while the watch is active
+  ✅ does not edit Telegram message when terminal snapshot is unchanged
+  ✅ edits Telegram exactly once for one changed terminal snapshot
+  ✅ counts only changed terminal snapshots as updates
+
+--- /terminal_watch requester access and /watch alias (Issue #1778) ---
+  ✅ registers /watch as an alias for /terminal_watch
+  ✅ session requester does not need chat-owner lookup
+  ✅ session requester can start /terminal_watch for their own task
+  ✅ non-requester chat owner still uses owner authorization path
+  ✅ chat owner can still start /terminal_watch for any task
+  ✅ can invoke the /watch alias handler
+  ✅ session requester private-repo watch does not need chat-owner lookup
+  ✅ DM delivery failure tells requester to start the bot privately
+
+================================================================================
+Result: 32 passed, 0 failed
+================================================================================

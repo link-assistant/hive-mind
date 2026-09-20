@@ -1,0 +1,7 @@
+19158:Docker Publish (Instant)	Build and push Docker image	2025-12-23T23:41:25.5915090Z #15 3029.3 error: failed to extract package: No space left on device (os error 28)
+19159:Docker Publish (Instant)	Build and push Docker image	2025-12-23T23:41:25.7057046Z #15 ERROR: process "/bin/sh -c chmod +x /tmp/ubuntu-24-server-install.sh &&     DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh &&     rm -f /tmp/ubuntu-24-server-install.sh" did not complete successfully: exit code: 1
+19171:Docker Publish (Instant)	Build and push Docker image	2025-12-23T23:41:25.7339868Z 3029.3 error: failed to extract package: No space left on device (os error 28)
+19181:Docker Publish (Instant)	Build and push Docker image	2025-12-23T23:41:25.7349913Z ERROR: failed to build: failed to solve: process "/bin/sh -c chmod +x /tmp/ubuntu-24-server-install.sh &&     DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh &&     rm -f /tmp/ubuntu-24-server-install.sh" did not complete successfully: exit code: 1
+19182:Docker Publish (Instant)	Build and push Docker image	2025-12-23T23:41:25.9175723Z ##[error]buildx failed with: ERROR: failed to build: failed to solve: process "/bin/sh -c chmod +x /tmp/ubuntu-24-server-install.sh &&     DOCKER_BUILD=1 bash /tmp/ubuntu-24-server-install.sh &&     rm -f /tmp/ubuntu-24-server-install.sh" did not complete successfully: exit code: 1
+
+=== Context around the error ===

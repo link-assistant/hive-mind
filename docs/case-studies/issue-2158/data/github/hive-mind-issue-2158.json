@@ -1,0 +1,25 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "Check:\n- https://github.com/link-assistant/hive-mind/issues/2154\n- https://github.com/link-assistant/hive-mind/issues/2146\n- https://github.com/link-assistant/hive-mind/issues/2119\n- and others on similar topic\n\nAlso take latest logs from\n- https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2\n- https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2\n- https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2\n\nFirst priority is that there is zero issues on Hive Mind side, after that we should recheck if any issues with https://github.com/link-assistant/agent and github.com/link-assistant/formal-ai\n\nAll that prevent Formal AI from coding via Hive Mind - is an issue, and must be fixed.\n\nSo report any upstream issues, and fix all Hive Mind issues in this pull request.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "closedAt": null,
+  "createdAt": "2026-08-15T13:48:18Z",
+  "labels": [
+    {
+      "id": "LA_kwDOPUU0qc8AAAACGYm6iw",
+      "name": "bug",
+      "description": "Something isn't working",
+      "color": "d73a4a"
+    }
+  ],
+  "number": 2158,
+  "state": "OPEN",
+  "title": "Keep working on formal-ai support",
+  "updatedAt": "2026-08-15T13:48:18Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2158"
+}

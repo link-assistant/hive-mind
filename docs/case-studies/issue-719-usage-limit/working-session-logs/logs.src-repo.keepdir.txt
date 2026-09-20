@@ -1,0 +1,59 @@
+
+  // Determine which remote to use for branch checkout
+  const remoteName = prForkRemote || 'origin';
+
+  // First fetch all branches from remote (if not already fetched from pr-fork)
+  if (!prForkRemote) {
+    await log(`${formatAligned('📥', 'Fetching branches:', 'From remote...')}`);
+    const fetchResult = await $({ cwd: tempDir })`git fetch origin`;
+
+    if (fetchResult.code !== 0) {
+      await log('Warning: Failed to fetch branches from remote', { level: 'warning' });
+    }
+  } else {
+    await log(`${formatAligned('ℹ️', 'Using pr-fork remote:', `Branch exists in ${prForkOwner}'s fork`)}`);
+  }
+
+  // Checkout the PR branch (it might exist locally or remotely)
+  const localBranchResult = await $({ cwd: tempDir })`git show-ref --verify --quiet refs/heads/${branchName}`;
+
+  let checkoutResult;
+  if (localBranchResult.code === 0) {
+    // Branch exists locally
+    checkoutResult = await $({ cwd: tempDir })`git checkout ${branchName}`;
+  } else {
+    // Branch doesn't exist locally, try to checkout from remote
+    checkoutResult = await $({ cwd: tempDir })`git checkout -b ${branchName} ${remoteName}/${branchName}`;
+  }
+
+  return checkoutResult;
+};
+
+// Cleanup temporary directory
+export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
+  // Determine if we should skip cleanup
+  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+
+  if (!shouldKeepDirectory) {
+    try {
+      process.stdout.write('\n🧹 Cleaning up...');
+      await fs.rm(tempDir, { recursive: true, force: true });
+      await log(' ✅');
+    } catch (cleanupError) {
+      reportError(cleanupError, {
+        context: 'cleanup_temp_directory',
+        tempDir,
+        operation: 'remove_temp_dir'
+      });
+      await log(' ⚠️  (failed)');
+    }
+  } else if (argv.resume) {
+    await log(`\n📁 Keeping directory for resumed session: ${tempDir}`);
+  } else if (limitReached && argv.autoContinueLimit) {
+    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);
+  } else if (limitReached) {
+    await log(`\n📁 Keeping directory for future resume: ${tempDir}`);
+  } else if (!argv.autoCleanup) {
+    await log(`\n📁 Keeping directory (--no-auto-cleanup): ${tempDir}`);
+  }
+};

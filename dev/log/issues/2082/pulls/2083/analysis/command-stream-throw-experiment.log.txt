@@ -1,0 +1,4 @@
+error: pathspec 'definitely-not-a-branch-2082' did not match any file(s) known to git
+threw          = false
+result.code    = 1
+VERDICT: DOES NOT THROW -> failures are silently ignored

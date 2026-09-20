@@ -1,0 +1,61 @@
+# Key log excerpts — GitHub Actions run 29035249489 (Release + Docker jobs)
+# Source: https://github.com/link-assistant/hive-mind/actions/runs/29035249489
+# ANSI color codes stripped for readability.
+
+## setup-npm.mjs upgraded npm to the broken 12.0.0
+Release	Update npm for OIDC trusted publishing	2026-07-09T17:09:25.9581612Z Current npm version: 11.16.0
+Release	Update npm for OIDC trusted publishing	2026-07-09T17:09:31.1996530Z Updated npm version: 12.0.0
+
+## publish-to-npm.mjs attempt 1: always-auth warning + sigstore crash + false positive
+Release	Publish to npm	2026-07-09T17:09:41.9290589Z npm warn Unknown user config "always-auth". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Release	Publish to npm	2026-07-09T17:09:41.9338276Z npm notice run @link-assistant/hive-mind@2.1.10 changeset:publish
+Release	Publish to npm	2026-07-09T17:09:41.9339143Z npm notice run npm run build:pre && changeset publish
+Release	Publish to npm	2026-07-09T17:09:42.0288759Z npm warn Unknown user config "always-auth". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Release	Publish to npm	2026-07-09T17:09:42.0337059Z npm notice run @link-assistant/hive-mind@2.1.10 build:pre
+Release	Publish to npm	2026-07-09T17:09:42.0339034Z npm notice run chmod +x src/hive.mjs && chmod +x src/solve.mjs && chmod +x src/configure-claude.mjs && chmod +x src/hive-screens.mjs
+Release	Publish to npm	2026-07-09T17:09:42.3246863Z 🦋  ^[[36minfo^[[39m npm info @link-assistant/hive-mind
+Release	Publish to npm	2026-07-09T17:09:42.6725339Z 🦋  ^[[36minfo^[[39m @link-assistant/hive-mind is being published because our local version (2.1.10) has not been published on npm
+Release	Publish to npm	2026-07-09T17:09:42.6726459Z 🦋  ^[[36minfo^[[39m Publishing ^[[36m"@link-assistant/hive-mind"^[[39m at ^[[32m"2.1.10"^[[39m
+Release	Publish to npm	2026-07-09T17:09:42.9358119Z 🦋  ^[[31merror^[[39m an error occurred while publishing @link-assistant/hive-mind: MODULE_NOT_FOUND Cannot find module 'sigstore'
+Release	Publish to npm	2026-07-09T17:09:42.9360825Z 🦋  ^[[31merror^[[39m Require stack:
+Release	Publish to npm	2026-07-09T17:09:42.9362140Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/provenance.js
+Release	Publish to npm	2026-07-09T17:09:42.9364723Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/publish.js
+Release	Publish to npm	2026-07-09T17:09:42.9366319Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/index.js
+Release	Publish to npm	2026-07-09T17:09:42.9368243Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/commands/publish.js
+Release	Publish to npm	2026-07-09T17:09:42.9369545Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/npm.js
+Release	Publish to npm	2026-07-09T17:09:42.9370794Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/cli/entry.js
+Release	Publish to npm	2026-07-09T17:09:42.9372675Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/cli.js
+Release	Publish to npm	2026-07-09T17:09:42.9373462Z 🦋  ^[[31merror^[[39m - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/bin/npm-cli.js 
+Release	Publish to npm	2026-07-09T17:09:42.9374051Z 🦋  ^[[31merror^[[39m npm error code MODULE_NOT_FOUND
+Release	Publish to npm	2026-07-09T17:09:42.9374746Z 🦋  ^[[31merror^[[39m npm error Cannot find module 'sigstore'
+Release	Publish to npm	2026-07-09T17:09:42.9375409Z 🦋  ^[[31merror^[[39m npm error Require stack:
+Release	Publish to npm	2026-07-09T17:09:42.9376774Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/provenance.js
+Release	Publish to npm	2026-07-09T17:09:42.9378608Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/publish.js
+Release	Publish to npm	2026-07-09T17:09:42.9380372Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/node_modules/libnpmpublish/lib/index.js
+Release	Publish to npm	2026-07-09T17:09:42.9381990Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/commands/publish.js
+Release	Publish to npm	2026-07-09T17:09:42.9383436Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/npm.js
+Release	Publish to npm	2026-07-09T17:09:42.9386915Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/cli/entry.js
+Release	Publish to npm	2026-07-09T17:09:42.9388277Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/lib/cli.js
+Release	Publish to npm	2026-07-09T17:09:42.9389534Z 🦋  ^[[31merror^[[39m npm error - /opt/hostedtoolcache/node/24.18.0/x64/lib/node_modules/npm/bin/npm-cli.js
+Release	Publish to npm	2026-07-09T17:09:42.9391048Z 🦋  ^[[31merror^[[39m npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-07-09T17_09_42_723Z-debug-0.log
+Release	Publish to npm	2026-07-09T17:09:42.9391922Z 🦋  ^[[31merror^[[39m 
+Release	Publish to npm	2026-07-09T17:09:42.9392426Z 🦋  ^[[31merror^[[39m packages failed to publish:
+Release	Publish to npm	2026-07-09T17:09:42.9393042Z 🦋  @link-assistant/hive-mind@2.1.10
+Release	Publish to npm	2026-07-09T17:09:42.9506606Z Setting GitHub output: published=true
+Release	Publish to npm	2026-07-09T17:09:42.9507949Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_30087735-3302-4437-93f1-c023f434f124
+Release	Publish to npm	2026-07-09T17:09:42.9508570Z Setting GitHub output: published_version=2.1.10
+Release	Publish to npm	2026-07-09T17:09:42.9509224Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_30087735-3302-4437-93f1-c023f434f124
+Release	Publish to npm	2026-07-09T17:09:42.9509803Z Published @link-assistant/hive-mind@2.1.10 to npm
+Release	Set publish outputs	﻿2026-07-09T17:09:42.9646736Z ##[group]Run echo "published=true" >> $GITHUB_OUTPUT
+Release	Set publish outputs	2026-07-09T17:09:42.9647132Z ^[[36;1mecho "published=true" >> $GITHUB_OUTPUT^[[0m
+Release	Set publish outputs	2026-07-09T17:09:42.9647513Z ^[[36;1mecho "published_version=2.1.10" >> $GITHUB_OUTPUT^[[0m
+Release	Set publish outputs	2026-07-09T17:09:42.9647926Z ^[[36;1mecho "Docker publish will be triggered with version: 2.1.10"^[[0m
+Release	Set publish outputs	2026-07-09T17:09:42.9682295Z shell: /usr/bin/bash -e {0}
+Release	Set publish outputs	2026-07-09T17:09:42.9682560Z env:
+Release	Set publish outputs	2026-07-09T17:09:42.9682793Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+## Downstream Docker jobs waited 300s for the never-published version
+37205:Docker Publish DinD (linux/arm64)	UNKNOWN STEP	2026-07-09T17:16:05.0344222Z Package @link-assistant/hive-mind@2.1.10 did not become available after 300 seconds
+37837:Docker Publish (linux/amd64)	UNKNOWN STEP	2026-07-09T17:16:54.1529984Z Package @link-assistant/hive-mind@2.1.10 did not become available after 300 seconds
+38468:Docker Publish DinD (linux/amd64)	UNKNOWN STEP	2026-07-09T17:16:56.2487775Z Package @link-assistant/hive-mind@2.1.10 did not become available after 300 seconds
+39091:Docker Publish (linux/arm64)	UNKNOWN STEP	2026-07-09T17:15:57.8282326Z Package @link-assistant/hive-mind@2.1.10 did not become available after 300 seconds

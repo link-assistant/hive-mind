@@ -13,7 +13,7 @@ const normalMessage = {
   date: 1760265652,
   text: '/solve https://github.com/owner/repo/issues/1',
   chat: { id: -1002975819706, type: 'supergroup' },
-  from: { id: 12345, username: 'testuser' }
+  from: { id: 12345, username: 'testuser' },
 };
 
 // Reply message (replying to another message)
@@ -27,8 +27,8 @@ const replyMessage = {
     message_id: 123,
     date: 1760265650,
     text: 'Some previous message',
-    from: { id: 67890, username: 'otheruser' }
-  }
+    from: { id: 67890, username: 'otheruser' },
+  },
 };
 
 // Forwarded message (new API - forward_origin)
@@ -41,8 +41,8 @@ const forwardedMessageNew = {
   forward_origin: {
     type: 'user',
     sender_user: { id: 99999, username: 'originaluser' },
-    date: 1760265640
-  }
+    date: 1760265640,
+  },
 };
 
 // Old forwarded message format (backward compatibility - might still exist)
@@ -53,7 +53,7 @@ const forwardedMessageOld = {
   chat: { id: -1002975819706, type: 'supergroup' },
   from: { id: 12345, username: 'testuser' },
   forward_from: { id: 99999, username: 'originaluser' },
-  forward_date: 1760265640
+  forward_date: 1760265640,
 };
 
 // Message that is BOTH a reply AND forwarded
@@ -67,13 +67,13 @@ const replyAndForwarded = {
     message_id: 123,
     date: 1760265650,
     text: 'Some previous message',
-    from: { id: 67890, username: 'otheruser' }
+    from: { id: 67890, username: 'otheruser' },
   },
   forward_origin: {
     type: 'user',
     sender_user: { id: 99999, username: 'originaluser' },
-    date: 1760265640
-  }
+    date: 1760265640,
+  },
 };
 
 function isForwardedOrReply_CURRENT(message) {
@@ -100,9 +100,7 @@ function isForwardedOrReply_FIXED(message) {
     return true;
   }
   // Check if message is forwarded - OLD API (forward_from, forward_from_chat, etc.)
-  if (message.forward_from || message.forward_from_chat ||
-      message.forward_from_message_id || message.forward_signature ||
-      message.forward_sender_name || message.forward_date) {
+  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
     return true;
   }
   // Check if message is a reply (has reply_to_message field)

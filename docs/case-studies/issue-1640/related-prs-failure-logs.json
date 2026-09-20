@@ -1,0 +1,7 @@
+[
+  { "mergedAt": "2026-04-17T22:24:52Z", "number": 1632, "title": "fix(solve): restore tool-comment posting broken by v1.53.1 stdin regression", "url": "https://github.com/link-assistant/hive-mind/pull/1632" },
+  { "mergedAt": "2026-03-18T16:53:21Z", "number": 1440, "title": "Fix missing log upload on tool failure and make 529 overload retryable (Issue #1439)", "url": "https://github.com/link-assistant/hive-mind/pull/1440" },
+  { "mergedAt": "2026-04-11T03:58:08Z", "number": 1585, "title": "fix: narrow \"Ready to merge\" duplicate check to current session scope (#1584)", "url": "https://github.com/link-assistant/hive-mind/pull/1585" },
+  { "mergedAt": "2026-03-28T16:52:23Z", "number": 1476, "title": "fix: add stream timeouts, diagnostic counters, and buffer forwarding for interactive mode (Issue #1472/#1475)", "url": "https://github.com/link-assistant/hive-mind/pull/1476" },
+  { "mergedAt": "2026-03-29T22:19:03Z", "number": 1498, "title": "fix: prevent 'Failed to send formatted message' Telegram error (issue #1497)", "url": "https://github.com/link-assistant/hive-mind/pull/1498" }
+]

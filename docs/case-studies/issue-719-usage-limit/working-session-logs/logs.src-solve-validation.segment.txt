@@ -1,0 +1,53 @@
+
+  return true;
+};
+
+// Parse URL components
+export const parseUrlComponents = (issueUrl) => {
+  const urlParts = issueUrl.split('/');
+  return {
+    owner: urlParts[3],
+    repo: urlParts[4],
+    urlNumber: urlParts[6] // Could be issue or PR number
+  };
+};
+
+// Helper function to parse time string and calculate wait time
+export const parseResetTime = (timeStr) => {
+  // Normalize and parse time formats like:
+  // "5:30am", "11:45pm", "12:16 PM", "07:05 Am"
+  const normalized = (timeStr || '').toString().trim();
+  const match = normalized.match(/(\d{1,2}):(\d{2})\s*([ap]m)/i);
+  if (!match) {
+    throw new Error(`Invalid time format: ${timeStr}`);
+  }
+
+  const [, hourStr, minuteStr, ampm] = match;
+  let hour = parseInt(hourStr);
+  const minute = parseInt(minuteStr);
+
+  // Convert to 24-hour format
+  if (ampm.toLowerCase() === 'pm' && hour !== 12) {
+    hour += 12;
+  } else if (ampm.toLowerCase() === 'am' && hour === 12) {
+    hour = 0;
+  }
+
+  return { hour, minute };
+};
+
+// Calculate milliseconds until the next occurrence of the specified time
+export const calculateWaitTime = (resetTime) => {
+  const { hour, minute } = parseResetTime(resetTime);
+
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(hour, minute, 0, 0);
+
+  // If the time has already passed today, schedule for tomorrow
+  if (today <= now) {
+    today.setDate(today.getDate() + 1);
+  }
+
+  return today.getTime() - now.getTime();
+};

@@ -1,0 +1,13 @@
+100644 blob 15458007080db8d39c4ee68c5e44daa6d7d8efba    1900	dev/log/issues/808/pulls/809/2026-07-20-symlink-root-cause.md
+100644 blob 3473218a2bb603e2378feaa84a3e123694abe34f   23389	dev/log/issues/808/pulls/809/analysis.md
+100644 blob 8b027bbe9e2725ba7c8c926f85df10e4dd6e45aa    2126	dev/log/issues/808/pulls/809/ci-logs/README.md
+100644 blob 1c5bd86a205f233567b47de4c501bbb6b9ee78ce    2603	dev/log/issues/808/pulls/809/ci-logs/cicd-29731405909.log
+100644 blob c5e566586f5ca0bfd98d3292e43494d4623197a7 2585316	dev/log/issues/808/pulls/809/ci-logs/desktop-29731405782.log
+100644 blob 8aadef59807473db8de25e78dff63f61df2e7548     887	dev/log/issues/808/pulls/809/ci-logs/run-29719602956-excerpt.log
+100644 blob 796af9ea0b7b1a3f44edcfeeebd3adac0fa6170c   10825	dev/log/issues/808/pulls/809/ci-logs/run-29720321919-macos-codesign-excerpt.log
+100644 blob 1214e29876796ccfb34601eca23a44d92057eb9c    3071	dev/log/issues/808/pulls/809/ci-logs/run-29723467001-auto-release.log
+100644 blob a6e6ee8a203f5b4afecdbefe69408c9d3447140e   11679	dev/log/issues/808/pulls/809/ci-logs/run-29724500254-macos-codesign-excerpt.log
+100644 blob 171d8ca0edfc1e2d18c4fe8573937b512a92701e 1889791	dev/log/issues/808/pulls/809/sessions/a7583710-f266-4c39-b5cf-8583e137ffd4/claude-a7583710-f266-4c39-b5cf-8583e137ffd4.jsonl
+100644 blob 9e63759e43d670f0a2ad7fcc898ca7bf009608c2 6974911	dev/log/issues/808/pulls/809/sessions/a7583710-f266-4c39-b5cf-8583e137ffd4/claude-a7583710-f266-4c39-b5cf-8583e137ffd4.log
+100644 blob 709c2de372784308a7f1999d74969f295c28853a    1103	dev/log/issues/808/pulls/809/sessions/a7583710-f266-4c39-b5cf-8583e137ffd4/metadata.json
+100644 blob 9e63759e43d670f0a2ad7fcc898ca7bf009608c2 6974911	dev/log/issues/808/pulls/809/sessions/a7583710-f266-4c39-b5cf-8583e137ffd4/solve.log

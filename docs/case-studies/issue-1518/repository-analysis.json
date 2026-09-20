@@ -1,0 +1,43 @@
+{
+  "issue": {
+    "number": 1518,
+    "title": "Repository is not a fork",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1518"
+  },
+  "affected_repository": {
+    "full_name": "konard/MixaByk1996-elements-app",
+    "fork": false,
+    "parent": null,
+    "source": null,
+    "network_count": 0,
+    "created_at": "2026-03-26T23:57:10Z",
+    "description": null
+  },
+  "upstream_repository": {
+    "full_name": "MixaByk1996/elements-app",
+    "fork": false,
+    "created_at": "2026-03-26T20:26:30Z",
+    "first_commit_sha": "1649952a",
+    "first_commit_date": "2026-03-26T20:27:07Z"
+  },
+  "evidence": {
+    "shared_first_commit_sha": "1649952a",
+    "first_pr_from_non_fork": {
+      "number": 2,
+      "title": "fix: resolve Vercel build failure due to missing ESLint react-hooks config",
+      "created_at": "2026-03-26T23:57:23Z",
+      "head_ref": "issue-1-5a7846a5a014",
+      "user": "konard"
+    },
+    "total_prs_from_non_fork": 4,
+    "pr_numbers": [2, 9, 13, 15]
+  },
+  "timeline": {
+    "upstream_created": "2026-03-26T20:26:30Z",
+    "issue_1_created": "2026-03-26T21:25:28Z",
+    "non_fork_repo_created": "2026-03-26T23:57:10Z",
+    "first_pr_created": "2026-03-26T23:57:23Z",
+    "issue_16_solve_attempted": "2026-03-31T07:17:29Z",
+    "fork_validation_failed": "2026-03-31T07:17:50Z"
+  }
+}

@@ -1,0 +1,42 @@
+=== apache-airflow-agents.md (35243 chars) ===
+  plugins : none
+  skills  : none
+  rejected: path
+=== astral-sh-ruff-claude.md (11 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== cloudflare-workers-sdk-claude.md (132 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== microsoft-vscode-agents.md (271 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== modelcontextprotocol-servers-claude.md (4155 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== openai-codex-agents.md (22485 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== openai-openai-python-agents.md (3005 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== sveltejs-svelte-agents.md (590 chars) ===
+  plugins : none
+  skills  : performance-investigation
+  rejected: none
+=== tursodatabase-turso-agents.md (7236 chars) ===
+  plugins : none
+  skills  : none
+  rejected: none
+=== vercel-next.js-agents.md (25210 chars) ===
+  plugins : none
+  skills  : dce-edge, pr-status-triage, router-act
+  rejected: none
+
+Total detections across 10 real-world instruction files: 4

@@ -1,0 +1,12 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Full log: https://gist.githubusercontent.com/konard/642e9c6e87bac2824400accbd9fe36f7/raw/169d0f71e52a7bef5bbadf3a047964c3c418cb6a/solution-draft-log-pr-1772525512219.txt\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, find root causes of the problem, and propose possible solutions (including known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "closedAt": "2026-03-04T10:25:28Z",
+  "comments": [{ "id": "IC_kwDOQYTy3M7uPLKW", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "Looks like we didn't fully replaced `opencode/kimi-k2.5-free` model to new default model `opencode/minimax-m2.5-free`. May be we need to ensure it is defined globally in application once, and all places that use default model will be updated.\n\nSee full log after changes applied: https://gist.githubusercontent.com/konard/f1218de1e0007fe04643c1eea7c1e87d/raw/80a8642d6fe74d05b6de5b96526a86303d1e3623/solution-draft-log-pr-1772623121682.txt", "createdAt": "2026-03-04T11:32:07Z", "includesCreatedEdit": false, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/agent/issues/208#issuecomment-3996955286", "viewerDidAuthor": true }],
+  "createdAt": "2026-03-03T17:30:13Z",
+  "number": 208,
+  "state": "CLOSED",
+  "title": "Agent CLI was not able to finish its work",
+  "updatedAt": "2026-03-04T11:32:07Z",
+  "url": "https://github.com/link-assistant/agent/issues/208"
+}

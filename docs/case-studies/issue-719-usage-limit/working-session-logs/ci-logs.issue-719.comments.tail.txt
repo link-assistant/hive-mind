@@ -1,0 +1,112 @@
+-- @konard | 2025-11-13T03:58:40Z
+```
+[2025-11-13T03:54:27.301Z] [INFO] {
+  "type": "assistant",
+  "message": {
+    "id": "79ba1466-909b-4b90-95cf-d6c9052fb790",
+    "container": null,
+    "model": "<synthetic>",
+    "role": "assistant",
+    "stop_reason": "stop_sequence",
+    "stop_sequence": "",
+    "type": "message",
+    "usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": null,
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      }
+    },
+    "content": [
+      {
+        "type": "text",
+        "text": "Weekly limit reached ∙ resets 5am"
+      }
+    ],
+    "context_management": null
+  },
+  "parent_tool_use_id": null,
+  "session_id": "64652bfd-65f5-460f-bb16-fa89fa8fc778",
+  "uuid": "7ee889aa-b2e7-4828-8fed-8143a176e09a"
+}
+[2025-11-13T03:54:27.302Z] [INFO] {
+  "type": "result",
+  "subtype": "success",
+  "is_error": true,
+  "duration_ms": 26660,
+  "duration_api_ms": 60865,
+  "num_turns": 10,
+  "result": "Weekly limit reached ∙ resets 5am",
+  "session_id": "64652bfd-65f5-460f-bb16-fa89fa8fc778",
+  "total_cost_usd": 0.14746179999999998,
+  "usage": {
+    "input_tokens": 17,
+    "cache_creation_input_tokens": 19624,
+    "cache_read_input_tokens": 58446,
+    "output_tokens": 800,
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 19624
+    }
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 7209,
+      "outputTokens": 2120,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.017809,
+      "contextWindow": 200000
+    },
+    "claude-sonnet-4-5-20250929": {
+      "inputTokens": 858,
+      "outputTokens": 2397,
+      "cacheReadInputTokens": 58446,
+      "cacheCreationInputTokens": 19624,
+      "webSearchRequests": 0,
+      "costUSD": 0.12965279999999998,
+      "contextWindow": 200000
+    }
+  },
+  "permission_denials": [],
+  "uuid": "ee1192d0-1437-4687-a704-6d27ccb47644"
+}
+[2025-11-13T03:54:27.304Z] [INFO] 💰 Anthropic official cost captured: $0.147462
+[2025-11-13T03:54:27.304Z] [INFO] ⚠️ Detected error result from Claude CLI
+[2025-11-13T03:54:27.304Z] [INFO] ⚠️ Detected session limit in result
+[2025-11-13T03:54:27.502Z] [ERROR] 
+
+❌ Claude command failed with exit code 0
+[2025-11-13T03:54:27.503Z] [INFO] 📌 Session ID for resuming: 64652bfd-65f5-460f-bb16-fa89fa8fc778
+[2025-11-13T03:54:27.504Z] [INFO] 
+To resume this session, run:
+[2025-11-13T03:54:27.504Z] [INFO]    /home/hive/.nvm/versions/node/v20.19.5/bin/node /home/hive/.bun/bin/solve undefined --resume 64652bfd-65f5-460f-bb16-fa89fa8fc778
+[2025-11-13T03:54:27.537Z] [INFO] 
+📈 System resources after execution:
+[2025-11-13T03:54:27.538Z] [INFO]    Memory: MemFree:          849168 kB
+[2025-11-13T03:54:27.538Z] [INFO]    Load: 0.18 0.29 0.32 1/435 806272
+[2025-11-13T03:54:27.539Z] [INFO] 
+[2025-11-13T03:54:27.539Z] [INFO] 
+📄 Attaching failure logs to Pull Request...
+```
+
+https://github.com/konard/hh-questions/pull/30#issuecomment-3525165717 - comment is here.
+
+We didn't handle properly weekly limit reach for claude tool. The comment in Pull Request was not updated with it and showed generic error message instead.
+
+I also don't see actual reset time captured in logs.
+

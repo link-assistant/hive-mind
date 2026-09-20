@@ -1,0 +1,284 @@
+{
+  "pr": {
+    "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+    "body": "## Summary\n\nFixes #1387\n\nWhen Claude authentication has expired, the `/limits` command previously displayed empty subsection headers below the error message:\n\n**Before:**\n```\nClaude limits\nClaude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.\n\nClaude 5 hour session\n\nCurrent week (all models)\n\nCurrent week (Sonnet only)\n```\n\n**After:**\n```\nClaude limits\nClaude authentication expired. Please use `/solve` or `/hive` commands to trigger re-authentication of Claude.\n```\n\n## Root Cause\n\nIn `formatUsageMessage()` in `src/limits.lib.mjs`, when `claudeError` is set, the code rendered three empty subsection headers because each content branch checked `if (claudeError)` and skipped actual data — but the headers were still emitted before those branches.\n\nAdditionally, the `/limits` handler in `telegram-bot.mjs` used `message.lastIndexOf('```')` to inject the queue status string into the already-assembled message — fragile string surgery that could easily break if the format changed.\n\n## Fix\n\n**`src/limits.lib.mjs`** — `formatUsageMessage` now builds an array of section strings and joins them all into a single code block at the very end:\n- Each section (CPU, RAM, Disk, GitHub, Claude) is an independent string pushed into a `sections` array.\n- When `claudeError` is set, only the single Claude-error section is pushed (no subsection headers).\n- A new optional `extraSections` parameter lets callers inject additional sections (e.g. queue status) before the closing code block is formed — no string searching required.\n\n**`src/telegram-bot.mjs`** — The `/limits` handler now:\n1. Awaits `solveQueue.formatStatus()` before calling `formatUsageMessage`.\n2. Passes the queue status as `extraSections: [queueStatus]`.\n3. The `lastIndexOf` / `slice` string-surgery block is removed entirely.\n\n## Tests\n\nUpdated and expanded `tests/limits-display.test.mjs` (38 tests, all passing):\n- Asserts empty subsection headers are NOT included when `claudeError` is present (original fix).\n- Asserts `formatUsageMessage` output is wrapped in **exactly one** code block.\n- Asserts `extraSections` content appears inside the code block (before the closing fence) in the normal path.\n- Asserts `extraSections` content appears inside the code block when `claudeError` is set.\n- Asserts empty `extraSections` produces identical output to the default (no regressions).\n- Asserts sections are separated by blank lines.\n\nAll 299 tests across all test files pass.\n\n---\n*This PR was created automatically by the AI issue solver*",
+    "comments": [
+      {
+        "id": "IC_kwDOPUU0qc7uMort",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \ud83e\udd16 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n\ud83d\udcb0 **Cost estimation:**\n- Public pricing estimate: $0.941245\n- Calculated by Anthropic: $0.729114 USD\n- Difference: $-0.212131 (-22.54%)\n\ud83d\udcce **Log file uploaded as Gist** (1014KB)\n\ud83d\udd17 [View complete solution draft log](https://gist.githubusercontent.com/konard/1dc284aacbcbd6f5d8833be00bccc966/raw/36a363082280294b4fe05a9a40f5eaac98db743e/solution-draft-log-pr-1772616268784.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+        "createdAt": "2026-03-04T09:24:34Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996289773"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uMrbt",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \ud83d\udd04 Auto-restart triggered (attempt 1)\n\n**Reason:** CI failures detected\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. Will continue until PR becomes mergeable.*",
+        "createdAt": "2026-03-04T09:26:50Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996301037"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uM27n",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \ud83d\udd04 Auto-restart-until-mergeable Log (iteration 1)\nThis log file contains the complete execution trace of the AI solution draft process.\n\n\ud83d\udcb0 **Cost estimation:**\n- Public pricing estimate: $0.293665\n- Calculated by Anthropic: $0.518830 USD\n- Difference: $0.225165 (+76.67%)\n\ud83d\udcce **Log file uploaded as Gist** (2042KB)\n\ud83d\udd17 [View complete solution draft log](https://gist.githubusercontent.com/konard/8e7ba034f925e3b8bf4f96f2981bcc3e/raw/092e9322c9f4db99507439417d9b0648ea12ce0b/solution-draft-log-pr-1772616962459.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+        "createdAt": "2026-03-04T09:36:08Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996348135"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uM4Xk",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \u2705 Ready to merge\n\nThis pull request is now ready to be merged:\n- All CI checks have passed\n- No merge conflicts\n- No pending changes\n\n---\n*Monitored by hive-mind with --auto-restart-until-mergeable flag*",
+        "createdAt": "2026-03-04T09:37:14Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996354020"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNKXU",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "Will it not break queue display that goes after claude limits section?",
+        "createdAt": "2026-03-04T09:51:14Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996427732"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNLJG",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "\ud83e\udd16 **AI Work Session Started**\n\nStarting automated work session at 2026-03-04T09:51:48.408Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._",
+        "createdAt": "2026-03-04T09:51:50Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996430918"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNN31",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "Good question! The queue display is **not** broken.\n\nIn `telegram-bot.mjs` (line 794-797), the queue status is injected by finding the **last** ``` in the message:\n\n```javascript\nconst codeBlockEnd = message.lastIndexOf('```');\nif (codeBlockEnd !== -1) {\n  const queueStatus = await solveQueue.formatStatus();\n  message = message.slice(0, codeBlockEnd) + `\\n${queueStatus}` + message.slice(codeBlockEnd);\n}\n```\n\nBoth the normal path and the error path (early return) end with a closing ```, so `lastIndexOf('```')` correctly finds it in both cases.\n\nI verified this with a quick test:\n\n**With `claudeError` + queue injection:**\n```\n```\nCurrent time: Mar 4, 9:53am UTC\n\nClaude limits\nClaude authentication expired. Please use /solve or /hive commands.\n\nQueue: 0 pending, 1 processing```\n```\n\nThe queue status is inserted before the closing backticks, as expected. All 41 tests pass.",
+        "createdAt": "2026-03-04T09:53:53Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996442101"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNOXA",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \ud83e\udd16 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n\ud83d\udcb0 **Cost estimation:**\n- Public pricing estimate: $0.776652\n- Calculated by Anthropic: $0.532481 USD\n- Difference: $-0.244171 (-31.44%)\n\ud83d\udcce **Log file uploaded as Gist** (756KB)\n\ud83d\udd17 [View complete solution draft log](https://gist.githubusercontent.com/konard/7881c755fb32990293dd942a1b1e55c1/raw/11d66724e9a5ec9bde80f62826cb9cbb42bf60ab/solution-draft-log-pr-1772618045493.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+        "createdAt": "2026-03-04T09:54:15Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996444096"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNajI",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "Make sure we have all necessary automated tests to ensure everything is working. Also instead of finding three backticks to insert next section, make sure we form an array of sections, and once we have all of them we finally put them all into code block, so there will be no confusing logic in the future.",
+        "createdAt": "2026-03-04T10:03:45Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996494024"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNbZw",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "\ud83e\udd16 **AI Work Session Started**\n\nStarting automated work session at 2026-03-04T10:04:23.344Z\n\nThe PR has been converted to draft mode while work is in progress.\n\n_This comment marks the beginning of an AI work session. Please wait for the session to finish, and provide your feedback._",
+        "createdAt": "2026-03-04T10:04:25Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996497520"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNjcR",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "Addressed the feedback from the previous comment:\n\n**1. Sections-array approach** (`src/limits.lib.mjs`): `formatUsageMessage` now builds an array of section strings and joins them all into a single code block at the end. No more string accumulation with early-returns that left the code block half-open, and no more fragile `lastIndexOf('```')` surgery.\n\n**2. Queue status injection** (`src/telegram-bot.mjs`): Queue status is now fetched before `formatUsageMessage` is called and passed via the new `extraSections` parameter. The `lastIndexOf` / `slice` block is gone entirely.\n\n**3. Tests** (`tests/limits-display.test.mjs`): Added 5 new tests (38 total, all passing):\n- Single code block (exactly 2 fences)\n- `extraSections` content inside code block — normal path\n- `extraSections` content inside code block — `claudeError` path  \n- Empty `extraSections` parity (no regression)\n- Blank-line separation between sections\n\nAll 299 tests across all test files pass locally.",
+        "createdAt": "2026-03-04T10:10:34Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996530449"
+      },
+      {
+        "id": "IC_kwDOPUU0qc7uNj0o",
+        "author": { "login": "konard" },
+        "authorAssociation": "MEMBER",
+        "body": "## \ud83e\udd16 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n\ud83d\udcb0 **Cost estimation:**\n- Public pricing estimate: $1.119445\n- Calculated by Anthropic: $1.191899 USD\n- Difference: $0.072455 (+6.47%)\n\ud83d\udcce **Log file uploaded as Gist** (1588KB)\n\ud83d\udd17 [View complete solution draft log](https://gist.githubusercontent.com/konard/db198ab173e1ca5048c06caba2c95f44/raw/6e00c03840ab8b23f5a6cd6e4d850753d946a011/solution-draft-log-pr-1772619047920.txt)\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+        "createdAt": "2026-03-04T10:10:53Z",
+        "url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996532008"
+      }
+    ],
+    "commits": [
+      {
+        "authoredDate": "2026-03-04T09:21:18Z",
+        "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
+        "committedDate": "2026-03-04T09:21:18Z",
+        "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1387",
+        "messageHeadline": "Initial commit with task details",
+        "oid": "5cf135bee5f059d8a15c6e4dadcb05f8b58f63d4"
+      },
+      {
+        "authoredDate": "2026-03-04T09:23:50Z",
+        "authors": [
+          { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+          { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+        ],
+        "committedDate": "2026-03-04T09:23:50Z",
+        "messageBody": "…s output\n\nWhen Claude authentication has expired, the /limits command previously\nrendered empty subsection headers (Claude 5 hour session, Current week\nall models, Current week Sonnet only) below the error message. These\nsections contained no data so they were visually noisy.\n\nNow, when a claudeError is present, the message closes after showing\n\"Claude limits\\n<error message>\" without rendering the empty subsections.\n\nFixes #1387\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+        "messageHeadline": "Skip empty Claude subsection headers when auth error occurs in /limit…",
+        "oid": "9ec94801fbcdba06477871506313e6ff6ae8b6dc"
+      },
+      {
+        "authoredDate": "2026-03-04T09:24:24Z",
+        "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
+        "committedDate": "2026-03-04T09:24:24Z",
+        "messageBody": "This reverts commit 5cf135bee5f059d8a15c6e4dadcb05f8b58f63d4.",
+        "messageHeadline": "Revert \"Initial commit with task details\"",
+        "oid": "08e34a8edbcb8ca4f26fcefd18f492c436e1b95c"
+      },
+      {
+        "authoredDate": "2026-03-04T09:29:03Z",
+        "authors": [
+          { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+          { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+        ],
+        "committedDate": "2026-03-04T09:29:03Z",
+        "messageBody": "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+        "messageHeadline": "Add changeset for /limits auth error empty headers fix",
+        "oid": "72c933c8accb43ae3734142415c6fcbda0565739"
+      },
+      {
+        "authoredDate": "2026-03-04T10:09:56Z",
+        "authors": [
+          { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+          { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+        ],
+        "committedDate": "2026-03-04T10:09:56Z",
+        "messageBody": "…ndexOf queue injection\n\n- formatUsageMessage now builds content as an array of section strings and wraps\n  them all in a single code block at the end, instead of accumulating a string\n  with an early-return code-block and post-hoc string surgery\n- Added extraSections parameter to formatUsageMessage so callers can inject\n  additional sections (e.g. queue status) before the closing code block\n- /limits handler in telegram-bot.mjs now passes queue status as an extraSection\n  instead of using lastIndexOf('```') to splice content into the message string\n- Added 5 new tests covering: single code block, extraSections in normal path,\n  extraSections in claudeError path, empty extraSections parity, blank-line separation\n\nFixes: https://github.com/link-assistant/hive-mind/issues/1387\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+        "messageHeadline": "Refactor formatUsageMessage to use sections array and eliminate lastI…",
+        "oid": "5564d7e51fa3094ee06a894c845b32249a55c3b3"
+      }
+    ],
+    "createdAt": "2026-03-04T09:21:25Z",
+    "mergedAt": null,
+    "reviews": [],
+    "state": "OPEN",
+    "title": "Skip empty Claude subsection headers when auth error occurs in /limits output"
+  },
+  "pullRequestComments": [],
+  "issueComments": [
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996289773",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996289773",
+      "id": 3996289773,
+      "node_id": "IC_kwDOPUU0qc7uMort",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:24:34Z",
+      "body": "## Solution Draft Log\nCost: $0.729114 USD (Anthropic calculated)\nLog: https://gist.githubusercontent.com/konard/1dc284aacbcbd6f5d8833be00bccc966/raw/36a363082280294b4fe05a9a40f5eaac98db743e/solution-draft-log-pr-1772616268784.txt",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996301037",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996301037",
+      "id": 3996301037,
+      "node_id": "IC_kwDOPUU0qc7uMrbt",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:26:50Z",
+      "body": "Auto-restart triggered (attempt 1) - CI failures detected",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996348135",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996348135",
+      "id": 3996348135,
+      "node_id": "IC_kwDOPUU0qc7uM27n",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:36:08Z",
+      "body": "Auto-restart-until-mergeable Log (iteration 1)\nCost: $0.518830 USD (Anthropic calculated)\nLog: https://gist.githubusercontent.com/konard/8e7ba034f925e3b8bf4f96f2981bcc3e/raw/092e9322c9f4db99507439417d9b0648ea12ce0b/solution-draft-log-pr-1772616962459.txt",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996354020",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996354020",
+      "id": 3996354020,
+      "node_id": "IC_kwDOPUU0qc7uM4Xk",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:37:14Z",
+      "body": "Ready to merge - All CI checks passed, no merge conflicts, no pending changes",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996427732",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996427732",
+      "id": 3996427732,
+      "node_id": "IC_kwDOPUU0qc7uNKXU",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:51:14Z",
+      "body": "Will it not break queue display that goes after claude limits section?",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996430918",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996430918",
+      "id": 3996430918,
+      "node_id": "IC_kwDOPUU0qc7uNLJG",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:51:50Z",
+      "body": "AI Work Session Started at 2026-03-04T09:51:48.408Z - PR converted to draft mode",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996442101",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996442101",
+      "id": 3996442101,
+      "node_id": "IC_kwDOPUU0qc7uNN31",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:53:53Z",
+      "body": "Good question! The queue display is **not** broken. The lastIndexOf('```') approach works in both the normal and claudeError paths because both end with a closing ```. All 41 tests pass.",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996444096",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996444096",
+      "id": 3996444096,
+      "node_id": "IC_kwDOPUU0qc7uNOXA",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T09:54:15Z",
+      "body": "Solution Draft Log\nCost: $0.532481 USD (Anthropic calculated)\nLog: https://gist.githubusercontent.com/konard/7881c755fb32990293dd942a1b1e55c1/raw/11d66724e9a5ec9bde80f62826cb9cbb42bf60ab/solution-draft-log-pr-1772618045493.txt",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996494024",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996494024",
+      "id": 3996494024,
+      "node_id": "IC_kwDOPUU0qc7uNajI",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T10:03:45Z",
+      "body": "Make sure we have all necessary automated tests to ensure everything is working. Also instead of finding three backticks to insert next section, make sure we form an array of sections, and once we have all of them we finally put them all into code block, so there will be no confusing logic in the future.",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996497520",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996497520",
+      "id": 3996497520,
+      "node_id": "IC_kwDOPUU0qc7uNbZw",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T10:04:25Z",
+      "body": "AI Work Session Started at 2026-03-04T10:04:23.344Z - PR converted to draft mode",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996530449",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996530449",
+      "id": 3996530449,
+      "node_id": "IC_kwDOPUU0qc7uNjcR",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T10:10:34Z",
+      "body": "Addressed the feedback:\n1. Sections-array approach in src/limits.lib.mjs\n2. Queue status injection via extraSections in src/telegram-bot.mjs\n3. Added 5 new tests (38 total) in tests/limits-display.test.mjs\nAll 299 tests pass locally.",
+      "author_association": "MEMBER"
+    },
+    {
+      "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/3996532008",
+      "html_url": "https://github.com/link-assistant/hive-mind/pull/1388#issuecomment-3996532008",
+      "id": 3996532008,
+      "node_id": "IC_kwDOPUU0qc7uNj0o",
+      "user": { "login": "konard", "id": 1431904 },
+      "created_at": "2026-03-04T10:10:53Z",
+      "body": "Solution Draft Log\nCost: $1.191899 USD (Anthropic calculated)\nLog: https://gist.githubusercontent.com/konard/db198ab173e1ca5048c06caba2c95f44/raw/6e00c03840ab8b23f5a6cd6e4d850753d946a011/solution-draft-log-pr-1772619047920.txt",
+      "author_association": "MEMBER"
+    }
+  ],
+  "reviews": []
+}

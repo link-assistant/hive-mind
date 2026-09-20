@@ -1,0 +1,12 @@
+{
+  "baseRefName": "main",
+  "body": "## Summary\n\nFixes #1296 - False positive error detection for `--tool agent`\n\nWhen an agent encounters a timeout error during execution but successfully recovers and completes (indicated by `step_finish` with `reason: \"stop\"`), the error detection was incorrectly flagging this as a failure due to fallback pattern matching.\n\n### Root Cause\n\nThe `agentCompletedSuccessfully` flag was only being set for `session.idle` and `\"exiting loop\"` log messages (Issue #1276), but not for the more common `step_finish` event with `reason: \"stop\"`. This meant the fallback pattern matching would still trigger and detect error patterns in the full output, even when the agent had clearly completed successfully.\n\n### Changes\n\n- Add `step_finish` with `reason: \"stop\"` as a success marker in both stdout and stderr processing loops in `src/agent.lib.mjs`\n- Add test cases (Tests 24-26) in `tests/test-agent-error-detection.mjs` covering:\n  - `step_finish` with reason \"stop\" marking successful completion\n  - `step_finish` with other reasons NOT marking success\n  - Full Issue #1296 scenario: timeout followed by successful completion\n\n### Case Study\n\nA detailed case study has been added to `docs/case-studies/issue-1296/` including:\n- Timeline reconstruction from logs\n- Root cause analysis\n- Research on related issues and solutions\n- Solution options analysis\n\n### Test Plan\n\n- [x] All 26 existing tests pass\n- [x] New tests (24-26) specifically verify Issue #1296 fix\n- [x] Lint passes\n\n### Related Issues\n\n- Issue #873: Phantom error detection for `--tool agent`\n- Issue #886: False positive error detection for `--agent tool`\n- Issue #1276: Added `agentCompletedSuccessfully` tracking\n- Issue #1290: Skip fallback when agent completed successfully\n- Agent Issue #183: The operation timed out (related upstream)\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "closedAt": "2026-02-21T18:29:23Z",
+  "createdAt": "2026-02-15T13:25:10Z",
+  "headRefName": "issue-1296-c96f0a854ec4",
+  "mergeCommit": { "oid": "c9bfcb5466a75a52dc2111be0dbaa5b91fc80d8b" },
+  "mergedAt": "2026-02-21T18:29:23Z",
+  "number": 1298,
+  "state": "MERGED",
+  "title": "Fix false positive error detection for step_finish with reason stop"
+}

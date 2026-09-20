@@ -14,7 +14,7 @@ const forumTopicMessage = {
     title: 'Pull Request from Hive Mind',
     username: 'hive_mind_pull_requests',
     is_forum: true,
-    type: 'supergroup'
+    type: 'supergroup',
   },
   date: 1760270650,
   message_thread_id: 857,
@@ -26,19 +26,19 @@ const forumTopicMessage = {
       title: 'Pull Request from Hive Mind',
       username: 'hive_mind_pull_requests',
       is_forum: true,
-      type: 'supergroup'
+      type: 'supergroup',
     },
     date: 1759480502,
     message_thread_id: 857,
     forum_topic_created: {
       name: 'Запросы на генерацию Pull Requests',
       icon_color: 16766590,
-      icon_custom_emoji_id: '5309832892262654231'
+      icon_custom_emoji_id: '5309832892262654231',
     },
-    is_topic_message: true
+    is_topic_message: true,
   },
   text: '/solve https://github.com/owner/repo/issues/1',
-  is_topic_message: true
+  is_topic_message: true,
 };
 
 // Mock message that is an actual user reply (NOT a forum topic)
@@ -52,10 +52,10 @@ const actualReplyMessage = {
     from: { id: 789012, is_bot: false, first_name: 'OtherUser' },
     chat: { id: -1002975819706, type: 'supergroup' },
     date: 1760270650,
-    text: 'Previous message from another user'
+    text: 'Previous message from another user',
     // No forum_topic_created field
   },
-  text: 'This is a reply to another user'
+  text: 'This is a reply to another user',
 };
 
 // Mock message that is a regular message (no reply)
@@ -64,7 +64,7 @@ const regularMessage = {
   from: { id: 123456, is_bot: false, first_name: 'User' },
   chat: { id: -1002975819706, type: 'supergroup' },
   date: 1760270800,
-  text: '/solve https://github.com/owner/repo/issues/2'
+  text: '/solve https://github.com/owner/repo/issues/2',
 };
 
 // isForwardedOrReply function (extracted from telegram-bot.mjs for testing)
@@ -98,9 +98,7 @@ function isForwardedOrReply(message, VERBOSE = true) {
     return true;
   }
   // Also check old forwarding API fields for backward compatibility
-  if (message.forward_from || message.forward_from_chat ||
-      message.forward_from_message_id || message.forward_signature ||
-      message.forward_sender_name || message.forward_date) {
+  if (message.forward_from || message.forward_from_chat || message.forward_from_message_id || message.forward_signature || message.forward_sender_name || message.forward_date) {
     if (VERBOSE) {
       console.log('[VERBOSE] isForwardedOrReply: TRUE - old forwarding API field detected');
     }

@@ -1,0 +1,11 @@
+[agent] 🧠 Formal AI: starting a local server in /tmp/hive-2130-e2e-agent-uMtbnC
+[agent] 🧠 Formal AI: server ready on http://127.0.0.1:37625 (pid 215557)
+[agent] 🧠 Formal AI: protocol openai, endpoint http://127.0.0.1:37625/api/openai/v1
+[agent] 🧠 Formal AI: config XDG_CONFIG_HOME=/tmp/hive-formal-ai-agent-oimRmL/.config, seeded /home/box/.config/link-assistant-agent → .config/link-assistant-agent
+[agent] 🧠 Formal AI: environment FORMAL_AI_API_KEY, XDG_CONFIG_HOME
+[agent] baseUrl=http://127.0.0.1:37625 env=FORMAL_AI_API_KEY,XDG_CONFIG_HOME
+[agent] notes=XDG_CONFIG_HOME=/tmp/hive-formal-ai-agent-oimRmL/.config | seeded /home/box/.config/link-assistant-agent → .config/link-assistant-agent
+[agent] exit=0 hello.txt=MISSING (experiments/issue-2130/e2e-agent.log)
+
+=== summary ===
+{"tool":"agent","exit":0,"signal":null,"created":false,"content":null,"seconds":4,"log":"experiments/issue-2130/e2e-agent.log"}

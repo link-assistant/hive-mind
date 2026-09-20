@@ -1,0 +1,38 @@
+[
+  {
+    "title": "OpenAI Codex app-server README - transports, tracing, warnings, and event semantics",
+    "url": "https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md",
+    "accessedAt": "2026-04-26",
+    "notes": "Documents JSONL app-server transport, RUST_LOG tracing, generic non-fatal warning notifications, turn completion, item lifecycles, and fatal error/turn.failed semantics."
+  },
+  {
+    "title": "OpenAI Developers - Codex CLI",
+    "url": "https://developers.openai.com/codex/cli",
+    "accessedAt": "2026-04-26",
+    "notes": "Official Codex CLI entrypoint used to confirm the supported automation surface."
+  },
+  {
+    "title": "OpenAI Cookbook - Use Codex CLI to automatically fix CI failures",
+    "url": "https://developers.openai.com/cookbook/examples/codex/autofix-github-actions",
+    "accessedAt": "2026-04-26",
+    "notes": "Official automation example showing Codex embedded into GitHub Actions workflows."
+  },
+  {
+    "title": "OpenAI Codex upstream issue #19689",
+    "url": "https://github.com/openai/codex/issues/19689",
+    "accessedAt": "2026-04-26",
+    "notes": "Filed from this investigation with the minimal event sequence, workaround, and suggested upstream fixes."
+  },
+  {
+    "title": "Hive Mind issue #1660 case study",
+    "url": "https://github.com/link-assistant/hive-mind/tree/main/docs/case-studies/issue-1660",
+    "accessedAt": "2026-04-26",
+    "notes": "Earlier fix that correctly made structured Codex error events fatal for unsupported-model failures."
+  },
+  {
+    "title": "Hive Mind issue #1682 case study",
+    "url": "https://github.com/link-assistant/hive-mind/tree/main/docs/case-studies/issue-1682",
+    "accessedAt": "2026-04-26",
+    "notes": "Prior captured log containing the same app-server stream-lag item error, although that issue focused on failure-log upload URL handling."
+  }
+]

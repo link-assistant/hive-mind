@@ -1,0 +1,32 @@
+[
+  {
+    "number": 10,
+    "title": "Preserve scalar parent translations in deeply nested catalogues",
+    "url": "https://github.com/link-foundation/lino-i18n/issues/10",
+    "state": "CLOSED",
+    "createdAt": "2026-05-17T11:08:48Z",
+    "updatedAt": "2026-05-17T18:13:44Z",
+    "resolvedBy": "lino-i18n@0.1.1",
+    "author": "konard"
+  },
+  {
+    "number": 11,
+    "title": "Support migration aliases for deeper nesting of underscore-tail keys",
+    "url": "https://github.com/link-foundation/lino-i18n/issues/11",
+    "state": "CLOSED",
+    "createdAt": "2026-05-17T11:09:10Z",
+    "updatedAt": "2026-05-17T23:55:33Z",
+    "resolvedBy": "lino-i18n@0.1.1",
+    "author": "konard"
+  },
+  {
+    "number": 12,
+    "title": "Add a real-world deeply nested catalogue example from Hive Mind",
+    "url": "https://github.com/link-foundation/lino-i18n/issues/12",
+    "state": "CLOSED",
+    "createdAt": "2026-05-17T11:09:25Z",
+    "updatedAt": "2026-05-18T13:36:42Z",
+    "resolvedBy": "lino-i18n@0.1.1",
+    "author": "konard"
+  }
+]

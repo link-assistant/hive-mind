@@ -1,0 +1,91 @@
+   780	      forkedRepo,
+   781	      feedbackLines,
+   782	      forkActionsUrl,
+   783	      owner,
+   784	      repo,
+   785	      argv,
+   786	      log,
+   787	      setLogFile,
+   788	      getLogFile,
+   789	      formatAligned,
+   790	      getResourceSnapshot,
+   791	      claudePath,
+   792	      $
+   793	    });
+   794	    toolResult = claudeResult;
+   795	  }
+   796	
+   797	  const { success } = toolResult;
+   798	  let sessionId = toolResult.sessionId;
+   799	  let anthropicTotalCostUSD = toolResult.anthropicTotalCostUSD;
+   800	  limitReached = toolResult.limitReached;
+   801	  cleanupContext.limitReached = limitReached;
+   802	
+   803	  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+   804	  if (toolResult && toolResult.limitResetTime) {
+   805	    global.limitResetTime = toolResult.limitResetTime;
+   806	  }
+   807	
+   808	  if (!success) {
+   809	    // If --attach-logs is enabled and we have a PR, attach failure logs before exiting
+   810	    if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number) {
+   811	      await log('\n📄 Attaching failure logs to Pull Request...');
+   812	      try {
+   813	        // Build resume command if we have session info
+   814	        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+   815	        const logUploadSuccess = await attachLogToGitHub({
+   816	          logFile: getLogFile(),
+   817	          targetType: 'pr',
+   818	          targetNumber: global.createdPR.number,
+   819	          owner,
+   820	          repo,
+   821	          $,
+   822	          log,
+   823	          sanitizeLogContent,
+   824	          // For usage limit, use a dedicated comment format to make it clear and actionable
+   825	          isUsageLimit: !!limitReached,
+   826	          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+   827	          toolName: (argv.tool || 'AI tool').toString().toLowerCase() === 'claude' ? 'Claude' :
+   828	                    (argv.tool || 'AI tool').toString().toLowerCase() === 'codex' ? 'Codex' :
+   829	                    (argv.tool || 'AI tool').toString().toLowerCase() === 'opencode' ? 'OpenCode' : 'AI tool',
+   830	          resumeCommand,
+   831	          // Include sessionId so the PR comment can present it
+   832	          sessionId,
+   833	          // If not a usage limit case, fall back to generic failure format
+   834	          errorMessage: limitReached ? undefined : `${argv.tool.toUpperCase()} execution failed`
+   835	        });
+   836	
+   837	        if (logUploadSuccess) {
+   838	          await log('  ✅ Failure logs uploaded successfully');
+   839	        } else {
+   840	          await log('  ⚠️  Failed to upload logs', { verbose: true });
+   841	        }
+   842	      } catch (uploadError) {
+   843	        await log(`  ⚠️  Error uploading logs: ${uploadError.message}`, { verbose: true });
+   844	      }
+   845	    }
+   846	
+   847	    await safeExit(1, `${argv.tool.toUpperCase()} execution failed`);
+   848	  }
+   849	
+   850	  // Check for uncommitted changes
+   851	  // When limit is reached, force auto-commit of any uncommitted changes to preserve work
+   852	  const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached;
+   853	  const autoRestartEnabled = argv['autoRestartOnUncommittedChanges'] !== false;
+   854	  const shouldRestart = await checkForUncommittedChanges(tempDir, owner, repo, branchName, $, log, shouldAutoCommit, autoRestartEnabled);
+   855	
+   856	  // Remove CLAUDE.md now that Claude command has finished
+   857	  await cleanupClaudeFile(tempDir, branchName, claudeCommitHash);
+   858	
+   859	  // Show summary of session and log file
+   860	  await showSessionSummary(sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs);
+   861	
+   862	  // Search for newly created pull requests and comments
+   863	  // Pass shouldRestart to prevent early exit when auto-restart is needed
+   864	  await verifyResults(owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart, sessionId, tempDir, anthropicTotalCostUSD);
+   865	
+   866	  // Start watch mode if enabled OR if we need to handle uncommitted changes
+   867	  if (argv.verbose) {
+   868	    await log('');
+   869	    await log('🔍 Auto-restart debug:', { verbose: true });
+   870	    await log(`   argv.watch (user flag): ${argv.watch}`, { verbose: true });

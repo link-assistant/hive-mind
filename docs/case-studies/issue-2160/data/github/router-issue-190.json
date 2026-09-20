@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Reproduction\n\nUsing published `konard/link-assistant-router:0.77.0` with an isolated HOME, DATA_DIR and test TOKEN_SECRET:\n\n1. `clients setup codex --base-url http://127.0.0.1:9999` without `--token`.\n2. The command mints token id `05634524-0957-4716-b82d-49a4ced780c1`, writes a 0600 env file and managed Codex config.\n3. `clients show codex` reports `configured: true`, `token_env_set: true`.\n4. `clients remove codex` removes the provider/env file and creates a backup.\n5. `tokens list` still reports that exact managed token as `revoked=false`, scope `client`, label `client-codex`.\n\nThe local settings are removed, but the credential remains usable by anyone who copied it. This is the defect #173 required to close.\n\n## Expected behavior\n\n- Metadata records whether setup minted the token and its token id.\n- `clients remove` and `with --undo` atomically revoke every token minted by that managed setup/run before deleting the local secret.\n- User-supplied tokens are not revoked unless explicitly requested.\n- Failure to revoke leaves the credential file in place and exits nonzero with recovery instructions; it must not report successful removal.\n- Add setup → show → remove → authenticated-request-is-rejected and restart-persistence tests for every client integration and both storage backends.",
+  "closedAt": "2026-08-16T20:30:22Z",
+  "createdAt": "2026-08-15T15:47:31Z",
+  "labels": [],
+  "number": 190,
+  "state": "CLOSED",
+  "title": "v0.77 regression: clients remove deletes credentials but leaves its minted token active",
+  "updatedAt": "2026-08-16T20:30:22Z",
+  "url": "https://github.com/link-assistant/router/issues/190"
+}

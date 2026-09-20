@@ -8,7 +8,7 @@ const argv = {
   verbose: true,
   fork: false,
   attachLogs: true,
-  model: 'sonnet'
+  model: 'sonnet',
 };
 
 const issueUrl = 'https://github.com/test/repo/issues/123';

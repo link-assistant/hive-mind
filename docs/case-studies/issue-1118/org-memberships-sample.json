@@ -1,0 +1,162 @@
+[
+  {
+    "url": "https://api.github.com/orgs/EpicGames/memberships/konard",
+    "state": "active",
+    "role": "member",
+    "organization_url": "https://api.github.com/orgs/EpicGames",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "EpicGames", "id": 6615685, "node_id": "MDEyOk9yZ2FuaXphdGlvbjY2MTU2ODU=", "url": "https://api.github.com/orgs/EpicGames", "repos_url": "https://api.github.com/orgs/EpicGames/repos", "events_url": "https://api.github.com/orgs/EpicGames/events", "hooks_url": "https://api.github.com/orgs/EpicGames/hooks", "issues_url": "https://api.github.com/orgs/EpicGames/issues", "members_url": "https://api.github.com/orgs/EpicGames/members{/member}", "public_members_url": "https://api.github.com/orgs/EpicGames/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/6615685?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/OSWS/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/OSWS",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "OSWS", "id": 9798851, "node_id": "MDEyOk9yZ2FuaXphdGlvbjk3OTg4NTE=", "url": "https://api.github.com/orgs/OSWS", "repos_url": "https://api.github.com/orgs/OSWS/repos", "events_url": "https://api.github.com/orgs/OSWS/events", "hooks_url": "https://api.github.com/orgs/OSWS/hooks", "issues_url": "https://api.github.com/orgs/OSWS/issues", "members_url": "https://api.github.com/orgs/OSWS/members{/member}", "public_members_url": "https://api.github.com/orgs/OSWS/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/9798851?v=4", "description": "Open Source Web Standards" }
+  },
+  {
+    "url": "https://api.github.com/orgs/linksplatform/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/linksplatform",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "linksplatform", "id": 15116341, "node_id": "MDEyOk9yZ2FuaXphdGlvbjE1MTE2MzQx", "url": "https://api.github.com/orgs/linksplatform", "repos_url": "https://api.github.com/orgs/linksplatform/repos", "events_url": "https://api.github.com/orgs/linksplatform/events", "hooks_url": "https://api.github.com/orgs/linksplatform/hooks", "issues_url": "https://api.github.com/orgs/linksplatform/issues", "members_url": "https://api.github.com/orgs/linksplatform/members{/member}", "public_members_url": "https://api.github.com/orgs/linksplatform/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/15116341?v=4", "description": "A cross-platform modular framework for automation of automation. Кроссплатформенный модульный фреймворк для автоматизации автоматизации." }
+  },
+  {
+    "url": "https://api.github.com/orgs/EfficiencyParadigm/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/EfficiencyParadigm",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "EfficiencyParadigm", "id": 16417515, "node_id": "MDEyOk9yZ2FuaXphdGlvbjE2NDE3NTE1", "url": "https://api.github.com/orgs/EfficiencyParadigm", "repos_url": "https://api.github.com/orgs/EfficiencyParadigm/repos", "events_url": "https://api.github.com/orgs/EfficiencyParadigm/events", "hooks_url": "https://api.github.com/orgs/EfficiencyParadigm/hooks", "issues_url": "https://api.github.com/orgs/EfficiencyParadigm/issues", "members_url": "https://api.github.com/orgs/EfficiencyParadigm/members{/member}", "public_members_url": "https://api.github.com/orgs/EfficiencyParadigm/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/16417515?v=4", "description": null }
+  },
+  {
+    "url": "https://api.github.com/orgs/meteor-shuttler/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/meteor-shuttler",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "meteor-shuttler", "id": 17433413, "node_id": "MDEyOk9yZ2FuaXphdGlvbjE3NDMzNDEz", "url": "https://api.github.com/orgs/meteor-shuttler", "repos_url": "https://api.github.com/orgs/meteor-shuttler/repos", "events_url": "https://api.github.com/orgs/meteor-shuttler/events", "hooks_url": "https://api.github.com/orgs/meteor-shuttler/hooks", "issues_url": "https://api.github.com/orgs/meteor-shuttler/issues", "members_url": "https://api.github.com/orgs/meteor-shuttler/members{/member}", "public_members_url": "https://api.github.com/orgs/meteor-shuttler/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/17433413?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/styleschool/memberships/konard",
+    "state": "active",
+    "role": "member",
+    "organization_url": "https://api.github.com/orgs/styleschool",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "styleschool", "id": 39745831, "node_id": "MDEyOk9yZ2FuaXphdGlvbjM5NzQ1ODMx", "url": "https://api.github.com/orgs/styleschool", "repos_url": "https://api.github.com/orgs/styleschool/repos", "events_url": "https://api.github.com/orgs/styleschool/events", "hooks_url": "https://api.github.com/orgs/styleschool/hooks", "issues_url": "https://api.github.com/orgs/styleschool/issues", "members_url": "https://api.github.com/orgs/styleschool/members{/member}", "public_members_url": "https://api.github.com/orgs/styleschool/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/39745831?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/Qvinciy/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/Qvinciy",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "Qvinciy", "id": 59686353, "node_id": "MDEyOk9yZ2FuaXphdGlvbjU5Njg2MzUz", "url": "https://api.github.com/orgs/Qvinciy", "repos_url": "https://api.github.com/orgs/Qvinciy/repos", "events_url": "https://api.github.com/orgs/Qvinciy/events", "hooks_url": "https://api.github.com/orgs/Qvinciy/hooks", "issues_url": "https://api.github.com/orgs/Qvinciy/issues", "members_url": "https://api.github.com/orgs/Qvinciy/members{/member}", "public_members_url": "https://api.github.com/orgs/Qvinciy/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/59686353?v=4", "description": null }
+  },
+  {
+    "url": "https://api.github.com/orgs/deep-foundation/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/deep-foundation",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "deep-foundation", "id": 62844658, "node_id": "MDEyOk9yZ2FuaXphdGlvbjYyODQ0NjU4", "url": "https://api.github.com/orgs/deep-foundation", "repos_url": "https://api.github.com/orgs/deep-foundation/repos", "events_url": "https://api.github.com/orgs/deep-foundation/events", "hooks_url": "https://api.github.com/orgs/deep-foundation/hooks", "issues_url": "https://api.github.com/orgs/deep-foundation/issues", "members_url": "https://api.github.com/orgs/deep-foundation/members{/member}", "public_members_url": "https://api.github.com/orgs/deep-foundation/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/62844658?v=4", "description": "Deep.Foundation - associative technology development bay." }
+  },
+  {
+    "url": "https://api.github.com/orgs/Legit-Line/memberships/konard",
+    "state": "active",
+    "role": "member",
+    "organization_url": "https://api.github.com/orgs/Legit-Line",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "Legit-Line", "id": 77754335, "node_id": "MDEyOk9yZ2FuaXphdGlvbjc3NzU0MzM1", "url": "https://api.github.com/orgs/Legit-Line", "repos_url": "https://api.github.com/orgs/Legit-Line/repos", "events_url": "https://api.github.com/orgs/Legit-Line/events", "hooks_url": "https://api.github.com/orgs/Legit-Line/hooks", "issues_url": "https://api.github.com/orgs/Legit-Line/issues", "members_url": "https://api.github.com/orgs/Legit-Line/members{/member}", "public_members_url": "https://api.github.com/orgs/Legit-Line/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/77754335?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/second-foundation/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/second-foundation",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "second-foundation", "id": 175838258, "node_id": "O_kgDOCnsUMg", "url": "https://api.github.com/orgs/second-foundation", "repos_url": "https://api.github.com/orgs/second-foundation/repos", "events_url": "https://api.github.com/orgs/second-foundation/events", "hooks_url": "https://api.github.com/orgs/second-foundation/hooks", "issues_url": "https://api.github.com/orgs/second-foundation/issues", "members_url": "https://api.github.com/orgs/second-foundation/members{/member}", "public_members_url": "https://api.github.com/orgs/second-foundation/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/175838258?v=4", "description": null }
+  },
+  {
+    "url": "https://api.github.com/orgs/link-foundation/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/link-foundation",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "link-foundation", "id": 176174013, "node_id": "O_kgDOCoAzvQ", "url": "https://api.github.com/orgs/link-foundation", "repos_url": "https://api.github.com/orgs/link-foundation/repos", "events_url": "https://api.github.com/orgs/link-foundation/events", "hooks_url": "https://api.github.com/orgs/link-foundation/hooks", "issues_url": "https://api.github.com/orgs/link-foundation/issues", "members_url": "https://api.github.com/orgs/link-foundation/members{/member}", "public_members_url": "https://api.github.com/orgs/link-foundation/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/176174013?v=4", "description": "The foundation of foundations. Our mission is linkness." }
+  },
+  {
+    "url": "https://api.github.com/orgs/deep-assistant/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/deep-assistant",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "deep-assistant", "id": 198532076, "node_id": "O_kgDOC9Vb7A", "url": "https://api.github.com/orgs/deep-assistant", "repos_url": "https://api.github.com/orgs/deep-assistant/repos", "events_url": "https://api.github.com/orgs/deep-assistant/events", "hooks_url": "https://api.github.com/orgs/deep-assistant/hooks", "issues_url": "https://api.github.com/orgs/deep-assistant/issues", "members_url": "https://api.github.com/orgs/deep-assistant/members{/member}", "public_members_url": "https://api.github.com/orgs/deep-assistant/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/198532076?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/open-online-tools/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/open-online-tools",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "open-online-tools", "id": 214081134, "node_id": "O_kgDODMKebg", "url": "https://api.github.com/orgs/open-online-tools", "repos_url": "https://api.github.com/orgs/open-online-tools/repos", "events_url": "https://api.github.com/orgs/open-online-tools/events", "hooks_url": "https://api.github.com/orgs/open-online-tools/hooks", "issues_url": "https://api.github.com/orgs/open-online-tools/issues", "members_url": "https://api.github.com/orgs/open-online-tools/members{/member}", "public_members_url": "https://api.github.com/orgs/open-online-tools/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/214081134?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/correlation-center/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/correlation-center",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "correlation-center", "id": 228164306, "node_id": "O_kgDODZmC0g", "url": "https://api.github.com/orgs/correlation-center", "repos_url": "https://api.github.com/orgs/correlation-center/repos", "events_url": "https://api.github.com/orgs/correlation-center/events", "hooks_url": "https://api.github.com/orgs/correlation-center/hooks", "issues_url": "https://api.github.com/orgs/correlation-center/issues", "members_url": "https://api.github.com/orgs/correlation-center/members{/member}", "public_members_url": "https://api.github.com/orgs/correlation-center/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/228164306?v=4", "description": "" }
+  },
+  {
+    "url": "https://api.github.com/orgs/40Thinker/memberships/konard",
+    "state": "active",
+    "role": "member",
+    "organization_url": "https://api.github.com/orgs/40Thinker",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "40Thinker", "id": 237405964, "node_id": "O_kgDODiaHDA", "url": "https://api.github.com/orgs/40Thinker", "repos_url": "https://api.github.com/orgs/40Thinker/repos", "events_url": "https://api.github.com/orgs/40Thinker/events", "hooks_url": "https://api.github.com/orgs/40Thinker/hooks", "issues_url": "https://api.github.com/orgs/40Thinker/issues", "members_url": "https://api.github.com/orgs/40Thinker/members{/member}", "public_members_url": "https://api.github.com/orgs/40Thinker/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/237405964?v=4", "description": null }
+  },
+  {
+    "url": "https://api.github.com/orgs/link-assistant/memberships/konard",
+    "state": "active",
+    "role": "admin",
+    "organization_url": "https://api.github.com/orgs/link-assistant",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "direct_membership": true,
+    "enterprise_teams_providing_indirect_membership": [],
+    "organization": { "login": "link-assistant", "id": 245352401, "node_id": "O_kgDODp_H0Q", "url": "https://api.github.com/orgs/link-assistant", "repos_url": "https://api.github.com/orgs/link-assistant/repos", "events_url": "https://api.github.com/orgs/link-assistant/events", "hooks_url": "https://api.github.com/orgs/link-assistant/hooks", "issues_url": "https://api.github.com/orgs/link-assistant/issues", "members_url": "https://api.github.com/orgs/link-assistant/members{/member}", "public_members_url": "https://api.github.com/orgs/link-assistant/public_members{/member}", "avatar_url": "https://avatars.githubusercontent.com/u/245352401?v=4", "description": null }
+  }
+]

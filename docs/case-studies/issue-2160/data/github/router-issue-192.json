@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Problem\n\nThe v0.77.0 tag still hardcodes vendor model IDs in production routing code, contrary to the live-catalog requirement behind #77/#109:\n\n- `src/model_catalog.rs::fallback_models` seeds Claude, Codex, Gemini and Qwen with fixed model arrays such as `claude-opus-4-7`, `gpt-5-codex`, `gemini-2.5-pro`, `qwen3-coder-plus` and marks them `using_fallback`;\n- `src/anthropic_bridge.rs::resolve_bridge_model` hardcodes `gpt-5-codex`, `qwen3-coder-plus` and Gemini `DEFAULT_MODEL` when no bridge override is set.\n\nThe live Codex catalog observed through v0.77 contains eight current IDs and does not contain `gpt-5-codex`, so the built-in bridge default is already outside the provider list. Hardcoded fallbacks can advertise or route to models that are unavailable, renamed, withdrawn, not entitled, or never authorized.\n\n## Expected behavior\n\n- Start every subscription catalog empty/unavailable until a successful authenticated live discovery for that exact account.\n- Persist the last successful catalog with account identity, fetched time and explicit health, but never seed it from source-code model names.\n- Do not expose persisted models while the credential is missing/revoked; expose degradation separately to admins.\n- Resolve a missing cross-protocol bridge model from the healthy account live catalog and capability metadata, with a deterministic operator-configurable policy (for example cheapest compatible/default advertised model).\n- Reject with a clear `model_selection_required`/provider-unavailable error when no compatible live model exists; never silently substitute a source-code constant.\n- Namespace collisions by provider/account and preserve requested/resolved identity and attribution in every response.\n- Client setup/default selection must query the authenticated union catalog at execution time, not embed known model IDs.\n- Add tests with entirely synthetic future model names and zero familiar GPT/Claude/Gemini/Qwen names, proving catalog, routing, bridge selection and clients still work.",
+  "closedAt": "2026-08-17T06:08:00Z",
+  "createdAt": "2026-08-15T15:55:37Z",
+  "labels": [],
+  "number": 192,
+  "state": "CLOSED",
+  "title": "Remove hardcoded model catalogs and bridge defaults; derive all routing from live provider catalogs",
+  "updatedAt": "2026-08-17T06:08:00Z",
+  "url": "https://github.com/link-assistant/router/issues/192"
+}

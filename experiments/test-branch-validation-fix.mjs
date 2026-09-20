@@ -12,7 +12,7 @@ async function testBranchValidation() {
     { number: 89, headRefName: 'issue-53-12d80c86', state: 'OPEN', createdAt: '2025-01-01T00:00:00Z' },
     { number: 90, headRefName: 'issue-92-abcd1234', state: 'OPEN', createdAt: '2025-01-01T00:00:00Z' },
     { number: 91, headRefName: 'feature/something', state: 'OPEN', createdAt: '2025-01-01T00:00:00Z' },
-    { number: 92, headRefName: 'issue-92-xyz789ab', state: 'OPEN', createdAt: '2025-01-01T00:00:00Z' }
+    { number: 92, headRefName: 'issue-92-xyz789ab', state: 'OPEN', createdAt: '2025-01-01T00:00:00Z' },
   ];
 
   const expectedBranchPrefix = `issue-${issueNumber}-`;

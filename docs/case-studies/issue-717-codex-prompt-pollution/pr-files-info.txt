@@ -1,0 +1,13 @@
+PR: https://github.com/link-foundation/ideav-local-associative-js/pull/2
+Files changed:
+1. .github/workflows/ci.yml (added) - CI configuration
+2. .lenv (added) - Environment configuration
+3. README.md (modified) - Documentation
+4. bun.lock (added) - Dependency lock file
+5. codex_prompt.txt (added, 90 lines) - PROBLEMATIC FILE - AI solver guidelines created in repo workspace
+6. package.json (added) - Package metadata
+7. src/server.mjs (added) - Express server
+8. tests/server.test.mjs (added) - Test suite
+
+The codex_prompt.txt file was created by our hive-mind solve command and committed to the repository.
+This file should have been created in a temporary directory instead of polluting the repository workspace.

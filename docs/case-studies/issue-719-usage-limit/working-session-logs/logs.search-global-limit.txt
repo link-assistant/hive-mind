@@ -1,0 +1,7 @@
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.auto-continue.lib.mjs:61:    const resetTime = global.limitResetTime;
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+src/solve.results.lib.mjs:220:          if (global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {

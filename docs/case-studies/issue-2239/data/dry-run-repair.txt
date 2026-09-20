@@ -1,0 +1,13 @@
+   ↪ https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true → https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true
+   ↪ https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-sankey.png?raw=true → https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-sankey.png?raw=true
+   ↪ https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-network.png?raw=true → https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-network.png?raw=true
+
+Godmy/frontend#2: 3 GitHub link(s) scanned.
+  WOULD FIX  https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true
+         ->  https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-force.png?raw=true  (1 occurrence(s))
+  WOULD FIX  https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-sankey.png?raw=true
+         ->  https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-sankey.png?raw=true  (1 occurrence(s))
+  WOULD FIX  https://github.com/Godmy/frontend/blob/issue-1-46ba053c/docs/screenshots/graph-network.png?raw=true
+         ->  https://github.com/konard/Godmy-frontend/blob/issue-1-46ba053c/docs/screenshots/graph-network.png?raw=true  (1 occurrence(s))
+
+Nothing was edited: dryRun is on.

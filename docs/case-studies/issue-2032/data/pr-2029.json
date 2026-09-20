@@ -1,0 +1,53 @@
+{
+  "body": "## Summary\n\nFixes #2027.\n\nMakes `gpt-5.6-sol` the default model for `--tool codex` and makes the thinking/effort levels predictable and consistent across both `codex` and `claude`. By default, both tools run the model as-is with **no thinking level enforced**.\n\n## What changed (per requirement)\n\n- **R1 — Default to GPT-5.6 Sol.** `defaultModels.codex` is now `gpt-5.6-sol`. `primaryModelNames.codex` leads with `gpt-5.6-sol`, and `gpt-5.5` is the first entry in `CODEX_DEFAULT_FALLBACK_CHAIN`, so environments whose local Codex catalog has not exposed Sol yet still resolve a working model.\n- **R2 — All other models still supported.** The full Codex allowlist and fallback chain are preserved; no model IDs were removed. Regression tests assert the catalog still validates.\n- **R3 — Predictable Codex levels.** `--think` maps 1:1 to Codex `model_reasoning_effort`: `off`→`none`, `low`/`medium`/`high`/`xhigh`/`ultra`/`max` identity. `xhigh` is natively supported (confirmed by `codex debug models`); `max` sits above `xhigh`; `ultra` is GPT-5.6 Sol's multi-agent mode. `--think ultra` is always paired with a `rollout_token_budget` cap (`500000` default, override via the new `--rollout-token-budget`). Budget-derived effort caps at `xhigh` so `max`/`ultra` require an explicit `--think`.\n- **R4 — Align Claude.** Added the `ultra` level (ultracode-class): `thinkLevelToEffortLevel` clamps `ultra` to the highest supported effort (`max`, else `xhigh`, else `high`), `getThinkingLevelToTokens` maps `ultra` to the max token budget, and the thinking prompt emits `Ultrathink.`.\n- **R5 — No thinking by default.** With no `--think`, `resolveCodexReasoningEffort` returns `reasoning_effort=none` (source `default`) and Claude adds no effort/budget overrides.\n- **R6 — Case study.** Research data and analysis collected under [`docs/case-studies/issue-2027`](docs/case-studies/issue-2027/README.md), including the authoritative `codex debug models` output and GPT-5.6 Sol reasoning notes.\n\n## Reproduction / verification\n\n- `tests/test-codex-support.mjs` — default `gpt-5.6-sol`, primary/fallback ordering, runtime fallback to `gpt-5.5` when Sol is absent, and the identity reasoning mapping (`ultra` with `rolloutTokenBudget=500000`, overridable to `250000`; `max` with no budget; `xhigh` budget cap; `none` default/off).\n- `tests/test-agent-commander-option.mjs` — Codex extra args for `xhigh`, `max`, and `ultra` (the latter appends `rollout_token_budget`), plus a custom `--rollout-token-budget` override.\n- `tests/test-claude-think-prompt-gating.mjs` and `tests/test-opus-48-model-support.mjs` — the `ultra` level in Claude thinking-prompt gating and token/effort mapping.\n- Docs sync/validation: `tests/test-docs-language-sync.mjs`, `tests/docs-validation.mjs`, `tests/test-docs-options-sync.mjs`.\n\nAll of the above pass locally (run with `CLAUDE_CODE_EFFORT_LEVEL`/`CLAUDE_EFFORT` unset, since the CI/dev harness leaks those env vars into unrelated Claude-effort tests).\n\n## Notes\n\n- The local `codex debug models` (`codex-cli 0.142.5`) does not yet list the GPT-5.6 preview models; hive-mind's registry already accepts them (added in #1992), so this change is the default flip plus the thinking-level work.\n- A `minor` changeset is included for the next auto-release.\n",
+  "commits": [
+    { "authoredDate": "2026-07-09T17:20:04Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-09T17:20:04Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2027", "messageHeadline": "Initial commit with task details", "oid": "c8e2bec844f16b923139afa9630138a39fdb8209" },
+    {
+      "authoredDate": "2026-07-09T18:03:44Z",
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
+      "committedDate": "2026-07-09T18:03:44Z",
+      "messageBody": "Issue #2027:\n- Set gpt-5.6-sol as the default model for --tool codex (was gpt-5.5),\n  keeping gpt-5.5 as the first runtime fallback when the local Codex\n  catalog has not exposed Sol yet. All other Codex models stay supported.\n- Map the shared --think levels 1:1 to Codex reasoning efforts\n  (off=none, low/medium/high/xhigh/ultra/max as an identity mapping).\n  xhigh is natively supported per 'codex debug models'; max sits above\n  xhigh; ultra is GPT-5.6 Sol's multi-agent mode.\n- Always pair --think ultra with a rollout_token_budget cap\n  (CODEX_ULTRA_ROLLOUT_TOKEN_BUDGET=500000, override via\n  --rollout-token-budget). Budget-derived effort caps at xhigh so max\n  and ultra require an explicit --think.\n- Align --tool claude by adding the ultra level (ultracode-class):\n  thinkLevelToEffortLevel clamps ultra to the highest supported effort,\n  getThinkingLevelToTokens maps ultra to the max token budget, and the\n  thinking prompt emits 'Ultrathink.'.\n- By default (no --think) both tools run the model as-is with no thinking\n  enforced (Codex reasoning=none).\n- Docs (en/zh/hi/ru), locales, tests, changeset, and a case study under\n  docs/case-studies/issue-2027 updated accordingly.",
+      "messageHeadline": "feat(codex): default to gpt-5.6-sol and add predictable thinking levels",
+      "oid": "d3b7c9748468bc976921c4a13cb6026356655221"
+    },
+    { "authoredDate": "2026-07-09T18:09:41Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-09T18:09:41Z", "messageBody": "Condense the Issue #2027 rollout_token_budget block (3-line comment +\nmulti-line if) to a single comment line + single-line if. Resolves the\nlint (max-lines) and check-file-line-limits CI failures where the file\nwas 1501 lines (limit 1500).", "messageHeadline": "fix: keep codex.lib.mjs under 1500-line limit", "oid": "c9e438117f7bf9524504091d601f907e9c2cb897" },
+    { "authoredDate": "2026-07-09T18:26:13Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-09T18:26:13Z", "messageBody": "This reverts commit c8e2bec844f16b923139afa9630138a39fdb8209.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "b6022b2cf7ec9dd7af00292614e5409779dd18df" }
+  ],
+  "files": [
+    { "path": ".changeset/issue-2027-codex-gpt-5-6-sol-default.md", "additions": 5, "deletions": 0, "changeType": "ADDED" },
+    { "path": "README.hi.md", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "README.md", "additions": 10, "deletions": 10, "changeType": "MODIFIED" },
+    { "path": "README.ru.md", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "README.zh.md", "additions": 4, "deletions": 4, "changeType": "MODIFIED" },
+    { "path": "docs/CONFIGURATION.hi.md", "additions": 3, "deletions": 3, "changeType": "MODIFIED" },
+    { "path": "docs/CONFIGURATION.md", "additions": 127, "deletions": 126, "changeType": "MODIFIED" },
+    { "path": "docs/CONFIGURATION.ru.md", "additions": 3, "deletions": 3, "changeType": "MODIFIED" },
+    { "path": "docs/CONFIGURATION.zh.md", "additions": 5, "deletions": 5, "changeType": "MODIFIED" },
+    { "path": "docs/case-studies/issue-2027/README.md", "additions": 136, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/codex-debug-models-summary.json", "additions": 14, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/codex-debug-models.json", "additions": 266, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/codex-version.txt", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/gpt-5-6-sol-reasoning-notes.md", "additions": 45, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/issue-2027-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/issue-2027.json", "additions": 13, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-2027/data/pr-2029.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "src/agent-commander.lib.mjs", "additions": 7, "deletions": 2, "changeType": "MODIFIED" },
+    { "path": "src/codex.lib.mjs", "additions": 5, "deletions": 2, "changeType": "MODIFIED" },
+    { "path": "src/codex.options.lib.mjs", "additions": 34, "deletions": 3, "changeType": "MODIFIED" },
+    { "path": "src/config.lib.mjs", "additions": 8, "deletions": 2, "changeType": "MODIFIED" },
+    { "path": "src/locales/en.lino", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/locales/hi.lino", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/locales/ru.lino", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/locales/zh.lino", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/models/index.mjs", "additions": 6, "deletions": 3, "changeType": "MODIFIED" },
+    { "path": "src/solve.config.lib.mjs", "additions": 8, "deletions": 3, "changeType": "MODIFIED" },
+    { "path": "src/thinking-prompt.lib.mjs", "additions": 1, "deletions": 0, "changeType": "MODIFIED" },
+    { "path": "tests/test-agent-commander-option.mjs", "additions": 12, "deletions": 0, "changeType": "MODIFIED" },
+    { "path": "tests/test-claude-think-prompt-gating.mjs", "additions": 7, "deletions": 6, "changeType": "MODIFIED" },
+    { "path": "tests/test-codex-support.mjs", "additions": 44, "deletions": 10, "changeType": "MODIFIED" },
+    { "path": "tests/test-opus-48-model-support.mjs", "additions": 12, "deletions": 2, "changeType": "MODIFIED" }
+  ],
+  "number": 2029,
+  "title": "Set GPT-5.6 Sol as default for `--tool codex` with predictable thinking levels",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2029"
+}

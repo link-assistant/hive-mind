@@ -47,8 +47,7 @@ if (autoPrLibContent.includes('FATAL ERROR:') && autoPrLibContent.includes('PR c
 }
 
 // Check for actionable instructions
-if (autoPrLibContent.includes('How to fix:') &&
-    autoPrLibContent.includes('--no-auto-pull-request-creation')) {
+if (autoPrLibContent.includes('How to fix:') && autoPrLibContent.includes('--no-auto-pull-request-creation')) {
   console.log('✅ PASS: Actionable instructions provided');
 } else {
   console.log('❌ FAIL: Actionable instructions not found');
@@ -73,8 +72,7 @@ if (autoPrLibContent.includes('Checking if PR was created anyway...')) {
 }
 
 // Check for detailed error explanation when PR actually fails
-if (autoPrLibContent.includes('assignee validation issue') ||
-    autoPrLibContent.includes('assignee doesn\'t have access')) {
+if (autoPrLibContent.includes('assignee validation issue') || autoPrLibContent.includes("assignee doesn't have access")) {
   console.log('✅ PASS: Detailed explanation for assignee issues provided');
 } else {
   console.log('❌ FAIL: Assignee issue explanation not found');
@@ -84,9 +82,9 @@ if (autoPrLibContent.includes('assignee validation issue') ||
 // Test 3: Verify error messages include temp directory path
 console.log('\nTest 3: Checking that error messages include helpful context');
 const errorMessageSections = [
-  'cd ${tempDir}',  // Should tell user where to go
-  'gh pr create',   // Should suggest manual PR creation
-  'git status',     // Should suggest debugging commands
+  'cd ${tempDir}', // Should tell user where to go
+  'gh pr create', // Should suggest manual PR creation
+  'git status', // Should suggest debugging commands
 ];
 
 let missingContext = false;
@@ -103,11 +101,7 @@ if (!missingContext) {
 
 // Test 4: Check for multiple recovery options
 console.log('\nTest 4: Checking for multiple recovery options');
-const recoveryOptions = [
-  'Option 1:',
-  'Option 2:',
-  'Option 3:',
-];
+const recoveryOptions = ['Option 1:', 'Option 2:', 'Option 3:'];
 
 let allOptionsPresent = true;
 for (const option of recoveryOptions) {
@@ -125,9 +119,7 @@ if (allOptionsPresent) {
 
 // Test 5: Check for PR verification after creation
 console.log('\nTest 5: Checking PR verification after creation');
-if (autoPrLibContent.includes('gh pr view') &&
-    autoPrLibContent.includes('Verifying:') &&
-    autoPrLibContent.includes('PR exists on GitHub')) {
+if (autoPrLibContent.includes('gh pr view') && autoPrLibContent.includes('Verifying:') && autoPrLibContent.includes('PR exists on GitHub')) {
   console.log('✅ PASS: PR verification is performed after creation');
 } else {
   console.log('❌ FAIL: PR verification not found');

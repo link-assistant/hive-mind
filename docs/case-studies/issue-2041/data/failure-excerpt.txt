@@ -1,0 +1,10 @@
+7316:test-suites	Run default test suite	2026-07-10T21:44:38.1982212Z   ✅ PASS: OOM completion reports synthesized exit code 137
+7812:test-suites	Run default test suite	2026-07-10T21:45:03.2451612Z ✅ Issue #1805: MergeItemStatus exposes RESOLVING and RESOLVE_FAILED
+7818:test-suites	Run default test suite	2026-07-10T21:45:03.2470285Z ✅ Issue #1805: runAutoResolve marks RESOLVE_FAILED when no spawner is provided
+7854:test-suites	Run default test suite	2026-07-10T21:45:05.6322331Z ✅ Issue #1807: timed-out wait marks item RESOLVE_FAILED
+7855:test-suites	Run default test suite	2026-07-10T21:45:05.6325035Z ✅ Issue #1807: closed PR (without merge) marks item RESOLVE_FAILED
+7858:test-suites	Run default test suite	2026-07-10T21:45:05.6341375Z ✅ Issue #1807: stops the pass when post-merge CI fails and STOP_ON_POST_MERGE_CI_FAILURE is on
+7980:test-suites	Run default test suite	2026-07-10T21:45:10.2310762Z ✅ MERGE_QUEUE_CONFIG.STOP_ON_POST_MERGE_CI_FAILURE defaults to true
+10710:test-suites	Run default test suite	2026-07-10T21:47:11.7466145Z FAIL: /codex invalid --think reports each choice once after URL probing
+10716:test-suites	Run default test suite	2026-07-10T21:47:11.7794639Z Failed test files:
+10718:test-suites	Run default test suite	2026-07-10T21:47:11.7930523Z ##[error]Process completed with exit code 1.

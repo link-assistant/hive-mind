@@ -1,0 +1,4 @@
+86a3644f docs: add missing configuration options to CONFIGURATION.md
+8cb05431 Reduce usage API cache TTL from 20 to 10 minutes (to refresh Claude limits faster)
+64a1db96 Merge pull request #1075 from link-assistant/issue-1074-d63f325924e1
+1a96d9ff fix: increase Claude Usage API cache TTL to 20 minutes to avoid rate limiting

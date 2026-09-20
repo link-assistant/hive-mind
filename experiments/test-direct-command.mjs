@@ -8,26 +8,25 @@ import { hideBin } from 'yargs/helpers';
 const argv = yargs(hideBin(['node', 'test', 'https://github.com/test/repo', '--attach-logs', '--verbose']))
   .positional('github-url', {
     description: 'GitHub organization, repository, or user URL to monitor',
-    type: 'string'
+    type: 'string',
   })
   .option('verbose', {
     type: 'boolean',
     description: 'Enable verbose logging',
     alias: 'v',
-    default: false
+    default: false,
   })
   .option('fork', {
     type: 'boolean',
-    description: 'Fork the repository if you don\'t have write access',
+    description: "Fork the repository if you don't have write access",
     alias: 'f',
-    default: false
+    default: false,
   })
   .option('attach-logs', {
     type: 'boolean',
     description: 'Upload the solution log file to the Pull Request on completion (⚠️ WARNING: May expose sensitive data)',
-    default: false
-  })
-  .argv;
+    default: false,
+  }).argv;
 
 // Test the flag generation logic
 const issueUrl = 'https://github.com/test/repo/issues/123';
@@ -40,7 +39,7 @@ console.log('🧪 Testing command generation logic:');
 console.log('Arguments parsed:', {
   verbose: argv.verbose,
   fork: argv.fork,
-  attachLogs: argv.attachLogs
+  attachLogs: argv.attachLogs,
 });
 console.log('Generated command:', command);
 

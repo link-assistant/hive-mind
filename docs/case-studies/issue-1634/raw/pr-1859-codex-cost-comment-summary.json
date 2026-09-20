@@ -1,0 +1,86 @@
+[
+  {
+    "id": 4258409612,
+    "created_at": "2026-04-16T08:11:47Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4258409612",
+    "usage": "586,287 input, 52,771 output, 21,498,624 cache read, 0 cache write",
+    "total": "(586.3K + 21.5M cached) input tokens, 52.8K output tokens"
+  },
+  {
+    "id": 4263632401,
+    "created_at": "2026-04-16T21:48:00Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4263632401",
+    "usage": "109,048 input, 11,959 output, 3,382,528 cache read, 0 cache write",
+    "total": "(109.0K + 3.4M cached) input tokens, 12.0K output tokens"
+  },
+  {
+    "id": 4264077367,
+    "created_at": "2026-04-16T23:22:31Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4264077367",
+    "usage": "157,647 input, 11,077 output, 8,140,032 cache read, 0 cache write",
+    "total": null
+  },
+  {
+    "id": 4264233011,
+    "created_at": "2026-04-16T23:58:52Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4264233011",
+    "usage": "188,760 input, 11,114 output, 5,671,936 cache read, 0 cache write",
+    "total": "(188.8K + 5.7M cached) input tokens, 11.1K output tokens"
+  },
+  {
+    "id": 4264238604,
+    "created_at": "2026-04-17T00:00:28Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4264238604",
+    "usage": "132,632 input, 2,527 output, 719,616 cache read, 0 cache write",
+    "total": null
+  },
+  {
+    "id": 4264361368,
+    "created_at": "2026-04-17T00:28:52Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4264361368",
+    "usage": "89,016 input, 7,152 output, 2,286,848 cache read, 0 cache write",
+    "total": "(89.0K + 2.3M cached) input tokens, 7.2K output tokens"
+  },
+  {
+    "id": 4264375558,
+    "created_at": "2026-04-17T00:31:47Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4264375558",
+    "usage": "56,541 input, 4,453 output, 1,283,072 cache read, 0 cache write",
+    "total": null
+  },
+  {
+    "id": 4270099530,
+    "created_at": "2026-04-17T17:42:58Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4270099530",
+    "usage": "137,930 input, 9,699 output, 8,135,808 cache read",
+    "total": "(137.9K + 8.1M cached) input tokens, 9.7K output tokens"
+  },
+  {
+    "id": 4270247518,
+    "created_at": "2026-04-17T18:09:01Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4270247518",
+    "usage": "125,069 input, 11,255 output, 3,975,808 cache read",
+    "total": "(125.1K + 4.0M cached) input tokens, 11.3K output tokens"
+  },
+  {
+    "id": 4270254416,
+    "created_at": "2026-04-17T18:10:00Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4270254416",
+    "usage": "16,702 input, 1,489 output, 176,640 cache read",
+    "total": null
+  },
+  {
+    "id": 4270695371,
+    "created_at": "2026-04-17T19:23:33Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4270695371",
+    "usage": "70,196 input, 6,734 output, 1,769,344 cache read",
+    "total": "(70.2K + 1.8M cached) input tokens, 6.7K output tokens"
+  },
+  {
+    "id": 4271561699,
+    "created_at": "2026-04-17T22:01:31Z",
+    "html_url": "https://github.com/Jhon-Crow/godot-topdown-MVP/pull/1859#issuecomment-4271561699",
+    "usage": "42,742 input, 4,784 output, 885,376 cache read",
+    "total": "(42.7K + 885.4K cached) input tokens, 4.8K output tokens"
+  }
+]

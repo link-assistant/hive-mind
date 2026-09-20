@@ -1,0 +1,15 @@
+{
+  "author": { "id": "MDQ6VXNlcjY2ODQwNTc1", "is_bot": false, "login": "skulidropek", "name": "Skuli Dropek" },
+  "body": "hive auth codex login\nhive auth claude login\n\nИх можно было бы вызвать через телеграм для удобства\nу меня есть такие команды в docker-git где он под авторизацию создаёт отдельный контейнер и сохраняет после токены https://github.com/ProverCoderAI/docker-git#%D0%B0%D0%B2%D1%82%D0%BE%D1%80%D0%B8%D0%B7%D0%B0%D1%86%D0%B8%D1%8F",
+  "comments": [{ "id": "IC_kwDOPUU0qc8AAAABFPX2KQ", "author": { "login": "konard" }, "authorAssociation": "MEMBER", "body": "We need to research what it means, how exactly it can be implemented, and how we can support not single auth, but multiple of them.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).", "createdAt": "2026-06-08T08:09:01Z", "includesCreatedEdit": true, "isMinimized": false, "minimizedReason": "", "reactionGroups": [], "url": "https://github.com/link-assistant/hive-mind/issues/1858#issuecomment-4646630953", "viewerDidAuthor": true }],
+  "createdAt": "2026-06-08T06:39:21Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6qg", "name": "question", "description": "Further information is requested", "color": "d876e3" }
+  ],
+  "number": 1858,
+  "state": "OPEN",
+  "title": "Полезно добавить команды авторизации агентов",
+  "updatedAt": "2026-06-08T08:09:39Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1858"
+}

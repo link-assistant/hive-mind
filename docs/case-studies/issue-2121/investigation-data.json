@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-07-31",
+  "issue": {
+    "number": 2121,
+    "url": "https://github.com/link-assistant/hive-mind/issues/2121",
+    "title": "/task --ci-cd",
+    "state": "OPEN",
+    "commentCount": 0,
+    "reportedCommand": "/task —ci-cd https://github.com/link-assistant/agent",
+    "observedReply": "Missing GitHub repository URL"
+  },
+  "preparedPullRequest": {
+    "number": 2122,
+    "url": "https://github.com/link-assistant/hive-mind/pull/2122",
+    "initialDraft": true,
+    "initialReviewCount": 0,
+    "initialConversationCommentCount": 0,
+    "initialInlineCommentCount": 0
+  },
+  "relatedWork": [
+    {
+      "issue": 1733,
+      "pullRequest": 1929,
+      "finding": "/fix --ci-cd owns CI/CD issue generation followed by a solve run"
+    },
+    {
+      "issue": 1734,
+      "pullRequest": 1735,
+      "finding": "/task creates an issue directly and leaves solving as an explicit reply"
+    },
+    {
+      "issue": 2021,
+      "finding": "Telegram command parsing already normalizes en and em dashes to ASCII option prefixes"
+    }
+  ],
+  "rootCauseTrace": ["parseCommandArgs normalized the reported em dash to --ci-cd", "handleTaskCommand recognized only ordinary issue creation and split modes", "the ordinary issue parser received --ci-cd and the repository on one line", "that parser requires the repository to be a standalone repository input", "the handler therefore emitted its missing-repository error"]
+}

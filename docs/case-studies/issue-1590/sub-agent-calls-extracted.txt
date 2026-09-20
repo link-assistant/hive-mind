@@ -1,0 +1,36 @@
+        "name": "Agent",
+          "description": "Translate README.md to Chinese",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate README.md to Hindi",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate README.md to Russian",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 1 docs to Chinese",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 1 docs to Hindi",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 1 docs to Russian",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 2 docs to Chinese",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 2 docs to Hindi",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 2 docs to Russian",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 3 docs to Chinese",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 3 docs to Hindi",
+          "model": "sonnet"
+        "name": "Agent",
+          "description": "Translate batch 3 docs to Russian",
+          "model": "sonnet"

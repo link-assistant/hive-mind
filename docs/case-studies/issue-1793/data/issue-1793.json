@@ -1,0 +1,12 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Please find a way, and if possible to get from API or claude CLI the date and time, at which subscription will end. The same for codex and other tools.\n\nFor all tools where it possible to get the end time and date of subscription add such feature, and display it in /limits command (if data is available).\n\nSo we will know exactly how long it will last. Double check the internet, online docs and so on. Double check all places. For codex and other open-source tools you can also read the code if docs and so on have no data, and reproduce the feature if CLI/API does not give it directly.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-05-12T20:18:30Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 1793,
+  "title": "Display a date and time when subscription ends for all tools",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1793"
+}

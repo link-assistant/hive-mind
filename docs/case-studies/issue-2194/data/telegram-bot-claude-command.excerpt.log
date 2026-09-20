@@ -1,0 +1,71 @@
+[VERBOSE] isolation-runner: docker inspect for 'a20e6042-e589-4ae5-8e5f-6f3385513b2e': running
+[VERBOSE] isolation-runner: docker writable layer size for 'a20e6042-e589-4ae5-8e5f-6f3385513b2e': 1595355136 bytes
+2026-09-03T07:37:39.436Z DEBUG Persisted session a20e6042-e589-4ae5-8e5f-6f3385513b2e {"command":"solve","url":"https://github.com/link-foundation/start/issues/162"}
+[VERBOSE] Telegram Bot API getUpdates accepted; windows: {"other":1}
+[VERBOSE] Retrieved 2 active session(s)
+[VERBOSE] Checking 2 active session(s)...
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "d54408cc-8b23-4bf9-9772-3a6165dfcc5c",
+  "pid": 29808,
+  "processIds": {
+    "wrapperPid": 29808,
+    "containerId": "d78b9c8948a4bf9c9a135e239fda9753fc88cbd026652af754b8106e97fd8da5",
+    "containerPid": 141234
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/tmp/
+[VERBOSE] isolation-runner: docker inspect for 'fc14d5ce-8eba-4704-9756-a19c6c01eef4': running
+[VERBOSE] isolation-runner: docker writable layer size for 'fc14d5ce-8eba-4704-9756-a19c6c01eef4': 5586989056 bytes
+2026-09-03T07:38:08.759Z DEBUG Persisted session fc14d5ce-8eba-4704-9756-a19c6c01eef4 {"command":"solve","url":"https://github.com/link-assistant/hive-mind/issues/2189"}
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "9b1b71ec-e5fc-422d-b4d6-af2ea9b4a5c4",
+  "pid": 33116,
+  "processIds": {
+    "wrapperPid": 33116,
+    "containerId": "ded854bd8f13e9dfd88e5eea1cd645b37b2dd7334ceed428651441ce154dd96a",
+    "containerPid": 175412
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/tmp/
+[VERBOSE] isolation-runner: docker inspect for 'a20e6042-e589-4ae5-8e5f-6f3385513b2e': running
+[VERBOSE] isolation-runner: docker writable layer size for 'a20e6042-e589-4ae5-8e5f-6f3385513b2e': 1591898112 bytes
+2026-09-03T07:38:10.206Z DEBUG Persisted session a20e6042-e589-4ae5-8e5f-6f3385513b2e {"command":"solve","url":"https://github.com/link-foundation/start/issues/162"}
+2026-09-03T07:38:33.877Z INFO  EVENT heartbeat {"pid":995,"activeSessions":2,"uptimeSec":39204,"resources":{"phase":"bot_heartbeat","timestamp":"2026-09-03T07:38:33.871Z","cpu":{"load1":1.96,"load5":3.39,"load15":3.51,"cpuCount":6},"memory":{"totalBytes":12541493248,"availableBytes":10637488128,"usedBytes":1904005120,"processRssBytes":135127040},"disk":{"path":"/","totalBytes":206900281344,"availableBytes":132401881088,"usedBytes":74481623040,"usedPercent":35.99880220373607,"error":null}}}
+[VERBOSE] Telegram Bot API getUpdates accepted; windows: {"other":1}
+[VERBOSE] /claude command received
+[VERBOSE] isForwarded: Checking forwarding fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE] isForwarded: FALSE - no forwarding detected
+[VERBOSE] /claude passed all checks, executing...
+[telegram-send] s74 safeReply → chat=-1002975819706 parse_mode=Markdown reply_to=115720 chars=439 bytes=443 text="❌ URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: https://github.com/G-Ivan-A/aether-orbis/pulls/30\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: `https://github.com/G-Ivan-A/aet"… (+139 chars)
+[telegram-send] s75 sendMessage → chat=-1002975819706 thread=857 parse_mode=Markdown reply_to=115720 thread=857 chars=439 bytes=443 text="❌ URL points to the pull requests list page, but you need a specific pull request\n\n💡 How to fix:\n1. Open the repository: https://github.com/G-Ivan-A/aether-orbis/pulls/30\n2. Click on a specific pull request\n3. Copy the URL (it should end with /pull/NUMBER)\n\nExample: `https://github.com/G-Ivan-A/aether-orbis/pull/1`\n\nExample: `/solve https://github.com/owner/repo/issues/123`\n\nOr reply to a message containing a GitHub link with `/solve`"
+[VERBOSE] Telegram Bot API sendMessage accepted; windows: {"chat":1,"group":1,"broadcast":1}
+[telegram-send] s75 sendMessage ✓ delivered message_id=115721
+[telegram-send] s74 safeReply ✓ delivered message_id=115721
+[VERBOSE] Retrieved 2 active session(s)
+[VERBOSE] Checking 2 active session(s)...
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "d54408cc-8b23-4bf9-9772-3a6165dfcc5c",
+  "pid": 29808,
+  "processIds": {
+    "wrapperPid": 29808,
+    "containerId": "d78b9c8948a4bf9c9a135e239fda9753fc88cbd026652af754b8106e97fd8da5",
+    "containerPid": 141234
+  },
+  "status": "executing",
+  "exitCode": null,
+  "command": "gate='/tmp/
+[VERBOSE] isolation-runner: docker inspect for 'fc14d5ce-8eba-4704-9756-a19c6c01eef4': running
+[VERBOSE] isolation-runner: docker writable layer size for 'fc14d5ce-8eba-4704-9756-a19c6c01eef4': 5587177472 bytes
+2026-09-03T07:38:38.298Z DEBUG Persisted session fc14d5ce-8eba-4704-9756-a19c6c01eef4 {"command":"solve","url":"https://github.com/link-assistant/hive-mind/issues/2189"}
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "9b1b71ec-e5fc-422d-b4d6-af2ea9b4a5c4",

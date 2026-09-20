@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 /**
  * Contributing Guidelines Detection and Fetching
@@ -6,33 +7,22 @@
  */
 
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const $ = wrapDollarWithGhRetry(__rawDollar$);
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2135: keep large read-only probe payloads out of the attached log
 /**
  * Common paths where contributing guidelines might be found
  */
-const CONTRIBUTING_PATHS = [
-  'CONTRIBUTING.md',
-  'CONTRIBUTING',
-  'docs/CONTRIBUTING.md',
-  'docs/contributing.md',
-  '.github/CONTRIBUTING.md',
-  'CONTRIBUTE.md',
-  'docs/contribute.md'
-];
+const CONTRIBUTING_PATHS = ['CONTRIBUTING.md', 'CONTRIBUTING', 'docs/CONTRIBUTING.md', 'docs/contributing.md', '.github/CONTRIBUTING.md', 'CONTRIBUTE.md', 'docs/contribute.md'];
 
 /**
  * Common documentation URLs patterns
  */
-const DOCS_PATTERNS = [
-  'readthedocs.io',
-  'github.io',
-  '/docs/',
-  '/documentation/'
-];
+const DOCS_PATTERNS = ['readthedocs.io', 'github.io', '/docs/', '/documentation/'];
 
 /**
  * Detect contributing guidelines in a repository
@@ -46,32 +36,42 @@ export async function detectContributingGuidelines(owner, repo) {
     path: null,
     url: null,
     content: null,
-    docsUrl: null
+    docsUrl: null,
   };
 
   // Try to find CONTRIBUTING file in the repo
   for (const path of CONTRIBUTING_PATHS) {
     try {
-      const checkResult = await $`gh api repos/${owner}/${repo}/contents/${path} 2>/dev/null`.raw().trim();
-      if (checkResult.exitCode === 0 && checkResult.text) {
+      // Issue #2135: `mirror: false` - the answer is the file's whole content,
+      // base64-encoded, and it is decoded into `result.content` below rather
+      // than read from the log.
+      //
+      // `.raw()` used to be called on this result: `$` is wrapped by
+      // `wrapDollarWithGhRetry`, which returns a plain promise for `gh`
+      // commands, so `.raw()` threw a TypeError that the `catch` below
+      // swallowed - every repository looked as if it had no contributing
+      // guidelines. The command-stream result fields are read directly instead.
+      const checkResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/contents/${path} 2>/dev/null`;
+      const checkText = checkResult.stdout ? checkResult.stdout.toString().trim() : '';
+      if (checkResult.code === 0 && checkText) {
         result.found = true;
         result.path = path;
         result.url = `https://github.com/${owner}/${repo}/blob/main/${path}`;
 
         // Try to get the content from the response
         try {
-          const data = JSON.parse(checkResult.text);
+          const data = JSON.parse(checkText);
           if (data.content) {
             // Decode base64 content
             result.content = Buffer.from(data.content, 'base64').toString('utf-8');
           }
-        } catch (err) {
+        } catch {
           // Content parse failed, but we know the file exists
         }
 
         break;
       }
-    } catch (err) {
+    } catch {
       // File doesn't exist, try next path
     }
   }
@@ -79,13 +79,15 @@ export async function detectContributingGuidelines(owner, repo) {
   // Try to find docs URL in README
   if (!result.found) {
     try {
-      const readme = await $`gh api repos/${owner}/${repo}/readme 2>/dev/null`.raw().trim();
-      if (readme.exitCode === 0 && readme.text) {
-        const readmeData = JSON.parse(readme.text);
+      // Issue #2135: `mirror: false`, and the same `.raw()` fix as above.
+      const readme = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/readme 2>/dev/null`;
+      const readmeText = readme.stdout ? readme.stdout.toString().trim() : '';
+      if (readme.code === 0 && readmeText) {
+        const readmeData = JSON.parse(readmeText);
         const readmeContent = Buffer.from(readmeData.content, 'base64').toString('utf-8');
 
         // Look for contributing documentation URL
-        const contributingMatch = readmeContent.match(/https?:\/\/[^\s\)]+contributing[^\s\)]*/gi);
+        const contributingMatch = readmeContent.match(/https?:\/\/[^\s)]+contributing[^\s)]*/gi);
         if (contributingMatch && contributingMatch[0]) {
           result.found = true;
           result.docsUrl = contributingMatch[0];
@@ -106,7 +108,7 @@ export async function detectContributingGuidelines(owner, repo) {
           }
         }
       }
-    } catch (err) {
+    } catch {
       // README fetch failed
     }
   }
@@ -124,7 +126,7 @@ export function extractCIRequirements(content) {
     linters: [],
     testCommands: [],
     styleGuide: [],
-    preCommitChecks: []
+    preCommitChecks: [],
   };
 
   if (!content) return requirements;
@@ -243,10 +245,9 @@ export async function buildContributingSection(owner, repo) {
  * Check for workflow approval requirements in GitHub Actions
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
- * @param {string} prNumber - Pull request number
  * @returns {Promise<Object>} Workflow status info
  */
-export async function checkWorkflowApprovalStatus(owner, repo, prNumber) {
+export async function checkWorkflowApprovalStatus(owner, repo) {
   try {
     // Get workflow runs for the PR
     const runsResult = await $`gh run list --repo ${owner}/${repo} --json databaseId,status,conclusion,event --limit 5`.trim();
@@ -261,7 +262,7 @@ export async function checkWorkflowApprovalStatus(owner, repo, prNumber) {
     return {
       hasApprovalRequired: approvalRequiredRuns.length > 0,
       runs: approvalRequiredRuns,
-      totalRuns: runs.length
+      totalRuns: runs.length,
     };
   } catch (err) {
     return { hasApprovalRequired: false, runs: [], error: err.message };

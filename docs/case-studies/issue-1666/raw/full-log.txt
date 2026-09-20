@@ -1,0 +1,6 @@
+Original upstream artifact URL returned `404 Not Found` on 2026-04-24.
+
+Source URL from issue body:
+https://raw.githubusercontent.com/konard/log-tmp-start-command-logs-isolation-screen-aff5aea4-7175-4b15-9de9-af670855060b/main/tmp-start-command-logs-isolation-screen-aff5aea4-7175-4b15-9de9-af670855060b.log
+
+The issue body also included an expired `?token=...` query string variant. Both variants returned `404` during investigation, so the original runtime log could not be recovered from upstream.

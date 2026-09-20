@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Issue 1665: CI/CD changes detection is completely broken",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1665",
+    "type": "github-issue"
+  },
+  {
+    "title": "PR 1663: Support Telegram options before URL",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1663",
+    "type": "github-pr"
+  },
+  {
+    "title": "Workflow run 24880457174 for PR 1663",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/24880457174",
+    "type": "github-actions-run"
+  },
+  {
+    "title": "Workflow run 24887339421 for PR 1668",
+    "url": "https://github.com/link-assistant/hive-mind/actions/runs/24887339421",
+    "type": "github-actions-run"
+  },
+  {
+    "title": "GitHub Actions workflow syntax: Git diff comparisons",
+    "url": "https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons",
+    "type": "official-docs"
+  },
+  {
+    "title": "GitHub Docs: Skipping workflow runs",
+    "url": "https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs",
+    "type": "official-docs"
+  },
+  {
+    "title": "GitHub Docs: Troubleshooting required status checks",
+    "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks",
+    "type": "official-docs"
+  },
+  {
+    "title": "JS AI-driven development pipeline template",
+    "url": "https://github.com/link-foundation/js-ai-driven-development-pipeline-template/tree/556c2d459255a5296a3dae51b252458ef980052f",
+    "type": "template-repository"
+  },
+  {
+    "title": "Rust AI-driven development pipeline template",
+    "url": "https://github.com/link-foundation/rust-ai-driven-development-pipeline-template/tree/353d89396fd420339f2dab0e548ca2caf6198cd5",
+    "type": "template-repository"
+  }
+]

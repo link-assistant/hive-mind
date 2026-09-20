@@ -1,0 +1,16 @@
+# zizmor configuration — https://docs.zizmor.sh/configuration/
+rules:
+  unpinned-uses:
+    config:
+      policies:
+        # These publishers are trusted at tag granularity: their release tags
+        # are the reference this template is meant to read at a glance.
+        # Everything else must be pinned to a full commit hash.
+        actions/*: ref-pin
+        github/*: ref-pin
+        docker/*: ref-pin
+        astral-sh/*: ref-pin
+        lycheeverse/*: ref-pin
+        zizmorcore/*: ref-pin
+        changesets/*: ref-pin
+        '*': hash-pin

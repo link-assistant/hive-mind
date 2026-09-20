@@ -1,0 +1,267 @@
+# Issue #1067 Installation Log
+# Source: https://github.com/link-assistant/hive-mind/issues/1067
+# Date: January 2026 (based on issue timestamp)
+# Command: curl -fsSL -o- https://github.com/link-assistant/hive-mind/raw/refs/heads/main/scripts/ubuntu-24-server-install.sh | bash
+
+==> Running pre-flight checks
+
+[✓] Ubuntu 24.04 detected
+[✓] Sufficient disk space available: 56GB
+[✓] Internet connectivity confirmed
+[✓] Pre-flight checks passed
+
+==> Starting hive environment setup
+
+[*] hive user already exists.
+
+==> Installing system prerequisites
+
+[*] Updating apt sources...
+Get:1 https://cli.github.com/packages stable InRelease [3917 B]
+Hit:2 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:3 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:4 https://packages.microsoft.com/repos/edge stable InRelease
+Get:5 http://archive.ubuntu.com/ubuntu noble-updates InRelease [126 kB]
+Hit:6 https://dl.google.com/linux/chrome/deb stable InRelease
+Hit:7 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Fetched 130 kB in 1s (214 kB/s)
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+All packages are up to date.
+W: Target Packages (main/binary-amd64/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-all/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Translations (main/i18n/Translation-en) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-amd64.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-all.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-amd64) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-all) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-amd64/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-all/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Translations (main/i18n/Translation-en) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-amd64.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-all.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-amd64) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-all) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+[*] Installing essential development tools...
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+wget is already the newest version (1.21.4-1ubuntu4.1).
+curl is already the newest version (8.5.0-2ubuntu10.6).
+unzip is already the newest version (6.0-28ubuntu4.1).
+zip is already the newest version (3.0-13ubuntu0.2).
+git is already the newest version (1:2.43.0-1ubuntu7.3).
+sudo is already the newest version (1.9.15p5-3ubuntu5.24.04.1).
+ca-certificates is already the newest version (20240203).
+gnupg is already the newest version (2.4.4-2ubuntu17.3).
+dotnet-sdk-8.0 is already the newest version (8.0.122-0ubuntu1~24.04.1).
+build-essential is already the newest version (12.10ubuntu1).
+expect is already the newest version (5.45.4-3).
+screen is already the newest version (4.9.1-1build1).
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+[✓] Essential tools installed
+[*] Installing C/C++ development tools (CMake, Clang/LLVM)...
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+cmake is already the newest version (3.28.3-1build7).
+clang is already the newest version (1:18.0-59~exp2).
+llvm is already the newest version (1:18.0-59~exp2).
+lld is already the newest version (1:18.0-59~exp2).
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+[✓] C/C++ development tools installed
+[*] Installing Python build dependencies...
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Note, selecting 'libncurses-dev' instead of 'libncursesw5-dev'
+libssl-dev is already the newest version (3.0.13-0ubuntu3.6).
+zlib1g-dev is already the newest version (1:1.3.dfsg-3.1ubuntu2.1).
+libbz2-dev is already the newest version (1.0.8-5.1build0.1).
+libreadline-dev is already the newest version (8.2-4build1).
+libsqlite3-dev is already the newest version (3.45.1-1ubuntu2.5).
+libncurses-dev is already the newest version (6.4+20240113-1ubuntu2).
+xz-utils is already the newest version (5.6.1+really5.4.5-1ubuntu0.2).
+tk-dev is already the newest version (8.6.14build1).
+libxml2-dev is already the newest version (2.9.14+dfsg-1.3ubuntu3.6).
+libxmlsec1-dev is already the newest version (1.2.39-5build2).
+libffi-dev is already the newest version (3.4.6-1build1).
+liblzma-dev is already the newest version (5.6.1+really5.4.5-1ubuntu0.2).
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+[✓] Python build dependencies installed
+
+==> Installing GitHub CLI (system-wide)
+
+[✓] GitHub CLI already installed
+
+==> Setting up swap space
+
+[*] Setting up 4GB total swap space...
+[*] Checking existing swap configuration...
+[*] Found /swapfile: 4096MB
+[*] Current total swap: 4096MB, Target: 4096MB
+[✓] Already have sufficient swap space (4096MB >= 4096MB)
+
+==> Preparing Homebrew installation directory
+
+[*] Homebrew directory already exists
+[i] Ensured proper ownership for hive user
+
+==> Installing development tools as hive user
+
+[*] Installing Bun...
+bun was installed successfully to ~/.bun/bin/bun
+Added "~/.bun/bin" to $PATH in "~/.bashrc"
+[✓] Bun installed
+[*] Deno already installed.
+[*] NVM already installed.
+[*] Pyenv already installed.
+[✓] Pyenv loaded for current session
+[*] Installing latest stable Python version...
+[*] Installing Python 3.14.2...
+[*] Python 3.14.2 already installed.
+[*] Setting Python 3.14.2 as global default...
+[✓] Python version manager setup complete
+Python 3.14.2
+[*] Golang already installed.
+[*] Rust already installed.
+[*] SDKMAN already installed.
+[✓] SDKMAN loaded for current session
+[*] Installing Java 21 LTS (OpenJDK via Eclipse Temurin)...
+java 21-tem is already installed.
+[✓] Java version manager setup complete
+openjdk version "21" 2023-09-19 LTS
+[*] Lean (elan) already installed.
+[*] Opam already installed.
+[*] Opam already initialized.
+[*] Rocq Prover already installed and accessible.
+[*] Adding Opam environment to shell configuration...
+[*] Homebrew already installed.
+[✓] Homebrew ready: Homebrew 5.0.8
+[*] PHP already installed via Homebrew.
+[i] PHP paths added to current session
+[*] Perlbrew already installed.
+[✓] Perlbrew loaded for current session
+[*] Node.js 20 already installed
+Now using node v20.19.6 (npm v11.7.0)
+[*] Updating npm to latest version...
+[✓] npm updated to latest version
+[*] Installing Playwright OS dependencies (requires sudo, may take a few minutes)...
+[i] Using npx to install Playwright system dependencies...
+Installing dependencies...
+Get:1 https://cli.github.com/packages stable InRelease [3917 B]
+Hit:2 http://security.ubuntu.com/ubuntu noble-security InRelease
+Hit:3 http://archive.ubuntu.com/ubuntu noble InRelease
+Hit:4 https://packages.microsoft.com/repos/edge stable InRelease
+Hit:5 http://archive.ubuntu.com/ubuntu noble-updates InRelease
+Hit:6 http://archive.ubuntu.com/ubuntu noble-backports InRelease
+Hit:7 https://dl.google.com/linux/chrome/deb stable InRelease
+Fetched 3917 B in 1s (6317 B/s)
+Reading package lists...
+W: Target Packages (main/binary-amd64/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-all/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Translations (main/i18n/Translation-en) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-amd64.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-all.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-amd64) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-all) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-amd64/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-all/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Translations (main/i18n/Translation-en) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-amd64.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-all.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-amd64) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-all) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+Reading package lists...
+Building dependency tree...
+Reading state information...
+[... package installation output continues ...]
+[*] Installing global bun packages (this may take a few minutes)...
+[✓] All global packages installed successfully
+[*] Checking for blocked postinstall scripts...
+[i] Some packages have blocked postinstall scripts (security feature):
+./node_modules/@parcel/watcher @2.5.1
+ » [install]: node scripts/build-from-source.js
+./node_modules/tree-sitter-bash @0.25.1
+ » [install]: node-gyp-build
+./node_modules/@sentry-internal/node-cpu-profiler @2.2.0
+ » [install]: node scripts/check-build.js
+./node_modules/protobufjs @7.5.4
+ » [postinstall]: node scripts/postinstall
+[*] Installing Playwright MCP server (latest version)...
+[✓] Playwright MCP installed: v0.0.54
+[*] Installing Playwright browsers (all supported by Playwright MCP)...
+[i] Installing: chromium, chrome, firefox, webkit, msedge
+[i] This may take several minutes depending on network speed...
+[*] Installing Playwright browser: chromium...
+[✓] chromium installed successfully
+[*] Installing Playwright browser: chrome...
+[✓] chrome installed successfully
+[*] Installing Playwright browser: firefox...
+[✓] firefox installed successfully
+[*] Installing Playwright browser: webkit...
+[✓] webkit installed successfully
+[*] Installing Playwright browser: msedge...
+[✓] msedge installed successfully
+[*] Installing chromium headless shell...
+[i] chromium-headless-shell installation skipped or already installed
+[✓] Playwright browsers installed: chromium chrome firefox webkit msedge
+[✓] All Playwright browsers installed successfully
+[*] Verifying installed Playwright browsers...
+[✓] Playwright browser verified: chromium (chromium-1200)
+[✓] Playwright browser verified: chromium_headless_shell (chromium_headless_shell-1200)
+[✓] Playwright browser verified: firefox (firefox-1497)
+[✓] Playwright browser verified: webkit (webkit-2227)
+[✓] Playwright browser verified: ffmpeg (ffmpeg-1011)
+[*] Checking for system-installed browsers...
+[✓] Google Chrome (system): Google Chrome 143.0.7499.169
+[✓] Microsoft Edge (system): Microsoft Edge 143.0.3650.96
+[✓] Playwright browsers verified: chromium chromium_headless_shell firefox webkit ffmpeg chrome msedge
+[*] Playwright browser cache contents:
+    /home/hive/.cache/ms-playwright/chromium-1200
+    /home/hive/.cache/ms-playwright/chromium_headless_shell-1200
+    /home/hive/.cache/ms-playwright/ffmpeg-1011
+    /home/hive/.cache/ms-playwright/firefox-1497
+    /home/hive/.cache/ms-playwright/webkit-2227
+    /home/hive/.nvm/versions/node/v20.19.6/lib/node_modules/@playwright/test/node_modules/playwright-core
+    /home/hive/.cache/ms-playwright/ffmpeg-1011
+    /home/hive/.npm/_npx/9833c18b2d85bc59/node_modules/playwright-core
+[*] Configuring Playwright MCP for Claude CLI...
+[*] Playwright MCP already configured in Claude CLI, removing old configuration...
+Removed MCP server "playwright" from user config
+File modified: /home/hive/.claude.json
+[*] Adding Playwright MCP to Claude CLI configuration (user scope with recommended flags)...
+Added stdio MCP server playwright with command: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 to user config
+File modified: /home/hive/.claude.json
+[✓] Playwright MCP successfully configured
+[*] Configuring Git with GitHub identity...
+[✓] Git configured with GitHub identity
+
+==> Installation Summary
+
+[... summary output ...]
+
+==> Cleaning up
+
+[*] Cleaning up apt cache and temporary files...
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+W: Target Packages (main/binary-amd64/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Packages (main/binary-all/Packages) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target Translations (main/i18n/Translation-en) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-amd64.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target DEP-11 (main/dep11/Components-all.yml) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-amd64) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+W: Target CNF (main/cnf/Commands-all) is configured multiple times in /etc/apt/sources.list.d/microsoft-edge-stable.list:1 and /etc/apt/sources.list.d/microsoft-edge.list:3
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+[✓] Cleanup completed
+
+==> Setup complete!
+
+[✓] All components installed successfully
+[i] Please restart your shell or run: source ~/.bashrc

@@ -1,0 +1,16 @@
+{
+  "name": "token-link-assistant-formal-ai",
+  "repository": "link-assistant/formal-ai",
+  "expectation": "the image the incident could not pull",
+  "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/formal-ai:pull",
+  "status": 401,
+  "verdict": "private — the package exists and requires credentials",
+  "body": {
+    "errors": [
+      {
+        "code": "UNAUTHORIZED",
+        "message": "authentication required"
+      }
+    ]
+  }
+}

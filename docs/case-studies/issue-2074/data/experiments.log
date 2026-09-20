@@ -1,0 +1,27 @@
+Issue 2074 capability experiments
+Date: 2026-07-17 UTC
+Codex: codex-cli 0.144.4
+
+Experiment 1: empty scoped CODEX_HOME
+Command: CODEX_HOME=<fresh> codex plugin list --available --json
+Result: no configured curated marketplace was available.
+Command: CODEX_HOME=<fresh> codex plugin add superpowers@openai-curated --json
+Result: failed because the plugin was not found in a configured marketplace.
+
+Experiment 2: copy only operator .tmp/plugins into fresh home
+Command: CODEX_HOME=<fresh-with-plugins> codex plugin add superpowers@openai-curated --json
+Result: failed with "local curated marketplace sha is not available".
+
+Experiment 3: reuse marketplace snapshot and matching plugins.sha
+Command: CODEX_HOME=<fresh-with-plugins-and-sha> codex plugin add superpowers@openai-curated --json
+Result: success. Plugin was installed and enabled in the fresh scoped config.
+
+Experiment 4: live issue discovery and preflight
+Input: link-assistant/hive-mind issue 2074 and all issue comments.
+Detected plugins: ["superpowers@openai-curated"]
+Detected skills: ["superpowers:using-superpowers"]
+Scoped state: /home/box/.codex/hive-mind/repositories/link-assistant/hive-mind
+Result: provisioned superpowers@openai-curated and verified installed/enabled state.
+
+Experiment 5: target checkout integrity
+Result: capability state was created outside the checkout. No plugin or skill file was deployed to the target repository.

@@ -1,0 +1,123 @@
+=== log-1 20:32:44 (HTTP 400 on comment) ===
+10294-  <body>
+10295-    <div class="c">
+10296:      <h1>Whoa there!</h1>
+10297-      <p>You have sent an invalid request. <br><br>
+10298-        Please do not send this request again.
+--
+10306-  </body>
+10307-</html>
+10308:[2026-04-17T20:35:49.669Z] [STDERR] gh: HTTP 400
+10309:[2026-04-17T21:25:16.958Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+10310-[2026-04-17T21:25:16.959Z] [INFO]   🔗 Log URL: https://gist.githubusercontent.com/konard/b05ffaaaf2cfb3397929534c5ff541f6/raw/a45e1c40f3a54ab6e326df24fda8182a34edc092/solution-draft-log-pr-1776458134540.txt
+10311-[2026-04-17T21:25:16.960Z] [INFO]   📊 Log size: 6285KB
+
+=== log-2 20:42:52 ===
+715-[2026-04-17T20:43:24.296Z] [INFO] 
+716:[2026-04-17T20:43:24.296Z] [INFO] 📄 Attaching failure logs to Pull Request...
+717-[2026-04-17T20:43:25.182Z] [STDOUT] github.com
+--
+778-    <div class="c">
+779:      <h1>Whoa there!</h1>
+780-      <p>You have sent an invalid request. <br><br>
+--
+790-</html>
+791:[2026-04-17T20:43:38.735Z] [STDERR] gh: HTTP 400
+792:[2026-04-17T21:26:28.286Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+793-[2026-04-17T21:26:28.287Z] [INFO]   🔗 Log URL: https://gist.githubusercontent.com/konard/90c41b7f3fbbfe9789dd7fa90ef011f7/raw/503a985d62ab5e4bcd700ff9160ee09799b53439/solution-draft-log-pr-1776458605589.txt
+
+=== log-3 20:51:12 ===
+18492-    <div class="c">
+18493:      <h1>Whoa there!</h1>
+18494-      <p>You have sent an invalid request. <br><br>
+--
+18504-</html>
+18505:[2026-04-17T20:58:06.899Z] [STDERR] gh: HTTP 400
+18506:[2026-04-17T21:00:47.235Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+18507-[2026-04-17T21:00:47.236Z] [INFO]   🔗 Log URL: https://gist.githubusercontent.com/konard/d41e8699a6dc816b0e6e59b90a447155/raw/9a5ca26808f4fa906206275c3541f33718631918/solution-draft-log-pr-1776459469810.txt
+--
+18645-[2026-04-17T21:01:04.910Z] [INFO]   🔗 Raw URL: https://gist.githubusercontent.com/konard/3693c93b1fb747e21315451c88943ce5/raw/582e1129cddb568983edeb11d09e91383145f600/solution-draft-log-pr-1776459658983.txt
+18646:[2026-04-17T21:01:07.305Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+18647-[2026-04-17T21:01:07.306Z] [INFO]   🔗 Log URL: https://gist.githubusercontent.com/konard/3693c93b1fb747e21315451c88943ce5/raw/582e1129cddb568983edeb11d09e91383145f600/solution-draft-log-pr-1776459658983.txt
+
+=== log-4 20:54:42 ===
+196-[2026-04-17T20:55:14.971Z] [STDOUT] false
+197:[2026-04-17T20:55:14.974Z] [INFO]   📝 Converting PR:          Back to draft mode...
+198-[2026-04-17T20:55:15.793Z] [STDERR] ✓ Pull request Jhon-Crow/godot-topdown-MVP#1864 is converted to "draft"
+--
+229-    <div class="c">
+230:      <h1>Whoa there!</h1>
+231-      <p>You have sent an invalid request. <br><br>
+--
+241-</html>
+242:[2026-04-17T20:55:25.870Z] [STDERR] gh: HTTP 400
+243:[2026-04-17T21:28:13.119Z] [INFO]   💬 Posted:                 AI Work Session Started comment
+244-[2026-04-17T21:28:13.428Z] [STDOUT] konard
+--
+665-[2026-04-17T21:28:29.551Z] [INFO]   ✅ PR body already contains issue reference
+666:[2026-04-17T21:28:29.552Z] [INFO]   🔄 Converting PR from draft to ready for review...
+667-[2026-04-17T21:28:29.738Z] [STDOUT] public
+--
+830-    <div class="c">
+831:      <h1>Whoa there!</h1>
+832-      <p>You have sent an invalid request. <br><br>
+--
+842-</html>
+843:[2026-04-17T21:28:43.102Z] [STDERR] gh: HTTP 400
+844-[2026-04-17T21:28:44.792Z] [STDOUT] 
+--
+873-    <div class="c">
+874:      <h1>Whoa there!</h1>
+875-      <p>You have sent an invalid request. <br><br>
+--
+885-</html>
+886:[2026-04-17T21:28:44.793Z] [STDERR] gh: HTTP 400
+887-[2026-04-17T21:28:46.986Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+
+=== log-5 20:55:25 ===
+192-[2026-04-17T20:55:53.607Z] [STDOUT] false
+193:[2026-04-17T20:55:53.610Z] [INFO]   📝 Converting PR:          Back to draft mode...
+194-[2026-04-17T20:55:54.501Z] [STDERR] ✓ Pull request Jhon-Crow/godot-topdown-MVP#1661 is converted to "draft"
+--
+225-    <div class="c">
+226:      <h1>Whoa there!</h1>
+227-      <p>You have sent an invalid request. <br><br>
+--
+237-</html>
+238:[2026-04-17T20:56:04.579Z] [STDERR] gh: HTTP 400
+239:[2026-04-17T21:29:24.380Z] [INFO]   💬 Posted:                 AI Work Session Started comment
+240-[2026-04-17T21:29:24.710Z] [STDOUT] konard
+--
+664-[2026-04-17T21:29:33.428Z] [INFO]   ✅ PR body already contains issue reference
+665:[2026-04-17T21:29:33.429Z] [INFO]   🔄 Converting PR from draft to ready for review...
+666-[2026-04-17T21:29:33.561Z] [STDOUT] public
+--
+829-    <div class="c">
+830:      <h1>Whoa there!</h1>
+831-      <p>You have sent an invalid request. <br><br>
+--
+841-</html>
+842:[2026-04-17T21:29:46.603Z] [STDERR] gh: HTTP 400
+843-[2026-04-17T21:29:49.142Z] [STDOUT] 
+--
+872-    <div class="c">
+873:      <h1>Whoa there!</h1>
+874-      <p>You have sent an invalid request. <br><br>
+--
+884-</html>
+885:[2026-04-17T21:29:49.142Z] [STDERR] gh: HTTP 400
+886-[2026-04-17T21:29:49.840Z] [INFO]   ✅ Solution draft log uploaded to Pull Request as public Gist
+
+=== log-6 21:04:18 ===
+1502-[2026-04-17T21:04:57.209Z] [INFO] 
+1503:[2026-04-17T21:04:57.209Z] [INFO] 📄 Attaching failure logs to Pull Request...
+1504-[2026-04-17T21:04:58.046Z] [STDOUT] github.com
+--
+1565-    <div class="c">
+1566:      <h1>Whoa there!</h1>
+1567-      <p>You have sent an invalid request. <br><br>
+--
+1577-</html>
+1578:[2026-04-17T21:05:12.062Z] [STDERR] gh: HTTP 400
+1579:[2026-04-17T21:20:51.436Z] [INFO]   ❌ Failed to post comment with log link: gh: HTTP 400
+1580-[2026-04-17T21:20:51.436Z] [INFO] 

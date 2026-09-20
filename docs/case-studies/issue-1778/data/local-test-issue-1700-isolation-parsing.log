@@ -1,0 +1,22 @@
+
+--- parseSessionStatusOutput() handles real start-command output ---
+  ✅ links-notation: marks session as exists
+  ✅ links-notation: extracts uuid
+  ✅ links-notation: lowercases status
+  ✅ links-notation: parses exitCode
+  ✅ links-notation: surfaces logPath
+  ✅ links-notation: surfaces options.isolated as isolation (issue #1700)
+  ✅ JSON: marks session as exists
+  ✅ JSON: surfaces options.isolated as isolation (issue #1700)
+  ✅ JSON: tmux backend is lowercased from options.isolated
+  ✅ JSON: docker backend surfaces from options.isolated
+
+--- decideLogDestination() accepts real isolation sessions ---
+  ✅ real screen session in public chat → chat (was rejected before fix)
+  ✅ decision exposes screen backend from options.isolated
+  ✅ real JSON session in supergroup → chat (was rejected before fix)
+  ✅ decision exposes screen backend from JSON options.isolated
+
+================================================================================
+Result: 14 passed, 0 failed
+================================================================================

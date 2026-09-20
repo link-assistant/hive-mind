@@ -1,0 +1,6 @@
+== Part 1: raw use() — the failure reported in issue #2092 ==
+❌ Failed to import module from '/tmp/issue-2092-3q0d3D/command-stream-v-latest/src/$.mjs'.
+   Caused by: SyntaxError: Unexpected end of input
+
+== Part 2: wrapUseWithRetry — the fix ==
+✅ recovered: $() => ok

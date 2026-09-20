@@ -1,0 +1,4 @@
+git config user.name  -> github-actions[bot]
+git config user.email -> 41898282+github-actions[bot]@users.noreply.github.com
+commit author         -> github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+commit committer      -> github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>

@@ -1,0 +1,29 @@
+{
+  "body": "## Summary\n\nFixes #1662.\n\nTelegram `/solve`-family commands now use the configured yargs parser to identify the first positional GitHub URL, so commands like this work:\n\n```text\n/codex --model gpt-5.4-mini https://github.com/konard/p-vs-np/issues/476\n```\n\nThe fix also applies the same URL-position handling to `/hive`, while preserving reply-based URL extraction for commands such as `/solve --model opus`.\n\n## Changes\n\n- Added shared Telegram argument helpers for yargs parsing and URL-first normalization.\n- Updated `/solve` and `/hive` URL validation to read yargs positional output instead of assuming `args[0]` is the URL.\n- Kept malformed-flag validation before URL validation and after locked overrides are merged.\n- Added `tests/test-telegram-options-before-url.mjs` and included it in `npm test`.\n- Added a patch changeset.\n- Added the requested case study and captured issue/PR artifacts under `docs/case-studies/issue-1662/`.\n\n## Reproduction\n\nBefore the fix, `/codex --model gpt-5.4-mini <github-issue-url>` failed because `--model` was validated as the first argument.\n\nAfter the fix, yargs identifies the issue URL as the command positional argument and the bot normalizes the internal execution args back to URL-first form.\n\n## Verification\n\n```bash\nnode tests/test-telegram-options-before-url.mjs\nnode tests/test-malformed-flags.mjs\nnpm run lint\nnpm test\n```\n\n## Evidence\n\nIssue screenshot captured in the case study:\n\n![Issue 1662 Telegram screenshot](https://github.com/link-assistant/hive-mind/blob/issue-1662-f172a7412294/docs/case-studies/issue-1662/screenshot-08ce9e7a.png?raw=true)\n",
+  "commits": [
+    { "authoredDate": "2026-04-24T08:10:38Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-24T08:10:38Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1662", "messageHeadline": "Initial commit with task details", "oid": "3935a0bc0091f02a9783a391e0c6317b7844b20d" },
+    { "authoredDate": "2026-04-24T08:28:53Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-24T08:28:53Z", "messageBody": "", "messageHeadline": "Fix Telegram option-before-url parsing", "oid": "e4037e18c24a13eea0bc3b94e233035611450a92" },
+    { "authoredDate": "2026-04-24T08:39:06Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-24T08:39:06Z", "messageBody": "This reverts commit 3935a0bc0091f02a9783a391e0c6317b7844b20d.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "c3aac73b22f328b2597e94aa31c6f3561a6006b2" }
+  ],
+  "files": [
+    { "path": ".changeset/telegram-options-before-url.md", "additions": 5, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/README.md", "additions": 103, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/issue-1662-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/issue-1662-events.json", "additions": 25, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/issue-1662.json", "additions": 12, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/pr-1663-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/pr-1663-review-comments.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/pr-1663-reviews.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/pr-1663.json", "additions": 1, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/research-sources.json", "additions": 20, "deletions": 0, "changeType": "ADDED" },
+    { "path": "docs/case-studies/issue-1662/screenshot-08ce9e7a.png", "additions": 0, "deletions": 0, "changeType": "ADDED" },
+    { "path": "package.json", "additions": 1, "deletions": 1, "changeType": "MODIFIED" },
+    { "path": "src/telegram-bot.mjs", "additions": 32, "deletions": 42, "changeType": "MODIFIED" },
+    { "path": "src/telegram-solve-command.lib.mjs", "additions": 58, "deletions": 0, "changeType": "MODIFIED" },
+    { "path": "tests/test-telegram-options-before-url.mjs", "additions": 74, "deletions": 0, "changeType": "ADDED" }
+  ],
+  "mergedAt": "2026-04-24T08:48:29Z",
+  "number": 1663,
+  "title": "Support Telegram options before URL",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1663"
+}

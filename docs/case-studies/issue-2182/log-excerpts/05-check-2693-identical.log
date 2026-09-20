@@ -1,0 +1,31 @@
+🔍 Check #2693:              7:23:31 AM
+401020c3cb80ca56ad4b75650ee50c7adc5b9ccc
+[VERBOSE] /merge: PR #142 detailed CI status: success
+[VERBOSE] /merge:   Total: 31, Passed: 31, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-foundation/js-ai-driven-development-pipeline-template/commit/401020c3cb80ca56ad4b75650ee50c7adc5b9ccc
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635152
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635142
+[VERBOSE] /merge:   - Checks and release [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635148
+[VERBOSE] /merge: PR #142 mergeable: true, state: CLEAN
+  🔍 Multi-mechanism CI consensus check: Waiting 10s then verifying...
+[VERBOSE] /merge: PR #142 detailed CI status: success
+[VERBOSE] /merge:   Total: 31, Passed: 31, Failed: 0, Cancelled: 0, Stale: 0, Pending: 0, Queued: 0
+[VERBOSE] /merge: Found 3 workflow run(s) for https://github.com/link-foundation/js-ai-driven-development-pipeline-template/commit/401020c3cb80ca56ad4b75650ee50c7adc5b9ccc
+[VERBOSE] /merge:   - Broken Link Checker [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635152
+[VERBOSE] /merge:   - Security [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635142
+[VERBOSE] /merge:   - Checks and release [completed/success]: https://github.com/link-foundation/js-ai-driven-development-pipeline-template/actions/runs/32592635148
+[VERBOSE] pr-commits: 3 commits on PR #142
+[VERBOSE] consensus: CheckRuns=true(success), WorkflowRuns=true(3), AllCommits=true(3 commits), RepoActions=skip → AGREE
+  ✅ All CI mechanisms agree: CheckRuns=success, WorkflowRuns=complete(3), AllCommits=complete(3), RepoActions=skipped
+✅ PR IS MERGEABLE!          
+🔀 Auto-merging PR...        
+[VERBOSE] /merge: Failed to merge PR #142: Command failed: gh pr merge 142 --repo link-foundation/js-ai-driven-development-pipeline-template --merge
+GraphQL: Pull Request is still a draft (mergePullRequest)
+
+  ⚠️ Auto-merge failed:      Command failed: gh pr merge 142 --repo link-foundation/js-ai-driven-development-pipeline-template --merge
+GraphQL: Pull Request is still a draft (mergePullRequest)
+
+   Will continue monitoring... 
+   No action needed        Continuing to monitor...
+  ⏱️ Next check in:          120 seconds...
+

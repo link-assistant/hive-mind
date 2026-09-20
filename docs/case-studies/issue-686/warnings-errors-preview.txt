@@ -1,0 +1,21 @@
+Warning: Permanently added '45.82.14.179' (ED25519) to the list of known hosts.
+  bzip2-doc icu-devtools libbrotli-dev libevent-2.1-7t64 libexpat1-dev libfontconfig-dev libfontconfig1-dev libfreetype-dev libgcrypt20-dev libgmp-dev libgmpxx4ldbl libgnutls-dane0t64 libgnutls-openssl27t64 libgnutls28-dev libgpg-error-dev
+  libgnutls28-dev libgpg-error-dev libicu-dev libidn2-dev liblzma-dev libncurses-dev libnspr4 libnspr4-dev libnss3 libnss3-dev libp11-kit-dev libpkgconf3 libpng-dev libpng-tools libpthread-stubs0-dev libreadline-dev libsqlite3-dev libssl-dev
+Get:56 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 libgpg-error-dev amd64 1.47-3build2.1 [128 kB]
+Selecting previously unselected package libgpg-error-dev.
+Preparing to unpack .../15-libgpg-error-dev_1.47-3build2.1_amd64.deb ...
+Unpacking libgpg-error-dev (1.47-3build2.1) ...
+Setting up libgpg-error-dev (1.47-3build2.1) ...
+WARNING: seems you still have not added 'pyenv' to the load path.
+Warning: /home/linuxbrew/.linuxbrew/bin is not in your PATH.
+==> Fetching dependencies for shivammathur/php/php@8.3: ncurses, readline, libxcrypt, zlib, sqlite, util-linux, apr, ca-certificates, openssl@3, mawk, m4, libtool, unixodbc, expat, apr-util, argon2, aspell, berkeley-db@5, gdbm, perl, autoconf, brotli, libnghttp2, libnghttp3, libngtcp2, libssh2, rtmpdump, lz4, xz, zstd, libunistring, libidn2, libedit, krb5, cyrus-sasl, openldap, curl, freetds, libpng, bzip2, freetype, fontconfig, jpeg-turbo, giflib, highway, imath, libtiff, little-cms2, libdeflate, openjph, openexr, webp, mpdecimal, libffi, unzip, python@3.14, jpeg-xl, libvmaf, aom, dav1d, libavif, gd, acl, icu4c@77, libxml2, gettext, gmp, libpq, libsodium, libzip, oniguruma, pcre2, tidy-html5, libgpg-error, libgcrypt and libxslt
+==> Downloading https://ghcr.io/v2/homebrew/core/libgpg-error/manifests/1.56
+==> Fetching libgpg-error
+==> Downloading https://ghcr.io/v2/homebrew/core/libgpg-error/blobs/sha256:fa8d7
+==> Installing dependencies for shivammathur/php/php@8.3: ncurses, readline, libxcrypt, zlib, sqlite, util-linux, apr, ca-certificates, openssl@3, mawk, m4, libtool, unixodbc, expat, apr-util, argon2, aspell, berkeley-db@5, gdbm, perl, autoconf, brotli, libnghttp2, libnghttp3, libngtcp2, libssh2, rtmpdump, lz4, xz, zstd, libunistring, libidn2, libedit, krb5, cyrus-sasl, openldap, curl, freetds, libpng, bzip2, freetype, fontconfig, jpeg-turbo, giflib, highway, imath, libtiff, little-cms2, libdeflate, openjph, openexr, webp, mpdecimal, libffi, unzip, python@3.14, jpeg-xl, libvmaf, aom, dav1d, libavif, gd, acl, icu4c@77, libxml2, gettext, gmp, libpq, libsodium, libzip, oniguruma, pcre2, tidy-html5, libgpg-error, libgcrypt and libxslt
+==> Installing shivammathur/php/php@8.3 dependency: libgpg-error
+==> Downloading https://ghcr.io/v2/homebrew/core/libgpg-error/manifests/1.56
+Already downloaded: /home/hive/.cache/Homebrew/downloads/5cf1e0cb981d789504dc782732e507881bc1f4828d4b22c2afb0c854108ac27c--libgpg-error-1.56.bottle_manifest.json
+==> Pouring libgpg-error--1.56.x86_64_linux.bottle.tar.gz
+🍺  /home/linuxbrew/.linuxbrew/Cellar/libgpg-error/1.56: 51 files, 2MB
+[*] Installing Playwright CLI globally to avoid npx warning...

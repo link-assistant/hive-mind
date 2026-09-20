@@ -1,0 +1,167 @@
+Unable to find image 'ghcr.io/zizmorcore/zizmor:latest' locally
+latest: Pulling from zizmorcore/zizmor
+f374ce30c98c: Pulling fs layer
+72466b0de672: Pulling fs layer
+392fc32e63fc: Pulling fs layer
+c920184a3208: Pulling fs layer
+844d8950faae: Pulling fs layer
+b10d4a946640: Pulling fs layer
+f31765ca95df: Pulling fs layer
+bc0f2d8a7aba: Pulling fs layer
+8900cb4f88ab: Pulling fs layer
+cdea145aa115: Pulling fs layer
+b71c5b6c5811: Pulling fs layer
+209d39c125a3: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+c920184a3208: Waiting
+844d8950faae: Waiting
+f31765ca95df: Waiting
+bc0f2d8a7aba: Waiting
+b71c5b6c5811: Waiting
+cdea145aa115: Waiting
+4f4fb700ef54: Waiting
+209d39c125a3: Waiting
+8900cb4f88ab: Waiting
+392fc32e63fc: Verifying Checksum
+392fc32e63fc: Download complete
+f374ce30c98c: Verifying Checksum
+f374ce30c98c: Download complete
+72466b0de672: Verifying Checksum
+72466b0de672: Download complete
+c920184a3208: Verifying Checksum
+c920184a3208: Download complete
+844d8950faae: Download complete
+f374ce30c98c: Pull complete
+b10d4a946640: Verifying Checksum
+b10d4a946640: Download complete
+f31765ca95df: Verifying Checksum
+f31765ca95df: Download complete
+bc0f2d8a7aba: Download complete
+8900cb4f88ab: Verifying Checksum
+8900cb4f88ab: Download complete
+cdea145aa115: Verifying Checksum
+cdea145aa115: Download complete
+b71c5b6c5811: Verifying Checksum
+b71c5b6c5811: Download complete
+72466b0de672: Pull complete
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+392fc32e63fc: Pull complete
+c920184a3208: Pull complete
+844d8950faae: Pull complete
+b10d4a946640: Pull complete
+f31765ca95df: Pull complete
+209d39c125a3: Verifying Checksum
+209d39c125a3: Download complete
+bc0f2d8a7aba: Pull complete
+8900cb4f88ab: Pull complete
+cdea145aa115: Pull complete
+b71c5b6c5811: Pull complete
+209d39c125a3: Pull complete
+4f4fb700ef54: Pull complete
+Digest: sha256:1ba0035c343f50e85fde29beb0d78e4db448eaa0c762a11a09805d241424ee03
+Status: Downloaded newer image for ghcr.io/zizmorcore/zizmor:latest
+ INFO zizmor: 🌈 zizmor v1.30.0
+ WARN audit: zizmor: zizmor is running in offline mode by default; some audits and auto-fixes will not be available. see https://docs.zizmor.sh/usage/#operating-modes for details
+ INFO audit: zizmor: 🌈 completed .github/workflows/cleanup-test-repos.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/release.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/security.yml
+warning[excessive-permissions]: overly broad permissions
+  --> .github/workflows/release.yml:37:1
+   |
+37 | permissions: read-all
+   | ^^^^^^^^^^^^^^^^^^^^^ uses read-all permissions
+   |
+   = note: audit confidence → High
+   = help: audit documentation → https://docs.zizmor.sh/audits/#excessive-permissions
+
+error[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:132:22
+    |
+130 |         run: |
+    |         --- this run block
+131 |           # Skip changeset check for automated version PRs
+132 |           if [[ "${{ github.head_ref }}" == "changeset-release/"* ]]; then
+    |                      ^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+error[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:927:82
+    |
+927 |         run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "$...
+    |         --- this run block                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+error[template-injection]: code injection via template expansion
+   --> .github/workflows/release.yml:927:135
+    |
+927 | ...   run: node scripts/version-and-commit.mjs --mode instant --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+    |       --- this run block                                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+error[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1264:72
+     |
+1264 |         run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github...
+     |         --- this run block                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → High
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+error[template-injection]: code injection via template expansion
+    --> .github/workflows/release.yml:1264:125
+     |
+1264 | ...   run: node scripts/create-manual-changeset.mjs --bump-type "${{ github.event.inputs.bump_type }}" --description "${{ github.event.inputs.description }}"
+     |       --- this run block                                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ may expand into attacker-controllable code
+     |
+     = note: audit confidence → High
+     = note: this finding has an auto-fix
+     = help: audit documentation → https://docs.zizmor.sh/audits/#template-injection
+
+error[unpinned-uses]: unpinned action reference
+   --> .github/workflows/release.yml:491:15
+    |
+491 |         uses: azure/setup-helm@v5
+    |               ^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)
+    |
+    = note: audit confidence → High
+    = help: audit documentation → https://docs.zizmor.sh/audits/#unpinned-uses
+
+error[unpinned-uses]: unpinned action reference
+   --> .github/workflows/release.yml:879:15
+    |
+879 |         uses: azure/setup-helm@v5
+    |               ^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)
+    |
+    = note: audit confidence → High
+    = help: audit documentation → https://docs.zizmor.sh/audits/#unpinned-uses
+
+error[unpinned-uses]: unpinned action reference
+    --> .github/workflows/release.yml:1232:15
+     |
+1232 |         uses: azure/setup-helm@v5
+     |               ^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)
+     |
+     = note: audit confidence → High
+     = help: audit documentation → https://docs.zizmor.sh/audits/#unpinned-uses
+
+error[unpinned-uses]: unpinned action reference
+    --> .github/workflows/release.yml:1270:15
+     |
+1270 |         uses: peter-evans/create-pull-request@v8
+     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ action is not pinned to a hash (required by blanket policy)
+     |
+     = note: audit confidence → High
+     = help: audit documentation → https://docs.zizmor.sh/audits/#unpinned-uses
+
+141 findings (57 ignored, 74 suppressed, 5 unsafe fixes): 0 informational, 0 low, 1 medium, 9 high

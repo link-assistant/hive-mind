@@ -1,0 +1,5 @@
+
+> @deep-assistant/hive-mind@0.33.3 lint
+> eslint 'src/**/*.{js,mjs,cjs}'
+
+sh: 1: eslint: not found

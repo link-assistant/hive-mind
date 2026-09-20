@@ -1,0 +1,132 @@
+📁 Log file: /home/hive/solve-2026-01-12T18-23-26-489Z.log
+   (All output will be logged here)
+
+🚀 solve v1.2.7
+🔧 Raw command executed:
+   /home/hive/.nvm/versions/node/v20.19.6/bin/node /home/hive/.bun/bin/solve https://github.com/kg-ar288/egida-test/issues/21 --model opus --base-branch feat/new-alert-page --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats
+
+
+⚠️  SECURITY WARNING: --attach-logs is ENABLED
+
+   This option will upload the complete solution draft log file to the Pull Request.
+   The log may contain sensitive information such as:
+   • API keys, tokens, or secrets
+   • File paths and directory structures
+   • Command outputs and error messages
+   • Internal system information
+
+   ⚠️  DO NOT use this option with public repositories or if the log
+       might contain sensitive data that should not be shared publicly.
+
+   Continuing in 5 seconds... (Press Ctrl+C to abort)
+
+   Proceeding with log attachment enabled.
+
+✅ Sentry integration configured
+💾 Disk space check: 68163MB available (2048MB required) ✅
+🧠 Memory check: 10433MB available, swap: 4095MB (843MB used), total: 13685MB (256MB required) ✅
+⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+📋 URL validation:
+   Input URL: https://github.com/kg-ar288/egida-test/issues/21
+   Is Issue URL: true
+   Is PR URL: false
+🔍 Checking repository access for auto-fork...
+{"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+private
+   Repository visibility: private
+✅ Auto-fork: Write access detected to private repository, working directly on repository
+🔍 Checking repository write permissions...
+{"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+✅ Repository write access: Confirmed
+private
+   Repository visibility: private
+   Auto-cleanup default: true (repository is private)
+🔍 Auto-continue enabled: Checking for existing PRs for issue #21...
+🔍 Checking for existing branches in kg-ar288/egida-test...
+feat/new-alert-page
+release
+[]
+📝 No existing PRs found for issue #21 - creating new PR
+📝 Issue mode: Working with issue #21
+
+Creating temporary directory: /tmp/gh-issue-solver-1768242214353
+
+📥 Cloning repository:       kg-ar288/egida-test
+Cloning into '/tmp/gh-issue-solver-1768242214353'...
+✅ Cloned to:                /tmp/gh-issue-solver-1768242214353
+origin  https://github.com/kg-ar288/egida-test.git (fetch)
+origin  https://github.com/kg-ar288/egida-test.git (push)
+release
+
+📌 Default branch:           release
+
+🌿 Creating branch:          issue-21-8035dfcdda08 from feat/new-alert-page (custom)
+Switched to a new branch 'issue-21-8035dfcdda08'
+branch 'issue-21-8035dfcdda08' set up to track 'origin/feat/new-alert-page'.
+🔍 Verifying:                Branch creation...
+issue-21-8035dfcdda08
+✅ Branch created:           issue-21-8035dfcdda08
+✅ Current branch:           issue-21-8035dfcdda08
+   Branch operation: Create new branch
+   Branch verification: Matches expected
+
+🚀 Auto PR creation:         ENABLED
+     Creating:               Initial commit and draft PR...
+
+   Using CLAUDE.md mode (--claude-file=true, --gitkeep-file=false)
+📝 Creating:                 CLAUDE.md with task details
+   Issue URL from argv['issue-url']: https://github.com/kg-ar288/egida-test/issues/21
+   Issue URL from argv._[0]: undefined
+   Final issue URL: https://github.com/kg-ar288/egida-test/issues/21
+✅ File created:             CLAUDE.md
+📦 Adding file:              To git staging
+The following paths are ignored by one of your .gitignore files:
+CLAUDE.md
+hint: Use -f if you really want to add them.
+hint: Turn this message off by running
+hint: "git config advice.addIgnoredFile false"
+❌ Failed to add CLAUDE.md
+   Error: The following paths are ignored by one of your .gitignore files:
+CLAUDE.md
+hint: Use -f if you really want to add them.
+hint: Turn this message off by running
+hint: "git config advice.addIgnoredFile false"
+
+
+❌ FATAL ERROR:              PR creation failed
+
+  🔍 What this means:
+     The solve command cannot continue without a pull request.
+     Auto-PR creation is enabled but failed to create the PR.
+
+  📦 Error details:
+     Failed to add CLAUDE.md
+
+  🔧 How to fix:
+
+  Option 1: Retry without auto-PR creation
+     ./solve.mjs "https://github.com/kg-ar288/egida-test/issues/21" --no-auto-pull-request-creation
+     (Claude will create the PR during the session)
+
+  Option 2: Create PR manually first
+     cd /tmp/gh-issue-solver-1768242214353
+     gh pr create --draft --title "Fix issue #21" --body "Fixes #21"
+     Then use: ./solve.mjs "https://github.com/kg-ar288/egida-test/issues/21" --continue
+
+  Option 3: Debug the issue
+     cd /tmp/gh-issue-solver-1768242214353
+     git status
+     git log --oneline -5
+     gh pr create --draft  # Try manually to see detailed error
+
+Error executing command:
+Stack trace: Error: PR creation failed: Failed to add CLAUDE.md
+    at handleAutoPrCreation (file:///home/hive/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.auto-pr.lib.mjs:1489:11)
+    at async file:///home/hive/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs:605:24
+   📁 Full log file: /home/hive/solve-2026-01-12T18-23-26-489Z.log
+konard
+⚠️  Could not determine GitHub user. Cannot create error report issue.
+
+❌ Error occurred
+📁 Full log file: /home/hive/solve-2026-01-12T18-23-26-489Z.log

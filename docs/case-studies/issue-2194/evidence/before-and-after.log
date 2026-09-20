@@ -1,0 +1,44 @@
+"https://github.com/G-Ivan-A/aether-orbis/pulls/30"
+  before: pulls_list https://github.com/G-Ivan-A/aether-orbis/pulls/30
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"https://github.com/G-Ivan-A/aether-orbis​/pull/30"
+  before: pull #30 https://github.com/G-Ivan-A/aether-orbis%E2%80%8B/pull/30
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"https://github.com/G-Ivan-A/aether-orbis/pull/30 "
+  before: pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"﻿https://github.com/G-Ivan-A/aether-orbis/pull/30"
+  before: pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"https：//github.com/G-Ivan-A/aether-orbis/pull/30"
+  before: invalid: Invalid GitHub URL format
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"https://github.com/G-Ivan-A/aether-orbis/pull/３０"
+  before: pull_page https://github.com/G-Ivan-A/aether-orbis/pull/%EF%BC%93%EF%BC%90
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"https://github.com/G-Ivan-A/aether-orbis/pull/30/files"
+  before: pull_page https://github.com/G-Ivan-A/aether-orbis/pull/30/files
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"[PR 30](https://github.com/G-Ivan-A/aether-orbis/pull/30)"
+  before: invalid: Invalid GitHub URL format
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"HTTPS://GITHUB.COM/G-Ivan-A/aether-orbis/PULL/30"
+  before: other https://github.com/HTTPS://GITHUB.COM/G-Ivan-A/aether-orbis/PULL/30
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+"git@github.com:G-Ivan-A/aether-orbis.git"
+  before: invalid: Invalid GitHub URL format
+  after:  repo https://github.com/G-Ivan-A/aether-orbis
+
+"https://api.github.com/repos/G-Ivan-A/aether-orbis/pulls/30"
+  before: invalid: Not a GitHub URL
+  after:  pull #30 https://github.com/G-Ivan-A/aether-orbis/pull/30
+

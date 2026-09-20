@@ -1,0 +1,821 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "## Summary\n\nIssue #2154 reported three Telegram invocations (`/codex`, `/claude`, `/agent` with `—model formal-ai`) that all died the same way — `docker run … ghcr.io/link-assistant/formal-ai:0.339.1` → `Unable to find image … locally` / `unauthorized` — and then reported three *observability* failures on top of it: nothing about the failures appeared in the bot log, no UUID was ever shown for a task's log, and the tasks were absent from `$ --list`.\n\nTen root causes were found (**RC-A … RC-J**). Seven are code defects and are fixed here, one is upstream, two are documented behaviours. The full analysis, timeline and evidence live in [`docs/case-studies/issue-2154/`](docs/case-studies/issue-2154/README.md).\n\nFixes #2154\n\n## Root causes\n\n| # | Root cause | Status |\n|---|---|---|\n| RC-A | `ghcr.io/link-assistant/formal-ai` is **private** — anonymous token probe returns `401 UNAUTHORIZED` for the repo and `200` for public peers, so the image exists but is not readable | Reported upstream: link-assistant/formal-ai#1001 |\n| RC-B | Hive Mind never authenticates to a registry | Documented (by design) |\n| RC-C | The sidecar was launched with an implicit `docker run` pull, so the failure surfaced as a raw argv dump instead of a resolvable error | **Fixed** (`33137125`) |\n| RC-D | A launch that never produced a container failed **silently** — no stderr, no structured event | **Fixed** (`4496aa27`) |\n| RC-E | The Telegram failure reply dropped the session UUID, leaving nothing to search for | **Fixed** (`4496aa27`) |\n| RC-F | Refused sessions stayed tracked, so `/queue` and the monitor disagreed with reality | **Fixed** (`4496aa27`) |\n| RC-G | The auto-updater logged the identical `⚠️ Could not pull …: unauthorized` **151 times over 12.5 h** without ever escalating | **Fixed** (`279f8560`) |\n| RC-H | The queue recorded a refused launch as `Finished: … (started)` | **Fixed** (`4496aa27`) |\n| RC-I | `session_untracked` carried no reason, so the durable log could not explain a disappearance | **Fixed** (`7a46a3ae`) |\n| RC-J | **Two UUIDs per task, only one ever shown** — see below | **Fixed** (`97b034f9`) |\n\n### RC-J — why \"these tasks are not in list\"\n\nEvery isolated task carries *two* UUIDs:\n\n| UUID | Minted by | Where it appears |\n|---|---|---|\n| **session** | Hive Mind | `--session` argument, container name, Telegram reply, structured log, session snapshot |\n| **execution** | start-command | launch banner, `uuid` field of `$ --status`, **and the only identifier `$ --list` prints** |\n\nHive Mind reported the session UUID everywhere and the execution UUID nowhere. So when the maintainer compared the bot against `$ --list` and saw `d5b8f0af-…` / `edc7b051-…`, nothing the bot had ever printed could be matched against them — including for the two tasks that were running perfectly well. The tasks *were* in the list; they were unrecognisable.\n\nThis PR parses the execution UUID from the launch banner (or a JSON launch record), returns it from `executeWithIsolation()`, stores it on the session, persists it, puts it on the `session_tracked` event, shows it next to the session UUID in both the *executing* and *completion* Telegram replies, and **backfills it from `$ --status`** for sessions launched before this fix or whose banner could not be parsed. When it genuinely cannot be determined the code returns `null` rather than guessing — a false correlation would be worse than none.\n\n## How to reproduce the original failure\n\n```bash\n# RC-A: the image is private, not missing\ncurl -s \"https://ghcr.io/token?scope=repository:link-assistant/formal-ai:pull\" -o /dev/null -w '%{http_code}\\n'   # 401\ndocker run --rm ghcr.io/link-assistant/formal-ai:0.339.1 --version                                                # unauthorized\n```\n\nThen, in Telegram, `/solve <url> --model formal-ai` — before this PR the bot fell silent, the reply carried no UUID, and `$ --list` showed nothing recognisable.\n\n## Tests\n\n`tests/test-issue-2154-execution-uuid.mjs` — 12 tests, each written to fail against the pre-fix code first:\n\n- the execution UUID is read from the **verbatim launch banner** taken from the incident log;\n- the container/session UUID is **not** mistaken for it;\n- plain-text and JSON launch records both parse;\n- unparseable output yields `null`, never a guess;\n- the executing reply shows both UUIDs, and shows no empty label when there is only one;\n- the UUID is persisted and appears on `session_tracked`;\n- the Telegram launch path records what the runner reports;\n- a session with no execution UUID **learns it from `$ --status`** and rewrites its snapshot;\n- the completion reply keeps both UUIDs.\n\nPlus the earlier regression tests for RC-C…RC-I committed on this branch.\n\n```\nnode scripts/run-tests.mjs --suite default\n→ All 391 selected test file(s) passed.\nnpm run lint          → clean\nnpm run format:check  → All matched files use Prettier code style!\n```\n\n## Case study\n\n[`docs/case-studies/issue-2154/`](docs/case-studies/issue-2154/README.md) reconstructs the timeline from the bot log and container logs, enumerates every requirement in the issue (and re-audits the unfinished requirements of #2146, #2119, #2130 and #2059), documents RC-A…RC-J with quoted evidence and line references, and proposes the solution for each. `MANIFEST.md` carries SHA-256 checksums for all 40 collected artefacts (`sha256sum --check` verified).\n\n## Upstream\n\n- link-assistant/formal-ai#1001 — the release workflow leaves `ghcr.io/link-assistant/formal-ai` private; includes the reproducible probe, the `docker login` workaround, and the concrete workflow fix.\n",
+  "closedAt": "2026-08-13T07:51:00Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-13T05:53:06Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T05:53:06Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2154",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "a759673fe0092ac7773980080cf8736b0d1c791a"
+    },
+    {
+      "authoredDate": "2026-08-13T06:23:00Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T06:23:00Z",
+      "messageBody": "Every Formal AI task in issue #2154 died the same way: `docker run` was\nhanded `ghcr.io/link-assistant/formal-ai:0.339.1` and the implicit pull was\nrefused, because packages published with GITHUB_TOKEN are private by default\nand Hive Mind never authenticates to a registry. The operator saw the raw\nargv dump and nothing else.\n\nImage resolution now happens before anything shells out with the reference:\n\n- `src/formal-ai-image.lib.mjs` preflights each candidate (`docker image\n  inspect`, then an explicit `docker pull`) and falls back to the local Hive\n  Mind image, which bakes `/usr/local/bin/formal-ai` at the same pinned\n  version and is already on any host that runs isolated tasks.\n- Registry failures are classified (unauthorized / denied / not-found /\n  disk-full / network) and reported with the fix for each, instead of echoing\n  the daemon.\n- `HIVE_MIND_FORMAL_AI_IMAGE` stays an exact pin: no silent substitution.\n- The version floor is enforced against the version `/health` reports, so a\n  stale fallback image cannot serve an unsupported formal-ai.\n- Issue #2146's fail-closed rule is unchanged: with no usable image the task\n  is refused, never downgraded to another model.\n\n`src/hive-mind-image.lib.mjs` carries the image references the isolation\nrunner and the sidecar now share, avoiding an import cycle; the runner\nre-exports them so existing callers are untouched.\n\nThe new test reproduces the reported failure verbatim against the pre-fix\ncode (`Unable to find image ... locally`) and passes with the fix.",
+      "messageHeadline": "fix(formal-ai): resolve the sidecar image before launching it (#2154)",
+      "oid": "33137125d681017475b48b26ea812f67741959d6"
+    },
+    {
+      "authoredDate": "2026-08-13T06:42:33Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T06:42:33Z",
+      "messageBody": "…ue stats\n\nIssue #2154 reported three Formal AI tasks that failed identically and left\nno trace: \"in logs of telegram bot there nothing about it\", \"no way to see\nUUIDs of each task's log\", \"these tasks are not in list\".\n\nThree defects behind that, each fixed here:\n\n- Silent refusals (RC-D). The sidecar gate, the isolation runner and the\n  Telegram command handler all returned `{ success: false }` to their caller\n  and wrote nothing to stderr. The only log line the incident produced was\n  `Session … untracked (launch failed before it started)`, which never said\n  why. Each layer now logs the session UUID, the backend/tool/model and the\n  reason.\n\n- The failure reply dropped the UUID (RC-E/RC-F). The error edit replaced the\n  \"🔄 Starting...\" message that carried it (issue #1946), so the operator lost\n  the only handle on the attempt. `formatFailedLaunchMessage` keeps the UUID\n  and the isolation backend, and states that the session was never launched —\n  which is why it has no log and is absent from `--list`.\n\n- A false positive in the queue (RC-H). `SolveQueue.executeItem` called\n  `setStarted()` unconditionally, so a refused launch was counted in\n  `stats.totalCompleted`, pushed onto `completed` and logged as\n  `Finished: […] (started)`. The bot log claimed three sessions had started\n  while `$ --list` showed none; a refused launch is now a FAILED item.\n\nAdds tests/test-issue-2154-launch-failure-visibility.mjs (7 tests) and\ntests/test-issue-2154-queue-launch-failure.mjs (5 tests, verified to fail\nagainst the pre-fix queue logic), plus a standalone reproduction in\nexperiments/issue-2154-launch-failure-silence.mjs that prints 0 stderr lines\non the pre-fix tree and one line per refusing layer on the fixed tree.\n\nRefs #2154",
+      "messageHeadline": "fix(telegram): make refused launches visible in logs, replies and que…",
+      "oid": "4496aa27657d8af949fd33ff185fac2dd8b3956d"
+    },
+    {
+      "authoredDate": "2026-08-13T06:50:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T06:50:08Z",
+      "messageBody": "…pdater\n\nIssue #2154. The auto-updater logged the same bland warning every ~5\nminutes for hours — \"Could not pull ghcr.io/link-assistant/formal-ai …\nunauthorized\" — and never said that the registry was permanently\nrefusing us. The operator only learned about it when three Telegram\ntasks failed to launch.\n\n`updateFormalAiSidecarWhenIdle` now classifies the pull failure with\n`classifyDockerRegistryError`: unauthorized/denied/not-found are\nconfiguration faults, so the warning is escalated (🚨), names the\nreason and lists the remediation, and the result carries\n`classification`, `permanent` and `remediation` for callers. Transient\nfailures (network, daemon) keep the old ⚠️ tone.\n\nAlso collects the evidence for the case study:\n\n- experiments/issue-2154-ghcr-visibility-probe.mjs, a credential-free\n  probe of GHCR's anonymous token endpoint that distinguishes public\n  (200), private (401) and absent (403) packages\n- docs/case-studies/issue-2154/data with the GitHub JSON for #2154,\n  #2146, #2130, #2119, #2059 and their pull requests, the gzipped bot\n  log from the incident, the registry probe output and the upstream\n  formal-ai release workflow",
+      "messageHeadline": "fix(formal-ai): escalate permanent registry refusals in the sidecar u…",
+      "oid": "279f8560796f3913fa0d699e9ead9db8d0713977"
+    },
+    {
+      "authoredDate": "2026-08-13T06:54:16Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T06:54:16Z",
+      "messageBody": "Issue #2154. The durable bot log recorded `session_untracked\n{\"sessionName\":\"4750eeff-…\"}` one second after `session_tracked`, with\nno reason: the explanation (\"launch failed before it started\") went to\nan untimestamped console line, so the incident could not be\nreconstructed from the timestamped stream alone.\n\n`untrackSession` now takes an optional `{ reason }` and emits it with\nthe event, together with the url, command, tool and isolation backend\nof the session that never started. The Telegram launch path passes the\nlaunch error, and the durable store's `complete` event and debug line\ncarry the reason too.\n\ntests/test-issue-2154-structured-log-reason.mjs fails 0/4 against the\nprevious code and passes 4/4 with it.",
+      "messageHeadline": "fix(sessions): record why a session was untracked in the structured log",
+      "oid": "7a46a3ae4ce0d90d42a1272b99502ca2cf35b0a7"
+    },
+    {
+      "authoredDate": "2026-08-13T07:38:11Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-13T07:38:11Z",
+      "messageBody": "Issue #2154 reported \"no way to see UUIDs of each task's log\" and \"these\ntasks are not in list\". Both come from the same gap: every isolated task\ncarries two UUIDs. Hive Mind mints the session UUID and passes it as\n`--session` (it also names the container); start-command mints its own\nexecution UUID, prints it in the launch banner, returns it as `uuid` in\n`$ --status`, and it is the only identifier `$ --list` shows. Telegram,\nthe structured log and the session snapshot only ever reported the\nsession UUID, so nothing the bot printed could be matched against\n`--list` — not even for the two tasks that ran perfectly well.\n\n- parseStartCommandExecutionUuid() reads the UUID from the launch banner\n  (box-drawing or plain) or from a JSON launch record, and returns null\n  rather than guessing.\n- executeWithIsolation() returns it; the Telegram launch path stores it\n  on the session, re-tracks, and shows it next to the session UUID.\n- session-monitor backfills it from `$ --status` for sessions launched\n  before this fix or whose banner could not be parsed, and persists it.\n- The completion reply keeps both UUIDs, so a finished task stays\n  findable after the thread goes quiet.\n- session_tracked events and the durable snapshot carry it too.\n\nAdds tests/test-issue-2154-execution-uuid.mjs (12 tests) and the\ndocs/case-studies/issue-2154 case study covering RC-A…RC-J.",
+      "messageHeadline": "fix(sessions): surface start-command's execution UUID end to end",
+      "oid": "97b034f9cd6980737232414dc297c76f485e9dc4"
+    }
+  ],
+  "createdAt": "2026-08-13T05:53:16Z",
+  "files": [
+    {
+      "path": ".changeset/wild-jars-tickle.md",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": ".prettierignore",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/MANIFEST.md",
+      "additions": 103,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/README.md",
+      "additions": 288,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2059-comments.json",
+      "additions": 50,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2059.json",
+      "additions": 39,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2119-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2119.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2130-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2130.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2146-comments.json",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2146.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2154-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/issue-2154.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2108-conversation-comments.json",
+      "additions": 47,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2108-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2108-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2108.json",
+      "additions": 306,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2120-conversation-comments.json",
+      "additions": 122,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2120-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2120-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2120.json",
+      "additions": 306,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2131-conversation-comments.json",
+      "additions": 47,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2131-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2131-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2131.json",
+      "additions": 306,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2147-conversation-comments.json",
+      "additions": 347,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2147-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2147-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2147.json",
+      "additions": 306,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2155-conversation-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2155-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2155-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/pr-2155.json",
+      "additions": 306,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/github/upstream-formal-ai-issue-1001.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/dockerhub-hive-mind-dind.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/ghcr-visibility-probe.json",
+      "additions": 76,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/token-link-assistant-agent.json",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/token-link-assistant-formal-ai.json",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/token-link-assistant-hive-mind-does-not-exist.json",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/token-public-actions-actions-runner.json",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/registry-probes/token-public-homebrew-core-hello.json",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2154/data/upstream/formal-ai-release.yml",
+      "additions": 1424,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2154-ghcr-visibility-probe.mjs",
+      "additions": 70,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2154-launch-failure-silence.mjs",
+      "additions": 54,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/formal-ai-image.lib.mjs",
+      "additions": 222,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/formal-ai-isolation.lib.mjs",
+      "additions": 8,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/formal-ai-sidecar.lib.mjs",
+      "additions": 36,
+      "deletions": 13,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/formal-ai-updater.lib.mjs",
+      "additions": 14,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/hive-mind-image.lib.mjs",
+      "additions": 56,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/isolation-runner.lib.mjs",
+      "additions": 71,
+      "deletions": 54,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/en.lino",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/hi.lino",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/ru.lino",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/locales/zh.lino",
+      "additions": 3,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/session-monitor.lib.mjs",
+      "additions": 35,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/session-store.lib.mjs",
+      "additions": 7,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/telegram-command-execution.lib.mjs",
+      "additions": 26,
+      "deletions": 7,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/telegram-solve-queue.lib.mjs",
+      "additions": 30,
+      "deletions": 5,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/work-session-formatting.lib.mjs",
+      "additions": 56,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/formal-ai-docker-simulator.mjs",
+      "additions": 23,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/test-issue-2154-execution-uuid.mjs",
+      "additions": 212,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-issue-2154-formal-ai-image-resolution.mjs",
+      "additions": 267,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-issue-2154-launch-failure-visibility.mjs",
+      "additions": 209,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-issue-2154-queue-launch-failure.mjs",
+      "additions": 177,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-issue-2154-structured-log-reason.mjs",
+      "additions": 155,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-2154-f85658eb4c08",
+  "headRefOid": "97b034f9cd6980737232414dc297c76f485e9dc4",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-13T07:51:00Z",
+  "number": 2155,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378646639",
+      "name": "detect-changes",
+      "startedAt": "2026-08-13T07:38:29Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:40:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597663/job/94378646685",
+      "name": "CodeQL (javascript-typescript)",
+      "startedAt": "2026-08-13T07:38:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597663/job/94378646690",
+      "name": "CodeQL (actions)",
+      "startedAt": "2026-08-13T07:38:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378647247",
+      "name": "Instant Release",
+      "startedAt": "2026-08-13T07:38:26Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597663/job/94378646614",
+      "name": "Dependency Review",
+      "startedAt": "2026-08-13T07:38:28Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378647555",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-13T07:38:26Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:11Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378738221",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-13T07:38:53Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378738108",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-13T07:38:53Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:40:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378738114",
+      "name": "lint",
+      "startedAt": "2026-08-13T07:38:53Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378647541",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-13T07:38:26Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378647609",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-13T07:38:26Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378841468",
+      "name": "test-compilation",
+      "startedAt": "2026-08-13T07:39:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:45Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378841563",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-13T07:39:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:44Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378841577",
+      "name": "validate-docs",
+      "startedAt": "2026-08-13T07:39:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:20Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378842482",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-13T07:39:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378648175",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-13T07:38:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378648090",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-13T07:38:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:39Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94379118281",
+      "name": "test-suites",
+      "startedAt": "2026-08-13T07:40:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:41:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94379118335",
+      "name": "test-execution",
+      "startedAt": "2026-08-13T07:40:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:41:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94379118264",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-13T07:40:38Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:40:36Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94379119117",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-13T07:40:36Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:38:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94378649206",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-13T07:38:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380466708",
+      "name": "Release",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380467422",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380467420",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380467874",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380468337",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:46:40Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380468339",
+      "name": "Helm Release",
+      "startedAt": "2026-08-13T07:46:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:47:05Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31678597682/job/94380468494",
+      "name": "Pipeline Status",
+      "startedAt": "2026-08-13T07:46:43Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-13T07:39:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/runs/94378849476",
+      "name": "CodeQL",
+      "startedAt": "2026-08-13T07:39:22Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    }
+  ],
+  "title": "fix(sessions): make refused Formal AI launches visible and tasks findable by UUID",
+  "updatedAt": "2026-08-13T07:51:00Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2155"
+}

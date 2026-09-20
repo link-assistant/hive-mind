@@ -1,0 +1,22 @@
+🔍 Development log finalize: issue #191, PR #192, branch issue-191-66112f3ba3f7, session 60d82f4e-0f54-4f28-b583-654914b9294b, log slice from byte 0
+  🔒 Sanitized 2 secrets using dual approach:
+      • Known tokens: 0
+      • Secretlint: [REDACTED] detections
+      • Custom patterns: 0 detections
+      • Hex tokens: 2
+🧾 Development log artifacts written to dev/log/issues/191/pulls/192/sessions/60d82f4e-0f54-4f28-b583-654914b9294b (log bytes 0-2660092)
+🧾 Development log artifacts written to ./dev/log/issues/191/pulls/192
+⚠️  Development log collection failed: Development-log publication rescan found residual credential material.
+🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...
+konard
+🔎 Checking comments by 'konard' after session start 2026-08-02T16:53:25.573Z (PR #192, issue #191)
+[]   📨 PR conversation comments after session start by 'konard' (excluding tool-generated): 0
+[]   📝 PR review (inline) comments after session start by 'konard': 0
+[]   📨 Issue comments after session start by 'konard' (excluding tool-generated): 0
+[use-m] use('os') joined an in-flight load (alias os-v-latest)
+📝 No AI comments detected, attaching working session summary...
+diff --git a/.github/workflows/js.yml b/.github/workflows/js.yml
+index e9afdbf..f6f0a24 100644
+--- a/.github/workflows/js.yml
++++ b/.github/workflows/js.yml
+@@ -108,6 +108,23 @@ jobs:

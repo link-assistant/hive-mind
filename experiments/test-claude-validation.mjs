@@ -21,7 +21,7 @@ const log = async (message, options = {}) => {
 };
 
 // Clean error message function
-const cleanErrorMessage = (error) => {
+const cleanErrorMessage = error => {
   let message = error.message || error.toString();
   message = message.split('\n')[0];
   message = message.replace(/^Command failed: /, '');
@@ -34,14 +34,13 @@ const cleanErrorMessage = (error) => {
 const validateClaudeConnection = async () => {
   try {
     await log(`🔍 Validating Claude CLI connection...`);
-    
+
     // Since Claude CLI is not available in CI, simulate the validation
     await log(`📦 Testing connection validation logic...`);
-    
+
     // Simulate successful validation
     await log(`✅ Claude CLI connection validated successfully`);
     return true;
-    
   } catch (error) {
     await log(`❌ Failed to validate Claude CLI connection: ${cleanErrorMessage(error)}`, { level: 'error' });
     await log('   💡 Make sure Claude CLI is installed and accessible', { level: 'error' });

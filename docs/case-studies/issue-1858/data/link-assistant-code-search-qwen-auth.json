@@ -1,0 +1,11 @@
+[
+  {
+    "path": "src/qwen.lib.mjs",
+    "repository": { "id": "R_kgDOPUU0qQ", "isFork": false, "isPrivate": false, "nameWithOwner": "link-assistant/hive-mind", "url": "https://github.com/link-assistant/hive-mind" },
+    "textMatches": [
+      { "fragment": "        await log('❌ Qwen Code authentication failed', { level: 'error' });\n        await log('   💡 Run: qwen auth', { level: 'error' });\n        return false;", "matches": [{ "indices": [110, 119], "text": "auth', { " }], "property": "content", "type": "FileContent" },
+      { "fragment": "      await log('❌ Qwen Code authentication failed', { level: 'error' });\n      await log('   💡 Run: qwen auth', { level: 'error' });\n      return false;", "matches": [{ "indices": [106, 115], "text": "auth', { " }], "property": "content", "type": "FileContent" }
+    ],
+    "url": "https://github.com/link-assistant/hive-mind/blob/c65a70807c227fa38b94eb29f8f5da34e060aa44/src/qwen.lib.mjs"
+  }
+]

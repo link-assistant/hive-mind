@@ -1,0 +1,109 @@
+{
+  "_id": "agent-commander@0.4.3",
+  "_rev": "4-66b84ee46ac3bd458f5be8c5bd93d72b",
+  "name": "agent-commander",
+  "dist-tags": {
+    "latest": "0.4.3"
+  },
+  "versions": ["0.4.0", "0.4.1", "0.4.2", "0.4.3"],
+  "time": {
+    "created": "2026-04-30T02:02:49.909Z",
+    "modified": "2026-05-01T04:49:27.595Z",
+    "0.4.0": "2026-04-30T02:02:50.120Z",
+    "0.4.1": "2026-04-30T02:56:42.638Z",
+    "0.4.2": "2026-04-30T04:26:55.891Z",
+    "0.4.3": "2026-05-01T04:49:27.325Z"
+  },
+  "bugs": {
+    "url": "https://github.com/link-assistant/agent-commander/issues"
+  },
+  "license": "Unlicense",
+  "homepage": "https://github.com/link-assistant/agent-commander#readme",
+  "keywords": ["agent", "cli", "automation", "process-management", "ai", "commander"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-assistant/agent-commander.git",
+    "directory": "js"
+  },
+  "description": "A JavaScript library to control agents enclosed in CLI commands like Anthropic Claude Code CLI",
+  "maintainers": ["konard <drakonard@gmail.com>"],
+  "readmeFilename": "README.md",
+  "_contentLength": 16830,
+  "version": "0.4.3",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "bin": {
+    "start-agent": "bin/start-agent.mjs",
+    "stop-agent": "bin/stop-agent.mjs"
+  },
+  "scripts": {
+    "test": "node ../scripts/js/run-node-tests.mjs",
+    "test:node": "node ../scripts/js/run-node-tests.mjs",
+    "test:bun": "bun test",
+    "test:deno": "deno test --allow-read --allow-run --allow-env --allow-net test/",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:duplication": "jscpd .",
+    "check": "npm run lint && npm run format:check && npm run check:duplication",
+    "prepare": "cd .. && husky js/.husky || true",
+    "changeset": "changeset",
+    "changeset:version": "node ../scripts/js/changeset-version.mjs",
+    "changeset:publish": "changeset publish",
+    "changeset:status": "changeset status --since=origin/main",
+    "example": "node examples/basic-usage.mjs"
+  },
+  "author": "",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "lint-staged": "^16.2.6",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs}": ["eslint --fix --max-warnings 0", "prettier --write", "prettier --check"],
+    "*.md": ["prettier --write", "prettier --check"]
+  },
+  "gitHead": "88e9c8aba1700879c7ba418e9a73b5c337fe4d9d",
+  "_nodeVersion": "24.14.1",
+  "_npmVersion": "11.13.0",
+  "dist": {
+    "integrity": "sha512-+dWTcWNlgSplrO9IebGlBcPa9rszPysGkpYuZoNXKRFbPSl1UVAyyIiQc3JyG9QGUgPIR5pX0R95dTt3TXEO5g==",
+    "shasum": "7d365910c5c76451ba3046ee75f21e928ad26c0d",
+    "tarball": "https://registry.npmjs.org/agent-commander/-/agent-commander-0.4.3.tgz",
+    "fileCount": 21,
+    "unpackedSize": 109258,
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/agent-commander@0.4.3",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "signatures": [
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCID93C/8i4zgYYziRMubmq7fX7lGskr28EzaI+Q/sQ6v+AiEAkhrSZKVeNJLFxa5XV3CF3lUetGXx31d2ww7EvrVZ4UI="
+      }
+    ]
+  },
+  "_npmUser": "GitHub Actions <npm-oidc-no-reply@github.com>",
+  "directories": {},
+  "_npmOperationalInternal": {
+    "host": "s3://npm-registry-packages-npm-production",
+    "tmp": "tmp/agent-commander_0.4.3_1777610967149_0.8902422847874973"
+  },
+  "_hasShrinkwrap": false
+}

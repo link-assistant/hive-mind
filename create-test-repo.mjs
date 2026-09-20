@@ -1,6 +1,17 @@
 #!/usr/bin/env node
-// Use use-m to dynamically import modules for cross-runtime compatibility
-const { use } = eval(await (await fetch('https://unpkg.com/use-m/use.js')).text());
+// Use use-m to dynamically import modules for cross-runtime compatibility.
+// Issue #2113: bootstrap through the shared helper so this utility inherits the
+// same corrupt/incomplete-alias recovery as the rest of the codebase instead of
+// crashing on a partially installed global package.
+import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';
+// Issue #2192: send the token preemptively so clones/pushes are never counted
+// against GitHub's anonymous-download budget.
+import { ensureAuthenticatedGitTransport } from './src/git-auth-transport.lib.mjs';
+// Issue #2247 (H9): the single source of truth for which languages a task
+// container can build and run.
+import { listTaskImageLanguages, pickTaskImageLanguage, TASK_IMAGE_BASE } from './src/task-image-languages.lib.mjs';
+
+const use = await ensureUseM();
 
 // Use command-stream for consistent $ behavior across runtimes
 const { $ } = await use('command-stream');
@@ -12,32 +23,21 @@ function generateUUIDv7() {
   // UUIDv7 has timestamp in the first 48 bits
   const timestamp = Date.now();
   const timestampHex = timestamp.toString(16).padStart(12, '0');
-  
+
   // Random data for the rest
   const randomBytes = crypto.randomBytes(10);
-  
+
   // Format as UUID with version 7 (0111) and variant bits (10)
-  const uuid = [
-    timestampHex.slice(0, 8),
-    timestampHex.slice(8, 12),
-    '7' + randomBytes.toString('hex').slice(0, 3),
-    ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7),
-    randomBytes.toString('hex').slice(7, 19)
-  ].join('-');
-  
+  const uuid = [timestampHex.slice(0, 8), timestampHex.slice(8, 12), '7' + randomBytes.toString('hex').slice(0, 3), ((randomBytes[2] & 0x3f) | 0x80).toString(16).padStart(2, '0') + randomBytes.toString('hex').slice(5, 7), randomBytes.toString('hex').slice(7, 19)].join('-');
+
   return uuid;
 }
 
-// List of programming languages for random selection
-const languages = [
-  'Python', 'JavaScript', 'TypeScript', 'Go', 'Rust', 'Ruby', 'Java', 'C++', 'C#', 'Swift',
-  'Kotlin', 'Scala', 'Haskell', 'Elixir', 'Clojure', 'F#', 'OCaml', 'Erlang', 'Julia', 'R',
-  'PHP', 'Perl', 'Lua', 'Dart', 'Zig', 'Nim', 'Crystal', 'V', 'D', 'Pascal',
-  'COBOL', 'Fortran', 'Ada', 'Prolog', 'Scheme', 'Racket', 'Common Lisp', 'Elm', 'PureScript', 'ReasonML'
-];
-
-// Select random language
-const randomLanguage = languages[Math.floor(Math.random() * languages.length)];
+// Issue #2247 (H9): pick only from toolchains the task image actually ships.
+// The old pool held 40 languages; the image has 16 of them. A Scala task was
+// created on 2026-09-13 and the container answered `/bin/sh: 1: scalac: not
+// found` - no tool or model could have finished it.
+const randomLanguage = pickTaskImageLanguage();
 
 // Generate repository name with UUIDv7
 const uuid = generateUUIDv7();
@@ -45,7 +45,7 @@ const repoName = `test-hello-world-${uuid}`;
 
 console.log('🚀 Creating test repository for solve.mjs testing');
 console.log(`📦 Repository: ${repoName}`);
-console.log(`💻 Language: ${randomLanguage}`);
+console.log(`💻 Language: ${randomLanguage} (one of ${listTaskImageLanguages().length} shipped by ${TASK_IMAGE_BASE})`);
 console.log('');
 
 try {
@@ -56,14 +56,14 @@ try {
 
   // Define repoUrl at the beginning
   const repoUrl = `https://github.com/${githubUser}/${repoName}`;
-  
+
   // Create the repository with initial README to avoid empty repo
   process.stdout.write('📝 Creating repository with initial README... ');
-  
+
   // Create a temporary directory for initial setup
   const tempDir = `/tmp/${repoName}-init`;
   const fs = (await import('fs')).promises;
-  
+
   try {
     // Create the repository (will fail if it already exists, that's OK)
     const createResult = await $`gh repo create ${repoName} --public --description "Test repository for automated issue solving" --clone=false 2>&1`;
@@ -74,14 +74,15 @@ try {
     } else {
       throw new Error('Failed to create repository: ' + createResult.stderr);
     }
-    
+
     // Create temp directory and clone
     const mkdirResult = await $`mkdir -p ${tempDir}`;
     if (mkdirResult.code !== 0) {
       throw new Error('Failed to create temp directory');
     }
-    
+
     // Try to clone, if it fails (empty repo), initialize git
+    await ensureAuthenticatedGitTransport({ $, log: async message => console.log(message), reason: 'test repository setup' });
     const cloneResult = await $`git clone ${repoUrl} ${tempDir} 2>&1`;
     if (cloneResult.code !== 0) {
       // Clone failed (probably empty repo), initialize git locally
@@ -89,14 +90,14 @@ try {
       if (initResult.code !== 0) {
         throw new Error('Failed to initialize git repository');
       }
-      
+
       // Add remote
       const remoteResult = await $`cd ${tempDir} && git remote add origin ${repoUrl}`;
       if (remoteResult.code !== 0) {
         throw new Error('Failed to add git remote');
       }
     }
-    
+
     // Always create README to ensure non-empty repo
     const readmeContent = `# ${repoName}
 
@@ -116,14 +117,14 @@ An issue will be created asking to implement a "Hello World" program in ${random
 
     const readmePath = `${tempDir}/README.md`;
     await fs.writeFile(readmePath, readmeContent);
-    
+
     // Verify README was created
     try {
       await fs.access(readmePath);
     } catch (e) {
       throw new Error('Failed to create README file');
     }
-    
+
     // Set up git authentication using gh
     process.stdout.write('Setting up git authentication... ');
     const authSetupResult = await $`cd ${tempDir} && gh auth setup-git 2>&1`;
@@ -133,12 +134,12 @@ An issue will be created asking to implement a "Hello World" program in ${random
     } else {
       console.log('✅');
     }
-    
+
     // Check if we need to create initial branch
     process.stdout.write('Checking branch status... ');
     const branchCheck = await $`cd ${tempDir} && git branch --show-current 2>/dev/null || echo ""`;
     const currentBranch = branchCheck.stdout.toString().trim();
-    
+
     if (!currentBranch) {
       // No branch exists, create main branch
       const createBranchResult = await $`cd ${tempDir} && git checkout -b main`;
@@ -149,13 +150,13 @@ An issue will be created asking to implement a "Hello World" program in ${random
     } else {
       console.log(`on branch ${currentBranch} ✅`);
     }
-    
+
     // Verify we're on a branch
     const verifyBranchResult = await $`cd ${tempDir} && git branch --show-current`;
     if (verifyBranchResult.code !== 0 || !verifyBranchResult.stdout.toString().trim()) {
       throw new Error('Failed to verify git branch');
     }
-    
+
     // Add README
     process.stdout.write('Adding README to git... ');
     const addResult = await $`cd ${tempDir} && git add README.md`;
@@ -163,7 +164,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
       throw new Error('Failed to add README to git');
     }
     console.log('✅');
-    
+
     // Commit README
     process.stdout.write('Committing README... ');
     const commitResult = await $`cd ${tempDir} && git commit -m "Initial commit with README"`;
@@ -177,10 +178,10 @@ An issue will be created asking to implement a "Hello World" program in ${random
     } else {
       console.log('✅');
     }
-    
+
     // Push to remote
     process.stdout.write('Pushing to remote... ');
-    
+
     // First, ensure we have the latest remote URL
     const remoteCheckResult = await $`cd ${tempDir} && git remote -v`;
     if (remoteCheckResult.code !== 0 || !remoteCheckResult.stdout.toString().includes('origin')) {
@@ -188,7 +189,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
       await $`cd ${tempDir} && git remote remove origin 2>/dev/null || true`;
       await $`cd ${tempDir} && git remote add origin https://github.com/${githubUser}/${repoName}.git`;
     }
-    
+
     // Use execSync to avoid command-stream issues with git push
     // command-stream seems to interfere with git push authentication
     const { execSync } = await import('child_process');
@@ -196,7 +197,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
       const pushCommand = `cd ${tempDir} && git push -u origin main 2>&1`;
       const pushOutput = execSync(pushCommand, { encoding: 'utf8' });
       console.log('Push output:', pushOutput);
-      
+
       // Check if push actually did anything
       if (!pushOutput.includes('[new branch]') && !pushOutput.includes('->')) {
         console.log('⚠️  Push may not have succeeded - no branch update detected');
@@ -208,15 +209,15 @@ An issue will be created asking to implement a "Hello World" program in ${random
       console.log('Error:', pushError.message);
       throw new Error('Failed to push to remote: ' + pushError.message);
     }
-    
+
     // Wait a moment for GitHub to process the push
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Verify the push succeeded by checking if repo is non-empty
     process.stdout.write('Verifying repository is non-empty... ');
     let verifyResult = await $`gh repo view ${githubUser}/${repoName} --json isEmpty --jq .isEmpty`;
     let isEmpty = verifyResult.stdout.toString().trim();
-    
+
     // Retry once if still showing as empty (GitHub might need a moment)
     if (isEmpty === 'true') {
       console.log('waiting for GitHub to update...');
@@ -224,7 +225,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
       verifyResult = await $`gh repo view ${githubUser}/${repoName} --json isEmpty --jq .isEmpty`;
       isEmpty = verifyResult.stdout.toString().trim();
     }
-    
+
     if (isEmpty === 'true') {
       console.log('❌ Still empty!');
       // Try to get more debug info
@@ -235,20 +236,20 @@ An issue will be created asking to implement a "Hello World" program in ${random
       throw new Error('Repository is still empty after push');
     }
     console.log('✅');
-    
+
     console.log('All repository setup complete! ✅');
 
     // Clean up temp directory
     await $`rm -rf ${tempDir}`;
-    
+
     // Now set up branch protection
     process.stdout.write('🔒 Setting up branch protection... ');
-    
+
     try {
       // Get default branch
       const defaultBranchResult = await $`gh api repos/${githubUser}/${repoName} --jq .default_branch`;
       const defaultBranch = defaultBranchResult.stdout.toString().trim() || 'main';
-      
+
       // Try to enable branch protection (may fail for free accounts)
       const protectionRules = {
         required_status_checks: null,
@@ -256,24 +257,24 @@ An issue will be created asking to implement a "Hello World" program in ${random
         required_pull_request_reviews: {
           dismiss_stale_reviews: false,
           require_code_owner_reviews: false,
-          required_approving_review_count: 0
+          required_approving_review_count: 0,
         },
         restrictions: null,
         allow_force_pushes: false,
-        allow_deletions: false
+        allow_deletions: false,
       };
-      
+
       // Write rules to a temp file to avoid shell escaping issues
       const rulesFile = `/tmp/protection-rules-${Date.now()}.json`;
       await fs.writeFile(rulesFile, JSON.stringify(protectionRules, null, 2));
-      
+
       const protectResult = await $`gh api \
         --method PUT \
         repos/${githubUser}/${repoName}/branches/${defaultBranch}/protection \
         --input ${rulesFile} 2>/dev/null`;
-      
+
       await fs.unlink(rulesFile);
-      
+
       if (protectResult.code === 0) {
         console.log('✅');
       } else {
@@ -282,7 +283,6 @@ An issue will be created asking to implement a "Hello World" program in ${random
     } catch (protectError) {
       console.log('⚠️  (requires admin rights or paid plan)');
     }
-    
   } catch (error) {
     console.log('❌ Failed!');
     console.error('Error:', error.message);
@@ -291,7 +291,7 @@ An issue will be created asking to implement a "Hello World" program in ${random
 
   // Create the issue
   process.stdout.write('🎯 Creating issue... ');
-  
+
   const issueTitle = `Implement Hello World in ${randomLanguage}`;
   const issueBody = `## Task
 Please implement a "Hello World" program in ${randomLanguage}.
@@ -342,55 +342,54 @@ Example workflow structure:
 
   let createIssueResult;
   let issueUrl;
-  
+
   try {
     // Write issue body to a temp file to avoid shell escaping issues
     const fs = (await import('fs')).promises;
     const issueBodyFile = `/tmp/issue-body-${Date.now()}.md`;
     await fs.writeFile(issueBodyFile, issueBody);
-    
+
     // IMPORTANT: Workaround for command-stream quoting issue
     // Problem: command-stream adds extra single quotes around interpolated strings
     // When we use: await $`gh issue create --title "${issueTitle}"`
     // The title becomes: 'Implement Hello World in X' (with single quotes included!)
-    // 
+    //
     // This is a known issue with command-stream library (see command-stream-issues/issue-09-auto-quoting.mjs)
     // The library appears to "over-escape" by adding its own single quotes around the interpolated value
     // when it detects double quotes in the template literal.
     //
     // WORKAROUND: Use Node.js native child_process.execSync instead of command-stream
     // This gives us direct control over the command string without unexpected quote additions
-    
+
     // Using execSync to avoid command-stream's automatic quote addition
     const { execSync } = await import('child_process');
     const command = `gh issue create --repo ${repoUrl} --title "${issueTitle}" --body-file ${issueBodyFile}`;
     const output = execSync(command, { encoding: 'utf8', cwd: '/tmp' });
     createIssueResult = { stdout: Buffer.from(output) };
-    
+
     // Note: If GitHub CLI had a --title-file option (like --body-file), we would use that instead
     // to completely avoid shell escaping issues
-    
+
     // Clean up temp file
     await fs.unlink(issueBodyFile);
-    
+
     // Extract issue URL from the output
     const issueOutput = createIssueResult.stdout.toString().trim();
     issueUrl = issueOutput.split('\n').pop(); // Last line contains the URL
-    
   } catch (issueError) {
     console.log('❌ Failed!');
     console.error('Error:', issueError.message);
     process.exit(1);
   }
-  
+
   if (!issueUrl || !issueUrl.includes('github.com')) {
     console.log('❌ Failed to extract issue URL');
     process.exit(1);
   }
-  
+
   console.log('✅');
   console.log('');
-  
+
   // Output summary
   console.log('✨ Test environment created successfully!');
   console.log('');
@@ -402,7 +401,6 @@ Example workflow structure:
   console.log('');
   console.log('🚀 Test with:');
   console.log(`   ./solve.mjs "${issueUrl}"`);
-
 } catch (error) {
   console.log('');
   console.error('❌ Error:', error.message);

@@ -1,0 +1,7 @@
+$ command -v bun -> not found (as on GitHub runners)
+$ node node_modules/.bin/changeset version
+🦋 changeset v3.0.1
+
+All files have been updated. Review them and commit at your leisure
+exit=0
+package.json version after: 2.17.0

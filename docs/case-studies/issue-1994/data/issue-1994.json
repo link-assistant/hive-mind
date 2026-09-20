@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://gist.githubusercontent.com/konard/58983426571e49d051382e3fb6cb0b40/raw/3316965e3a168ff82478837b85a402ac94606a42/tmp-start-command-logs-isolation-docker-5628377f-47f7-4ba6-9f4d-05eb007075c0.log.txt\n\n<img width=\"677\" height=\"847\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/662606ed-feb1-4854-a8d2-3b5397c6c06d\" />\n\nWe need to find root causes and fix it.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "comments": [],
+  "createdAt": "2026-06-27T13:39:15Z",
+  "number": 1994,
+  "state": "OPEN",
+  "title": "--base-branch and --auto-merge were ignored",
+  "updatedAt": "2026-06-27T13:39:37Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1994"
+}

@@ -1,0 +1,59 @@
+# Terminal output from issue #1549
+# Source: https://github.com/link-assistant/hive-mind/issues/1549
+# This is the output that appeared in the terminal but NOT fully captured in the log file
+
+# === Run 1 ===
+# Log file: /workspace/solve-2026-04-08T09-19-04-292Z.log
+#
+# solve v1.46.9
+# Raw command executed:
+#   /workspace/.nvm/versions/node/v20.20.2/bin/node /workspace/.bun/bin/solve https://github.com/xlabtg/teleton-agent/pull/170 --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats
+#
+# SECURITY WARNING: --attach-logs is ENABLED
+# Disk space check: 42839MB available (2048MB required)
+# Memory check: 10727MB available, swap: none, total: 10727MB (256MB required)
+# Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+# Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+# URL validation:
+#    Input URL: https://github.com/xlabtg/teleton-agent/pull/170
+#    Is Issue URL: false
+#   Checking repository access for auto-fork...
+#
+# NOTE: The following line appears in terminal but NOT in log file:
+# {"admin":false,"maintain":false,"pull":true,"push":false,"triage":false}
+#
+# NOTE: The following line appears in terminal but NOT in log file:
+# public
+#
+# Auto-fork: No write access detected, enabling fork mode
+# --auto-accept-invite: Checking for pending invitation to xlabtg/teleton-agent...
+#    Found 1 total pending repo invitation(s)
+#    No pending repository invitation found for xlabtg/teleton-agent
+#    Found 0 total pending org invitation(s)
+#    No pending organization invitation found for xlabtg
+#  --auto-accept-invite: No pending invitation found for xlabtg/teleton-agent or organization xlabtg
+# Repository access check: Skipped (fork mode enabled)
+#
+# NOTE: The following line appears in terminal but NOT in log file:
+# public
+#
+#    Repository visibility: public
+#    Auto-cleanup default: false (repository is public)
+# Continue mode: Working with PR #170
+#    Continue mode activated: PR URL provided directly
+#    PR Number set to: 170
+#    Will fetch PR details and linked issue
+#
+# NOTE: The following JSON appears in terminal but NOT in log file (output from gh pr view):
+# {"body":"## Summary\n\nFixes xlabtg/teleton-agent#163...","headRefName":"issue-163-5fb640dcc9d6",...}
+#
+# Error: Failed to get PR details
+# Error: Unknown error
+#
+# Failed to get PR details
+# Full log file: /workspace/solve-2026-04-08T09-19-04-292Z.log
+
+# === Root causes identified ===
+# 1. Raw JSON/text from gh CLI appears in terminal via command-stream's mirror:true but not in log file
+# 2. "Failed to get PR details" caused by stdout.includes('Could not resolve') false positive
+#    matching "Could not resolve sender info" in the PR body text

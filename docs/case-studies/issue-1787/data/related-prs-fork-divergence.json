@@ -1,0 +1,9 @@
+[
+  { "mergedAt": "2026-04-18T15:29:42Z", "number": 1641, "title": "fix: notify issues on pre-PR solve failures", "url": "https://github.com/link-assistant/hive-mind/pull/1641" },
+  { "mergedAt": "2025-12-27T23:39:42Z", "number": 973, "title": "Improve fork divergence error message clarity", "url": "https://github.com/link-assistant/hive-mind/pull/973" },
+  { "mergedAt": "2025-11-17T08:21:07Z", "number": 684, "title": "Fix PR creation failure with existing branches containing commits", "url": "https://github.com/link-assistant/hive-mind/pull/684" },
+  { "mergedAt": "2025-10-09T23:35:14Z", "number": 459, "title": "feat: Auto-resolve fork divergence with force-with-lease (fixes #445)", "url": "https://github.com/link-assistant/hive-mind/pull/459" },
+  { "mergedAt": "2025-11-01T15:16:39Z", "number": 639, "title": "feat: add maintainer push support for contributor fork PRs", "url": "https://github.com/link-assistant/hive-mind/pull/639" },
+  { "mergedAt": "2025-10-14T12:45:58Z", "number": 528, "title": "Sync README.md with code", "url": "https://github.com/link-assistant/hive-mind/pull/528" },
+  { "mergedAt": "2025-12-08T21:58:55Z", "number": 851, "title": "Support @link-assistant/agent as --tool agent", "url": "https://github.com/link-assistant/hive-mind/pull/851" }
+]

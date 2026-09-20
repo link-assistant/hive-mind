@@ -1,0 +1,16 @@
+Branch under test: issue-1-46ba053c
+Pull request lives in: Godmy/frontend (the URLs that were published)
+Branch actually lives in: konard/Godmy-frontend
+
+docs/screenshots/graph-force.png
+  Godmy/frontend     404  gh: No commit found for the ref issue-1-46ba053c (HTTP 404)
+  konard/Godmy-frontend 200  5eace34a3d96
+docs/screenshots/graph-sankey.png
+  Godmy/frontend     404  gh: No commit found for the ref issue-1-46ba053c (HTTP 404)
+  konard/Godmy-frontend 200  38003ec1894c
+docs/screenshots/graph-network.png
+  Godmy/frontend     404  gh: No commit found for the ref issue-1-46ba053c (HTTP 404)
+  konard/Godmy-frontend 200  c4bd5ab7df82
+
+3/3 published links are broken; 3/3 resolve in the fork.
+→ Reproduces issue #2239: every link points at the repository that does not hold the branch.

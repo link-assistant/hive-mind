@@ -1,0 +1,18 @@
+=== INVOCATION at 17:03:50
+ARGV:
+  --no-summarize-session
+  --compaction-model
+  same
+  --model
+  formalai/formal-ai
+  --permission-mode
+  auto
+  --no-retry-on-rate-limits
+  --output-format
+  stream-json
+  -p
+  --output-format
+  stream-json
+  --disallowedTools
+  CronCreate
+STDIN-BYTES: 0

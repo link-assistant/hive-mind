@@ -1,0 +1,26 @@
+Testing QUEUE_CONFIG has required properties (ratio format)... ✅ PASSED
+Testing Default thresholds match requirements (ratio format)... ✅ PASSED
+Testing CACHE_TTL has correct values... ✅ PASSED
+Testing SolveQueue can be instantiated... ✅ PASSED
+Testing getSolveQueue returns singleton... ✅ PASSED
+Testing Queue enqueue and getStats... ✅ PASSED
+Testing Queue cancel... ✅ PASSED
+Testing getRunningClaudeProcesses returns object with count... ✅ PASSED
+Testing Queue getQueueSummary... ✅ PASSED
+Testing Queue formatStatus... ❌ FAILED: status1.includes is not a function
+Testing Queue clearCache... ✅ PASSED
+Testing LimitCache TTL expiration... ✅ PASSED
+Testing canStartCommand returns proper structure... ✅ PASSED
+Testing Queue stops correctly... ✅ PASSED
+Testing Multiple enqueues maintain order... ✅ PASSED
+Testing SolveQueueItem has correct properties... ✅ PASSED
+Testing QueueItemStatus has correct values... ✅ PASSED
+Testing canStartCommand allows parallel execution when no limits exceeded (issue #1061)... ✅ PASSED
+Testing checkApiLimits allows one command when limit >= threshold but no Claude running (issue #1061)... ✅ PASSED
+
+==================================================
+Test Results for telegram-solve-queue.lib.mjs:
+  ✅ Passed: 18
+  ❌ Failed: 1
+  Platform: linux
+==================================================

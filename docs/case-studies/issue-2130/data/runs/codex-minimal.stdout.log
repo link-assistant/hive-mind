@@ -1,0 +1,5 @@
+{"type":"thread.started","thread_id":"019fc361-e439-71e2-95c7-86e65635bb64"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"reasoning","text":"Decline the request under the agent mode required for tools policy."}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"Tool calls and function execution are not allowed without explicit agent mode. Enable agent mode only for an isolated execution environment."}}
+{"type":"turn.completed","usage":{"input_tokens":3995,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":140,"reasoning_output_tokens":0}}

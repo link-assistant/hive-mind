@@ -1,0 +1,18 @@
+================================================================================
+Regression: /terminal_watch must not attach logs (Issue #1720)
+================================================================================
+
+--- watchTerminalLogSession() does not upload logs on completion ---
+  ✅ still edits the live message while running and at completion
+  ✅ does NOT call sendDocument on completion
+  ✅ does NOT call sendMessage (e.g. for oversize logs) on completion
+  ✅ final edit shows the watch is complete
+
+--- /log replies to the originating message (so Telegraf carries message_thread_id) ---
+  ✅ /log issues exactly one replyWithDocument call for a public-repo session
+  ✅ /log replies to the message that contained the command
+  ✅ /log uses ctx.replyWithDocument so Telegraf carries message_thread_id automatically
+
+================================================================================
+Result: 7 passed, 0 failed
+================================================================================

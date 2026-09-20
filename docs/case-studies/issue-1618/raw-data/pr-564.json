@@ -1,0 +1,70 @@
+{
+  "body": "## Summary\n\nAdds two convenient alias commands for the `/solve` command in the hive-telegram-bot:\n- `/do` - A shorter, more natural alternative to `/solve`\n- `/continue` - Linguistically appropriate in certain contexts (as mentioned in issue #525)\n\n## Changes Made\n\n### `src/telegram-bot.mjs`\n- Added `bot.command(/^do$/i, handleSolveCommand)` registration\n- Added `bot.command(/^continue$/i, handleSolveCommand)` registration\n- Added `do` and `continue` to the text-based fallback command handler (issue #1207)\n- Updated `/help` command to document the new aliases\n- Updated group-chat-only note to include `/do` and `/continue`\n\n## Usage Examples\n\nAll three commands work identically:\n\n```\n/solve https://github.com/owner/repo/issues/123 --verbose\n/do https://github.com/owner/repo/issues/123 --verbose\n/continue https://github.com/owner/repo/issues/123 --verbose\n```\n\n## Implementation Notes\n\n- **No breaking changes** - The original `/solve` command works exactly as before\n- **DRY principle** - All commands share the same `handleSolveCommand` handler\n- **Backward compatible** - Existing users can continue using `/solve`\n- **Consistent behavior** - All aliases have identical functionality and error handling\n- **Fallback support** - Aliases work with the text-based fallback handler (issue #1207)\n\n## Related Issue\n\nFixes #525\n\n---\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    { "authoredDate": "2025-10-14T16:03:19Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2025-10-14T16:03:19Z", "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: undefined", "messageHeadline": "Initial commit with task details for issue #525", "oid": "fb736e5c8474c4a1ee2791229f76b3ce7d3e7883" },
+    {
+      "authoredDate": "2025-10-14T16:07:41Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude" }
+      ],
+      "committedDate": "2025-10-14T16:07:41Z",
+      "messageBody": "- Refactor /solve command handler into shared handleSolveCommand function\n- Register /do and /continue commands as aliases pointing to same handler\n- Update /help command to document the new aliases\n- Add comprehensive test suite for command aliases (10 test cases)\n- All tests pass successfully\n- Syntax validation completed\n\nResolves #525\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+      "messageHeadline": "Add /do and /continue as alias commands for /solve",
+      "oid": "83cc474abdc04a20b090e357d5f30ac02559b64c"
+    },
+    { "authoredDate": "2025-10-14T16:12:24Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2025-10-14T16:12:24Z", "messageBody": "", "messageHeadline": "Bump version to 0.25.0 for new feature release", "oid": "b92dfe49738266ba638aa6c07e6dbb66a6ae567b" },
+    { "authoredDate": "2025-10-14T16:17:31Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2025-10-14T16:17:31Z", "messageBody": "This reverts commit fb736e5c8474c4a1ee2791229f76b3ce7d3e7883.", "messageHeadline": "Revert \"Initial commit with task details for issue #525\"", "oid": "ed0e2e5cd53b8d8d5b0de986bea4532d0af11991" },
+    {
+      "authoredDate": "2026-04-08T07:37:46Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Sonnet 4.6" }
+      ],
+      "committedDate": "2026-04-08T07:37:46Z",
+      "messageBody": "- Rebased on latest main (v1.46.9) to resolve conflicts\n- Added /do and /continue as alias commands for /solve (issue #525)\n- Updated help text to show aliases for /solve command\n- Registered bot.command handlers for /do and /continue\n- Added do and continue to text-based fallback command handlers\n- Updated group-chat-only note to include /do and /continue\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "Merge main into issue-525 branch and apply /do and /continue aliases",
+      "oid": "2b882e63026a8d58c0b830d1e881dd32d23ecefd"
+    },
+    {
+      "authoredDate": "2026-04-08T07:39:08Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Sonnet 4.6" }
+      ],
+      "committedDate": "2026-04-08T07:39:08Z",
+      "messageBody": "Resolved conflicts in src/telegram-bot.mjs to integrate latest main\nchanges while preserving /do and /continue alias commands for /solve.\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "Merge main into feature branch to resolve conflicts",
+      "oid": "db092346dabb04185e77522ec476bfec70d8cfd9"
+    },
+    {
+      "authoredDate": "2026-04-08T07:41:14Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Sonnet 4.6" }
+      ],
+      "committedDate": "2026-04-08T07:41:14Z",
+      "messageBody": "- Add changeset for minor version bump (new alias commands feature)\n- Fix prettier formatting in test-telegram-bot-command-aliases.mjs\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "fix: add changeset and fix prettier formatting for CI",
+      "oid": "28f7ace82aa44f31f0a63500ccd4562d0eb62154"
+    },
+    {
+      "authoredDate": "2026-04-08T07:46:17Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Sonnet 4.6" }
+      ],
+      "committedDate": "2026-04-08T07:46:17Z",
+      "messageBody": "Consolidated bot.command registrations using array syntax and\ncombined fallback handlers object to stay within the 1500-line limit.\n\nCo-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "fix: keep telegram-bot.mjs under 1500 line limit",
+      "oid": "63cedaf7f00bb782e687e9d369366a2ddbe2b8c4"
+    }
+  ],
+  "files": [
+    { "path": ".changeset/add-do-continue-aliases.md", "additions": 5, "deletions": 0, "changeType": "ADDED" },
+    { "path": "src/telegram-bot.mjs", "additions": 6, "deletions": 10, "changeType": "MODIFIED" },
+    { "path": "tests/test-telegram-bot-command-aliases.mjs", "additions": 138, "deletions": 0, "changeType": "ADDED" }
+  ],
+  "title": "feat: add /do and /continue as alias commands for /solve in telegram bot",
+  "url": "https://github.com/link-assistant/hive-mind/pull/564"
+}

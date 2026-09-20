@@ -1,0 +1,97 @@
+{
+  "description": "Primary sources used for the Issue #1955 case study (Codex CLI event protocol, OTEL telemetry, and transient network-error classification). Codex facts verified against the openai/codex tag rust-v0.141.0 (the version in the failure log: app.version=0.141.0).",
+  "codex_event_protocol": [
+    {
+      "title": "codex-rs/exec/src/exec_events.rs (ThreadEvent enum — the 8 stdout event types)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/exec/src/exec_events.rs"
+    },
+    {
+      "title": "codex-rs/exec/src/event_processor_with_jsonl_output.rs (standalone error keeps stream Running; turn.failed gates exit code)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/exec/src/event_processor_with_jsonl_output.rs"
+    },
+    {
+      "title": "codex-rs/exec/src/cli.rs (--json with alias --experimental-json)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/exec/src/cli.rs"
+    },
+    {
+      "title": "codex-rs/exec/src/lib.rs (stderr fmt layer default RUST_LOG=error; exit(1) only on Failed/Interrupted)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/exec/src/lib.rs"
+    },
+    {
+      "title": "Codex non-interactive docs: stdout=JSONL, stderr=progress/logs",
+      "url": "https://developers.openai.com/codex/noninteractive"
+    }
+  ],
+  "codex_otel_telemetry": [
+    {
+      "title": "codex-rs/otel/src/targets.rs (codex_otel.log_only vs codex_otel.trace_safe targets)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/otel/src/targets.rs"
+    },
+    {
+      "title": "codex-rs/otel/src/events/session_telemetry.rs (codex.tool_result log_only carries full output= payload)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/otel/src/events/session_telemetry.rs"
+    },
+    {
+      "title": "codex-rs/core/src/config/otel.rs ([otel] config: exporter/trace_exporter/metrics_exporter)",
+      "url": "https://github.com/openai/codex/blob/rust-v0.141.0/codex-rs/core/src/config/otel.rs"
+    },
+    {
+      "title": "openai/codex#17909 (request: redaction toggle for arguments/output in codex.tool_result)",
+      "url": "https://github.com/openai/codex/issues/17909"
+    }
+  ],
+  "downstream_parser_contamination": [
+    {
+      "title": "openai/codex#21658 (maintainer: only protocol-shaped lines belong on a JSON stdout stream)",
+      "url": "https://github.com/openai/codex/issues/21658"
+    },
+    {
+      "title": "openai/codex#22393 (localized child-process status text breaks the JSON parser)",
+      "url": "https://github.com/openai/codex/issues/22393"
+    },
+    {
+      "title": "openai/codex#19816 (--output-schema applied to intermediate agent_message items fools parsers)",
+      "url": "https://github.com/openai/codex/issues/19816"
+    },
+    {
+      "title": "openai/codex#10248 (codex exec --json panics with Broken pipe when consumer closes stdout early)",
+      "url": "https://github.com/openai/codex/issues/10248"
+    }
+  ],
+  "network_error_classification": [
+    {
+      "title": "RFC 9110 §15.6 (502/503/504 semantics; Retry-After)",
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html"
+    },
+    {
+      "title": "getaddrinfo(3) man-page (EAI_AGAIN = temporary, try again later; EAI_NONAME = not known)",
+      "url": "https://man7.org/linux/man-pages/man3/getaddrinfo.3.html"
+    },
+    {
+      "title": "errno(3) man-page",
+      "url": "https://man7.org/linux/man-pages/man3/errno.3.html"
+    },
+    {
+      "title": "Node.js common system errors (ECONNRESET, EPIPE, ETIMEDOUT, ...)",
+      "url": "https://nodejs.org/docs/latest-v22.x/api/errors.html#common-system-errors"
+    },
+    {
+      "title": "Cloudflare 5xx error reference (520-524)",
+      "url": "https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/"
+    },
+    {
+      "title": "AWS SDK retry behavior (transient/retryable set: I/O failure, DNS resolution failure, socket timeout, 500/502/503/504)",
+      "url": "https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html"
+    }
+  ],
+  "related_hive_mind_prior_art": [
+    {
+      "title": "Issue #1881 — socket connection closed unexpectedly (classifyRetryableError socket branch)",
+      "path": "tests/test-issue-1881-socket-error-retry.mjs"
+    },
+    {
+      "title": "Issue #1949 — Overloaded/529 is transient, not capacity (isCapacity=false)",
+      "path": "src/tool-retry.lib.mjs"
+    }
+  ]
+}

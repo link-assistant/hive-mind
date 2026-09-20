@@ -1,0 +1,88 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "## Summary\n\nThis PR addresses issue #1 by implementing comprehensive improvements to the VEIL VPN GUI clients:\n\n### Changes Made\n\n1. **Cryptographic Settings Section in GUI**\n   - Added UI for selecting `client.key` (pre-shared key file) path\n   - Added UI for selecting `obfuscation.seed` file path  \n   - Both fields include file browser buttons and validation\n   - Settings are now persisted using QSettings for cross-session storage\n\n2. **TUN Interface Configuration**\n   - Device name configuration (default: veil0)\n   - IP address with validation (default: 10.8.0.2)\n   - Netmask with validation (default: 255.255.255.0)\n   - MTU spinner with range 576-65535 (default: 1400)\n   - Matches CLI client configuration options\n\n3. **System Tray Integration**\n   - System tray icon shows current connection state\n   - Tray menu with quick connect/disconnect actions\n   - Status display in tooltip and menu\n   - Minimize to tray on window close\n   - Click tray icon to toggle window visibility\n\n4. **Keyboard Shortcuts**\n   - `Ctrl+1`: Connection view\n   - `Ctrl+2`: Settings view\n   - `Ctrl+3`: Diagnostics view\n   - `Ctrl+M`: Minimize to tray\n   - `Ctrl+Enter`: Quick connect\n   - `Ctrl+D`: Quick disconnect\n   - `F1`: About dialog\n\n5. **Application Icons** *(Enhanced)*\n   - Created polished SVG icons for all connection states with gradients and glow effects:\n     - `icon_disconnected.svg` - Gray shield outline with subtle depth\n     - `icon_connecting.svg` - Blue/cyan shield with glow and loading indicators\n     - `icon_connected.svg` - Green filled shield with checkmark badge\n     - `icon_error.svg` - Red shield with error indicator badge\n   - Icons follow the VEIL design language with shield motif and \"V\" letter\n\n6. **Smooth Page Transition Animations**\n   - Custom `AnimatedStackedWidget` class for fade transitions between views\n   - 250ms smooth fade in/out animations using Qt property animations\n   - Proper cleanup of graphics effects after transitions\n\n7. **Auto-Update Checker** *(NEW)*\n   - Checks GitHub Releases API for new versions on startup\n   - Manual check via Help → \"Check for Updates\" menu\n   - Shows dialog with version info and download link when update available\n   - Semver comparison supporting prerelease suffixes\n\n8. **Installer Upgrade Support (NSIS)** *(NEW)*\n   - Detects existing installations and offers upgrade or fresh install\n   - Version comparison prevents accidental downgrades\n   - Option to backup settings before upgrade\n   - Stops running instances before upgrade\n   - Preserves QSettings during upgrade process\n   - Version metadata embedded in installer executable\n   - Russian language support added\n\n9. **Comprehensive Release Workflow** *(NEW)*\n   - New `release.yml` that builds Windows and Linux artifacts\n   - Creates Windows installer with NSIS\n   - Creates Linux DEB packages and tarballs\n   - Generates changelog from git history\n   - Creates draft GitHub releases with all assets\n\n10. **Linux Build Workflow**\n    - Full CI/CD for Ubuntu 22.04 (Focal) and Ubuntu 24.04 (Noble)\n    - Builds client, server, and GUI applications\n    - Runs unit tests in CI\n    - Generates DEB packages for releases\n    - Creates portable tarball archives\n\n### Technical Details\n\n- Settings widget uses `QSettings` for persistent configuration storage\n- File path validation checks that files exist and are readable before connecting\n- CMakeLists.txt updated to include Qt resource compilation\n- Optional Qt6::Svg module linked when available\n- System tray uses QSystemTrayIcon for cross-platform support\n- Keyboard shortcuts use QShortcut and QKeySequence\n- Page transitions use QGraphicsOpacityEffect with parallel animations\n- New `src/common/version.h` for centralized version constants\n- New `UpdateChecker` class in GUI for automatic update detection\n\n### Server-Client Pipeline Evaluation\n\nThe current pipeline architecture for the VEIL VPN application follows a solid design:\n- **Client-Server Communication**: The CLI client connects to the server using UDP with encrypted tunneling\n- **TUN Interface**: Both client and server create virtual network interfaces for traffic routing\n- **Signal Handling**: Proper signal handlers for graceful shutdown (SIGINT, SIGTERM)\n- **Route Management**: Automatic route table modifications with cleanup on disconnect\n- **Configuration**: Flexible configuration via command-line args, config files, and QSettings\n\nThe GUI communicates with an IPC daemon (ipc_client_manager) which handles the connection state and metrics. This separation allows for:\n- Non-blocking UI updates\n- Proper privilege separation (GUI doesn't need root/admin)\n- Clean state management between components\n\n### Test Plan\n\n- [x] Build passes on Linux with Clang\n- [x] GUI launches and displays the connection widget\n- [x] Settings page shows the Cryptographic Settings section\n- [x] Settings page shows the TUN Interface section\n- [x] File browser dialogs open correctly for key and seed files\n- [x] Settings persist across application restarts\n- [x] Window displays the VEIL shield icon\n- [x] System tray icon appears and updates with connection state\n- [x] Keyboard shortcuts navigate between views\n- [x] Page transitions animate smoothly\n- [x] Auto-update checker compiles and integrates with mainwindow\n- [x] NSIS installer script syntax is valid\n- [ ] CI workflow runs successfully on pull request (requires maintainer approval)\n- [ ] Windows build with installer creation\n- [ ] Manual release creation works via workflow_dispatch\n\n---\n\nFixes #1\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    { "authoredDate": "2026-01-21T16:20:52Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-01-21T16:20:52Z", "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/VisageDvachevsky/veil-windows-client/issues/1", "messageHeadline": "Initial commit with task details", "oid": "6f7282afbca7433cb3fe02309df01864e3046a9e" },
+    {
+      "authoredDate": "2026-01-21T16:24:43Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T16:24:43Z",
+      "messageBody": "- Add file path fields for client.key and obfuscation.seed files\n- Add browse buttons for file selection with file dialogs\n- Implement file validation to check if files exist and are readable\n- Add persistence using QSettings for all configuration options\n- Add getter methods for key file and obfuscation seed paths\n\nThis matches the CLI client functionality which uses these files for:\n- client.key: Pre-shared key for secure handshake authentication\n- obfuscation.seed: Traffic morphing seed for DPI evasion\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Add cryptographic settings section to GUI settings widget",
+      "oid": "66c8ee0b5adef0a8ef3c86f41ad9b41820f7dcd7"
+    },
+    {
+      "authoredDate": "2026-01-21T16:26:06Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T16:26:06Z",
+      "messageBody": "- Create SVG icons for different connection states:\n  - icon_disconnected.svg: Gray shield outline for disconnected state\n  - icon_connecting.svg: Blue/cyan shield for connecting state\n  - icon_connected.svg: Green filled shield with checkmark for connected state\n  - icon_error.svg: Red shield with X for error state\n- Add Qt resource file (resources.qrc) to embed icons\n- Update CMakeLists.txt to include resources and optional Qt6::Svg\n- Set window icon in MainWindow\n\nThe icons follow the VEIL design language with a shield motif\nrepresenting security, and the \"V\" letter inside representing VEIL.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Add SVG icons for VEIL VPN application",
+      "oid": "625b609820b00f3bd9fe2656ccdd59ba7a3408b8"
+    },
+    {
+      "authoredDate": "2026-01-21T16:26:49Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T16:26:49Z",
+      "messageBody": "- Add support for version tags (v*) to trigger releases\n- Add workflow_dispatch for manual release creation\n- Generate proper version strings from tags or timestamps\n- Create zip archives of Windows builds for portable distribution\n- Add detailed release body with installation instructions\n- Support both tag-based releases and dev prereleases\n- Mark manual/dev builds as prereleases\n\nThis enables:\n1. Automatic releases when pushing tags like v1.0.0\n2. Manual release creation via GitHub Actions UI\n3. Proper versioning for all release artifacts\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Improve CI release workflow for GitHub releases",
+      "oid": "a025404529e9e2db8f4e46cc1166f6b730a738f1"
+    },
+    { "authoredDate": "2026-01-21T16:28:06Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-01-21T16:28:06Z", "messageBody": "", "messageHeadline": "Remove CLAUDE.md (not part of the solution)", "oid": "0c906bc3d89df0052dfd4487610f466be539e698" },
+    {
+      "authoredDate": "2026-01-21T16:51:21Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T16:51:21Z",
+      "messageBody": "- Add TUN Interface configuration section in Settings:\n  - Device name (default: veil0)\n  - IP address with validation (default: 10.8.0.2)\n  - Netmask with validation (default: 255.255.255.0)\n  - MTU spinner (576-65535, default: 1400)\n\n- Add system tray icon with connection status:\n  - Shows current connection state with appropriate icon\n  - Quick connect/disconnect from tray menu\n  - Status display in tray tooltip and menu\n  - Minimize to tray on window close\n  - Click to toggle window visibility\n\n- Add keyboard shortcuts for navigation:\n  - Ctrl+1: Connection view\n  - Ctrl+2: Settings view\n  - Ctrl+3: Diagnostics view\n  - Ctrl+M: Minimize to tray\n  - Ctrl+Enter: Quick connect\n  - Ctrl+D: Quick disconnect\n  - F1: About dialog\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Add TUN interface settings, system tray, and keyboard shortcuts",
+      "oid": "1c20125eaca89fd4c1f4aee809579e7cb1f2d3e9"
+    },
+    {
+      "authoredDate": "2026-01-21T17:04:53Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T17:04:53Z",
+      "messageBody": "GUI Improvements:\n- Add smooth fade transition animations between pages (AnimatedStackedWidget)\n- Enhance SVG icons with gradients, glow effects, and depth\n- Icons now have consistent visual language with better visual hierarchy\n\nCI/CD Improvements:\n- Add comprehensive Linux build workflow (ubuntu-22.04, ubuntu-24.04)\n- Linux workflow includes DEB package generation for releases\n- Add changelog generation to release workflow\n- Improve release notes with recent changes section\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Add animations, enhanced icons, and Linux CI/CD workflow",
+      "oid": "e2199430778f6894c07fb4e47dabaaace75e312b"
+    },
+    {
+      "authoredDate": "2026-01-21T17:20:59Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T17:20:59Z",
+      "messageBody": "This commit adds several improvements to the VEIL VPN application:\n\nInstaller Improvements (NSIS):\n- Detect existing installations and offer upgrade vs fresh install\n- Version comparison to prevent downgrades without warning\n- Backup settings before upgrade option\n- Preserve QSettings during upgrades\n- Stop running instances before upgrade\n- Add version info to executable metadata\n- Add Russian language support\n- Create version.txt in install directory\n\nAuto-Update Checker (GUI):\n- New UpdateChecker class that uses GitHub Releases API\n- Checks for updates on startup (3 second delay)\n- Manual check via Help menu \"Check for Updates\"\n- Shows dialog when update is available with download link\n- Version comparison supporting semver with prerelease suffixes\n\nVersion Management:\n- New src/common/version.h with compile-time version constants\n- Central location for version numbers\n- GitHub repository URLs for update checks\n\nCI/CD Release Workflow:\n- New comprehensive release.yml workflow\n- Builds Windows and Linux artifacts\n- Creates Windows installer with NSIS\n- Creates Linux DEB packages and tarballs\n- Generates changelog from git history\n- Creates draft GitHub releases with proper assets\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Add installer upgrade support, auto-update checker, and release workflow",
+      "oid": "92d72918d1114e4c0d728527987d28c90701f5f6"
+    },
+    {
+      "authoredDate": "2026-01-21T18:03:40Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.5" }
+      ],
+      "committedDate": "2026-01-21T18:03:40Z",
+      "messageBody": "- Remove qt6-networkauth-dev from linux-build.yml and release.yml\n  (package not available on Ubuntu 22.04 and not used in codebase)\n- Fix VEIL_THREAD_CHECKER macro to expand to static_assert in release\n  builds, avoiding unused private field warnings with -Werror\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>",
+      "messageHeadline": "Fix Linux build failures on Ubuntu 22.04 and 24.04",
+      "oid": "3deb7f7890a360a17e99e59e7c74a7d5d92b2dbf"
+    }
+  ],
+  "createdAt": "2026-01-21T16:20:59Z",
+  "state": "MERGED",
+  "title": "Fix GUI clients: Add crypto settings, icons, and CI release workflow"
+}

@@ -1,0 +1,20 @@
+[2m2026-08-22T16:47:53.160579Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T16:47:53.314203Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+== models this subscription advertises ==
+"id":"claude-fable-5"
+"id":"claude-haiku-4-5-20251001"
+"id":"claude-opus-4-5-20251101"
+"id":"claude-opus-4-6"
+"id":"claude-opus-4-7"
+"id":"claude-opus-4-8"
+"id":"claude-opus-5"
+"id":"claude-sonnet-4-5-20250929"
+using model: claude-sonnet-4-5-20250929
+
+== claude -p through the router (no ~/.claude in the task) ==
+ROUTED
+
+== per-token request log ==
+/data/router/requests/8a284137d9010e25047b935097c18be0/requests.jsonl
+/data/router/requests/unauthenticated/requests.jsonl
+{"body":{"context_management":{"edits":[{"keep":"all","type":"clear_thinking_20251015"}]},"max_tokens":32000,"messages":[{"content":[{"text":"<system-reminder>\nAvailable agent types for the Agent too

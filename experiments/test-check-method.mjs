@@ -18,23 +18,17 @@ try {
       type: 'boolean',
       description: 'Fork the repository',
       alias: 'f',
-      default: false
+      default: false,
     })
     .option('verbose', {
       type: 'boolean',
       description: 'Enable verbose logging',
       alias: 'v',
-      default: false
+      default: false,
     })
-    .check((argv) => {
+    .check(argv => {
       // Get all known options (including all possible representations)
-      const knownOptions = new Set([
-        'fork', 'f', '--fork', '-f',
-        'verbose', 'v', '--verbose', '-v',
-        'help', 'h', '--help', '-h',
-        'version', '--version',
-        '_', '$0'
-      ]);
+      const knownOptions = new Set(['fork', 'f', '--fork', '-f', 'verbose', 'v', '--verbose', '-v', 'help', 'h', '--help', '-h', 'version', '--version', '_', '$0']);
 
       // Check for unknown options
       const unknownOptions = Object.keys(argv).filter(key => {
@@ -53,14 +47,12 @@ try {
       console.error('❌ Validation Error:');
       console.error(msg);
       process.exit(1);
-    })
-    .argv;
+    }).argv;
 
   console.log('✅ Parsing succeeded:');
   console.log('   fork:', argv.fork);
   console.log('   verbose:', argv.verbose);
   console.log('   _:', argv._);
-
 } catch (error) {
   console.error('❌ Caught error:', error.message);
   process.exit(1);

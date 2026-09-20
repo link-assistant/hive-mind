@@ -1,0 +1,37 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: NO-BREAK SPACE should separate command arguments
++ actual - expected
+
+  [
++   'https://github.com/G-Ivan-A/hybrid-Intelligence-lab/issues/577 --verbose',
+-   'https://github.com/G-Ivan-A/hybrid-Intelligence-lab/issues/577',
+-   '--verbose',
+    '--tool',
+    'claude'
+  ]
+
+    at file:///tmp/gh-issue-solver-1789406814944/tests/test-issue-2251-unicode-command-separators.mjs:34:10
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    'https://github.com/G-Ivan-A/hybrid-Intelligence-lab/issues/577 --verbose',
+    '--tool',
+    'claude'
+  ],
+  expected: [
+    'https://github.com/G-Ivan-A/hybrid-Intelligence-lab/issues/577',
+    '--verbose',
+    '--tool',
+    'claude'
+  ],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

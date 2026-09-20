@@ -1,0 +1,232 @@
+{
+  "_id": "start-command@0.29.1",
+  "_rev": "56-439e040c917511ee0efa7988cd9e6ba5",
+  "name": "start-command",
+  "dist-tags": {
+    "latest": "0.29.1"
+  },
+  "versions": [
+    "0.3.1",
+    "0.5.1",
+    "0.5.2",
+    "0.5.3",
+    "0.6.0",
+    "0.7.0",
+    "0.7.1",
+    "0.7.2",
+    "0.7.4",
+    "0.7.5",
+    "0.7.6",
+    "0.9.0",
+    "0.10.0",
+    "0.11.0",
+    "0.13.0",
+    "0.15.0",
+    "0.16.0",
+    "0.17.0",
+    "0.17.1",
+    "0.17.2",
+    "0.17.3",
+    "0.17.4",
+    "0.18.0",
+    "0.19.0",
+    "0.19.1",
+    "0.20.0",
+    "0.20.1",
+    "0.20.2",
+    "0.20.3",
+    "0.20.4",
+    "0.21.0",
+    "0.22.0",
+    "0.23.0",
+    "0.24.0",
+    "0.24.1",
+    "0.24.2",
+    "0.24.3",
+    "0.24.4",
+    "0.24.5",
+    "0.24.6",
+    "0.24.7",
+    "0.24.8",
+    "0.24.9",
+    "0.25.0",
+    "0.25.1",
+    "0.25.2",
+    "0.25.3",
+    "0.25.4",
+    "0.25.5",
+    "0.26.0",
+    "0.27.0",
+    "0.27.1",
+    "0.27.2",
+    "0.28.0",
+    "0.29.0",
+    "0.29.1"
+  ],
+  "time": {
+    "created": "2025-12-21T17:57:17.669Z",
+    "modified": "2026-06-17T09:18:26.614Z",
+    "0.3.1": "2025-12-21T17:57:17.937Z",
+    "0.5.1": "2025-12-22T13:07:39.978Z",
+    "0.5.2": "2025-12-22T15:32:49.724Z",
+    "0.5.3": "2025-12-22T18:46:11.846Z",
+    "0.6.0": "2025-12-23T13:53:38.686Z",
+    "0.7.0": "2025-12-23T17:46:21.286Z",
+    "0.7.1": "2025-12-23T18:49:03.461Z",
+    "0.7.2": "2025-12-23T19:51:20.318Z",
+    "0.7.4": "2025-12-23T21:26:18.492Z",
+    "0.7.5": "2025-12-23T22:05:36.902Z",
+    "0.7.6": "2025-12-24T22:33:06.095Z",
+    "0.9.0": "2025-12-25T14:55:05.903Z",
+    "0.10.0": "2025-12-26T21:23:02.815Z",
+    "0.11.0": "2025-12-26T22:05:06.834Z",
+    "0.13.0": "2025-12-29T12:31:44.580Z",
+    "0.15.0": "2026-01-06T17:30:38.679Z",
+    "0.16.0": "2026-01-06T20:12:03.829Z",
+    "0.17.0": "2026-01-06T23:04:46.565Z",
+    "0.17.1": "2026-01-07T17:03:20.419Z",
+    "0.17.2": "2026-01-07T17:53:14.653Z",
+    "0.17.3": "2026-01-07T19:10:13.327Z",
+    "0.17.4": "2026-01-07T23:52:57.592Z",
+    "0.18.0": "2026-01-08T00:39:45.136Z",
+    "0.19.0": "2026-01-08T02:53:05.398Z",
+    "0.19.1": "2026-01-08T03:54:40.581Z",
+    "0.20.0": "2026-01-08T16:37:16.970Z",
+    "0.20.1": "2026-01-08T17:06:16.416Z",
+    "0.20.2": "2026-01-08T18:20:29.844Z",
+    "0.20.3": "2026-01-08T18:45:37.720Z",
+    "0.20.4": "2026-01-08T22:00:11.633Z",
+    "0.21.0": "2026-01-25T15:49:28.235Z",
+    "0.22.0": "2026-03-03T10:38:52.280Z",
+    "0.23.0": "2026-03-03T18:27:28.705Z",
+    "0.24.0": "2026-03-04T10:12:28.891Z",
+    "0.24.1": "2026-03-06T13:58:11.255Z",
+    "0.24.2": "2026-03-08T20:47:56.541Z",
+    "0.24.3": "2026-03-10T13:12:41.324Z",
+    "0.24.4": "2026-03-10T13:43:57.571Z",
+    "0.24.5": "2026-03-13T07:53:34.807Z",
+    "0.24.6": "2026-03-13T15:03:33.608Z",
+    "0.24.7": "2026-03-13T16:05:20.641Z",
+    "0.24.8": "2026-03-13T19:58:00.226Z",
+    "0.24.9": "2026-03-14T13:12:24.046Z",
+    "0.25.0": "2026-03-14T15:07:25.540Z",
+    "0.25.1": "2026-03-14T21:53:14.144Z",
+    "0.25.2": "2026-04-08T09:26:52.640Z",
+    "0.25.3": "2026-04-19T07:30:51.315Z",
+    "0.25.4": "2026-04-23T11:23:01.671Z",
+    "0.25.5": "2026-04-24T11:46:39.385Z",
+    "0.26.0": "2026-04-29T17:27:43.860Z",
+    "0.27.0": "2026-05-03T11:09:39.344Z",
+    "0.27.1": "2026-05-03T19:07:07.072Z",
+    "0.27.2": "2026-05-12T22:02:30.534Z",
+    "0.28.0": "2026-05-21T12:30:57.019Z",
+    "0.29.0": "2026-06-09T20:27:10.214Z",
+    "0.29.1": "2026-06-17T09:18:26.297Z"
+  },
+  "bugs": {
+    "url": "https://github.com/link-foundation/start/issues"
+  },
+  "license": "Unlicense",
+  "homepage": "https://github.com/link-foundation/start#readme",
+  "keywords": [
+    "cli",
+    "command",
+    "gamification",
+    "github",
+    "automation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/start.git"
+  },
+  "description": "Gamification of coding, execute any command with ability to auto-report issues on GitHub",
+  "maintainers": [
+    "konard <drakonard@gmail.com>"
+  ],
+  "readmeFilename": "README.md",
+  "_contentLength": 154778,
+  "version": "0.29.1",
+  "main": "src/bin/cli.js",
+  "exports": {
+    ".": "./src/bin/cli.js",
+    "./execution-store": "./src/lib/execution-store.js"
+  },
+  "bin": {
+    "$": "src/bin/cli.js"
+  },
+  "scripts": {
+    "test": "bun ../scripts/run-js-tests.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:file-size": "bun ../scripts/check-file-size.mjs",
+    "check": "bun run lint && bun run format:check && bun run check:file-size",
+    "prepare": "cd .. && husky .husky || true",
+    "changeset": "changeset",
+    "changeset:version": "bun ../scripts/changeset-version.mjs",
+    "changeset:publish": "changeset publish",
+    "changeset:status": "changeset status --since=origin/main"
+  },
+  "author": "",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.31.0",
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
+    "prettier": "^3.8.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs}": [
+      "eslint --fix --max-warnings 6",
+      "prettier --write",
+      "prettier --check"
+    ],
+    "*.md": [
+      "prettier --write",
+      "prettier --check"
+    ]
+  },
+  "dependencies": {
+    "command-stream": "^0.9.4",
+    "lino-objects-codec": "^0.4.0"
+  },
+  "overrides": {
+    "flatted": "^3.4.2"
+  },
+  "gitHead": "96bd370642c54efd1c0e25694375647d0e5109ec",
+  "_nodeVersion": "24.16.0",
+  "_npmVersion": "11.17.0",
+  "dist": {
+    "integrity": "sha512-9yRAsl552QeFyJID2zy0okC1MdnehFrSeVisjlJ54v5z+1P6fE9CG9s3G0m/TaTzj8K7+sdkqg0b9wGDlFkREg==",
+    "shasum": "0a39f7950aa2f8fe0b8412b87f2c7c626877b9a6",
+    "tarball": "https://registry.npmjs.org/start-command/-/start-command-0.29.1.tgz",
+    "fileCount": 66,
+    "unpackedSize": 670167,
+    "attestations": {
+      "url": "https://registry.npmjs.org/-/npm/v1/attestations/start-command@0.29.1",
+      "provenance": {
+        "predicateType": "https://slsa.dev/provenance/v1"
+      }
+    },
+    "signatures": [
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEYCIQCDQen5MxsMbBXP2r74sZCxdtC4ED4zLO/hkXrs0huigQIhAIljW9vIuwUgP4qgADuT/cMbNtYsZGjBX3ZJ1wyNP7l3"
+      }
+    ]
+  },
+  "_npmUser": "GitHub Actions <npm-oidc-no-reply@github.com>",
+  "directories": {},
+  "_npmOperationalInternal": {
+    "host": "s3://npm-registry-packages-npm-production",
+    "tmp": "tmp/start-command_0.29.1_1781687906083_0.9220515473655391"
+  },
+  "_hasShrinkwrap": false
+}

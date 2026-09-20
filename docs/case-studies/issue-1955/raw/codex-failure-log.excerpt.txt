@@ -1,0 +1,46 @@
+# Codex failure log — key excerpts
+# Source: https://raw.githubusercontent.com/konard/public-logs/main/log-tmp-solution-draft-log-pr-1781897288930.txt/tmp-solution-draft-log-pr-1781897288930.txt
+# Full log is 75 MB; only the lines relevant to the false-positive error are preserved here.
+
+## (A) OTEL log_only telemetry block that DUMPS the printed NDJSON fixture content (lines ~62044-62062)
+[2026-06-19T19:01:03.009Z] [INFO] Output:
+[2026-06-19T19:01:03.009Z] [INFO] ---
+[2026-06-19T19:01:03.009Z] [INFO] bump: minor
+[2026-06-19T19:01:03.009Z] [INFO] ---
+[2026-06-19T19:01:03.009Z] [INFO] 
+[2026-06-19T19:01:03.009Z] [INFO] ### Added
+[2026-06-19T19:01:03.009Z] [INFO] - Added an Agent CLI NDJSON adapter that maps assistant text, tool start/result,
+[2026-06-19T19:01:03.009Z] [INFO]   and error events onto the existing chat answer and diagnostics rendering path.
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"session_start","session_id":"issue-518-fixture"}
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"text","text":"I will inspect the home directory.\n"}
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"tool_use","id":"call_ls_home","tool":"bash","input":{"command":"ls ~"}}
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"tool_result","id":"call_ls_home","tool":"bash","output":{"stdout":"Desktop\nDocuments\n","stderr":"","exitCode":0,"status":"completed"}}
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"error","message":"Network lookup skipped in fixture"}
+[2026-06-19T19:01:03.009Z] [INFO] {"type":"text","text":"Desktop and Documents are present."}
+[2026-06-19T19:01:03.009Z] [INFO]  mcp_server= mcp_server_origin= event.timestamp=2026-06-19T19:01:03.008Z conversation.id=019ee135-a957-70a3-82ea-5736dbf5183e app.version=0.141.0 auth_mode="Chatgpt" originator=codex_exe
+[2026-06-19T19:01:03.009Z] [INFO] 2026-06-19T19:01:03.008804Z  INFO codex_otel.trace_safe: event.name="codex.tool_result" tool_name=exec_command call_id=call_KTGeta1EQ4UuEcTX6SMWUUMb duration_ms=63 success=true arguments
+[2026-06-19T19:01:03.009Z] [INFO] 
+[2026-06-19T19:01:03.035Z] [INFO] {"type":"item.started","item":{"id":"item_229","type":"command_execution","command":"/bin/bash -lc \"sed -n '1,120p' changelog.d/20260619_000000_issue_518_agent_ndjson_chat.md && sed -n 
+[2026-06-19T19:01:03.035Z] [INFO] {"type":"item.completed","item":{"id":"item_229","type":"command_execution","command":"/bin/bash -lc \"sed -n '1,120p' changelog.d/20260619_000000_issue_518_agent_ndjson_chat.md && sed -
+
+## (B) Codex JSON event summary at end of run — note foreign vocab session_start/text/tool_use/tool_result/error AND turn.completed=1, turn.failed=0 (lines ~108547-108561)
+[2026-06-19T19:28:03.706Z] [INFO] 📦 Codex item types: agent_message=132, todo_list=10, command_execution=419, reasoning=59, file_change=38
+[2026-06-19T19:28:03.730Z] [INFO] 📈 Codex usage from turn.completed: 509,741 input, 10,978,176 cache read, 49,151 output across 1 turn(s)
+[2026-06-19T19:28:03.731Z] [INFO] 🧠 Codex reasoning summaries observed: 59
+[2026-06-19T19:28:03.732Z] [INFO] 💻 Codex command executions observed: 212
+[2026-06-19T19:28:03.732Z] [INFO] 📝 Codex file change items observed: 19
+[2026-06-19T19:28:03.733Z] [INFO] 📋 Codex todo list updates observed: 1 (latest: 6 items)
+[2026-06-19T19:28:03.733Z] [INFO] ⚠️ Codex error events observed: item=0, turn=0, stream=1
+[2026-06-19T19:28:03.734Z] [INFO] 📐 Codex usage fields observed: input_tokens, cached_input_tokens, output_tokens, reasoning_output_tokens
+[2026-06-19T19:28:03.734Z] [INFO] 🤖 Codex exec JSON did not expose model IDs; using requested model for reporting: gpt-5.5
+[2026-06-19T19:28:03.965Z] [INFO] 💰 Codex public pricing estimate: $18.287381
+[2026-06-19T19:28:03.980Z] [INFO]    Long-context pricing applied because peak prompt exceeded 272,000 input tokens
+[2026-06-19T19:28:03.991Z] [ERROR] 
+[2026-06-19T19:28:03.991Z] [ERROR] 
+[2026-06-19T19:28:03.991Z] [ERROR] ❌ Codex emitted error event: Network lookup skipped in fixture
+[2026-06-19T19:28:03.992Z] [ERROR]    Error events: item=0, turn=0, stream=1
+
+## (C) The false-positive fatal error that failed an otherwise successful session (lines ~108560-108562)
+[2026-06-19T19:28:03.991Z] [ERROR] ❌ Codex emitted error event: Network lookup skipped in fixture
+[2026-06-19T19:28:03.992Z] [ERROR]    Error events: item=0, turn=0, stream=1
+[2026-06-19T19:28:04.040Z] [INFO] 

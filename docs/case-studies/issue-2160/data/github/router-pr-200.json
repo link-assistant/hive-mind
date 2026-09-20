@@ -1,0 +1,345 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Fixes #190.\n\n## The regression\n\n`clients setup` mints a router token (`issue_client_token`) and writes it into a 0600 environment file, but nothing recorded *which* token it was. `ClientManager::remove` only deleted files, so the minted credential stayed `revoked=false` in the token store forever — anyone holding a copy of the environment file kept working access to the router.\n\nReproduce on `main`:\n\n```bash\nlink-assistant-router clients setup codex\nlink-assistant-router clients remove codex\nlink-assistant-router tokens list   # the client-codex token is still revoked=false\n```\n\n`with` and `with --global` were checked and were already correct: per-run credentials are revoked by `cleanup_run_credential`, and `--global` persists no credential of its own.\n\n## The fix\n\n- **Metadata.** `TokenManager::issue_with_id` returns the record id alongside the JWT, and setup persists a secret-free `ManagedCredential` (`<client>.credential.json`, mode 0600) recording `source` (`minted`/`supplied`), `token_id`, `label`, `issued_at`. The token itself is never written there — only the id, which is enough to revoke and useless to an attacker. It is written *after* the environment file, so a recorded id always describes a secret that exists on disk.\n- **Atomic removal.** `clients remove` revokes first and deletes second. Deleting first would leave a live credential nobody can name any more, which is the regression itself.\n- **User-supplied tokens are not revoked** unless `--revoke-supplied` is passed; the same token is often shared with other machines. If `--revoke-supplied` is given for a token this router cannot recognise, the command errors rather than silently doing nothing.\n- **Fails closed.** When revocation fails, the credential file stays in place, the command prints the token id plus `tokens revoke <ID>` recovery instructions, and exits 1 — it never reports successful removal. `--force` is the documented escape hatch.\n\n## Tests\n\nNew `tests/clients_token_revocation_test.rs` drives the shipped binary end to end, for every client integration that supports permanent setup (codex, claude-code, opencode, qwen-code, agent, grok-cli) and both persistent storage backends (`text`, `binary`):\n\n- `setup_show_remove_revokes_the_minted_token_for_every_client_and_backend` — setup → `show` reports the credential → `remove` prints `revoked managed token <ID>` → a **fresh process** runs `tokens list` and sees `revoked=true`. The new process reads the store from disk, so this is the restart-persistence check too.\n- `a_removed_client_credential_is_rejected_by_a_live_router` — a real `serve` process accepts `POST /v1/chat/completions` with the credential before removal and answers 401/403 after it, on both backends.\n- `supplied_tokens_survive_remove_unless_revocation_is_requested`.\n- `failed_revocation_keeps_the_credential_and_exits_nonzero` — store made unreadable; asserts nonzero exit, recovery instructions, and that both the environment file and the metadata survive; then `--force` succeeds.\n- `credential_metadata_never_contains_the_token` — no `la_sk_` on disk, mode 0600.\n\nPlus unit tests in `src/clients/credentials.rs` for the revocability rule and the disk round trip.\n\nFull local checks pass: `cargo fmt`, `cargo clippy --all-targets --all-features` (clean), file-size limits, and the entire `cargo test` suite.\n",
+  "closedAt": "2026-08-16T20:30:21Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T19:37:31Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:37:31Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/190",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "c93336614151053afd0839406779a4c8722f7469"
+    },
+    {
+      "authoredDate": "2026-08-16T19:57:21Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:57:21Z",
+      "messageBody": "clients setup minted a router token and wrote it into a 0600 environment\nfile, but nothing recorded which token it was, so clients remove deleted\nthe local secret while the credential stayed valid forever.\n\nSetup now persists a secret-free ManagedCredential record beside the\nenvironment file, and remove revokes the token before deleting anything.\nA failed revocation preserves the files, prints recovery instructions,\nand exits nonzero. --revoke-supplied opts operator-supplied tokens in;\n--force deletes local settings anyway.\n\nFixes #190",
+      "messageHeadline": "fix: revoke client tokens minted by setup when removing a client",
+      "oid": "4e04144caad1778207db6de38c08e79f5c085c4e"
+    },
+    {
+      "authoredDate": "2026-08-16T19:57:28Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:57:28Z",
+      "messageBody": "",
+      "messageHeadline": "merge: bring main into issue-190 branch",
+      "oid": "3a9e56c0ce6efab0b4b7b26fea270caf71777049"
+    },
+    {
+      "authoredDate": "2026-08-16T20:09:05Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:09:05Z",
+      "messageBody": "",
+      "messageHeadline": "chore: update coverage baseline to 79.352359",
+      "oid": "615cdf1da25c678f5cc1946bdf7f727033dfa680"
+    }
+  ],
+  "createdAt": "2026-08-16T19:37:42Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_revoke_client_tokens_on_remove.md",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "coverage-baseline.txt",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/cli-agent.md",
+      "additions": 4,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/configure-clients.md",
+      "additions": 9,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/cli.rs",
+      "additions": 9,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/client_command.rs",
+      "additions": 118,
+      "deletions": 12,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients.rs",
+      "additions": 30,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients/credentials.rs",
+      "additions": 137,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/token.rs",
+      "additions": 14,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/clients_token_revocation_test.rs",
+      "additions": 424,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-190-247187104443",
+  "headRefOid": "615cdf1da25c678f5cc1946bdf7f727033dfa680",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T20:30:21Z",
+  "number": 200,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:16:21Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95220892225",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T20:15:32Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:10:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95220892738",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T20:09:14Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:09:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95220907446",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T20:09:14Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:09:12Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95220892458",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T20:15:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:17:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221041399",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T20:16:51Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:19:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221041415",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T20:17:52Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:20:52Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221041436",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T20:18:06Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:22:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221188955",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T20:19:44Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:19:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221188851",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T20:18:20Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:22:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221188974",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T20:19:03Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:21:09Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221188831",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T20:18:16Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95221762157",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T20:23:58Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222260626",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222260795",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:42Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222260972",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222261340",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222261299",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222261588",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:26:43Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31969710121/job/95222261316",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-16T20:26:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "fix: revoke client tokens minted by setup when removing a client",
+  "updatedAt": "2026-08-16T20:30:22Z",
+  "url": "https://github.com/link-assistant/router/pull/200"
+}

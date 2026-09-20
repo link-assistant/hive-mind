@@ -1,0 +1,101 @@
+[2026-06-11T12:22:01.326Z] [INFO]   📎 Uploading log using gh-upload-log...
+[2026-06-11T12:22:01.729Z] [STDOUT] public
+[2026-06-11T12:22:01.736Z] [INFO]   🔍 Repository visibility: public, log upload will be public
+[2026-06-11T12:22:02.517Z] [STDOUT] github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+[2026-06-11T12:22:02.797Z] [INFO]   ⚠️  PATTERN GAP: Secretlint found 3 secret(s) that our custom patterns missed:
+[2026-06-11T12:22:02.833Z] [INFO]       • Rule: @secretlint/secretlint-rule-database-connection-string, Token preview: postgresql...ine\n
+[2026-06-11T12:22:02.833Z] [INFO]       • Rule: @secretlint/secretlint-rule-database-connection-string, Token preview: postgresql...n221:
+[2026-06-11T12:22:02.834Z] [INFO]       • Rule: @secretlint/secretlint-rule-database-connection-string, Token preview: postgresql...ine",
+[2026-06-11T12:22:02.834Z] [INFO]       Consider adding custom patterns for these secret types to improve our detection.
+[2026-06-11T12:22:03.282Z] [INFO]   🔒 Sanitized 14 secrets using dual approach:
+[2026-06-11T12:22:03.283Z] [INFO]       • Known tokens: 0
+[2026-06-11T12:22:03.283Z] [INFO]       • Secretlint: 10 detections
+[2026-06-11T12:22:03.283Z] [INFO]       • Custom patterns: 0 detections
+[2026-06-11T12:22:03.284Z] [INFO]       • Hex tokens: 4
+[2026-06-11T12:22:03.284Z] [INFO]       ⚠️  Pattern gaps to address: 3
+[2026-06-11T12:22:03.347Z] [INFO]   📤 Running: gh-upload-log "/tmp/solution-draft-log-pr-1781180521736.txt" --public --description "Solution draft log for https://github.com/lefinepro/kefine/pull/173" --verbose
+[2026-06-11T12:22:03.433Z] [STDOUT] Options: {
+  filePath: "/tmp/solution-draft-log-pr-1781180521736.txt",
+  isPublic: true,
+  auto: true,
+  onlyGist: undefined,
+  onlyRepository: undefined,
+  useSharedRepository: true,
+  dryMode: false,
+  description: "Solution draft log for https://github.com/lefinepro/kefine/pull/173",
+  verbose: true,
+}
+
+📁 /tmp/solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:03.433Z] [STDOUT] 📊 19.68 MB
+
+⏳ Uploading 19.68 MB (🌐 public)...
+[2026-06-11T12:22:03.433Z] [STDOUT] File size: 19.68 MB
+Strategy: File fits within GitHub Gist API limit (25MB)
+Mode: Auto (automatic strategy selection)
+[2026-06-11T12:22:03.446Z] [STDOUT] Creating GitHub Gist for /tmp/solution-draft-log-pr-1781180521736.txt
+Gist file name: tmp-solution-draft-log-pr-1781180521736.txt
+Description: Solution draft log for https://github.com/lefinepro/kefine/pull/173
+[2026-06-11T12:22:03.517Z] [STDERR] - Creating gist solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:05.516Z] [STDERR] X Failed to create gist: HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked from content creation. Please retry your request again later. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) If you reach out to GitHub Support for help, please include the request ID 97B8:34AFF7:1AA96:19E58:6A2AA86B and timestamp 2026-06-11 12:22:05 UTC. (https://api.github.com/gists)
+[2026-06-11T12:22:05.532Z] [STDERR] Gist upload failed: Failed to create gist: - Creating gist solution-draft-log-pr-1781180521736.txt
+X Failed to create gist: HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked from content creation. Please retry your request again later. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) If you reach out to GitHub Support for help, please include the request ID 97B8:34AFF7:1AA96:19E58:6A2AA86B and timestamp 2026-06-11 12:22:05 UTC. (https://api.github.com/gists). Falling back to repository mode...
+[2026-06-11T12:22:05.533Z] [STDOUT] → Creating work directory: /tmp/log-tmp-solution-draft-log-pr-1781180521736.txt-1781180525533
+[2026-06-11T12:22:05.536Z] [STDOUT] → Copying file into /tmp/log-tmp-solution-draft-log-pr-1781180521736.txt-1781180525533...
+[2026-06-11T12:22:05.555Z] [STDOUT] → Initializing git repository...
+[2026-06-11T12:22:05.581Z] [STDERR] hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint:
+hint: 	git config --global init.defaultBranch <name>
+hint:
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint:
+hint: 	git branch -m <name>
+[2026-06-11T12:22:05.582Z] [STDOUT] Initialized empty Git repository in /tmp/log-tmp-solution-draft-log-pr-1781180521736.txt-1781180525533/.git/
+[2026-06-11T12:22:05.591Z] [STDOUT] → Adding and committing files...
+[2026-06-11T12:22:05.870Z] [STDOUT] [main (root-commit) 45fcce6] Add log file
+ 1 file changed, 73484 insertions(+)
+ create mode 100644 tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:05.870Z] [STDOUT] Getting GitHub user information...
+[2026-06-11T12:22:06.201Z] [STDOUT] konard
+[2026-06-11T12:22:06.205Z] [STDOUT] GitHub user: konard
+[2026-06-11T12:22:06.205Z] [STDOUT] → Creating public GitHub repo: log-tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:08.357Z] [STDOUT] https://github.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:12.009Z] [STDERR] To https://github.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt.git
+ * [new branch]      HEAD -> main
+[2026-06-11T12:22:12.016Z] [STDOUT] branch 'main' set up to track 'origin/main'.
+[2026-06-11T12:22:12.022Z] [STDOUT] Repository created successfully: https://github.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt
+Fetching raw URL for single file: tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:12.354Z] [STDOUT] Raw URL: https://raw.githubusercontent.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt/main/tmp-solution-draft-log-pr-1781180521736.txt
+✅ Repository created (🌐 public)
+🔗 https://github.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt
+📄 https://raw.githubusercontent.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt/main/tmp-solution-draft-log-pr-1781180521736.txt
+
+Details:
+  Type: 📦 Repository
+  Visibility: public
+  File count: 1
+  Repository: log-tmp-solution-draft-log-pr-1781180521736.txt
+  Raw URL: https://raw.githubusercontent.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt/main/tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:12.362Z] [INFO]   ✅ Upload successful: https://github.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:12.363Z] [INFO]   📊 Type: repository, Chunks: 1
+[2026-06-11T12:22:12.363Z] [INFO]   🔗 Raw URL: https://raw.githubusercontent.com/konard/log-tmp-solution-draft-log-pr-1781180521736.txt/main/tmp-solution-draft-log-pr-1781180521736.txt
+[2026-06-11T12:22:13.103Z] [STDOUT] github.com
+  ✓ Logged in to github.com account konard (/home/box/.config/gh/hosts.yml)
+  - Active account: true
+  - Git operations protocol: https
+  - Token: gho_************************************
+  - Token scopes: 'gist', 'read:org', 'repo', 'user', 'workflow'
+[2026-06-11T12:22:13.611Z] [STDOUT] {"message":"You have exceeded a secondary rate limit and have been temporarily blocked from content creation. Please retry your request again later. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service)","documentation_url":"https://docs.github.com/rest/overview/rate-limits-for-the-rest-api#about-secondary-rate-limits","status":"403"}
+[2026-06-11T12:22:13.611Z] [STDERR] gh: You have exceeded a secondary rate limit and have been temporarily blocked from content creation. Please retry your request again later. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[2026-06-11T12:22:13.615Z] [INFO]   ❌ Failed to post comment with log link: gh: You have exceeded a secondary rate limit and have been temporarily blocked from content creation. Please retry your request again later. For more on scraping GitHub and how it may affect your rights, please review our Terms of Service (https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) (HTTP 403)
+[2026-06-11T12:22:13.615Z] [INFO]
+[2026-06-11T12:22:13.616Z] [INFO]    ⚠️  Could not upload auto-restart session log
+[2026-06-11T12:22:13.616Z] [INFO]   🔗 Verifying PR issue link after iteration...

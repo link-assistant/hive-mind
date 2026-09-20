@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1837-3c7f512ce3b5", "mergedAt": "2026-05-29T23:01:06Z", "number": 1840, "title": "feat(telegram): clickable executed-items list in /solve_queue + /queue alias (#1837)", "url": "https://github.com/link-assistant/hive-mind/pull/1840" },
+  { "headRefName": "issue-1837-a74bd9b0737c", "mergedAt": "2026-06-02T10:54:40Z", "number": 1847, "title": "fix(telegram): list currently-executing tasks in /solve_queue (/queue) (#1837)", "url": "https://github.com/link-assistant/hive-mind/pull/1847" },
+  { "headRefName": "issue-1803-854359847a6b", "mergedAt": "2026-05-15T21:53:00Z", "number": 1804, "title": "fix(auto-fork): trust forkRepoName from PR head data, don't re-prefix (#1803)", "url": "https://github.com/link-assistant/hive-mind/pull/1804" },
+  { "headRefName": "issue-1788-d09caa2c038a", "mergedAt": "2026-05-12T17:37:12Z", "number": 1789, "title": "fix(telegram): complete localized bot output fallbacks", "url": "https://github.com/link-assistant/hive-mind/pull/1789" },
+  { "headRefName": "issue-1801-8db5d6d7685d", "mergedAt": "2026-05-15T12:15:11Z", "number": 1802, "title": "fix(telegram): escape PR URL in work-session completion message (#1801)", "url": "https://github.com/link-assistant/hive-mind/pull/1802" },
+  { "headRefName": "issue-1734-cc6d3df726e0", "mergedAt": "2026-04-30T08:16:55Z", "number": 1735, "title": "Add Telegram /task issue creation", "url": "https://github.com/link-assistant/hive-mind/pull/1735" },
+  { "headRefName": "issue-1805-4f2a801cf9d5", "mergedAt": "2026-05-15T22:29:16Z", "number": 1806, "title": "feat(telegram): add --auto-resolve to /merge and render PR/issue links", "url": "https://github.com/link-assistant/hive-mind/pull/1806" },
+  { "headRefName": "issue-1662-f172a7412294", "mergedAt": "2026-04-24T08:48:29Z", "number": 1663, "title": "Support Telegram options before URL", "url": "https://github.com/link-assistant/hive-mind/pull/1663" },
+  { "headRefName": "issue-1694-fe50f963a001", "mergedAt": "2026-04-26T12:59:16Z", "number": 1695, "title": "Default-enable stabilized solve/Telegram options (#1694)", "url": "https://github.com/link-assistant/hive-mind/pull/1695" },
+  { "headRefName": "issue-1680-7bdf4eb909cc", "mergedAt": "2026-04-25T10:36:58Z", "number": 1681, "title": "Fix Telegram screen session monitoring startup", "url": "https://github.com/link-assistant/hive-mind/pull/1681" }
+]

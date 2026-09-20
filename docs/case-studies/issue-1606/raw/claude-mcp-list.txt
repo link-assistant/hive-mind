@@ -1,0 +1,5 @@
+Checking MCP server health…
+
+claude.ai Google Calendar: https://gcal.mcp.claude.com/mcp - ! Needs authentication
+claude.ai Gmail: https://gmail.mcp.claude.com/mcp - ! Needs authentication
+playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 - ✓ Connected

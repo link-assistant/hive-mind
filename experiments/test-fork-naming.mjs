@@ -53,9 +53,13 @@ async function testForkNaming() {
   const forkResult = await $`gh repo fork ${fullRepo} --clone=false 2>&1`.catch(e => e);
   console.log(`   Exit code: ${forkResult.exitCode || forkResult.code}`);
   console.log('   Output:');
-  const forkOutput = (forkResult.stdout ? forkResult.stdout.toString() : '') +
-                     (forkResult.stderr ? forkResult.stderr.toString() : '');
-  console.log(forkOutput.split('\n').map(line => `     ${line}`).join('\n'));
+  const forkOutput = (forkResult.stdout ? forkResult.stdout.toString() : '') + (forkResult.stderr ? forkResult.stderr.toString() : '');
+  console.log(
+    forkOutput
+      .split('\n')
+      .map(line => `     ${line}`)
+      .join('\n')
+  );
   console.log();
 
   // Parse the fork output to see what fork name gh mentioned

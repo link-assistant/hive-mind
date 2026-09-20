@@ -1,0 +1,12 @@
+{
+  "additions": 45,
+  "body": "This PR implements the Hello World program in Common Lisp as requested in issue #1.\n\n## Changes\n- Added  with a simple Hello World program\n- Included proper comments and run instructions\n- Created GitHub Actions workflow in \n- The workflow installs SBCL, runs the program, and verifies the output\n\n## Testing\n- Program tested locally with SBCL\n- CI workflow will run on every push and PR to ensure correctness\n\nCloses #1",
+  "changedFiles": 2,
+  "commits": [{ "authoredDate": "2025-09-06T10:18:54Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "Konard" }], "committedDate": "2025-09-06T10:18:54Z", "messageBody": "- Add hello-world.lisp with proper comments and run instructions\n- Create GitHub Actions workflow to test the program\n- Program outputs 'Hello, World!' as required", "messageHeadline": "Implement Hello World in Common Lisp with CI workflow", "oid": "675e08b1a8ca55ef11bfc61a91000a8badf7d461" }],
+  "createdAt": "2025-09-06T10:19:01Z",
+  "deletions": 0,
+  "number": 2,
+  "state": "OPEN",
+  "title": "Implement Hello World in Common Lisp",
+  "url": "https://github.com/konard/test-hello-world-01991e7d-f3e2-713e-a22a-0e69a326dc93/pull/2"
+}

@@ -1,0 +1,43 @@
+{
+  "checked_at": "2026-05-13T08:28:37Z",
+  "authenticated_user": {
+    "login": "konard",
+    "id": 1431904
+  },
+  "repository": {
+    "full_name": "Gls-full/wildberres-bidder",
+    "owner": {
+      "login": "Gls-full",
+      "type": "Organization"
+    },
+    "private": true,
+    "visibility": "private",
+    "default_branch": "main",
+    "fork": false,
+    "archived": false,
+    "disabled": false,
+    "allow_forking": false,
+    "pushed_at": "2026-05-11T13:23:43Z",
+    "updated_at": "2026-05-11T13:25:55Z"
+  },
+  "rest_permissions": {
+    "admin": false,
+    "maintain": false,
+    "pull": true,
+    "push": false,
+    "triage": false
+  },
+  "graphql_viewer_permission": "READ",
+  "direct_collaborator_permission_probe": {
+    "command": "gh api repos/Gls-full/wildberres-bidder/collaborators/konard/permission --jq '{permission,role_name,user:{login:.user.login}}'",
+    "status": 404,
+    "message": "Not Found",
+    "interpretation": "The token cannot use this admin-oriented collaborator endpoint here, or the access comes through an organization/team relationship rather than a directly visible collaborator record. The repository permissions object and GraphQL viewerPermission are the usable evidence for this token."
+  },
+  "conclusion": {
+    "can_read_repository": true,
+    "can_push_direct_branch": false,
+    "can_use_fork_workflow": false,
+    "reason": "The account has read/pull access only. Direct branches require push/write access, and private fork creation is blocked because allow_forking is false."
+  }
+}

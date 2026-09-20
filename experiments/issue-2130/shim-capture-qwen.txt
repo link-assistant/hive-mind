@@ -1,0 +1,9 @@
+ARGV:
+  --model
+  formal-ai
+  --output-format
+  stream-json
+  -p
+  --note
+  CronCreate
+STDIN-BYTES: 0

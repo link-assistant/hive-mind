@@ -1,0 +1,12 @@
+ok - queue startup interval defaults to a 10-minute minimum
+ok - queue startup interval cannot be configured below 10 minutes
+ok - minimum startup interval is global across tools
+not ok - reserved direct starts enforce the same minimum startup interval
+TypeError: queue.reserveStartSlot is not a function
+    at file:///tmp/gh-issue-solver-1783413008515/tests/test-issue-2015-queue-stability.mjs:108:34
+    at test (file:///tmp/gh-issue-solver-1783413008515/tests/test-issue-2015-queue-stability.mjs:31:11)
+    at file:///tmp/gh-issue-solver-1783413008515/tests/test-issue-2015-queue-stability.mjs:105:7
+ok - findStartableItems returns only one task across tool queues
+ok - system metric cache TTL defaults to one minute
+ok - system metric cache TTL cannot be configured above one minute
+Failed after 12 assertions

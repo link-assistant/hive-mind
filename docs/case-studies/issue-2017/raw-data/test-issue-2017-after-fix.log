@@ -1,0 +1,10 @@
+ok - queue startup interval defaults to a 10-minute minimum
+ok - queue startup interval cannot be configured below 10 minutes
+ok - minimum startup interval is global across tools
+ok - reserved direct starts enforce the same minimum startup interval
+ok - concurrent direct start reservations still allow only one immediate startup
+ok - telegram direct solve path uses reserved startup slots
+ok - findStartableItems returns only one task across tool queues
+ok - system metric cache TTL defaults to one minute
+ok - system metric cache TTL cannot be configured above one minute
+Issue #2015 queue stability tests passed (24 assertions)

@@ -1,0 +1,10 @@
+{
+  "version": "0.28.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/start.git"
+  },
+  "dist-tags": {
+    "latest": "0.28.0"
+  }
+}

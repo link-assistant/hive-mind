@@ -1,0 +1,1288 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Fixes #2119.\n\n## What was wrong\n\nThree `hive-mind solve --model formal-ai` runs on 2026-07-30, one per `--tool`, produced **zero lines of source code** between them — and Hive Mind reported all three as successes. The AI side of that is Formal AI's problem and is [reported upstream](#upstream). This pull request is about our side: **every signal Hive Mind published about those runs was wrong.**\n\n| Run                                                                                                              | Tool     | Language | What was published                                                                                       |\n| ---------------------------------------------------------------------------------------------------------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------- |\n| [`019fb330-00e1-…`](https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2) | `agent`  | Scala    | `Provider: OpenCode Zen`, `Token usage: 0 input, 0 output`, 11 AI sessions under a limit of 5, exit **0** |\n| [`019fb330-fa49-…`](https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2) | `claude` | Kotlin   | `Calculated by Anthropic: $0.252315` for a free model, then `## ✅ Ready to merge` on an empty diff       |\n| [`019fb331-c107-…`](https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2) | `codex`  | Rust     | A pull request containing only our own `.gitkeep`, described as `1 file(s) modified`                     |\n\nFor contrast, the same generator in 2025 produced two-file, 45–81 line pull requests with a conventional model. The pipeline works when the model answers; what it cannot do is notice when the model does not.\n\n## What this changes\n\nThirteen defects, each with a regression test. Every fix is applied across **all six** tools (`claude`, `agent`, `opencode`, `codex`, `qwen`, `gemini`), not only where the symptom was observed. The Docker images also pin Formal AI 0.317.0, which contains the upstream generalized recovery fix.\n\n**Attribution and cost** — `src/formal-ai-pricing.lib.mjs` is now the single source of the provider name and the zero-cost override, consulted at the cost boundary of all six tools plus `agent-commander` and the cost renderer.\n\n- D1 `Provider: OpenCode Zen` / `Calculated by Anthropic` → **`Link.Assistant`**, because the tool that ran says nothing about who served the tokens\n- D2 `$0.252315` for a free model → **`$0.00`**\n- D3 `Public pricing estimate: unknown` → **`$0.00 (Free model)`**\n\n**Telemetry** — `src/json-stream.lib.mjs` frames records by balanced JSON values instead of by newlines, so pretty-printed, concatenated and chunk-split records all parse.\n\n- D4 `Token usage: 0 input, 0 output` for a session that used 44 511 tokens → real counts, for every tool\n- D12 the credential sanitizer redacting `\"tokens\": [REDACTED]` and JSON braces → counters and structure survive, secrets still do not\n\n**The restart loop** — `src/auto-restart-budget.lib.mjs` replaces two independent loops that shared one flag.\n\n- D5 `Auto-restart 1/5` … `5/5` **and then** `Auto-restart triggered (iteration 1)` … `(iteration 5)` — 11 AI sessions under `--auto-restart-max-iterations 5` → one budget, one `N/M` label\n- D6 exhausting the budget exited **0** with the work undone → fails visibly, with auto-commit on fail recovery, exit **1**\n- D11 `?? .formal-ai/` counted as user changes, re-created by every restart so the blocker never cleared → `src/ai-tool-scratch.lib.mjs` excludes AI scratch state via `.git/info/exclude`\n\n**Not calling nothing a success**\n\n- D8 `- 1 file(s) modified` for an empty net diff → measured from the diff, not from per-commit sums\n- D9 `## ✅ Ready to merge` on a pull request that changes nothing → an empty diff is a blocker, not a green light\n- D13 the solver's own `.gitkeep` / `CLAUDE.md` placeholder counted as the AI's work → matched by generated content (a repository's own `.gitkeep` still counts) and reported as `placeholderOnly`\n- D10 a working-session summary made of `pwd` output, leaking `/tmp/gh-issue-solver-…` → summaries carry facts or say they have none\n- D7 PR titles published as `'Implement Hello World in Scala'`, quotes included → command-stream escapes interpolations itself; the redundant quotes are gone everywhere they appeared\n\n## Tests\n\nNine new suites, all in the default suite (`npm test`, currently 368 files):\n\n`test-formal-ai-pricing-2119` · `test-agent-stream-json-2119` · `test-token-telemetry-sanitization-2119` · `test-auto-restart-budget-2119` · `test-empty-pull-request-2119` · `test-shell-quoting-2119` · `test-working-session-summary-2119` · `test-ai-tool-scratch-2119` · `test-formal-ai-uniform-tools-2119`\n\nThe last one is the anti-regression net for the whole class: it asserts that all five stream parsers import the shared framer, all six tools reach the formal-ai pricing path, and all four Docker image definitions pin Formal AI 0.317.0, so a tool or image variant cannot silently retain a divergent implementation.\n\nFinal verification after merging current `main`: all 368 default test files passed under Node 24, together with ESLint, Prettier, MJS syntax checks, file-line limits, duplication analysis, changeset validation, and `git diff --check`.\n\n## Case study\n\n[`docs/case-studies/issue-2119/`](./docs/case-studies/issue-2119) holds the reconstruction the issue asked for: minute-by-minute timelines of the three runs, an inventory of all six `konard/test-hello-world-*` repositories (2025 baseline vs 2026), the requirement-by-requirement table, root cause and fix for each of the thirteen defects, the two deliberate non-changes, where the data was insufficient and what instrumentation was added, and the libraries considered for the JSON framing (jsonhilo, concatjson, clarinet, json-stream-es, stream-json) with the reason we did not use them. Raw evidence — logs, issue/PR JSON, diffs, gist URLs — is archived under `data/`.\n\n<a name=\"upstream\"></a>\n\n## Upstream resolved and shipped\n\n- **[link-assistant/formal-ai#879](https://github.com/link-assistant/formal-ai/issues/879)** was fixed by [Formal AI PR #881](https://github.com/link-assistant/formal-ai/pull/881) and released in 0.316.1. It adds a seed-driven, bounded recovery ladder with cross-run learning, requires observable non-scratch workspace effects, fails closed on public endpoint diversion, and emits completion telemetry across all six clients. Hive Mind now pins the current 0.317.0 release in every Docker image.\n- **[link-assistant/agent#285](https://github.com/link-assistant/agent/issues/285)** was fixed by [Agent PR #286](https://github.com/link-assistant/agent/pull/286) and published in npm package 0.25.4. Unknown models now get the full prompt with an explicit logged default, product identity is centralized, and session versions come from the package manifest. Hive Mind's image install resolves to the current 0.25.5 package.\n",
+  "closedAt": "2026-08-01T08:18:22Z",
+  "commits": [
+    {
+      "authoredDate": "2026-07-30T14:43:37Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T14:43:37Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2119",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "6dd65fcd152e9fc63487b30d286c4660a372047c"
+    },
+    {
+      "authoredDate": "2026-07-30T14:51:51Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T14:51:51Z",
+      "messageBody": "Downloads the PR/issue metadata, conversation comments, review comments\nand full solution-draft logs of the three konard/test-hello-world-*\nreproductions cited in issue #2119 so the case study analysis is based\non immutable local evidence.",
+      "messageHeadline": "docs(2119): preserve raw evidence for formal-ai case study",
+      "oid": "25e7a6ad837a9c318d1be75005520d2864e55817"
+    },
+    {
+      "authoredDate": "2026-07-30T16:02:36Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:02:36Z",
+      "messageBody": "`--model formal-ai` runs reported \"0 input, 0 output\" tokens even though the\ntools produced real usage. Formal AI emits pretty-printed JSON objects rather\nthan NDJSON, and codex writes partial lines, so the per-line parsers silently\ndropped every event that carried the usage metadata.\n\nAdds src/json-stream.lib.mjs, a shared incremental framer that accepts both\nNDJSON and multi-line/pretty-printed JSON and buffers partial lines, and routes\nthe agent and codex stream readers through it.\n\nReproduction: https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2",
+      "messageHeadline": "fix(2119): frame streamed JSON so token usage is not lost",
+      "oid": "21197003f6e597951165e6f988cc48dfc15f6a47"
+    },
+    {
+      "authoredDate": "2026-07-30T16:02:47Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:02:47Z",
+      "messageBody": "The credential sanitizer treated token telemetry (`\"total_tokens\":44511`,\n`tokens=44511`, `\"maxTokens\": 8192`) and JSON structural braces as secrets, so\npublished logs and comments in the reproduction PRs showed redacted counters and\nmangled JSON, hiding the real usage numbers.\n\nReproduction: https://github.com/konard/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c/pull/2",
+      "messageHeadline": "fix(2119): stop redacting token counters and JSON braces as credentials",
+      "oid": "2072f214e56474b401850aec22cbc30af0da971a"
+    },
+    {
+      "authoredDate": "2026-07-30T16:03:00Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:03:00Z",
+      "messageBody": "The reproduction PRs attributed `--model formal-ai` to \"OpenCode Zen\" or\n\"Anthropic\" and billed it: the claude path published $0.252315 taken from\nAnthropic's `total_cost_usd`, and the public pricing estimate read \"unknown\".\nFormal AI is served by Link.Assistant and is free.\n\nAdds src/formal-ai-pricing.lib.mjs as the single source of the provider name and\nthe zero-cost override, and applies it at the cost boundary of all six tools\n(claude, agent, opencode, codex, gemini, qwen) plus the agent commander and the\ncost-info renderer, which now prints \"$0.00 (Free model)\" instead of \"unknown\".\n\nReproductions:\n- https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2\n- https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2",
+      "messageHeadline": "fix(2119): report formal-ai as Link.Assistant at $0.00 for every tool",
+      "oid": "8f7f173ac3e06b42e90183d3097f298cedb4e051"
+    },
+    {
+      "authoredDate": "2026-07-30T16:03:19Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:03:19Z",
+      "messageBody": "Hive Mind had two independent auto-restart subsystems, each with its own counter\nreading the same --auto-restart-max-iterations flag. solve.mjs runs both in one\nprocess, so a limit of 5 permitted 10 AI sessions, and the reproduction PR shows\nthe two incompatible labels the issue calls out: \"Auto-restart triggered\n(iteration 1)\" next to \"Auto-restart 1/5 Log\". Neither path failed at the limit,\nso a run that never resolved its blocker still exited 0 with the uncommitted work\ndiscarded along with the temporary clone.\n\n- src/auto-restart-budget.lib.mjs: one process-wide iteration counter both loops\n  claim from, and one N/M label formatter (N alone when the limit is 0/unlimited).\n- src/auto-restart-exhaustion.lib.mjs: the single exhaustion path - log, auto-\n  commit and push the uncommitted work via the existing critical-error recovery\n  helper, post one \"limit reached\" comment, and record the failure.\n- solve.finalize.lib.mjs exits 1 when the budget was exhausted, so the result is\n  actually visible instead of being reported as a success.\n\nReproduction: https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2",
+      "messageHeadline": "fix(2119): one auto-restart budget with N/M labels and a hard stop",
+      "oid": "f8d4c91c63b5f45ce6305f5d8a821e417a152fa3"
+    },
+    {
+      "authoredDate": "2026-07-30T16:10:50Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:10:50Z",
+      "messageBody": "All three reproduction pull requests were titled `'Implement Hello World in\nScala'` with the single quotes as literal characters.\n\nRoot cause: command-stream shell-escapes every interpolated value, quoting it\nwhenever it contains a character the shell would split on. Wrapping the\nplaceholder in quotes - `--title \"${updatedTitle}\"` - therefore passes\n`--title \"'Implement Hello World in Scala'\"` and the quotes land in the title.\nValues without spaces were unaffected, which is why it went unnoticed.\n\nFixed at every such site in src/ and scripts/ (PR titles and body files, the\nYouTrack issue sync, the claude runtime switch, reviewers-hive, the changeset\nand release scripts). Where the quotes belonged to an inner language the\nexpression is now assembled in JS and passed as one argument: the fork-lookup\njq filters and the issue/PR-link GraphQL queries.\n\ntests/test-shell-quoting-2119.mjs pins the command-stream behaviour that caused\nthis and scans src/ and scripts/ so the pattern cannot come back.",
+      "messageHeadline": "fix(2119): stop leaking shell quotes into PR titles and API arguments",
+      "oid": "46b2df22fab53512e3d0e159e4eceb99e91770a2"
+    },
+    {
+      "authoredDate": "2026-07-30T16:17:41Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:17:41Z",
+      "messageBody": "…to merge\n\nTwo of the three reproduction runs produced a pull request with an empty net\ndiff (the AI tool wrote nothing, so the branch held only the solver's own\nscaffolding commit and a revert of it), yet both published\n\n    ### Changes\n    - 1 file(s) modified\n    - 1 line(s) added\n\nand the Kotlin run additionally posted \"## ✅ Ready to merge ... - No pending\nchanges\". Merging that would have closed the issue with nothing implemented.\n\nsrc/pull-request-changes.lib.mjs is now the single place that answers \"does\nthis pull request change anything\", used by both the description writer and the\nmergeability watcher. A diff that could not be read is reported as unmeasured\nrather than as empty, so a transient API failure cannot trigger restarts.",
+      "messageHeadline": "fix(2119): never report an empty pull request as changes or as ready …",
+      "oid": "bd23dae689d0ebed3d303220ca1414035788615f"
+    },
+    {
+      "authoredDate": "2026-07-30T16:25:59Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:25:59Z",
+      "messageBody": "Formal AI writes a .formal-ai/ plan directory into the workspace it runs in, so\nevery uncommitted-changes check saw\n\n    ?? .formal-ai/\n    📝 Found uncommitted changes\n    🔄 AUTO-RESTART: Restarting Agent to handle uncommitted changes...\n\nand restarting recreated the directory, so the blocker could never clear. The\nsame state reached 'git add -A' on the auto-commit paths, which would have\npublished a tool's private scratch files in the user's pull request.\n\nThis generalizes the .playwright-mcp/ special case from #1124: the paths are\nwritten to .git/info/exclude, so git itself stops reporting them and all eight\ncopies of checkForUncommittedChanges agree without each needing its own filter.\nThe exclude file is local to the clone, so nothing leaks into the diff.",
+      "messageHeadline": "fix(2119): stop AI tool scratch state from driving the auto-restart loop",
+      "oid": "b1065b373fe110f45369750e192e583e25d74d4b"
+    },
+    {
+      "authoredDate": "2026-07-30T16:29:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:29:08Z",
+      "messageBody": "The Kotlin reproduction run posted\n\n    ## Working session summary\n\n    The `pwd` command completed. Output:\n    /tmp/gh-issue-solver-1785421161275\n\non a pull request whose diff was empty. The AI tool returning nothing useful is\nan upstream problem; what Hive Mind owns is that the comment read as a report of\ncompleted work and published the solver's private workspace path.\n\nThe summary now carries an explicit notice when the pull request still contains\nno changes, and solver workspace paths are replaced with <workspace>. An\nunreadable diff produces no notice, so a transient API failure cannot turn into\na false \"nothing was implemented\" claim.",
+      "messageHeadline": "fix(2119): publish honest working session summaries",
+      "oid": "12f27c00c32da0f1290ce8b0fc2473e47e9d796a"
+    },
+    {
+      "authoredDate": "2026-07-30T16:39:44Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:39:44Z",
+      "messageBody": "`formal-ai with <tool> --verbose` emits pretty-printed, multi-line JSON\nrecords. Commit 21197003 fixed the resulting \"Token usage: 0 input,\n0 output\" for agent, opencode and codex by framing records on balanced\nJSON values instead of on newlines; gemini and qwen kept their own\nline-based parsers and so still had the identical defect.\n\nBoth now share `takeJsonRecords` from json-stream.lib.mjs, which also\nhandles records concatenated without a separator (issue #1250) and\nrecords split across process chunks.\n\ntests/test-formal-ai-uniform-tools-2119.mjs pins the uniformity down:\nsame stream shapes, same token accounting and the same Link.Assistant\n$0.00 pricing across all six formal-ai tools.",
+      "messageHeadline": "fix(2119): frame gemini and qwen stream JSON by balanced values",
+      "oid": "16d8b2437fce8d69f9b1b051965bd1b60013af39"
+    },
+    {
+      "authoredDate": "2026-07-30T16:49:23Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:49:23Z",
+      "messageBody": "The Rust reproduction PR contains exactly one file - hive-mind's own\nauto-generated .gitkeep placeholder - so the change stats reported\n\"1 file changed\" for a run that implemented nothing.\n\npull-request-changes.lib.mjs now splits the diff per file and drops the\nsections whose content matches what solve.auto-pr.lib.mjs writes into\n.gitkeep / CLAUDE.md, exposes placeholderOnly, and offers\nbuildEmptyPullRequestBlocker() so the restart reason names the\nplaceholder. Matching is on the generated content, so a repository's own\n.gitkeep stays a real change.",
+      "messageHeadline": "fix(2119): do not count the solver's own placeholder as a change",
+      "oid": "a40825e2da2876ab69177ba24c7975f61784c82f"
+    },
+    {
+      "authoredDate": "2026-07-30T16:58:19Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T16:58:19Z",
+      "messageBody": "Compiles every artifact of the three 2026-07-30 reproduction runs into\ndocs/case-studies/issue-2119: the issue and its comments, all six\ntest-hello-world repositories (three 2025 baselines for contrast), the\nthree session logs, the PR/issue JSON, the net diffs and the URLs of all\n13 published session logs.\n\nREADME.md reconstructs the timeline of each run, lists every requirement\nfrom the issue with where it is addressed, gives the root cause and fix\nof all 13 Hive Mind defects, records the two deliberate non-changes and\nwhy, reviews the existing libraries considered for each fix, and states\nwhere the data was insufficient and what instrumentation was added.\n\nupstream-formal-ai.md is the consolidated Formal AI report: five defects\nwith reproductions, workarounds and code-level suggestions, framed as a\nrequest for generalization and self-healing rather than per-symptom\npatches.",
+      "messageHeadline": "docs(2119): deep case study of the formal-ai reproduction runs",
+      "oid": "75110d52ec456996cae7f9683e50dfb767e9473e"
+    },
+    {
+      "authoredDate": "2026-07-30T17:08:11Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T17:08:11Z",
+      "messageBody": "Files the consolidated Formal AI report as formal-ai#879 and, from the same\nlogs, three Agent CLI defects as agent#285: unknown model ids fall through to\nthe without-todo prompt, that prompt tells the model it is opencode and routes\nfeedback to sst/opencode, and session records carry a hard-coded\nagent-cli-1.0.0 version.\n\nSection 9 is corrected too - the system prompt *is* in the archived log, in the\nrequest bodyPreview records, which is how the prompt-selection defect was\nfound.",
+      "messageHeadline": "docs(2119): link the filed upstream issues (formal-ai#879, agent#285)",
+      "oid": "0a7196881303af3900fd82025e00f75e6a06817b"
+    },
+    {
+      "authoredDate": "2026-07-30T17:18:05Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T17:18:05Z",
+      "messageBody": "…batim\n\nThe release workflow requires exactly one changeset per pull request and\nforbids manual package.json version edits, so the bump is declared here.\n\nThe archived case-study data is raw evidence, so it is added to .prettierignore\nalongside every earlier case study's data directory rather than reformatted.",
+      "messageHeadline": "chore(2119): add the release changeset and keep archived evidence ver…",
+      "oid": "6b3df3c3cf4bf0ee2f6379cb96963c7b2161a45b"
+    },
+    {
+      "authoredDate": "2026-07-30T17:18:36Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-07-30T17:18:36Z",
+      "messageBody": ".gitkeep was committed to open this pull request; the solution replaced it, so\nit is not part of the change. This is the same placeholder D13 teaches the\nchange counter to ignore.",
+      "messageHeadline": "chore(2119): drop the solver's own PR placeholder",
+      "oid": "5c74bef6fc24b5183e0dd28db592c5aa4d0ee627"
+    },
+    {
+      "authoredDate": "2026-08-01T07:01:24Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-01T07:01:24Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-2119-ae2d4c9d7f6d",
+      "oid": "7dca9365809791c208f96f0f5ef4012fbe547e84"
+    },
+    {
+      "authoredDate": "2026-08-01T07:34:32Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-01T07:34:32Z",
+      "messageBody": "",
+      "messageHeadline": "fix(2119): ship released Formal AI recovery fixes",
+      "oid": "bf3dee3acb727d06961ddbdd939768d606d978fc"
+    },
+    {
+      "authoredDate": "2026-08-01T07:40:50Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-01T07:40:50Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-2119-ae2d4c9d7f6d",
+      "oid": "d0a2fb7dda4eaf277311c8f81aee5b27d8135ea0"
+    }
+  ],
+  "createdAt": "2026-07-30T14:43:50Z",
+  "files": [
+    {
+      "path": ".changeset/formal-ai-empty-run-false-positives.md",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": ".prettierignore",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "Dockerfile",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "Dockerfile.dind",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "Dockerfile.formal-ai",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "coolify/Dockerfile",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/README.md",
+      "additions": 482,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/issue-2119-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/issue-2119.json",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/log-gists.json",
+      "additions": 17,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/issue-1-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/issue-1.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/pr-2-conversation-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/pr-2.diff",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-00e1-73b9-955e-f357a1600d5b/pr-2.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/issue-1-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/issue-1.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/pr-2-conversation-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/pr-2.diff",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb330-fa49-7c9d-a664-b7ea33bb698a/pr-2.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/issue-1-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/issue-1.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/pr-2-conversation-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/pr-2.diff",
+      "additions": 8,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/019fb331-c107-78c7-8ff6-9f127a3c593c/pr-2.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/baseline-2025/01991e68-059d-749e-900f-af9e7aa44451-pr-2.json",
+      "additions": 24,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/baseline-2025/01991e7d-f3e2-713e-a22a-0e69a326dc93-pr-2.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/prs/baseline-2025/01992020-00f8-7cf2-9bb6-a1c2a7718de5-pr-2.json",
+      "additions": 24,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/data/test-hello-world-repos.json",
+      "additions": 8,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2119/upstream-formal-ai.md",
+      "additions": 217,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/apply-scratch-filter-2119.mjs",
+      "additions": 61,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/find-quoted-interpolations-2119.mjs",
+      "additions": 40,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/import-smoke-2119.mjs",
+      "additions": 4,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/jq-quote-probe-2119.mjs",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/path-quote-probe-2119.mjs",
+      "additions": 39,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/quote-probe-2119.mjs",
+      "additions": 27,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "scripts/create-manual-changeset.mjs",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "scripts/format-github-release.mjs",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/agent-commander.lib.mjs",
+      "additions": 33,
+      "deletions": 12,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/agent-token-usage.lib.mjs",
+      "additions": 5,
+      "deletions": 9,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/agent.lib.mjs",
+      "additions": 110,
+      "deletions": 152,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/ai-tool-scratch.lib.mjs",
+      "additions": 143,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/anthropic-cost-accumulator.lib.mjs",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/auto-restart-budget.lib.mjs",
+      "additions": 107,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/auto-restart-exhaustion.lib.mjs",
+      "additions": 122,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/claude.lib.mjs",
+      "additions": 19,
+      "deletions": 15,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/claude.runtime-switch.lib.mjs",
+      "additions": 4,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/codex.lib.mjs",
+      "additions": 46,
+      "deletions": 8,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/credential-sanitization-core.lib.mjs",
+      "additions": 27,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/formal-ai-pricing.lib.mjs",
+      "additions": 110,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/gemini.lib.mjs",
+      "additions": 34,
+      "deletions": 43,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/github-cost-info.lib.mjs",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/json-stream.lib.mjs",
+      "additions": 219,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/opencode.lib.mjs",
+      "additions": 56,
+      "deletions": 74,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/pull-request-changes.lib.mjs",
+      "additions": 166,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/qwen.lib.mjs",
+      "additions": 33,
+      "deletions": 32,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/reviewers-hive.mjs",
+      "additions": 2,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.auto-merge.lib.mjs",
+      "additions": 68,
+      "deletions": 44,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.auto-pr.lib.mjs",
+      "additions": 11,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.finalize.lib.mjs",
+      "additions": 15,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.repository.lib.mjs",
+      "additions": 21,
+      "deletions": 4,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.restart-shared.lib.mjs",
+      "additions": 6,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.results.lib.mjs",
+      "additions": 29,
+      "deletions": 16,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/solve.watch.lib.mjs",
+      "additions": 47,
+      "deletions": 18,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/working-session-summary.lib.mjs",
+      "additions": 65,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/youtrack/youtrack-sync.mjs",
+      "additions": 2,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/test-agent-stream-json-2119.mjs",
+      "additions": 137,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-agent-token-usage.mjs",
+      "additions": 34,
+      "deletions": 17,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/test-ai-tool-scratch-2119.mjs",
+      "additions": 124,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-auto-restart-budget-2119.mjs",
+      "additions": 155,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-empty-pull-request-2119.mjs",
+      "additions": 143,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-formal-ai-pricing-2119.mjs",
+      "additions": 137,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-formal-ai-uniform-tools-2119.mjs",
+      "additions": 178,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-shell-quoting-2119.mjs",
+      "additions": 97,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-token-telemetry-sanitization-2119.mjs",
+      "additions": 87,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/test-working-session-summary-2119.mjs",
+      "additions": 77,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-2119-ae2d4c9d7f6d",
+  "headRefOid": "d0a2fb7dda4eaf277311c8f81aee5b27d8135ea0",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-01T08:18:22Z",
+  "number": 2120,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345913693",
+      "name": "detect-changes",
+      "startedAt": "2026-08-01T08:07:21Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:48Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344064885",
+      "name": "detect-changes",
+      "startedAt": "2026-08-01T07:47:29Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345913921",
+      "name": "Instant Release",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065204",
+      "name": "Instant Release",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914091",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065129",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:08:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345944541",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-01T08:07:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:48:11Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344096981",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-01T07:47:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:08:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345944548",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-01T08:07:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:48:16Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344096971",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-01T07:47:51Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:09:17Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345944527",
+      "name": "lint",
+      "startedAt": "2026-08-01T08:07:40Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:49:23Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344096991",
+      "name": "lint",
+      "startedAt": "2026-08-01T07:47:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914294",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065245",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914259",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:26Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065215",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:09:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345994325",
+      "name": "test-compilation",
+      "startedAt": "2026-08-01T08:08:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:49:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344139873",
+      "name": "test-compilation",
+      "startedAt": "2026-08-01T07:48:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:08:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345994335",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-01T08:08:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:48:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344139855",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-01T07:48:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:08:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345994340",
+      "name": "validate-docs",
+      "startedAt": "2026-08-01T08:08:12Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:48:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344139862",
+      "name": "validate-docs",
+      "startedAt": "2026-08-01T07:48:18Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:48:16Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344140373",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-01T07:48:16Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:08:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345994323",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-01T08:08:12Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914200",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:27Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065402",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914276",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-01T08:07:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:27Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065606",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346099846",
+      "name": "test-suites",
+      "startedAt": "2026-08-01T08:09:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344239315",
+      "name": "test-suites",
+      "startedAt": "2026-08-01T07:49:25Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:10:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346099844",
+      "name": "test-execution",
+      "startedAt": "2026-08-01T08:09:21Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:50:43Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344239317",
+      "name": "test-execution",
+      "startedAt": "2026-08-01T07:49:26Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:10:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346099832",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-01T08:09:19Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:50:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344239330",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-01T07:49:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:09:17Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346100156",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-01T08:09:17Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:03:15Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344239328",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-01T07:49:25Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:07:19Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91345914517",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-01T08:07:20Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:47:27Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344065586",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-01T07:47:27Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862324",
+      "name": "Release",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344998628",
+      "name": "Release",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862612",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344999150",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862709",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344998891",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862766",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344999217",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862771",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344999167",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T08:17:37Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690294610/job/91346862746",
+      "name": "Helm Release",
+      "startedAt": "2026-08-01T08:17:37Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-01T07:57:39Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30690425468/job/91344999358",
+      "name": "Helm Release",
+      "startedAt": "2026-08-01T07:57:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    }
+  ],
+  "title": "fix(2119): stop reporting empty `--model formal-ai` runs as successes",
+  "updatedAt": "2026-08-01T08:18:23Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2120"
+}

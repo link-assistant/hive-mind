@@ -15,7 +15,7 @@ const { $ } = await use('command-stream');
 console.log('🧪 Testing Issue #400 Fix: Existing Branch Detection\n');
 
 // Test parameters
-const testOwner = 'deep-assistant';
+const testOwner = 'link-assistant';
 const testRepo = 'hive-mind';
 const testIssueNumber = '400'; // Use the current issue
 
@@ -33,7 +33,11 @@ try {
   const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
 
   if (branchListResult.code === 0) {
-    const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+    const allBranches = branchListResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(b => b);
     const matchingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
 
     console.log(`✅ Successfully retrieved branches from GitHub API`);
@@ -64,7 +68,11 @@ try {
   const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
 
   if (branchListResult.code === 0) {
-    const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+    const allBranches = branchListResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(b => b);
     const matchingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
 
     for (const branch of matchingBranches) {
@@ -119,7 +127,11 @@ try {
   const branchListResult = await $`gh api repos/${testOwner}/${testRepo}/branches --jq '.[].name'`;
 
   if (branchListResult.code === 0) {
-    const allBranches = branchListResult.stdout.toString().trim().split('\n').filter(b => b);
+    const allBranches = branchListResult.stdout
+      .toString()
+      .trim()
+      .split('\n')
+      .filter(b => b);
     const matchingBranches = allBranches.filter(branch => branch.startsWith(branchPattern));
 
     console.log(`  Found ${matchingBranches.length} branches matching pattern`);

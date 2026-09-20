@@ -1,0 +1,1883 @@
+
+COMMAND timeout 10s ./src/solve.mjs --help
+Usage: solve.mjs <issue-url> [options]
+
+Positionals:
+  issue-url  The GitHub issue URL to solve                              [string]
+
+Options:
+      --version                             Show version number        [boolean]
+  -r, --resume                              Resume from a previous session ID (w
+                                            hen limit was reached)      [string]
+  -d, --working-directory                   Use specified working directory inst
+                                            ead of creating a new temp directory
+                                            . If directory does not exist, it wi
+                                            ll be created and the repository wil
+                                            l be cloned. Essential for --resume
+                                            to work correctly with Claude Code s
+                                            essions.                    [string]
+      --only-prepare-command                Only prepare and print the claude co
+                                            mmand without executing it [boolean]
+  -n, --dry-run                             Prepare everything but do not execut
+                                            e Claude (alias for --only-prepare-c
+                                            ommand)                    [boolean]
+      --skip-tool-connection-check          Skip tool connection check (useful i
+                                            n CI environments). Does NOT skip mo
+                                            del validation.
+                                                      [boolean] [default: false]
+      --auto-pull-request-creation          Automatically create a draft pull re
+                                            quest before running Claude
+                                                       [boolean] [default: true]
+  -v, --verbose                             Enable verbose logging for debugging
+                                                      [boolean] [default: false]
+  -f, --fork                                Fork the repository if you don't hav
+                                            e write access
+                                                      [boolean] [default: false]
+      --auto-fork                           Automatically fork public repositori
+                                            es without write access (fails for p
+                                            rivate repos)
+                                                       [boolean] [default: true]
+      --claude-file                         Create CLAUDE.md file for task detai
+                                            ls (mutually exclusive with --gitkee
+                                            p-file)   [boolean] [default: false]
+      --gitkeep-file                        Create .gitkeep file instead of CLAU
+                                            DE.md (default for all --tool values
+                                            , mutually exclusive with --claude-f
+                                            ile)       [boolean] [default: true]
+      --auto-gitkeep-file                   Automatically use .gitkeep if CLAUDE
+                                            .md is in .gitignore (pre-checks bef
+                                            ore creating file)
+                                                       [boolean] [default: true]
+      --force-git-keep-commit               If the auto-PR placeholder (.gitkeep
+                                            ) is listed in .gitignore, commit it
+                                             anyway with `git add -f` instead of
+                                             stopping (issue #1825). Off by defa
+                                            ult.      [boolean] [default: false]
+      --remove-git-keep-from-git-ignore     If the auto-PR placeholder (.gitkeep
+                                            ) is listed in .gitignore, remove th
+                                            at entry from .gitignore first, then
+                                             commit normally (issue #1825). Off
+                                            by default.
+                                                      [boolean] [default: false]
+      --auto-support-agents-md-as-claude-m  [EXPERIMENTAL] Temporarily copy AGEN
+      d                                     TS.md/agents.md to CLAUDE.md while C
+                                            laude runs, then remove the temporar
+                                            y copy    [boolean] [default: false]
+      --do-not-shutdown-in-the-middle-of-w  [EXPERIMENTAL] On interrupt (CTRL+C
+      orking-session                        / SIGTERM), do not abort the AI tool
+                                             mid-run. If an AI working session i
+                                            s in progress, wait for it to finish
+                                            , auto-commit any uncommitted change
+                                            s, then shut down gracefully. If sol
+                                            ve is only idle-waiting (e.g. for CI
+                                            /CD), stop immediately. A second int
+                                            errupt force-stops. hive passes this
+                                             automatically to every /solve worke
+                                            r.        [boolean] [default: false]
+      --attach-logs                         Upload the solution draft log file t
+                                            o the Pull Request on completion, to
+                                            gether with that working session's c
+                                            ost estimation and context/token bud
+                                            get statistics (⚠️ WARNING: May expo
+                                            se sensitive data). Disabled means n
+                                            o log comment and no published budge
+                                            t statistics.
+                                                      [boolean] [default: false]
+      --dangerously-skip-output-sanitizati  DANGEROUS: skip pattern-based saniti
+      on                                    zation of generated output. Active l
+                                            ocal token masking stays enabled unl
+                                            ess --dangerously-skip-active-tokens
+                                            -output-sanitization is also set.
+                                                      [boolean] [default: false]
+      --dangerously-skip-code-output-sanit  DANGEROUS: allow generated code/file
+      ization                                output to keep pattern-matched toke
+                                            n-looking strings. Active local toke
+                                            n masking stays enabled unless expli
+                                            citly disabled.
+                                                      [boolean] [default: false]
+      --dangerously-skip-active-tokens-out  DANGEROUS: skip masking known active
+      put-sanitization                       local tokens in output. This is sep
+                                            arate from other sanitization skip f
+                                            lags and should only be used for con
+                                            trolled debugging.
+                                                      [boolean] [default: false]
+      --on-session-kill                     What to do when a working session is
+                                             killed (out of memory, disk full, f
+                                            orced kill): "report" describes exac
+                                            tly what happened in the pull reques
+                                            t and in Telegram, "resume" addition
+                                            ally starts a new working session to
+                                             recover and says so in both places.
+                                             Can also be set with HIVE_MIND_ON_S
+                                            ESSION_KILL.
+                      [string] [choices: "report", "resume"] [default: "report"]
+      --session-kill-resume-attempts        Maximum number of automatic recovery
+                                             working sessions started for one ki
+                                            lled session when --on-session-kill=
+                                            resume. Can also be set with HIVE_MI
+                                            ND_SESSION_KILL_RESUME_ATTEMPTS.
+                                                           [number] [default: 1]
+      --auto-close-pull-request-on-fail     Automatically close the pull request
+                                             if execution fails
+                                                      [boolean] [default: false]
+      --auto-continue                       Continue with existing PR when issue
+                                             URL is provided (instead of creatin
+                                            g new PR)  [boolean] [default: true]
+      --auto-resume-on-limit-reset          Automatically resume when AI tool li
+                                            mit resets (maintains session contex
+                                            t with --resume flag)
+                                                       [boolean] [default: true]
+      --auto-restart-on-limit-reset         Automatically restart when AI tool l
+                                            imit resets (fresh start without --r
+                                            esume flag)
+                                                      [boolean] [default: false]
+      --auto-resume-on-errors               Automatically resume on network erro
+                                            rs (503, etc.) with exponential back
+                                            off       [boolean] [default: false]
+      --auto-continue-only-on-new-comments  Explicitly fail on absence of new co
+                                            mments in auto-continue or continue
+                                            mode      [boolean] [default: false]
+      --auto-commit-uncommitted-changes     Automatically commit and push uncomm
+                                            itted changes made by Claude (disabl
+                                            ed by default)
+                                                      [boolean] [default: false]
+      --auto-restart-on-uncommitted-change  Automatically restart when uncommitt
+      s                                     ed changes are detected to allow the
+                                             tool to handle them (default: true,
+                                             use --no-auto-restart-on-uncommitte
+                                            d-changes to disable)
+                                                       [boolean] [default: true]
+      --auto-resume-on-uncommitted-changes  EXPERIMENTAL: Automatically resume t
+                                            he previous Claude session when unco
+                                            mmitted changes are detected. Falls
+                                            back to a fresh session when usable
+                                            context headroom cannot be verified
+                                            or is too low. Disabled by default;
+                                            use --no-auto-resume-on-uncommitted-
+                                            changes to switch it off explicitly.
+                                                      [boolean] [default: false]
+      --auto-resume-on-uncommitted-changes  Maximum usable pre-compaction contex
+      -maximum-context-window-usage         t usage (percent) that still allows
+                                            --auto-resume-on-uncommitted-changes
+                                             to resume. The usable limit respect
+                                            s --sub-session-size. At or above th
+                                            is threshold the tool starts a fresh
+                                             session (default: 50).
+                                                          [number] [default: 50]
+      --auto-restart-max-iterations         Maximum number of auto-restart itera
+                                            tions before stopping (default: 5, 0
+                                             = unlimited)  [number] [default: 5]
+      --resume-on-auto-restart              [EXPERIMENTAL] Resume the previous C
+                                            laude session on uncommitted-change
+                                            auto-restart and send only a minimal
+                                             restart prompt. Disabled by default
+                                            .         [boolean] [default: false]
+      --auto-resume-max-iterations          Maximum number of automatic resume/r
+                                            estart continuations after usage-lim
+                                            it resets (default: 5, 0 = unlimited
+                                            )              [number] [default: 5]
+      --auto-merge                          Automatically merge the pull request
+                                             when the working session is finishe
+                                            d and all CI/CD statuses pass and PR
+                                             is mergeable. Implies --auto-restar
+                                            t-until-mergeable.
+                                                      [boolean] [default: false]
+      --auto-restart-until-mergeable        Auto-restart until PR becomes mergea
+                                            ble (no iteration limit). Restarts o
+                                            n new comments from non-bot users, C
+                                            I failures, merge conflicts, or othe
+                                            r issues. Does NOT auto-merge.
+                                                       [boolean] [default: true]
+      --auto-input-until-mergeable          [EXPERIMENTAL] Keep feeding new issu
+                                            e/PR events (uncommitted changes, CI
+                                            /CD failures, PR/issue comments, iss
+                                            ue title/description edits) into the
+                                             running AI session, in all ways pos
+                                            sible. For --tool claude and --tool
+                                            agent this streams the events direct
+                                            ly into the live process via stream-
+                                            json stdin (implies --accept-incommi
+                                            ng-comments-as-input and --queue-com
+                                            ments-to-input by default, deferring
+                                             comments until the AI finishes the
+                                            current step). For codex, opencode,
+                                            gemini, qwen, and unknown tools, it
+                                            uses the universal restart/resume fa
+                                            llback: wait for the current turn to
+                                             finish in the JSON output, stop the
+                                             process, then resume/restart the AI
+                                             session with the new events via --a
+                                            uto-restart-until-mergeable. Codex l
+                                            ive streaming should be wired in a f
+                                            uture runner through Codex app-serve
+                                            r turn/steer. Disabled by default.
+                                                      [boolean] [default: false]
+      --wait-for-all-actions-in-repository  Wait for ALL active GitHub Actions w
+      -before-mergeable                     orkflow runs in the entire repositor
+                                            y to complete before declaring PR me
+                                            rgeable. When enabled, blocks merge
+                                            if ANY CI/CD run in the repository i
+                                            s active, regardless of branch — thi
+                                            s is a strict safety mode for reposi
+                                            tories with cross-branch CI/CD coupl
+                                            ing. Disabled by default.
+                                                      [boolean] [default: false]
+      --auto-restart-on-non-updated-pull-r  Automatically restart if PR title or
+      equest-description                     description still contains auto-gen
+                                            erated placeholder text after agent
+                                            execution. Restarts with a hint abou
+                                            t what was not updated.
+                                                      [boolean] [default: false]
+      --continue-only-on-feedback           Only continue if feedback is detecte
+                                            d (works only with pull request link
+                                             or issue link with --auto-continue)
+                                                      [boolean] [default: false]
+  -w, --watch                               Monitor continuously for feedback an
+                                            d auto-restart when detected (stops
+                                            when PR is merged)
+                                                      [boolean] [default: false]
+      --watch-interval                      Interval in seconds for checking fee
+                                            dback in watch mode (default: 60)
+                                                          [number] [default: 60]
+      --auto-delete-branch-on-merge         Automatically delete the branch afte
+                                            r the pull request is merged in --wa
+                                            tch mode or by --auto-merge. Enables
+                                             full GitHub Flow support (issue #40
+                                            1).       [boolean] [default: false]
+      --min-disk-space                      Minimum required disk space in MB (d
+                                            efault: 10240)
+                                                       [number] [default: 10240]
+  -l, --log-dir                             Directory to save log files (default
+                                            s to current working directory)
+                                                                        [string]
+      --think                               Thinking level hint. Levels (ascendi
+                                            ng): off, minimal, low, medium, high
+                                            , xhigh, ultra, max, plus the specia
+                                            l `adaptive` mode. Off synonyms (all
+                                             mean disabled, or the closest safe
+                                            equivalent): off/disable/disabled/no
+                                            /none. An omitted --think means off.
+                                             Numeric intensities are accepted fo
+                                            r precision: percentages 0%..100%, f
+                                            ractions 0.0..1.0, and the integers
+                                            0 (off) and 1 (max). `adaptive` requ
+                                            ests provider-managed adaptive think
+                                            ing and fails immediately for models
+                                            /tools that do not support it (only
+                                            adaptive-only Claude models: Opus 4.
+                                            7+, Fable 5, Mythos 5, Sonnet 5). Fo
+                                            r Claude, levels translate to --thin
+                                            king-budget for Claude Code >= 2.1.1
+                                            2 (off=0, minimal=~4000, low=~8000,
+                                            medium=~16000, high=~24000, xhigh/ul
+                                            tra/max=31999) and to CLAUDE_CODE_EF
+                                            FORT_LEVEL when supported (minimal→l
+                                            ow). Adaptive-only models that canno
+                                            t disable thinking use their lowest
+                                            effort for off. `ultra` maps to the
+                                            highest supported Claude effort (Cla
+                                            ude "ultracode"-class reasoning). Fo
+                                            r Codex (GPT-5.6 Sol), mapped 1:1 to
+                                             reasoning effort (off=none, minimal
+                                            =minimal, low=low, medium=medium, hi
+                                            gh=high, xhigh=xhigh, ultra=ultra, m
+                                            ax=max); ultra runs the multi-agent
+                                            mode paired with a rollout token bud
+                                            get cap. Default: off.
+                                                       [string] [default: "off"]
+      --thinking-budget                     Thinking token budget. For Claude Co
+                                            de, controls MAX_THINKING_TOKENS (0-
+                                            31999 by default). For Codex, enable
+                                            s finer reasoning-effort mapping (mi
+                                            nimal/low/medium/high) capped at xhi
+                                            gh; the deepest single-agent `max` a
+                                            nd the multi-agent `ultra` effort mu
+                                            st be requested explicitly via --thi
+                                            nk max / --think ultra.     [number]
+      --rollout-token-budget                Codex rollout token budget (turn-lev
+                                            el cap) paired with the multi-agent
+                                            `--think ultra` effort so GPT-5.6 So
+                                            l's ultra mode stays predictable and
+                                             does not run away on cost. Default:
+                                             500000. Only applied when --think u
+                                            ltra selects the ultra reasoning eff
+                                            ort.                        [number]
+      --thinking-budget-claude-minimum-ver  Minimum Claude Code version that sup
+      sion                                  ports --thinking-budget (MAX_THINKIN
+                                            G_TOKENS env var). Versions below th
+                                            is use thinking keywords instead.
+                                                    [string] [default: "2.1.12"]
+      --max-thinking-budget                 Maximum thinking budget for calculat
+                                            ing --think level mappings (default:
+                                             31999 for Claude Code). Values: off
+                                            =0, low=max/4, medium=max/2, high=ma
+                                            x*3/4, max=max.
+                                                       [number] [default: 31999]
+      --sub-session-size                    Cap on sub-session size between auto
+                                            -compaction events. Accepts a token
+                                            count (e.g. 150k, 1m, 200000), a per
+                                            centage of the model context window
+                                            (e.g. 50%), or "default" to keep the
+                                             tool's built-in threshold. Default:
+                                             150k. For Claude this maps to CLAUD
+                                            E_CODE_AUTO_COMPACT_WINDOW + CLAUDE_
+                                            AUTOCOMPACT_PCT_OVERRIDE env vars. F
+                                            or Codex this maps to -c model_auto_
+                                            compact_token_limit. (Issue #1706)
+                                                      [string] [default: "150k"]
+      --disable-1m-context                  Disable 1M extended context window s
+                                            o the model uses its standard 200K-4
+                                            00K window. Helps preserve reasoning
+                                             quality and reduces cost. Default:
+                                            true. For Claude this sets CLAUDE_CO
+                                            DE_DISABLE_1M_CONTEXT=1 (also forbid
+                                            s the [1m] model-name suffix). For C
+                                            odex this sets -c model_context_wind
+                                            ow=200000. Use --no-disable-1m-conte
+                                            xt to allow the 1M window. (Issue #1
+                                            706)       [boolean] [default: true]
+      --fallback-model                      Fallback model to switch to on model
+                                             capacity/overload errors (and, for
+                                            Fable 5, on safety-classifier refusa
+                                            ls). When supported, retries resume
+                                            the same session with this model. An
+                                             explicit value is pinned exactly; t
+                                            he built-in defaults form a chain th
+                                            at steps to the next-closest model o
+                                            n repeated capacity errors. Defaults
+                                            : claude fable/claude-fable-5 -> opu
+                                            s (Opus 5); claude mythos-5/claude-m
+                                            ythos-5 -> fable; claude opus/opus-5
+                                             -> opus-4-8; claude opus-4-8 -> opu
+                                            s-4-7; claude opus-4-7 -> opus-4-6;
+                                            codex gpt-5.6-sol -> gpt-5.6-terra -
+                                            > gpt-5.6-luna -> gpt-5.5 -> gpt-5.4
+                                            ; all others unset.         [string]
+      --sub-agent-model                     Claude Code subagent/agent-team mode
+                                            l override. Sets CLAUDE_CODE_SUBAGEN
+                                            T_MODEL only when provided. Accepts
+                                            Claude model aliases, full model IDs
+                                            , or "inherit" to use normal Claude
+                                            Code subagent model resolution. Only
+                                             works with --tool claude.  [string]
+      --show-thinking-content               Show thinking content in Claude resp
+                                            onses. Opus 4.7+ omits thinking cont
+                                            ent by default (applies to Opus 4.8
+                                            and Opus 5 as well); this option opt
+                                            s in to receive summarized thinking
+                                            blocks. Disabled by default. Only af
+                                            fects --tool claude.
+                                                      [boolean] [default: false]
+      --prompt-plan-sub-agent               Encourage AI to use a planning sub-a
+                                            gent or planning workflow for initia
+                                            l planning. Supported for --tool cla
+                                            ude and --tool codex.
+                                                      [boolean] [default: false]
+  -b, --base-branch                         Target branch for the pull request (
+                                            defaults to repository default branc
+                                            h)                          [string]
+      --sentry                              Enable Sentry error tracking and mon
+                                            itoring (disabled by default for pri
+                                            vacy; use --sentry to enable)
+                                                      [boolean] [default: false]
+      --auto-cleanup                        Automatically delete temporary worki
+                                            ng directory on completion (error, s
+                                            uccess, or CTRL+C). Default: true fo
+                                            r private repos, false for public re
+                                            pos. Use explicit flag to override.
+                                                                       [boolean]
+      --auto-merge-default-branch-to-pull-  Automatically merge the default bran
+      request-branch                        ch to the pull request branch when c
+                                            ontinuing work (only in continue mod
+                                            e)        [boolean] [default: false]
+      --allow-fork-divergence-resolution-u  Allow automatic force-push (--force-
+      sing-force-push-with-lease            with-lease) when fork diverges from
+                                            upstream (DANGEROUS: can overwrite f
+                                            ork history)
+                                                      [boolean] [default: false]
+      --allow-force-non-fork-repository-de  Allow deletion of non-fork repositor
+      letion                                ies even when they contain additiona
+                                            l commits that would be lost (DANGER
+                                            OUS: data loss possible)
+                                                      [boolean] [default: false]
+      --allow-to-push-to-contributors-pull  When continuing a fork PR as a maint
+      -requests-as-maintainer               ainer, attempt to push directly to t
+                                            he contributor's fork if "Allow edit
+                                            s by maintainers" is enabled. Requir
+                                            es --auto-fork to be enabled.
+                                                      [boolean] [default: false]
+      --prefix-fork-name-with-owner-name    Prefix fork name with original owner
+                                             name (e.g., "owner-repo" instead of
+                                             "repo"). Useful when forking reposi
+                                            tories with same name from different
+                                             owners.   [boolean] [default: true]
+      --tool                                AI tool to use for solving issues
+  [string] [choices: "claude", "opencode", "codex", "agent", "qwen", "gemini"] [
+                                                              default: "claude"]
+      --plan                                Enable plan mode: uses opus for plan
+                                            ning, sonnet for execution (shortcut
+                                             for --plan-model opus --worker-mode
+                                            l sonnet). Only works with --tool cl
+                                            aude.     [boolean] [default: false]
+      --plan-model                          Model to use for plan mode (e.g., op
+                                            us). When specified, auto-switches t
+                                            o opusplan mode and sets ANTHROPIC_D
+                                            EFAULT_OPUS_MODEL. Use with --model/
+                                            --worker-model to set separate plan
+                                            and execution models (e.g., --plan-m
+                                            odel opus --model sonnet). Only work
+                                            s with --tool claude.       [string]
+      --execute-tool-with-bun               Execute the AI tool using bunx (expe
+                                            rimental, may improve speed and memo
+                                            ry usage) [boolean] [default: false]
+      --enable-workspaces                   Use separate workspace directory str
+                                            ucture with repository/ and tmp/ fol
+                                            ders. Works with all tools (claude,
+                                            opencode, codex, agent, qwen, gemini
+                                            ). Experimental feature.
+                                                      [boolean] [default: false]
+      --interactive-mode                    [EXPERIMENTAL] Post tool output as P
+                                            R comments in real-time. Supported f
+                                            or --tool claude and --tool codex.
+                                                      [boolean] [default: false]
+      --interactive-image-upload            [EXPERIMENTAL] When --interactive-mo
+                                            de is on, upload images read/written
+                                             by the AI to hidden custom Git refs
+                                             (refs/hive-mind-media/...) and embe
+                                            d them inline in PR comments. Enable
+                                            d by default; use --no-interactive-i
+                                            mage-upload to disable.
+                                                       [boolean] [default: true]
+      --accept-incomming-comments-as-input  [EXPERIMENTAL] Accept new PR/issue c
+                                            omments as input for the running str
+                                            eam-json tool during execution (excl
+                                            udes outgoing comments generated by
+                                            solve itself). Does not require --in
+                                            teractive-mode; disabled by default.
+                                             Only supported for --tool claude an
+                                            d --tool agent.
+                                                      [boolean] [default: false]
+      --exclude-all-own-incomming-comments  [EXPERIMENTAL] When combined with --
+      -from-input                           accept-incomming-comments-as-input,
+                                            also exclude comments written by the
+                                             same GitHub user that solve runs as
+                                             (prevents self-talk). Disabled by d
+                                            efault.   [boolean] [default: false]
+      --bidirectional-interactive-mode      [EXPERIMENTAL] Convenience flag that
+                                             enables --interactive-mode, --accep
+                                            t-incomming-comments-as-input and --
+                                            exclude-all-own-incomming-comments-f
+                                            rom-input together. Only supported f
+                                            or --tool claude and --tool agent.
+                                                      [boolean] [default: false]
+      --stream-comments-to-input            [EXPERIMENTAL] When --accept-incommi
+                                            ng-comments-as-input is enabled, for
+                                            ward each new PR/issue comment to th
+                                            e AI immediately as it arrives (real
+                                            -time streaming). This is the defaul
+                                            t behavior for --accept-incomming-co
+                                            mments-as-input on its own. Mutually
+                                             exclusive with --queue-comments-to-
+                                            input; queue mode wins if both are s
+                                            et. Only supported for --tool claude
+                                             and --tool agent.
+                                                      [boolean] [default: false]
+      --queue-comments-to-input             [EXPERIMENTAL] When --accept-incommi
+                                            ng-comments-as-input is enabled, que
+                                            ue new PR/issue comments and only fl
+                                            ush them once the AI signals it is i
+                                            dle (waiting for input). This is the
+                                             default mode implied by --auto-inpu
+                                            t-until-mergeable so the AI complete
+                                            s the current step before being inte
+                                            rrupted with new instructions. Mutua
+                                            lly exclusive with --stream-comments
+                                            -to-input; queue mode wins if both a
+                                            re set. Only supported for --tool cl
+                                            aude and --tool agent.
+                                                      [boolean] [default: false]
+      --prompt-explore-sub-agent            Encourage AI to use Explore-style su
+                                            b-agent workflow for codebase explor
+                                            ation. Supported for --tool claude a
+                                            nd --tool codex.
+                                                      [boolean] [default: false]
+      --prompt-general-purpose-sub-agent    Prompt AI to use general-purpose sub
+                                             agents for processing large tasks w
+                                            ith multiple files/folders. Supporte
+                                            d for --tool claude and --tool codex
+                                            .         [boolean] [default: false]
+      --tokens-budget-stats                 Show detailed token budget statistic
+                                            s including context window usage and
+                                             ratios (enabled by default, use --n
+                                            o-tokens-budget-stats to disable). S
+                                            hown in the terminal; publishing the
+                                            m to the pull request additionally r
+                                            equires --attach-logs, and they appe
+                                            ar only in the working session log c
+                                            omment (never in the working session
+                                             summary). Supported for --tool clau
+                                            de, --tool codex, and any tool that
+                                            returns detailed token usage.
+                                                       [boolean] [default: true]
+      --prompt-issue-reporting              Enable automatic issue creation for
+                                            spotted bugs/errors not related to m
+                                            ain task. Issues will include reprod
+                                            ucible examples, workarounds, and fi
+                                            x suggestions. Works for both curren
+                                            t and third-party repositories. Supp
+                                            orted for --tool claude and --tool c
+                                            odex.     [boolean] [default: false]
+      --prompt-architecture-care            [EXPERIMENTAL] Include guidance for
+                                            managing REQUIREMENTS.md and ARCHITE
+                                            CTURE.md files. When enabled, agents
+                                             will update these documentation fil
+                                            es when changes affect requirements
+                                            or architecture.
+                                                      [boolean] [default: false]
+      --prompt-case-studies                 Create comprehensive case study docu
+                                            mentation for the issue including lo
+                                            gs, analysis, timeline, root cause i
+                                            nvestigation, and proposed solutions
+                                            . Organizes findings into ./docs/cas
+                                            e-studies/issue-{id}/ directory. Sup
+                                            ported for --tool claude and --tool
+                                            codex.    [boolean] [default: false]
+      --development-log                     Prompt for issue-data collection und
+                                            er ./dev/log/issues/{issue-id}/pulls
+                                            /{pull-id}, preserve native tool sta
+                                            te under sessions/{UUID}, and commit
+                                             the artifacts when solve finishes.
+                                            Supported for --tool claude, --tool
+                                            codex, --tool opencode, --tool agent
+                                            , --tool qwen, and --tool gemini.
+                                                      [boolean] [default: false]
+      --deep-analysis                       Prompt for issue-type-aware deep ana
+                                            lysis, online research, complete req
+                                            uirement coverage, and solution plan
+                                            ning. Data collection under ./dev/lo
+                                            g is included only when --developmen
+                                            t-log is also enabled. Supported for
+                                             --tool claude, --tool codex, --tool
+                                             opencode, --tool agent, --tool qwen
+                                            , and --tool gemini.
+                                                      [boolean] [default: false]
+      --use-handoff                         [EXPERIMENTAL] Enable the HANDOFF.md
+                                             continuity Agent Skill so a session
+                                             can continue the work of a previous
+                                             session — even when a different AI
+                                            tool is used (e.g. Claude and Codex
+                                            continuing each other in the same pu
+                                            ll request). A real SKILL.md (the op
+                                            en Agent Skills standard) is deploye
+                                            d into the working directory so each
+                                             tool loads it natively (.claude/ski
+                                            lls/handoff/ for Claude, .agents/ski
+                                            lls/handoff/ for Codex). The AI read
+                                            s HANDOFF.md (repository root) first
+                                             when present and keeps it updated w
+                                            ith task, current state, decisions,
+                                            next steps, gotchas, and critical fi
+                                            les. HANDOFF.md is committed to the
+                                            PR branch so it persists across the
+                                            ephemeral per-session working direct
+                                            ories; the SKILL.md itself is re-dep
+                                            loyed each session and git-excluded
+                                            so it never pollutes the PR. The sam
+                                            e skill file is used identically for
+                                             --tool claude and --tool codex. Dis
+                                            abled by default (issue #1877).
+                                                      [boolean] [default: false]
+      --prompt-playwright-mcp               Enable Playwright MCP browser automa
+                                            tion hints in system prompt (enabled
+                                             by default, only takes effect if Pl
+                                            aywright MCP is installed). Use --no
+                                            -prompt-playwright-mcp to disable. S
+                                            upported for --tool claude, --tool c
+                                            odex, --tool opencode, --tool agent,
+                                             --tool qwen, and --tool gemini.
+                                                       [boolean] [default: true]
+      --prompt-check-sibling-pull-requests  Include prompt to check related/sibl
+                                            ing pull requests when studying rela
+                                            ted work. Enabled by default, use --
+                                            no-prompt-check-sibling-pull-request
+                                            s to disable.
+                                                       [boolean] [default: true]
+      --github-rate-limits-logging          Log GitHub API rate-limit usage afte
+                                            r each centralized gh command retry
+                                            wrapper call. Disabled by default; u
+                                            se --github-rate-limits-logging to e
+                                            nable.    [boolean] [default: false]
+      --prompt-experiments-folder           Path to experiments folder used in s
+                                            ystem prompt. Set to empty string to
+                                             disable experiments folder prompt.
+                                            Default: ./experiments
+                                             [string] [default: "./experiments"]
+      --prompt-examples-folder              Path to examples folder used in syst
+                                            em prompt. Set to empty string to di
+                                            sable examples folder prompt. Defaul
+                                            t: ./examples
+                                                [string] [default: "./examples"]
+      --playwright-mcp                      Enable Playwright MCP server connect
+                                            ion for this session (enabled by def
+                                            ault). Use --no-playwright-mcp to ph
+                                            ysically disable the Playwright MCP
+                                            server without affecting the global
+                                            MCP registration. When disabled, als
+                                            o disables --prompt-playwright-mcp a
+                                            nd --playwright-mcp-auto-cleanup. Su
+                                            pported for --tool claude, --tool co
+                                            dex, --tool opencode, --tool agent,
+                                            --tool qwen, and --tool gemini.
+                                                       [boolean] [default: true]
+      --playwright-mcp-auto-cleanup         Automatically remove .playwright-mcp
+                                            / folder before checking for uncommi
+                                            tted changes. This prevents browser
+                                            automation artifacts from triggering
+                                             auto-restart. Use --no-playwright-m
+                                            cp-auto-cleanup to keep the folder f
+                                            or debugging.
+                                                       [boolean] [default: true]
+      --useless-tools-disabled              Disable Claude Code built-in tools a
+                                            nd MCP servers that have no value (a
+                                            nd may be harmful) in autonomous hea
+                                            dless runs: AskUserQuestion, CronCre
+                                            ate/Delete/List, EnterPlanMode/ExitP
+                                            lanMode, EnterWorktree/ExitWorktree,
+                                             Monitor, NotebookEdit, PushNotifica
+                                            tion, RemoteTrigger, ScheduleWakeup,
+                                             and the claude.ai Gmail/Drive/Calen
+                                            dar OAuth connectors. Default: true.
+                                             Use --no-useless-tools-disabled to
+                                            keep them enabled. Supported for --t
+                                            ool claude (issue #1627).
+                                                       [boolean] [default: true]
+      --auto-gh-configuration-repair        Automatically repair git configurati
+                                            on using gh-setup-git-identity --rep
+                                            air when git identity is not configu
+                                            red. Requires gh-setup-git-identity
+                                            to be installed.
+                                                      [boolean] [default: false]
+      --prompt-subagents-via-agent-command  Guide AI to use agent-commander CLI
+      er                                    (start-agent) instead of native tool
+                                            -specific delegation for subagent wo
+                                            rk. Allows using any supported agent
+                                             type (claude, opencode, codex, agen
+                                            t, qwen, gemini) with a unified API.
+                                             Supported for --tool claude and --t
+                                            ool codex and requires agent-command
+                                            er to be installed.
+                                                      [boolean] [default: false]
+      --auto-init-repository                Automatically initialize empty repos
+                                            itories by creating a simple README.
+                                            md file. Only works when you have wr
+                                            ite access to the repository. This a
+                                            llows branch creation and pull reque
+                                            st workflows to proceed on repositor
+                                            ies that have no commits.
+                                                      [boolean] [default: false]
+      --auto-report-issue                   Automatically create a GitHub issue
+                                            on failure without prompting (non-in
+                                            teractive mode). The issue includes
+                                            error details, logs, and case study
+                                            analysis instructions. Sets issue ty
+                                            pe and label to bug.
+                                                      [boolean] [default: false]
+      --disable-report-issue                Disable error issue creation entirel
+                                            y (no prompt, no automatic creation)
+                                            . Overrides --auto-report-issue if b
+                                            oth are specified.
+                                                      [boolean] [default: false]
+      --disable-issue-auto-creation-on-err  Disable creating a new GitHub error-
+      or                                    report issue when solve fails, inclu
+                                            ding the interactive prompt. This do
+                                            es not disable posting failure logs
+                                            or comments to the original issue or
+                                             pull request.
+                                                      [boolean] [default: false]
+      --attach-solution-summary             Attach the AI working session summar
+                                            y (from the result field) as a comme
+                                            nt to the PR/issue after every worki
+                                            ng session. The summary is extracted
+                                             from the AI tool JSON output and po
+                                            sted under a "Working session summar
+                                            y" header. Applies to the top-level
+                                            run, auto-restart-until-mergeable it
+                                            erations, and watch-mode iterations.
+                                                      [boolean] [default: false]
+      --auto-attach-solution-summary        Automatically attach a "Working sess
+                                            ion summary" comment at the end of a
+                                            ny working session in which the AI d
+                                            id not create any comments itself. T
+                                            his provides visible feedback when t
+                                            he AI completes silently, including
+                                            inside auto-restart-until-mergeable
+                                            and watch-mode iterations. Enabled b
+                                            y default; use --no-auto-attach-solu
+                                            tion-summary to disable.
+                                                       [boolean] [default: true]
+      --auto-accept-invite                  Automatically accept the pending Git
+                                            Hub repository or organization invit
+                                            ation for the specific repository/or
+                                            ganization being solved, before chec
+                                            king write access. Unlike /accept_in
+                                            vites which accepts all pending invi
+                                            tations, this only accepts the invit
+                                            e for the target repo/org. Enabled b
+                                            y default; use --no-auto-accept-invi
+                                            te to disable.
+                                                       [boolean] [default: true]
+      --prompt-ensure-all-requirements-are  [EXPERIMENTAL] Add a prompt hint to
+      -met                                  the system prompt to ensure all chan
+                                            ges are correct, consistent, validat
+                                            ed, tested, logged and fully meet al
+                                            l discussed requirements. Enabled au
+                                            tomatically by --finalize during fin
+                                            alize cycle iterations only.
+                                                      [boolean] [default: false]
+      --finalize                            [EXPERIMENTAL] After the main solve
+                                            completes, automatically restart the
+                                             AI tool N times (default: 1) with a
+                                             requirements-check prompt to verify
+                                             all requirements are met. Use --fin
+                                            alize-model to override the model fo
+                                            r finalize iterations.
+                                                           [number] [default: 0]
+      --finalize-model                      [EXPERIMENTAL] Model to use for --fi
+                                            nalize iterations. Defaults to the s
+                                            ame model as --model.       [string]
+      --keep-working-until-all-requirement  [EXPERIMENTAL] After the main solve
+      s-are-fully-done, --keep-going-until  completes, scan the pull request des
+      -all-requirements-are-fully-done, --  cription, the AI solution summary an
+      keep-working, --keep-going            d changed markdown documents for str
+                                            ong indicators of deferred/delayed/o
+                                            ut-of-scope work (e.g. "future work"
+                                            , "out of scope", "deferred", "follo
+                                            w-up PR", "TODO") and automatically
+                                            restart the AI tool to finish everyt
+                                            hing in this single pull request. Ac
+                                            cepts a number of restarts (default:
+                                             5), or "forever"/"unlimited" to rem
+                                            ove the limit. Bare flag means the d
+                                            efault of 5.                [string]
+      --escalate                            [EXPERIMENTAL] Start solving with a
+                                            cheaper/lower-tier model and automat
+                                            ically escalate to a more capable (m
+                                            ore expensive) model while unfinishe
+                                            d work remains. Accepts a model rang
+                                            e "<lower>-<upper>" using short Clau
+                                            de tier names (ladder: haiku < sonne
+                                            t < opus < fable), e.g. "sonnet-opus
+                                            ". A single name (e.g. "opus") means
+                                             just that tier. Bare flag means "so
+                                            nnet-fable". The idea: iterate cheap
+                                            ly first so expensive models do more
+                                             reading and less writing.  [string]
+      --escalate-from                       [EXPERIMENTAL] Shortcut for --escala
+                                            te <model>-fable: start solving from
+                                             the given model (haiku/sonnet/opus/
+                                            fable, aliases accepted) and escalat
+                                            e up to the top of the ladder while
+                                            unfinished work remains. Takes prece
+                                            dence over --escalate when both are
+                                            given.                      [string]
+      --escalate-steps                      [EXPERIMENTAL] How many working sess
+                                            ions to keep each model tier before
+                                            escalating to the next one (default:
+                                             1). For example 2 keeps the lower t
+                                            ier for two working sessions, then t
+                                            he next tier for two, and so on. Onl
+                                            y used with --escalate / --escalate-
+                                            from.          [number] [default: 1]
+      --working-session-live-progress       [EXPERIMENTAL] Enable live progress
+                                            monitoring. Accepts "comment" (defau
+                                            lt, updates a per-session PR comment
+                                            ) or "pr" (updates PR description).
+                                            Plain --working-session-live-progres
+                                            s means "comment". Works with or wit
+                                            hout --interactive-mode.
+                                                       [string] [default: false]
+      --language                            Default language for both --ui-langu
+                                            age and --work-language (en, ru, zh,
+                                             hi). Defaults to detected system lo
+                                            cale. Each track can be overridden i
+                                            ndependently.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --ui-language                         Language for user-facing output (en,
+                                             ru, zh, hi). Affects terminal statu
+                                            s/error messages and bot-generated P
+                                            R/issue comments. Defaults to --lang
+                                            uage.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --work-language                       Working language passed to the AI to
+                                            ol (Claude/Codex/etc). Used as the t
+                                            ool's preferred language for transla
+                                            tions and prompts. Defaults to --lan
+                                            guage.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --auto-language                       Experimental and disabled by default
+                                            . Automatically detect the target is
+                                            sue or pull request language and set
+                                             the AI work language to English or
+                                            Russian when one language has more t
+                                            han 51% of all words. Explicit --wor
+                                            k-language or --prompt-language take
+                                            s precedence.
+                                                      [boolean] [default: false]
+      --gemini-sandbox                      Run gemini-cli inside its sandbox (p
+                                            asses --sandbox to gemini-cli). Only
+                                             used when --tool gemini.
+                                                      [boolean] [default: false]
+      --gemini-extensions                   Comma-separated list of gemini-cli e
+                                            xtensions to load (passes --extensio
+                                            ns to gemini-cli). Only used when --
+                                            tool gemini.                [string]
+      --gemini-include-directories          Extra directories to expose to gemin
+                                            i-cli (passes --include-directories
+                                            to gemini-cli, in addition to tempDi
+                                            r/workspaceTmpDir which are always i
+                                            ncluded). Only used when --tool gemi
+                                            ni.                         [string]
+      --gemini-allowed-mcp-servers          Comma-separated list of MCP server n
+                                            ames that gemini-cli is allowed to c
+                                            all (passes --allowed-mcp-server-nam
+                                            es to gemini-cli). Only used when --
+                                            tool gemini.                [string]
+      --require-codex-plugin                Comma-separated list of Codex plugin
+                                            s (plugin@marketplace) that must be
+                                            installed into the scoped CODEX_HOME
+                                             before codex exec starts, in additi
+                                            on to the ones discovered from the i
+                                            ssue text and the repository AGENTS.
+                                            md/CLAUDE.md files. Fails the run wh
+                                            en a listed plugin is unavailable. E
+                                            quivalent to HIVE_MIND_CODEX_REQUIRE
+                                            D_PLUGINS. Only used when --tool cod
+                                            ex.                         [string]
+  -m, --model, --worker-model               Alias for --model: Model to use for
+                                            execution/worker mode when --plan-mo
+                                            del is specified. When used with --p
+                                            lan-model, sets ANTHROPIC_DEFAULT_SO
+                                            NNET_MODEL for Claude Code opusplan
+                                            mode.  [string] [default: (default)]
+  -h, --help                                Show help                  [boolean]
+EXIT 0
+
+COMMAND timeout 10s ./src/solve.mjs --version
+2.12.0.d606c779
+EXIT 0
+
+COMMAND timeout 10s ./src/hive.mjs --help
+Usage: hive.mjs <github-url> [options]
+
+Positionals:
+  github-url  GitHub organization, repository, or user URL to monitor (or GitHub
+               repo URL when using --youtrack-mode)                     [string]
+
+Options:
+  -t, --monitor-tag                         GitHub label to monitor for issues
+                                               [string] [default: "help wanted"]
+  -a, --all-issues                          Process all open issues regardless o
+                                            f labels  [boolean] [default: false]
+  -s, --skip-issues-with-prs                Skip issues that already have open p
+                                            ull requests
+                                                      [boolean] [default: false]
+  -c, --concurrency                         Number of concurrent solve instances
+                                                           [number] [default: 2]
+  -p, --pull-requests-per-issue             Number of pull requests to generate
+                                            per issue      [number] [default: 1]
+  -i, --interval                            Polling interval in seconds
+                                                         [number] [default: 300]
+      --max-issues                          Maximum number of issues to process
+                                            (0 = unlimited)[number] [default: 0]
+      --once                                Run once and exit instead of continu
+                                            ous monitoring
+                                                      [boolean] [default: false]
+      --project-number, --pn                GitHub Project number to monitor
+                                                                        [number]
+      --project-owner, --po                 GitHub Project owner (organization o
+                                            r user)                     [string]
+      --project-status, --ps                Project status column to monitor (e.
+                                            g., "Ready", "To Do")
+                                                     [string] [default: "Ready"]
+      --project-mode, --pm                  Enable project-based monitoring inst
+                                            ead of label-based
+                                                      [boolean] [default: false]
+      --youtrack-mode                       Enable YouTrack mode instead of GitH
+                                            ub issues [boolean] [default: false]
+      --youtrack-stage                      Override YouTrack stage to monitor (
+                                            overrides YOUTRACK_STAGE env var)
+                                                                        [string]
+      --youtrack-project                    Override YouTrack project code (over
+                                            rides YOUTRACK_PROJECT_CODE env var)
+                                                                        [string]
+      --target-branch, --tb                 Target branch for pull requests (def
+                                            aults to repository default branch)
+                                                                        [string]
+  -o, --issue-order                         Order issues by publication date: "a
+                                            sc" (oldest first) or "desc" (newest
+                                             first)
+                              [string] [choices: "asc", "desc"] [default: "asc"]
+  -m, --model, --worker-model               Alias for --model: Model to use for
+                                            execution/worker mode when --plan-mo
+                                            del is specified. When used with --p
+                                            lan-model, sets ANTHROPIC_DEFAULT_SO
+                                            NNET_MODEL for Claude Code opusplan
+                                            mode.  [string] [default: (default)]
+      --dry-run                             List issues that would be processed
+                                            without actually processing them
+                                                      [boolean] [default: false]
+      --auto-continue                       Pass --auto-continue to solve for ea
+                                            ch issue (continues with existing PR
+                                            s instead of creating new ones)
+                                                       [boolean] [default: true]
+      --auto-resume-on-limit-reset          Automatically resume when AI tool li
+                                            mit resets (calculates reset time an
+                                            d waits). Passed to solve command.
+                                                       [boolean] [default: true]
+      --auto-cleanup                        Automatically clean temporary direct
+                                            ories (/tmp/* /var/tmp/*) when finis
+                                            hed successfully
+                                                      [boolean] [default: false]
+      --tool                                AI tool to use for solving issues
+  [string] [choices: "claude", "opencode", "codex", "agent", "qwen", "gemini"] [
+                                                              default: "claude"]
+      --do-not-shutdown-in-the-middle-of-w  [EXPERIMENTAL] On CTRL+C, let each /
+      orking-session                        solve worker finish its current AI w
+                                            orking session and auto-commit befor
+                                            e shutting down, instead of aborting
+                                             it mid-run. If a worker is only idl
+                                            e-waiting (e.g. for CI/CD), it stops
+                                             immediately. Press CTRL+C again to
+                                            force-stop. Enabled by default for t
+                                            he hive workflow.
+                                                       [boolean] [default: true]
+      --skip-tool-connection-check          Skip tool connection check (useful i
+                                            n CI environments). Does NOT skip mo
+                                            del validation.
+                                                      [boolean] [default: false]
+      --auto-pull-request-creation          Automatically create a draft pull re
+                                            quest before running Claude
+                                                       [boolean] [default: true]
+  -v, --verbose                             Enable verbose logging for debugging
+                                                      [boolean] [default: false]
+  -f, --fork                                Fork the repository if you don't hav
+                                            e write access
+                                                      [boolean] [default: false]
+      --auto-fork                           Automatically fork public repositori
+                                            es without write access (fails for p
+                                            rivate repos)
+                                                       [boolean] [default: true]
+      --claude-file                         Create CLAUDE.md file for task detai
+                                            ls (mutually exclusive with --gitkee
+                                            p-file)   [boolean] [default: false]
+      --gitkeep-file                        Create .gitkeep file instead of CLAU
+                                            DE.md (default for all --tool values
+                                            , mutually exclusive with --claude-f
+                                            ile)       [boolean] [default: true]
+      --auto-gitkeep-file                   Automatically use .gitkeep if CLAUDE
+                                            .md is in .gitignore (pre-checks bef
+                                            ore creating file)
+                                                       [boolean] [default: true]
+      --force-git-keep-commit               If the auto-PR placeholder (.gitkeep
+                                            ) is listed in .gitignore, commit it
+                                             anyway with `git add -f` instead of
+                                             stopping (issue #1825). Off by defa
+                                            ult.      [boolean] [default: false]
+      --remove-git-keep-from-git-ignore     If the auto-PR placeholder (.gitkeep
+                                            ) is listed in .gitignore, remove th
+                                            at entry from .gitignore first, then
+                                             commit normally (issue #1825). Off
+                                            by default.
+                                                      [boolean] [default: false]
+      --auto-support-agents-md-as-claude-m  [EXPERIMENTAL] Temporarily copy AGEN
+      d                                     TS.md/agents.md to CLAUDE.md while C
+                                            laude runs, then remove the temporar
+                                            y copy    [boolean] [default: false]
+      --attach-logs                         Upload the solution draft log file t
+                                            o the Pull Request on completion, to
+                                            gether with that working session's c
+                                            ost estimation and context/token bud
+                                            get statistics (⚠️ WARNING: May expo
+                                            se sensitive data). Disabled means n
+                                            o log comment and no published budge
+                                            t statistics.
+                                                      [boolean] [default: false]
+      --dangerously-skip-output-sanitizati  DANGEROUS: skip pattern-based saniti
+      on                                    zation of generated output. Active l
+                                            ocal token masking stays enabled unl
+                                            ess --dangerously-skip-active-tokens
+                                            -output-sanitization is also set.
+                                                      [boolean] [default: false]
+      --dangerously-skip-code-output-sanit  DANGEROUS: allow generated code/file
+      ization                                output to keep pattern-matched toke
+                                            n-looking strings. Active local toke
+                                            n masking stays enabled unless expli
+                                            citly disabled.
+                                                      [boolean] [default: false]
+      --dangerously-skip-active-tokens-out  DANGEROUS: skip masking known active
+      put-sanitization                       local tokens in output. This is sep
+                                            arate from other sanitization skip f
+                                            lags and should only be used for con
+                                            trolled debugging.
+                                                      [boolean] [default: false]
+      --on-session-kill                     What to do when a working session is
+                                             killed (out of memory, disk full, f
+                                            orced kill): "report" describes exac
+                                            tly what happened in the pull reques
+                                            t and in Telegram, "resume" addition
+                                            ally starts a new working session to
+                                             recover and says so in both places.
+                                             Can also be set with HIVE_MIND_ON_S
+                                            ESSION_KILL.
+                      [string] [choices: "report", "resume"] [default: "report"]
+      --session-kill-resume-attempts        Maximum number of automatic recovery
+                                             working sessions started for one ki
+                                            lled session when --on-session-kill=
+                                            resume. Can also be set with HIVE_MI
+                                            ND_SESSION_KILL_RESUME_ATTEMPTS.
+                                                           [number] [default: 1]
+      --auto-close-pull-request-on-fail     Automatically close the pull request
+                                             if execution fails
+                                                      [boolean] [default: false]
+      --auto-restart-on-limit-reset         Automatically restart when AI tool l
+                                            imit resets (fresh start without --r
+                                            esume flag)
+                                                      [boolean] [default: false]
+      --auto-resume-on-errors               Automatically resume on network erro
+                                            rs (503, etc.) with exponential back
+                                            off       [boolean] [default: false]
+      --auto-continue-only-on-new-comments  Explicitly fail on absence of new co
+                                            mments in auto-continue or continue
+                                            mode      [boolean] [default: false]
+      --auto-commit-uncommitted-changes     Automatically commit and push uncomm
+                                            itted changes made by Claude (disabl
+                                            ed by default)
+                                                      [boolean] [default: false]
+      --auto-restart-on-uncommitted-change  Automatically restart when uncommitt
+      s                                     ed changes are detected to allow the
+                                             tool to handle them (default: true,
+                                             use --no-auto-restart-on-uncommitte
+                                            d-changes to disable)
+                                                       [boolean] [default: true]
+      --auto-resume-on-uncommitted-changes  EXPERIMENTAL: Automatically resume t
+                                            he previous Claude session when unco
+                                            mmitted changes are detected. Falls
+                                            back to a fresh session when usable
+                                            context headroom cannot be verified
+                                            or is too low. Disabled by default;
+                                            use --no-auto-resume-on-uncommitted-
+                                            changes to switch it off explicitly.
+                                                      [boolean] [default: false]
+      --auto-resume-on-uncommitted-changes  Maximum usable pre-compaction contex
+      -maximum-context-window-usage         t usage (percent) that still allows
+                                            --auto-resume-on-uncommitted-changes
+                                             to resume. The usable limit respect
+                                            s --sub-session-size. At or above th
+                                            is threshold the tool starts a fresh
+                                             session (default: 50).
+                                                          [number] [default: 50]
+      --auto-restart-max-iterations         Maximum number of auto-restart itera
+                                            tions before stopping (default: 5, 0
+                                             = unlimited)  [number] [default: 5]
+      --resume-on-auto-restart              [EXPERIMENTAL] Resume the previous C
+                                            laude session on uncommitted-change
+                                            auto-restart and send only a minimal
+                                             restart prompt. Disabled by default
+                                            .         [boolean] [default: false]
+      --auto-resume-max-iterations          Maximum number of automatic resume/r
+                                            estart continuations after usage-lim
+                                            it resets (default: 5, 0 = unlimited
+                                            )              [number] [default: 5]
+      --auto-merge                          Automatically merge the pull request
+                                             when the working session is finishe
+                                            d and all CI/CD statuses pass and PR
+                                             is mergeable. Implies --auto-restar
+                                            t-until-mergeable.
+                                                      [boolean] [default: false]
+      --auto-restart-until-mergeable        Auto-restart until PR becomes mergea
+                                            ble (no iteration limit). Restarts o
+                                            n new comments from non-bot users, C
+                                            I failures, merge conflicts, or othe
+                                            r issues. Does NOT auto-merge.
+                                                       [boolean] [default: true]
+      --auto-input-until-mergeable          [EXPERIMENTAL] Keep feeding new issu
+                                            e/PR events (uncommitted changes, CI
+                                            /CD failures, PR/issue comments, iss
+                                            ue title/description edits) into the
+                                             running AI session, in all ways pos
+                                            sible. For --tool claude and --tool
+                                            agent this streams the events direct
+                                            ly into the live process via stream-
+                                            json stdin (implies --accept-incommi
+                                            ng-comments-as-input and --queue-com
+                                            ments-to-input by default, deferring
+                                             comments until the AI finishes the
+                                            current step). For codex, opencode,
+                                            gemini, qwen, and unknown tools, it
+                                            uses the universal restart/resume fa
+                                            llback: wait for the current turn to
+                                             finish in the JSON output, stop the
+                                             process, then resume/restart the AI
+                                             session with the new events via --a
+                                            uto-restart-until-mergeable. Codex l
+                                            ive streaming should be wired in a f
+                                            uture runner through Codex app-serve
+                                            r turn/steer. Disabled by default.
+                                                      [boolean] [default: false]
+      --wait-for-all-actions-in-repository  Wait for ALL active GitHub Actions w
+      -before-mergeable                     orkflow runs in the entire repositor
+                                            y to complete before declaring PR me
+                                            rgeable. When enabled, blocks merge
+                                            if ANY CI/CD run in the repository i
+                                            s active, regardless of branch — thi
+                                            s is a strict safety mode for reposi
+                                            tories with cross-branch CI/CD coupl
+                                            ing. Disabled by default.
+                                                      [boolean] [default: false]
+      --auto-restart-on-non-updated-pull-r  Automatically restart if PR title or
+      equest-description                     description still contains auto-gen
+                                            erated placeholder text after agent
+                                            execution. Restarts with a hint abou
+                                            t what was not updated.
+                                                      [boolean] [default: false]
+      --continue-only-on-feedback           Only continue if feedback is detecte
+                                            d (works only with pull request link
+                                             or issue link with --auto-continue)
+                                                      [boolean] [default: false]
+  -w, --watch                               Monitor continuously for feedback an
+                                            d auto-restart when detected (stops
+                                            when PR is merged)
+                                                      [boolean] [default: false]
+      --watch-interval                      Interval in seconds for checking fee
+                                            dback in watch mode (default: 60)
+                                                          [number] [default: 60]
+      --auto-delete-branch-on-merge         Automatically delete the branch afte
+                                            r the pull request is merged in --wa
+                                            tch mode or by --auto-merge. Enables
+                                             full GitHub Flow support (issue #40
+                                            1).       [boolean] [default: false]
+      --min-disk-space                      Minimum required disk space in MB (d
+                                            efault: 10240)
+                                                       [number] [default: 10240]
+  -l, --log-dir                             Directory to save log files (default
+                                            s to current working directory)
+                                                                        [string]
+      --think                               Thinking level hint. Levels (ascendi
+                                            ng): off, minimal, low, medium, high
+                                            , xhigh, ultra, max, plus the specia
+                                            l `adaptive` mode. Off synonyms (all
+                                             mean disabled, or the closest safe
+                                            equivalent): off/disable/disabled/no
+                                            /none. An omitted --think means off.
+                                             Numeric intensities are accepted fo
+                                            r precision: percentages 0%..100%, f
+                                            ractions 0.0..1.0, and the integers
+                                            0 (off) and 1 (max). `adaptive` requ
+                                            ests provider-managed adaptive think
+                                            ing and fails immediately for models
+                                            /tools that do not support it (only
+                                            adaptive-only Claude models: Opus 4.
+                                            7+, Fable 5, Mythos 5, Sonnet 5). Fo
+                                            r Claude, levels translate to --thin
+                                            king-budget for Claude Code >= 2.1.1
+                                            2 (off=0, minimal=~4000, low=~8000,
+                                            medium=~16000, high=~24000, xhigh/ul
+                                            tra/max=31999) and to CLAUDE_CODE_EF
+                                            FORT_LEVEL when supported (minimal→l
+                                            ow). Adaptive-only models that canno
+                                            t disable thinking use their lowest
+                                            effort for off. `ultra` maps to the
+                                            highest supported Claude effort (Cla
+                                            ude "ultracode"-class reasoning). Fo
+                                            r Codex (GPT-5.6 Sol), mapped 1:1 to
+                                             reasoning effort (off=none, minimal
+                                            =minimal, low=low, medium=medium, hi
+                                            gh=high, xhigh=xhigh, ultra=ultra, m
+                                            ax=max); ultra runs the multi-agent
+                                            mode paired with a rollout token bud
+                                            get cap. Default: off.
+                                                       [string] [default: "off"]
+      --thinking-budget                     Thinking token budget. For Claude Co
+                                            de, controls MAX_THINKING_TOKENS (0-
+                                            31999 by default). For Codex, enable
+                                            s finer reasoning-effort mapping (mi
+                                            nimal/low/medium/high) capped at xhi
+                                            gh; the deepest single-agent `max` a
+                                            nd the multi-agent `ultra` effort mu
+                                            st be requested explicitly via --thi
+                                            nk max / --think ultra.     [number]
+      --rollout-token-budget                Codex rollout token budget (turn-lev
+                                            el cap) paired with the multi-agent
+                                            `--think ultra` effort so GPT-5.6 So
+                                            l's ultra mode stays predictable and
+                                             does not run away on cost. Default:
+                                             500000. Only applied when --think u
+                                            ltra selects the ultra reasoning eff
+                                            ort.                        [number]
+      --thinking-budget-claude-minimum-ver  Minimum Claude Code version that sup
+      sion                                  ports --thinking-budget (MAX_THINKIN
+                                            G_TOKENS env var). Versions below th
+                                            is use thinking keywords instead.
+                                                    [string] [default: "2.1.12"]
+      --max-thinking-budget                 Maximum thinking budget for calculat
+                                            ing --think level mappings (default:
+                                             31999 for Claude Code). Values: off
+                                            =0, low=max/4, medium=max/2, high=ma
+                                            x*3/4, max=max.
+                                                       [number] [default: 31999]
+      --sub-session-size                    Cap on sub-session size between auto
+                                            -compaction events. Accepts a token
+                                            count (e.g. 150k, 1m, 200000), a per
+                                            centage of the model context window
+                                            (e.g. 50%), or "default" to keep the
+                                             tool's built-in threshold. Default:
+                                             150k. For Claude this maps to CLAUD
+                                            E_CODE_AUTO_COMPACT_WINDOW + CLAUDE_
+                                            AUTOCOMPACT_PCT_OVERRIDE env vars. F
+                                            or Codex this maps to -c model_auto_
+                                            compact_token_limit. (Issue #1706)
+                                                      [string] [default: "150k"]
+      --disable-1m-context                  Disable 1M extended context window s
+                                            o the model uses its standard 200K-4
+                                            00K window. Helps preserve reasoning
+                                             quality and reduces cost. Default:
+                                            true. For Claude this sets CLAUDE_CO
+                                            DE_DISABLE_1M_CONTEXT=1 (also forbid
+                                            s the [1m] model-name suffix). For C
+                                            odex this sets -c model_context_wind
+                                            ow=200000. Use --no-disable-1m-conte
+                                            xt to allow the 1M window. (Issue #1
+                                            706)       [boolean] [default: true]
+      --fallback-model                      Fallback model to switch to on model
+                                             capacity/overload errors (and, for
+                                            Fable 5, on safety-classifier refusa
+                                            ls). When supported, retries resume
+                                            the same session with this model. An
+                                             explicit value is pinned exactly; t
+                                            he built-in defaults form a chain th
+                                            at steps to the next-closest model o
+                                            n repeated capacity errors. Defaults
+                                            : claude fable/claude-fable-5 -> opu
+                                            s (Opus 5); claude mythos-5/claude-m
+                                            ythos-5 -> fable; claude opus/opus-5
+                                             -> opus-4-8; claude opus-4-8 -> opu
+                                            s-4-7; claude opus-4-7 -> opus-4-6;
+                                            codex gpt-5.6-sol -> gpt-5.6-terra -
+                                            > gpt-5.6-luna -> gpt-5.5 -> gpt-5.4
+                                            ; all others unset.         [string]
+      --sub-agent-model                     Claude Code subagent/agent-team mode
+                                            l override. Sets CLAUDE_CODE_SUBAGEN
+                                            T_MODEL only when provided. Accepts
+                                            Claude model aliases, full model IDs
+                                            , or "inherit" to use normal Claude
+                                            Code subagent model resolution. Only
+                                             works with --tool claude.  [string]
+      --show-thinking-content               Show thinking content in Claude resp
+                                            onses. Opus 4.7+ omits thinking cont
+                                            ent by default (applies to Opus 4.8
+                                            and Opus 5 as well); this option opt
+                                            s in to receive summarized thinking
+                                            blocks. Disabled by default. Only af
+                                            fects --tool claude.
+                                                      [boolean] [default: false]
+      --prompt-plan-sub-agent               Encourage AI to use a planning sub-a
+                                            gent or planning workflow for initia
+                                            l planning. Supported for --tool cla
+                                            ude and --tool codex.
+                                                      [boolean] [default: false]
+  -b, --base-branch                         Target branch for the pull request (
+                                            defaults to repository default branc
+                                            h)                          [string]
+      --sentry                              Enable Sentry error tracking and mon
+                                            itoring (disabled by default for pri
+                                            vacy; use --sentry to enable)
+                                                      [boolean] [default: false]
+      --auto-merge-default-branch-to-pull-  Automatically merge the default bran
+      request-branch                        ch to the pull request branch when c
+                                            ontinuing work (only in continue mod
+                                            e)        [boolean] [default: false]
+      --allow-fork-divergence-resolution-u  Allow automatic force-push (--force-
+      sing-force-push-with-lease            with-lease) when fork diverges from
+                                            upstream (DANGEROUS: can overwrite f
+                                            ork history)
+                                                      [boolean] [default: false]
+      --allow-force-non-fork-repository-de  Allow deletion of non-fork repositor
+      letion                                ies even when they contain additiona
+                                            l commits that would be lost (DANGER
+                                            OUS: data loss possible)
+                                                      [boolean] [default: false]
+      --allow-to-push-to-contributors-pull  When continuing a fork PR as a maint
+      -requests-as-maintainer               ainer, attempt to push directly to t
+                                            he contributor's fork if "Allow edit
+                                            s by maintainers" is enabled. Requir
+                                            es --auto-fork to be enabled.
+                                                      [boolean] [default: false]
+      --prefix-fork-name-with-owner-name    Prefix fork name with original owner
+                                             name (e.g., "owner-repo" instead of
+                                             "repo"). Useful when forking reposi
+                                            tories with same name from different
+                                             owners.   [boolean] [default: true]
+      --plan                                Enable plan mode: uses opus for plan
+                                            ning, sonnet for execution (shortcut
+                                             for --plan-model opus --worker-mode
+                                            l sonnet). Only works with --tool cl
+                                            aude.     [boolean] [default: false]
+      --plan-model                          Model to use for plan mode (e.g., op
+                                            us). When specified, auto-switches t
+                                            o opusplan mode and sets ANTHROPIC_D
+                                            EFAULT_OPUS_MODEL. Use with --model/
+                                            --worker-model to set separate plan
+                                            and execution models (e.g., --plan-m
+                                            odel opus --model sonnet). Only work
+                                            s with --tool claude.       [string]
+      --execute-tool-with-bun               Execute the AI tool using bunx (expe
+                                            rimental, may improve speed and memo
+                                            ry usage) [boolean] [default: false]
+      --enable-workspaces                   Use separate workspace directory str
+                                            ucture with repository/ and tmp/ fol
+                                            ders. Works with all tools (claude,
+                                            opencode, codex, agent, qwen, gemini
+                                            ). Experimental feature.
+                                                      [boolean] [default: false]
+      --interactive-mode                    [EXPERIMENTAL] Post tool output as P
+                                            R comments in real-time. Supported f
+                                            or --tool claude and --tool codex.
+                                                      [boolean] [default: false]
+      --interactive-image-upload            [EXPERIMENTAL] When --interactive-mo
+                                            de is on, upload images read/written
+                                             by the AI to hidden custom Git refs
+                                             (refs/hive-mind-media/...) and embe
+                                            d them inline in PR comments. Enable
+                                            d by default; use --no-interactive-i
+                                            mage-upload to disable.
+                                                       [boolean] [default: true]
+      --accept-incomming-comments-as-input  [EXPERIMENTAL] Accept new PR/issue c
+                                            omments as input for the running str
+                                            eam-json tool during execution (excl
+                                            udes outgoing comments generated by
+                                            solve itself). Does not require --in
+                                            teractive-mode; disabled by default.
+                                             Only supported for --tool claude an
+                                            d --tool agent.
+                                                      [boolean] [default: false]
+      --exclude-all-own-incomming-comments  [EXPERIMENTAL] When combined with --
+      -from-input                           accept-incomming-comments-as-input,
+                                            also exclude comments written by the
+                                             same GitHub user that solve runs as
+                                             (prevents self-talk). Disabled by d
+                                            efault.   [boolean] [default: false]
+      --bidirectional-interactive-mode      [EXPERIMENTAL] Convenience flag that
+                                             enables --interactive-mode, --accep
+                                            t-incomming-comments-as-input and --
+                                            exclude-all-own-incomming-comments-f
+                                            rom-input together. Only supported f
+                                            or --tool claude and --tool agent.
+                                                      [boolean] [default: false]
+      --stream-comments-to-input            [EXPERIMENTAL] When --accept-incommi
+                                            ng-comments-as-input is enabled, for
+                                            ward each new PR/issue comment to th
+                                            e AI immediately as it arrives (real
+                                            -time streaming). This is the defaul
+                                            t behavior for --accept-incomming-co
+                                            mments-as-input on its own. Mutually
+                                             exclusive with --queue-comments-to-
+                                            input; queue mode wins if both are s
+                                            et. Only supported for --tool claude
+                                             and --tool agent.
+                                                      [boolean] [default: false]
+      --queue-comments-to-input             [EXPERIMENTAL] When --accept-incommi
+                                            ng-comments-as-input is enabled, que
+                                            ue new PR/issue comments and only fl
+                                            ush them once the AI signals it is i
+                                            dle (waiting for input). This is the
+                                             default mode implied by --auto-inpu
+                                            t-until-mergeable so the AI complete
+                                            s the current step before being inte
+                                            rrupted with new instructions. Mutua
+                                            lly exclusive with --stream-comments
+                                            -to-input; queue mode wins if both a
+                                            re set. Only supported for --tool cl
+                                            aude and --tool agent.
+                                                      [boolean] [default: false]
+      --prompt-explore-sub-agent            Encourage AI to use Explore-style su
+                                            b-agent workflow for codebase explor
+                                            ation. Supported for --tool claude a
+                                            nd --tool codex.
+                                                      [boolean] [default: false]
+      --prompt-general-purpose-sub-agent    Prompt AI to use general-purpose sub
+                                             agents for processing large tasks w
+                                            ith multiple files/folders. Supporte
+                                            d for --tool claude and --tool codex
+                                            .         [boolean] [default: false]
+      --tokens-budget-stats                 Show detailed token budget statistic
+                                            s including context window usage and
+                                             ratios (enabled by default, use --n
+                                            o-tokens-budget-stats to disable). S
+                                            hown in the terminal; publishing the
+                                            m to the pull request additionally r
+                                            equires --attach-logs, and they appe
+                                            ar only in the working session log c
+                                            omment (never in the working session
+                                             summary). Supported for --tool clau
+                                            de, --tool codex, and any tool that
+                                            returns detailed token usage.
+                                                       [boolean] [default: true]
+      --prompt-issue-reporting              Enable automatic issue creation for
+                                            spotted bugs/errors not related to m
+                                            ain task. Issues will include reprod
+                                            ucible examples, workarounds, and fi
+                                            x suggestions. Works for both curren
+                                            t and third-party repositories. Supp
+                                            orted for --tool claude and --tool c
+                                            odex.     [boolean] [default: false]
+      --prompt-architecture-care            [EXPERIMENTAL] Include guidance for
+                                            managing REQUIREMENTS.md and ARCHITE
+                                            CTURE.md files. When enabled, agents
+                                             will update these documentation fil
+                                            es when changes affect requirements
+                                            or architecture.
+                                                      [boolean] [default: false]
+      --prompt-case-studies                 Create comprehensive case study docu
+                                            mentation for the issue including lo
+                                            gs, analysis, timeline, root cause i
+                                            nvestigation, and proposed solutions
+                                            . Organizes findings into ./docs/cas
+                                            e-studies/issue-{id}/ directory. Sup
+                                            ported for --tool claude and --tool
+                                            codex.    [boolean] [default: false]
+      --development-log                     Prompt for issue-data collection und
+                                            er ./dev/log/issues/{issue-id}/pulls
+                                            /{pull-id}, preserve native tool sta
+                                            te under sessions/{UUID}, and commit
+                                             the artifacts when solve finishes.
+                                            Supported for --tool claude, --tool
+                                            codex, --tool opencode, --tool agent
+                                            , --tool qwen, and --tool gemini.
+                                                      [boolean] [default: false]
+      --deep-analysis                       Prompt for issue-type-aware deep ana
+                                            lysis, online research, complete req
+                                            uirement coverage, and solution plan
+                                            ning. Data collection under ./dev/lo
+                                            g is included only when --developmen
+                                            t-log is also enabled. Supported for
+                                             --tool claude, --tool codex, --tool
+                                             opencode, --tool agent, --tool qwen
+                                            , and --tool gemini.
+                                                      [boolean] [default: false]
+      --use-handoff                         [EXPERIMENTAL] Enable the HANDOFF.md
+                                             continuity Agent Skill so a session
+                                             can continue the work of a previous
+                                             session — even when a different AI
+                                            tool is used (e.g. Claude and Codex
+                                            continuing each other in the same pu
+                                            ll request). A real SKILL.md (the op
+                                            en Agent Skills standard) is deploye
+                                            d into the working directory so each
+                                             tool loads it natively (.claude/ski
+                                            lls/handoff/ for Claude, .agents/ski
+                                            lls/handoff/ for Codex). The AI read
+                                            s HANDOFF.md (repository root) first
+                                             when present and keeps it updated w
+                                            ith task, current state, decisions,
+                                            next steps, gotchas, and critical fi
+                                            les. HANDOFF.md is committed to the
+                                            PR branch so it persists across the
+                                            ephemeral per-session working direct
+                                            ories; the SKILL.md itself is re-dep
+                                            loyed each session and git-excluded
+                                            so it never pollutes the PR. The sam
+                                            e skill file is used identically for
+                                             --tool claude and --tool codex. Dis
+                                            abled by default (issue #1877).
+                                                      [boolean] [default: false]
+      --prompt-playwright-mcp               Enable Playwright MCP browser automa
+                                            tion hints in system prompt (enabled
+                                             by default, only takes effect if Pl
+                                            aywright MCP is installed). Use --no
+                                            -prompt-playwright-mcp to disable. S
+                                            upported for --tool claude, --tool c
+                                            odex, --tool opencode, --tool agent,
+                                             --tool qwen, and --tool gemini.
+                                                       [boolean] [default: true]
+      --prompt-check-sibling-pull-requests  Include prompt to check related/sibl
+                                            ing pull requests when studying rela
+                                            ted work. Enabled by default, use --
+                                            no-prompt-check-sibling-pull-request
+                                            s to disable.
+                                                       [boolean] [default: true]
+      --github-rate-limits-logging          Log GitHub API rate-limit usage afte
+                                            r each centralized gh command retry
+                                            wrapper call. Disabled by default; u
+                                            se --github-rate-limits-logging to e
+                                            nable.    [boolean] [default: false]
+      --prompt-experiments-folder           Path to experiments folder used in s
+                                            ystem prompt. Set to empty string to
+                                             disable experiments folder prompt.
+                                            Default: ./experiments
+                                             [string] [default: "./experiments"]
+      --prompt-examples-folder              Path to examples folder used in syst
+                                            em prompt. Set to empty string to di
+                                            sable examples folder prompt. Defaul
+                                            t: ./examples
+                                                [string] [default: "./examples"]
+      --playwright-mcp                      Enable Playwright MCP server connect
+                                            ion for this session (enabled by def
+                                            ault). Use --no-playwright-mcp to ph
+                                            ysically disable the Playwright MCP
+                                            server without affecting the global
+                                            MCP registration. When disabled, als
+                                            o disables --prompt-playwright-mcp a
+                                            nd --playwright-mcp-auto-cleanup. Su
+                                            pported for --tool claude, --tool co
+                                            dex, --tool opencode, --tool agent,
+                                            --tool qwen, and --tool gemini.
+                                                       [boolean] [default: true]
+      --playwright-mcp-auto-cleanup         Automatically remove .playwright-mcp
+                                            / folder before checking for uncommi
+                                            tted changes. This prevents browser
+                                            automation artifacts from triggering
+                                             auto-restart. Use --no-playwright-m
+                                            cp-auto-cleanup to keep the folder f
+                                            or debugging.
+                                                       [boolean] [default: true]
+      --useless-tools-disabled              Disable Claude Code built-in tools a
+                                            nd MCP servers that have no value (a
+                                            nd may be harmful) in autonomous hea
+                                            dless runs: AskUserQuestion, CronCre
+                                            ate/Delete/List, EnterPlanMode/ExitP
+                                            lanMode, EnterWorktree/ExitWorktree,
+                                             Monitor, NotebookEdit, PushNotifica
+                                            tion, RemoteTrigger, ScheduleWakeup,
+                                             and the claude.ai Gmail/Drive/Calen
+                                            dar OAuth connectors. Default: true.
+                                             Use --no-useless-tools-disabled to
+                                            keep them enabled. Supported for --t
+                                            ool claude (issue #1627).
+                                                       [boolean] [default: true]
+      --auto-gh-configuration-repair        Automatically repair git configurati
+                                            on using gh-setup-git-identity --rep
+                                            air when git identity is not configu
+                                            red. Requires gh-setup-git-identity
+                                            to be installed.
+                                                      [boolean] [default: false]
+      --prompt-subagents-via-agent-command  Guide AI to use agent-commander CLI
+      er                                    (start-agent) instead of native tool
+                                            -specific delegation for subagent wo
+                                            rk. Allows using any supported agent
+                                             type (claude, opencode, codex, agen
+                                            t, qwen, gemini) with a unified API.
+                                             Supported for --tool claude and --t
+                                            ool codex and requires agent-command
+                                            er to be installed.
+                                                      [boolean] [default: false]
+      --auto-init-repository                Automatically initialize empty repos
+                                            itories by creating a simple README.
+                                            md file. Only works when you have wr
+                                            ite access to the repository. This a
+                                            llows branch creation and pull reque
+                                            st workflows to proceed on repositor
+                                            ies that have no commits.
+                                                      [boolean] [default: false]
+      --auto-report-issue                   Automatically create a GitHub issue
+                                            on failure without prompting (non-in
+                                            teractive mode). The issue includes
+                                            error details, logs, and case study
+                                            analysis instructions. Sets issue ty
+                                            pe and label to bug.
+                                                      [boolean] [default: false]
+      --disable-report-issue                Disable error issue creation entirel
+                                            y (no prompt, no automatic creation)
+                                            . Overrides --auto-report-issue if b
+                                            oth are specified.
+                                                      [boolean] [default: false]
+      --disable-issue-auto-creation-on-err  Disable creating a new GitHub error-
+      or                                    report issue when solve fails, inclu
+                                            ding the interactive prompt. This do
+                                            es not disable posting failure logs
+                                            or comments to the original issue or
+                                             pull request.
+                                                      [boolean] [default: false]
+      --attach-solution-summary             Attach the AI working session summar
+                                            y (from the result field) as a comme
+                                            nt to the PR/issue after every worki
+                                            ng session. The summary is extracted
+                                             from the AI tool JSON output and po
+                                            sted under a "Working session summar
+                                            y" header. Applies to the top-level
+                                            run, auto-restart-until-mergeable it
+                                            erations, and watch-mode iterations.
+                                                      [boolean] [default: false]
+      --auto-attach-solution-summary        Automatically attach a "Working sess
+                                            ion summary" comment at the end of a
+                                            ny working session in which the AI d
+                                            id not create any comments itself. T
+                                            his provides visible feedback when t
+                                            he AI completes silently, including
+                                            inside auto-restart-until-mergeable
+                                            and watch-mode iterations. Enabled b
+                                            y default; use --no-auto-attach-solu
+                                            tion-summary to disable.
+                                                       [boolean] [default: true]
+      --auto-accept-invite                  Automatically accept the pending Git
+                                            Hub repository or organization invit
+                                            ation for the specific repository/or
+                                            ganization being solved, before chec
+                                            king write access. Unlike /accept_in
+                                            vites which accepts all pending invi
+                                            tations, this only accepts the invit
+                                            e for the target repo/org. Enabled b
+                                            y default; use --no-auto-accept-invi
+                                            te to disable.
+                                                       [boolean] [default: true]
+      --prompt-ensure-all-requirements-are  [EXPERIMENTAL] Add a prompt hint to
+      -met                                  the system prompt to ensure all chan
+                                            ges are correct, consistent, validat
+                                            ed, tested, logged and fully meet al
+                                            l discussed requirements. Enabled au
+                                            tomatically by --finalize during fin
+                                            alize cycle iterations only.
+                                                      [boolean] [default: false]
+      --finalize                            [EXPERIMENTAL] After the main solve
+                                            completes, automatically restart the
+                                             AI tool N times (default: 1) with a
+                                             requirements-check prompt to verify
+                                             all requirements are met. Use --fin
+                                            alize-model to override the model fo
+                                            r finalize iterations.
+                                                           [number] [default: 0]
+      --finalize-model                      [EXPERIMENTAL] Model to use for --fi
+                                            nalize iterations. Defaults to the s
+                                            ame model as --model.       [string]
+      --keep-working-until-all-requirement  [EXPERIMENTAL] After the main solve
+      s-are-fully-done, --keep-going-until  completes, scan the pull request des
+      -all-requirements-are-fully-done, --  cription, the AI solution summary an
+      keep-working, --keep-going            d changed markdown documents for str
+                                            ong indicators of deferred/delayed/o
+                                            ut-of-scope work (e.g. "future work"
+                                            , "out of scope", "deferred", "follo
+                                            w-up PR", "TODO") and automatically
+                                            restart the AI tool to finish everyt
+                                            hing in this single pull request. Ac
+                                            cepts a number of restarts (default:
+                                             5), or "forever"/"unlimited" to rem
+                                            ove the limit. Bare flag means the d
+                                            efault of 5.                [string]
+      --escalate                            [EXPERIMENTAL] Start solving with a
+                                            cheaper/lower-tier model and automat
+                                            ically escalate to a more capable (m
+                                            ore expensive) model while unfinishe
+                                            d work remains. Accepts a model rang
+                                            e "<lower>-<upper>" using short Clau
+                                            de tier names (ladder: haiku < sonne
+                                            t < opus < fable), e.g. "sonnet-opus
+                                            ". A single name (e.g. "opus") means
+                                             just that tier. Bare flag means "so
+                                            nnet-fable". The idea: iterate cheap
+                                            ly first so expensive models do more
+                                             reading and less writing.  [string]
+      --escalate-from                       [EXPERIMENTAL] Shortcut for --escala
+                                            te <model>-fable: start solving from
+                                             the given model (haiku/sonnet/opus/
+                                            fable, aliases accepted) and escalat
+                                            e up to the top of the ladder while
+                                            unfinished work remains. Takes prece
+                                            dence over --escalate when both are
+                                            given.                      [string]
+      --escalate-steps                      [EXPERIMENTAL] How many working sess
+                                            ions to keep each model tier before
+                                            escalating to the next one (default:
+                                             1). For example 2 keeps the lower t
+                                            ier for two working sessions, then t
+                                            he next tier for two, and so on. Onl
+                                            y used with --escalate / --escalate-
+                                            from.          [number] [default: 1]
+      --working-session-live-progress       [EXPERIMENTAL] Enable live progress
+                                            monitoring. Accepts "comment" (defau
+                                            lt, updates a per-session PR comment
+                                            ) or "pr" (updates PR description).
+                                            Plain --working-session-live-progres
+                                            s means "comment". Works with or wit
+                                            hout --interactive-mode.
+                                                       [string] [default: false]
+      --language                            Default language for both --ui-langu
+                                            age and --work-language (en, ru, zh,
+                                             hi). Defaults to detected system lo
+                                            cale. Each track can be overridden i
+                                            ndependently.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --ui-language                         Language for user-facing output (en,
+                                             ru, zh, hi). Affects terminal statu
+                                            s/error messages and bot-generated P
+                                            R/issue comments. Defaults to --lang
+                                            uage.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --work-language                       Working language passed to the AI to
+                                            ol (Claude/Codex/etc). Used as the t
+                                            ool's preferred language for transla
+                                            tions and prompts. Defaults to --lan
+                                            guage.
+                                      [string] [choices: "en", "ru", "zh", "hi"]
+      --auto-language                       Experimental and disabled by default
+                                            . Automatically detect the target is
+                                            sue or pull request language and set
+                                             the AI work language to English or
+                                            Russian when one language has more t
+                                            han 51% of all words. Explicit --wor
+                                            k-language or --prompt-language take
+                                            s precedence.
+                                                      [boolean] [default: false]
+      --gemini-sandbox                      Run gemini-cli inside its sandbox (p
+                                            asses --sandbox to gemini-cli). Only
+                                             used when --tool gemini.
+                                                      [boolean] [default: false]
+      --gemini-extensions                   Comma-separated list of gemini-cli e
+                                            xtensions to load (passes --extensio
+                                            ns to gemini-cli). Only used when --
+                                            tool gemini.                [string]
+      --gemini-include-directories          Extra directories to expose to gemin
+                                            i-cli (passes --include-directories
+                                            to gemini-cli, in addition to tempDi
+                                            r/workspaceTmpDir which are always i
+                                            ncluded). Only used when --tool gemi
+                                            ni.                         [string]
+      --gemini-allowed-mcp-servers          Comma-separated list of MCP server n
+                                            ames that gemini-cli is allowed to c
+                                            all (passes --allowed-mcp-server-nam
+                                            es to gemini-cli). Only used when --
+                                            tool gemini.                [string]
+      --require-codex-plugin                Comma-separated list of Codex plugin
+                                            s (plugin@marketplace) that must be
+                                            installed into the scoped CODEX_HOME
+                                             before codex exec starts, in additi
+                                            on to the ones discovered from the i
+                                            ssue text and the repository AGENTS.
+                                            md/CLAUDE.md files. Fails the run wh
+                                            en a listed plugin is unavailable. E
+                                            quivalent to HIVE_MIND_CODEX_REQUIRE
+                                            D_PLUGINS. Only used when --tool cod
+                                            ex.                         [string]
+  -h, --help                                Show help                  [boolean]
+EXIT 0
+
+COMMAND timeout 10s ./src/hive.mjs --version
+2.12.0.d606c779
+EXIT 0
+
+COMMAND timeout 10s ./src/telegram-bot.mjs --help
+Usage: hive-telegram-bot [options]
+
+Options:
+      --version                             Show version number        [boolean]
+  -c, --configuration                       LINO configuration string for enviro
+                                            nment variables
+                                                          [string] [default: ""]
+  -t, --token                               [REDACTED] bot token from @BotFather
+                                                          [string] [default: ""]
+      --allowedChats, --allowed-chats       Allowed chat IDs in lino notation, e
+                                            .g., "(
+                                              123456789
+                                              987654321
+                                            )"            [string] [default: ""]
+      --allowedTopics, --allowed-topics     Allowed topic IDs in Links Notation
+                                            format "chatId topicId" pairs
+                                                          [string] [default: ""]
+      --solveOverrides, --solve-overrides   Override options for /solve command
+                                            in lino notation, e.g., "(
+                                              --auto-
+                                            continue
+                                              --attach-logs
+                                            )"            [string] [default: ""]
+      --hiveOverrides, --hive-overrides     Override options for /hive command i
+                                            n lino notation, e.g., "(
+                                              --verbos
+                                            e
+                                              --all-issues
+                                            )"            [string] [default: ""]
+      --solve                               Enable /solve command (use --no-solv
+                                            e to disable)
+                                                       [boolean] [default: true]
+      --hive                                Enable /hive command (use --no-hive
+                                            to disable)[boolean] [default: true]
+      --task                                Enable /task and /split commands (us
+                                            e --no-task to disable)
+                                                       [boolean] [default: true]
+      --fix                                 Enable /fix command (use --no-fix to
+                                             disable)  [boolean] [default: true]
+      --auth                                [REDACTED] experimental private /auth co
+                                            mmand for allowlisted chat owners (u
+                                            se --no-auth to disable)
+                                                       [boolean] [default: true]
+      --dryRun, --dry-run                   Validate configuration and options w
+                                            ithout starting the bot
+                                                      [boolean] [default: false]
+  -v, --verbose                             Enable verbose logging for debugging
+                                                      [boolean] [default: false]
+      --autoStartScreenWatchMessage, --aut  Experimental: auto-start separate /t
+      o-start-screen-watch-message          erminal_watch messages for public /s
+                                            olve sessions
+                                                      [boolean] [default: false]
+      --showLimits, --show-limits           Experimental: allow /solve and /hive
+                                             callers to use --show-limits to emb
+                                            ed Claude/Codex usage at start, end,
+                                             and delta in the completion message
+                                                       [boolean] [default: true]
+      --isolation                           Isolation backend (screen/tmux/docke
+                                            r). Defaults to 'docker' so Telegram
+                                            -bot work sessions run in Docker iso
+                                            lation; pass --isolation '' (or set
+                                            TELEGRAM_ISOLATION='') to disable.
+                                                    [string] [default: "docker"]
+  -h, --help                                Show help                  [boolean]
+EXIT 0
+
+COMMAND timeout 30s ./src/hive.mjs https://github.com/test/repo --dry-run --skip-claude-check --once --max-issues 1
+🐝 Hive Mind - AI-powered issue solver
+   Initializing...
+   Loading dependencies (this may take a moment)...
+📁 Log file: /tmp/gh-issue-solver-1786457752545/hive-2026-08-11T14-49-30-728Z.log
+   (All output will be logged here)
+🎯 Monitoring Configuration:
+   📍 Target: Repository - test/repo
+   🏷️  Tag: "help wanted"
+   🔄 Concurrency: 2 parallel workers
+   📊 Pull Requests per Issue: 1
+   🤖 Model: opus
+   🍴 Auto-Fork: ENABLED (will auto-fork public repos without write access)
+   🔄 Auto-Continue: ENABLED (will work on issues with existing PRs)
+   🚀 Mode: Single run
+   🔢 Max Issues: 1
+   🧪 DRY RUN MODE - No actual processing
+
+
+🚀 Starting Hive Mind monitoring system...
+
+👷 Starting 2 workers...
+
+🔄 Monitoring iteration 1 at 2026-08-11T14:49:30.775Z
+
+🔍 Fetching issues with label "help wanted"...
+   🧪 Dry-run mode: Skipping actual issue fetching
+   ℹ️  No new issues to add (all already processed or in queue)
+
+📊 Current Status:
+   📋 Queued: 0
+   ⚙️  Processing: 0
+   ✅ Completed: 0
+   ❌ Failed: 0
+   📁 Hive log file: /tmp/gh-issue-solver-1786457752545/hive-2026-08-11T14-49-30-728Z.log
+
+🏁 Single run mode - waiting for queue to empty...
+
+✅ All issues processed!
+   Completed: 0
+   Failed: 0
+   📁 Full log file: /tmp/gh-issue-solver-1786457752545/hive-2026-08-11T14-49-30-728Z.log
+
+👋 Hive Mind monitoring stopped
+   📁 Full log file: /tmp/gh-issue-solver-1786457752545/hive-2026-08-11T14-49-30-728Z.log
+EXIT 0
+
+COMMAND timeout 10s ./src/solve.mjs https://github.com/test/repo/issues/1 --dry-run --skip-claude-check
+📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T14-49-38-285Z.log
+   (All output will be logged here)
+EXIT 124

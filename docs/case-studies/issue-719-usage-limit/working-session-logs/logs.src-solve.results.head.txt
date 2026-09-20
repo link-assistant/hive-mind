@@ -1,0 +1,295 @@
+#!/usr/bin/env node
+
+// Results processing module for solve command
+// Extracted from solve.mjs to keep files under 1500 lines
+
+// Use use-m to dynamically import modules for cross-runtime compatibility
+// Check if use is already defined globally (when imported from solve.mjs)
+// If not, fetch it (when running standalone)
+if (typeof globalThis.use === 'undefined') {
+  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+}
+const use = globalThis.use;
+
+// Use command-stream for consistent $ behavior across runtimes
+const { $ } = await use('command-stream');
+
+const path = (await use('path')).default;
+
+// Import shared library functions
+const lib = await import('./lib.mjs');
+const {
+  log,
+  getLogFile,
+  formatAligned
+} = lib;
+
+// Import exit handler
+import { safeExit } from './exit-handler.lib.mjs';
+
+// Import GitHub-related functions
+const githubLib = await import('./github.lib.mjs');
+const {
+  sanitizeLogContent,
+  attachLogToGitHub
+} = githubLib;
+
+// Import auto-continue functions
+const autoContinue = await import('./solve.auto-continue.lib.mjs');
+const {
+  autoContinueWhenLimitResets
+} = autoContinue;
+
+// Import error handling functions
+// const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
+// Import Sentry integration
+const sentryLib = await import('./sentry.lib.mjs');
+const { reportError } = sentryLib;
+
+// Import GitHub linking detection library
+const githubLinking = await import('./github-linking.lib.mjs');
+const { hasGitHubLinkingKeyword } = githubLinking;
+
+// Revert the CLAUDE.md commit to restore original state
+export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
+  try {
+    // Only revert if we have the commit hash from this session
+    // This prevents reverting the wrong commit in continue mode
+    if (!claudeCommitHash) {
+      await log('   No CLAUDE.md commit to revert (not created in this session)', { verbose: true });
+      return;
+    }
+
+    await log(formatAligned('🔄', 'Cleanup:', 'Reverting CLAUDE.md commit'));
+    await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
+
+    const commitToRevert = claudeCommitHash;
+
+    // APPROACH 3: Check for modifications before reverting (proactive detection)
+    // This is the main strategy - detect if CLAUDE.md was modified after initial commit
+    await log('   Checking if CLAUDE.md was modified since initial commit...', { verbose: true });
+    const diffResult = await $({ cwd: tempDir })`git diff ${commitToRevert} HEAD -- CLAUDE.md 2>&1`;
+
+    if (diffResult.stdout && diffResult.stdout.trim()) {
+      // CLAUDE.md was modified after initial commit - use manual approach to avoid conflicts
+      await log('   CLAUDE.md was modified after initial commit, using manual cleanup...', { verbose: true });
+
+      // Get the state of CLAUDE.md from before the initial commit (parent of the commit we're reverting)
+      const parentCommit = `${commitToRevert}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:CLAUDE.md 2>&1`;
+
+      if (parentFileExists.code === 0) {
+        // CLAUDE.md existed before the initial commit - restore it to that state
+        await log('   CLAUDE.md existed before session, restoring to previous state...', { verbose: true });
+        await $({ cwd: tempDir })`git checkout ${parentCommit} -- CLAUDE.md`;
+      } else {
+        // CLAUDE.md didn't exist before the initial commit - delete it
+        await log('   CLAUDE.md was created in session, removing it...', { verbose: true });
+        await $({ cwd: tempDir })`git rm -f CLAUDE.md 2>&1`;
+      }
+
+      // Create a manual revert commit
+      const commitResult = await $({ cwd: tempDir })`git commit -m "Revert: Remove CLAUDE.md changes from initial commit" 2>&1`;
+
+      if (commitResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert (manual)'));
+
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+        } else {
+          await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        }
+      } else {
+        await log('   Warning: Could not create manual revert commit', { verbose: true });
+        await log(`   Commit output: ${commitResult.stderr || commitResult.stdout}`, { verbose: true });
+      }
+    } else {
+      // No modifications detected - safe to use git revert (standard approach)
+      await log('   No modifications detected, using standard git revert...', { verbose: true });
+
+      // FALLBACK 1: Standard git revert
+      const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
+      if (revertResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert'));
+
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+        } else {
+          await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        }
+      } else {
+        // FALLBACK 2: Handle unexpected conflicts (three-way merge with automatic resolution)
+        const revertOutput = revertResult.stderr || revertResult.stdout || '';
+        const hasConflict = revertOutput.includes('CONFLICT') || revertOutput.includes('conflict');
+
+        if (hasConflict) {
+          await log('   Unexpected conflict detected, attempting automatic resolution...', { verbose: true });
+
+          // Check git status to see what files are in conflict
+          const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
+          const statusOutput = statusResult.stdout || '';
+
+          // Check if CLAUDE.md is in the conflict
+          if (statusOutput.includes('CLAUDE.md')) {
+            await log('   Resolving CLAUDE.md conflict by restoring pre-session state...', { verbose: true });
+
+            // Get the state of CLAUDE.md from before the initial commit (parent of the commit we're reverting)
+            const parentCommit = `${commitToRevert}~1`;
+            const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:CLAUDE.md 2>&1`;
+
+            if (parentFileExists.code === 0) {
+              // CLAUDE.md existed before the initial commit - restore it to that state
+              await log('   CLAUDE.md existed before session, restoring to previous state...', { verbose: true });
+              await $({ cwd: tempDir })`git checkout ${parentCommit} -- CLAUDE.md`;
+              // Stage the resolved CLAUDE.md
+              await $({ cwd: tempDir })`git add CLAUDE.md 2>&1`;
+            } else {
+              // CLAUDE.md didn't exist before the initial commit - delete it
+              await log('   CLAUDE.md was created in session, removing it...', { verbose: true });
+              await $({ cwd: tempDir })`git rm -f CLAUDE.md 2>&1`;
+              // No need to git add since git rm stages the deletion
+            }
+
+            // Complete the revert with the resolved conflict
+            const continueResult = await $({ cwd: tempDir })`git revert --continue --no-edit 2>&1`;
+
+            if (continueResult.code === 0) {
+              await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert (conflict resolved)'));
+
+              // Push the revert
+              const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+              if (pushRevertResult.code === 0) {
+                await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+              } else {
+                await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+              }
+            } else {
+              await log('   Warning: Could not complete revert after conflict resolution', { verbose: true });
+              await log(`   Continue output: ${continueResult.stderr || continueResult.stdout}`, { verbose: true });
+            }
+          } else {
+            // Conflict in some other file, not CLAUDE.md - this is unexpected
+            await log('   Warning: Revert conflict in unexpected file(s), aborting revert', { verbose: true });
+            await $({ cwd: tempDir })`git revert --abort 2>&1`;
+          }
+        } else {
+          // Non-conflict error
+          await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
+          await log(`   Revert output: ${revertOutput}`, { verbose: true });
+        }
+      }
+    }
+  } catch (e) {
+    reportError(e, {
+      context: 'cleanup_claude_file',
+      tempDir,
+      operation: 'revert_claude_md_commit'
+    });
+    // If revert fails, that's okay - the task is still complete
+    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+  }
+};
+
+// Show session summary and handle limit reached scenarios
+export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+  await log('\n=== Session Summary ===');
+
+  if (sessionId) {
+    await log(`✅ Session ID: ${sessionId}`);
+    // Always use absolute path for log file display
+    const path = (await use('path'));
+    const absoluteLogPath = path.resolve(getLogFile());
+    await log(`✅ Complete log file: ${absoluteLogPath}`);
+
+    if (limitReached) {
+      await log('\n⏰ LIMIT REACHED DETECTED!');
+
+      if (argv.autoContinueLimit && global.limitResetTime) {
+        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+      } else {
+        // Only show resume recommendation if --no-auto-cleanup was passed
+        if (argv.autoCleanup === false) {
+          await log('\n🔄 To resume when limit resets, use:\n');
+          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+
+          if (global.limitResetTime) {
+            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+          }
+
+          await log('\n   This will continue from where it left off with full context.\n');
+        } else {
+          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+          await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+        }
+      }
+    } else {
+      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
+      if (argv.autoCleanup === false) {
+        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
+        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
+        await log('');
+      } else {
+        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
+      }
+    }
+
+    // Don't show log preview, it's too technical
+  } else {
+    await log('❌ No session ID extracted');
+    // Always use absolute path for log file display
+    const logFilePath = path.resolve(getLogFile());
+    await log(`📁 Log file available: ${logFilePath}`);
+  }
+};
+
+// Verify results by searching for new PRs and comments
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null) => {
+  await log('\n🔍 Searching for created pull requests or comments...');
+
+  try {
+    // Get the current user's GitHub username
+    const userResult = await $`gh api user --jq .login`;
+
+    if (userResult.code !== 0) {
+34:  attachLogToGitHub
+193:    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+197:// Show session summary and handle limit reached scenarios
+198:export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
+208:    if (limitReached) {
+211:      if (argv.autoContinueLimit && global.limitResetTime) {
+212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+217:          await log('\n🔄 To resume when limit resets, use:\n');
+220:          if (global.limitResetTime) {
+221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+222:            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+321:            // Use --body-file instead of --body to avoid command-line length limits
+365:          logUploadSuccess = await attachLogToGitHub({
+384:          await log('📎 Solution draft log has been attached to the Pull Request');
+386:          await log('⚠️  Solution draft log upload was requested but failed');
+391:          await safeExit(0, 'Process completed successfully');
+426:        await attachLogToGitHub({
+445:        await log('📎 Solution draft log has been attached to the issue');
+450:        await safeExit(0, 'Process completed successfully');
+468:      await safeExit(0, 'Process completed successfully');
+485:      await safeExit(0, 'Process completed successfully');
+491:// Handle execution errors with log attachment
+497:  // If --attach-logs is enabled, try to attach failure logs
+499:    await log('\n📄 Attempting to attach failure logs...');
+501:    // Try to attach to existing PR first
+504:        const logUploadSuccess = await attachLogToGitHub({
+518:          await log('📎 Failure log attached to Pull Request');
+520:      } catch (attachError) {
+521:        reportError(attachError, {
+522:          context: 'attach_success_log',
+524:          operation: 'attach_log_to_pr'
+526:        await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
+535:      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+537:        await log('✅ Pull request closed successfully');
+543:        context: 'close_success_pr',

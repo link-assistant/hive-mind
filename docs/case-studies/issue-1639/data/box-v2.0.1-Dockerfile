@@ -1,0 +1,200 @@
+# Full Box environment Docker image
+# Contains all language runtimes and development tools.
+# This is the "full-box" image (konard/box or konard/box-full).
+#
+# Architecture:
+#   essentials-box (base for all language images)
+#     ├─ box-python, box-go, box-rust, ... (built in parallel)
+#     └─ full-box (merges all language images via COPY --from)
+#
+# Build from repository root:
+#   docker build -t box .
+#
+# Build with specific images:
+#   docker build --build-arg ESSENTIALS_IMAGE=konard/box-essentials:latest -t box .
+#
+# For a lighter image with just essentials, see ubuntu/24.04/essentials-box/Dockerfile.
+# For just JavaScript, see ubuntu/24.04/js/Dockerfile.
+# For individual language images, see ubuntu/24.04/<language>/Dockerfile.
+
+# === Build arguments (all declared before first FROM for global scope) ===
+ARG ESSENTIALS_IMAGE=konard/box-essentials:latest
+ARG PYTHON_IMAGE=konard/box-python:latest
+ARG GO_IMAGE=konard/box-go:latest
+ARG RUST_IMAGE=konard/box-rust:latest
+ARG JAVA_IMAGE=konard/box-java:latest
+ARG KOTLIN_IMAGE=konard/box-kotlin:latest
+ARG RUBY_IMAGE=konard/box-ruby:latest
+ARG PHP_IMAGE=konard/box-php:latest
+ARG PERL_IMAGE=konard/box-perl:latest
+ARG SWIFT_IMAGE=konard/box-swift:latest
+ARG LEAN_IMAGE=konard/box-lean:latest
+ARG ROCQ_IMAGE=konard/box-rocq:latest
+
+FROM ${PYTHON_IMAGE} AS python-stage
+FROM ${GO_IMAGE} AS go-stage
+FROM ${RUST_IMAGE} AS rust-stage
+FROM ${JAVA_IMAGE} AS java-stage
+FROM ${KOTLIN_IMAGE} AS kotlin-stage
+FROM ${RUBY_IMAGE} AS ruby-stage
+FROM ${PHP_IMAGE} AS php-stage
+FROM ${PERL_IMAGE} AS perl-stage
+FROM ${SWIFT_IMAGE} AS swift-stage
+FROM ${LEAN_IMAGE} AS lean-stage
+FROM ${ROCQ_IMAGE} AS rocq-stage
+
+# === Final assembly image ===
+FROM ${ESSENTIALS_IMAGE}
+
+USER root
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /home/box
+
+# Copy entrypoint script
+COPY scripts/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# --- Install system-level packages (cannot be COPY'd from images) ---
+# Note: PHP is NOT installed here unconditionally - it depends on the php-stage method
+RUN apt-get update -y && \
+    apt-get install -y \
+      dotnet-sdk-8.0 \
+      r-base \
+      cmake clang llvm lld \
+      nasm \
+      bubblewrap && \
+    # FASM only available on x86_64
+    if [ "$(uname -m)" = "x86_64" ]; then apt-get install -y fasm; fi && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# --- Copy user-home language runtimes from pre-built images ---
+
+# Python (pyenv)
+COPY --from=python-stage --chown=box:box /home/box/.pyenv /home/box/.pyenv
+
+# Go
+COPY --from=go-stage --chown=box:box /home/box/.go /home/box/.go
+
+# Rust (cargo + rustup)
+COPY --from=rust-stage --chown=box:box /home/box/.cargo /home/box/.cargo
+COPY --from=rust-stage --chown=box:box /home/box/.rustup /home/box/.rustup
+
+# Java (SDKMAN)
+COPY --from=java-stage --chown=box:box /home/box/.sdkman /home/box/.sdkman
+
+# Kotlin (SDKMAN - merge Kotlin candidate into Java's SDKMAN)
+COPY --from=kotlin-stage --chown=box:box /home/box/.sdkman/candidates/kotlin /home/box/.sdkman/candidates/kotlin
+
+# Ruby (rbenv)
+COPY --from=ruby-stage --chown=box:box /home/box/.rbenv /home/box/.rbenv
+
+# PHP: Copy marker file and handle local (Homebrew) vs global (apt) install (Issue #44)
+COPY --from=php-stage --chown=box:box /home/box/.php-install-method /home/box/.php-install-method
+RUN mkdir -p /home/linuxbrew/.linuxbrew && \
+    chown -R box:box /home/linuxbrew
+COPY --from=php-stage --chown=box:box /home/linuxbrew/.linuxbrew/ /home/linuxbrew/.linuxbrew/
+RUN PHP_METHOD=$(cat /home/box/.php-install-method 2>/dev/null || echo "unknown") && \
+    echo "PHP install method from php-stage: $PHP_METHOD" && \
+    if [ "$PHP_METHOD" = "global" ]; then \
+      echo "Installing PHP globally via apt (matching php-stage method)..." && \
+      apt-get update -y && \
+      apt-get install -y \
+        php8.3-cli php8.3-common php8.3-curl php8.3-mbstring \
+        php8.3-xml php8.3-zip php8.3-bcmath php8.3-opcache && \
+      apt-get clean && rm -rf /var/lib/apt/lists/* && \
+      rm -rf /home/linuxbrew/.linuxbrew && \
+      echo "[✓] PHP installed globally via apt in full-box"; \
+    else \
+      echo "[✓] PHP available via Homebrew (local/user-specific) from php-stage"; \
+    fi
+
+# Perl (Perlbrew)
+COPY --from=perl-stage --chown=box:box /home/box/.perl5 /home/box/.perl5
+
+# Swift
+COPY --from=swift-stage --chown=box:box /home/box/.swift /home/box/.swift
+
+# Lean (elan)
+COPY --from=lean-stage --chown=box:box /home/box/.elan /home/box/.elan
+
+# Rocq/Coq (Opam)
+COPY --from=rocq-stage --chown=box:box /home/box/.opam /home/box/.opam
+
+# --- Copy bashrc configurations from language stages ---
+COPY --from=python-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-python
+COPY --from=go-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-go
+COPY --from=rust-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-rust
+COPY --from=java-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-java
+COPY --from=kotlin-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-kotlin
+COPY --from=ruby-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-ruby
+COPY --from=php-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-php
+COPY --from=perl-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-perl
+COPY --from=swift-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-swift
+COPY --from=lean-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-lean
+COPY --from=rocq-stage --chown=box:box /home/box/.bashrc /tmp/.bashrc-rocq
+
+# Merge bashrc configurations: take the essentials bashrc as base,
+# then append sections from each language stage that are not yet present.
+# Uses section-header deduplication (checks for unique "# <Tool> configuration"
+# comment) to avoid corrupting multi-line shell constructs (if/fi blocks) that
+# would break when individual lines like bare "fi" are deduplicated.
+RUN cp /home/box/.bashrc /tmp/.bashrc-base && \
+    for lang_bashrc in /tmp/.bashrc-python /tmp/.bashrc-go /tmp/.bashrc-rust \
+      /tmp/.bashrc-java /tmp/.bashrc-kotlin /tmp/.bashrc-ruby /tmp/.bashrc-php \
+      /tmp/.bashrc-perl /tmp/.bashrc-swift /tmp/.bashrc-lean /tmp/.bashrc-rocq; do \
+      if [ -f "$lang_bashrc" ]; then \
+        in_new_section=0; \
+        section_header=""; \
+        while IFS= read -r line; do \
+          if echo "$line" | grep -qE '^# .+ configuration$'; then \
+            section_header="$line"; \
+            if grep -qxF "$section_header" /tmp/.bashrc-base 2>/dev/null; then \
+              in_new_section=0; \
+            else \
+              in_new_section=1; \
+              echo "" >> /tmp/.bashrc-base; \
+              echo "$section_header" >> /tmp/.bashrc-base; \
+            fi; \
+          elif [ "$in_new_section" = "1" ]; then \
+            echo "$line" >> /tmp/.bashrc-base; \
+          fi; \
+        done < "$lang_bashrc"; \
+      fi; \
+    done && \
+    cp /tmp/.bashrc-base /home/box/.bashrc && \
+    chown box:box /home/box/.bashrc && \
+    rm -f /tmp/.bashrc-*
+
+# Restore /home/box ownership after all COPY --from operations (which run as root)
+# This prevents permission issues (EACCES) for the box user at runtime
+RUN chown box:box /home/box
+
+# Switch to box user
+USER box
+WORKDIR /home/box
+
+# Environment variables for all tools
+ENV HOME=/home/box
+ENV NVM_DIR="/home/box/.nvm"
+ENV PYENV_ROOT="/home/box/.pyenv"
+ENV BUN_INSTALL="/home/box/.bun"
+ENV DENO_INSTALL="/home/box/.deno"
+ENV CARGO_HOME="/home/box/.cargo"
+ENV GOROOT="/home/box/.go"
+ENV GOPATH="/home/box/.go/path"
+ENV SDKMAN_DIR="/home/box/.sdkman"
+ENV PERLBREW_ROOT="/home/box/.perl5"
+ENV RBENV_ROOT="/home/box/.rbenv"
+
+# PATH for tools that don't need special initialization
+# Includes Homebrew PHP paths (only effective if local install was used, harmless otherwise)
+ENV PATH="/home/linuxbrew/.linuxbrew/opt/php@8.3/bin:/home/linuxbrew/.linuxbrew/opt/php@8.3/sbin:/home/linuxbrew/.linuxbrew/bin:/home/box/.pyenv/bin:/home/box/.pyenv/shims:/home/box/.rbenv/bin:/home/box/.rbenv/shims:/home/box/.swift/usr/bin:/home/box/.elan/bin:/home/box/.opam/default/bin:/home/box/.cargo/bin:/home/box/.deno/bin:/home/box/.bun/bin:/home/box/.go/bin:/home/box/.go/path/bin:${PATH}"
+
+# Opam environment variables for Rocq/Coq theorem prover
+ENV OPAM_SWITCH_PREFIX="/home/box/.opam/default"
+ENV CAML_LD_LIBRARY_PATH="/home/box/.opam/default/lib/stublibs:/home/box/.opam/default/lib/ocaml/stublibs:/home/box/.opam/default/lib/ocaml"
+ENV OCAML_TOPLEVEL_PATH="/home/box/.opam/default/lib/toplevel"
+
+SHELL ["/bin/bash", "-c"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["/bin/bash"]

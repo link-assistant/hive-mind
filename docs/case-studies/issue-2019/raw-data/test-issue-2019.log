@@ -1,0 +1,3 @@
+PASS blocks replacement deletion when a side branch has commits not reachable from upstream
+PASS allows replacement deletion only when every replacement branch tip is reachable upstream
+PASS repository setup calls the all-branch safety helper before auto-recovery deletion

@@ -1,0 +1,241 @@
+    await log('\n🔧 Restoring Claude runtime to Node.js...');
+    try {
+      try {
+        await $`which node`;
+        await log('   ✅ Node.js runtime found');
+      } catch (nodeError) {
+        reportError(nodeError, {
+          context: 'claude.lib.mjs - Node.js availability check',
+          level: 'error'
+        });
+        await log('❌ Node.js runtime not found. Please install Node.js first', { level: 'error' });
+        process.exit(1);
+      }
+      
+      // Find Claude executable path
+      const claudePathResult = await $`which claude`;
+      const claudePath = claudePathResult.stdout.toString().trim();
+      
+      if (!claudePath) {
+        await log('❌ Claude executable not found', { level: 'error' });
+        process.exit(1);
+      }
+      
+      await log(`   Claude path: ${claudePath}`);
+      
+      try {
+        await fs.access(claudePath, fs.constants.W_OK);
+      } catch (accessError) {
+        reportError(accessError, {
+          context: 'claude.lib.mjs - Claude executable write permission check (nodejs)',
+          level: 'error'
+        });
+        await log('❌ Cannot write to Claude executable (permission denied)', { level: 'error' });
+        await log('   Try running with sudo or changing file permissions', { level: 'error' });
+        process.exit(1);
+      }
+      // Read current shebang
+      const firstLine = await $`head -1 "${claudePath}"`;
+      const currentShebang = firstLine.stdout.toString().trim();
+      await log(`   Current shebang: ${currentShebang}`);
+      if (currentShebang.includes('node') && !currentShebang.includes('bun')) {
+        await log('   ✅ Claude is already configured to use Node.js');
+        process.exit(0);
+      }
+      
+      const backupPath = `${claudePath}.nodejs-backup`;
+      try {
+        await fs.access(backupPath);
+        // Restore from backup
+        await $`cp "${backupPath}" "${claudePath}"`;
+        await log(`   ✅ Restored Claude from backup: ${backupPath}`);
+      } catch (backupError) {
+        reportError(backupError, {
+          context: 'claude_restore_backup',
+          level: 'info'
+        });
+        // No backup available, manually update shebang
+        await log('   📝 No backup found, manually updating shebang...');
+        const content = await fs.readFile(claudePath, 'utf8');
+        const newContent = content.replace(/^#!.*bun.*$/m, '#!/usr/bin/env node');
+        
+        if (content === newContent) {
+          await log('⚠️  No bun shebang found to replace', { level: 'warning' });
+          await log(`   Current shebang: ${currentShebang}`, { level: 'warning' });
+          process.exit(0);
+        }
+        
+        await fs.writeFile(claudePath, newContent);
+        await log('   ✅ Claude shebang updated to use Node.js');
+      }
+      
+      await log('   🔄 Claude will now run with Node.js runtime');
+      
+    } catch (error) {
+      await log(`❌ Failed to restore Claude to Node.js: ${cleanErrorMessage(error)}`, { level: 'error' });
+      process.exit(1);
+    }
+    
+    // Exit after restoring runtime
+    process.exit(0);
+  }
+};
+/**
+ * Execute Claude with all prompts and settings
+ * This is the main entry point that handles all prompt building and execution
+ * @param {Object} params - Parameters for Claude execution
+ * @returns {Object} Result of the execution including success status and session info
+ */
+export const executeClaude = async (params) => {
+  const {
+    issueUrl,
+    issueNumber,
+    prNumber,
+    prUrl,
+    branchName,
+    tempDir,
+    isContinueMode,
+    mergeStateStatus,
+    forkedRepo,
+    feedbackLines,
+    forkActionsUrl,
+    owner,
+    repo,
+    argv,
+    log,
+    setLogFile,
+    getLogFile,
+    formatAligned,
+    getResourceSnapshot,
+    claudePath,
+    $
+  } = params;
+  // Import prompt building functions from claude.prompts.lib.mjs
+  const { buildUserPrompt, buildSystemPrompt } = await import('./claude.prompts.lib.mjs');
+  // Build the user prompt
+  const prompt = buildUserPrompt({
+    issueUrl,
+    issueNumber,
+    prNumber,
+    prUrl,
+    branchName,
+    tempDir,
+    isContinueMode,
+    mergeStateStatus,
+    forkedRepo,
+    feedbackLines,
+    forkActionsUrl,
+    owner,
+    repo,
+    argv
+  });
+  // Build the system prompt
+  const systemPrompt = buildSystemPrompt({
+    owner,
+    repo,
+    issueNumber,
+    issueUrl,
+    prNumber,
+    prUrl,
+    branchName,
+    tempDir,
+    isContinueMode,
+    forkedRepo,
+    argv
+  });
+  // Log prompt details in verbose mode
+  if (argv.verbose) {
+    await log('\n📝 Final prompt structure:', { verbose: true });
+    await log(`   Characters: ${prompt.length}`, { verbose: true });
+    await log(`   System prompt characters: ${systemPrompt.length}`, { verbose: true });
+    if (feedbackLines && feedbackLines.length > 0) {
+      await log('   Feedback info: Included', { verbose: true });
+    }
+    // In dry-run mode, output the actual prompts for debugging
+    if (argv.dryRun) {
+      await log('\n📋 User prompt content:', { verbose: true });
+      await log('---BEGIN USER PROMPT---', { verbose: true });
+      await log(prompt, { verbose: true });
+      await log('---END USER PROMPT---', { verbose: true });
+      await log('\n📋 System prompt content:', { verbose: true });
+      await log('---BEGIN SYSTEM PROMPT---', { verbose: true });
+      await log(systemPrompt, { verbose: true });
+      await log('---END SYSTEM PROMPT---', { verbose: true });
+    }
+  }
+  // Escape prompts for shell usage
+  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+  const escapedSystemPrompt = systemPrompt.replace(/"/g, '\\"').replace(/\$/g, '\\$');
+  // Execute the Claude command
+  return await executeClaudeCommand({
+    tempDir,
+    branchName,
+    prompt,
+    systemPrompt,
+    escapedPrompt,
+    escapedSystemPrompt,
+    argv,
+    log,
+    setLogFile,
+    getLogFile,
+    formatAligned,
+    getResourceSnapshot,
+    forkedRepo,
+    feedbackLines,
+    claudePath,
+    $
+  });
+};
+/**
+ * Calculate total token usage from a session's JSONL file
+ * @param {string} sessionId - The session ID
+ * @param {string} tempDir - The temporary directory where the session ran
+ * @returns {Object} Token usage statistics
+ */
+/**
+ * Fetches model information from pricing API
+ * @param {string} modelId - The model ID (e.g., "claude-sonnet-4-5-20250929")
+ * @returns {Promise<Object|null>} Model information or null if not found
+ */
+export const fetchModelInfo = async (modelId) => {
+  try {
+    const https = (await use('https')).default;
+    return new Promise((resolve, reject) => {
+      https.get('https://models.dev/api.json', (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const apiData = JSON.parse(data);
+            // Search for the model across all providers
+            for (const provider of Object.values(apiData)) {
+              if (provider.models && provider.models[modelId]) {
+                const modelInfo = provider.models[modelId];
+                // Add provider info
+                modelInfo.provider = provider.name || provider.id;
+                resolve(modelInfo);
+                return;
+              }
+            }
+            // Model not found
+            resolve(null);
+          } catch (parseError) {
+            reject(parseError);
+          }
+        });
+      }).on('error', (err) => {
+        reject(err);
+      });
+    });
+  } catch {
+    // If we can't fetch model info, return null and continue without it
+    return null;
+  }
+};
+/**
+ * Calculate USD cost for a model's usage with detailed breakdown
+ * @param {Object} usage - Token usage object
+ * @param {Object} modelInfo - Model information from pricing API
+ * @param {boolean} includeBreakdown - Whether to include detailed calculation breakdown

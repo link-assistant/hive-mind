@@ -1,0 +1,36 @@
+722
+feat(usage-limit): handle limits across tools + reset-time comments (Fixes #719)
+2025-11-13T04:48:43Z
+issue-719-a653aae7d4d5
+419e64bc6c6ac88b8660d2cd44dba0dd2a833f4e
+9
+Show recent 5 comments bodies:
+[] konard:
+Added case study docs and a small demo:
+
+- docs/case-studies/issue-719-usage-limit/INDEX.md
+- docs/case-studies/issue-719-usage-limit/10-LOGS.md
+- docs/case-studies/issue-719-usage-limit/20-TIMELINE.md
+- experiments/usage-limit-demo.mjs
+
+The demo prints the console-friendly usage-limit message for Claude, Codex, and OpenCode without external API calls. CI is green on recent runs. Let me know if you want me to extend the case study (e.g., add more excerpts) or wire a minimal check into local CI.
+---
+[] konard:
+Validated the latest changes for #719:
+- Confirmed usage-limit gist fallback in `src/github.lib.mjs:656` is active regardless of `errorMessage` when `isUsageLimit=true`.
+- Verified `src/solve.mjs` sets `global.limitResetTime` and passes `isUsageLimit`, `limitResetTime`, and `resumeCommand` to `attachLogToGitHub`.
+- Ran local lint; no errors (11 warnings) — see logs.lint.run.txt.
+- Reviewed CI runs: older failures reproduced before fixes; subsequent runs are green. Latest run for 419e64b is in progress; will monitor.
+
+If you want me to address lint warnings or add a small sanity test in `examples/` or `experiments/`, I can do that next.
+
+---
+[] konard:
+Small follow-up: fixed gist fallback to always use the Usage Limit comment when isUsageLimit=true. Previously it incorrectly required errorMessage to be set, which caused non-usage-limit formatting in some long-log cases. File: src/github.lib.mjs:656-704.
+---
+[] konard:
+Fixed usage-limit PR comment formatting and added sessionId to failure log uploads.\n\nChanges:\n- Treat isUsageLimit as primary condition in attachLogToGitHub (so usage-limit comments render even without a generic error message).\n- Include sessionId in failure attach to show it in the comment and resume instructions.\n\nPushed commit 7c17442. A new CI run is queued; I’ll monitor and review logs if anything fails.
+---
+[] konard:
+Implemented CLI flag alias support for --skip-claude-check (mapped to --skip-tool-check) in both solve and hive. Hive now also forwards and logs the flag when invoking solve. This addresses the earlier CI failure complaining about unknown arguments.\n\nPushed commit f0f83ec. Monitoring the new CI run; will download and analyze logs if any job fails.
+---

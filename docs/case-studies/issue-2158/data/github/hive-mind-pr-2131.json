@@ -1,0 +1,1074 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "## What this fixes\n\n`--model formal-ai` produced no work on a hello-world issue for every tool tried in the report — `claude`, `codex`, and `agent` (the last across 18 restarts). Three separate root causes, all in the same place: Hive Mind invoked each CLI **through the `formal-ai with <tool> …` argv wrapper**, and the wrapper rewrites the argv it is given.\n\n| Tool     | What actually happened                                                                                                                                                             |\n| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n| `claude` | The caller's `-p <prompt>` never reached the CLI. A workspace-effect keyword anywhere in argv flipped the wrapper into a recovery path that consumed stdin and substituted its own prompt. |\n| `agent`  | The argv was reordered and `--interactive` was injected into a headless, piped invocation.                                                                                          |\n| `codex`  | `exec` was dropped, and `-c` overrides placed after `exec` discarded the ones placed before it — `model_provider` fell back to `openai` and the run 401'd against `api.openai.com`. |\n\nFixes #2130.\n\n## The fix\n\nStop going through the argv wrapper. Hive Mind now starts `formal-ai serve --agent-mode` once per run and points **the native CLI** at that endpoint through each tool's own configuration channel, so nothing can rewrite the argv, drop the prompt, or redirect the traffic:\n\n| Tool                 | Channel                                                                     |\n| -------------------- | --------------------------------------------------------------------------- |\n| `codex`              | `CODEX_HOME` with a generated `config.toml` (`model_provider` pinned)       |\n| `gemini`             | `GEMINI_CLI_SYSTEM_SETTINGS_PATH` with `security.auth.selectedType`         |\n| `qwen`               | `OPENAI_BASE_URL` + `OPENAI_API_KEY` + `OPENAI_MODEL`                        |\n| `claude`/`agent`/`opencode` | `ANTHROPIC_BASE_URL` / provider env, via the client registry           |\n\nEverything is materialised under `~/.cache/hive-mind/formal-ai/<tool>` (not `/tmp` — codex refuses PATH helpers under `/tmp`). The operator's `HOME`, git, `gh` and ssh configuration is never shadowed, and for `sh -lc` invocations the environment is re-exported inside the script so a stale `formal-ai with --global` block in `~/.profile` cannot override it.\n\nNew: `src/formal-ai-runtime.lib.mjs`, `src/codex.run-diagnostics.lib.mjs`, `src/quiet-probe.lib.mjs`.\n\n## Hive-Mind-side false positives, warnings and errors (R1)\n\nEvery one of these is evidenced by a line in the stored solver logs:\n\n- **False negative** — \"No working session summary available from AI tool output\" for a session that produced one. Agent 0.25.x nests assistant text under `part`, so `data.text` was always empty.\n- **False positive** — codex printed a `WARNING` on every run about a `last-message` file that a failed run is not expected to have written.\n- **False positive** — an expected `gh: Not Found (HTTP 404)` existence probe printed as an error.\n- **Error** — `gh auth setup-git` fails on a bind-mounted `~/.gitconfig` (`Device or resource busy`); Hive Mind continued with **no** credential helper. It now falls back to clone-local config.\n- **Wrong remedy** — \"Please run: codex login\" for a model that is not served by codex's own account.\n\n## Log noise, applied across the whole codebase (R10)\n\nRead-only probes mirrored their raw payloads into the log that `--attach-logs` uploads: a ~33 KB PR object once per watch iteration, up to 46 KB of comments per restart, and — worst — **`gh auth status --show-token` printing a live credential in clear text**. The `quietProbe`/`QUIET_PROBE` idiom is applied to all 20 affected modules, with a repo-wide static test guarding against regressions.\n\n## Debug output for the next iteration (R9)\n\nThe Formal AI wrapper version is now recorded in the solve log on both the success and failure paths, and the runtime logs its endpoint, protocol, config root and environment. Codex's run diagnostics were extracted into pure, unit-testable functions.\n\n## Upstream reports (R2)\n\nEight issues filed against `link-assistant/formal-ai`, each with a re-runnable reproduction committed under [`experiments/issue-2130`](experiments/issue-2130/):\n\n| Issue                                                       | Defect                                                                            |\n| ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |\n| [#902](https://github.com/link-assistant/formal-ai/issues/902) | codex `-c` overrides before `exec` discarded once any `-c` follows it            |\n| [#903](https://github.com/link-assistant/formal-ai/issues/903) | argv construction defects across all six clients                                  |\n| [#904](https://github.com/link-assistant/formal-ai/issues/904) | agent mode reduces a repo task to plan-and-`cat`                                  |\n| [#905](https://github.com/link-assistant/formal-ai/issues/905) | success claimed for a turn in which every tool call failed                        |\n| [#906](https://github.com/link-assistant/formal-ai/issues/906) | \"no synthesis route\" unless the prompt names a language                           |\n| [#907](https://github.com/link-assistant/formal-ai/issues/907) | intent router answers the caller's framing — gemini's injected date line hijacks every run |\n| [#908](https://github.com/link-assistant/formal-ai/issues/908) | verification verdict tracks output presence, not the exit code                    |\n| [#909](https://github.com/link-assistant/formal-ai/issues/909) | `--global` writes a config both gemini and qwen refuse to start from               |\n\n**Negative result, recorded deliberately:** no `link-assistant/agent` filing is warranted. The 18 restarts were Hive Mind's own auto-restart-until-mergeable feature reacting to a run that produced nothing — `agent` 0.25.5 exits 0 in 4 s on closed piped stdin, with *and* without the injected `--interactive` ([`repro-agent-interactive-stdin.mjs`](experiments/issue-2130/repro-agent-interactive-stdin.mjs)). An earlier draft of the case study claimed otherwise; that claim is corrected here and [upstream in #903](https://github.com/link-assistant/formal-ai/issues/903#issuecomment-5160227783).\n\n## Case study and data (R6, R7, R8)\n\n[`docs/case-studies/issue-2130`](docs/case-studies/issue-2130/) — timeline, the full requirement inventory (R1–R10) with status, per-tool root causes with quoted log lines, upstream defects with reproductions, a survey of existing components considered, and a solution-plan table. Supporting data:\n\n- `data/tool-logs/` — the 7 solver logs from all three runs (including all 18 agent restarts), sanitized\n- `data/runs/` — captured output of every experiment\n- `data/probes/` — verbatim Formal AI answers\n- `data/github/` — 30 API captures across 6 repositories\n\n## How to reproduce and verify\n\n```bash\n# Before: the prompt never arrives\nnode experiments/issue-2130/probe-stdin.mjs\n\n# After: every CLI reaches Formal AI and exits 0\nnode experiments/issue-2130/e2e-direct-endpoint.mjs claude agent codex qwen gemini opencode\n```\n\nAutomated coverage: `tests/test-issue-2130-formal-ai-runtime.mjs` (478 lines) and `tests/test-issue-2130-log-noise.mjs` (316 lines).\n\nEvery experiment script writes into a throwaway `HOME`, so `formal-ai with … --global` never touches the operator's real `~/.profile`.\n\n## Checks\n\n`npm test` (372 files), `npm run lint` and `npm run format:check` all pass locally.\n",
+  "closedAt": "2026-08-02T21:10:56Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-02T16:37:16Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T16:37:16Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2130",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "57778e72c9a760ebf070b6facc63d2d63a9c0340"
+    },
+    {
+      "authoredDate": "2026-08-02T18:10:16Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T18:10:16Z",
+      "messageBody": "…of the argv wrapper\n\n`--model formal-ai` dispatched every tool through `formal-ai with <tool> <args…>`.\nThat wrapper is structurally incompatible with how Hive Mind drives the CLIs:\n\n* it claims `--model`, `--verbose`, `--silent`, `--base-url`, `--interactive`,\n  `--non-interactive` and `--summarize` for itself, so Hive Mind's own flags with\n  those names never reach the tool;\n* it appends the remaining ARGS *after* the argument list it builds itself\n  (`--print` / `-p` / `exec`), which reorders Hive Mind's carefully ordered argv;\n* it switches into an orchestration/recovery mode on a case-insensitive scan for\n  workspace-effect keywords (`create`, `write`, `implement`). Hive Mind's\n  `--disallowedTools … CronCreate …` always matched, and in that mode the wrapper\n  consumes stdin without forwarding it and substitutes its own recovery prompt —\n  so the tool never saw the Hive Mind prompt at all.\n\nReplace it with a direct-endpoint runtime (`src/formal-ai-runtime.lib.mjs`):\nstart `formal-ai serve --agent-mode` with the repository clone as cwd, let\n`formal-ai with --global --no-start-server` materialise the per-client config in\nan isolated HOME, translate that config into environment variables, and then run\nthe *native* CLI unchanged. Every tool adapter (claude, codex, agent, opencode,\nqwen, gemini) now goes through the same path, so `--model formal-ai` behaves\nuniformly.\n\nPer-tool details:\n\n* codex/opencode/agent: config is consumed via `CODEX_HOME` / `XDG_CONFIG_HOME`\n  rather than `-c` overrides. `-c` flags passed after `exec` replace the global\n  `-c` set, which wiped `model_providers.*` and produced a 401 against\n  api.openai.com. `CODEX_HOME` is seeded from the repository-scoped one built by\n  the capability preflight (issue #2074), so both features coexist.\n* codex/qwen run through `sh -lc`, whose login shell sources the operator's\n  `~/.profile` — which may still hold stale exports from an earlier\n  `formal-ai with --global` run. The run's environment is re-exported inside the\n  script so it wins.\n* gemini: headless runs resolve `security.auth.selectedType` from the settings\n  hierarchy and abort with \"Invalid auth method selected.\" when it is unset;\n  `GEMINI_DEFAULT_AUTH_TYPE` is interactive-only. Hive Mind supplies the missing\n  setting through `GEMINI_CLI_SYSTEM_SETTINGS_PATH` so HOME (and with it the\n  operator's git/gh/ssh configuration) stays untouched.\n* `--dry-run` / `--only-prepare-command` never start a server or write config.\n\nAlso fix a false negative in the stream parsers: agent 0.25.x and OpenCode nest\nassistant text under `part` (`{\"type\":\"text\",\"part\":{\"type\":\"text\",…}}`) and\nnever set a top-level `data.text`, so `resultSummary` was null for every\nsuccessful run and Hive Mind reported \"No working session summary available from\nAI tool output\".\n\nRefs #2130",
+      "messageHeadline": "fix(formal-ai): run native CLIs against a Formal AI endpoint instead …",
+      "oid": "7399cbd02192f7bdc563029857ebc959b2308216"
+    },
+    {
+      "authoredDate": "2026-08-02T18:17:16Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T18:17:16Z",
+      "messageBody": "Compile every artefact referenced by the issue into\n`docs/case-studies/issue-2130/data`:\n\n* `tool-logs/` — all 22 restart/resume log uploads from the three failing runs\n  (claude ×2, codex ×2, agent ×18). Each run's auto-restarts re-upload an\n  ever-growing cumulative log to a brand-new gist, so 15 of the 22 are strict\n  byte-prefixes of a later one; only the 7 maximal logs are stored, and\n  `index.json` records gist id, raw URL, PR comment, timestamp and byte count for\n  all 22 including the prefix relation. Logs above ~300 KB are gzipped, matching\n  the convention already used by issue-1084/1510/2028.\n* `github/` — repo, issue, PR, comment and commit JSON for the three failing\n  test-hello-world repositories and the three successful LLM baselines the issue\n  points at.\n* `probes/` — curl probes against a live Formal AI 0.317.0 server that reproduce\n  the model-side defects without any Hive Mind involvement.\n\nAlso add `experiments/issue-2130` with the reproduction scripts, the capture\nshims that record what `formal-ai with` actually hands each CLI, and the\nend-to-end harness for the direct-endpoint fix.\n\nRefs #2130",
+      "messageHeadline": "docs(case-study): collect issue #2130 evidence",
+      "oid": "684d0d5f740718c238b2fe5937971f29ccba8a9d"
+    },
+    {
+      "authoredDate": "2026-08-02T18:18:16Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T18:18:16Z",
+      "messageBody": "experiments/**/*.log is covered by .gitignore, so the captured output of the\nreproduction scripts was silently left out of the repository. Move it next to\nthe rest of the evidence in docs/case-studies/issue-2130/data/runs, where the\n!docs/case-studies/**/*.log exception (issue #1939) keeps it committable.\n\nRefs #2130",
+      "messageHeadline": "docs(case-study): store issue #2130 run captures under docs/case-studies",
+      "oid": "6f99918bee748c3ba6e643610ef10f59479093c1"
+    },
+    {
+      "authoredDate": "2026-08-02T18:35:22Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T18:35:22Z",
+      "messageBody": "Qwen Code detects its auth type from the environment, not from settings:\n`getAuthTypeFromEnv` (qwen-code 0.21.2) only returns the OpenAI auth type\nwhen `OPENAI_API_KEY`, `OPENAI_BASE_URL` **and** one of `OPENAI_MODEL` /\n`QWEN_MODEL` are all set. The `.profile` block `formal-ai with --global`\nwrites contains only the first two, so every headless run aborted with\n\"No auth type is selected. Please configure an auth type (e.g. via settings\nor `--auth-type`) before running in non-interactive mode.\"\n\n`buildQwenAuthEnv` completes the triple with the model Formal AI itself\nserves, and only when the operator has not already set one. `--model` on\nthe command line still wins for generation; the variable is read here only\nfor auth detection.\n\nVerified live against `formal-ai serve --agent-mode`: all six CLIs\n(claude, agent, codex, qwen, gemini, opencode) now reach Formal AI and\nexit 0 — captures in docs/case-studies/issue-2130/data/runs/e2e-final-*.log.\n\nAlso point the e2e harness at docs/case-studies (experiments/**/*.log is\ngitignored) and keep `PWD` in sync with the spawn cwd, which OpenCode-derived\nCLIs use to resolve the project root.",
+      "messageHeadline": "fix(formal-ai): complete the qwen headless auth triple",
+      "oid": "09ef0338ea9fef2326ee4234308c2630cfaefc49"
+    },
+    {
+      "authoredDate": "2026-08-02T18:51:56Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T18:51:56Z",
+      "messageBody": "Issue #2130 asks to fix \"all false positives, false negatives, warnings\nand errors on Hive Mind side\" first. Each change below is driven by a line\nin the logs attached to the issue (stored under\ndocs/case-studies/issue-2130/data/tool-logs/):\n\n- The throwaway HOME for a Formal AI run moves from os.tmpdir() to\n  ~/.cache/hive-mind/formal-ai. codex-cli 0.146.0 refuses to create its\n  PATH helper binaries when CODEX_HOME is under the system temp dir and\n  printed a WARNING on every single run.\n- `checkFileInBranch` no longer mirrors its `gh api .../contents` probe.\n  \"Absent\" is a normal answer, but the probe printed `gh: Not Found\n  (HTTP 404)` on a miss and the whole contents payload on a hit.\n- `gh auth setup-git` failing on a bind-mounted ~/.gitconfig (\"Device or\n  resource busy\") now falls back to a clone-local credential helper\n  instead of mirroring the raw error and continuing with no helper.\n- \"Please run: codex login\" / \"Please run: claude login\" is wrong advice\n  when the model is served by Formal AI - the CLI never talks to the\n  vendor. `buildAuthRemedyLines` substitutes Formal-AI-specific guidance.\n- A failed Codex run legitimately writes no `--output-last-message` file\n  and emits no `turn.completed` usage. Both were logged as WARNINGs, so a\n  single upstream failure produced two extra warnings pointing at nothing.\n\nThe Codex post-run diagnostics move to src/codex.run-diagnostics.lib.mjs,\nwhich keeps codex.lib.mjs under the 1500-line budget and makes the\n\"is this a real warning?\" decisions unit-testable.\n\nAdds tests/test-issue-2130-log-noise.mjs (15 tests) and three tests for\nthe isolated-HOME root.",
+      "messageHeadline": "fix(logs): stop reporting expected outcomes as warnings (issue #2130)",
+      "oid": "8fef3021cbee659bac3e113f2eb9655b0b317b5d"
+    },
+    {
+      "authoredDate": "2026-08-02T19:40:21Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T19:40:21Z",
+      "messageBody": "Issue #2130 reports \"false positives, warnings and errors on Hive Mind\nside\" in the logs attached to the reproduction PRs. Measured over the\nstored captures, a large share of those logs is not Hive Mind speaking\nat all -- it is the raw output of its own read-only probes:\n\n  claude-02-FTn7sm.log      96,333 B total,  36,673 B mirrored (38.1%)\n  codex-02-rv2k7W.log.gz   336,114 B total,  36,768 B mirrored (10.9%)\n  agent-18-V7E0Ee.log.gz  4,456,925 B total, 455,076 B mirrored (10.2%)\n  agent-11-0JuEzF.log.gz 11,046,857 B total, 597,193 B mirrored ( 5.4%)\n\nsrc/lib.mjs patches process.stdout.write and copies everything to the\nlog file that --attach-logs uploads. command-stream mirrors every child\nprocess's stdout by default, so every `gh`/`git` question Hive Mind asks\nabout itself dumped its answer between the solver's own sentences:\n\n  - 12 copies of a ~33 KB pull request object, one per watch iteration\n    of checkGitHubTerminalState, which only asks \"does this PR exist?\"\n  - comment-list dumps of 36-80 KB from the post-finish sweep, once per\n    restart and growing with the conversation\n  - `konard` alone on a line 23 times (gh api user --jq .login)\n  - `public` 12 times (--jq .visibility), plus bare GraphQL node ids\n  - expected `gh: Not Found (HTTP 404)` branch probes, which read as\n    unexplained errors even though the caller handles them\n  - `gh auth status --show-token`, a live credential in clear text; the\n    sanitizer masks tokens it knows about, and this is the call that\n    discovers them\n\nAdd src/quiet-probe.lib.mjs exporting QUIET_PROBE ({ mirror: false,\ncapture: true }) and quietProbe($). `capture: true` is not optional: it\nis what keeps result.stdout available, so the probe is silenced without\nsilencing the answer. Two call forms exist because about half of these\nhelpers receive $ as an injected parameter, and the doubles callers pass\nare plain tagged templates that throw on $({...}):\n\n  module-owned $  ->  await $(QUIET_PROBE)`gh api ...`\n  injected $      ->  await quietProbe($)`gh api ...`\n\nwrapDollarWithGhRetry now forwards command-stream's options-call form,\nso the idiom composes with rate-limit retry -- all 24 modules build $\nthrough that wrapper.\n\nApplied across the 20 affected modules (issue requirement: \"if we have\nissue in multiple places, it should be fixed in all them\"). Write calls\nstay loud; only read-only probes are quieted. Sites already using\n{ silent: true } or a private $silent are left alone.\n\ntests/test-issue-2130-log-noise.mjs grows to 23 tests, including a\nrepo-wide static guard that fails if any src/**/*.mjs reintroduces a\nbare mirrored `gh api user --jq .login`.\n\nAlso adds docs/case-studies/issue-2130/README.md: the deep case study\nrequested by the issue -- timeline, requirement inventory R1-R10, root\ncause per defect with log citations, per-tool configuration table,\nupstream defect reproductions, and the existing-component survey.",
+      "messageHeadline": "fix(2130): stop mirroring read-only probe payloads into the attached log",
+      "oid": "a6c5ef9ad21942c7a9f551de74c7760b55081674"
+    },
+    {
+      "authoredDate": "2026-08-02T19:45:06Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T19:45:06Z",
+      "messageBody": "The first draft of section 3 claimed all three tools failed from one\ncause -- the wrapper swallowing stdin. Re-reading the logs shows that is\nwrong for agent, and unproven for codex:\n\n  - claude: the caller's `-p <prompt>` pair is dropped. Confirmed by\n    `Error: Input must be provided ... when using --print` plus\n    completion_state=failed, input_tokens=0, actual_endpoint=null.\n  - agent: the argv IS mangled (`-p \"--model formalai/formal-ai\n    --verbose\"`), but agent ignored it, started in stdin-stream mode\n    with alwaysAcceptStdin, and DID receive the piped prompt -- the\n    verbatim Hive Mind prompt appears in the session's own plan record.\n    The run failed for a different reason: Formal AI reduced the whole\n    issue to `write .formal-ai/general-change-plan.lino` + `cat` it\n    back, then closed the turn. Six identical no-ops, then the 5/5\n    auto-restart limit.\n  - codex: `provider=ModelProviderInfo { name: \"OpenAI\", base_url:\n    None }` -- the Formal AI provider block never reached the session.\n    The earlier text asserted a specific mechanism (`-c` after `exec`\n    wiping the global set) that the logs do not show; it is now stated\n    as a hypothesis to check upstream, not as a finding.\n\nAlso records goal pollution (the `goal` field holds the entire Hive\nMind system prompt) and softens 5.3 to match.",
+      "messageHeadline": "docs(2130): correct the per-tool root causes in the case study",
+      "oid": "cbf11d82c94570659a106bebb6c552f3f1f2aa14"
+    },
+    {
+      "authoredDate": "2026-08-02T19:53:53Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T19:53:53Z",
+      "messageBody": "…unnable bisection\n\nThe earlier draft softened this to \"one plausible mechanism\". It is not\nplausible, it is reproducible: experiments/issue-2130/repro-codex-c-order.sh\nruns the same prompt three ways against one live Formal AI server, writing an\nidentical config.toml into a fresh CODEX_HOME each time, and reads the resolved\nprovider back out of each session rollout.\n\n  before  provider block before exec                 -> model_provider=formalai, 0x 401, exit 0\n  after   + Hive Mind's -c after exec                -> model_provider=openai,   7x 401, exit 1\n  fixed   every override before exec                 -> model_provider=formalai, 0x 401, exit 0\n\nAppending post-exec overrides replaces the whole global set, which is exactly\nthe shape of the production log. Also records that even the successful variants\nproduce no work: Formal AI routes \"Reply with the single word: ok\" to its\nunknown handler.",
+      "messageHeadline": "docs(case-study): prove the codex `-c` ordering mechanism with a re-r…",
+      "oid": "5e03a8252d2803be50688af829966019e5ec85b3"
+    },
+    {
+      "authoredDate": "2026-08-02T20:08:38Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T20:08:38Z",
+      "messageBody": "Issue #2130's round-2 failures could not be attributed to a mechanism\nbecause no attached log recorded which formal-ai build produced them:\nvalidation captured the native CLI's version but never the wrapper's,\neven though the wrapper is what builds the tool's argv.\n\nRead `formal-ai --version` during dispatch validation and log it on both\nthe success and the failure path. The lookup is diagnostics, never a\ngate: a wrapper that cannot answer `--version` still dispatches.\n\nAlso stores the argv reproductions that show what `formal-ai with <tool>`\nactually hands each of the five tools.",
+      "messageHeadline": "fix(formal-ai): record the wrapper version in solve logs",
+      "oid": "8282c65a94d12133da8a8923dda588a35ab94526"
+    },
+    {
+      "authoredDate": "2026-08-02T20:10:11Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T20:10:11Z",
+      "messageBody": "Adds sections 3.1.1 and 3.2.1 covering what `formal-ai with <tool>`\nreproducibly does to each tool's argv on 0.317.0: duplicated caller\nflags, passthrough flags dropped from retry attempts onwards, the\nrecovery prompt built from raw argv, the doubled `formalai/` prefix for\nagent, `--verbose` dropped for every tool, `--interactive` injected into\npiped invocations, and `-p` handed to `codex exec` which has no such\nflag.\n\nAlso records why 3.1's production mechanism stayed unreachable: no log\nnames a wrapper version. Section 4.7 now covers the fix.",
+      "messageHeadline": "docs(case-study): record the wrapper-argv reproductions for 0.317.0",
+      "oid": "c808a5e7c705b8f4800191e889c76564fb948e77"
+    },
+    {
+      "authoredDate": "2026-08-02T20:39:45Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T20:39:45Z",
+      "messageBody": "The `--interactive` flag Formal AI injects for `agent` was blamed for the run\nthat produced nothing across six attempts. It is not the cause:\nrepro-agent-interactive-stdin.mjs drives agent 0.25.5 -- the production version\n-- with stdin closed right after the prompt, and both the plain and the\n`--interactive` shape exit 0 in 4 seconds. The 5/5 restarts were Hive Mind's own\nauto-restart-until-mergeable feature reacting to an empty result. The flag\ninjection is still an argv defect worth fixing; it is not a hang. Correction\nalso posted to formal-ai#903 so its severity is not overstated.\n\nConsequently no `link-assistant/agent` issue is warranted, which the case study\nnow records as an explicit negative result rather than leaving R2 looking\nhalf-examined.\n\nThree new upstream defects, each with a stored reproduction:\n\n- #907 Formal AI's intent router matches the caller's framing, not the request.\n  gemini-cli injects \"Today's date is <date>\" into every turn, so Formal AI runs\n  `date` and never does the work -- gemini is unusable on 0.317.0. The trigger\n  is phrase-level: bare `date` and `Today is ...` do not fire it. Five other\n  hypotheses were tested and disproved first; they are recorded so the search\n  space stays shrunk.\n- #908 The verification verdict tracks whether output was non-empty, not the\n  exit code. `py_compile` exiting 0 silently is read as failure and correct work\n  is thrown away -- the mirror image of #905.\n- #909 `formal-ai with --global` writes a config gemini and qwen both refuse to\n  start from. Hive Mind is unaffected; it materialises both missing pieces in\n  src/formal-ai-runtime.lib.mjs.\n\nAdds the filed-issue index to section 6 and documents every script in the\nexperiments README, including which hypotheses came back negative.",
+      "messageHeadline": "docs(case-study): correct the agent-hang claim and record #907-#909",
+      "oid": "1c106b110d0990d279a62ac5d56a0a8af3e9d058"
+    },
+    {
+      "authoredDate": "2026-08-02T20:46:13Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-02T20:46:13Z",
+      "messageBody": "…nt fix",
+      "messageHeadline": "chore(changeset): add patch changeset for the Formal AI direct-endpoi…",
+      "oid": "55b30c8a069b77b92adbf6e5631dca8f6815c1bc"
+    }
+  ],
+  "createdAt": "2026-08-02T16:37:25Z",
+  "files": [
+    {
+      "path": ".changeset/formal-ai-direct-endpoint.md",
+      "additions": 7,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/README.md",
+      "additions": 826,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e68-059d-749e-900f-af9e7aa44451.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e68-059d-749e-900f-af9e7aa44451.issue-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e68-059d-749e-900f-af9e7aa44451.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e68-059d-749e-900f-af9e7aa44451.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e68-059d-749e-900f-af9e7aa44451.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e7d-f3e2-713e-a22a-0e69a326dc93.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e7d-f3e2-713e-a22a-0e69a326dc93.issue-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e7d-f3e2-713e-a22a-0e69a326dc93.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e7d-f3e2-713e-a22a-0e69a326dc93.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01991e7d-f3e2-713e-a22a-0e69a326dc93.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01992020-00f8-7cf2-9bb6-a1c2a7718de5.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01992020-00f8-7cf2-9bb6-a1c2a7718de5.issue-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01992020-00f8-7cf2-9bb6-a1c2a7718de5.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01992020-00f8-7cf2-9bb6-a1c2a7718de5.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/01992020-00f8-7cf2-9bb6-a1c2a7718de5.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-00e1-73b9-955e-f357a1600d5b.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-00e1-73b9-955e-f357a1600d5b.issue-comments.json",
+      "additions": 542,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-00e1-73b9-955e-f357a1600d5b.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-00e1-73b9-955e-f357a1600d5b.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-00e1-73b9-955e-f357a1600d5b.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-fa49-7c9d-a664-b7ea33bb698a.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-fa49-7c9d-a664-b7ea33bb698a.issue-comments.json",
+      "additions": 77,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-fa49-7c9d-a664-b7ea33bb698a.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-fa49-7c9d-a664-b7ea33bb698a.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb330-fa49-7c9d-a664-b7ea33bb698a.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb331-c107-78c7-8ff6-9f127a3c593c.commits.json",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb331-c107-78c7-8ff6-9f127a3c593c.issue-comments.json",
+      "additions": 47,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb331-c107-78c7-8ff6-9f127a3c593c.issues.json",
+      "additions": 69,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb331-c107-78c7-8ff6-9f127a3c593c.pulls.json",
+      "additions": 225,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/github/019fb331-c107-78c7-8ff6-9f127a3c593c.repo.json",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/probes/formal-ai-0.317.0-headless-config-gaps.log",
+      "additions": 23,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/probes/formal-ai-0.317.0-intent-hijack.log",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/probes/formal-ai-0.317.0-language-extraction.md",
+      "additions": 95,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-minimal.stderr.log",
+      "additions": 4,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-minimal.stdout.log",
+      "additions": 5,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-after.stderr.log",
+      "additions": 9,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-after.stdout.log",
+      "additions": 15,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-before.stderr.log",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-before.stdout.log",
+      "additions": 6,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-fixed.stderr.log",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-order-fixed.stdout.log",
+      "additions": 6,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-workaround.stderr.log",
+      "additions": 6,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-workaround.stdout.log",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-workaround2.stderr.log",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/codex-workaround2.stdout.log",
+      "additions": 6,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-agent.log",
+      "additions": 1573,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-claude.log",
+      "additions": 401,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-claude2.log",
+      "additions": 398,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-codex.log",
+      "additions": 23,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-codex2.log",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-codex3.log",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-gemini.log",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-gemini2.log",
+      "additions": 2,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-gemini3.log",
+      "additions": 17,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-oc.log",
+      "additions": 38,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/direct-qwen.log",
+      "additions": 13,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-agent.log",
+      "additions": 980,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-claude.log",
+      "additions": 402,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-codex-home-root-fix.log",
+      "additions": 27,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-agent.log",
+      "additions": 2062,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-claude.log",
+      "additions": 402,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-codex.log",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-gemini.log",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-opencode.log",
+      "additions": 20,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-qwen.log",
+      "additions": 17,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-final-summary.log",
+      "additions": 56,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-gemini.log",
+      "additions": 16,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-qwen.log",
+      "additions": 17,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-run-agent.log",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-run-claude-js.log",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/e2e-run-claude.log",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-agent.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-claude.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-codex.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-gemini.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-opencode.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/global-qwen.log",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/repro-claude-stdin.stderr.log",
+      "additions": 4,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/repro-claude-stdin.stdout.log",
+      "additions": 99,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/repro-codex.stderr.log",
+      "additions": 14,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/repro-codex.stdout.log",
+      "additions": 15,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/runs/wrapper-argv.log",
+      "additions": 214,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/agent-11-0JuEzF.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/agent-12-A3Ia68.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/agent-18-V7E0Ee.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/claude-01-DAh7ws.log",
+      "additions": 1189,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/claude-02-FTn7sm.log",
+      "additions": 558,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/codex-01-WQPa4n.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/codex-02-rv2k7W.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2130/data/tool-logs/index.json",
+      "additions": 259,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/README.md",
+      "additions": 78,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/capture-gemini-request.mjs",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/claude-shim-capture.txt",
+      "additions": 15,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/clients.json",
+      "additions": 664,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/codex-prompt.txt",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/codex-shim-capture.txt",
+      "additions": 29,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "experiments/issue-2130/codex_last_msg2.txt",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-2130-0f3aa20b973e",
+  "headRefOid": "55b30c8a069b77b92adbf6e5631dca8f6815c1bc",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-02T21:10:55Z",
+  "number": 2131,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:43Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709020",
+      "name": "detect-changes",
+      "startedAt": "2026-08-02T20:46:25Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709296",
+      "name": "Instant Release",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709313",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743480",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-02T20:46:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743496",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-02T20:46:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743083",
+      "name": "lint",
+      "startedAt": "2026-08-02T20:46:45Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709488",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709669",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743669",
+      "name": "test-compilation",
+      "startedAt": "2026-08-02T20:46:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743716",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-02T20:46:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:47:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743330",
+      "name": "validate-docs",
+      "startedAt": "2026-08-02T20:46:52Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:44Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545743817",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-02T20:46:44Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709852",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709851",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:04Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873784",
+      "name": "test-suites",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:04Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873570",
+      "name": "test-execution",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:04Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873647",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:04Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873655",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:46:23Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545709765",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-02T20:46:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873903",
+      "name": "Release",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545873940",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545874033",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545874348",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545874184",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-02T20:48:05Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/30766367199/job/91545874364",
+      "name": "Helm Release",
+      "startedAt": "2026-08-02T20:48:05Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    }
+  ],
+  "title": "fix(formal-ai): run native CLIs against a Formal AI endpoint instead of the argv wrapper",
+  "updatedAt": "2026-08-02T21:10:57Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2131"
+}

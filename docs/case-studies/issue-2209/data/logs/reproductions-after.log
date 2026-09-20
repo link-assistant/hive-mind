@@ -1,0 +1,25 @@
+=== AFTER THE FIX (branch issue-2209-3231bae784c2) ===
+
+--- issue #2207 reproduction ---
+{
+  "updateStatus": "updated",
+  "updatedVersion": "0.346.0",
+  "updatedDigest": "sha256:new",
+  "taskImage": "sha256:new",
+  "taskVersion": "0.346.0",
+  "taskDigest": "sha256:new"
+}
+(exit 0)
+
+--- issue #2208 reproduction ---
+🧠 Formal AI: local wrapper version 0.339.1 (minimum 0.336.0)
+🧠 Formal AI: using the configured server http://127.0.0.1:35625
+🧠 Formal AI: serving backend 0.346.0 at http://127.0.0.1:35625
+🧠 Formal AI: local wrapper 0.339.1 differs from the serving backend 0.346.0; provenance records the backend
+{
+  "localWrapperVersion": "0.339.1",
+  "actualServerVersion": "0.346.0",
+  "reportedRuntimeVersion": "0.346.0",
+  "serverRequests": 1
+}
+(exit 0)

@@ -1,0 +1,34 @@
+================ npm 11.17.0 (/home/box/.nvm/versions/node/v20.20.2/bin/npm)
+---- npm link
+    
+    added 1 package, and audited 3 packages in 648ms
+    
+    found 0 vulnerabilities
+    npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:
+    npm warn allow-scripts   @hive-mind-fixture/link-me@1.0.0 (prepare: node -e "require('node:fs').writeFileSync('/tmp/tmp.Aqa8mt5JUL/prepare-ran', 'ran')")
+    npm warn allow-scripts
+    npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+    [prepare script RAN]
+---- npm link --ignore-scripts
+    
+    up to date, audited 3 packages in 613ms
+    
+    found 0 vulnerabilities
+    [prepare script did not run]
+================ npm 11.19.0 (/tmp/npm1119/node_modules/.bin/npm)
+---- npm link
+    
+    added 1 package, and audited 3 packages in 696ms
+    
+    found 0 vulnerabilities
+    npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+    npm warn install-scripts   @hive-mind-fixture/link-me@1.0.0 (prepare: node -e "require('node:fs').writeFileSync('/tmp/tmp.dgAKycjMqS/prepare-ran', 'ran')")
+    npm warn install-scripts
+    npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+    [prepare script RAN]
+---- npm link --ignore-scripts
+    
+    up to date, audited 3 packages in 554ms
+    
+    found 0 vulnerabilities
+    [prepare script did not run]

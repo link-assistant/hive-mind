@@ -1,0 +1,98 @@
+# Original Logs from Issue #1086
+
+## Command Executed
+```
+$ hive-telegram-bot --configuration "
+TELEGRAM_BOT_TOKEN: '849...55:AA...gk_YZ...PU'
+TELEGRAM_ALLOWED_CHATS:
+  -1002975819706
+  -1002861722681
+TELEGRAM_HIVE_OVERRIDES:
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-resume-on-limit-reset?  --tokens-budget-stats
+TELEGRAM_SOLVE_OVERRIDES:
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-resume-on-limit-reset
+  --tokens-budget-stats
+TELEGRAM_BOT_VERBOSE: true
+"
+```
+
+## Bot Output
+```
+[MISSING_ENV_FILE] missing .env file (/home/hive/.env)
+[MISSING_ENV_FILE] https://github.com/dotenvx/dotenvx/issues/484
+Validating solve overrides...
+✅ Solve overrides validated successfully
+Validating hive overrides...
+✅ Hive overrides validated successfully
+🔧 Sentry integration configured
+🤖 SwarmMindBot is starting...
+Bot token: 8490528355...
+Allowed chats (lino): (
+  -1002975819706
+  -1002861722681
+)
+Commands enabled: { solve: true, hive: true }
+Solve overrides (lino): (
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-resume-on-limit-reset
+  --tokens-budget-stats
+)
+Hive overrides (lino): (
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+)
+[VERBOSE] Verbose logging enabled
+[VERBOSE] Bot start time (Unix): 1767988755
+[VERBOSE] Bot start time (ISO): 2026-01-09T19:59:15.000Z
+[VERBOSE] Deleting webhook...
+[VERBOSE] Webhook deletion result: true
+🔄 Webhook deleted (if existed), starting polling mode...
+[VERBOSE] Launching bot with config: { allowedUpdates: [ 'message' ], dropPendingUpdates: true }
+```
+
+## Observations
+
+1. **Solve overrides shows 5 options**:
+   - --attach-logs
+   - --verbose
+   - --no-tool-check
+   - --auto-resume-on-limit-reset
+   - --tokens-budget-stats
+
+2. **Hive overrides shows only 6 options** (2 missing):
+   - --all-issues
+   - --once
+   - --skip-issues-with-prs
+   - --attach-logs
+   - --verbose
+   - --no-tool-check
+
+   **Missing options:**
+   - --auto-resume-on-limit-reset
+   - --tokens-budget-stats
+
+3. **Both validations pass**: The issue is not detected during validation because
+   yargs validation receives all options (the nested structure is still parsed
+   as valid options), but the display logic in `lino.format()` only shows
+   top-level values.
+
+## Key Finding
+
+The difference between TELEGRAM_SOLVE_OVERRIDES and TELEGRAM_HIVE_OVERRIDES:
+- SOLVE: Each option is on a separate line (works correctly)
+- HIVE: Last two options are on the same line (causes the bug)

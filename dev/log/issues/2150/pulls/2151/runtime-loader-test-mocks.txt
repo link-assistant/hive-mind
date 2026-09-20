@@ -1,0 +1,10 @@
+tests/test-issue-1901-playwright-mcp-pending.mjs:25:globalThis.use = async name => {
+tests/test-issue-1943-playwright-mcp-preflight-timeout.mjs:30:globalThis.use = async name => {
+tests/test-ready-to-merge-pagination-1645.mjs:42:globalThis.use = async moduleName => {
+tests/test-ready-to-merge-pagination-1645.mjs:43:  if (moduleName === 'command-stream') {
+tests/test-ready-to-merge-pagination-1645.mjs:55:  if (moduleName === 'getenv') {
+tests/test-ready-to-merge-pagination-1645.mjs:58:  if (moduleName === 'links-notation') {
+tests/test-ready-to-merge-pagination-1645.mjs:67:  throw new Error(`Unexpected use("${moduleName}") in test`);
+tests/test-issue-2023-claude-missing-result-resume.mjs:27:globalThis.use = async name => {
+tests/test-qwen-support.mjs:19:globalThis.use = async name => {
+tests/test-isolation-runner.mjs:41:    globalThis.use = originalUse;

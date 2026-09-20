@@ -1,0 +1,26 @@
+Testing issue #2109: safe killed-session resume instructions
+============================================================
+  ✅ PASS: immediate Telegram execution retains the /codex alias
+  ✅ PASS: queued Telegram work retains the /codex alias while waiting
+  ✅ PASS: screen queue execution passes the /codex alias to session tracking
+  ✅ PASS: screen queue execution persists the original solve arguments
+  ✅ PASS: isolated queue execution passes the /codex alias to session tracking
+  ✅ PASS: isolated queue execution persists the original solve arguments
+  ✅ PASS: durable session state preserves the Telegram alias across bot restarts
+  ✅ PASS: resume guidance uses the actual /solve Telegram alias
+  ✅ PASS: resume guidance uses the actual /claude Telegram alias
+  ✅ PASS: resume guidance uses the actual /codex Telegram alias
+  ✅ PASS: finds the last real thread id even when it is more than 256 KiB from EOF
+  ✅ PASS: finds a thread marker split across backward scan chunks
+Session isolation-session has finished. Sending notification to chat 555
+  ✅ PASS: resume instruction uses the thread id from this task log
+  ✅ PASS: resume instruction never borrows a UUID log from another task
+  ✅ PASS: Telegram resume instruction reuses the actual /codex alias
+  ✅ PASS: Telegram resume instruction does not suggest a terminal solve command
+Session isolation-session has finished. Sending notification to chat 555
+  ✅ PASS: does not offer resume when this task log has no tool thread id
+  ✅ PASS: does not use an unrelated UUID fallback when this task has no marker
+
+============================================================
+Results: 18 passed, 0 failed, 18 total
+============================================================

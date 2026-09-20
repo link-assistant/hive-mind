@@ -1,0 +1,6 @@
+PASS: missing terminal result after Exit code 144 is retryable
+PASS: Claude stream missing result resumes the captured session
+
+Total: 2 tests
+Passed: 2
+Failed: 0

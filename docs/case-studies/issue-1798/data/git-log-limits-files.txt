@@ -1,0 +1,40 @@
+32af9e11 feat(limits): display subscription end date for Claude and Codex
+fba41a91 Fix Telegram i18n fallbacks
+31b0f7e7 Add auto language detection and localize limits
+364512f5 Retry transient 5xx/network errors across all gh exec sites
+6318b20a Merge main and resolve Gemini/Qwen tool conflicts
+459a8606 Merge main and add Qwen Code support
+9386c481 Merge origin/main into issue-516-54126055
+bb0af8cb fix(ci): synchronize ESLint max-lines with check-file-line-limits.sh (#1730)
+e3063fff chore(rate-limit): add marker imports to gh-API callee files (#1726)
+23a2c534 fix(ci): retry use-m global loads on hosted-CI corrupt-install flakes (#1710)
+36161305 feat(claude/codex): add --sub-session-size and --disable-1m-context options (#1706)
+c85e802d Merge remote-tracking branch 'origin/main' into issue-817-03cfdb3ccba2
+8cc43494 feat(bidirectional): stream PR comments into Claude stdin as NDJSON (#817)
+ea79845a fix: enforce quiet claude solve configuration
+9d4e473f fix(limits): cap CPU core display at capacity
+24c05374 fix: correct Claude effort level mapping
+cece4731 feat: add --think xhigh, supportsEffortLevel, and cross-model effort mapping
+7a9ce2f6 feat: add Opus 4.7 adaptive thinking, xhigh effort, and --show-thinking-content
+2727cef2 feat: add Claude Opus 4.7 model support
+cbf1a2b7 Fix Codex queue config and CI regressions
+cfe4e369 Fix Codex CI and add changeset
+3f2ad01a fixes
+ab443153 Better codex support
+83ad9520 fix: increase activity timeout to 1hr, fix idle tracking, improve graceful kill (#1510)
+2eefee9f merge: resolve conflicts with main branch (models consolidation)
+3a1feea1 fix: add activity timeout, diagnostic counters, and buffer forwarding for interactive mode (Issue #1472)
+d7bcb510 fix: add stream startup timeout to detect stuck Claude CLI (Issue #1472/#1475)
+d23cb72b Rephrase rate limit message to be more user-friendly
+6fda93d0 Fix misleading rate limit message and improve verbose logging for /limits
+954d9cea merge: resolve conflicts with main branch
+b1dcc0ac Add stream inactivity timeout to prevent mid-session hangs (Issue #1444)
+fb50ac41 Increase min retry delay to 2min and maxNotRetryableAttempts to 5 (Issue #1437)
+22a88687 Fail fast on stuck retry loop when API signals non-retryable 500 error (Issue #1437)
+dc92237b Set opus alias to target Opus 4.6 instead of Opus 4.5 (Issue #1433)
+d6fc9751 merge: resolve conflicts with main branch
+187adb82 fix: restore closeSentry(), remove process.exit() hack, restore auto-ensure module
+91505bd7 chore: merge main into issue-1335 branch, resolve conflicts
+6da238e4 fix: apply Prettier formatting to Node 24 compat fixes
+faabdcb5 fix: resolve Node 24 CJS/ESM interop issues for hideBin and getenv
+5564d7e5 Refactor formatUsageMessage to use sections array and eliminate lastIndexOf queue injection

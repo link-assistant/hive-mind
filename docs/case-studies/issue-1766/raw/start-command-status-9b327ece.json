@@ -1,0 +1,26 @@
+{
+  "uuid": "9b327ece-b02f-4c49-8555-390efe99a6a1",
+  "pid": 100799,
+  "processIds": {
+    "wrapperPid": 100799
+  },
+  "status": "executed",
+  "exitCode": -1,
+  "command": "solve https://github.com/PONYAWKA/diagnostic-and-monitoring-tests/issues/3 --think max --tool codex --attach-logs --verbose --no-tool-check --disable-report-issue --language en",
+  "logPath": "/tmp/start-command/logs/isolation/screen/9b327ece-b02f-4c49-8555-390efe99a6a1.log",
+  "startTime": "2026-05-08T18:11:37.681Z",
+  "endTime": "2026-05-08T18:38:24.085Z",
+  "workingDirectory": "/home/box",
+  "shell": "/bin/sh",
+  "platform": "linux",
+  "options": {
+    "isolated": "screen",
+    "isolationMode": "detached",
+    "sessionName": "f0328a03-30be-49e9-8ae7-075334b038fd",
+    "image": null,
+    "endpoint": null,
+    "user": false,
+    "keepAlive": false,
+    "useCommandStream": false
+  }
+}

@@ -1,0 +1,67 @@
+Scanned 6206 tracked file(s) in .
+Ecosystems detected: 4 — GitHub Actions, Docker, JavaScript / TypeScript, Infrastructure as code
+
+--- the ecosystem inventory the generated issue would carry ---
+
+Update **every** ecosystem below, in this order (most of the repository first). One pull request may cover them all, but each ecosystem must end up fully current — not partially.
+
+1. **GitHub Actions**
+   - Manifests: `.github/actions/setup-buildx-resilient/action.yml`, `.github/workflows/cleanup-test-repos.yml`, `.github/workflows/links.yml`, `.github/workflows/release-preflight.yml`, `.github/workflows/release.yml`, `.github/workflows/security.yml`, `.github/workflows/workflows.yml`
+   - Update everything: bump every `uses:` reference to the newest release (tag or pinned digest)
+   - Actions pinned to a stale major (`actions/checkout@v3`) are the most common source of deprecation warnings in an otherwise green pipeline. Update reusable workflows and composite `action.yml` files too.
+
+2. **Docker**
+   - Manifests: `Dockerfile`, `Dockerfile.dind`, `Dockerfile.formal-ai`, `coolify/Dockerfile`, `coolify/docker-compose.yml`, `docker-compose.yml`, `experiments/solve-dockerize/Dockerfile`
+   - Update everything: bump each `FROM` base-image tag (and re-pin the digest, if digests are used)
+   - A base image is a dependency: an old `FROM` ships the distribution’s unpatched libraries no matter how current the language packages are.
+
+3. **JavaScript / TypeScript**
+   - Manifests: `package.json`
+   - Lockfiles to regenerate and commit: `package-lock.json`
+   - Update everything: `npx npm-check-updates -u && npm install`
+   - `npm update` stays inside the existing semver ranges and never crosses a major; `npm-check-updates -u` rewrites package.json to the `latest` dist-tag.
+
+4. **Infrastructure as code**
+   - Manifests: `helm/hive-mind/Chart.yaml`
+   - Update everything: `terraform init -upgrade  •  helm dependency update  •  pre-commit autoupdate  •  git submodule update --remote`
+
+--- and the automation section ---
+
+There is no `.github/dependabot.yml` in this repository, so nothing keeps the versions current after this issue is closed. Add one so the next drift is a pull request instead of another issue.
+
+For the ecosystems found in this repository that is:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'docker'
+    directories:
+      - '/'
+      - '/coolify'
+      - '/experiments/solve-dockerize'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'docker-compose'
+    directories:
+      - '/'
+      - '/coolify'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+  - package-ecosystem: 'helm'
+    directory: '/helm/hive-mind'
+    schedule:
+      interval: 'weekly'
+```
+
+[Renovate](https://docs.renovatebot.com/) is the alternative if grouped or automerged updates are wanted instead.
+
+5 `package-ecosystem` value(s) are declared, one per manifest actually committed here.
+Nothing was created by this preview; run `fix.mjs <repo> --update-all-dependencies --dry-run` for the full issue body.

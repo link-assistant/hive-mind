@@ -12,22 +12,22 @@ const mockPRs = [
     createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(), // 25 hours ago
     headRefName: 'issue-28-abc123',
     isDraft: true,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 2,
     createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(), // 12 hours ago
     headRefName: 'issue-28-def456',
     isDraft: false,
-    state: 'OPEN'
+    state: 'OPEN',
   },
   {
     number: 3,
     createdAt: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(), // 30 hours ago
     headRefName: 'issue-28-ghi789',
     isDraft: false,
-    state: 'CLOSED'
-  }
+    state: 'CLOSED',
+  },
 ];
 
 // Test the auto-continue logic
@@ -43,9 +43,9 @@ let selectedPR = null;
 for (const pr of mockPRs) {
   const createdAt = new Date(pr.createdAt);
   const ageHours = Math.floor((now - createdAt) / (1000 * 60 * 60));
-  
+
   console.log(`📋 PR #${pr.number}: created ${ageHours}h ago (${pr.state}, ${pr.isDraft ? 'draft' : 'ready'})`);
-  
+
   // Check if this PR is older than 24 hours and not closed
   if (createdAt < twentyFourHoursAgo && pr.state === 'OPEN') {
     console.log(`   ✅ Qualifies for auto-continue (${ageHours}h > 24h, OPEN)`);

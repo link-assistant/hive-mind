@@ -24,7 +24,6 @@ try {
   const result2 = await $silent`grep -E "MemTotal|MemAvailable|MemFree|SwapTotal|SwapFree" /proc/meminfo`;
   console.log('Exit code:', result2.code);
   console.log('Stdout:', result2.stdout);
-
 } catch (error) {
   console.error('Error:', error.message);
 }

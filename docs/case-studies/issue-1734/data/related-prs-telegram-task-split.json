@@ -1,0 +1,6 @@
+[
+  { "mergedAt": "2026-04-30T07:13:17Z", "number": 553, "title": "Add issue-based task splitting", "url": "https://github.com/link-assistant/hive-mind/pull/553" },
+  { "mergedAt": "2025-12-20T20:46:35Z", "number": 552, "title": "[WIP] /top command, to show single autoupdated message with top screen, so see the load on the system", "url": "https://github.com/link-assistant/hive-mind/pull/552" },
+  { "mergedAt": "2026-04-19T12:04:56Z", "number": 843, "title": "Implement bidirectional interactive mode for real-time PR feedback", "url": "https://github.com/link-assistant/hive-mind/pull/843" },
+  { "mergedAt": "2025-12-08T21:58:55Z", "number": 851, "title": "Support @link-assistant/agent as --tool agent", "url": "https://github.com/link-assistant/hive-mind/pull/851" }
+]

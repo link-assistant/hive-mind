@@ -1,0 +1,27 @@
+{
+  "_note": "Captured 2026-05-12 from GET https://chatgpt.com/backend-api/wham/usage. No subscription-end field is present in this response.",
+  "user_id": "user-...",
+  "account_id": "user-...",
+  "email": "<redacted>",
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": { "used_percent": 6, "limit_window_seconds": 18000, "reset_after_seconds": 13739, "reset_at": 1778631148 },
+    "secondary_window": { "used_percent": 22, "limit_window_seconds": 604800, "reset_after_seconds": 536200, "reset_at": 1779153609 }
+  },
+  "code_review_rate_limit": null,
+  "additional_rate_limits": [
+    {
+      "limit_name": "GPT-5.3-Codex-Spark",
+      "metered_feature": "codex_bengalfox",
+      "rate_limit": {
+        "allowed": true,
+        "limit_reached": false,
+        "primary_window": { "used_percent": 0, "limit_window_seconds": 18000, "reset_after_seconds": 18000, "reset_at": 1778635409 },
+        "secondary_window": { "used_percent": 0, "limit_window_seconds": 604800, "reset_after_seconds": 604800, "reset_at": 1779222209 }
+      }
+    }
+  ],
+  "credits": { "has_credits": false, "unlimited": false, "overage_limit_reached": false, "balance": "0" }
+}

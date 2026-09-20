@@ -1,0 +1,12 @@
+[
+  { "mergedAt": "2026-04-06T23:16:32Z", "number": 1535, "title": "fix: support `--isolation` option in /solve and /hive Telegram commands", "url": "https://github.com/link-assistant/hive-mind/pull/1535" },
+  { "mergedAt": "2026-03-29T10:44:21Z", "number": 1488, "title": "feat: add early --base-branch validation in telegram bot", "url": "https://github.com/link-assistant/hive-mind/pull/1488" },
+  { "mergedAt": "2026-04-11T04:56:00Z", "number": 1589, "title": "fix: make merge queue cancel immediate during CI waits (#1588)", "url": "https://github.com/link-assistant/hive-mind/pull/1589" },
+  { "mergedAt": "2026-04-10T16:41:45Z", "number": 1546, "title": "fix: add screen -ls fallback for isolation session monitoring (#1545)", "url": "https://github.com/link-assistant/hive-mind/pull/1546" },
+  { "mergedAt": "2026-04-04T16:54:31Z", "number": 1525, "title": "feat: standardize /version output — strip OS/arch, normalize dates, enhance platform (#1524)", "url": "https://github.com/link-assistant/hive-mind/pull/1525" },
+  { "mergedAt": "2026-03-29T22:19:03Z", "number": 1498, "title": "fix: prevent 'Failed to send formatted message' Telegram error (issue #1497)", "url": "https://github.com/link-assistant/hive-mind/pull/1498" },
+  { "mergedAt": "2026-03-22T08:24:40Z", "number": 1461, "title": "Fix buildUserMention escaping and add diagnostic logging (#1460)", "url": "https://github.com/link-assistant/hive-mind/pull/1461" },
+  { "mergedAt": "2026-03-14T13:54:06Z", "number": 1326, "title": "feat(telegram-bot): support all options via /solve reply command", "url": "https://github.com/link-assistant/hive-mind/pull/1326" },
+  { "mergedAt": "2026-04-10T13:57:45Z", "number": 1554, "title": "Fix agent queue not isolated from claude queue in bot entry point", "url": "https://github.com/link-assistant/hive-mind/pull/1554" },
+  { "mergedAt": "2026-04-11T00:18:27Z", "number": 1568, "title": "fix: non-consistent auto-restart logic on comments", "url": "https://github.com/link-assistant/hive-mind/pull/1568" }
+]

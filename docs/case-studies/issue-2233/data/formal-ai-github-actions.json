@@ -1,0 +1,22 @@
+[
+  {
+    "name": "cache-cargo-registry",
+    "path": ".github/actions/cache-cargo-registry",
+    "type": "dir"
+  },
+  {
+    "name": "download-formal-ai-binary",
+    "path": ".github/actions/download-formal-ai-binary",
+    "type": "dir"
+  },
+  {
+    "name": "setup-buildx-resilient",
+    "path": ".github/actions/setup-buildx-resilient",
+    "type": "dir"
+  },
+  {
+    "name": "setup-sccache",
+    "path": ".github/actions/setup-sccache",
+    "type": "dir"
+  }
+]

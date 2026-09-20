@@ -1,0 +1,106 @@
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.3527536Z Successfully packaged chart and saved it to: .helm-packages/hive-mind-2.8.3.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.3554067Z -rw-r--r--  1 user group     4422 2026-07-18 hive-mind-2.8.3.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.3555125Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.3555953Z Checking gh-pages branch...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.7623622Z dd31d9411718e9cd4dce788ceb9ce4afb35a8160	refs/heads/gh-pages
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.7630841Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:03.7631167Z Checking out gh-pages branch...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.2065227Z From https://github.com/link-assistant/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.2065834Z  * [new branch]        gh-pages   -> gh-pages
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8200804Z error: Your local changes to the following files would be overwritten by checkout:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8201571Z 	helm/hive-mind/Chart.yaml
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8202125Z Please commit your changes or stash them before you switch branches.
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8202731Z Aborting
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8220215Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8220614Z Updating Helm repository index...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8648036Z Index updated:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8648475Z apiVersion: v1
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8648807Z entries:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8649433Z   hive-mind:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8649761Z   - annotations:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8650178Z       artifacthub.io/category: integration-delivery
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8650748Z       artifacthub.io/displayName: Hive Mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8651238Z       artifacthub.io/license: Unlicense
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8651697Z       artifacthub.io/links: |
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8652104Z         - name: Documentation
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8652698Z           url: https://github.com/link-assistant/hive-mind/blob/main/README.md
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8653139Z         - name: Docker Hub
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8653442Z           url: https://hub.docker.com/r/konard/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8653795Z       artifacthub.io/readme: |
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8654063Z         # Hive Mind Helm Chart
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8654232Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8654489Z         Deploy Hive Mind on Kubernetes - the master AI that controls a hive of AI agents.
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8654867Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8654957Z         ## Prerequisites
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655117Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655208Z         - Kubernetes 1.19+
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655449Z         - Helm 3.0+
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655581Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655669Z         ## Installation
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655815Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8655897Z         ```bash
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8656251Z         helm repo add link-assistant https://link-assistant.github.io/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8656970Z         helm repo update
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8657263Z         helm install hive-mind link-assistant/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8657588Z         ```
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8657703Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8657780Z         ## Configuration
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8657923Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8658056Z         See values.yaml for all configurable options.
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8658352Z     apiVersion: v2
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8658559Z     appVersion: 2.8.3
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8658780Z     created: "2026-07-18T14:47:04.862512277Z"
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8659182Z     description: A Helm chart for deploying Hive Mind - the master AI that controls
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8659586Z       a hive of AI agents
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8659923Z     digest: ce3c72e1995ffece05052d29beb0a7c51416adceb3ab249ffe440439f98e58c2
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8660367Z     home: https://github.com/link-assistant/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8660843Z     icon: https://github.com/link-assistant/hive-mind/raw/main/docs/images/hive-mind-icon.png
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8661328Z     keywords:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8661553Z     - ai
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662017Z     - automation
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662243Z     - github
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662414Z     - claude
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662582Z     - agent
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662755Z     - orchestration
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8662947Z     maintainers:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8663150Z     - name: Link Assistant Team
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8663408Z       url: https://github.com/link-assistant
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8663676Z     name: hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8663859Z     sources:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8664075Z     - https://github.com/link-assistant/hive-mind
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8664379Z     type: application
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8664568Z     urls:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8664895Z     - https://link-assistant.github.io/hive-mind/.helm-packages/hive-mind-2.8.3.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8665304Z     version: 2.8.3
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8665510Z generated: "2026-07-18T14:47:04.861811507Z"
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8665688Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8665692Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:04.8665796Z Committing and pushing to gh-pages...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:05.6801328Z [main f723e208] Release Helm chart version 2.8.3
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:05.6802066Z  2 files changed, 59 insertions(+)
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:05.6802674Z  create mode 100644 .helm-packages/hive-mind-2.8.3.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:05.6803208Z  create mode 100644 index.yaml
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3860616Z cp: cannot stat '.helm-packages/*.tgz': No such file or directoryEverything up-to-date
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3896842Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3897321Z Switching back to previous branch...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3985422Z error: pathspec '-' did not match any file(s) known to git
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3992704Z 
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.3993096Z Helm chart version 2.8.3 released successfully!
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5059489Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_AL
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5060784Z ##[group]Run softprops/action-gh-release@v2
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5061073Z with:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5061258Z   tag_name: v2.8.3
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5061475Z   files: .helm-packages/*.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5061719Z   overwrite_files: true
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5063975Z   token: ***
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5064162Z env:
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5064360Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.5064630Z ##[endgroup]
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:06.9763025Z Found release 2.8.3 (with id=356121699)
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:07.3584639Z ⬆️ Uploading hive-mind-2.8.3.tgz...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:07.9318042Z ✅ Uploaded hive-mind-2.8.3.tgz
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:07.9318875Z Finalizing release...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:07.9319309Z Getting assets list...
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:08.1144348Z 🎉 Release ready at https://github.com/link-assistant/hive-mind/releases/tag/v2.8.3
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:08.1333709Z Post job cleanup.
+Helm Release	UNKNOWN STEP	2026-07-18T14:47:08.2167101Z [command]/usr/bin/git version

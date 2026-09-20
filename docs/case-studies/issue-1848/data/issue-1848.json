@@ -1,0 +1,9 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://gist.github.com/konard/a4ac2c3331f90fec7a94b15a678d437f/raw/35d0a6a33d51abd95fbe18e1de2f590d6039195b/free-space-log.txt - here is the example how I cleaned up all /tmp folders except the running task, so I can free some space without server restart.\n\nThe missing piece is to get the branch name of issue/pull request as per our solve command logic, to understand which folders do match existing tasks.\n\nIn `--dry-run` I should be able to see the list if kept folders, and the list of deleted folders.\n\nWe also need to keep folders like `/tmp/start-command/` and other places, which can interfere with ability of our system to work or being debugged. Make sure we fully configure everything, with ability to force deletion of `/tmp/start-command` if needed.\n\nWe should also do cleanup for apt install and other usual places on Ubuntu.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-06-03T09:23:35Z",
+  "number": 1848,
+  "state": "OPEN",
+  "title": "Add `cleanup` command, with `--keep-active-tasks-folders` and `--dry-run` modes.",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1848"
+}

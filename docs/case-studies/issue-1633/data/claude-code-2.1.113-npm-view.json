@@ -1,0 +1,21 @@
+{
+  "version": "2.1.113",
+  "bin": {
+    "claude": "bin/claude.exe"
+  },
+  "scripts": {
+    "prepare": "node -e \"if (!process.env.AUTHORIZED) { console.error('ERROR: Direct publishing is not allowed.\\nPlease see the release workflow documentation to publish this package.'); process.exit(1); }\"",
+    "postinstall": "node install.cjs"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-code-linux-x64": "2.1.113",
+    "@anthropic-ai/claude-code-win32-x64": "2.1.113",
+    "@anthropic-ai/claude-code-darwin-x64": "2.1.113",
+    "@anthropic-ai/claude-code-linux-arm64": "2.1.113",
+    "@anthropic-ai/claude-code-win32-arm64": "2.1.113",
+    "@anthropic-ai/claude-code-darwin-arm64": "2.1.113",
+    "@anthropic-ai/claude-code-linux-x64-musl": "2.1.113",
+    "@anthropic-ai/claude-code-linux-arm64-musl": "2.1.113"
+  },
+  "dist.tarball": "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.113.tgz"
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "title": "Hive Mind issue #1682",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1682",
+    "purpose": "Primary issue report with the broken failure-log comment and manual gh-upload-log examples."
+  },
+  {
+    "title": "Hive Mind PR #1681 failure-log comment",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1681#issuecomment-4318685883",
+    "purpose": "Concrete comment containing the null failure-log link."
+  },
+  {
+    "title": "Public raw execution log",
+    "url": "https://raw.githubusercontent.com/konard/public-logs/main/log-tmp-start-command-logs-isolation-screen-b1711bff-a275-45d4-b3ce-384077c5a18f/tmp-start-command-logs-isolation-screen-b1711bff-a275-45d4-b3ce-384077c5a18f.log",
+    "purpose": "Full execution trace used to reconstruct the timeline and root cause."
+  },
+  {
+    "title": "GitHub REST API endpoints for issue comments",
+    "url": "https://docs.github.com/en/rest/issues/comments",
+    "purpose": "Confirms pull request comments are managed through issue comment endpoints."
+  },
+  {
+    "title": "GitHub REST API endpoints for repository contents",
+    "url": "https://docs.github.com/en/rest/repos/contents",
+    "purpose": "Documents repository-content access and download URLs used for raw-file resolution."
+  },
+  {
+    "title": "gh-upload-log PR #28",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/28",
+    "purpose": "Related upstream change for repository upload failure handling."
+  },
+  {
+    "title": "gh-upload-log PR #30",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/30",
+    "purpose": "Related upstream change introducing shared public-logs/private-logs repository output."
+  }
+]

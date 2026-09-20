@@ -1,0 +1,142 @@
+[
+  {
+    "id": 3779414328,
+    "created_at": "2026-01-21T16:28:31Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779414328",
+    "type": "solution_draft_log",
+    "summary": "Solution draft log - cost $4.84"
+  },
+  {
+    "id": 3779562826,
+    "created_at": "2026-01-21T16:44:55Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779562826",
+    "type": "user_feedback",
+    "summary": "Continue work, look for improvements"
+  },
+  {
+    "id": 3779569304,
+    "created_at": "2026-01-21T16:45:42Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779569304",
+    "type": "work_session_started",
+    "summary": "AI Work Session Started at 2026-01-21T16:45:39.709Z"
+  },
+  {
+    "id": 3779624414,
+    "created_at": "2026-01-21T16:52:09Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779624414",
+    "type": "implementation_update",
+    "summary": "TUN Interface Configuration added"
+  },
+  {
+    "id": 3779628134,
+    "created_at": "2026-01-21T16:52:31Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779628134",
+    "type": "solution_draft_log",
+    "summary": "Solution draft log - cost $3.10"
+  },
+  {
+    "id": 3779683957,
+    "created_at": "2026-01-21T16:58:34Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779683957",
+    "type": "user_feedback",
+    "summary": "Continue animations, icons, test CI/CD"
+  },
+  {
+    "id": 3779690462,
+    "created_at": "2026-01-21T16:59:17Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779690462",
+    "type": "work_session_started",
+    "summary": "AI Work Session Started at 2026-01-21T16:59:15.566Z"
+  },
+  {
+    "id": 3779749229,
+    "created_at": "2026-01-21T17:06:14Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779749229",
+    "type": "implementation_update",
+    "summary": "Page animations, enhanced SVG icons"
+  },
+  {
+    "id": 3779752539,
+    "created_at": "2026-01-21T17:06:41Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779752539",
+    "type": "solution_draft_log",
+    "summary": "Solution draft log - cost $4.23"
+  },
+  {
+    "id": 3779787776,
+    "created_at": "2026-01-21T17:11:20Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779787776",
+    "type": "user_feedback",
+    "summary": "Improve installer upgrade support"
+  },
+  {
+    "id": 3779792663,
+    "created_at": "2026-01-21T17:11:58Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779792663",
+    "type": "work_session_started",
+    "summary": "AI Work Session Started at 2026-01-21T17:11:55.918Z"
+  },
+  {
+    "id": 3779873014,
+    "created_at": "2026-01-21T17:22:01Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779873014",
+    "type": "implementation_update",
+    "summary": "Installer upgrade support added"
+  },
+  {
+    "id": 3779876047,
+    "created_at": "2026-01-21T17:22:26Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3779876047",
+    "type": "solution_draft_log",
+    "summary": "Solution draft log - cost $3.93"
+  },
+  {
+    "id": 3780014672,
+    "created_at": "2026-01-21T17:40:53Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780014672",
+    "type": "user_feedback",
+    "summary": "Test installers for Linux and Windows, CI/CD must pass"
+  },
+  {
+    "id": 3780092810,
+    "created_at": "2026-01-21T17:50:15Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780092810",
+    "type": "work_session_started",
+    "summary": "AI Work Session Started at 2026-01-21T17:50:13.183Z"
+  },
+  {
+    "id": 3780094933,
+    "created_at": "2026-01-21T17:50:29Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780094933",
+    "type": "usage_limit_reached",
+    "summary": "PROBLEM: Usage Limit Reached - Reset Time 7:00 PM, Session ID: ff411057-0dc8-4cc2-8087-10bef0bce233, Contains CLI command in comment"
+  },
+  {
+    "id": 3780177716,
+    "created_at": "2026-01-21T18:00:10Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780177716",
+    "type": "solution_draft_log_failed",
+    "summary": "PROBLEM: Failed auto-resume attempt - cost $0.00, no --resume used"
+  },
+  {
+    "id": 3780183691,
+    "created_at": "2026-01-21T18:00:54Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780183691",
+    "type": "work_session_started",
+    "summary": "PROBLEM: Should say 'Auto resume (on limit reset)' not regular work session"
+  },
+  {
+    "id": 3780230969,
+    "created_at": "2026-01-21T18:06:30Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780230969",
+    "type": "implementation_update",
+    "summary": "Linux Build CI Fixes"
+  },
+  {
+    "id": 3780233713,
+    "created_at": "2026-01-21T18:06:52Z",
+    "html_url": "https://github.com/VisageDvachevsky/veil-windows-client/pull/2#issuecomment-3780233713",
+    "type": "solution_draft_log",
+    "summary": "PROBLEM: Should say 'Draft log of auto resume (on limit reset)' - cost $1.84"
+  }
+]

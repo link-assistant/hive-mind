@@ -83,7 +83,6 @@ try {
     // Clean up
     fs.unlinkSync('mock-session-abc123.log');
   }
-
 } catch (error) {
   console.log('❌ Error during test:', error.message);
 } finally {

@@ -1,0 +1,9 @@
+Validating changesets added by this PR...
+Warning: Could not determine PR diff, checking all changesets in directory
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - calm-cpu-load-display.md
+Validating changeset: .changeset/calm-cpu-load-display.md
+Changeset validation passed
+   Type: patch
+   Description: Cap `/limits` CPU cores display at available CPU count when load average demand exceeds capacity.

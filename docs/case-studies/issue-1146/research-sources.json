@@ -1,0 +1,113 @@
+{
+  "metadata": {
+    "issue_id": 1146,
+    "research_date": "2026-01-20",
+    "researcher": "AI Issue Solver",
+    "claude_code_version_analyzed": "2.1.12"
+  },
+  "primary_sources": [
+    {
+      "title": "Claude Code Documentation - Common Workflows",
+      "url": "https://code.claude.com/docs/en/common-workflows",
+      "type": "official_documentation",
+      "key_findings": ["Extended thinking enabled by default with 31,999 token budget", "Phrases like 'think', 'think hard', 'ultrathink' are interpreted as regular prompt instructions", "Keywords don't allocate thinking tokens", "Configuration via MAX_THINKING_TOKENS environment variable", "Toggle shortcuts Option+T/Alt+T for TUI only"]
+    },
+    {
+      "title": "GitHub Issue #19098 - Restore explicit ultrathink keyword",
+      "url": "https://github.com/anthropics/claude-code/issues/19098",
+      "type": "github_issue",
+      "key_findings": ["Quality degradation reports since v2.0.x", "Timeline of thinking mode changes from v1.x to v2.1.x", "Community evidence of 'ultrathink no longer does anything'", "Request for opt-out from smart allocation"]
+    },
+    {
+      "title": "Claude Code CHANGELOG",
+      "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "type": "official_documentation",
+      "key_findings": ["v2.1.12: Fixed message rendering bug", "v2.1.11: Fixed MCP connection issues", "v2.1.0: Added real-time thinking block display", "No explicit changelog entry for thinking budget changes"]
+    },
+    {
+      "title": "GitHub Issue #18072 - Logic conflict MAX_THINKING_TOKENS and ultrathink",
+      "url": "https://github.com/anthropics/claude-code/issues/18072",
+      "type": "github_issue",
+      "key_findings": ["MAX_THINKING_TOKENS takes priority over ultrathink keyword", "Keyword silently ignored when env var is set", "Users cannot burst to higher token limit for single requests"]
+    }
+  ],
+  "secondary_sources": [
+    {
+      "title": "Decode Claude - UltraThink is Dead",
+      "url": "https://decodeclaude.com/ultrathink-deprecated/",
+      "type": "blog_article",
+      "key_findings": ["Official deprecation date: January 16, 2026", "64K output models support 63,999 token budget", "Hidden workaround: MAX_THINKING_TOKENS=63999", "Verified against Claude Code v2.1.11"]
+    },
+    {
+      "title": "Claude Docs - Building with Extended Thinking",
+      "url": "https://docs.claude.com/en/docs/build-with-claude/extended-thinking",
+      "type": "official_documentation",
+      "key_findings": ["Minimum budget is 1,024 tokens", "max_thinking_tokens SDK parameter controls thinking", "Batch processing recommended for budgets above 32K"]
+    }
+  ],
+  "related_github_issues": [
+    {
+      "number": 17097,
+      "title": "Claude Does Not Follow Prompts Through Completion since 2.1.x",
+      "status": "open",
+      "relevance": "Quality degradation after thinking changes"
+    },
+    {
+      "number": 17900,
+      "title": "Significant quality degradation and inconsistent behavior",
+      "status": "open",
+      "relevance": "Widespread reports of issues since v2.0.x"
+    },
+    {
+      "number": 18123,
+      "title": "ultrathink now enabled by default (not in CHANGELOG)",
+      "status": "open",
+      "relevance": "Confirms silent change to thinking defaults"
+    },
+    {
+      "number": 8380,
+      "title": "Inline thinking output with MAX_THINKING_TOKENS no longer appears",
+      "status": "unknown",
+      "relevance": "Environment variable interaction issues"
+    },
+    {
+      "number": 8780,
+      "title": "Doc Missing for alwaysThinkingEnabled Setting",
+      "status": "unknown",
+      "relevance": "Undocumented settings for thinking mode"
+    }
+  ],
+  "version_history": {
+    "pre_2_0": {
+      "thinking_keywords_supported": true,
+      "default_thinking": false,
+      "budget_control": "prompt_keywords"
+    },
+    "2_0_x": {
+      "thinking_keywords_supported": "deprecated",
+      "default_thinking": true,
+      "budget_control": "toggle_ui"
+    },
+    "2_1_x": {
+      "thinking_keywords_supported": false,
+      "default_thinking": true,
+      "budget_control": "MAX_THINKING_TOKENS"
+    }
+  },
+  "environment_variables": {
+    "MAX_THINKING_TOKENS": {
+      "description": "Controls the thinking token budget",
+      "default": 31999,
+      "min": 0,
+      "max": 63999,
+      "notes": "63999 only available on 64K output models"
+    }
+  },
+  "settings_json_options": {
+    "alwaysThinkingEnabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable/disable thinking mode globally"
+    }
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "conclusion": "failure",
+  "createdAt": "2026-05-22T13:20:41Z",
+  "databaseId": 26290240103,
+  "event": "pull_request",
+  "headSha": "40855cae8dabe9f762095bb33fa7462247b538ef",
+  "jobs": [
+    {
+      "completedAt": "2026-05-22T13:21:41Z",
+      "conclusion": "success",
+      "databaseId": 77388242806,
+      "name": "Version Modification Check",
+      "startedAt": "2026-05-22T13:20:44Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:20:45Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:20:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:20:48Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:20:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:20:49Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:20:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:30Z", "conclusion": "success", "name": "Install rust-script", "number": 4, "startedAt": "2026-05-22T13:20:49Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:39Z", "conclusion": "success", "name": "Check for manual version changes", "number": 5, "startedAt": "2026-05-22T13:21:30Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:39Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-22T13:21:39Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:39Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-22T13:21:39Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388242806"
+    },
+    {
+      "completedAt": "2026-05-22T13:21:38Z",
+      "conclusion": "success",
+      "databaseId": 77388242807,
+      "name": "Detect Changes",
+      "startedAt": "2026-05-22T13:20:44Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:20:45Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:20:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:20:48Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:20:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:20:48Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:20:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:27Z", "conclusion": "success", "name": "Install rust-script", "number": 4, "startedAt": "2026-05-22T13:20:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:36Z", "conclusion": "success", "name": "Detect changes", "number": 5, "startedAt": "2026-05-22T13:21:27Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:36Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-22T13:21:36Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:36Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-22T13:21:36Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388242807"
+    },
+    { "completedAt": "2026-05-22T13:20:41Z", "conclusion": "skipped", "databaseId": 77388243476, "name": "Create Changelog PR", "startedAt": "2026-05-22T13:20:42Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388243476" },
+    {
+      "completedAt": "2026-05-22T13:22:55Z",
+      "conclusion": "success",
+      "databaseId": 77388405672,
+      "name": "Code Coverage",
+      "startedAt": "2026-05-22T13:21:40Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:21:44Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:21:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:46Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:21:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:55Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:21:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:59Z", "conclusion": "success", "name": "Cache cargo registry", "number": 4, "startedAt": "2026-05-22T13:21:55Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:59Z", "conclusion": "success", "name": "Install cargo-llvm-cov", "number": 5, "startedAt": "2026-05-22T13:21:59Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:48Z", "conclusion": "success", "name": "Generate code coverage", "number": 6, "startedAt": "2026-05-22T13:21:59Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:49Z", "conclusion": "success", "name": "Upload coverage to Codecov", "number": 7, "startedAt": "2026-05-22T13:22:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:53Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 13, "startedAt": "2026-05-22T13:22:49Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:54Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 14, "startedAt": "2026-05-22T13:22:53Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:54Z", "conclusion": "success", "name": "Complete job", "number": 15, "startedAt": "2026-05-22T13:22:54Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388405672"
+    },
+    {
+      "completedAt": "2026-05-22T13:22:36Z",
+      "conclusion": "success",
+      "databaseId": 77388405678,
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-05-22T13:21:40Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:21:42Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:21:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:44Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:21:42Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:45Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:21:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:26Z", "conclusion": "success", "name": "Install rust-script", "number": 4, "startedAt": "2026-05-22T13:21:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:34Z", "conclusion": "success", "name": "Check for changelog fragments", "number": 5, "startedAt": "2026-05-22T13:22:26Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:35Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 10, "startedAt": "2026-05-22T13:22:34Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:35Z", "conclusion": "success", "name": "Complete job", "number": 11, "startedAt": "2026-05-22T13:22:35Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388405678"
+    },
+    {
+      "completedAt": "2026-05-22T13:22:37Z",
+      "conclusion": "success",
+      "databaseId": 77388405687,
+      "name": "Lint and Format Check",
+      "startedAt": "2026-05-22T13:21:40Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:21:44Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:21:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:47Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:21:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:48Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:21:47Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:49Z", "conclusion": "success", "name": "Setup Bun", "number": 4, "startedAt": "2026-05-22T13:21:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:18Z", "conclusion": "success", "name": "Install rust-script", "number": 5, "startedAt": "2026-05-22T13:21:49Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:23Z", "conclusion": "success", "name": "Cache cargo registry", "number": 6, "startedAt": "2026-05-22T13:22:18Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:23Z", "conclusion": "success", "name": "Check formatting", "number": 7, "startedAt": "2026-05-22T13:22:23Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:29Z", "conclusion": "success", "name": "Run Clippy", "number": 8, "startedAt": "2026-05-22T13:22:23Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:30Z", "conclusion": "success", "name": "Check file size limit", "number": 9, "startedAt": "2026-05-22T13:22:29Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:30Z", "conclusion": "success", "name": "Install web bundle dependencies", "number": 10, "startedAt": "2026-05-22T13:22:30Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:30Z", "conclusion": "success", "name": "Build web vendor bundle", "number": 11, "startedAt": "2026-05-22T13:22:30Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:30Z", "conclusion": "success", "name": "Check web bundles are current", "number": 12, "startedAt": "2026-05-22T13:22:30Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:31Z", "conclusion": "success", "name": "Setup Node", "number": 13, "startedAt": "2026-05-22T13:22:30Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:33Z", "conclusion": "success", "name": "Install web test dependencies", "number": 14, "startedAt": "2026-05-22T13:22:31Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:33Z", "conclusion": "success", "name": "Check i18n catalog coverage", "number": 15, "startedAt": "2026-05-22T13:22:33Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:33Z", "conclusion": "success", "name": "Check multilingual intent coverage", "number": 16, "startedAt": "2026-05-22T13:22:33Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:33Z", "conclusion": "success", "name": "Post Setup Node", "number": 29, "startedAt": "2026-05-22T13:22:33Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:34Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 30, "startedAt": "2026-05-22T13:22:33Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:34Z", "conclusion": "success", "name": "Post Setup Bun", "number": 31, "startedAt": "2026-05-22T13:22:34Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:34Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 32, "startedAt": "2026-05-22T13:22:34Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:34Z", "conclusion": "success", "name": "Complete job", "number": 33, "startedAt": "2026-05-22T13:22:34Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388405687"
+    },
+    {
+      "completedAt": "2026-05-22T13:23:48Z",
+      "conclusion": "failure",
+      "databaseId": 77388405758,
+      "name": "E2E Tests (local demo)",
+      "startedAt": "2026-05-22T13:21:40Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:21:42Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:21:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:44Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:21:42Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:45Z", "conclusion": "success", "name": "Setup Bun", "number": 3, "startedAt": "2026-05-22T13:21:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:46Z", "conclusion": "success", "name": "Setup Node.js", "number": 4, "startedAt": "2026-05-22T13:21:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:46Z", "conclusion": "success", "name": "Install web bundle dependencies", "number": 5, "startedAt": "2026-05-22T13:21:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:47Z", "conclusion": "success", "name": "Build web vendor bundle", "number": 6, "startedAt": "2026-05-22T13:21:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:21:48Z", "conclusion": "success", "name": "Install Playwright and dependencies", "number": 7, "startedAt": "2026-05-22T13:21:47Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:18Z", "conclusion": "success", "name": "Install Playwright browsers", "number": 8, "startedAt": "2026-05-22T13:21:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:18Z", "conclusion": "success", "name": "Sync data/seed into src/web/seed (deployment mirror)", "number": 9, "startedAt": "2026-05-22T13:22:18Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:45Z", "conclusion": "failure", "name": "Run local e2e tests", "number": 10, "startedAt": "2026-05-22T13:22:18Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:46Z", "conclusion": "success", "name": "Upload Playwright report on failure", "number": 11, "startedAt": "2026-05-22T13:23:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:46Z", "conclusion": "skipped", "name": "Post Setup Node.js", "number": 20, "startedAt": "2026-05-22T13:23:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:46Z", "conclusion": "skipped", "name": "Post Setup Bun", "number": 21, "startedAt": "2026-05-22T13:23:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:46Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 22, "startedAt": "2026-05-22T13:23:46Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:46Z", "conclusion": "success", "name": "Complete job", "number": 23, "startedAt": "2026-05-22T13:23:46Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388405758"
+    },
+    {
+      "completedAt": "2026-05-22T13:24:38Z",
+      "conclusion": "success",
+      "databaseId": 77388569673,
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-05-22T13:22:39Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:22:41Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:22:40Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:48Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:22:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:54Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:22:48Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:21Z", "conclusion": "success", "name": "Cache cargo registry", "number": 4, "startedAt": "2026-05-22T13:22:54Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:12Z", "conclusion": "success", "name": "Run tests", "number": 5, "startedAt": "2026-05-22T13:23:21Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:13Z", "conclusion": "success", "name": "Run doc tests", "number": 6, "startedAt": "2026-05-22T13:24:12Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:34Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 11, "startedAt": "2026-05-22T13:24:13Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:36Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 12, "startedAt": "2026-05-22T13:24:34Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:36Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-05-22T13:24:36Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388569673"
+    },
+    {
+      "completedAt": "2026-05-22T13:23:46Z",
+      "conclusion": "success",
+      "databaseId": 77388569730,
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-05-22T13:22:39Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:22:41Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:22:40Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:44Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:22:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:45Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:22:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:07Z", "conclusion": "success", "name": "Cache cargo registry", "number": 4, "startedAt": "2026-05-22T13:22:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:22Z", "conclusion": "success", "name": "Run tests", "number": 5, "startedAt": "2026-05-22T13:23:07Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:22Z", "conclusion": "success", "name": "Run doc tests", "number": 6, "startedAt": "2026-05-22T13:23:22Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:42Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 11, "startedAt": "2026-05-22T13:23:22Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:43Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 12, "startedAt": "2026-05-22T13:23:42Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:43Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-05-22T13:23:43Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388569730"
+    },
+    {
+      "completedAt": "2026-05-22T13:23:21Z",
+      "conclusion": "success",
+      "databaseId": 77388569751,
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-05-22T13:22:38Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:22:40Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:22:39Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:42Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:22:40Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:43Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:22:42Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:22:47Z", "conclusion": "success", "name": "Cache cargo registry", "number": 4, "startedAt": "2026-05-22T13:22:43Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:19Z", "conclusion": "success", "name": "Run tests", "number": 5, "startedAt": "2026-05-22T13:22:47Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:19Z", "conclusion": "success", "name": "Run doc tests", "number": 6, "startedAt": "2026-05-22T13:23:19Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:20Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 11, "startedAt": "2026-05-22T13:23:19Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:20Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 12, "startedAt": "2026-05-22T13:23:20Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:23:20Z", "conclusion": "success", "name": "Complete job", "number": 13, "startedAt": "2026-05-22T13:23:20Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388569751"
+    },
+    {
+      "completedAt": "2026-05-22T13:26:23Z",
+      "conclusion": "success",
+      "databaseId": 77388921885,
+      "name": "Build Package",
+      "startedAt": "2026-05-22T13:24:41Z",
+      "status": "completed",
+      "steps": [
+        { "completedAt": "2026-05-22T13:24:43Z", "conclusion": "success", "name": "Set up job", "number": 1, "startedAt": "2026-05-22T13:24:41Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:44Z", "conclusion": "success", "name": "Run actions/checkout@v6", "number": 2, "startedAt": "2026-05-22T13:24:43Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:24:45Z", "conclusion": "success", "name": "Setup Rust", "number": 3, "startedAt": "2026-05-22T13:24:44Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:25:24Z", "conclusion": "success", "name": "Install rust-script", "number": 4, "startedAt": "2026-05-22T13:24:45Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:25:28Z", "conclusion": "success", "name": "Cache cargo registry", "number": 5, "startedAt": "2026-05-22T13:25:24Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:08Z", "conclusion": "success", "name": "Build release", "number": 6, "startedAt": "2026-05-22T13:25:28Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:09Z", "conclusion": "success", "name": "Check package", "number": 7, "startedAt": "2026-05-22T13:26:08Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:18Z", "conclusion": "success", "name": "Check crate package size", "number": 8, "startedAt": "2026-05-22T13:26:09Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:22Z", "conclusion": "success", "name": "Post Cache cargo registry", "number": 15, "startedAt": "2026-05-22T13:26:18Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:22Z", "conclusion": "success", "name": "Post Run actions/checkout@v6", "number": 16, "startedAt": "2026-05-22T13:26:22Z", "status": "completed" },
+        { "completedAt": "2026-05-22T13:26:22Z", "conclusion": "success", "name": "Complete job", "number": 17, "startedAt": "2026-05-22T13:26:22Z", "status": "completed" }
+      ],
+      "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77388921885"
+    },
+    { "completedAt": "2026-05-22T13:26:24Z", "conclusion": "skipped", "databaseId": 77389219937, "name": "Instant Release", "startedAt": "2026-05-22T13:26:24Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77389219937" },
+    { "completedAt": "2026-05-22T13:26:24Z", "conclusion": "skipped", "databaseId": 77389219944, "name": "Deploy Demo to GitHub Pages", "startedAt": "2026-05-22T13:26:24Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77389219944" },
+    { "completedAt": "2026-05-22T13:26:24Z", "conclusion": "skipped", "databaseId": 77389220383, "name": "Auto Release", "startedAt": "2026-05-22T13:26:24Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77389220383" },
+    { "completedAt": "2026-05-22T13:26:24Z", "conclusion": "skipped", "databaseId": 77389220810, "name": "E2E Tests (GitHub Pages)", "startedAt": "2026-05-22T13:26:24Z", "status": "completed", "steps": [], "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103/job/77389220810" }
+  ],
+  "status": "completed",
+  "url": "https://github.com/link-assistant/formal-ai/actions/runs/26290240103",
+  "workflowName": "CI/CD Pipeline"
+}

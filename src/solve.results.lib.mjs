@@ -1,172 +1,699 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Results processing module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
-
 // Use use-m to dynamically import modules for cross-runtime compatibility
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const path = (await use('path')).default;
-
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  getLogFile,
-  formatAligned
-} = lib;
+const { log, getLogFile, formatAligned } = lib;
 
 // Import exit handler
 import { safeExit } from './exit-handler.lib.mjs';
-
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
-const {
-  sanitizeLogContent,
-  attachLogToGitHub
-} = githubLib;
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
+// Issue #1745: process-wide sanitization counters used to print a one-line
+// "we masked N secrets" summary at the end of each run.
+const { formatSanitizationSummary, sanitizeForPublication, writeSanitizedPublicationFile } = await import('./token-sanitization.lib.mjs');
+// Issue #1745: post-finish retroactive sanitization of bot-authored PR
+// comments and the PR description. This external repair boundary always runs
+// when PR coordinates are available.
+const { runPostFinishSweep } = await import('./post-finish-sanitization-sweep.lib.mjs');
+const { reportPullRequestLinkRepair } = await import('./pr-image-link-repair.lib.mjs'); // issue #2239: repair GitHub file links the tool published against the wrong repository
 
-// Import auto-continue functions
+// Import continuation functions (session resumption, PR detection)
 const autoContinue = await import('./solve.auto-continue.lib.mjs');
-const {
-  autoContinueWhenLimitResets
-} = autoContinue;
+const { autoContinueWhenLimitResets } = autoContinue;
+// Import Claude-specific command builders
+// These are used to generate copy-pasteable Claude CLI resume commands for users
+// Pattern: (cd "/tmp/gh-issue-solver-..." && claude --resume <session-id>)
+// Two types of resume commands are supported:
+// 1. Interactive resume: Short command that opens interactive mode
+// 2. Autonomous resume: Full command with all flags to run autonomously
+const claudeCommandBuilder = await import('./claude.command-builder.lib.mjs');
+export const { buildClaudeResumeCommand, buildClaudeAutonomousResumeCommand, buildClaudeInitialCommand } = claudeCommandBuilder;
 
+// Issue #942: buildSolveResumeCommand lives in its own module so it can be safely
+// imported from tool libraries (claude/codex/gemini) without circular imports.
+import { buildSolveResumeCommand } from './solve.resume-command.lib.mjs';
+export { buildSolveResumeCommand };
 // Import error handling functions
 // const errorHandlers = await import('./solve.error-handlers.lib.mjs'); // Not currently used
 // Import Sentry integration
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
+// Import pull request issue-link preservation helpers
+const prIssueLinking = await import('./pr-issue-linking.lib.mjs');
+const { buildIssueReference, ensureIssueLinkInPullRequestBody } = prIssueLinking;
 
-// Revert the CLAUDE.md commit to restore original state
-export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
+// Issue #2119: the one place that decides whether a pull request changed anything.
+const { formatChangeSummary, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+const { buildNoChangesNotice, capWorkingSessionSummary, formatWorkingSessionSummaryMarkdown, redactWorkspacePaths } = await import('./working-session-summary.lib.mjs');
+/**
+ * Placeholder patterns used to detect auto-generated PR content that was not updated by the agent.
+ * These patterns match the initial WIP PR created by solve.auto-pr.lib.mjs.
+ */
+export const PR_TITLE_PLACEHOLDER_PREFIX = '[WIP]';
+
+export const PR_BODY_PLACEHOLDER_PATTERNS = ['_Details will be added as the solution draft is developed..._', '**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.', '### 🚧 Status'];
+/**
+ * Check if PR title still contains auto-generated placeholder content
+ * @param {string} title - PR title
+ * @returns {boolean} - true if title has placeholder content
+ */
+export const hasPRTitlePlaceholder = title => {
+  return title && title.startsWith(PR_TITLE_PLACEHOLDER_PREFIX);
+};
+
+/**
+ * Check if PR body still contains auto-generated placeholder content
+ * @param {string} body - PR body
+ * @returns {boolean} - true if body has placeholder content
+ */
+export const hasPRBodyPlaceholder = body => {
+  return body && PR_BODY_PLACEHOLDER_PATTERNS.some(pattern => body.includes(pattern));
+};
+/**
+ * Build a short factual hint for auto-restart when PR title/description was not updated.
+ * Uses neutral, fact-stating language (no forcing words).
+ * @param {boolean} titleNotUpdated - Whether the PR title still has placeholder
+ * @param {boolean} descriptionNotUpdated - Whether the PR description still has placeholder
+ * @returns {string[]} - Array of feedback lines to pass as hint to the restarted session
+ */
+export const buildPRNotUpdatedHint = (titleNotUpdated, descriptionNotUpdated) => {
+  const lines = [];
+  if (titleNotUpdated && descriptionNotUpdated) {
+    lines.push('Pull request title and description were not updated.');
+  } else if (titleNotUpdated) {
+    lines.push('Pull request title was not updated.');
+  } else if (descriptionNotUpdated) {
+    lines.push('Pull request description was not updated.');
+  }
+  return lines;
+};
+/**
+ * Ensure an existing pull request body contains a GitHub closing keyword for the issue.
+ *
+ * @param {Object} options
+ * @param {string|number} options.prNumber - Pull request number
+ * @param {string|number} options.issueNumber - Issue number to link
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @param {Object} [options.argv] - Parsed CLI arguments
+ * @param {Function} [options.command] - command-stream tagged template
+ * @param {Function} [options.logger] - Logger function
+ * @returns {Promise<{checked: boolean, updated: boolean, body: string, issueRef: string, error?: string}>}
+ */
+export const ensurePullRequestIssueLink = async ({ prNumber, issueNumber, owner, repo, argv = {}, command = $, logger = log }) => {
+  if (!prNumber || !issueNumber || !owner || !repo) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: 'missing required pull request or issue data' };
+  }
+
+  let prBody = '';
+  const prBodyResult = await command`gh pr view ${prNumber} --repo ${owner}/${repo} --json body --jq .body`;
+  if (prBodyResult.code !== 0) {
+    const error = prBodyResult.stderr ? prBodyResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not read PR body for issue link check: ${error}`);
+    return { checked: false, updated: false, body: prBody, issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error };
+  }
+  prBody = prBodyResult.stdout.toString();
+  const linkResult = ensureIssueLinkInPullRequestBody(prBody, {
+    issueNumber,
+    owner,
+    repo,
+    fork: argv.fork,
+  });
+
+  if (!linkResult.updated) {
+    await logger('  ✅ PR body already contains issue reference');
+    return { checked: true, updated: false, body: linkResult.body, issueRef: linkResult.issueRef };
+  }
+  await logger(`  📝 Updating PR body to link issue #${issueNumber}...`);
+  const fs = (await use('fs')).promises;
+  const tempBodyFile = `/tmp/pr-body-update-${prNumber}-${Date.now()}.md`;
+  await writeSanitizedPublicationFile(tempBodyFile, linkResult.body);
+
   try {
-    await log(formatAligned('🔄', 'Cleanup:', 'Reverting CLAUDE.md commit'));
-
-    let commitToRevert = claudeCommitHash;
-
-    // If commit hash wasn't provided (e.g., in continue mode), fall back to finding it
-    if (!commitToRevert) {
-      await log('   No commit hash provided, searching for first commit...', { verbose: true });
-      const firstCommitResult = await $({ cwd: tempDir })`git log --format=%H --reverse 2>&1`;
-      if (firstCommitResult.code !== 0) {
-        await log('   Warning: Could not get commit history', { verbose: true });
-        return;
-      }
-
-      const commits = firstCommitResult.stdout.toString().trim().split('\n');
-      if (commits.length === 0) {
-        await log('   Warning: No commits found in branch', { verbose: true });
-        return;
-      }
-
-      commitToRevert = commits[0];
-    } else {
-      await log(`   Using saved commit hash: ${commitToRevert.substring(0, 7)}...`, { verbose: true });
+    const updateResult = await command`gh pr edit ${prNumber} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
+    await fs.unlink(tempBodyFile).catch(() => {});
+    if (updateResult.code === 0) {
+      await logger(`  ✅ Updated PR body to include "Fixes ${linkResult.issueRef}"`);
+      return { checked: true, updated: true, body: linkResult.body, issueRef: linkResult.issueRef };
     }
 
-    // Revert the CLAUDE.md commit
-    const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
-    if (revertResult.code === 0) {
-      await log(formatAligned('📦', 'Committed:', 'CLAUDE.md revert'));
+    const error = updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error';
+    await logger(`  ⚠️  Could not update PR body: ${error}`);
+    return { checked: true, updated: false, body: prBody, issueRef: linkResult.issueRef, error };
+  } catch (updateError) {
+    await fs.unlink(tempBodyFile).catch(() => {});
+    throw updateError;
+  }
+};
+export const verifyPullRequestIssueLinkAfterAutoRestart = async ({ prNumber, issueNumber, owner, repo, argv = {}, cleanErrorMessage = error => error.message }) => {
+  if (!prNumber) {
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }) };
+  }
 
-      // Push the revert
-      const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
-      if (pushRevertResult.code === 0) {
-        await log(formatAligned('📤', 'Pushed:', 'CLAUDE.md revert to GitHub'));
+  await log('🔗 Verifying PR issue link after auto-restart...');
+  try {
+    return await ensurePullRequestIssueLink({ prNumber, issueNumber, owner, repo, argv });
+  } catch (issueLinkError) {
+    await log(`⚠️  Could not verify PR issue link after auto-restart: ${cleanErrorMessage(issueLinkError)}`, { level: 'warning' });
+    return { checked: false, updated: false, body: '', issueRef: buildIssueReference({ issueNumber, owner, repo, fork: argv.fork }), error: issueLinkError.message };
+  }
+};
+/**
+ * Detect the CLAUDE.md or .gitkeep commit hash from branch structure when not available in session
+ * This handles continue mode where the commit hash was lost between sessions
+ *
+ * Safety checks to prevent Issue #617 (wrong commit revert):
+ * 1. Only look at commits on the PR branch (not default branch commits)
+ * 2. Verify the commit message matches our expected pattern
+ * 3. Verify the commit ONLY adds CLAUDE.md or .gitkeep (no other files changed)
+ * 4. Verify there are additional commits after it (actual work was done)
+ *
+ * @param {string} tempDir - The temporary directory with the git repo
+ * @param {string} branchName - The PR branch name
+ * @returns {string|null} - The detected commit hash or null if not found/safe
+ */
+const detectClaudeMdCommitFromBranch = async (tempDir, branchName) => {
+  try {
+    await log('   Attempting to detect CLAUDE.md or .gitkeep commit from branch structure...', { verbose: true });
+    // First check if CLAUDE.md or .gitkeep exists in current branch
+    const claudeMdExistsResult = await $({ cwd: tempDir })`git ls-files CLAUDE.md 2>&1`;
+    const gitkeepExistsResult = await $({ cwd: tempDir })`git ls-files .gitkeep 2>&1`;
+    const claudeMdExists = claudeMdExistsResult.code === 0 && claudeMdExistsResult.stdout && claudeMdExistsResult.stdout.trim();
+    const gitkeepExists = gitkeepExistsResult.code === 0 && gitkeepExistsResult.stdout && gitkeepExistsResult.stdout.trim();
+
+    if (!claudeMdExists && !gitkeepExists) {
+      await log('   Neither CLAUDE.md nor .gitkeep exists in current branch', { verbose: true });
+      return null;
+    }
+    // Get the default branch to find the fork point
+    const defaultBranchResult = await $({ cwd: tempDir })`git symbolic-ref refs/remotes/origin/HEAD 2>&1`;
+    let defaultBranch = 'main';
+    if (defaultBranchResult.code === 0 && defaultBranchResult.stdout) {
+      const match = defaultBranchResult.stdout.toString().match(/refs\/remotes\/origin\/(.+)/);
+      if (match) {
+        defaultBranch = match[1].trim();
+      }
+    }
+    await log(`   Using default branch: ${defaultBranch}`, { verbose: true });
+
+    // Find the merge base (fork point) between current branch and default branch
+    const mergeBaseResult = await $({ cwd: tempDir })`git merge-base origin/${defaultBranch} HEAD 2>&1`;
+    if (mergeBaseResult.code !== 0 || !mergeBaseResult.stdout) {
+      await log('   Could not find merge base, cannot safely detect initial commit', { verbose: true });
+      return null;
+    }
+    const mergeBase = mergeBaseResult.stdout.toString().trim();
+    await log(`   Merge base: ${mergeBase.substring(0, 7)}`, { verbose: true });
+    // Get all commits on the PR branch (commits after the merge base)
+    // Format: hash|message|files_changed
+    const branchCommitsResult = await $({ cwd: tempDir })`git log ${mergeBase}..HEAD --reverse --format="%H|%s" 2>&1`;
+    if (branchCommitsResult.code !== 0 || !branchCommitsResult.stdout) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+    const branchCommits = branchCommitsResult.stdout.toString().trim().split('\n').filter(Boolean);
+    if (branchCommits.length === 0) {
+      await log('   No commits found on PR branch', { verbose: true });
+      return null;
+    }
+
+    await log(`   Found ${branchCommits.length} commit(s) on PR branch`, { verbose: true });
+    // Safety check: Must have at least 2 commits (CLAUDE.md commit + actual work)
+    if (branchCommits.length < 2) {
+      await log('   Only 1 commit on branch - not enough commits to safely revert CLAUDE.md', { verbose: true });
+      await log('   (Need at least 2 commits: CLAUDE.md initial + actual work)', { verbose: true });
+      return null;
+    }
+
+    // Get the first commit on the PR branch
+    const firstCommitLine = branchCommits[0];
+    const [firstCommitHash, firstCommitMessage] = firstCommitLine.split('|');
+    await log(`   First commit on branch: ${firstCommitHash.substring(0, 7)} - "${firstCommitMessage}"`, {
+      verbose: true,
+    });
+
+    // Safety check: Verify commit message matches expected pattern (CLAUDE.md or .gitkeep)
+    const expectedMessagePatterns = [/^Initial commit with task details/i, /^Add CLAUDE\.md/i, /^CLAUDE\.md/i, /^Add \.gitkeep/i, /\.gitkeep/i];
+    const messageMatches = expectedMessagePatterns.some(pattern => pattern.test(firstCommitMessage));
+    if (!messageMatches) {
+      await log('   First commit message does not match expected pattern', { verbose: true });
+      await log('   Expected patterns: "Initial commit with task details...", "Add CLAUDE.md", ".gitkeep", etc.', {
+        verbose: true,
+      });
+      return null;
+    }
+    // Safety check: Verify the commit ONLY adds CLAUDE.md or .gitkeep file (no other files)
+    const filesChangedResult = await $({
+      cwd: tempDir,
+    })`git diff-tree --no-commit-id --name-only -r ${firstCommitHash} 2>&1`;
+    if (filesChangedResult.code !== 0 || !filesChangedResult.stdout) {
+      await log('   Could not get files changed in first commit', { verbose: true });
+      return null;
+    }
+
+    const filesChanged = filesChangedResult.stdout.toString().trim().split('\n').filter(Boolean);
+    await log(`   Files changed in first commit: ${filesChanged.join(', ')}`, { verbose: true });
+    // Check if CLAUDE.md or .gitkeep is in the files changed
+    const hasClaudeMd = filesChanged.includes('CLAUDE.md');
+    const hasGitkeep = filesChanged.includes('.gitkeep');
+    if (!hasClaudeMd && !hasGitkeep) {
+      await log('   First commit does not include CLAUDE.md or .gitkeep', { verbose: true });
+      return null;
+    }
+
+    const targetFile = hasClaudeMd ? 'CLAUDE.md' : '.gitkeep';
+    // CRITICAL SAFETY CHECK: Only allow revert if the target file is the ONLY file changed
+    // This prevents Issue #617 where reverting a commit deleted .gitignore, LICENSE, README.md
+    if (filesChanged.length > 1) {
+      await log(`   ⚠️  First commit changes more than just ${targetFile} (${filesChanged.length} files)`, {
+        verbose: true,
+      });
+      await log(`   Files: ${filesChanged.join(', ')}`, { verbose: true });
+      await log('   Refusing to revert to prevent data loss (Issue #617 safety)', { verbose: true });
+      return null;
+    }
+    // All safety checks passed!
+    await log(`   ✅ Detected ${targetFile} commit: ${firstCommitHash.substring(0, 7)}`, { verbose: true });
+    await log(`   ✅ Commit only contains ${targetFile} (safe to revert)`, { verbose: true });
+    await log(`   ✅ Branch has ${branchCommits.length - 1} additional commit(s) (work was done)`, { verbose: true });
+
+    return firstCommitHash;
+  } catch (error) {
+    reportError(error, {
+      context: 'detect_initial_commit',
+      tempDir,
+      branchName,
+      operation: 'detect_commit_from_branch_structure',
+    });
+    await log(`   Error detecting initial commit: ${error.message}`, { verbose: true });
+    return null;
+  }
+};
+const wasFileTouchedAfterCommit = async (tempDir, commitHash, fileName) => {
+  const changedCommitsResult = await $({ cwd: tempDir, silent: true })`git log --format=%H ${commitHash}..HEAD -- ${fileName}`;
+  if (changedCommitsResult.code === 0) {
+    return Boolean(changedCommitsResult.stdout?.trim());
+  }
+
+  if (changedCommitsResult.code !== 0) {
+    await log(`   Could not inspect ${fileName} changes after initial commit`, { verbose: true });
+    await log(`   git log output: ${changedCommitsResult.stderr || changedCommitsResult.stdout || 'no output'}`, { verbose: true });
+  }
+  return true;
+};
+
+// Revert the CLAUDE.md or .gitkeep commit to restore original state
+export const cleanupClaudeFile = async (tempDir, branchName, claudeCommitHash = null) => {
+  try {
+    // If no commit hash provided, try to detect it from branch structure
+    // This handles continue mode where the hash was lost between sessions
+    if (!claudeCommitHash) {
+      await log('   No initial commit hash from session, attempting to detect from branch...', { verbose: true });
+      claudeCommitHash = await detectClaudeMdCommitFromBranch(tempDir, branchName);
+      if (!claudeCommitHash) {
+        await log('   Could not safely detect initial commit to revert', { verbose: true });
+        return;
+      }
+      await log(`   Detected initial commit: ${claudeCommitHash.substring(0, 7)}`, { verbose: true });
+    }
+    // Determine which file was used based on the commit message or actual files changed
+    // Use %B (full message including body) instead of %s (subject only) to catch ".gitkeep" in body
+    // Also check the actual files changed as a fallback (Issue #1436)
+    const commitMsgResult = await $({ cwd: tempDir })`git log -1 --format=%B ${claudeCommitHash} 2>&1`;
+    const commitMsg = commitMsgResult.stdout?.trim() || '';
+    let isGitkeepFile = commitMsg.includes('.gitkeep');
+
+    // Fallback: check actual files changed in the commit if message doesn't mention .gitkeep
+    if (!isGitkeepFile) {
+      const filesResult = await $({ cwd: tempDir })`git diff-tree --no-commit-id --name-only -r ${claudeCommitHash} 2>&1`;
+      const files = filesResult.stdout?.trim().split('\n').filter(Boolean) || [];
+      isGitkeepFile = files.includes('.gitkeep');
+    }
+    const fileName = isGitkeepFile ? '.gitkeep' : 'CLAUDE.md';
+    await log(formatAligned('🔄', 'Cleanup:', `Reverting ${fileName} commit`));
+    await log(`   Using saved commit hash: ${claudeCommitHash.substring(0, 7)}...`, { verbose: true });
+
+    // Issue #1572: Sync local branch with remote before cleanup to prevent push failures.
+    // After auto-restart sessions, the local branch may be behind the remote.
+    const pullResult = await $({ cwd: tempDir })`git pull origin ${branchName} 2>&1`;
+    if (pullResult.code === 0) {
+      await log(`   Synced local branch before cleanup`, { verbose: true });
+    } else {
+      throw new Error(`git pull failed (code ${pullResult.code}): ${pullResult.stdout || pullResult.stderr || 'no output'}`);
+    }
+    const commitToRevert = claudeCommitHash;
+    // Issue #1791: .gitkeep is a normal repository file in some projects, and
+    // user work may intentionally edit or delete it. Once later PR commits touch
+    // .gitkeep, final cleanup must not restore the pre-session version.
+    if (fileName === '.gitkeep' && (await wasFileTouchedAfterCommit(tempDir, commitToRevert, fileName))) {
+      await log(`   ${fileName} changed after the initial auto-commit; leaving PR changes untouched`, {
+        verbose: true,
+      });
+      return;
+    }
+
+    // APPROACH 3: Check for modifications before reverting (proactive detection)
+    // This is the main strategy - detect if the file was modified after initial commit
+    await log(`   Checking if ${fileName} was modified since initial commit...`, { verbose: true });
+    // Issue #2135: `mirror: false`. Only "is it non-empty" is asked here, and
+    // the answer is a file's whole diff.
+    const diffResult = await $({ cwd: tempDir, ...QUIET_PROBE })`git diff ${commitToRevert} HEAD -- ${fileName} 2>&1`;
+    if (diffResult.stdout && diffResult.stdout.trim()) {
+      // File was modified after initial commit - use manual approach to avoid conflicts
+      await log(`   ${fileName} was modified after initial commit, using manual cleanup...`, { verbose: true });
+
+      // Get the state of the file from before the initial commit (parent of the commit we're reverting)
+      const parentCommit = `${commitToRevert}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
+      if (parentFileExists.code === 0) {
+        // File existed before the initial commit - restore it to that state
+        await log(`   ${fileName} existed before session, restoring to previous state...`, { verbose: true });
+        await $({ cwd: tempDir })`git checkout ${parentCommit} -- ${fileName}`;
       } else {
-        await log('   Warning: Could not push CLAUDE.md revert', { verbose: true });
+        // File didn't exist before the initial commit - delete it
+        await log(`   ${fileName} was created in session, removing it...`, { verbose: true });
+        await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
+      }
+
+      // Create a manual revert commit
+      const commitResult = await $({ cwd: tempDir })`git commit -m "Revert: Remove ${fileName} changes from initial commit" 2>&1`;
+      if (commitResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', `${fileName} revert (manual)`));
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', `${fileName} revert to GitHub`));
+        } else {
+          await log(`   Warning: Could not push ${fileName} revert`, { verbose: true });
+        }
+      } else {
+        await log('   Warning: Could not create manual revert commit', { verbose: true });
+        await log(`   Commit output: ${commitResult.stderr || commitResult.stdout}`, { verbose: true });
       }
     } else {
-      await log('   Warning: Could not revert CLAUDE.md commit', { verbose: true });
-      await log(`   Revert output: ${revertResult.stderr || revertResult.stdout}`, { verbose: true });
+      // No modifications detected - safe to use git revert (standard approach)
+      await log('   No modifications detected, using standard git revert...', { verbose: true });
+
+      // FALLBACK 1: Standard git revert
+      const revertResult = await $({ cwd: tempDir })`git revert ${commitToRevert} --no-edit 2>&1`;
+      if (revertResult.code === 0) {
+        await log(formatAligned('📦', 'Committed:', `${fileName} revert`));
+        // Push the revert
+        const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+        if (pushRevertResult.code === 0) {
+          await log(formatAligned('📤', 'Pushed:', `${fileName} revert to GitHub`));
+        } else {
+          await log(`   Warning: Could not push ${fileName} revert`, { verbose: true });
+        }
+      } else {
+        // FALLBACK 2: Handle unexpected conflicts (three-way merge with automatic resolution)
+        const revertOutput = revertResult.stderr || revertResult.stdout || '';
+        const hasConflict = revertOutput.includes('CONFLICT') || revertOutput.includes('conflict');
+
+        if (hasConflict) {
+          await log('   Unexpected conflict detected, attempting automatic resolution...', { verbose: true });
+          // Check git status to see what files are in conflict
+          const statusResult = await $({ cwd: tempDir })`git status --short 2>&1`;
+          const statusOutput = statusResult.stdout || '';
+          // Check if the file is in the conflict
+          if (statusOutput.includes(fileName)) {
+            await log(`   Resolving ${fileName} conflict by restoring pre-session state...`, { verbose: true });
+
+            // Get the state of the file from before the initial commit (parent of the commit we're reverting)
+            const parentCommit = `${commitToRevert}~1`;
+            const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
+            if (parentFileExists.code === 0) {
+              // File existed before the initial commit - restore it to that state
+              await log(`   ${fileName} existed before session, restoring to previous state...`, { verbose: true });
+              await $({ cwd: tempDir })`git checkout ${parentCommit} -- ${fileName}`;
+              // Stage the resolved file
+              await $({ cwd: tempDir })`git add ${fileName} 2>&1`;
+            } else {
+              // File didn't exist before the initial commit - delete it
+              await log(`   ${fileName} was created in session, removing it...`, { verbose: true });
+              await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
+              // No need to git add since git rm stages the deletion
+            }
+
+            // Complete the revert with the resolved conflict
+            const continueResult = await $({ cwd: tempDir })`git revert --continue --no-edit 2>&1`;
+            if (continueResult.code === 0) {
+              await log(formatAligned('📦', 'Committed:', `${fileName} revert (conflict resolved)`));
+
+              // Push the revert
+              const pushRevertResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+              if (pushRevertResult.code === 0) {
+                await log(formatAligned('📤', 'Pushed:', `${fileName} revert to GitHub`));
+              } else {
+                await log(`   Warning: Could not push ${fileName} revert`, { verbose: true });
+              }
+            } else {
+              await log('   Warning: Could not complete revert after conflict resolution', { verbose: true });
+              await log(`   Continue output: ${continueResult.stderr || continueResult.stdout}`, { verbose: true });
+            }
+          } else {
+            // Conflict in some other file, not expected file - this is unexpected
+            await log('   Warning: Revert conflict in unexpected file(s), aborting revert', { verbose: true });
+            await $({ cwd: tempDir })`git revert --abort 2>&1`;
+          }
+        } else {
+          // Non-conflict error
+          await log(`   Warning: Could not revert ${fileName} commit`, { verbose: true });
+          await log(`   Revert output: ${revertOutput}`, { verbose: true });
+        }
+      }
+    }
+    // Post-cleanup verification: check if the file was actually removed (Issue #1436)
+    // This catches cases where revert/push succeeded in logs but file still exists
+    const verifyResult = await $({ cwd: tempDir })`git ls-files ${fileName} 2>&1`;
+    const fileStillExists = verifyResult.code === 0 && verifyResult.stdout && verifyResult.stdout.trim();
+    if (fileStillExists) {
+      // Issue #2160: the pre-existence check must come FIRST. A file that legitimately predates
+      // the session is not a cleanup failure, and warning about it produced a false positive
+      // ("⚠️ WARNING: .gitkeep still exists after cleanup" immediately followed by
+      // "ℹ️ .gitkeep existed before this session — keeping pre-existing file").
+      const parentCommit = `${claudeCommitHash}~1`;
+      const parentFileExists = await $({ cwd: tempDir })`git cat-file -e ${parentCommit}:${fileName} 2>&1`;
+      if (parentFileExists.code !== 0) {
+        // File didn't exist before the session — this is a real leftover, force remove it
+        await log(`   ⚠️  WARNING: ${fileName} still exists after cleanup — attempting direct removal...`);
+        await $({ cwd: tempDir })`git rm -f ${fileName} 2>&1`;
+        const fallbackCommit = await $({ cwd: tempDir })`git commit -m "Remove leftover ${fileName} (post-cleanup fallback, Issue #1436)" 2>&1`;
+        if (fallbackCommit.code === 0) {
+          const fallbackPush = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+          if (fallbackPush.code === 0) {
+            await log(`   ✅ ${fileName} removed via post-cleanup fallback`);
+          } else {
+            await log(`   ⚠️  ${fileName} removed locally but push failed`, { verbose: true });
+          }
+        }
+      } else {
+        await log(`   ℹ️  ${fileName} existed before this session — keeping pre-existing file`, { verbose: true });
+      }
     }
   } catch (e) {
     reportError(e, {
       context: 'cleanup_claude_file',
       tempDir,
-      operation: 'revert_claude_md_commit'
+      operation: 'revert_initial_commit',
     });
     // If revert fails, that's okay - the task is still complete
-    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+    await log('   Initial commit revert failed or not needed', { verbose: true });
   }
 };
-
 // Show session summary and handle limit reached scenarios
 export const showSessionSummary = async (sessionId, limitReached, argv, issueUrl, tempDir, shouldAttachLogs = false) => {
   await log('\n=== Session Summary ===');
+  // Issue #1745: report how many tokens were masked during this run, with the
+  // "use --dangerously-skip-output-sanitization to skip" hint when > 0.
+  try {
+    const sanitizationSummary = formatSanitizationSummary();
+    if (sanitizationSummary) {
+      await log(sanitizationSummary);
+    }
+  } catch {
+    /* never fail the summary because of this */
+  }
 
   if (sessionId) {
     await log(`✅ Session ID: ${sessionId}`);
     // Always use absolute path for log file display
-    const path = (await use('path'));
     const absoluteLogPath = path.resolve(getLogFile());
     await log(`✅ Complete log file: ${absoluteLogPath}`);
+    // Show three resume options:
+    //   1. Interactive claude  - opens Claude Code interactively (claude only)
+    //   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)
+    //   3. Solve resume        - re-enters solve.mjs with --resume so the full flow continues
+    //                            (works for every supported tool, including codex/gemini/etc.)
+    const tool = argv.tool || 'claude';
+    await log('');
+    await log('💡 To continue this session:');
+    if (tool === 'claude') {
+      await log(`   Interactive mode:    ${buildClaudeResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+      await log(`   Autonomous mode:     ${buildClaudeAutonomousResumeCommand({ tempDir, sessionId, model: argv.model })}`);
+    }
+    if (issueUrl) {
+      const solveResumeCmd = buildSolveResumeCommand({ issueUrl, sessionId, tool, model: argv.model, fallbackModel: argv.fallbackModel, tempDir });
+      await log(`   Solve resume mode:   ${solveResumeCmd}`);
+    }
+    await log('');
 
     if (limitReached) {
-      await log('\n⏰ LIMIT REACHED DETECTED!');
-
-      if (argv.autoContinueLimit && global.limitResetTime) {
-        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
-        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs);
+      await log('⏰ LIMIT REACHED DETECTED!');
+      if ((argv.autoResumeOnLimitReset || argv.autoRestartOnLimitReset) && global.limitResetTime) {
+        const isRestart = !!argv.autoRestartOnLimitReset;
+        await log(`\n🔄 AUTO-${isRestart ? 'RESTART' : 'RESUME'} ON LIMIT RESET ENABLED - Will ${isRestart ? 'restart' : 'resume'} at ${global.limitResetTime}`);
+        // Pass tempDir to ensure resumed session uses the same working directory
+        // This is critical for Claude Code session resume to work correctly
+        await autoContinueWhenLimitResets(issueUrl, sessionId, argv, shouldAttachLogs, tempDir, isRestart);
       } else {
-        // Only show resume recommendation if --no-auto-cleanup was passed
-        if (argv.autoCleanup === false) {
-          await log('\n🔄 To resume when limit resets, use:\n');
-          await log(`./solve.mjs "${issueUrl}" --resume ${sessionId}`);
+        if (global.limitResetTime) {
+          await log(`\n⏰ Limit resets at: ${global.limitResetTime}`);
+        }
+        await log('\n💡 After the limit resets, resume using the command above.');
 
-          if (global.limitResetTime) {
-            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
-            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
-          }
-
-          await log('\n   This will continue from where it left off with full context.\n');
-        } else {
-          await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+        if (argv.autoCleanup !== false) {
+          await log('');
+          await log('⚠️  Note: Temporary directory will be automatically cleaned up.');
           await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
         }
       }
     } else {
-      // Show command to resume session in interactive mode only if --no-auto-cleanup was passed
-      if (argv.autoCleanup === false) {
-        await log('\n💡 To continue this session in Claude Code interactive mode:\n');
-        await log(`   (cd ${tempDir} && claude --resume ${sessionId})`);
-        await log('');
-      } else {
-        await log('\n⚠️  Note: Temporary directory will be automatically cleaned up.');
+      // Show note about auto-cleanup only when enabled
+      if (argv.autoCleanup !== false) {
+        await log('ℹ️  Note: Temporary directory will be automatically cleaned up.');
         await log('   To keep the directory for debugging or resuming, use --no-auto-cleanup');
       }
     }
-
     // Don't show log preview, it's too technical
   } else {
-    await log('❌ No session ID extracted');
+    // For agent tool, session IDs may not be meaningful for resuming, so don't show as error
+    if (argv.tool !== 'agent') {
+      await log('❌ No session ID extracted');
+    } else {
+      await log('ℹ️  Agent tool completed (session IDs not used for resuming)');
+    }
     // Always use absolute path for log file display
     const logFilePath = path.resolve(getLogFile());
     await log(`📁 Log file available: ${logFilePath}`);
   }
+
+  // Issue #2239: verify the GitHub file links this session published and repair
+  // the ones proven broken — in fork mode the branch lives in the fork while the
+  // pull request lives upstream, so an upstream path in an image URL is a 404.
+  // Runs before the sanitization sweep so the sanitizer still has the last word
+  // on anything it edits, and is never disabled by local bypass flags.
+  await reportPullRequestLinkRepair({ $, owner: argv.owner, repo: argv.repo, prNumber: argv.prNumber, log, verbose: Boolean(argv.verbose) });
+
+  // Issue #1745: post-finish retroactive sanitization sweep. Re-reads
+  // bot-authored PR comments and the PR description, runs them through
+  // sanitizeOutput, and edits in place if a leak slipped past the live
+  // sanitizer. Publication repair is a strict external boundary, so local
+  // diagnostic bypass flags never disable it.
+  try {
+    const owner = argv.owner;
+    const repo = argv.repo;
+    const prNumber = argv.prNumber;
+    if (owner && repo && prNumber) {
+      const sweepResult = await runPostFinishSweep({
+        $,
+        owner,
+        repo,
+        prNumber,
+        log,
+      });
+      if (sweepResult.totalEdited > 0) {
+        await log(`🔒 Post-finish sweep: edited ${sweepResult.totalEdited} bot-authored item(s) to mask leaked tokens.`);
+        const followup = formatSanitizationSummary(sweepResult.sanitizationStatsAfter);
+        if (followup) await log(followup);
+      }
+    }
+  } catch (sweepErr) {
+    await log(`⚠️ Post-finish sanitization sweep failed: ${sweepErr.message || sweepErr}`);
+  }
+};
+// Build token/context data once so every end-of-session publication can use the
+// same observed facts (working-session summary and attached log alike).
+export const buildSessionBudgetStatsData = async ({ argv, sessionId = null, tempDir = null, resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, pricingInfo = null }) => {
+  let budgetStatsData = null;
+  // Issue #2132: budget stats are a property of the working session **log**.
+  // With `--attach-logs` disabled there is no log comment, so they must not be
+  // computed or published anywhere.
+  const { shouldPublishBudgetStats, isAttachLogsEnabled, isTokensBudgetStatsEnabled } = await import('./budget-stats-policy.lib.mjs');
+  if (!shouldPublishBudgetStats(argv)) {
+    if (argv?.verbose) {
+      const reason = !isTokensBudgetStatsEnabled(argv) ? '--no-tokens-budget-stats' : !isAttachLogsEnabled(argv) ? '--attach-logs is disabled' : 'unknown';
+      await log(`  ℹ️  Skipping context/cost budget stats publication (${reason})`, { verbose: true });
+    }
+    return null;
+  }
+  if (sessionId && tempDir) {
+    try {
+      const { calculateSessionTokens } = await import('./claude.lib.mjs');
+      const tokenUsage = await calculateSessionTokens(sessionId, tempDir, resultModelUsage);
+      if (tokenUsage) {
+        budgetStatsData = { tokenUsage, streamTokenUsage, subAgentCalls };
+      }
+    } catch (budgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not calculate budget stats: ${budgetError.message}`, { verbose: true });
+    }
+  }
+  // Issue #1526: Build budget stats from Agent CLI token/context data when no JSONL session available
+  if (!budgetStatsData && pricingInfo?.tokenUsage) {
+    try {
+      const { buildAgentBudgetStats } = await import('./claude.budget-stats.lib.mjs');
+      const agentBudgetData = buildAgentBudgetStats(pricingInfo.tokenUsage, pricingInfo);
+      if (agentBudgetData) {
+        budgetStatsData = { tokenUsage: agentBudgetData };
+      }
+    } catch (agentBudgetError) {
+      if (argv.verbose) await log(`  ⚠️  Could not build agent budget stats: ${agentBudgetError.message}`, { verbose: true });
+    }
+  }
+  return budgetStatsData;
 };
 
 // Verify results by searching for new PRs and comments
-export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs) => {
+export const verifyResults = async (owner, repo, branchName, issueNumber, prNumber, prUrl, referenceTime, argv, shouldAttachLogs, shouldRestart = false, sessionId = null, tempDir = null, anthropicTotalCostUSD = null, publicPricingEstimate = null, pricingInfo = null, errorDuringExecution = false, sessionType = 'new', resultModelUsage = null, streamTokenUsage = null, subAgentCalls = null, precomputedBudgetStatsData = null) => {
   await log('\n🔍 Searching for created pull requests or comments...');
-
+  // Issue #1491, #1526, #2115: reuse data already calculated for the working
+  // session summary; retain the fallback for callers that do not precompute it.
+  const budgetStatsData =
+    precomputedBudgetStatsData ??
+    (await buildSessionBudgetStatsData({
+      argv,
+      sessionId,
+      tempDir,
+      resultModelUsage,
+      streamTokenUsage,
+      subAgentCalls,
+      pricingInfo,
+    }));
   try {
     // Get the current user's GitHub username
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
 
     if (userResult.code !== 0) {
       throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
     }
-
     const currentUser = userResult.stdout.toString().trim();
     if (!currentUser) {
       throw new Error('Unable to determine current GitHub user');
@@ -174,17 +701,17 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
     // Search for pull requests created from our branch
     await log('\n🔍 Checking for pull requests from branch ' + branchName + '...');
-
     // First, get all PRs from our branch
-    const allBranchPrsResult = await $`gh pr list --repo ${owner}/${repo} --head ${branchName} --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
-
+    // IMPORTANT: Use --state all to find PRs that may have been merged during the session (Issue #1008)
+    // Without --state all, gh pr list only returns OPEN PRs, missing merged ones
+    // Issue #2135: `mirror: false` - the pull requests found are named below.
+    const allBranchPrsResult = await $(QUIET_PROBE)`gh pr list --repo ${owner}/${repo} --head ${branchName} --state all --json number,url,createdAt,headRefName,title,state,updatedAt,isDraft`;
     if (allBranchPrsResult.code !== 0) {
       await log('  ⚠️  Failed to check pull requests');
       // Continue with empty list
     }
 
     const allBranchPrs = allBranchPrsResult.stdout.toString().trim() ? JSON.parse(allBranchPrsResult.stdout.toString().trim()) : [];
-
     // Check if we have any PRs from our branch
     // If auto-PR was created, it should be the one we're working on
     if (allBranchPrs.length > 0) {
@@ -192,56 +719,111 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
 
       // If we created a PR earlier in this session, it would be prNumber
       // Or if the PR was updated during the session (updatedAt > referenceTime)
-      const isPrFromSession = (prNumber && pr.number.toString() === prNumber) ||
-                              (prUrl && pr.url === prUrl) ||
-                              new Date(pr.updatedAt) > referenceTime ||
-                              new Date(pr.createdAt) > referenceTime;
-
+      const isPrFromSession = (prNumber && pr.number.toString() === prNumber) || (prUrl && pr.url === prUrl) || new Date(pr.updatedAt) > referenceTime || new Date(pr.createdAt) > referenceTime;
       if (isPrFromSession) {
         await log(`  ✅ Found pull request #${pr.number}: "${pr.title}"`);
 
-        // Check if PR body has proper issue linking keywords
-        const prBodyResult = await $`gh pr view ${pr.number} --repo ${owner}/${repo} --json body --jq .body`;
-        if (prBodyResult.code === 0) {
-          const prBody = prBodyResult.stdout.toString();
-          const issueRef = argv.fork ? `${owner}/${repo}#${issueNumber}` : `#${issueNumber}`;
-
-          // Check if any linking keywords exist (case-insensitive)
-          const linkingKeywords = ['fixes', 'closes', 'resolves', 'fix', 'close', 'resolve'];
-          const hasLinkingKeyword = linkingKeywords.some(keyword => {
-            const pattern = new RegExp(`\\b${keyword}\\s+.*?#?${issueNumber}\\b`, 'i');
-            return pattern.test(prBody);
-          });
-
-          if (!hasLinkingKeyword) {
-            await log(`  📝 Updating PR body to link issue #${issueNumber}...`);
-
-            // Add proper issue reference to the PR body
-            const linkingText = `\n\nFixes ${issueRef}`;
-            const updatedBody = prBody + linkingText;
-
-            const updateResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body "${updatedBody}"`;
-            if (updateResult.code === 0) {
-              await log(`  ✅ Updated PR body to include "Fixes ${issueRef}"`);
-            } else {
-              await log(`  ⚠️  Could not update PR body: ${updateResult.stderr ? updateResult.stderr.toString().trim() : 'Unknown error'}`);
-            }
-          } else {
-            await log('  ✅ PR body already contains issue reference');
-          }
+        // Check if PR was merged during the session (Issue #1008)
+        const isPrMerged = pr.state === 'MERGED';
+        if (isPrMerged) {
+          await log(`  ℹ️  PR #${pr.number} was merged during the session`);
         }
+        // Declare placeholder detection variables outside block scopes for use in return value
+        let prTitleHasPlaceholder = false;
+        let prBodyHasPlaceholder = false;
+        // Skip PR body update and ready conversion for merged PRs (they can't be edited)
+        if (!isPrMerged) {
+          const issueLinkResult = await ensurePullRequestIssueLink({
+            prNumber: pr.number,
+            issueNumber,
+            owner,
+            repo,
+            argv,
+            command: $,
+            logger: log,
+          });
+          const prBody = issueLinkResult.body || '';
 
-        // Check if PR is ready for review (convert from draft if necessary)
-        if (pr.isDraft) {
-          await log('  🔄 Converting PR from draft to ready for review...');
-          const readyResult = await $`gh pr ready ${pr.number} --repo ${owner}/${repo}`;
-          if (readyResult.code === 0) {
-            await log('  ✅ PR converted to ready for review');
-          } else {
-            await log(`  ⚠️  Could not convert PR to ready (${readyResult.stderr ? readyResult.stderr.toString().trim() : 'unknown error'})`);
+          // Issue #1162: Detect if PR title/description still have auto-generated placeholder content
+          // Track this before cleanup for --auto-restart-on-non-updated-pull-request-description
+          prTitleHasPlaceholder = hasPRTitlePlaceholder(pr.title);
+          prBodyHasPlaceholder = hasPRBodyPlaceholder(prBody);
+          // Issue #1162: Remove [WIP] prefix from title if still present
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          // (let the agent handle it on restart instead)
+          if (prTitleHasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            const updatedTitle = await sanitizeForPublication(pr.title.replace(/^\[WIP\]\s*/, ''));
+            await log(`  📝 Removing [WIP] prefix from PR title...`);
+            const titleResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --title ${updatedTitle}`;
+            if (titleResult.code === 0) {
+              await log(`  ✅ Updated PR title to: "${updatedTitle}"`);
+            } else {
+              await log(`  ⚠️  Could not update PR title: ${titleResult.stderr ? titleResult.stderr.toString().trim() : 'Unknown error'}`);
+            }
           }
-        } else {
-          await log('  ✅ PR is already ready for review', { verbose: true });
+
+          // Issue #1162: Update PR description if still contains placeholder text
+          // Skip cleanup if auto-restart-on-non-updated-pull-request-description is enabled
+          const hasPlaceholder = prBodyHasPlaceholder;
+          if (hasPlaceholder && !argv.autoRestartOnNonUpdatedPullRequestDescription) {
+            await log(`  📝 Updating PR description to remove placeholder text...`);
+            // Issue #2119: measure the net diff. The reproduction PRs published
+            // "1 file(s) modified, 1 line(s) added" for a pull request that
+            // changed nothing, because the stats were never checked for being
+            // empty.
+            const changeStats = await getPullRequestChangeStats({ owner, repo, prNumber: pr.number, $, log });
+            if (!changeStats.hasChanges) {
+              await log(`  ⚠️  PR #${pr.number} has an empty diff - the description will say so instead of claiming changes`, { level: 'warning' });
+            }
+            // Get the issue title for context
+            const issueTitleResult = await $`gh issue view ${issueNumber} --repo ${owner}/${repo} --json title --jq .title 2>&1`;
+            const issueTitle = issueTitleResult.code === 0 ? issueTitleResult.stdout.toString().trim() : 'the issue';
+
+            // Build new description
+            const fs = (await use('fs')).promises;
+            const issueRef = buildIssueReference({ issueNumber, owner, repo, fork: argv.fork });
+            const newDescription = `## Summary
+
+This pull request implements a solution for ${issueRef}: ${issueTitle}
+
+### Changes
+${formatChangeSummary(changeStats)}
+
+### Issue Reference
+Fixes ${issueRef}
+
+---
+*This PR was created automatically by the AI issue solver*`;
+            const tempBodyFile = `/tmp/pr-body-finalize-${pr.number}-${Date.now()}.md`;
+            await writeSanitizedPublicationFile(tempBodyFile, newDescription);
+            try {
+              const descResult = await $`gh pr edit ${pr.number} --repo ${owner}/${repo} --body-file ${tempBodyFile}`;
+              await fs.unlink(tempBodyFile).catch(() => {});
+
+              if (descResult.code === 0) {
+                await log(`  ✅ Updated PR description with solution summary`);
+              } else {
+                await log(`  ⚠️  Could not update PR description: ${descResult.stderr ? descResult.stderr.toString().trim() : 'Unknown error'}`);
+              }
+            } catch (descError) {
+              await fs.unlink(tempBodyFile).catch(() => {});
+              await log(`  ⚠️  Error updating PR description: ${descError.message}`);
+            }
+          }
+          // Check if PR is ready for review (convert from draft if necessary).
+          // Issue #2182: this used to be an inline `gh pr ready` that bypassed
+          // pr-draft-state.lib.mjs, so it neither skipped merged/closed PRs nor cleared the
+          // session draft registry that guarantees the ready transition on every exit path.
+          //
+          // Issue #2247: `requireChanges` is what makes "solution draft verified"
+          // mean something. All three reproduction runs converted a pull request
+          // with an empty diff — the Rust one had zero commits on the branch —
+          // and the reason string was published as if the diff had been read.
+          const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+          const readyResult = await ensurePullRequestIsReady({ owner, repo, prNumber: pr.number, $, log, reason: 'solution draft verified', requireChanges: true });
+          if (readyResult.reason === 'no_changes') {
+            await postNoChangesProducedComment({ owner, repo, prNumber: pr.number, changeStats: readyResult.changeStats, $, log });
+          }
         }
 
         // Upload log file to PR if requested
@@ -257,10 +839,27 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
             $,
             log,
             sanitizeLogContent,
-            verbose: argv.verbose
+            verbose: argv.verbose,
+            sessionId,
+            tempDir,
+            anthropicTotalCostUSD,
+            // Pass agent tool pricing data when available
+            publicPricingEstimate,
+            pricingInfo,
+            // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+            errorDuringExecution,
+            // Issue #1152: Pass sessionType for differentiated log comments
+            sessionType,
+            // Issue #1225: Pass model and tool info for PR comments
+            argv,
+            requestedModel: argv.originalModel || argv.model,
+            tool: argv.tool || 'claude',
+            // Issue #1454: Pass resultModelUsage for accurate multi-model display
+            resultModelUsage,
+            // Issue #1491: Pass budget stats for token budget display in comment
+            budgetStatsData,
           });
         }
-
         await log('\n🎉 SUCCESS: A solution draft has been prepared as a pull request');
         await log(`📍 URL: ${pr.url}`);
         if (shouldAttachLogs && logUploadSuccess) {
@@ -269,40 +868,49 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           await log('⚠️  Solution draft log upload was requested but failed');
         }
         await log('\n✨ Please review the pull request for the proposed solution draft.');
-        // Don't exit if watch mode is enabled - it needs to continue monitoring
-        if (!argv.watch) {
+        // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
+        // Also don't exit if auto-restart-on-non-updated-pull-request-description detected placeholders
+        // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+        const shouldAutoRestartForPlaceholder = argv.autoRestartOnNonUpdatedPullRequestDescription && (prTitleHasPlaceholder || prBodyHasPlaceholder);
+        if (shouldAutoRestartForPlaceholder) {
+          await log('\n🔄 Placeholder detected in PR title/description - auto-restart will be triggered');
+        }
+        const shouldWaitForAutoMerge = argv.autoMerge || argv.autoRestartUntilMergeable;
+        if (shouldWaitForAutoMerge) {
+          await log('\n🔄 Auto-merge mode enabled - will attempt to merge after verification');
+        }
+        if (!argv.watch && !shouldRestart && !shouldAutoRestartForPlaceholder && !shouldWaitForAutoMerge) {
           await safeExit(0, 'Process completed successfully');
         }
-        return; // Return normally for watch mode
+        // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+        // Issue #1162: Return placeholder detection status for auto-restart
+        return { logUploadSuccess, prTitleHasPlaceholder, prBodyHasPlaceholder }; // Return for watch mode or auto-restart
       } else {
         await log(`  ℹ️  Found pull request #${pr.number} but it appears to be from a different session`);
       }
     } else {
       await log(`  ℹ️  No pull requests found from branch ${branchName}`);
     }
-
     // If no PR found, search for recent comments on the issue
     await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
 
     // Get all comments and filter them
-    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
-
+    // Use --paginate to get all comments - GitHub API returns max 30 per page by default
+    // Issue #2135: `mirror: false` - the counts below are the report; the raw
+    // answer is every comment body on the issue.
+    const allCommentsResult = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments --paginate`;
     if (allCommentsResult.code !== 0) {
       await log('  ⚠️  Failed to check comments');
       // Continue with empty list
     }
 
     const allComments = JSON.parse(allCommentsResult.stdout.toString().trim() || '[]');
-
     // Filter for new comments by current user
-    const newCommentsByUser = allComments.filter(comment =>
-      comment.user.login === currentUser && new Date(comment.created_at) > referenceTime
-    );
+    const newCommentsByUser = allComments.filter(comment => comment.user.login === currentUser && new Date(comment.created_at) > referenceTime);
 
     if (newCommentsByUser.length > 0) {
       const lastComment = newCommentsByUser[newCommentsByUser.length - 1];
       await log(`  ✅ Found new comment by ${currentUser}`);
-
       // Upload log file to issue if requested
       if (shouldAttachLogs) {
         await log('\n📎 Uploading solution draft log to issue...');
@@ -315,21 +923,41 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
           $,
           log,
           sanitizeLogContent,
-          verbose: argv.verbose
+          verbose: argv.verbose,
+          sessionId,
+          tempDir,
+          anthropicTotalCostUSD,
+          // Pass agent tool pricing data when available
+          publicPricingEstimate,
+          pricingInfo,
+          // Issue #1088: Pass errorDuringExecution for "Finished with errors" state
+          errorDuringExecution,
+          // Issue #1152: Pass sessionType for differentiated log comments
+          sessionType,
+          // Issue #1225: Pass model and tool info for issue comments
+          argv,
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
+          // Issue #1454: Pass resultModelUsage for accurate multi-model display
+          resultModelUsage,
+          // Issue #1491: Pass budget stats for token budget display in comment
+          budgetStatsData,
         });
       }
-
       await log('\n💬 SUCCESS: Comment posted on issue');
       await log(`📍 URL: ${lastComment.html_url}`);
       if (shouldAttachLogs) {
         await log('📎 Solution draft log has been attached to the issue');
       }
       await log('\n✨ A clarifying comment has been added to the issue.');
-      // Don't exit if watch mode is enabled - it needs to continue monitoring
-      if (!argv.watch) {
+      // Don't exit if watch mode is enabled OR if auto-restart is needed for uncommitted changes
+      // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+      const shouldWaitForAutoMergeComment = argv.autoMerge || argv.autoRestartUntilMergeable;
+      if (!argv.watch && !shouldRestart && !shouldWaitForAutoMergeComment) {
         await safeExit(0, 'Process completed successfully');
       }
-      return; // Return normally for watch mode
+      // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+      return { logUploadSuccess: true }; // Return for watch mode or auto-restart
     } else if (allComments.length > 0) {
       await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
     } else {
@@ -344,16 +972,18 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     const reviewLogPath = path.resolve(getLogFile());
     await log(`   ${reviewLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeNoAction = argv.autoMerge || argv.autoRestartUntilMergeable;
+    if (!argv.watch && !shouldWaitForAutoMergeNoAction) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
-
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   } catch (searchError) {
     reportError(searchError, {
       context: 'verify_pr_creation',
       issueNumber,
-      operation: 'search_for_pr'
+      operation: 'search_for_pr',
     });
     await log('\n⚠️  Could not verify results:', searchError.message);
     await log('\n💡 Check the log file for details:');
@@ -361,13 +991,15 @@ export const verifyResults = async (owner, repo, branchName, issueNumber, prNumb
     const checkLogPath = path.resolve(getLogFile());
     await log(`   ${checkLogPath}`);
     // Don't exit if watch mode is enabled - it needs to continue monitoring
-    if (!argv.watch) {
+    // Issue #1219: Also don't exit if auto-merge or auto-restart-until-mergeable is enabled
+    const shouldWaitForAutoMergeError = argv.autoMerge || argv.autoRestartUntilMergeable;
+    if (!argv.watch && !shouldWaitForAutoMergeError) {
       await safeExit(0, 'Process completed successfully');
     }
-    return; // Return normally for watch mode
+    // Issue #1154: Return logUploadSuccess to prevent duplicate log uploads
+    return { logUploadSuccess: false }; // Return for watch mode
   }
 };
-
 // Handle execution errors with log attachment
 export const handleExecutionError = async (error, shouldAttachLogs, owner, repo, argv = {}) => {
   const { cleanErrorMessage } = await import('./lib.mjs');
@@ -377,7 +1009,6 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
   // If --attach-logs is enabled, try to attach failure logs
   if (shouldAttachLogs && getLogFile()) {
     await log('\n📄 Attempting to attach failure logs...');
-
     // Try to attach to existing PR first
     if (global.createdPR && global.createdPR.number) {
       try {
@@ -391,9 +1022,12 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          argv,
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
         });
-
         if (logUploadSuccess) {
           await log('📎 Failure log attached to Pull Request');
         }
@@ -401,7 +1035,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_success_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -422,11 +1056,203 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_success_pr',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
   }
-
   await safeExit(1, 'Execution error');
+};
+
+// Issue #1625: Markers and in-memory comment-ID tracking are centralized in
+// src/tool-comments.lib.mjs so that every place that *posts* a tool-generated
+// comment and the filter that *detects* them share the exact same constants.
+// Re-exported here for backwards compatibility with imports that expect them
+// from solve.results.lib.mjs.
+const toolComments = await import('./tool-comments.lib.mjs');
+export const { TOOL_GENERATED_COMMENT_MARKERS, isToolGeneratedComment, trackToolCommentId, isToolTrackedCommentId, getTrackedToolCommentIds, postTrackedComment } = toolComments;
+const sessionComments = await import('./solve.session-comments.lib.mjs');
+/**
+ * Issue #2247: extracted to src/solve.session-comments.lib.mjs (the file was at
+ * the 1350-line warning threshold). Re-exported with its original positional
+ * signature so every existing caller and test keeps working.
+ */
+export const checkForAiCreatedComments = async (sessionStartTime, owner, repo, prNumber, issueNumber) => sessionComments.checkForAiCreatedComments({ sessionStartTime, owner, repo, prNumber, issueNumber, $, log });
+/**
+ * Attach the AI's working session summary as a comment to the PR or issue.
+ * The summary is extracted from the tool's result field and posted
+ * with a "Working session summary" header.
+ *
+ * Issue #1263: Support for --attach-solution-summary and --auto-attach-solution-summary
+ * Issue #1728: Renamed comment header from "Solution summary" to "Working session
+ * summary" so it accurately describes continuation/restart iterations too. CLI
+ * flag names are preserved for backwards compatibility. Posting now uses
+ * postTrackedComment so the comment ID is registered in the in-memory tool-
+ * comment set — that way the next iteration's --auto-attach-solution-summary
+ * check doesn't mistake a previous iteration's summary for an AI comment.
+ *
+ * @param {Object} options - Options object
+ * @param {string} options.resultSummary - The AI's result summary text
+ * @param {number} options.prNumber - Pull request number (null if posting to issue)
+ * @param {number} options.issueNumber - Issue number
+ * @param {string} options.owner - Repository owner
+ * @param {string} options.repo - Repository name
+ * @returns {Promise<boolean>} - True if comment was posted successfully
+ */
+/**
+ * Issue #2132: the working session summary must describe *what the AI did* and
+ * nothing else. Cost estimation and context/token budget statistics belong to
+ * the working session log comment (`--attach-logs`), where they are already
+ * published once per working session. Rendering them in the summary as well
+ * duplicated the very same block in two consecutive comments.
+ *
+ * Kept as an exported function returning an empty string so the invariant is
+ * directly testable and any future caller cannot silently re-add the block.
+ */
+export const buildWorkingSessionSummaryDetails = () => '';
+
+/** Issue #2247 (H2): see src/solve.session-comments.lib.mjs. */
+export const postNoChangesProducedComment = async options => sessionComments.postNoChangesProducedComment({ $, log, ...options });
+
+export const attachSolutionSummary = async ({ resultSummary, prNumber, issueNumber, owner, repo, changeStats = null, logUrl = null }) => {
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('⚠️  No working session summary available to attach', { verbose: true });
+    return false;
+  }
+  const targetNumber = prNumber || issueNumber;
+  const targetType = prNumber ? 'pr' : 'issue';
+
+  if (!targetNumber) {
+    await log('⚠️  No PR or issue number to attach working session summary to', { verbose: true });
+    return false;
+  }
+  try {
+    // Issue #2119: publish what the session actually produced. The reported
+    // summary said "The `pwd` command completed" and printed the solver's own
+    // /tmp workspace, on a pull request that was still empty.
+    const noChangesNotice = buildNoChangesNotice(changeStats);
+    // Issue #2247 (H8): an oversized summary is folded into a `<details>` block
+    // and the overflow is left to the session log. The Scala run published a
+    // ~13 KB plan record - with the whole request prompt inside it - once per
+    // session, six times on one pull request.
+    const capped = capWorkingSessionSummary(formatWorkingSessionSummaryMarkdown(redactWorkspacePaths(resultSummary)), { logUrl });
+    if (capped.folded) {
+      await log(`📏 Working session summary folded into a <details> block${capped.omittedCharacters > 0 ? ` (${capped.omittedCharacters} characters left to the session log)` : ''}`, { verbose: true });
+    }
+    const summaryBody = capped.body;
+
+    const comment = `${toolComments.WORKING_SESSION_SUMMARY_AUTOMATION_MARKER}
+## ${toolComments.WORKING_SESSION_SUMMARY_MARKER}
+
+${summaryBody}${noChangesNotice ? `\n\n${noChangesNotice}` : ''}
+
+---
+*${toolComments.WORKING_SESSION_SUMMARY_AUTOMATED_FOOTER}*`;
+
+    const { ok, commentId, stderr } = await postTrackedComment({ $, owner, repo, targetNumber, body: comment });
+    if (ok) {
+      await log(`✅ Working session summary attached to ${targetType} #${targetNumber}${commentId ? ` (id=${commentId})` : ''}`);
+      return true;
+    } else {
+      await log(`⚠️  Failed to attach working session summary: ${stderr || 'Unknown error'}`, {
+        level: 'warning',
+      });
+      return false;
+    }
+  } catch (error) {
+    reportError(error, {
+      context: 'attach_solution_summary',
+      targetType,
+      targetNumber,
+      operation: 'post_working_session_summary_comment',
+    });
+    await log(`⚠️  Error attaching working session summary: ${error.message}`, { level: 'warning' });
+    return false;
+  }
+};
+
+/**
+ * Decide whether to attach a working session summary for a single working
+ * session and, if so, post it. Single source of truth for the attach decision
+ * shared by every working-session call site:
+ *
+ *   - solve.mjs (top-level, end-of-run)
+ *   - solve.auto-merge.lib.mjs (auto-restart-until-mergeable iterations)
+ *   - solve.watch.lib.mjs (watch / temporary auto-restart iterations)
+ *
+ * Issue #1728: Before this helper, only solve.mjs ran the attach decision, so
+ * iterations inside auto-restart-until-mergeable / watch silently dropped the
+ * AI's `resultSummary` whenever the AI itself posted no comment. Centralising
+ * the decision here means every working session ends with either an AI-authored
+ * comment OR an automated "Working session summary" comment, matching the
+ * issue's "unify logic for all working sessions" requirement.
+ *
+ * @param {Object} options
+ * @param {Object} options.argv - parsed CLI arguments (reads attachSolutionSummary
+ *   and autoAttachSolutionSummary; flag names preserved for backwards compat)
+ * @param {string|null|undefined} options.resultSummary - AI's last-message summary
+ * @param {Date} options.workStartTime - the iteration's own start time, used to
+ *   scope the AI-comment check to this iteration only
+ * @param {string} options.owner
+ * @param {string} options.repo
+ * @param {number|null} options.prNumber
+ * @param {number|null} options.issueNumber
+ * @param {boolean} [options.success=true] - skip attachment for failed iterations
+ * @returns {Promise<{attached: boolean, reason: string}>}
+ */
+export const maybeAttachWorkingSessionSummary = async ({ argv, resultSummary, workStartTime, owner, repo, prNumber, issueNumber, success = true, pricingInfo = null, budgetStatsData = null, sessionUsage = null }) => {
+  if (!success) {
+    return { attached: false, reason: 'iteration_failed' };
+  }
+  const attachFlag = argv && (argv.attachSolutionSummary || argv['attach-solution-summary']);
+  const autoAttachFlag = argv && (argv.autoAttachSolutionSummary || argv['auto-attach-solution-summary']);
+  if (!attachFlag && !autoAttachFlag) {
+    return { attached: false, reason: 'flag_disabled' };
+  }
+
+  if (!resultSummary || typeof resultSummary !== 'string') {
+    await log('ℹ️  No working session summary available from AI tool output', { verbose: true });
+    return { attached: false, reason: 'no_result_summary' };
+  }
+  let shouldAttach = false;
+  if (attachFlag) {
+    shouldAttach = true;
+    await log('📝 --attach-solution-summary enabled, attaching working session summary...');
+  } else if (autoAttachFlag) {
+    await log('🔍 Checking if AI created any comments during session (--auto-attach-solution-summary)...');
+    const aiCreatedComments = await checkForAiCreatedComments(workStartTime, owner, repo, prNumber, issueNumber);
+    if (aiCreatedComments) {
+      await log('ℹ️  AI created comments during session, skipping working session summary attachment');
+      return { attached: false, reason: 'ai_comments_present' };
+    }
+    shouldAttach = true;
+    await log('📝 No AI comments detected, attaching working session summary...');
+  }
+
+  if (!shouldAttach) {
+    return { attached: false, reason: 'no_attach_decision' };
+  }
+  const resolvedBudgetStatsData =
+    budgetStatsData ??
+    (sessionUsage
+      ? await buildSessionBudgetStatsData({
+          argv,
+          pricingInfo,
+          ...sessionUsage,
+        })
+      : null);
+  // Issue #2119: a summary posted on a pull request that changed nothing must
+  // say so, instead of reading as a report of completed work.
+  const changeStats = prNumber ? await getPullRequestChangeStats({ owner, repo, prNumber, $, log }) : null;
+  // Issue #2132: the summary carries no cost/budget block. `resolvedBudgetStatsData`
+  // is computed only so the caller can reuse it for this session's log comment.
+  const ok = await attachSolutionSummary({
+    resultSummary,
+    prNumber,
+    issueNumber,
+    owner,
+    repo,
+    changeStats,
+  });
+  return { attached: !!ok, reason: ok ? 'attached' : 'post_failed', budgetStatsData: resolvedBudgetStatsData };
 };

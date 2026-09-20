@@ -25,14 +25,14 @@ const mockCommandStream = (exitCode, stdout, stderr) => {
 
       // Simulate exit
       yield { type: 'exit', code: exitCode };
-    }
+    },
   };
 };
 
 // Simulate the old (broken) logic
 const oldLogic = async (exitCode, stdout, stderr) => {
-  let messageCount = 0;  // Never incremented in OpenCode!
-  let toolUseCount = 0;   // Never incremented in OpenCode!
+  let messageCount = 0; // Never incremented in OpenCode!
+  let toolUseCount = 0; // Never incremented in OpenCode!
   let stderrErrors = [];
 
   const execCommand = mockCommandStream(exitCode, stdout, stderr);
@@ -80,26 +80,23 @@ const testScenarios = [
     name: 'Issue #438 scenario: Success with stderr containing error keywords',
     exitCode: 0,
     stdout: ['Task completed successfully\n', 'All changes committed\n'],
-    stderr: [
-      '| Bash     node src/solve.mjs --help 2>&1 | head -50\n',
-      '| Bash     gh pr edit 437 --title "feat: add option" --body "error handling improved"\n'
-    ],
-    expectedResult: true
+    stderr: ['| Bash     node src/solve.mjs --help 2>&1 | head -50\n', '| Bash     gh pr edit 437 --title "feat: add option" --body "error handling improved"\n'],
+    expectedResult: true,
   },
   {
     name: 'Legitimate failure with exit code 1',
     exitCode: 1,
     stdout: ['Starting task...\n'],
     stderr: ['Error: Authentication failed\n'],
-    expectedResult: false
+    expectedResult: false,
   },
   {
     name: 'Success with no stderr',
     exitCode: 0,
     stdout: ['Task completed\n'],
     stderr: [],
-    expectedResult: true
-  }
+    expectedResult: true,
+  },
 ];
 
 // Run tests

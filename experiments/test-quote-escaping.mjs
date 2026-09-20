@@ -10,33 +10,33 @@ import { execSync } from 'child_process';
 
 const testCases = [
   {
-    name: "Simple apostrophe",
-    title: "[WIP] We should fail on private repository with --auto-fork only if we don't have direct permissions to the repository"
+    name: 'Simple apostrophe',
+    title: "[WIP] We should fail on private repository with --auto-fork only if we don't have direct permissions to the repository",
   },
   {
-    name: "Multiple apostrophes",
-    title: "[WIP] It's important that we don't break user's workflows"
+    name: 'Multiple apostrophes',
+    title: "[WIP] It's important that we don't break user's workflows",
   },
   {
-    name: "Double quotes",
-    title: '[WIP] Add "smart" quote handling for titles'
+    name: 'Double quotes',
+    title: '[WIP] Add "smart" quote handling for titles',
   },
   {
-    name: "Mixed quotes",
-    title: `[WIP] Fix issue with "don't" and other quotes`
+    name: 'Mixed quotes',
+    title: `[WIP] Fix issue with "don't" and other quotes`,
   },
   {
-    name: "Backticks",
-    title: "[WIP] Add support for `code` in titles"
+    name: 'Backticks',
+    title: '[WIP] Add support for `code` in titles',
   },
   {
-    name: "Special characters",
-    title: "[WIP] Handle $variables and ${expressions} in titles"
+    name: 'Special characters',
+    title: '[WIP] Handle $variables and ${expressions} in titles',
   },
   {
-    name: "Newlines and special chars",
-    title: "[WIP] Test & verify <special> characters"
-  }
+    name: 'Newlines and special chars',
+    title: '[WIP] Test & verify <special> characters',
+  },
 ];
 
 console.log('Testing quote escaping for PR titles...\n');

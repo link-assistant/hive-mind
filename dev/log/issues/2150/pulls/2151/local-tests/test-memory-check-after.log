@@ -1,0 +1,17 @@
+Testing memory-check.mjs exists... ✅ PASSED
+Testing memory-check.mjs --help... ✅ PASSED
+Testing memory-check.mjs basic execution... ✅ PASSED
+Testing memory-check.mjs disk space check... ✅ PASSED
+Testing memory-check.mjs RAM check... ✅ PASSED
+Testing memory-check.mjs verbose output... ✅ PASSED
+Testing memory-check.mjs syntax check... ✅ PASSED
+Testing memory-check.mjs platform detection... ✅ PASSED
+Testing memory-check.mjs exit code on success... ✅ PASSED
+Testing memory-check.mjs execution... ✅ PASSED
+
+==================================================
+Test Results for memory-check.mjs:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Platform: linux
+==================================================

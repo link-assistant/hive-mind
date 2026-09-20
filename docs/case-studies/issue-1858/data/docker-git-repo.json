@@ -1,0 +1,1 @@
+{ "defaultBranchRef": { "name": "main" }, "description": "", "forkCount": 11, "latestRelease": { "name": "v1.1.0", "tagName": "v1.1.0", "url": "https://github.com/ProverCoderAI/docker-git/releases/tag/v1.1.0", "publishedAt": "2026-05-11T16:09:53Z" }, "nameWithOwner": "ProverCoderAI/docker-git", "stargazerCount": 29, "url": "https://github.com/ProverCoderAI/docker-git" }

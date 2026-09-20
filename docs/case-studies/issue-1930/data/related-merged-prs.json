@@ -1,0 +1,7 @@
+[
+  { "headRefName": "issue-1848-6e6905b2e594", "mergedAt": "2026-06-03T13:04:24Z", "number": 1849, "title": "feat(cleanup): add task-aware cleanup command with --dry-run and --keep-active-tasks-folders (#1848)", "url": "https://github.com/link-assistant/hive-mind/pull/1849" },
+  { "headRefName": "issue-1851-e32e0e6d591c", "mergedAt": "2026-06-04T23:54:43Z", "number": 1852, "title": "Add cleanup process diagnostics for agent PIDs", "url": "https://github.com/link-assistant/hive-mind/pull/1852" },
+  { "headRefName": "issue-1791-b122910bb17d", "mergedAt": "2026-05-12T17:58:56Z", "number": 1792, "title": "Preserve intentional .gitkeep changes during cleanup", "url": "https://github.com/link-assistant/hive-mind/pull/1792" },
+  { "headRefName": "issue-1910-a4d417edc608", "mergedAt": "2026-06-12T22:12:15Z", "number": 1911, "title": "Remove npm global prefix workaround after use-m fix", "url": "https://github.com/link-assistant/hive-mind/pull/1911" },
+  { "headRefName": "issue-1897-34171e35a0f5", "mergedAt": "2026-06-11T17:18:30Z", "number": 1898, "title": "fix(install): guard use-m global npm installs against EACCES", "url": "https://github.com/link-assistant/hive-mind/pull/1898" }
+]

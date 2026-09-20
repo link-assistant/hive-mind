@@ -15,8 +15,8 @@ function simulateWorkflowLogic() {
   log('Simulating GitHub Actions workflow logic...');
 
   // This simulates what happens in the GitHub Actions environment
-  const BASE_VERSION = '0.3.1';  // Simulating base branch version
-  const CURRENT_VERSION = '0.3.1';  // Simulating PR branch with same version
+  const BASE_VERSION = '0.3.1'; // Simulating base branch version
+  const CURRENT_VERSION = '0.3.1'; // Simulating PR branch with same version
 
   log(`Base version: ${BASE_VERSION}`);
   log(`Current version in PR: ${CURRENT_VERSION}`);
@@ -46,7 +46,7 @@ function simulateWorkflowSuccess() {
   log('\n=== Simulating successful scenario ===');
 
   const BASE_VERSION = '0.3.1';
-  const CURRENT_VERSION = '0.3.2';  // Version was bumped
+  const CURRENT_VERSION = '0.3.2'; // Version was bumped
 
   log(`Base version: ${BASE_VERSION}`);
   log(`Current version in PR: ${CURRENT_VERSION}`);

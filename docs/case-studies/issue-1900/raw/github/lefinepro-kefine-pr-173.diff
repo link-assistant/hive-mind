@@ -1,0 +1,724 @@
+diff --git a/.gitkeep b/.gitkeep
+index 8404fd8..8da789e 100644
+--- a/.gitkeep
++++ b/.gitkeep
+@@ -1,2 +1,4 @@
+ # .gitkeep file auto-generated at 2026-06-06T16:03:41.786Z for PR creation at branch issue-154-6a7b2435e5b9 for issue https://github.com/lefinepro/kefine/issues/154
++# Updated: 2026-06-10T16:15:19.909Z
+ # Updated: 2026-06-10T17:34:10.047Z
++# Updated: 2026-06-11T10:34:13.309Z
+diff --git a/crater/spec/github_import_spec.cr b/crater/spec/github_import_spec.cr
+new file mode 100644
+index 0000000..b47b619
+--- /dev/null
++++ b/crater/spec/github_import_spec.cr
+@@ -0,0 +1,164 @@
++require "./spec_helper"
++require "aptok/testing"
++require "file_utils"
++require "../src/crater/repository_store"
++
++private def run_git(args : Array(String), chdir : String? = nil) : String
++  output = IO::Memory.new
++  error = IO::Memory.new
++  status = if chdir
++             Process.run("git", args, chdir: chdir, output: output, error: error)
++           else
++             Process.run("git", args, output: output, error: error)
++           end
++  raise "git #{args.join(' ')} failed: #{error}" unless status.success?
++  output.to_s
++end
++
++private def build_record(repo_path : String) : Lepos::RepositoryStore::RepositoryRecord
++  now = Time.utc.to_rfc3339
++  Lepos::RepositoryStore::RepositoryRecord.new(
++    id: "test-id",
++    project_id: "owner/repo",
++    order_id: "test-order",
++    slug: "owner-repo",
++    name: "repo",
++    visibility: "public",
++    default_branch: "main",
++    server_uuid: "test-uuid",
++    public_clone_url: nil,
++    ssh_clone_url: nil,
++    repo_path: repo_path,
++    created_at: now,
++    updated_at: now
++  )
++end
++
++describe "Lepos::RepositoryStore.git_clone_mirror!" do
++  it "mirrors a remote repository into the record's bare repo path" do
++    workspace = File.join(Dir.tempdir, "lepos-import-#{Random::Secure.hex(6)}")
++    source_path = File.join(workspace, "source")
++    target_path = File.join(workspace, "owner", "repo.git")
++
++    begin
++      # Build a source repository with a single commit on the main branch and a feature branch.
++      FileUtils.mkdir_p(source_path)
++      run_git(["init", "--initial-branch=main", source_path])
++      run_git(["config", "user.email", "test@example.com"], chdir: source_path)
++      run_git(["config", "user.name", "Test"], chdir: source_path)
++      File.write(File.join(source_path, "README.md"), "hello\n")
++      run_git(["add", "README.md"], chdir: source_path)
++      run_git(["commit", "-m", "initial"], chdir: source_path)
++      run_git(["branch", "feature"], chdir: source_path)
++
++      record = build_record(target_path)
++      Lepos::RepositoryStore.git_clone_mirror!(record, source_path)
++
++      # The bare repo exists and is a mirror of the source.
++      Dir.exists?(target_path).should be_true
++      remotes = run_git(["--git-dir", target_path, "remote", "-v"])
++      remotes.should contain(source_path)
++
++      # Branches discovered from the source are present in the mirror.
++      branches = run_git(["--git-dir", target_path, "branch", "--format=%(refname:short)"])
++      branches.should contain("main")
++      branches.should contain("feature")
++
++      # Receive hooks are installed and executable.
++      hook_path = File.join(target_path, "hooks", "post-receive")
++      File.exists?(hook_path).should be_true
++      File.info(hook_path).permissions.value.should eq(0o755)
++    ensure
++      FileUtils.rm_rf(workspace)
++    end
++  end
++
++  it "detects a non-main trunk (e.g. master) as the mirror's default branch" do
++    # Regression: imported repositories frequently use "master" as their trunk.
++    # ForgeFed sync must adopt the real trunk as the default branch, otherwise
++    # it opens a spurious merge request for the trunk itself. The detection must
++    # read the mirror's HEAD rather than assuming "main".
++    workspace = File.join(Dir.tempdir, "lepos-import-#{Random::Secure.hex(6)}")
++    source_path = File.join(workspace, "source")
++    target_path = File.join(workspace, "owner", "repo.git")
++
++    begin
++      FileUtils.mkdir_p(source_path)
++      run_git(["init", "--initial-branch=master", source_path])
++      run_git(["config", "user.email", "test@example.com"], chdir: source_path)
++      run_git(["config", "user.name", "Test"], chdir: source_path)
++      File.write(File.join(source_path, "README.md"), "hello\n")
++      run_git(["add", "README.md"], chdir: source_path)
++      run_git(["commit", "-m", "initial"], chdir: source_path)
++
++      record = build_record(target_path)
++      Lepos::RepositoryStore.git_clone_mirror!(record, source_path)
++
++      Lepos::RepositoryStore.detect_mirror_default_branch(target_path).should eq("master")
++    ensure
++      FileUtils.rm_rf(workspace)
++    end
++  end
++
++  it "detects main as the default branch for a main-trunk mirror" do
++    workspace = File.join(Dir.tempdir, "lepos-import-#{Random::Secure.hex(6)}")
++    source_path = File.join(workspace, "source")
++    target_path = File.join(workspace, "owner", "repo.git")
++
++    begin
++      FileUtils.mkdir_p(source_path)
++      run_git(["init", "--initial-branch=main", source_path])
++      run_git(["config", "user.email", "test@example.com"], chdir: source_path)
++      run_git(["config", "user.name", "Test"], chdir: source_path)
++      File.write(File.join(source_path, "README.md"), "hello\n")
++      run_git(["add", "README.md"], chdir: source_path)
++      run_git(["commit", "-m", "initial"], chdir: source_path)
++
++      record = build_record(target_path)
++      Lepos::RepositoryStore.git_clone_mirror!(record, source_path)
++
++      Lepos::RepositoryStore.detect_mirror_default_branch(target_path).should eq("main")
++    ensure
++      FileUtils.rm_rf(workspace)
++    end
++  end
++
++  it "returns nil when the mirror has no resolvable HEAD" do
++    workspace = File.join(Dir.tempdir, "lepos-import-#{Random::Secure.hex(6)}")
++    missing_path = File.join(workspace, "owner", "missing.git")
++
++    begin
++      Lepos::RepositoryStore.detect_mirror_default_branch(missing_path).should be_nil
++    ensure
++      FileUtils.rm_rf(workspace)
++    end
++  end
++
++  it "replaces existing bare repository contents when re-cloning" do
++    workspace = File.join(Dir.tempdir, "lepos-import-#{Random::Secure.hex(6)}")
++    source_path = File.join(workspace, "source")
++    target_path = File.join(workspace, "owner", "repo.git")
++
++    begin
++      FileUtils.mkdir_p(source_path)
++      run_git(["init", "--initial-branch=main", source_path])
++      run_git(["config", "user.email", "test@example.com"], chdir: source_path)
++      run_git(["config", "user.name", "Test"], chdir: source_path)
++      File.write(File.join(source_path, "README.md"), "hello\n")
++      run_git(["add", "README.md"], chdir: source_path)
++      run_git(["commit", "-m", "initial"], chdir: source_path)
++
++      record = build_record(target_path)
++      # Pre-seed the target path with a stale empty bare repo.
++      FileUtils.mkdir_p(target_path)
++      run_git(["init", "--bare", target_path])
++
++      Lepos::RepositoryStore.git_clone_mirror!(record, source_path)
++
++      log = run_git(["--git-dir", target_path, "log", "--oneline"])
++      log.should contain("initial")
++    ensure
++      FileUtils.rm_rf(workspace)
++    end
++  end
++end
+diff --git a/crater/src/crater.cr b/crater/src/crater.cr
+index 293cc00..e4c207a 100644
+--- a/crater/src/crater.cr
++++ b/crater/src/crater.cr
+@@ -18,6 +18,7 @@ require "./crater/handlers/email_code_auth"
+ require "./crater/handlers/projects"
+ require "./crater/handlers/git_http"
+ require "./crater/handlers/forgefed_resources"
++require "./crater/handlers/github_import"
+ require "./crater/handlers/ssh_keys"
+ require "./crater/middleware/cors"
+ require "./crater/middleware/logger"
+@@ -77,6 +78,7 @@ module Lepos
+     Handlers::Projects.register(config)
+     Handlers::GitHttp.register(config)
+     Handlers::ForgeFedResources.register(config)
++    Handlers::GithubImport.register(config)
+     Handlers::SshKeys.register(config)
+
+     get "/health" do |env|
+diff --git a/crater/src/crater/forgefed_store.cr b/crater/src/crater/forgefed_store.cr
+index d906a63..8acd03c 100644
+--- a/crater/src/crater/forgefed_store.cr
++++ b/crater/src/crater/forgefed_store.cr
+@@ -405,9 +405,15 @@ module Lepos
+     private def self.branch_key_suffix(name : String, default_branch : String) : String?
+       return nil if name == default_branch
+
+-      prefix, remainder = name.split("/", 2)
+-      return nil if remainder.nil?
+-
++      parts = name.split("/", 2)
++      # Only namespaced branches (e.g. "feature/foo") get a derived key
++      # suffix. Plain branches without a "/" (e.g. "master", "develop") have
++      # no namespace prefix and therefore no suffix. Guarding on size also
++      # avoids an "Index out of bounds" crash from destructuring a 1-element
++      # array.
++      return nil if parts.size < 2
++
++      prefix = parts[0]
+       normalized = prefix.downcase.gsub(/[^a-z0-9]+/, "-").gsub(/^-+|-+$/, "")
+       normalized.empty? ? nil : normalized
+     end
+@@ -848,7 +854,10 @@ module Lepos
+     private def self.next_patch_version(merge_request_id : String, config : Utils::Config) : Int32
+       setup(config)
+       database(config).query_one?(
+-        "SELECT COALESCE(MAX(version_number), 0) FROM patch_sets WHERE merge_request_id = $1",
++        # Cast to bigint so the result type matches the Int64 read below.
++        # MAX(version_number) returns the column's integer (Int32) type, which
++        # otherwise raises a DB::ColumnTypeMismatchError against `as: Int64`.
++        "SELECT COALESCE(MAX(version_number), 0)::bigint FROM patch_sets WHERE merge_request_id = $1",
+         merge_request_id,
+         as: Int64
+       ).try(&.to_i) || 0
+diff --git a/crater/src/crater/handlers/github_import.cr b/crater/src/crater/handlers/github_import.cr
+new file mode 100644
+index 0000000..7e9139d
+--- /dev/null
++++ b/crater/src/crater/handlers/github_import.cr
+@@ -0,0 +1,138 @@
++require "kemal"
++require "json"
++require "log"
++require "../repository_store"
++require "../forgefed_store"
++require "../utils/config"
++
++module Lepos
++  module Handlers
++    module GithubImport
++      def self.register(config : Utils::Config)
++        post "/import/github" do |env|
++          env.response.content_type = "application/json"
++          handle_import(env, config)
++        end
++
++        get "/import/github/:owner/:repo/status" do |env|
++          env.response.content_type = "application/json"
++          handle_status(env, config)
++        end
++      end
++
++      private def self.handle_import(env, config : Utils::Config)
++        request_id = Random::Secure.hex(6)
++
++        body = env.request.body.try(&.gets_to_end)
++        if body.nil? || body.strip.empty?
++          env.response.status_code = 400
++          return({error: "Missing request body"}.to_json)
++        end
++
++        payload = begin
++          JSON.parse(body)
++        rescue ex : JSON::ParseException
++          Log.warn { "[import:github #{request_id}] invalid JSON payload: #{ex.message}" }
++          env.response.status_code = 400
++          return({error: "Invalid request body", reason: ex.message}.to_json)
++        end
++
++        object = payload.as_h? || {} of String => JSON::Any
++        owner = presence(object["owner"]?.try(&.as_s?))
++        repo = presence(object["repo"]?.try(&.as_s?))
++        visibility = presence(object["visibility"]?.try(&.as_s?)) || "public"
++
++        if owner.nil? || repo.nil?
++          env.response.status_code = 400
++          return({error: "Missing required fields: owner, repo"}.to_json)
++        end
++
++        if RepositoryStore.find_by_owner_and_project_clone_name(owner, repo, config)
++          env.response.status_code = 409
++          return({error: "Repository already imported"}.to_json)
++        end
++
++        remote_url = "https://github.com/#{owner}/#{repo}.git"
++        Log.info { "[import:github #{request_id}] importing #{owner}/#{repo} from #{remote_url} (visibility=#{visibility})" }
++
++        record = RepositoryStore.ensure_ad_hoc_for_owner_and_clone_name(owner, repo, config, visibility)
++
++        begin
++          RepositoryStore.git_clone_mirror!(record, remote_url)
++          RepositoryStore.adopt_mirror_default_branch!(record, config)
++        rescue ex
++          Log.error(exception: ex) { "[import:github #{request_id}] clone failed for #{owner}/#{repo}" }
++          env.response.status_code = 502
++          return({error: "Failed to clone repository: #{ex.message}"}.to_json)
++        end
++
++        begin
++          ForgeFedStore.ensure_repository_resources(record, config)
++          ForgeFedStore.sync_repository(record, config)
++        rescue ex
++          Log.error(exception: ex) { "[import:github #{request_id}] sync failed for #{owner}/#{repo}" }
++          env.response.status_code = 500
++          return({error: "Failed to sync repository: #{ex.message}"}.to_json)
++        end
++
++        Log.info { "[import:github #{request_id}] imported #{owner}/#{repo} as slug=#{record.slug}" }
++
++        {
++          ok:            true,
++          repository:    "/repositories/#{record.slug}",
++          forgeFedActor: "/repositories/#{record.slug}",
++          cloneUrl:      "/@#{RepositoryStore.owner_handle(record, config)}/#{record.project_id}.git",
++        }.to_json
++      end
++
++      private def self.handle_status(env, config : Utils::Config)
++        owner = env.params.url["owner"]
++        repo = env.params.url["repo"]
++
++        record = RepositoryStore.find_by_owner_and_project_clone_name(owner, repo, config)
++        unless record
++          # Kemal auto-registers an `error 404` handler that renders an HTML
++          # page, and RouteHandler#process_request raises a CustomException
++          # whenever a handler leaves the status at 404 — which would discard
++          # our JSON body. Printing and closing the response here keeps the
++          # JSON intact: ExceptionHandler#call_exception_with_status_code
++          # returns early when the response is already closed.
++          return json_response(env, 404, {error: "Repository not found"})
++        end
++
++        branches = ForgeFedStore.list_branches(record.id, config).reject(&.deleted_at)
++        tracker = ForgeFedStore.find_patch_tracker_by_repository(record.id, config)
++        merge_requests = tracker ? ForgeFedStore.list_merge_requests_for_patch_tracker(tracker.id, config) : [] of ForgeFedStore::MergeRequestRecord
++
++        {
++          ok:                true,
++          slug:              record.slug,
++          ownerHandle:       RepositoryStore.owner_handle(record, config),
++          visibility:        record.visibility,
++          branchCount:       branches.size,
++          mergeRequestCount: merge_requests.size,
++          createdAt:         record.created_at,
++        }.to_json
++      end
++
++      # Writes a JSON body with the given status and closes the response. Used
++      # for status codes (e.g. 404) that Kemal intercepts with a registered
++      # error handler: closing the response makes ExceptionHandler skip its
++      # HTML rendering and preserve this JSON. Returns "" so the calling route
++      # block yields an empty (already-sent) body.
++      private def self.json_response(env, status_code : Int32, body) : String
++        env.response.content_type = "application/json"
++        env.response.status_code = status_code
++        env.response.print(body.to_json)
++        env.response.close
++        ""
++      end
++
++      private def self.presence(value : String?) : String?
++        return nil if value.nil?
++        stripped = value.strip
++        stripped.empty? ? nil : stripped
++      end
++    end
++  end
++end
+diff --git a/crater/src/crater/repository_store.cr b/crater/src/crater/repository_store.cr
+index 034ce71..c92b306 100644
+--- a/crater/src/crater/repository_store.cr
++++ b/crater/src/crater/repository_store.cr
+@@ -521,6 +521,52 @@ module Lepos
+       install_receive_hooks(record)
+     end
+
++    # Clones a remote repository as a bare mirror, replacing the contents
++    # of the existing bare repository at record.repo_path.
++    #
++    # This method only touches the filesystem — it does not update the
++    # RepositoryRecord. Call ForgeFedStore.sync_repository afterwards to
++    # sync the discovered branch state into the database.
++    def self.git_clone_mirror!(record : RepositoryRecord, remote_url : String) : Nil
++      FileUtils.rm_rf(record.repo_path)
++      FileUtils.mkdir_p(File.dirname(record.repo_path))
++      run_git!(["clone", "--bare", "--mirror", remote_url, record.repo_path])
++      run_git!(["--git-dir", record.repo_path, "update-server-info"])
++      install_receive_hooks(record)
++    end
++
++    # Detects the mirror's HEAD branch and adopts it as the record's
++    # default_branch, persisting the change when it differs from the current
++    # value. Imported repositories frequently use a trunk other than "main"
++    # (e.g. "master"), and ForgeFed sync must treat the real trunk as the
++    # default so it does not open a spurious merge request for it.
++    #
++    # Returns the resolved default branch name. The record is left untouched
++    # (and no DB write happens) when HEAD cannot be resolved — for example an
++    # empty repository with no commits.
++    def self.adopt_mirror_default_branch!(record : RepositoryRecord, config : Utils::Config = Utils::Config.load) : String
++      detected = detect_mirror_default_branch(record.repo_path)
++
++      if detected && detected != record.default_branch
++        record.default_branch = detected
++        record.updated_at = current_time
++        persist(record, config)
++      end
++
++      record.default_branch
++    end
++
++    # Reads the bare repository's HEAD symbolic ref and returns the short branch
++    # name it points at (e.g. "master" or "main"), or nil when HEAD cannot be
++    # resolved — for example an empty repository with no commits or a detached
++    # HEAD. Pure filesystem/git operation with no DB access, which keeps it
++    # unit-testable in isolation.
++    def self.detect_mirror_default_branch(repo_path : String) : String?
++      presence(run_git_output(["--git-dir", repo_path, "symbolic-ref", "--short", "HEAD"]).strip)
++    rescue
++      nil
++    end
++
+     private def self.meta_issue_readme_content(config : LeposConfig::RepositorySettings) : String
+       [
+         "* Issue Template",
+@@ -1043,21 +1089,34 @@ module Lepos
+
+     def self.find_by_owner_and_project_clone_name(owner_handle : String, clone_name : String, config : Utils::Config = Utils::Config.load) : RepositoryRecord?
+       normalized_owner = normalize_handle(owner_handle)
+-      normalized_clone_name = clone_name.sub(/\.git\z/, "")
++      stripped_clone_name = clone_name.sub(/\.git\z/, "")
++      # Repositories are persisted with a slugified project_id (see
++      # ensure_ad_hoc_for_owner_and_clone_name → normalize_clone_name), so a
++      # lookup with the original casing/spelling (e.g. "Hello-World") must be
++      # normalized the same way to match the stored "hello-world". We compare
++      # against both the raw and normalized forms to stay backward compatible
++      # with callers that already pass a normalized value.
++      normalized_clone_name = begin
++        normalize_clone_name(stripped_clone_name)
++      rescue
++        stripped_clone_name
++      end
++      candidates = [stripped_clone_name, normalized_clone_name].uniq
+
+       list(config).find do |repository|
+         owner_handle_for(repository, config) == normalized_owner &&
+-          (
+-            repository.project_id == normalized_clone_name ||
+-              repository.order_id == normalized_clone_name ||
+-              repository.slug == normalized_clone_name
+-          )
++          candidates.any? do |candidate|
++            repository.project_id == candidate ||
++              repository.order_id == candidate ||
++              repository.slug == candidate
++          end
+       end
+     end
+
+-    def self.ensure_ad_hoc_for_owner_and_clone_name(owner_handle : String, clone_name : String, config : Utils::Config = Utils::Config.load) : RepositoryRecord
++    def self.ensure_ad_hoc_for_owner_and_clone_name(owner_handle : String, clone_name : String, config : Utils::Config = Utils::Config.load, visibility : String = "private") : RepositoryRecord
+       normalized_owner = normalize_handle(owner_handle)
+       normalized_clone_name = normalize_clone_name(clone_name)
++      normalized_visibility = visibility == "public" ? "public" : "private"
+       existing = find_by_owner_and_project_clone_name(normalized_owner, normalized_clone_name, config)
+       if existing
+         install_receive_hooks(existing)
+@@ -1074,10 +1133,10 @@ module Lepos
+         order_id: ad_hoc_order_id(normalized_owner, normalized_clone_name),
+         slug: slug,
+         name: tail,
+-        visibility: "private",
++        visibility: normalized_visibility,
+         default_branch: DEFAULT_BRANCH,
+         server_uuid: UUID.random.to_s,
+-        public_clone_url: nil,
++        public_clone_url: public_clone_url(slug, normalized_visibility, config),
+         ssh_clone_url: ssh_clone_url_for_path("/@#{normalized_owner}/#{normalized_clone_name}.git", config),
+         repo_path: bare_repo_path_for_owner(normalized_owner, normalized_clone_name),
+         created_at: now,
+diff --git a/e2e/new-frontend.spec.ts b/e2e/new-frontend.spec.ts
+index f97a4f2..5a26019 100644
+--- a/e2e/new-frontend.spec.ts
++++ b/e2e/new-frontend.spec.ts
+@@ -17,10 +17,12 @@ test.describe('New frontend task results', () => {
+     await expect(taskRow).not.toContainText('@kefine/go-proxy');
+     await expect(page.getByTestId('kefine-inline-solver-list')).toHaveCount(0);
+
+-    const openSolvers = page.getByRole('button', { name: 'Open solver list' });
+-    await expect(openSolvers).toBeEnabled({ timeout: 6000 });
+-    await expect(taskRow).toContainText('@kefine/go-proxy');
+-    await openSolvers.click();
++    // The dedicated "Open solver list" button was removed in #175 (the row link
++    // now opens the task document instead). The solver repository name still
++    // resolves inline on the history row, after which the solver list page is
++    // reachable directly via the order route.
++    await expect(taskRow).toContainText('@kefine/go-proxy', { timeout: 6000 });
++    await page.goto(`/@api/order-1?task=${encodeURIComponent('Нужен мини прокси на go')}`);
+
+     await expect(page).toHaveURL(/\/@api\/order-1\?task=/);
+     await expect(page.getByTestId('solution-list-page')).toBeVisible();
+@@ -200,13 +202,9 @@ test.describe('New frontend task results', () => {
+     await page.getByTestId('todo-solver-select').first().click();
+     const variants = page.getByTestId('task-solver-variants');
+     await expect(variants).toBeVisible();
+-    const compareButton = page.getByTestId('open-solvers-compare');
+-    await expect(compareButton).toBeVisible();
+-
+-    const compareBox = await compareButton.boundingBox();
+-    expect(compareBox, 'compare solvers button should render as a horizontal pill').not.toBeNull();
+-    expect(compareBox!.width).toBeGreaterThan(compareBox!.height * 2);
+-    expect(compareBox!.height).toBeLessThan(48);
++    // The "Compare solvers" trigger is temporarily disabled (#174 wraps it in
++    // `{#if false}` inside KefineSolversView), so it must not render.
++    await expect(page.getByTestId('open-solvers-compare')).toHaveCount(0);
+
+     // Each solver renders a small avatar with deterministic initials.
+     await expect(variants.locator('[data-variant="5"] lef-solver-avatar')).toHaveText('GB');
+diff --git a/e2e/solver-pricing.spec.ts b/e2e/solver-pricing.spec.ts
+index 04281e8..6ea9625 100644
+--- a/e2e/solver-pricing.spec.ts
++++ b/e2e/solver-pricing.spec.ts
+@@ -85,7 +85,7 @@ test.describe('Solver Pricing', () => {
+     await expect(variants.nth(3)).toContainText('$0.18');
+   });
+
+-  test('solver badges rank the best solver and the comparison modal mirrors them', async ({ page }) => {
++  test('solver badges rank the best solver inline (comparison modal temporarily disabled)', async ({ page }) => {
+     await mockOrderApi(page);
+     await seedRustOrder(page);
+
+@@ -99,31 +99,9 @@ test.describe('Solver Pricing', () => {
+     await expect(variants.nth(3)).toContainText('Best');
+     await expect(variants.nth(0)).toContainText('-13%');
+
+-    // Open the "Compare solvers" modal from the trigger below the variant list.
+-    await page.getByTestId('open-solvers-compare').first().click();
+-
+-    const modal = page.getByTestId('solvers-compare-modal');
+-    await expect(modal).toBeVisible();
+-
+-    const routes = page.getByTestId('solvers-route-list').locator('.route-card');
+-    await expect(routes).toHaveCount(4);
+-
+-    // Best-first ordering: the success leader (Modern Rust Patterns) sits on top
+-    // with the "Best" badge.
+-    await expect(routes.first()).toContainText('Modern Rust Patterns');
+-    await expect(routes.first()).toContainText('Best');
+-    await expect(routes.first()).toHaveAttribute('data-best', 'true');
+-
+-    // The plots render inside the modal alongside the route cards.
+-    await expect(modal.locator('lef-metrics-block')).toBeVisible();
+-
+-    // Switching the ranking metric re-ranks the routes: by price the cheapest
+-    // solver (Basic Rust Dev, $0.04) becomes the best route.
+-    await modal.locator('[data-metric="price"]').click();
+-    await expect(routes.first()).toContainText('Basic Rust Dev');
+-    await expect(routes.first()).toContainText('Best');
+-
+-    // The inline badges follow the same ranking metric: Basic Rust Dev now leads.
+-    await expect(variants.nth(0)).toContainText('Best');
++    // The "Compare solvers" trigger (and the modal it opens) is temporarily
++    // disabled — #174 wraps the compare row in `{#if false}` inside
++    // KefineSolversView — so the trigger must not render.
++    await expect(page.getByTestId('open-solvers-compare')).toHaveCount(0);
+   });
+ });
+diff --git a/e2e/task-branch-window.spec.ts b/e2e/task-branch-window.spec.ts
+index 1a71111..b6cdcc9 100644
+--- a/e2e/task-branch-window.spec.ts
++++ b/e2e/task-branch-window.spec.ts
+@@ -2,9 +2,10 @@ import { expect, test } from '@playwright/test';
+
+ import { mockOrderApi, waitForHydratedElement } from './helpers/kefine';
+
+-// Issue #165: clicking the branch chip on a task history row must open that
+-// task's document view (/task/<id>) in a new browser window, independently from
+-// the row link that leads to the solver list.
++// Issue #165: clicking the branch chip on a task history row must open in a new
++// browser window, independently from the row link. Since #175 the roles are
++// swapped: the row link opens the task document (/task/<id>) while the branch
++// chip opens that order's page (/@<owner>/<id>) in a new window.
+ const createdAt = '2026-06-03T12:00:00.000Z';
+
+ const documentOrder = {
+@@ -53,22 +54,22 @@ test.describe('Task branch chip opens task document in a new window', () => {
+     return branch;
+   }
+
+-  test('clicking the branch chip opens the task document page in a new window', async ({ page }) => {
++  test('clicking the branch chip opens the order page in a new window', async ({ page }) => {
+     const branch = await revealBranchChip(page);
+
+     // The chip is an accessible button advertising the new-window behaviour.
+     await expect(branch).toHaveAttribute('role', 'button');
+-    await expect(branch).toHaveAttribute('aria-label', /Open task document.*new window/i);
++    await expect(branch).toHaveAttribute('aria-label', /Open .*order page.*new window/i);
+
+     // window.open(..., '_blank', 'noopener') surfaces as a new page on the context.
+     const popupPromise = page.context().waitForEvent('page');
+     await branch.click();
+     const popup = await popupPromise;
+
+-    await popup.waitForURL(/\/task\/order-1/);
+-    expect(popup.url()).toContain('/task/order-1');
++    await popup.waitForURL(/\/@api\/order-1/);
++    expect(popup.url()).toContain('/@api/order-1');
+
+-    // The row link to the solver list must NOT have fired: we stay on home.
++    // The row link (now the task document) must NOT have fired: we stay on home.
+     await expect(page).toHaveURL(/\/$/);
+
+     await popup.close();
+@@ -83,8 +84,8 @@ test.describe('Task branch chip opens task document in a new window', () => {
+     await page.keyboard.press('Enter');
+     const popup = await popupPromise;
+
+-    await popup.waitForURL(/\/task\/order-1/);
+-    expect(popup.url()).toContain('/task/order-1');
++    await popup.waitForURL(/\/@api\/order-1/);
++    expect(popup.url()).toContain('/@api/order-1');
+     await expect(page).toHaveURL(/\/$/);
+
+     await popup.close();
+diff --git a/e2e/task-controls.spec.ts b/e2e/task-controls.spec.ts
+index b3d5e06..932f8a0 100644
+--- a/e2e/task-controls.spec.ts
++++ b/e2e/task-controls.spec.ts
+@@ -67,9 +67,8 @@ test.describe('Task Controls', () => {
+     await mockOrderApi(page);
+
+     // Seed a recognized solver task ("мини прокси на go"). In the main-window
+-    // history such a task renders in its completed state and exposes the
+-    // "Open solver list" action — the stop button must not remain visible
+-    // alongside it (issue #167).
++    // history such a task renders in its completed state — the stop button must
++    // not remain visible alongside it (issue #167).
+     await page.addInitScript(() => {
+       window.localStorage.clear();
+       window.localStorage.setItem(
+@@ -101,10 +100,11 @@ test.describe('Task Controls', () => {
+     const row = page.locator('[data-order-id="order-1"]');
+     await expect(row).toBeVisible();
+
+-    // The "Open solver list" action confirms the row is in its completed state.
+-    await expect(row.locator('[data-part="open-solvers"]')).toBeVisible();
++    // The "Open solver list" action was removed in #175; the completed state is
++    // now confirmed directly via the solver search row's data-state.
++    await expect(row.locator('kefine-solver-search-row')).toHaveAttribute('data-state', 'completed');
+
+-    // The stop button must be gone once the solver list is available.
++    // The stop button must be gone once the task is in its completed state.
+     await expect(row.getByTestId('kefine-stop-order-order-1')).toHaveCount(0);
+   });
+
+diff --git a/e2e/task-document.spec.ts b/e2e/task-document.spec.ts
+index 2e0ef75..3ba84d0 100644
+--- a/e2e/task-document.spec.ts
++++ b/e2e/task-document.spec.ts
+@@ -126,9 +126,9 @@ test.describe('Task document page', () => {
+     expect(propertyGap).toBeGreaterThanOrEqual(8);
+     await expect(page.getByRole('heading', { name: 'Description' })).toHaveCount(0);
+     await expect(page.getByRole('heading', { name: 'Subtasks' })).toHaveCount(0);
+-    await expect(page.getByTestId('kefine-task-document-description')).toContainText('Import plan');
+-    await expect(page.getByTestId('kefine-task-document-description')).toContainText('Parse CSV input');
+-    await expect(page.locator('lef-task-markdown-code code')).toContainText('pnpm test -- task-document');
++    // The task description block was removed in #175; only the subtasks section
++    // remains below the property grid.
++    await expect(page.getByTestId('kefine-task-document-description')).toHaveCount(0);
+     await expect(page.getByTestId('kefine-task-document-subtasks')).toContainText('Map CSV columns');
+     await expect(page.getByTestId('kefine-task-document-subtasks')).toContainText('Run importer smoke test');
+     await expect(page.locator('kefine-thread-title')).toHaveCount(0);
+diff --git a/e2e/task-lifecycle.spec.ts b/e2e/task-lifecycle.spec.ts
+index f1e3dc3..edb85a9 100644
+--- a/e2e/task-lifecycle.spec.ts
++++ b/e2e/task-lifecycle.spec.ts
+@@ -89,8 +89,10 @@ test.describe('Task Lifecycle', () => {
+     expect(storedAfter).not.toContain('temp-');
+     expect(storedAfter).toContain('order-1');
+
++    // Since #175 the history row link opens the task document (with the
++    // #details hash) rather than the order/solver-list page.
+     await realRow.getByTestId('kefine-open-order-order-1').click();
+-    await expect(page).toHaveURL(/\/@api\/order-1$/);
++    await expect(page).toHaveURL(/\/task\/order-1#details$/);
+   });
+
+   test('reloading a persisted order route keeps the executing flow mounted', async ({ page }) => {
+diff --git a/experiments/compile-check.sh b/experiments/compile-check.sh
+new file mode 100644
+index 0000000..e67f783
+--- /dev/null
++++ b/experiments/compile-check.sh
+@@ -0,0 +1,9 @@
++set -e
++cd /work/crater
++echo "=== shards install ==="
++shards install 2>&1 | tail -20
++echo "=== patch rcl ==="
++/work/scripts/patch-rcl-crystal-merge.sh /work/crater/lib/rcl/src/rcl/document.cr || true
++echo "=== build (type check) ==="
++crystal build --no-codegen src/crater.cr 2>&1 | tail -40
++echo "BUILD_DONE_EXIT=$?"
+diff --git a/experiments/run-spec.sh b/experiments/run-spec.sh
+new file mode 100644
+index 0000000..bfd3ec6
+--- /dev/null
++++ b/experiments/run-spec.sh
+@@ -0,0 +1,5 @@
++set -e
++cd /work/crater
++/work/scripts/patch-rcl-crystal-merge.sh /work/crater/lib/rcl/src/rcl/document.cr || true
++echo "=== run github_import spec ==="
++crystal spec spec/github_import_spec.cr 2>&1 | tail -40

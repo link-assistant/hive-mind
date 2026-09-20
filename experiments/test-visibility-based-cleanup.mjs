@@ -24,9 +24,9 @@ try {
   const githubLib = await import('../src/github.lib.mjs');
   const { detectRepositoryVisibility } = githubLib;
 
-  // Test with public repository (deep-assistant/hive-mind)
-  console.log('  Testing with public repository (deep-assistant/hive-mind):');
-  const publicResult = await detectRepositoryVisibility('deep-assistant', 'hive-mind');
+  // Test with public repository (link-assistant/hive-mind)
+  console.log('  Testing with public repository (link-assistant/hive-mind):');
+  const publicResult = await detectRepositoryVisibility('link-assistant', 'hive-mind');
   console.log(`    ✅ Detected: ${publicResult.visibility} (isPublic: ${publicResult.isPublic})`);
 
   if (publicResult.isPublic) {

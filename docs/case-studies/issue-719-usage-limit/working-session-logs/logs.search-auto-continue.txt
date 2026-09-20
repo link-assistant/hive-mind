@@ -1,0 +1,47 @@
+src/solve.feedback.lib.mjs:182:        // Check if --auto-continue-only-on-new-comments is enabled and fail if no new comments
+src/solve.feedback.lib.mjs:186:            await log('❌ auto-continue-only-on-new-comments: No new comments found since last commit');
+src/solve.feedback.lib.mjs:187:            await log('   This option requires new comments to proceed with auto-continue or continue mode.');
+src/solve.feedback.lib.mjs:190:            await log(`✅ auto-continue-only-on-new-comments: Found ${totalNewComments} new comments, continuing...`);
+src/telegram-bot.mjs:66:    description: 'Override options for /solve command in lino notation, e.g., "(\n  --auto-continue\n  --attach-logs\n)"',
+src/telegram-bot.mjs:730:  message += '• `--auto-continue` - Continue working on existing pull request to the issue, if exists\n';
+src/solve.config.lib.mjs:115:    .option('auto-continue', {
+src/solve.config.lib.mjs:120:    .option('auto-continue-limit', {
+src/solve.config.lib.mjs:131:    .option('auto-continue-only-on-new-comments', {
+src/solve.config.lib.mjs:133:      description: 'Explicitly fail on absence of new comments in auto-continue or continue mode',
+src/solve.config.lib.mjs:153:      description: 'Only continue if feedback is detected (works only with pull request link or issue link with --auto-continue)',
+src/hive.mjs:486:  await log('❌ Conflicting options: --skip-issues-with-prs and --auto-continue cannot be used together', { level: 'error' });
+src/hive.mjs:488:  await log('   --auto-continue: Continues with existing PRs instead of creating new ones', { level: 'error' });
+src/hive.mjs:751:        const autoContinueFlag = argv.autoContinue ? ' --auto-continue' : '';
+src/hive.mjs:792:          args.push('--auto-continue');
+src/solve.repository.lib.mjs:440:    // Priority 2: If forkOwner is provided (from auto-continue/PR mode) and --fork was not used,
+src/solve.repository.lib.mjs:740:  // 3. In continue mode (auto-continue or continuing existing PR)
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.repository.lib.mjs:851:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.repository.lib.mjs:852:    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);
+src/solve.mjs:56:const autoContinue = await import('./solve.auto-continue.lib.mjs');
+src/solve.mjs:318:// Auto-continue logic: check for existing PRs if --auto-continue is enabled
+src/solve.mjs:803:  // Capture limit reset time globally for downstream handlers (auto-continue, cleanup decisions)
+src/solve.auto-continue.lib.mjs:55:  calculateWaitTime
+src/solve.auto-continue.lib.mjs:62:    const waitMs = calculateWaitTime(resetTime);
+src/solve.auto-continue.lib.mjs:96:      '--auto-continue-limit' // Keep auto-continue-limit enabled
+src/solve.auto-continue.lib.mjs:131:// Auto-continue logic: check for existing PRs if --auto-continue is enabled
+src/solve.auto-continue.lib.mjs:310:// Process auto-continue logic for issue URLs
+src/solve.auto-pr.lib.mjs:77:    // This is critical for --auto-continue mode when reusing an existing branch
+src/claude.lib.mjs:1126:          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+src/solve.validation.lib.mjs:199:      await log('   • Issue URL with --auto-continue option', { level: 'error' });
+src/solve.validation.lib.mjs:200:      await log(`   Current: ${isPrUrl ? 'PR URL' : 'Issue URL'} ${argv.autoContinue ? 'with --auto-continue' : 'without --auto-continue'}`, { level: 'error' });
+src/solve.validation.lib.mjs:275:export const parseResetTime = (timeStr) => {
+src/solve.validation.lib.mjs:299:export const calculateWaitTime = (resetTime) => {
+src/solve.validation.lib.mjs:300:  const { hour, minute } = parseResetTime(resetTime);
+src/hive.config.lib.mjs:187:    .option('auto-continue', {
+src/hive.config.lib.mjs:189:      description: 'Pass --auto-continue to solve for each issue (continues with existing PRs instead of creating new ones)',
+src/solve.results.lib.mjs:37:// Import auto-continue functions
+src/solve.results.lib.mjs:38:const autoContinue = await import('./solve.auto-continue.lib.mjs');
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+src/solve.results.lib.mjs:222:            await log(`./solve.mjs "${issueUrl}" --resume ${sessionId} --auto-continue-limit`);
+src/github.lib.mjs:1372:      if (argv.autoContinue) commandParts.push('--auto-continue');
+src/solve.execution.lib.mjs:235:  // Clean up temporary directory (but not when resuming, when limit reached, or when auto-continue is active)
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.execution.lib.mjs:251:  } else if (limitReached && argv.autoContinueLimit) {
+src/solve.execution.lib.mjs:252:    await log(`\n📁 Keeping directory for auto-continue: ${tempDir}`);

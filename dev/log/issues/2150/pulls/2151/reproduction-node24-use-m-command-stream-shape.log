@@ -1,0 +1,12 @@
+{
+  "node": "v24.19.0",
+  "type": "object",
+  "keys": [
+    "default",
+    "module.exports"
+  ],
+  "dollar": "undefined",
+  "default": "function",
+  "moduleExports": "function",
+  "defaultDollar": "function"
+}

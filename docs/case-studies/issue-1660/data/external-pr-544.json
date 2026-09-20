@@ -1,0 +1,38 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "## Summary\n\nCompletes the formalization for attempt #27 (Bhupinder Singh Anand, 2006) by restructuring the attempt folder to the required format.\n\nFixes #481\n\n## Changes\n\n### New Structure\n\n```\nproofs/attempts/singh-anand-2006-pneqnp/\n├── ORIGINAL.md         # Markdown reconstruction of arXiv:math/0603605\n├── ORIGINAL.pdf        # Original paper downloaded from arXiv\n├── README.md           # Updated to new structured format\n├── proof/\n│   ├── README.md       # Explanation of the forward proof formalization\n│   ├── lean/\n│   │   └── SinghAnandProof.lean   # Lean 4 formalization of Anand's argument\n│   └── rocq/\n│       └── SinghAnandProof.v      # Rocq formalization of Anand's argument\n└── refutation/\n    ├── README.md       # Explanation of why the proof fails\n    ├── lean/\n    │   └── SinghAnandRefutation.lean  # Lean 4 refutation\n    └── rocq/\n        └── SinghAnandRefutation.v    # Rocq refutation\n```\n\nThe old flat `lean/SinghAnand2006.lean` and `rocq/SinghAnand2006.v` files were removed and replaced by the properly structured files.\n\n### Error Explanation\n\nThe fatal error in the 2006 Singh Anand proof is that the author confuses **provability within PA** with **truth only in the standard model**.\n\nSpecifically:\n1. The author proves `(∀x)G(x)` in PA by induction (where `G(x) := x = 0 ∨ ∃y, x = S(y)`)\n2. He incorrectly concludes this eliminates non-standard models of PA\n\n**Why it fails**: By Gödel's Completeness Theorem, if `(∀x)G(x)` is provable in PA, it holds in ALL models—including non-standard ones. In non-standard models, each non-standard element ω satisfies `G(ω)` because ω = S(ω-1) (it is a successor of another non-standard element). The formula does not exclude non-standard models; it holds in them.\n\nThis is directly refuted by Gödel's Incompleteness Theorem + Löwenheim-Skolem Theorem, which together guarantee that first-order PA has non-standard models.\n\n### Formalization Details\n\n- **Proof files**: Formalize Anand's argument step by step, marking the invalid inference with `sorry`/`Admitted`\n- **Refutation files**: Prove that `G(x)` holds in non-standard models (via Gödel's Completeness Theorem), and show that Anand's claim leads to a direct contradiction with known model-theory results\n\n### ATTEMPTS.md\n\nUpdated via `scripts/check_attempt_structure.py` — entries are in alphabetical order.",
+  "commits": [
+    { "authoredDate": "2026-04-23T17:02:33Z", "authors": [{ "email": "[REDACTED_EMAIL]", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-23T17:02:33Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/konard/p-vs-np/issues/481", "messageHeadline": "Initial commit with task details", "oid": "b3f723e927fd988da9b24a87a54ec88eeb0c8ec4" },
+    {
+      "authoredDate": "2026-04-23T17:10:42Z",
+      "authors": [{ "email": "[REDACTED_EMAIL]", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
+      "committedDate": "2026-04-23T17:10:42Z",
+      "messageBody": "Restructures proofs/attempts/singh-anand-2006-pneqnp/ to match the\nstandard attempt format with original/, proof/, and refutation/ layout.\n\n- Add ORIGINAL.md: markdown reconstruction of arXiv:math/0603605\n- Add ORIGINAL.pdf: downloaded original paper from arXiv\n- Add proof/README.md: explanation of the forward proof formalization\n- Add proof/lean/SinghAnandProof.lean: Lean 4 formalization of Anand's\n  argument (with invalid inference marked), replacing old lean/ folder\n- Add proof/rocq/SinghAnandProof.v: Rocq formalization of the argument\n- Add refutation/README.md: explanation of why the proof fails\n- Add refutation/lean/SinghAnandRefutation.lean: Lean 4 refutation\n  showing G(x) holds in non-standard models and Anand's claim leads\n  to contradiction with established model theory results\n- Add refutation/rocq/SinghAnandRefutation.v: Rocq refutation\n- Remove old flat lean/ and rocq/ directories\n- Update README.md to new structured format\n- Update ATTEMPTS.md via check_attempt_structure.py\n\nThe fatal error in the 2006 attempt is that Anand confuses proving\n(∀x)G(x) in PA with eliminating non-standard models. By Gödel's\nCompleteness Theorem, provable formulas hold in ALL models including\nnon-standard ones.\n\nFixes #481",
+      "messageHeadline": "feat: Restructure Singh Anand 2006 attempt to required format",
+      "oid": "c854d5ff68eacd2e9a5d97fdbc0ddebbf127b10b"
+    },
+    { "authoredDate": "2026-04-23T17:14:00Z", "authors": [{ "email": "[REDACTED_EMAIL]", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-04-23T17:14:00Z", "messageBody": "This reverts commit b3f723e927fd988da9b24a87a54ec88eeb0c8ec4.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "a82c11d700cd2acda62705f4c369ae8dd523f11a" }
+  ],
+  "createdAt": "2026-04-23T17:02:40Z",
+  "files": [
+    { "path": "proofs/attempts/ATTEMPTS.md", "additions": 8, "deletions": 8, "changeType": "MODIFIED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/ORIGINAL.md", "additions": 129, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/ORIGINAL.pdf", "additions": 0, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/README.md", "additions": 49, "deletions": 113, "changeType": "MODIFIED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/lean/SinghAnand2006.lean", "additions": 0, "deletions": 185, "changeType": "DELETED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/proof/README.md", "additions": 47, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/proof/lean/SinghAnandProof.lean", "additions": 190, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/proof/rocq/SinghAnandProof.v", "additions": 200, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/refutation/README.md", "additions": 68, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/refutation/lean/SinghAnandRefutation.lean", "additions": 199, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/refutation/rocq/SinghAnandRefutation.v", "additions": 203, "deletions": 0, "changeType": "ADDED" },
+    { "path": "proofs/attempts/singh-anand-2006-pneqnp/rocq/SinghAnand2006.v", "additions": 0, "deletions": 192, "changeType": "DELETED" }
+  ],
+  "headRefName": "issue-481-9bb8a2fa9156",
+  "isDraft": false,
+  "state": "OPEN",
+  "title": "feat: Complete formalization for attempt #27: Bhupinder Singh Anand (2006) - Singh Anand P≠NP",
+  "updatedAt": "2026-04-23T23:14:26Z",
+  "url": "https://github.com/konard/p-vs-np/pull/544"
+}

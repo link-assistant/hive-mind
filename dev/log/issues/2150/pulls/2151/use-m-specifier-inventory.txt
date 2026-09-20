@@ -1,0 +1,16 @@
+      1 ${moduleName}
+      7 ${specifier}
+      1 @dotenvx/dotenvx
+      2 child_process
+     61 command-stream
+      1 crypto
+     34 fs
+      1 https
+      1 links-notation
+      9 lino-arguments
+     16 os
+     26 path
+      1 telegraf
+      2 yargs
+      4 yargs@17.7.2
+      1 zx

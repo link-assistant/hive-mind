@@ -1,0 +1,18 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "## Summary\n\nThis pull request implements a solution for #1: Implement Hello World in Kotlin\n\n### Changes\n- 1 file(s) modified\n- 1 line(s) added\n- 0 line(s) removed\n\n### Issue Reference\nFixes #1\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "commits": [
+    { "authoredDate": "2026-07-30T14:19:23Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-30T14:19:23Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/issues/1", "messageHeadline": "Initial commit with task details", "oid": "65a1be4da617f484cad6b0bc9629801c928973a4" },
+    { "authoredDate": "2026-07-30T14:22:29Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-07-30T14:22:29Z", "messageBody": "This reverts commit 65a1be4da617f484cad6b0bc9629801c928973a4.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "e411d44fea1b8ba6f94118826621773ab24803f3" }
+  ],
+  "createdAt": "2026-07-30T14:19:34Z",
+  "headRefName": "issue-1-604f2202fd18",
+  "isDraft": false,
+  "number": 2,
+  "state": "OPEN",
+  "statusCheckRollup": [],
+  "title": "'Implement Hello World in Kotlin'",
+  "updatedAt": "2026-08-08T15:46:15Z",
+  "url": "https://github.com/konard/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a/pull/2"
+}

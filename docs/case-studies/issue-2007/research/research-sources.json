@@ -1,0 +1,50 @@
+[
+  {
+    "name": "OpenAI Codex non-interactive mode",
+    "url": "https://developers.openai.com/codex/noninteractive",
+    "accessedAt": "2026-07-02",
+    "findings": ["`codex exec` is the documented non-interactive automation command.", "A prompt argument plus piped stdin treats stdin as additional context at process start.", "`--json` makes stdout a JSONL event stream; it does not document a live stdin turn channel."]
+  },
+  {
+    "name": "OpenAI Codex app-server",
+    "url": "https://developers.openai.com/codex/app-server",
+    "accessedAt": "2026-07-02",
+    "findings": ["The app-server protocol is bidirectional JSON-RPC over stdio, websocket, or Unix socket.", "Clients start a thread and a turn, then read streamed notifications.", "`turn/steer` appends user input to an in-flight turn and is the candidate protocol for Codex live issue/PR feedback."]
+  },
+  {
+    "name": "OpenAI Codex CLI reference",
+    "url": "https://developers.openai.com/codex/cli/reference",
+    "accessedAt": "2026-07-02",
+    "findings": ["The CLI reference documents global flags and the app-server remote mode.", "It is the official source for current Codex CLI command surfaces."]
+  },
+  {
+    "name": "Claude Code CLI reference",
+    "url": "https://code.claude.com/docs/en/cli-reference",
+    "accessedAt": "2026-07-02",
+    "findings": ["`--input-format` supports `stream-json` for print mode.", "`--replay-user-messages` requires `--input-format stream-json` and `--output-format stream-json`."]
+  },
+  {
+    "name": "Claude Code Agent SDK streaming input",
+    "url": "https://code.claude.com/docs/en/agent-sdk/streaming-vs-single-mode",
+    "accessedAt": "2026-07-02",
+    "findings": ["Streaming input mode is described as a persistent interactive session.", "It supports queued messages, real-time feedback, and context persistence across turns."]
+  },
+  {
+    "name": "link-assistant/agent js-v0.24.1 release",
+    "url": "https://github.com/link-assistant/agent/releases/tag/js-v0.24.1",
+    "accessedAt": "2026-07-03",
+    "findings": ["The release adds explicit live stream-json idle events.", "It documents resume, replay, and interrupt semantics for the Agent CLI live stream-json contract."]
+  },
+  {
+    "name": "link-assistant/agent PR #274",
+    "url": "https://github.com/link-assistant/agent/pull/274",
+    "accessedAt": "2026-07-03",
+    "findings": ["The merged PR maps Agent session_idle output to Claude-compatible idle events.", "It documents stdin frames, resume/no-fork behavior, replay acknowledgements, interrupts, queueing, and idle boundaries."]
+  },
+  {
+    "name": "Local Codex app-server schema probe",
+    "url": "local command: codex app-server generate-json-schema --out /tmp/codex-app-schema-2007",
+    "accessedAt": "2026-07-02",
+    "findings": ["`TurnStartParams` requires `threadId` and `input`.", "`TurnSteerParams` requires `threadId`, `expectedTurnId`, and `input`.", "The local CLI version checked during research was `codex-cli 0.142.5`."]
+  }
+]

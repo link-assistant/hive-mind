@@ -1,0 +1,46 @@
+
+X main CI/CD Pipeline for main branch · 20053620299
+Triggered via push about 10 minutes ago
+
+JOBS
+✓ detect-changes in 10s (ID 57514369439)
+- verify-version-bump in 0s (ID 57514369685)
+✓ test-compilation in 10s (ID 57514383631)
+✓ lint in 11s (ID 57514383634)
+✓ check-file-line-limits in 7s (ID 57514383679)
+- validate-docs in 0s (ID 57514383778)
+- helm-pr-check in 0s (ID 57514383796)
+- docker-pr-check in 0s (ID 57514383810)
+✓ test-execution in 1m50s (ID 57514402359)
+✓ test-suites in 3m44s (ID 57514402371)
+✓ memory-check-linux in 41s (ID 57514402416)
+- memory-check-windows in 0s (ID 57514402633)
+- memory-check-macos in 0s (ID 57514402716)
+✓ publish in 21s (ID 57514625660)
+✓ docker-publish in 27s (ID 57514652944)
+X helm-release in 9s (ID 57514684069)
+  ✓ Set up job
+  ✓ Check if Helm release should run
+  ✓ Checkout repository
+  ✓ Configure Git
+  ✓ Install Helm
+  ✓ Update Chart versions
+  ✓ Lint Helm chart
+  ✓ Package Helm chart
+  ✓ Ensure gh-pages branch exists
+  ✓ Checkout gh-pages branch
+  ✓ Update Helm repository index
+  X Commit and push to gh-pages
+  - Switch back to main branch
+  - Upload chart to release
+  - Summary
+  ✓ Post Checkout repository
+  ✓ Complete job
+
+ANNOTATIONS
+X Process completed with exit code 1.
+helm-release: .github#11
+
+
+To see what failed, try: gh run view 20053620299 --log-failed
+View this run on GitHub: https://github.com/link-assistant/hive-mind/actions/runs/20053620299

@@ -1,0 +1,21 @@
+log: docs/case-studies/issue-2140/raw/solve-run-issue-905.log.txt.gz
+rebuilt streams — stdout: 4082 lines, stderr: 91895 lines
+
+── 1. v2.11.7 — merged streams + count gate (what actually ran)
+   healthy: false
+   turn.started=3, turn.completed=1, turn.failed=0
+   turn lifecycle: turn.started → turn.started → turn.started → turn.completed
+   echoed (stderr, ignored): (none)
+   ❌ Codex session ended without completing its turn (turn.started=3, turn.completed=1, turn.failed=0); the process exited 0 but was cut off mid-turn.
+
+── 2. #2136 Layer B only — merged streams + order-aware gate
+   healthy: true
+   turn.started=3, turn.completed=1, turn.failed=0
+   turn lifecycle: turn.started → turn.started → turn.started → turn.completed
+   echoed (stderr, ignored): (none)
+
+── 3. current main — separated streams + order-aware gate
+   healthy: true
+   turn.started=1, turn.completed=1, turn.failed=0
+   turn lifecycle: turn.started → turn.completed
+   echoed (stderr, ignored): unknown=68, thread.started=2, turn.started=2, item.completed=6, item.started=2

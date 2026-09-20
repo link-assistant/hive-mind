@@ -1,0 +1,252 @@
+## 🚨 Solution Draft Failed
+The automated solution draft encountered an error:
+```
+GitHub compare API not ready - cannot create PR safely
+```
+
+### What you can do
+- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.
+- If this requires elevated Hive Mind access, ask a Hive Mind administrator to handle the specific failure described above.
+- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.
+
+Administrator-only CLI details, if any, are printed in the solver terminal log rather than in this issue comment.
+
+### 🤖 **Models used:**
+- Tool: OpenAI Codex
+- Requested: `gpt-5.5`
+- **Model: GPT-5.5** (`gpt-5.5`)
+
+<details>
+<summary>Click to expand failure log (20KB)</summary>
+
+```
+# Solve.mjs Log - 2026-05-27T11:57:46.070Z
+
+[2026-05-27T11:57:46.072Z] [INFO] 📁 Log file: /home/box/solve-2026-05-27T11-57-46-070Z.log
+[2026-05-27T11:57:46.072Z] [INFO]    (All output will be logged here)
+[2026-05-27T11:57:46.587Z] [INFO] 
+[2026-05-27T11:57:46.588Z] [INFO] 🚀 solve v1.72.6
+[2026-05-27T11:57:46.588Z] [INFO] 🔧 Raw command executed:
+[2026-05-27T11:57:46.589Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/rumaster/tg-games/issues/15 --think max --tool codex --attach-logs --verbose --no-tool-check --disable-report-issue --language ru
+[2026-05-27T11:57:46.589Z] [INFO] 
+[2026-05-27T11:57:47.571Z] [INFO] 
+[2026-05-27T11:57:47.571Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED
+[2026-05-27T11:57:47.572Z] [INFO] 
+[2026-05-27T11:57:47.572Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.
+[2026-05-27T11:57:47.573Z] [INFO]    The log may contain sensitive information such as:
+[2026-05-27T11:57:47.573Z] [INFO]    • API keys, tokens, or secrets
+[2026-05-27T11:57:47.573Z] [INFO]    • File paths and directory structures
+[2026-05-27T11:57:47.573Z] [INFO]    • Command outputs and error messages
+[2026-05-27T11:57:47.573Z] [INFO]    • Internal system information
+[2026-05-27T11:57:47.574Z] [INFO] 
+[2026-05-27T11:57:47.574Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log
+[2026-05-27T11:57:47.574Z] [INFO]        might contain sensitive data that should not be shared publicly.
+[2026-05-27T11:57:47.574Z] [INFO] 
+[2026-05-27T11:57:47.575Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)
+[2026-05-27T11:57:47.575Z] [INFO] 
+[2026-05-27T11:57:47.575Z] [STDOUT]    Countdown: 5 seconds remaining...
+[2026-05-27T11:57:48.576Z] [STDOUT]    Countdown: 4 seconds remaining...
+[2026-05-27T11:57:49.576Z] [STDOUT]    Countdown: 3 seconds remaining...
+[2026-05-27T11:57:50.578Z] [STDOUT]    Countdown: 2 seconds remaining...
+[2026-05-27T11:57:51.580Z] [STDOUT]    Countdown: 1 seconds remaining...
+[2026-05-27T11:57:52.581Z] [STDOUT]    Proceeding with log attachment enabled.                    
+[2026-05-27T11:57:52.581Z] [INFO] 
+[2026-05-27T11:57:52.641Z] [INFO] 💾 Disk space check: 22898MB available (2048MB required) ✅
+[2026-05-27T11:57:52.642Z] [INFO] 🧠 Memory check: 11128MB available, swap: none, total: 11128MB (256MB required) ✅
+[2026-05-27T11:57:52.656Z] [INFO] ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+[2026-05-27T11:57:52.657Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+[2026-05-27T11:57:52.657Z] [INFO] 📋 URL validation:
+[2026-05-27T11:57:52.657Z] [INFO]    Input URL: https://github.com/rumaster/tg-games/issues/15
+[2026-05-27T11:57:52.657Z] [INFO]    Is Issue URL: true
+[2026-05-27T11:57:52.658Z] [INFO]    Is PR URL: false
+[2026-05-27T11:57:52.658Z] [INFO] 🔍 --auto-accept-invite: Checking for pending invitation to rumaster/tg-games...
+[2026-05-27T11:57:52.971Z] [INFO]    Found 1 total pending repo invitation(s)
+[2026-05-27T11:57:52.972Z] [INFO]    No pending repository invitation found for rumaster/tg-games
+[2026-05-27T11:57:53.366Z] [INFO]    Found 0 total pending org invitation(s)
+[2026-05-27T11:57:53.367Z] [INFO]    No pending organization invitation found for rumaster
+[2026-05-27T11:57:53.367Z] [INFO] ℹ️  --auto-accept-invite: No pending invitation found for rumaster/tg-games or organization rumaster
+[2026-05-27T11:57:53.367Z] [INFO] 🔍 Checking repository access for auto-fork...
+[2026-05-27T11:57:53.773Z] [STDOUT] {"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+[2026-05-27T11:57:54.113Z] [STDOUT] public
+[2026-05-27T11:57:54.118Z] [INFO]    Repository visibility: public
+[2026-05-27T11:57:54.118Z] [INFO] ✅ Auto-fork: Write access detected to public repository, working directly on repository
+[2026-05-27T11:57:54.119Z] [INFO] 🔍 Checking repository write permissions...
+[2026-05-27T11:57:54.474Z] [STDOUT] {"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+[2026-05-27T11:57:54.479Z] [INFO] ✅ Repository write access: Confirmed
+[2026-05-27T11:57:54.763Z] [STDOUT] rumaster
+[2026-05-27T11:57:55.078Z] [STDOUT] rumaster/tg-games
+[2026-05-27T11:57:55.461Z] [STDOUT] {"number":15,"title":"Прокачка навыков"}
+[2026-05-27T11:57:55.827Z] [STDOUT] public
+[2026-05-27T11:57:55.832Z] [INFO]    Repository visibility: public
+[2026-05-27T11:57:55.833Z] [INFO]    Auto-cleanup default: false (repository is public)
+[2026-05-27T11:57:55.834Z] [INFO] 🔍 Auto-continue enabled: Checking for existing PRs for issue #15...
+[2026-05-27T11:57:55.834Z] [INFO] 🔍 Checking for existing branches in rumaster/tg-games...
+[2026-05-27T11:57:56.229Z] [STDOUT] issue-1-62d192d26e89
+issue-8-a5033cd9db84
+issue-11-01d26a435414
+issue-12-0ae7c194797b
+main
+[2026-05-27T11:57:56.603Z] [STDOUT] []
+[2026-05-27T11:57:56.607Z] [INFO] 📝 No existing PRs found for issue #15 - creating new PR
+[2026-05-27T11:57:56.608Z] [INFO] 📝 Issue mode: Working with issue #15
+[2026-05-27T11:57:56.609Z] [INFO] 
+[2026-05-27T11:57:56.609Z] [INFO] Creating temporary directory: /tmp/gh-issue-solver-1779883076608
+[2026-05-27T11:57:56.611Z] [INFO] 
+[2026-05-27T11:57:56.611Z] [INFO] 📥 Cloning repository:       rumaster/tg-games
+[2026-05-27T11:57:57.130Z] [STDOUT] Cloning into '/tmp/gh-issue-solver-1779883076608'...
+[2026-05-27T11:58:16.355Z] [INFO] ✅ Cloned to:                /tmp/gh-issue-solver-1779883076608
+[2026-05-27T11:58:16.366Z] [STDOUT] origin	https://github.com/rumaster/tg-games.git (fetch)
+origin	https://github.com/rumaster/tg-games.git (push)
+[2026-05-27T11:58:16.434Z] [STDOUT] main
+[2026-05-27T11:58:16.444Z] [STDOUT] 722**********************************ea0
+[2026-05-27T11:58:16.444Z] [INFO] 
+[2026-05-27T11:58:16.444Z] [INFO] 📌 Default branch:           main
+[2026-05-27T11:58:16.458Z] [INFO] 
+[2026-05-27T11:58:16.458Z] [INFO] 🌿 Creating branch:          issue-15-04a58e566c9e from main (default)
+[2026-05-27T11:58:16.474Z] [STDERR] Switched to a new branch 'issue-15-04a58e566c9e'
+[2026-05-27T11:58:16.474Z] [STDOUT] branch 'issue-15-04a58e566c9e' set up to track 'origin/main'.
+[2026-05-27T11:58:16.475Z] [INFO] 🔍 Verifying:                Branch creation...
+[2026-05-27T11:58:16.487Z] [STDOUT] issue-15-04a58e566c9e
+[2026-05-27T11:58:16.487Z] [INFO] ✅ Branch created:           issue-15-04a58e566c9e
+[2026-05-27T11:58:16.488Z] [INFO] ✅ Current branch:           issue-15-04a58e566c9e
+[2026-05-27T11:58:16.488Z] [INFO]    Branch operation: Create new branch
+[2026-05-27T11:58:16.488Z] [INFO]    Branch verification: Matches expected
+[2026-05-27T11:58:16.491Z] [INFO] 
+[2026-05-27T11:58:16.491Z] [INFO] 🚀 Auto PR creation:         ENABLED
+[2026-05-27T11:58:16.492Z] [INFO]      Creating:               Initial commit and draft PR...
+[2026-05-27T11:58:16.492Z] [INFO] 
+[2026-05-27T11:58:16.492Z] [INFO]    Using .gitkeep mode (--claude-file=false, --gitkeep-file=true, --auto-gitkeep-file=true)
+[2026-05-27T11:58:16.492Z] [INFO] 📝 Creating:                 .gitkeep (default)
+[2026-05-27T11:58:16.493Z] [INFO]    Issue URL from argv['issue-url']: https://github.com/rumaster/tg-games/issues/15
+[2026-05-27T11:58:16.494Z] [INFO]    Issue URL from argv._[0]: https://github.com/rumaster/tg-games/issues/15
+[2026-05-27T11:58:16.494Z] [INFO]    Final issue URL: https://github.com/rumaster/tg-games/issues/15
+[2026-05-27T11:58:16.495Z] [INFO] ✅ File created:             .gitkeep
+[2026-05-27T11:58:16.495Z] [INFO] 📦 Adding file:              To git staging
+[2026-05-27T11:58:16.518Z] [STDOUT] A  .gitkeep
+[2026-05-27T11:58:16.519Z] [INFO]    Git status after add: A  .gitkeep
+[2026-05-27T11:58:16.520Z] [INFO] 📝 Creating commit:          With .gitkeep file
+[2026-05-27T11:58:16.538Z] [STDOUT] [issue-15-04a58e566c9e 69e1374] Initial commit with task details
+ 1 file changed, 1 insertion(+)
+ create mode 100644 .gitkeep
+[2026-05-27T11:58:16.538Z] [INFO] ✅ Commit created:           Successfully with .gitkeep
+[2026-05-27T11:58:16.539Z] [INFO]    Commit output: [issue-15-04a58e566c9e 69e1374] Initial commit with task details
+[2026-05-27T11:58:16.539Z] [INFO]  1 file changed, 1 insertion(+)
+[2026-05-27T11:58:16.539Z] [INFO]  create mode 100644 .gitkeep
+[2026-05-27T11:58:16.549Z] [STDOUT] 69e**********************************2bf
+[2026-05-27T11:58:16.549Z] [INFO]    Commit hash: 69e1374...
+[2026-05-27T11:58:16.560Z] [STDOUT] 69e1374 Initial commit with task details
+[2026-05-27T11:58:16.560Z] [INFO]    Latest commit: 69e1374 Initial commit with task details
+[2026-05-27T11:58:16.571Z] [INFO]    Git status: clean
+[2026-05-27T11:58:16.582Z] [STDOUT] origin	https://github.com/rumaster/tg-games.git (fetch)
+origin	https://github.com/rumaster/tg-games.git (push)
+[2026-05-27T11:58:16.583Z] [INFO]    Remotes: origin	https://github.com/rumaster/tg-games.git (fetch)
+[2026-05-27T11:58:16.594Z] [STDOUT] * issue-15-04a58e566c9e 69e1374 [origin/main: ahead 1] Initial commit with task details
+  main                  722045c [origin/main] Починить ложный отказ хода и подсказок при валидном ответе LLM (#12) (#16)
+[2026-05-27T11:58:16.595Z] [INFO]    Branch info: * issue-15-04a58e566c9e 69e1374 [origin/main: ahead 1] Initial commit with task details
+[2026-05-27T11:58:16.595Z] [INFO]   main                  722045c [origin/main] Починить ложный отказ хода и подсказок при валидном ответе LLM (#12) (#16)
+[2026-05-27T11:58:16.595Z] [INFO] 📤 Pushing branch:           To remote repository...
+[2026-05-27T11:58:16.596Z] [INFO]    Push command: git push -u origin issue-15-04a58e566c9e
+[2026-05-27T11:58:49.890Z] [STDOUT] remote: 
+remote: Create a pull request for 'issue-15-04a58e566c9e' on GitHub by visiting:        
+remote:      https://github.com/rumaster/tg-games/pull/new/issue-15-04a58e566c9e        
+remote: 
+[2026-05-27T11:58:49.891Z] [STDOUT] To https://github.com/rumaster/tg-games.git
+ * [new branch]      issue-15-04a58e566c9e -> issue-15-04a58e566c9e
+[2026-05-27T11:58:49.898Z] [STDOUT] branch 'issue-15-04a58e566c9e' set up to track 'origin/issue-15-04a58e566c9e'.
+[2026-05-27T11:58:49.899Z] [INFO]    Push exit code: 0
+[2026-05-27T11:58:49.899Z] [INFO]    Push output: remote: 
+[2026-05-27T11:58:49.899Z] [INFO] remote: Create a pull request for 'issue-15-04a58e566c9e' on GitHub by visiting:        
+[2026-05-27T11:58:49.899Z] [INFO] remote:      https://github.com/rumaster/tg-games/pull/new/issue-15-04a58e566c9e        
+[2026-05-27T11:58:49.899Z] [INFO] remote: 
+[2026-05-27T11:58:49.899Z] [INFO] To https://github.com/rumaster/tg-games.git
+[2026-05-27T11:58:49.899Z] [INFO]  * [new branch]      issue-15-04a58e566c9e -> issue-15-04a58e566c9e
+[2026-05-27T11:58:49.899Z] [INFO] branch 'issue-15-04a58e566c9e' set up to track 'origin/issue-15-04a58e566c9e'.
+[2026-05-27T11:58:49.900Z] [INFO] ✅ Branch pushed:            Successfully to remote
+[2026-05-27T11:58:49.900Z] [INFO]    Push output: remote: 
+[2026-05-27T11:58:49.900Z] [INFO] remote: Create a pull request for 'issue-15-04a58e566c9e' on GitHub by visiting:        
+[2026-05-27T11:58:49.900Z] [INFO] remote:      https://github.com/rumaster/tg-games/pull/new/issue-15-04a58e566c9e        
+[2026-05-27T11:58:49.900Z] [INFO] remote: 
+[2026-05-27T11:58:49.900Z] [INFO] To https://github.com/rumaster/tg-games.git
+[2026-05-27T11:58:49.900Z] [INFO]  * [new branch]      issue-15-04a58e566c9e -> issue-15-04a58e566c9e
+[2026-05-27T11:58:49.900Z] [INFO] branch 'issue-15-04a58e566c9e' set up to track 'origin/issue-15-04a58e566c9e'.
+[2026-05-27T11:58:49.900Z] [INFO]    Waiting for GitHub to sync...
+[2026-05-27T11:58:52.424Z] [STDOUT] {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:58:52.431Z] [INFO]    Compare API error (attempt 1/5): {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:58:52.431Z] [INFO] 
+[2026-05-27T11:58:52.432Z] [INFO]    Retry 2/5: Waiting 4000ms for GitHub to index commits...
+[2026-05-27T11:58:56.980Z] [STDOUT] {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:58:56.984Z] [INFO]    Compare API error (attempt 2/5): {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:58:56.984Z] [INFO] 
+[2026-05-27T11:58:56.985Z] [INFO]    Retry 3/5: Waiting 6000ms for GitHub to index commits...
+[2026-05-27T11:59:03.542Z] [STDOUT] {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:03.549Z] [INFO]    Compare API error (attempt 3/5): {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:03.549Z] [INFO] 
+[2026-05-27T11:59:03.550Z] [INFO]    Retry 4/5: Waiting 8000ms for GitHub to index commits...
+[2026-05-27T11:59:12.047Z] [STDOUT] {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:12.053Z] [INFO]    Compare API error (attempt 4/5): {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:12.053Z] [INFO] 
+[2026-05-27T11:59:12.053Z] [INFO]    Retry 5/5: Waiting 10000ms for GitHub to index commits...
+[2026-05-27T11:59:22.576Z] [STDOUT] {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:22.581Z] [INFO]    Compare API error (attempt 5/5): {"message":"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.","errors":[{"resource":"Comparison","field":"diff","code":"not_available"}],"documentation_url":"https://docs.github.com/rest/commits/commits#compare-two-commits","status":"500"}gh: Server Error: Sorry, this diff is temporarily unavailable due to heavy server load. (HTTP 500)
+[2026-05-27T11:59:22.581Z] [INFO] 
+[2026-05-27T11:59:22.581Z] [INFO] 
+[2026-05-27T11:59:22.582Z] [ERROR] ❌ GITHUB SYNC TIMEOUT:      Compare API not ready after retries
+[2026-05-27T11:59:22.582Z] [INFO] 
+[2026-05-27T11:59:22.582Z] [INFO]   🔍 What happened:
+[2026-05-27T11:59:22.582Z] [INFO]      After 5 attempts, GitHub's compare API still shows no commits
+[2026-05-27T11:59:22.582Z] [INFO]      between main and issue-15-04a58e566c9e.
+[2026-05-27T11:59:22.583Z] [INFO] 
+[2026-05-27T11:59:22.583Z] [INFO]   💡 This usually means:
+[2026-05-27T11:59:22.583Z] [INFO]      • GitHub's backend systems haven't finished indexing the push
+[2026-05-27T11:59:22.583Z] [INFO]      • There's a temporary issue with GitHub's API
+[2026-05-27T11:59:22.583Z] [INFO]      • The commits may not have been pushed correctly
+[2026-05-27T11:59:22.583Z] [INFO] 
+[2026-05-27T11:59:22.583Z] [INFO]   🔧 How to fix:
+[2026-05-27T11:59:22.583Z] [INFO]      1. Wait a minute and try creating the PR manually:
+[2026-05-27T11:59:22.584Z] [INFO]         gh pr create --draft --repo rumaster/tg-games --base main --head issue-15-04a58e566c9e
+[2026-05-27T11:59:22.584Z] [INFO]      2. Check if the branch exists on GitHub:
+[2026-05-27T11:59:22.584Z] [INFO]         https://github.com/rumaster/tg-games/tree/issue-15-04a58e566c9e
+[2026-05-27T11:59:22.584Z] [INFO]      3. Check the commit is on GitHub:
+[2026-05-27T11:59:22.584Z] [INFO]         gh api repos/rumaster/tg-games/compare/main...issue-15-04a58e566c9e --paginate
+[2026-05-27T11:59:22.584Z] [INFO] 
+[2026-05-27T11:59:22.585Z] [INFO] 
+[2026-05-27T11:59:22.585Z] [ERROR] ❌ FATAL ERROR:              PR creation failed
+[2026-05-27T11:59:22.585Z] [INFO] 
+[2026-05-27T11:59:22.585Z] [INFO]   🔍 What happened:
+[2026-05-27T11:59:22.585Z] [INFO]      GitHub compare API not ready - cannot create PR safely
+[2026-05-27T11:59:22.585Z] [INFO] 
+[2026-05-27T11:59:22.585Z] [INFO]   💡 The solve command cannot continue without a pull request.
+[2026-05-27T11:59:22.586Z] [INFO] 
+[2026-05-27T11:59:22.586Z] [INFO]   🔧 How to fix:
+[2026-05-27T11:59:22.586Z] [INFO] 
+[2026-05-27T11:59:22.587Z] [INFO]   Option 1: Retry without auto-PR creation
+[2026-05-27T11:59:22.587Z] [INFO]      ./solve.mjs "https://github.com/rumaster/tg-games/issues/15" --no-auto-pull-request-creation
+[2026-05-27T11:59:22.587Z] [INFO]      (The AI agent will create the PR during the session)
+[2026-05-27T11:59:22.587Z] [INFO] 
+[2026-05-27T11:59:22.587Z] [INFO]   Option 2: Create PR manually first
+[2026-05-27T11:59:22.587Z] [INFO]      cd /tmp/gh-issue-solver-1779883076608
+[2026-05-27T11:59:22.587Z] [INFO]      gh pr create --draft --title "Fix issue #15" --body "Fixes #15" --repo rumaster/tg-games
+[2026-05-27T11:59:22.587Z] [INFO]      Then use: ./solve.mjs "https://github.com/rumaster/tg-games/issues/15" --continue
+[2026-05-27T11:59:22.588Z] [INFO] 
+[2026-05-27T11:59:22.588Z] [INFO]   Option 3: Debug the issue
+[2026-05-27T11:59:22.588Z] [INFO]      cd /tmp/gh-issue-solver-1779883076608
+[2026-05-27T11:59:22.588Z] [INFO]      git status
+[2026-05-27T11:59:22.588Z] [INFO]      git log --oneline -5
+[2026-05-27T11:59:22.588Z] [INFO]      gh pr create --draft --repo rumaster/tg-games  # Try manually to see detailed error
+[2026-05-27T11:59:22.588Z] [INFO] 
+[2026-05-27T11:59:22.588Z] [INFO] Error executing command:
+[2026-05-27T11:59:22.589Z] [INFO] Stack trace: Error: GitHub compare API not ready - cannot create PR safely
+[2026-05-27T11:59:22.589Z] [INFO]     at handleAutoPrCreation (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.auto-pr.lib.mjs:821:19)
+[2026-05-27T11:59:22.589Z] [INFO]     at async file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs:559:24
+[2026-05-27T11:59:22.589Z] [ERROR]    📁 Full log file: /home/box/solve-2026-05-27T11-57-46-070Z.log
+[2026-05-27T11:59:22.590Z] [INFO] ℹ️  Error issue creation is disabled by CLI configuration.
+[2026-05-27T11:59:22.590Z] [INFO] 
+[2026-05-27T11:59:22.590Z] [INFO] 📄 Attempting to attach failure logs to original issue #15...
+[2026-05-27T11:59:22.776Z] [INFO]   🤖 Model info fetched for comment
+
+```
+
+</details>
+
+---
+*Now working session is ended, feel free to review and add any feedback on the solution draft.*

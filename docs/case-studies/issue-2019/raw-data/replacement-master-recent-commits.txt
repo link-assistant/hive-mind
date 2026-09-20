@@ -1,0 +1,20 @@
+5d71367 (replacement/master) fix(flow-nodes): update node border colors
+c34e506 fix(dashboard): remove WorkflowCanvas causing infinite re-render loop
+668279e fix(dashboard): use dynamic import with ssr:false for WorkflowCanvas
+ddb338f fix(search): reduce page size to 30, reset state on modal close
+5da1d74 fix(catalog): add pagination, relevance ranking, and infinite scroll
+4f26b66 Implement public user profiles and leaderboard (#119)
+1ba9a3e chore: add missing typesense and ocawe services to prod compose
+d850f50 docs(spec): update API spec to v4 and sync all client examples with backend
+95c4fcd fix: store and pass provider config (model, api_key, base_url) from canvas to opencode
+2faa87e chore: update ocawe submodule
+e6569bb fix: log CLI install errors for debugging
+7528a43 chore: update ocawe submodule
+6385d39 feat: install CLI via nix.Manager before each chat request
+6b39684 chore: update ocawe submodule (fix line endings, add .gitattributes)
+db498c0 chore: update ocawe submodule (fix entrypoint shell)
+5ecc7b2 feat: send CLI name in env config sync so Ocawe installs it via nix
+159279d docs: add OpenAI-compatible chat endpoint documentation
+53b1c4b feat: add /api/chat/openai/environments/{id} endpoint with OpenAI-compatible request body
+9316600 docs: expand README with detailed curl examples for all API endpoints
+d84d651 cleanup: remove old concept docs, plans, and obsolete files

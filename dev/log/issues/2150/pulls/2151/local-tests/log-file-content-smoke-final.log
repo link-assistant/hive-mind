@@ -1,0 +1,50 @@
+Testing that log files contain version and command at the start...
+📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-25-26-546Z.log
+   (All output will be logged here)
+
+🚀 solve v2.12.0
+🔧 Raw command executed:
+   /home/box/.npm/_npx/387698761821791d/node_modules/node/bin/node /tmp/gh-issue-solver-1786457752545/src/solve.mjs https://github.com/test/repo/issues/1 --dry-run --skip-tool-check
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 3.70 5.92 4.55 (6 CPUs)
+   Memory: 9.7 GB available / 11.7 GB total (2.0 GB used)
+   Process RSS: 110 MB, heap 25 MB
+   Disk (/): 119.3 GB available / 192.7 GB total (38.1% used)
+📈 [RESOURCES] phase=solve_start ts=2026-08-11T16%3A25%3A27.030Z load1=3.7 load5=5.92 load15=4.55 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10415611904 memUsedBytes=2125881344 processRssBytes=115490816 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=128068059136 diskUsedBytes=78815444992 diskUsedPercent=38.09344505479842 mem=9.7%20GB%20available%20%2F%2011.7%20GB%20total disk=119.3%20GB%20available%20%2F%20192.7%20GB%20total
+💾 Disk space check: 122136MB available (10240MB required) ✅
+🧠 Memory check: 10247MB available, swap: 4095MB (251MB used), total: 14091MB (256MB required) ✅
+🔍 --auto-accept-invite: Checking for pending invitation to test/repo...
+ℹ️  --auto-accept-invite: No pending invitation found for test/repo or organization test
+🔍 Checking repository access for auto-fork...
+gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository
+test
+gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+
+❌ Repository 'test/repo' is not accessible.
+
+💡 Please check:
+• Repository may be private — ensure the bot has been granted access
+• The repository name is spelled correctly
+• The repository has not been deleted, transferred, or never existed
+
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}📈 Resource usage (solve exit 1):
+   CPU load: 3.40 5.82 4.53 (6 CPUs)
+   Memory: 9.7 GB available / 11.7 GB total (2.0 GB used)
+   Process RSS: 114 MB, heap 27 MB
+   Disk (/): 119.3 GB available / 192.7 GB total (38.1% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-08-11T16%3A25%3A30.018Z load1=3.4 load5=5.82 load15=4.53 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10407124992 memUsedBytes=2134368256 processRssBytes=119947264 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=128068050944 diskUsedBytes=78815453184 diskUsedPercent=38.09344901419372 mem=9.7%20GB%20available%20%2F%2011.7%20GB%20total disk=119.3%20GB%20available%20%2F%20192.7%20GB%20total
+
+❌ GitHub entity not found (repo)
+📁 Full log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-25-26-546Z.log
+
+💬 Notifying issue #1 about solver failure...
+gh: Not Found (HTTP 404)
+  ⚠️  Could not post solver failure comment: gh: Not Found (HTTP 404)
+
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/issues/comments#create-an-issue-comment","status":"404"}solve dry-run failed with exit code 1

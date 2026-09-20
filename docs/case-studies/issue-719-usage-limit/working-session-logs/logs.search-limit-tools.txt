@@ -1,0 +1,98 @@
+src/usage-limit.lib.mjs:16:export function isUsageLimitError(message) {
+src/usage-limit.lib.mjs:78: * @returns {Object} - { isUsageLimit: boolean, resetTime: string|null }
+src/usage-limit.lib.mjs:81:  const isUsageLimit = isUsageLimitError(message);
+src/usage-limit.lib.mjs:82:  const resetTime = isUsageLimit ? extractResetTime(message) : null;
+src/usage-limit.lib.mjs:85:    isUsageLimit,
+src/usage-limit.lib.mjs:97: * @param {string|null} options.resumeCommand - Command to resume session
+src/usage-limit.lib.mjs:100:export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
+src/usage-limit.lib.mjs:114:  if (sessionId && resumeCommand) {
+src/usage-limit.lib.mjs:119:    lines.push(`   ${resumeCommand}`);
+src/usage-limit.lib.mjs:140:      if (isUsageLimitError(data.message)) {
+src/usage-limit.lib.mjs:151:      if (isUsageLimitError(data.error.message)) {
+src/solve.repository.lib.mjs:834:  const shouldKeepDirectory = !argv.autoCleanup || argv.resume || limitReached || (argv.autoContinueLimit && global.limitResetTime);
+src/solve.results.lib.mjs:211:      if (argv.autoContinueLimit && global.limitResetTime) {
+src/solve.results.lib.mjs:212:        await log(`\n🔄 AUTO-CONTINUE ENABLED - Will resume at ${global.limitResetTime}`);
+src/solve.results.lib.mjs:220:          if (global.limitResetTime) {
+src/solve.results.lib.mjs:221:            await log(`\n💡 Or enable auto-continue-limit to wait until ${global.limitResetTime}:\n`);
+src/solve.results.lib.mjs:365:          logUploadSuccess = await attachLogToGitHub({
+src/solve.results.lib.mjs:426:        await attachLogToGitHub({
+src/solve.results.lib.mjs:504:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.execution.lib.mjs:183:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.execution.lib.mjs:236:  if (!argv.resume && !limitReached && !(argv.autoContinueLimit && global.limitResetTime)) {
+src/solve.error-handlers.lib.mjs:60:      const logUploadSuccess = await attachLogToGitHub({
+src/solve.auto-continue.lib.mjs:61:    const resetTime = global.limitResetTime;
+src/opencode.lib.mjs:311:      let limitResetTime = null;
+src/opencode.lib.mjs:334:        if (limitInfo.isUsageLimit) {
+src/opencode.lib.mjs:336:          limitResetTime = limitInfo.resetTime;
+src/opencode.lib.mjs:343:            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+src/opencode.lib.mjs:362:          limitResetTime
+src/opencode.lib.mjs:372:        limitResetTime
+src/opencode.lib.mjs:387:        limitResetTime: null
+src/github.lib.mjs:440: * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
+src/github.lib.mjs:441: * @param {string} [options.limitResetTime] - Time when usage limit resets
+src/github.lib.mjs:443: * @param {string} [options.resumeCommand] - Command to resume the session
+src/github.lib.mjs:446:export async function attachLogToGitHub(options) {
+src/github.lib.mjs:463:    isUsageLimit = false,
+src/github.lib.mjs:464:    limitResetTime = null,
+src/github.lib.mjs:466:    resumeCommand = null
+src/github.lib.mjs:515:    // Usage limit comments should be shown whenever isUsageLimit is true,
+src/github.lib.mjs:517:    if (isUsageLimit) {
+src/github.lib.mjs:527:      if (limitResetTime) {
+src/github.lib.mjs:528:        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:537:      if (limitResetTime) {
+src/github.lib.mjs:538:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:543:      if (resumeCommand) {
+src/github.lib.mjs:546:${resumeCommand}
+src/github.lib.mjs:658:          if (isUsageLimit) {
+src/github.lib.mjs:668:            if (limitResetTime) {
+src/github.lib.mjs:669:              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:678:            if (limitResetTime) {
+src/github.lib.mjs:679:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:684:            if (resumeCommand) {
+src/github.lib.mjs:687:${resumeCommand}
+src/codex.lib.mjs:321:      let limitResetTime = null;
+src/codex.lib.mjs:398:        if (limitInfo.isUsageLimit) {
+src/codex.lib.mjs:400:          limitResetTime = limitInfo.resetTime;
+src/codex.lib.mjs:407:            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+src/codex.lib.mjs:426:          limitResetTime
+src/codex.lib.mjs:436:        limitResetTime
+src/codex.lib.mjs:460:        limitResetTime: null
+src/solve.mjs:804:  if (toolResult && toolResult.limitResetTime) {
+src/solve.mjs:805:    global.limitResetTime = toolResult.limitResetTime;
+src/solve.mjs:814:        const resumeCommand = sessionId ? `${process.argv[0]} ${process.argv[1]} ${issueUrl} --resume ${sessionId}` : null;
+src/solve.mjs:815:        const logUploadSuccess = await attachLogToGitHub({
+src/solve.mjs:825:          isUsageLimit: !!limitReached,
+src/solve.mjs:826:          limitResetTime: limitReached ? toolResult.limitResetTime : null,
+src/solve.mjs:830:          resumeCommand,
+src/solve.mjs:954:        const logUploadSuccess = await attachLogToGitHub({
+src/github.lib.mjs:440: * @param {boolean} [options.isUsageLimit] - Whether this is a usage limit error
+src/github.lib.mjs:441: * @param {string} [options.limitResetTime] - Time when usage limit resets
+src/github.lib.mjs:443: * @param {string} [options.resumeCommand] - Command to resume the session
+src/github.lib.mjs:446:export async function attachLogToGitHub(options) {
+src/github.lib.mjs:463:    isUsageLimit = false,
+src/github.lib.mjs:464:    limitResetTime = null,
+src/github.lib.mjs:466:    resumeCommand = null
+src/github.lib.mjs:515:    // Usage limit comments should be shown whenever isUsageLimit is true,
+src/github.lib.mjs:517:    if (isUsageLimit) {
+src/github.lib.mjs:527:      if (limitResetTime) {
+src/github.lib.mjs:528:        logComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:537:      if (limitResetTime) {
+src/github.lib.mjs:538:        logComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:543:      if (resumeCommand) {
+src/github.lib.mjs:546:${resumeCommand}
+src/github.lib.mjs:658:          if (isUsageLimit) {
+src/github.lib.mjs:668:            if (limitResetTime) {
+src/github.lib.mjs:669:              gistComment += `\n- **Reset Time**: ${limitResetTime}`;
+src/github.lib.mjs:678:            if (limitResetTime) {
+src/github.lib.mjs:679:              gistComment += `Once the limit resets at **${limitResetTime}**, `;
+src/github.lib.mjs:684:            if (resumeCommand) {
+src/github.lib.mjs:687:${resumeCommand}
+src/claude.lib.mjs:832:    let limitResetTime = null;
+src/claude.lib.mjs:1059:          limitResetTime: null,
+src/claude.lib.mjs:1107:          limitResetTime: null,
+src/claude.lib.mjs:1117:      if (limitInfo.isUsageLimit) {
+src/claude.lib.mjs:1119:        limitResetTime = limitInfo.resetTime;
+src/claude.lib.mjs:1126:          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+src/claude.lib.mjs:1182:        limitResetTime,
+src/claude.lib.mjs:1277:      limitResetTime,
+src/claude.lib.mjs:1324:      limitResetTime: null,

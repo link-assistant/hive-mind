@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Issue #4: GitHub CLI with complex markdown body
- * 
+ *
  * Problem: gh issue create fails with complex markdown containing backticks and special chars
  * Solution: Use --body-file parameter instead of --body
  */
@@ -84,23 +84,23 @@ async function createIssueWithBodyFile(repoUrl, title, body) {
     const bodyFile = `/tmp/issue-body-${Date.now()}.md`;
     console.log(`Step 1: Writing body to temp file: ${bodyFile}`);
     await fs.writeFile(bodyFile, body);
-    
+
     // Step 2: Verify file was written correctly
     const verification = await fs.readFile(bodyFile, 'utf8');
     console.log(`Step 2: Verified file (${verification.length} chars written)`);
-    
+
     // Step 3: Use gh issue create with --body-file
     console.log(`Step 3: Command: gh issue create --repo ${repoUrl} --title "${title}" --body-file ${bodyFile}`);
-    
+
     // This would be the actual command (commented out to avoid creating real issues)
     // const result = await $`gh issue create --repo ${repoUrl} --title "${title}" --body-file ${bodyFile}`;
-    
+
     console.log('Step 4: (Would execute gh command here)');
-    
+
     // Step 5: Clean up temp file
     console.log(`Step 5: Cleaning up temp file`);
     await fs.unlink(bodyFile);
-    
+
     console.log('✅ Success: Issue would be created without escaping issues');
     return true;
   } catch (error) {
@@ -110,11 +110,7 @@ async function createIssueWithBodyFile(repoUrl, title, body) {
 }
 
 // Demonstrate the solution
-await createIssueWithBodyFile(
-  'https://github.com/owner/repo',
-  'Implement Hello World in JavaScript',
-  complexIssueBody
-);
+await createIssueWithBodyFile('https://github.com/owner/repo', 'Implement Hello World in JavaScript', complexIssueBody);
 
 console.log('\n' + '='.repeat(60) + '\n');
 

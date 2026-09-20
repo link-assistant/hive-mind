@@ -1,0 +1,13 @@
+📦 <tmpdir>/.local/share/link-assistant-agent
+   5 store(s), 1.8 MB
+
+KEPT:
+   live-task          worktree still exists
+   just-started       modified too recently to be considered idle
+WOULD REMOVE:
+   crashed-task       no project record, idle
+   finished-task-2    recorded worktree no longer exists
+   finished-task-1    recorded worktree no longer exists
+
+🧹 Reclaimed 3 store(s); 2 left, 0.3 MB
+

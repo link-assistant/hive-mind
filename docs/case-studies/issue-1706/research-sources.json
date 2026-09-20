@@ -1,0 +1,54 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1706",
+  "pull_request": "https://github.com/link-assistant/hive-mind/pull/1707",
+  "claude_code": {
+    "env_vars_doc": "https://code.claude.com/docs/en/env-vars",
+    "model_config_doc": "https://code.claude.com/docs/en/model-config",
+    "vars": [
+      {
+        "name": "CLAUDE_CODE_DISABLE_1M_CONTEXT",
+        "values": "1 to disable",
+        "description": "Disables 1M context window. 1M model variants are unavailable in the model picker.",
+        "version_added": "v2.1.50"
+      },
+      {
+        "name": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE",
+        "values": "1-100",
+        "description": "Percentage of context capacity at which auto-compaction triggers. Default ~95%. Only lowers; values above default have no effect.",
+        "issue_lower_only": "https://github.com/anthropics/claude-code/issues/31806"
+      },
+      {
+        "name": "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+        "values": "tokens",
+        "description": "Context capacity (tokens) used for auto-compaction calculations. Defaults to model context window. Capped at the model's actual window."
+      },
+      {
+        "name": "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+        "description": "Override the assumed context window. Only takes effect when DISABLE_COMPACT is also set."
+      }
+    ],
+    "feature_requests": ["https://github.com/anthropics/claude-code/issues/34126", "https://github.com/anthropics/claude-code/issues/28728", "https://github.com/anthropics/claude-code/issues/27278"]
+  },
+  "codex": {
+    "config_reference": "https://developers.openai.com/codex/config-reference",
+    "config_sample": "https://developers.openai.com/codex/config-sample",
+    "keys": [
+      {
+        "name": "model_context_window",
+        "type": "number",
+        "description": "Context window tokens available to the active model"
+      },
+      {
+        "name": "model_auto_compact_token_limit",
+        "type": "number",
+        "description": "Token threshold that triggers automatic history compaction (unset uses model defaults)"
+      },
+      {
+        "name": "compact_prompt",
+        "type": "string",
+        "description": "Inline override for the history compaction prompt"
+      }
+    ],
+    "known_issues": ["https://github.com/openai/codex/issues/16068", "https://github.com/openai/codex/issues/19185", "https://github.com/openai/codex/issues/11805"]
+  }
+}

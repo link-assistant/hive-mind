@@ -37,7 +37,7 @@ echo "This runs in background to keep the session attached"
 # We'll use script command to simulate an interactive attachment
 (
     # Try to attach to the screen session for a few seconds
-    timeout 5 screen -r "$SESSION_NAME" || true
+    timeout 5 screen -R "$SESSION_NAME" || true
 ) &> /tmp/attach-test-$$.log &
 ATTACH_PID=$!
 sleep 1

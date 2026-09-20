@@ -1,0 +1,22 @@
+## raw
+   24/24 loads failed in 54802ms
+      Failed to install command-stream@latest globally into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules' after 3 attempts.
+      Attempts:
+        - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless'
+      npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js'
+      Failed to install command-stream@latest globally into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules' after 3 attempts.
+      Attempts:
+        - 1/3: npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/node-pty/src/win/conpty_console_list.cc'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, lstat '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/node-pty/src/win'
+      Failed to install command-stream@latest globally into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules' after 3 attempts.
+      Attempts:
+        - 1/3: npm warn tar ENOENT: Cannot cd into '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/@resvg/resvg-js-linux-x64-gnu'
+      npm warn tar TAR_ENTRY_ERROR ENOENT: no such file or directory, open '/tmp/hive-mind-issue-2113-raw-0An4MA/lib/node_modules/command-stream-v-latest/node_modules/@xterm/headless/lib-headless/xterm-headless.js'
+   exit code: 1
+
+## guarded
+   0/24 loads failed in 3343ms
+   exit code: 0
+
+raw: failed as expected
+guarded: succeeded

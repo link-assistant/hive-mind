@@ -1,0 +1,17 @@
+# exit=0 signal=null
+## stdout
+The agentic CLI harness could not complete `main.py`. The tool reported:
+
+```text
+Command: python3 -m py_compile main.py
+Directory: (root)
+Output: (empty)
+Error: (none)
+Exit Code: 0
+Signal: 0
+Process Group PGID: 685377
+```
+
+## stderr
+Warning: running headless with --yolo / approval-mode=yolo and no sandbox. All tool calls (shell, write, edit) auto-execute at this process's privilege level. Enable a sandbox via --sandbox / QWEN_SANDBOX, or set QWEN_CODE_SUPPRESS_YOLO_WARNING=1 to silence this notice.
+

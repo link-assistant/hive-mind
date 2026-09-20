@@ -1,0 +1,8 @@
+5:30am -> hour=5, minute=30, waitMs=831184
+11:45pm -> hour=23, minute=45, waitMs=66531182
+12:16 PM -> hour=12, minute=16, waitMs=25191182
+07:05 Am -> hour=7, minute=5, waitMs=6531182
+5am -> hour=5, minute=0, waitMs=85431182
+9:00PM -> hour=21, minute=0, waitMs=56631182
+09:00 pm -> hour=21, minute=0, waitMs=56631182
+bad-format -> ERROR: Invalid time format: bad-format

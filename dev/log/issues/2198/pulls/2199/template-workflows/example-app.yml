@@ -1,0 +1,318 @@
+name: Example app
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'examples/universal-app/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/update-preview-images.mjs'
+      - '.github/workflows/example-app.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'examples/universal-app/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/update-preview-images.mjs'
+      - '.github/workflows/example-app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Provide Git config to actions/checkout itself; checkout runs git init before
+# any workflow step can configure Git.
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
+jobs:
+  web-build:
+    name: Build web app
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-web-build
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: examples/universal-app/package-lock.json
+
+      - name: Configure GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v6
+
+      - name: Install app dependencies
+        run: npm ci --prefix examples/universal-app --no-audit --no-fund
+
+      - name: Build app
+        run: npm run example:web:build
+        env:
+          GITHUB_PAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          VITE_REPOSITORY_URL: https://github.com/${{ github.repository }}
+
+      - name: Upload web build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: universal-example-web
+          path: examples/universal-app/dist
+          if-no-files-found: error
+
+      - name: Upload GitHub Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: examples/universal-app/dist
+
+  # Requires Settings → Pages → Source = GitHub Actions to be set once
+  # in the repository before this job can succeed. See README → "Deploying
+  # the example app". The Pages source cannot be configured from a workflow.
+  pages-deploy:
+    name: Deploy GitHub Pages
+    needs: [web-build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+  desktop-package:
+    name: Package desktop app (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-desktop-package-${{ matrix.os }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: examples/universal-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci --prefix examples/universal-app --no-audit --no-fund
+
+      - name: Package Electron app
+        shell: bash
+        run: |
+          npm run example:desktop:package
+          for attempt in {1..30}; do
+            echo "Waiting for the packaged app (attempt ${attempt}/30)"
+            if [[ -d examples/universal-app/out ]] &&
+              [[ -n "$(find examples/universal-app/out -mindepth 1 -print -quit)" ]]; then
+              find examples/universal-app/out -maxdepth 2 -mindepth 1 -print
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Desktop package output was not created at examples/universal-app/out"
+          exit 1
+        env:
+          VITE_REPOSITORY_URL: https://github.com/${{ github.repository }}
+
+      - name: Upload desktop package
+        uses: actions/upload-artifact@v7
+        with:
+          name: universal-example-desktop-${{ matrix.os }}
+          path: examples/universal-app/out
+          if-no-files-found: error
+
+  android-build:
+    name: Build Android app
+    if: github.event_name == 'workflow_dispatch' && vars.EXAMPLE_APP_ENABLE_ANDROID_BUILD == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-android-build
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: examples/universal-app/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Install app dependencies
+        run: npm ci --prefix examples/universal-app --no-audit --no-fund
+
+      - name: Add Android project
+        run: npm --prefix examples/universal-app run mobile:android:add
+
+      - name: Build Android project
+        run: npm --prefix examples/universal-app run mobile:android:build
+
+      - name: Upload Android output
+        uses: actions/upload-artifact@v7
+        with:
+          name: universal-example-android
+          path: |
+            examples/universal-app/android/app/build/outputs/**/*.apk
+            examples/universal-app/android/app/build/outputs/**/*.aab
+          if-no-files-found: warn
+
+  ios-build:
+    name: Build iOS app
+    if: github.event_name == 'workflow_dispatch' && vars.EXAMPLE_APP_ENABLE_IOS_BUILD == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    concurrency:
+      group: check-${{ github.workflow }}-${{ github.ref }}-ios-build
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: examples/universal-app/package-lock.json
+
+      - name: Install app dependencies
+        run: npm ci --prefix examples/universal-app --no-audit --no-fund
+
+      - name: Add iOS project
+        run: npm --prefix examples/universal-app run mobile:ios:add
+
+      - name: Build iOS project
+        run: npm --prefix examples/universal-app run mobile:ios:build
+
+  # Regenerate example-app preview screenshots (docs/screenshots/example-app/*)
+  # using browser-commander + Playwright so README/site images always reflect
+  # the current UI. Issue: #62. Implementation: scripts/update-preview-images.mjs.
+  preview-regen:
+    name: Regenerate Preview Images
+    runs-on: ubuntu-latest
+    container:
+      # Keep this tag in sync with the playwright package version below.
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
+    timeout-minutes: 20
+    concurrency:
+      group: main-writer-${{ github.repository }}-main
+      cancel-in-progress: false
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+      # The push helper opens and merges a pull request when a repository
+      # ruleset declines the direct push to main (issue #143).
+      pull-requests: write
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Regenerate against main HEAD so the bot commit lands on a
+          # fast-forward parent regardless of which trigger started the job.
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install example app dependencies
+        run: npm ci --prefix examples/universal-app --no-audit --no-fund
+
+      # Deliberately installed outside the lockfile: these tools are only used
+      # by this preview-image job and both versions are pinned exactly.
+      - name: Install browser automation dependencies
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: npm install --no-save --package-lock=false --no-audit --no-fund browser-commander@0.8.1 playwright@1.59.1 # zizmor: ignore[adhoc-packages]
+
+      - name: Regenerate preview images
+        run: node scripts/update-preview-images.mjs
+
+      - name: Detect drift
+        id: drift
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+            echo "Preview images drifted:"
+            git status --porcelain
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+            echo "Preview images already current."
+          fi
+
+      - name: Commit drift back to main
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Stage only generated artifacts so unrelated changes can't leak in.
+          git add docs/screenshots/example-app/*.png || true
+          if git diff --cached --quiet; then
+            echo "::notice::No tracked preview-image changes to commit (drift was outside expected paths)."
+            git status --porcelain
+            exit 0
+          fi
+          # [skip ci] prevents an infinite re-run loop; the next push to main
+          # will pick up these fresh images for the regular pages-build.
+          git commit -m "chore(preview): regenerate example-app preview images [skip ci]"
+          node scripts/push-main-with-rebase-retry.mjs origin main --label preview-images
+
+      - name: Upload screenshot failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: preview-regen-failure-${{ github.run_id }}
+          path: |
+            docs/screenshots/
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Summarize regeneration result
+        if: always()
+        run: |
+          if [[ "${{ steps.drift.outputs.drift }}" == "true" ]]; then
+            echo "::notice::Preview images regenerated and (if applicable) committed to main."
+          else
+            echo "::notice::Preview images are already up to date."
+          fi

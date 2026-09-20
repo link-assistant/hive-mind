@@ -1,0 +1,8 @@
+{
+  "createdAt": "2025-12-07T12:22:58Z",
+  "description": "A secure UDP-based transport protocol with cryptographic handshakes and encrypted data transfer.",
+  "isFork": false,
+  "name": "VEIL",
+  "owner": "VisageDvachevsky",
+  "parent": null
+}

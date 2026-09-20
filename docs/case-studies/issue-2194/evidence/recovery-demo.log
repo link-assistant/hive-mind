@@ -1,0 +1,89 @@
+Recovered
+=========
+
+• the reported case: "pulls" where "pull" was meant
+    sent:   https://github.com/G-Ivan-A/aether-orbis/pulls/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: "/pulls/30" is the pull request list page — read it as "/pull/30"
+
+• a zero-width space pasted into the repo name
+    sent:   https://github.com/G-Ivan-A/aether-orbis[U+200B]/pull/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: removed invisible character(s): ZERO WIDTH SPACE
+
+• a soft hyphen from a line-wrapped copy
+    sent:   https://github.com/G-Ivan-A/aether[U+00AD]orbis/pull/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aetherorbis/pull/30
+    repairs: removed invisible character(s): SOFT HYPHEN
+
+• a byte order mark in front of the URL
+    sent:   [U+FEFF]https://github.com/G-Ivan-A/aether-orbis/pull/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+• a non-breaking space instead of a space
+    sent:   https://github.com/G-Ivan-A/aether-orbis/pull/30[U+00A0]
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+
+• a tab page instead of the pull request
+    sent:   https://github.com/G-Ivan-A/aether-orbis/pull/30/files
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: ignored the "/files" tab and used the pull request itself
+
+• a full-width colon from an IME
+    sent:   https[U+FF1A]//github.com/G-Ivan-A/aether-orbis/pull/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: replaced look-alike punctuation with ASCII; normalized the address to https://github.com
+
+• full-width digits from an IME
+    sent:   https://github.com/G-Ivan-A/aether-orbis/pull/３０
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: converted full-width digits to ASCII
+
+• a markdown link pasted whole
+    sent:   [PR 30](https://github.com/G-Ivan-A/aether-orbis/pull/30)
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: unwrapped a Markdown link
+
+• a URL in brackets at the end of a sentence
+    sent:   (https://github.com/G-Ivan-A/aether-orbis/pull/30).
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: removed the trailing "."; removed the surrounding brackets or quotes
+
+• an SSH remote instead of a web URL
+    sent:   git@github.com:G-Ivan-A/aether-orbis.git
+    parsed: repo → https://github.com/G-Ivan-A/aether-orbis
+    repairs: read the SSH/git remote address as its web address; normalized the address to https://github.com; removed the ".git" suffix from the repository name
+
+• an API URL from a script
+    sent:   https://api.github.com/repos/G-Ivan-A/aether-orbis/pulls/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: read the api.github.com address as its web address; normalized the address to https://github.com; "/pulls/30" is the pull request list page — read it as "/pull/30"
+
+• a shouted host
+    sent:   HTTPS://GITHUB.COM/G-Ivan-A/aether-orbis/PULL/30
+    parsed: pull #30 → https://github.com/G-Ivan-A/aether-orbis/pull/30
+    repairs: normalized the address to https://github.com; corrected the path segment "PULL" to "pull"
+
+Still rejected — recovery must never invent a GitHub URL
+===================================================
+
+• a different forge
+    sent:   https://gitlab.com/G-Ivan-A/aether-orbis/-/merge_requests/30
+    parsed: rejected (Not a GitHub URL)
+
+• a look-alike host
+    sent:   https://github.com.evil.example/G-Ivan-A/aether-orbis/pull/30
+    parsed: rejected (Not a GitHub URL)
+
+• github.com in someone else’s path
+    sent:   https://evil.example/github.com/G-Ivan-A/aether-orbis/pull/30
+    parsed: rejected (Not a GitHub URL)
+
+• an email address at github.com
+    sent:   support@github.com
+    parsed: rejected (Not a GitHub URL)
+
+• a Markdown link that names no host
+    sent:   [the PR](aether-orbis)
+    parsed: rejected (Invalid GitHub URL format)
+

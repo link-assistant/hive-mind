@@ -20,8 +20,8 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { thinkUltraHard: false }
-    }
+      argv: { thinkUltraHard: false },
+    },
   },
   {
     name: 'With --think-ultra-hard option (normal mode)',
@@ -35,8 +35,8 @@ const testCases = [
       isContinueMode: false,
       owner: 'test',
       repo: 'repo',
-      argv: { thinkUltraHard: true }
-    }
+      argv: { thinkUltraHard: true },
+    },
   },
   {
     name: 'With --think-ultra-hard option (continue mode)',
@@ -50,13 +50,13 @@ const testCases = [
       isContinueMode: true,
       owner: 'test',
       repo: 'repo',
-      argv: { thinkUltraHard: true }
-    }
-  }
+      argv: { thinkUltraHard: true },
+    },
+  },
 ];
 
 console.log('Testing --think-ultra-hard option implementation\n');
-console.log('=' .repeat(80));
+console.log('='.repeat(80));
 
 testCases.forEach(testCase => {
   console.log(`\nTest: ${testCase.name}`);

@@ -1,0 +1,214 @@
+formal-ai formal-ai 0.317.0
+
+########## agent
+== A: formal-ai with agent --model formal-ai -p "<prompt>" --verbose
+  argv[13]:
+    --no-summarize-session
+    --compaction-model
+    same
+    --model
+    formalai/formal-ai
+    --permission-mode
+    auto
+    --no-retry-on-rate-limits
+    --output-format
+    stream-json
+    -p
+    PROMPT-MARKER:\ Create\ a\ file\ hello.txt\ containing\ exactly:\ Hello\ World
+    --verbose
+  stdin: 0 bytes
+  argv[12]:
+    --no-summarize-session
+    --compaction-model
+    same
+    --model
+    formalai/formal-ai
+    --permission-mode
+    auto
+    --no-retry-on-rate-limits
+    --output-format
+    stream-json
+    -p
+  stdin: 0 bytes
+  argv[12]:
+    --no-summarize-session
+== B: echo "<prompt>" | formal-ai with agent --model formalai/formal-ai --verbose
+  argv[6]:
+    --no-summarize-session
+    --compaction-model
+    same
+    --model
+    formalai/formalai/formal-ai
+    --interactive
+  stdin: 71 bytes
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-646703-8080.log
+
+########## gemini
+== A: formal-ai with gemini --model formal-ai -p "<prompt>" --verbose
+  argv[10]:
+    -m
+    formal-ai
+    --skip-trust
+    --approval-mode
+    auto_edit
+    --output-format
+    stream-json
+    -p
+    PROMPT-MARKER:\ Create\ a\ file\ hello.txt\ containing\ exactly:\ Hello\ World
+    --verbose
+  stdin: 0 bytes
+  argv[9]:
+    -m
+    formal-ai
+    --skip-trust
+    --approval-mode
+    auto_edit
+    --output-format
+    stream-json
+    -p
+  stdin: 0 bytes
+  argv[9]:
+    -m
+    formal-ai
+    --skip-trust
+    --approval-mode
+    auto_edit
+    --output-format
+    stream-json
+== B: echo "<prompt>" | formal-ai with gemini --model formalai/formal-ai --verbose
+  argv[2]:
+    -m
+    formalai/formal-ai
+  stdin: 71 bytes
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-646742-8080.log
+
+########## qwen
+== A: formal-ai with qwen --model formal-ai -p "<prompt>" --verbose
+  argv[7]:
+    --model
+    formal-ai
+    --output-format
+    stream-json
+    -p
+    PROMPT-MARKER:\ Create\ a\ file\ hello.txt\ containing\ exactly:\ Hello\ World
+    --verbose
+  stdin: 0 bytes
+  argv[6]:
+    --model
+    formal-ai
+    --output-format
+    stream-json
+    -p
+  stdin: 0 bytes
+  argv[6]:
+    --model
+    formal-ai
+    --output-format
+    stream-json
+    -p
+  stdin: 0 bytes
+  argv[6]:
+    --model
+    formal-ai
+    --output-format
+    stream-json
+    -p
+  stdin: 0 bytes
+== B: echo "<prompt>" | formal-ai with qwen --model formalai/formal-ai --verbose
+  argv[2]:
+    --model
+    formalai/formal-ai
+  stdin: 71 bytes
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-646781-8080.log
+
+########## codex
+== A: formal-ai with codex --model formal-ai -p "<prompt>" --verbose
+  argv[22]:
+    exec
+    --skip-git-repo-check
+    --sandbox
+    workspace-write
+    -c
+    model_providers.formalai.name=\"formal-ai\ server\"
+    -c
+    model_providers.formalai.base_url=\"http://127.0.0.1:8080/api/openai/v1\"
+    -c
+    model_providers.formalai.env_key=\"FORMAL_AI_API_KEY\"
+    -c
+    model_providers.formalai.wire_api=\"responses\"
+    -c
+    model_catalog_json=\"/tmp/formal-ai-codex-home-config-646792-1785701052369707247/.codex/formal-ai-model-catalog.json\"
+    -c
+    model_provider=\"formalai\"
+    -c
+    model=\"formal-ai\"
+    --json
+    -p
+    PROMPT-MARKER:\ Create\ a\ file\ hello.txt\ containing\ exactly:\ Hello\ World
+    --verbose
+  stdin: 0 bytes
+  argv[20]:
+    exec
+    --skip-git-repo-check
+    --sandbox
+    workspace-write
+    -c
+== B: echo "<prompt>" | formal-ai with codex --model formalai/formal-ai --verbose
+  argv[16]:
+    --sandbox
+    read-only
+    -c
+    model_providers.formalai.name=\"formal-ai\ server\"
+    -c
+    model_providers.formalai.base_url=\"http://127.0.0.1:8080/api/openai/v1\"
+    -c
+    model_providers.formalai.env_key=\"FORMAL_AI_API_KEY\"
+    -c
+    model_providers.formalai.wire_api=\"responses\"
+    -c
+    model_catalog_json=\"/tmp/formal-ai-codex-home-config-646820-1785701052630111609/.codex/formal-ai-model-catalog.json\"
+    -c
+    model_provider=\"formalai\"
+    -c
+    model=\"formalai/formal-ai\"
+  stdin: 71 bytes
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-646820-8080.log
+
+########## claude
+== A: formal-ai with claude --model formal-ai -p "<prompt>" --verbose
+  argv[11]:
+    --model
+    formal-ai
+    --permission-mode
+    acceptEdits
+    --output-format
+    stream-json
+    --verbose
+    --print
+    -p
+    PROMPT-MARKER:\ Create\ a\ file\ hello.txt\ containing\ exactly:\ Hello\ World
+    --verbose
+  stdin: 0 bytes
+  argv[9]:
+    --model
+    formal-ai
+    --permission-mode
+    acceptEdits
+    --output-format
+    stream-json
+    --verbose
+    --print
+  stdin: 0 bytes
+  argv[9]:
+    --model
+    formal-ai
+    --permission-mode
+    acceptEdits
+    --output-format
+    stream-json
+== B: echo "<prompt>" | formal-ai with claude --model formalai/formal-ai --verbose
+  argv[2]:
+    --model
+    formalai/formal-ai
+  stdin: 71 bytes
+  server log: /home/box/.formal-ai/dialog-logs/temporary-server-646859-8080.log

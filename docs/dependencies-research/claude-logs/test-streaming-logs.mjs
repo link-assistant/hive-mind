@@ -15,24 +15,24 @@ let pendingData = '';
 
 try {
   console.log('1. Testing real-time streaming with immediate file logging...');
-  
+
   // Use command-stream's async iteration for real-time processing
   for await (const chunk of $`${claude} -p "Hello, can you tell me a joke and then count from 1 to 5? Remember my name is Bob." --output-format stream-json --verbose --model sonnet`.stream()) {
     if (chunk.type === 'stdout') {
       const data = chunk.data.toString();
       pendingData += data;
-      
+
       // Look for complete JSON lines
       const lines = pendingData.split('\n');
       pendingData = lines.pop() || ''; // Keep incomplete line for next chunk
-      
+
       for (const line of lines) {
         if (line.trim()) {
           // Write to log file immediately as we get each line
           if (currentLogFile) {
             appendFileSync(currentLogFile, line + '\n');
           }
-          
+
           // Try to extract session ID if not found yet
           if (!sessionId && line.includes('session_id')) {
             try {
@@ -40,10 +40,10 @@ try {
               if (parsed.session_id) {
                 sessionId = parsed.session_id;
                 currentLogFile = join(process.cwd(), `${sessionId}.log`);
-                
+
                 console.log(`\n   ✅ Session ID extracted: ${sessionId}`);
                 console.log(`   📁 Log file: ${currentLogFile}\n`);
-                
+
                 // Write the current line to start the new log file
                 writeFileSync(currentLogFile, line + '\n');
               }
@@ -55,7 +55,7 @@ try {
       }
     }
   }
-  
+
   // Process any remaining data
   if (pendingData.trim() && currentLogFile) {
     appendFileSync(currentLogFile, pendingData);
@@ -65,7 +65,7 @@ try {
   console.log('✅ Successfully streamed Claude output with real-time logging');
   console.log(`✅ Session ID extracted: ${sessionId}`);
   console.log(`✅ Log file created: ${currentLogFile}`);
-  
+
   // Show log file contents
   if (currentLogFile) {
     console.log('\n📄 Log file contents (first 5 lines):');
@@ -74,7 +74,6 @@ try {
     console.log(logContents.stdout);
     console.log('---');
   }
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   process.exit(1);

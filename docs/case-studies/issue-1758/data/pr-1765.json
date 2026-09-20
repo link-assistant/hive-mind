@@ -1,0 +1,15 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "baseRefName": "main",
+  "body": "## Summary\n\nFollow-up for #1758 after PR #1759: default and CI tests still had paths that could create persistent screens or mutate a GitHub account.\n\nThis PR:\n- keeps `tests/test-start-screen.mjs` in the default suite but forces its deprecated `start-screen` coverage to stop before GNU screen is reached;\n- updates `scripts/test-auto-fork-option.sh` so the release-workflow `start-screen` check is dry-run and screen-hidden;\n- makes `--suite integration` set `HIVE_MIND_RUN_INTEGRATION=1` for child tests;\n- gates the real `gh-upload-log` checks behind integration mode so default tests do not create gists;\n- marks `tests/test-isolation-screen-integration-1545.mjs` as opt-in integration-only;\n- expands `docs/case-studies/issue-1758/` with the follow-up investigation data.\n\n## Reproduction\n\nBefore this change, default or release checks could still reach unsafe paths:\n- `node tests/test-start-screen.mjs` could create legacy `solve-*` / `hive-*` GNU screen sessions.\n- `bash scripts/test-auto-fork-option.sh` invoked deprecated `start-screen` without `--dry-run`.\n- `node tests/test-log-upload.mjs` invoked real `gh-upload-log` and could create a private gist.\n- `tests/test-isolation-screen-integration-1545.mjs` was discovered by the default suite despite starting real screen isolation sessions when prerequisites existed.\n\n## Verification\n\n- `node tests/test-issue-1758-runner-discovery.mjs`\n- `node tests/test-start-screen.mjs`\n- `node tests/test-log-upload.mjs`\n- `node tests/test-isolation-screen-integration-1545.mjs`\n- `bash scripts/test-auto-fork-option.sh`\n- `npm test` (`All 193 selected test file(s) passed.`)\n- `npm run lint`\n- `npm run format:check`\n- `git diff --check`\n\nNo UI changes; screenshots are not applicable.\n\nFixes #1758\n",
+  "createdAt": "2026-05-08T17:49:06Z",
+  "headRefName": "issue-1758-88c5a83b8cc6",
+  "isDraft": true,
+  "mergeStateStatus": "UNSTABLE",
+  "number": 1765,
+  "reviewDecision": "",
+  "state": "OPEN",
+  "title": "fix: keep unsafe tests out of the default suite",
+  "updatedAt": "2026-05-08T18:30:37Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/1765"
+}

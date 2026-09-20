@@ -1,0 +1,33 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1829",
+  "external_failure_comment": "https://github.com/rumaster/tg-games/issues/15#issuecomment-4554290415",
+  "verbatim_error": "{\"message\":\"Server Error: Sorry, this diff is temporarily unavailable due to heavy server load.\",\"errors\":[{\"resource\":\"Comparison\",\"field\":\"diff\",\"code\":\"not_available\"}],\"documentation_url\":\"https://docs.github.com/rest/commits/commits#compare-two-commits\",\"status\":\"500\"}",
+  "sources": [
+    {
+      "title": "GitHub Compare Page Fails to Load When Creating PR – Stuck on Unicorn Screen (community Discussion #169082)",
+      "url": "https://github.com/orgs/community/discussions/169082",
+      "relevance": "Confirms GitHub's compare/diff RENDERING can fail (500/unicorn) on large or heavy diffs while the rest of the PR flow works. Recommended workaround: use the CLI or open the PR manually from the base branch — i.e. PR creation does not require the diff to render."
+    },
+    {
+      "title": "500 - Server Error: Sorry, this diff is taking too long to generate (github-changelog-generator #920)",
+      "url": "https://github.com/github-changelog-generator/github-changelog-generator/issues/920",
+      "relevance": "Independent report of the same diff-generation 500 from the compare endpoint; shows it is a transient server-side rendering failure, not a client/branch problem."
+    },
+    {
+      "title": "GitHub availability report: April 2026 (GitHub Blog)",
+      "url": "https://github.blog/news-insights/company-news/github-availability-report-april-2026/",
+      "relevance": "GitHub publicly documents periodic 5xx incidents under load; transient 5xx from api.github.com is expected and clients are advised to retry."
+    },
+    {
+      "title": "Compare two commits — GitHub REST API docs",
+      "url": "https://docs.github.com/rest/commits/commits#compare-two-commits",
+      "relevance": "The documentation_url returned inside the 500 body. The compare endpoint renders a diff; under load it can return 500 with code \"not_available\"."
+    },
+    {
+      "title": "GitHub Status",
+      "url": "https://www.githubstatus.com/",
+      "relevance": "Official status page; brief api.github.com 5xx incidents are routine. Standard guidance is wait + retry."
+    }
+  ],
+  "conclusion": "The HTTP 500 \"this diff is temporarily unavailable due to heavy server load\" / code \"not_available\" is a transient diff-RENDERING failure of the compare endpoint. It does NOT indicate the commits are missing or unindexed: the branch + commit were already pushed (the failure log shows `[origin/main: ahead 1]` and a successful `git push`), and `gh pr create` does not render the full diff, so it would have succeeded. The readiness gate must not treat this as fatal."
+}

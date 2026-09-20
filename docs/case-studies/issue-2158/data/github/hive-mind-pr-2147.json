@@ -1,0 +1,1179 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Fixes #2146.\n\nFormal AI is now the only model a Formal AI task can reach, it runs only while such a task exists, it is reachable only over a private internal Docker network, its memory survives every stop, and both the sidecar image and the bundled agentic CLIs refresh only while the host is idle. Every upstream prerequisite this needed has been filed, fixed, released, and is consumed here at its newest published version.\n\n## What was wrong\n\nThe Aug 8 reproductions exposed three separate failures:\n\n| Path           | Observed behavior                                                             | Root cause                                                                                                                                                                                                              |\n| -------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |\n| Agent          | A run requested Formal AI but contacted `https://opencode.ai/zen/v1/messages` | Hive Mind interpolated `--model formalai/formal-ai --verbose` as one command-stream argv atom. Agent could not parse it, announced that it would use its default, and then failed open to `opencode/minimax-m2.5-free`. |\n| Claude/Codex   | Five restarts per tool returned the same plan without implementing the issue  | The logs match Formal AI #904's pre-v0.326.1 plan-only signature. `--no-tool-check` suppressed the only version probe, so the exact runtime version was not recorded and a stale/unversioned binary was allowed to run. |\n| GitHub summary | Formal AI's structured Lino plan collapsed into ordinary prose                | The working-session summary posted indented structured text without a code fence.                                                                                                                                       |\n\nThe restart controller itself behaved correctly: every Claude/Codex iteration still had an empty or placeholder-only diff, so Hive Mind retried five times and then failed.\n\n## Formal AI is the only reachable model\n\nThree independent layers, because any single one of them can be defeated by a future upstream change:\n\n1. **Distinct argv atoms.** Every Agent flag is a separate argv element, including resume identifiers and stream-json flags, so `--model` can never arrive glued to another flag.\n2. **An Agent CLI floor.** Agent only fails closed on a `--model` it cannot parse from **js-0.25.8** onwards ([agent#293](https://github.com/link-assistant/agent/issues/293) → [PR #294](https://github.com/link-assistant/agent/pull/294)); earlier releases logged a CRITICAL record and then answered with their default model. A guard that reads that record can only stop the run after Agent has already decided, so `MIN_AGENT_FORMAL_AI_VERSION = '0.25.8'` makes a Formal AI task refuse to start below it.\n3. **A streamed provider guard.** `AgentModelRoutingMismatch` terminates the process before further work if a Formal AI session announces an unparsable model flag or resolves any provider/model other than `formalai/formal-ai`.\n\nPlus: `session.idle` is live-input state only — a prior streamed error is cleared only by `step_finish(reason=stop)` or an explicit successful result; the Formal AI runtime version is probed and logged unconditionally, even with `--no-tool-check`; and structured, indented result paragraphs are fenced at the GitHub-comment boundary while ordinary Markdown and existing fences are preserved.\n\n## On-demand sidecar lifecycle\n\nFormal AI used to exist only as an always-on Compose sibling — it ran when no Formal AI task did, it was never replaced, and Docker-isolated work sessions (created inside the Hive Mind container's own daemon) could not join its network at all, so they were handed a resolved IP address instead. The bot deployment now uses a lease-counted, on-demand sidecar ([`src/formal-ai-sidecar.lib.mjs`](src/formal-ai-sidecar.lib.mjs)):\n\n- A Formal AI task is identified from the task's parsed `--model`, not from the selected CLI tool.\n- The first such task creates the `--internal` network, the memory volume and the container **inside the closed per-session start gate**, before any agent process exists. Concurrent tasks share one container under explicit leases keyed on the session UUID; the last release stops it.\n- Nothing is published to the host — `buildFormalAiSidecarRunArgs` emits no `-p`/`--publish`, and only Formal AI task containers are attached, with `docker network connect` in that same gate ([`src/isolation-runner.lib.mjs`](src/isolation-runner.lib.mjs)).\n- Reconciliation re-derives truth from Docker rather than trusting the durable store: an unseen container gets a bounded one-hour launch grace, a container once seen and now gone is stale immediately, so a crashed task cannot pin the sidecar forever.\n- `hive-mind-formal-ai-memory` is mounted at `/home/box/.formal-ai` and no code path issues `docker volume rm` — memory survives every stop, failure and rollback.\n\n`docker-compose.yml` keeps the always-on shape as the documented exception — Compose has no bot process and no Docker socket to manage a lifecycle with — and sets `HIVE_MIND_FORMAL_AI_SIDECAR=0` so no second sidecar is started next to it. Both shapes share the `hive-mind-formal-ai-memory` volume name and the `link-assistant-formal-ai` alias, so memory survives a move between them.\n\n`start-command` can name a network at launch since 0.31.0 ([start#154](https://github.com/link-foundation/start/issues/154) → [PR #155](https://github.com/link-foundation/start/pull/155)) and, since 0.32.0 ([start#156](https://github.com/link-foundation/start/issues/156) → [PR #157](https://github.com/link-foundation/start/pull/157)), can repeat `--network` so a task could join the default bridge _and_ the internal sidecar network at launch. The images pin `start-command@0.32.1`. Hive Mind still attaches tasks itself with `docker network connect` inside the closed start gate, deliberately: the released upstream implementation of repeatable `--network` is the identical `docker create` → `docker network connect` → `docker start` sequence, the gate is already held for the writable-layer baseline, and the in-repo attach stays fail-closed on every installed start-command version instead of silently collapsing to one network on a pre-0.32.0 parser.\n\n## Idle-only updates\n\nImages now pin only the **bootstrap** Formal AI version (0.339.1, the newest release). [`src/formal-ai-updater.lib.mjs`](src/formal-ai-updater.lib.mjs) adopts newer digests while idle, using the persisted-memory upgrade contract delivered by [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) → [PR #985](https://github.com/link-assistant/formal-ai/pull/985) → [v0.336.0](https://github.com/link-assistant/formal-ai/releases/tag/v0.336.0): pull → side-effect-free `memory upgrade-status` → locked/backed-up/atomic `memory migrate` with a JSON receipt → boot the candidate → check `/health`'s `memory.compatible` → stop it again. Any failure restores `backup_path` and verifies its SHA-256 from the receipt. Two extra properties the contract does not itself promise are checked: the preflight's `source_sha256` is compared against the receipt's `original_sha256` (a preflight that mutated the file is its own rollback-worthy stage), and the candidate is stopped after verification so a successful idle update leaves the host idle.\n\nBoth `memory` subcommands print JSON on **stdout** and _then_ exit nonzero when they refuse (`src/cli_memory.rs`), so the parser is applied to failed commands too and `refusal_code`/`refusal_reason` is surfaced instead of \"exit status 1\".\n\n[`src/agentic-cli-updater.lib.mjs`](src/agentic-cli-updater.lib.mjs) does the same for the bundled CLIs: it acts only when the live task list is empty, probes each target with `--version`, skips CLIs absent from the image, resolves published versions with a throttled `npm view`, refreshes Claude with its own `claude update` and the Bun-installed CLIs with `bun install -g <package>@latest`. `@link-assistant/hive-mind` (it owns the running process) and `start-command` (pinned by the Dockerfile) are asserted exclusions. All three duties run from one tick in [`src/formal-ai-maintenance.lib.mjs`](src/formal-ai-maintenance.lib.mjs) in the only safe order — reconcile-and-stop, image update, CLI refresh — each best-effort so maintenance never takes the bot down.\n\n## Upstream reports filed from this incident\n\n| Report                                                                                                    | Outcome                                                                                | Consumed here as                                                               |\n| --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |\n| [agent#293](https://github.com/link-assistant/agent/issues/293) — `--model` fail-open                     | [PR #294](https://github.com/link-assistant/agent/pull/294) → js-0.25.8                | `MIN_AGENT_FORMAL_AI_VERSION`; a Formal AI task refuses to start below it      |\n| [formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982) — no safe memory upgrade contract | [PR #985](https://github.com/link-assistant/formal-ai/pull/985) → v0.336.0             | preflight/migrate/verify/rollback; `FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION` |\n| [start#154](https://github.com/link-foundation/start/issues/154) — no Docker network at launch            | [PR #155](https://github.com/link-foundation/start/pull/155) → js-0.31.0 / rust-0.18.0 | pinned in `Dockerfile`/`Dockerfile.dind`; used for the sidecar                 |\n\nAll three are closed as completed and consumed here. Re-reading the _delivered_ releases against what this PR actually depends on, and reading the first full CI run this branch ever got, surfaced four more follow-ups, now filed rather than kept as private knowledge:\n\n- [agent#295](https://github.com/link-assistant/agent/issues/295) — the provider guard has to discriminate on `message === 'using explicit provider/model'` (`js/src/cli/model-config.js:118`). Rewording that string is non-breaking upstream and would silently disable a safety guard, so it asks for a typed `model_resolved` event with `source` and `matchesRequest`. Not a blocker: it is the third layer, and the two in front of it stop the incident on their own.\n- [start#156](https://github.com/link-foundation/start/issues/156) — PR #155 shipped a single-valued `--network`, and `docker run --network` replaces the default bridge, so no single-network invocation can express \"reach GitHub _and_ the sidecar\". **Closed as completed**: delivered on Aug 10 by [PR #157](https://github.com/link-foundation/start/pull/157) and fully released the same day as `js-v0.32.0`/`js-v0.32.1` once the next item was fixed. This PR pins `start-command@0.32.1`.\n- [start#160](https://github.com/link-foundation/start/issues/160) — the integration test that came with #157 probed internet egress with `https://api.github.com`, which rate limits unauthenticated callers per source IP; on a shared Actions runner it answered `403`, BusyBox `wget --spider` reported that as failure, and the JavaScript release job was skipped. Reproduced locally and filed with the one-line fix. **Closed as completed the same day**: the fix landed, [`js-v0.32.0`](https://github.com/link-foundation/start/releases/tag/js-v0.32.0) published at 12:32 UTC, and [`js-v0.32.1`](https://github.com/link-foundation/start/releases/tag/js-v0.32.1) / [`rust-v0.19.2`](https://github.com/link-foundation/start/releases/tag/rust-v0.19.2) followed at 17:42.\n- [formal-ai#988](https://github.com/link-assistant/formal-ai/issues/988) — from 0.333.0 `cargo install formal-ai --locked` failed on a stock Rust image: the tree reached `native-tls` → `openssl-sys`, which needs `pkg-config` and the OpenSSL headers. Found by this PR's own `docker-pr-check`, reproduced locally, and traced to two one-line manifests: [web-capture#151](https://github.com/link-assistant/web-capture/issues/151) (`reqwest 0.12` with default features) and [browser-commander#77](https://github.com/link-foundation/browser-commander/issues/77) (`fantoccini 0.21` with default features, `default = [\"native-tls\"]`). **Closed as completed**: [v0.339.0](https://github.com/link-assistant/formal-ai/releases/tag/v0.339.0) removed `openssl-sys` from formal-ai's `Cargo.lock`, so the locked install can no longer reach the failure. The two root-cause issues remain open, so the four builder stages keep `pkg-config`/`libssl-dev`/`OPENSSL_STATIC=1` as defense in depth — inert while `openssl-sys` is absent, and load-bearing again if a future release drags it back in.\n\nEvery field this PR reads was re-verified against the **released** Formal AI sources (`src/memory/upgrade.rs`, `src/cli_memory.rs`, `src/server.rs`, `src/shared_memory.rs`) rather than against the issue text, because consuming a contract from its proposal is how integrations drift — first against v0.337.0, and again against v0.339.1 before moving the bootstrap pin: three of the four files are byte-identical between the tags, and `upgrade.rs` only adds an explicit advisory-lock release, so every contract claim holds unmodified.\n\nThe mandatory pause rule from #2146 therefore no longer applies — the blockers it was waiting on are delivered, and this PR consumes the newest published release of each (formal-ai 0.339.1, agent js-0.25.8, start js-0.32.1 / rust-0.19.2).\n\n## Regression coverage\n\n- [`tests/test-issue-2146-formal-ai-support.mjs`](tests/test-issue-2146-formal-ai-support.mjs) — argv atoms, provider drift, strong completion, version floor, Markdown fencing, idempotence.\n- [`tests/test-issue-2146-formal-ai-lifecycle.mjs`](tests/test-issue-2146-formal-ai-lifecycle.mjs) — lease counting, internal network, no published ports, reconciliation grace/staleness, volume survival.\n- [`tests/test-issue-2146-idle-updates.mjs`](tests/test-issue-2146-idle-updates.mjs) — busy-host refusal, rollback at the `verify` and `preflight-side-effect` stages, refusal payload shapes, CLI-updater exclusions.\n- [`tests/test-issue-2130-formal-ai-runtime.mjs`](tests/test-issue-2130-formal-ai-runtime.mjs) — a stale binary is rejected before a server starts.\n- [`tests/test-codex-support.mjs`](tests/test-codex-support.mjs) — the Agent floor is proven with a `PATH` stub that records every non-`--version` invocation: on 0.25.7 `validateAgentConnection('formal-ai')` returns false **and the stub is never invoked**, so the outdated CLI never gets the chance to answer with another model; on 0.25.8 the probe is recorded. Asserting only the boolean would pass against an implementation that refuses _after_ sending the request.\n\nThe lifecycle and update suites run against [`tests/formal-ai-docker-simulator.mjs`](tests/formal-ai-docker-simulator.mjs), an in-memory Docker daemon modelling containers, `internal` networks, volumes, image digests, `/health` payloads and the two `formal-ai memory` subcommands including their stdout-then-nonzero refusals — deterministic, and needing no daemon, registry or Formal AI image in CI.\n\n## Case study and preserved evidence\n\n[`docs/case-studies/issue-2146/`](docs/case-studies/issue-2146/) contains the timeline, the requirement matrix across #2119/#2130/#2146 and both review comments, five root causes, the nine lifecycle invariants with the module and test that enforce each, the field-by-field verification against v0.337.0 (re-checked against v0.339.1), alternatives considered, an implementation map, the verification procedure, remaining limits, and a \"What is left\" section.\n\nThe data bundle includes 16 sanitized logs, authenticated Gist snapshots, issue/PR/comment/review API captures, and SHA-256 hashes. Every JSON file parses, every gzip archive passes its integrity check, and every tool-log hash matches [`MANIFEST.md`](docs/case-studies/issue-2146/MANIFEST.md). No screenshots: this is not a UI change and the linked discussions contained no images.\n\n## What is left\n\nNothing in issue #2146 or in the review comments on this PR is outstanding here, and no requirement is waiting on an upstream fix. Every issue this work filed that could have blocked it is closed as completed and its release is consumed here: [start#156](https://github.com/link-foundation/start/issues/156), [start#160](https://github.com/link-foundation/start/issues/160), and [formal-ai#988](https://github.com/link-assistant/formal-ai/issues/988). Three follow-up reports remain open upstream — none blocks this PR, each has a working downstream answer, and the case study records why:\n\n- https://github.com/link-assistant/agent/issues/295 — model routing should be a typed event, not an English log string; the guard here works against every released 0.25.8+ build and is the third defensive layer.\n- https://github.com/link-assistant/web-capture/issues/151 — `reqwest` default features pull `native-tls`/`openssl-sys` into consumers; the symptom is already fixed downstream in formal-ai 0.339.0, and the builder stages keep the OpenSSL packages as inert defense in depth.\n- https://github.com/link-foundation/browser-commander/issues/77 — the same root-cause class via `fantoccini` default features; covered by the same defense in depth.\n\nKnown, deliberate limits:\n\n- Already-built Docker isolation images keep the CLI versions baked in at build time until rebuilt. The review explicitly allowed either approach; the in-container path was chosen because it cannot spend task time or drift between concurrent tasks.\n- The memory migration path is exercised against a simulated v1→v2 migration, because 0.339.1 (like 0.336.0–0.338.x before it) reads schema 1 and 2 and targets 2, so no real migration is pending yet.\n- One shared sidecar per host is what makes memory shared and persistent, so Formal AI tasks are not isolated from each other's memory.\n- The one item that cannot be closed from this repository is the original behavioral complaint: Formal AI's agent mode produced a plan and no code in every reproduction. That is tracked upstream on its own coding-capability track ([#848](https://github.com/link-assistant/formal-ai/issues/848), [#904](https://github.com/link-assistant/formal-ai/issues/904)). What Hive Mind can do — refuse to call it a success, refuse to retry it forever, and refuse to quietly finish the work on another model — it now does.\n\n## Checks\n\n- `npm test` (default suite), `npm run lint`, `npm run format:check`, `npm run check:duplication`, `git diff --check`\n- issue-2146 lifecycle, idle-update, support and runtime suites, plus `tests/test-codex-support.mjs`\n- case-study JSON, gzip, checksum, and credential-signature validation\n- one release changeset (`.changeset/formal-ai-2146.md`, `minor` — the sidecar lifecycle and the idle updaters are new backwards-compatible features)\n\n",
+  "closedAt": "2026-08-11T06:57:26Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-08T16:14:40Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T16:14:40Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2146",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "bcfe0228aea77847af09ff359bb5de16dd975d81"
+    },
+    {
+      "authoredDate": "2026-08-08T17:31:50Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T17:31:50Z",
+      "messageBody": "",
+      "messageHeadline": "fix(formal-ai): enforce routing and runtime floor",
+      "oid": "e73a9737cefaa7c59b2671cd4c609ec1e82cb528"
+    },
+    {
+      "authoredDate": "2026-08-08T17:32:13Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T17:32:13Z",
+      "messageBody": "",
+      "messageHeadline": "docs(2146): preserve Formal AI incident evidence",
+      "oid": "662dbf34bd95461c94468fc4e2c1faf16184e4f7"
+    },
+    {
+      "authoredDate": "2026-08-08T17:34:03Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T17:34:03Z",
+      "messageBody": "",
+      "messageHeadline": "chore: remove solve placeholder update",
+      "oid": "bd5ebafc177a1aec2e09eadf23f5715fe3ad33f4"
+    },
+    {
+      "authoredDate": "2026-08-08T17:53:32Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T17:53:32Z",
+      "messageBody": "",
+      "messageHeadline": "test(formal-ai): cover parser fallback",
+      "oid": "ee69712c121d107ddda60f4c506d705350efbb90"
+    },
+    {
+      "authoredDate": "2026-08-08T22:40:10Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-08T22:40:10Z",
+      "messageBody": "Formal AI lacks a safe persisted-memory upgrade contract, so idle latest-image replacement remains paused until formal-ai#982.",
+      "messageHeadline": "docs(2146): record lifecycle blocker",
+      "oid": "41345e91dfae0be3f81e745ac4fea5ebf0788dc2"
+    },
+    {
+      "authoredDate": "2026-08-10T08:07:34Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T08:07:34Z",
+      "messageBody": "- Raise FORMAL_AI_MINIMUM_VERSION to 0.336.0, the first release with the\n  persisted-memory upgrade contract from formal-ai#982\n  (memory upgrade-status / memory migrate --backup --receipt / /health\n  memory compatibility block).\n- Add FORMAL_AI_MEMORY_CONTRACT_MINIMUM_VERSION and\n  FORMAL_AI_BOOTSTRAP_VERSION so the container updater can distinguish the\n  run-time floor from the image's initial-only pin (PR #2147 review).\n- Pin images to formal-ai 0.337.0 as the bootstrap version only.\n- Bump start-command 0.30.3 -> 0.31.0 for --network / --network-alias\n  (start#154, start PR #155).",
+      "messageHeadline": "chore(formal-ai): adopt latest upstream releases",
+      "oid": "11b6e4ed491713a99b6f10d5856902ad37c9442e"
+    },
+    {
+      "authoredDate": "2026-08-10T08:20:27Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T08:20:27Z",
+      "messageBody": "PR #2147 review asks for a Formal AI container that exists only while Formal\nAI tasks exist, is reachable from the task container over an internal Docker\nnetwork only, and keeps its memory across task and container boundaries.\n\n- src/formal-ai-sidecar.lib.mjs: lease-counted lifecycle. Concurrent tasks\n  share one sidecar; it is stopped only after the last lease is released.\n  Truth is re-derived from Docker on every mutation, so a crashed run cannot\n  pin the sidecar forever and a bot restart converges instead of orphaning.\n  Memory lives in the named volume hive-mind-formal-ai-memory, which is never\n  removed. Every mutation is serialized behind an exclusive lock so an image\n  update can never interleave with a task launch.\n- Attachment uses additive `docker network connect`, not start-command's\n  `--network`: upstream maps that straight onto `docker run --network`,\n  which replaces the default bridge and would cut the task off from GitHub.\n- src/model-args.lib.mjs: the lifecycle keys off the requested *model*, never\n  the CLI tool, so `--tool claude --model formal-ai` is a Formal AI task.\n  Extracted from the two Telegram commands that already parsed --model.\n\nRefs #2146",
+      "messageHeadline": "feat(formal-ai): add on-demand sidecar lifecycle",
+      "oid": "ea76b11d20c2ed3e836b0b65b6e47b78561c39f2"
+    },
+    {
+      "authoredDate": "2026-08-10T08:36:36Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T08:36:36Z",
+      "messageBody": "Wire the on-demand lifecycle into the Docker isolation path and the bot:\n\n- executeWithIsolation takes a sidecar lease before the task container is\n  created, injects the sidecar's address as HIVE_MIND_FORMAL_AI_BASE_URL, and\n  attaches the container to the internal network inside the start gate, where\n  the container exists but its command has not begun.\n- Both failure paths fail closed: no sidecar or no attachment means the task is\n  stopped instead of continuing on another model (issue #2146).\n- The bot runs a periodic maintenance tick that stops the idle sidecar, updates\n  its image with a non-destructive memory migration, and refreshes the agentic\n  CLIs while no task is active.\n- Formal AI model identity moved to a leaf module so importing the isolation\n  runner still performs no network fetch.\n- docker-compose.yml documents the always-on shape, shares the memory volume\n  name with the sidecar, drops privileged mode and makes the network internal.",
+      "messageHeadline": "feat(formal-ai): run the sidecar only while Formal AI tasks run",
+      "oid": "6c1ee3a416694b0db671ac49cbfb94a9b9740212"
+    },
+    {
+      "authoredDate": "2026-08-10T08:45:45Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T08:45:45Z",
+      "messageBody": "",
+      "messageHeadline": "test(formal-ai): cover the sidecar lifecycle and idle updates",
+      "oid": "3a01480c66d80fc976925efc57eb8e0f5c4a6777"
+    },
+    {
+      "authoredDate": "2026-08-10T09:01:29Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T09:01:29Z",
+      "messageBody": "Also surface the structured refusal Formal AI prints on stdout before exiting\nnonzero (formal-ai src/cli_memory.rs), so an operator sees refusal_code /\nerror.code instead of a bare exit status.",
+      "messageHeadline": "docs(2146): document the sidecar lifecycle and idle updates",
+      "oid": "89bfd0297b71883a5d00cceac3d48013bf9dfb35"
+    },
+    {
+      "authoredDate": "2026-08-10T09:33:59Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T09:34:20Z",
+      "messageBody": "Agent releases before js-0.25.8 logged a CRITICAL record for a `--model`\nthey could not parse and then answered with their default model\n(link-assistant/agent#293, fixed by PR #294). The streamed provider guard\ncan only react after that decision, so a Formal AI task now refuses to\nstart below 0.25.8 and the outdated CLI is never asked to answer.\n\nAlso corrects the DOCKER guides — start-command 0.31.0 does expose\n`--network` (link-foundation/start#154), but it replaces the default\nbridge, which is why tasks are attached with `docker network connect`\ninside the closed start gate — and rewrites the case study around what\nshipped: the nine lifecycle invariants mapped to their modules and\ntests, the delivered Formal AI memory contract verified field by field\nagainst the released v0.337.0 sources, the three upstream reports and\ntheir releases, and an explicit statement of what is left.\n\nRefs #2146",
+      "messageHeadline": "fix(formal-ai): require an Agent CLI that fails closed on --model",
+      "oid": "9e9fb28df9eedaa27683c3c1db5c7efd86a1618f"
+    },
+    {
+      "authoredDate": "2026-08-10T09:41:31Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T09:41:31Z",
+      "messageBody": "The image assertion still required ARG FORMAL_AI_VERSION to equal the\nenforced runtime floor, so moving the Dockerfiles to the 0.337.0 bootstrap\npin broke it. The PR #2147 review made the image pin the *initial* version\nonly, with the idle updater moving it forward, so the invariant is that the\npin is at or above the floor - which is now asserted directly.",
+      "messageHeadline": "test(formal-ai): pin images to the bootstrap version, not the floor",
+      "oid": "6d019d67147a7501155450ec42264e63a21bcde2"
+    },
+    {
+      "authoredDate": "2026-08-10T09:46:18Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T09:46:18Z",
+      "messageBody": "Re-reading the delivered agent 0.25.8 and start 0.31.0 releases against\nwhat this PR actually depends on left two gaps worth reporting rather than\nkeeping as private knowledge: the provider guard still discriminates on an\nEnglish log message (link-assistant/agent#295), and start-command's\n--network is single-valued, so a task cannot keep the default bridge while\njoining an internal network (link-foundation/start#156). Neither blocks\nthis PR; the case study now records both and why.",
+      "messageHeadline": "docs(2146): file the two remaining upstream robustness gaps",
+      "oid": "e57a0072fc810825ce2e5ecbf483000b7eac404f"
+    },
+    {
+      "authoredDate": "2026-08-10T09:51:31Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T09:51:31Z",
+      "messageBody": "…ocker names\n\nThe #2059 assertion still expected the old `formal-ai-network` /\n`link-assistant-formal-ai` Compose network. The Compose service now uses the\nsame `hive-mind-formal-ai` network and `hive-mind-formal-ai-memory` volume as\nthe on-demand sidecar so persisted memory survives a move between the two\nshapes, is `internal`, and sets HIVE_MIND_FORMAL_AI_SIDECAR=0 - which is what\nthe test now pins.",
+      "messageHeadline": "test(formal-ai): assert the Compose deployment shares the sidecar's D…",
+      "oid": "eb8a61f5ef57836444f876defaaa78a3da6719e7"
+    },
+    {
+      "authoredDate": "2026-08-10T10:06:46Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T10:06:46Z",
+      "messageBody": "scripts/validate-changeset.mjs requires exactly one changeset added per\npull request, so the two separate entries failed \"Check for Changesets\"\non every push and skipped every downstream job. Merge them into a single\nminor changeset covering both the routing lock and the sidecar\nlifecycle.",
+      "messageHeadline": "chore(release): combine the Formal AI changesets into one",
+      "oid": "93c54bdf51de23881b07fd10f5ac3491cff7f90a"
+    },
+    {
+      "authoredDate": "2026-08-10T10:20:39Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T10:20:39Z",
+      "messageBody": "The evidence archive kept the PR description as first submitted and only\nthe two upstream reports that existed then. Refresh the description\nsnapshot and add the verbatim bodies of agent#295 and start#156, and\nindex all six published documents in the manifest.",
+      "messageHeadline": "docs(2146): archive the two new upstream reports and the current PR body",
+      "oid": "e280af7a2abe8d181c320973aa89444cb538db38"
+    },
+    {
+      "authoredDate": "2026-08-10T11:33:01Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T11:33:01Z",
+      "messageBody": "Formal AI reaches openssl-sys from 0.333.0 onwards through\nweb-capture (reqwest 0.12 default-tls and browser-commander's\nfantoccini), so `cargo install formal-ai --locked` aborts on the\nstock rust:slim builder this repository uses. Install pkg-config and\nlibssl-dev in all four builder stages and set OPENSSL_STATIC=1 so the\nbinary copied into the Ubuntu runtime carries no OpenSSL soname\ndependency.\n\nReported upstream as link-assistant/formal-ai#988 with the two root\ncauses filed as link-assistant/web-capture#151 and\nlink-foundation/browser-commander#77; the verbatim bodies are archived\nin the case study.\n\nA regression test asserts every builder stage keeps the build\ndependencies, so the break cannot return through the Docker-only job.",
+      "messageHeadline": "fix(docker): build Formal AI with OpenSSL available",
+      "oid": "ef665c71215f0419eada8b7698186e94902c4aaf"
+    },
+    {
+      "authoredDate": "2026-08-10T11:42:28Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-10T11:42:28Z",
+      "messageBody": "start #157 merged on Aug 10 and closed #156, but only rust-0.19.0 was\npublished: the integration test it added probes https://api.github.com,\nwhich rate limits unauthenticated callers per source IP, so the shared\nActions runner got a 403, BusyBox wget reported it as a failure and the\nJavaScript release job was skipped. npm still serves start-command\n0.31.0, which is what this repository installs, so the pin and the\ndocker network connect step stay as they are.\n\nReproduced locally (the private alias pings fine; only the wget fails)\nand reported with the one-line fix as link-foundation/start#160.",
+      "messageHeadline": "docs(2146): record the start #156 delivery and its blocked js release",
+      "oid": "68f075c37925294d11173b8e13c59c864531ee88"
+    },
+    {
+      "authoredDate": "2026-08-11T02:38:57Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-11T02:38:57Z",
+      "messageBody": "….339.1 and start-command 0.32.1\n\nstart#156 (repeatable --network) shipped as js-v0.32.0/js-v0.32.1 after\nstart#160 unblocked the npm release, and formal-ai#988 (the cargo install\n--locked OpenSSL break) was fixed upstream in 0.339.0. Move the bootstrap\npin in all four images to 0.339.1, move the start-command pin to 0.32.1,\nkeep the builder OpenSSL packages as inert defense in depth while\nweb-capture#151 and browser-commander#77 stay open, and keep the additive\ndocker network connect inside the start gate because upstream implements\nrepeatable --network with the identical sequence while the in-repo attach\nstays fail-closed on every installed start-command version. Update the\ncase study, manifest, changeset, and tests to match; re-verify the\nmemory-contract sources are unchanged between 0.337.0 and 0.339.1.",
+      "messageHeadline": "chore(formal-ai): adopt the released upstream fixes — pin formal-ai 0…",
+      "oid": "df55afd80312a3537d60ed35f2c4a97483b12d9e"
+    }
+  ],
+  "createdAt": "2026-08-08T16:14:50Z",
+  "files": [
+    {
+      "path": ".changeset/formal-ai-2146.md",
+      "additions": 9,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "Dockerfile",
+      "additions": 29,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "Dockerfile.dind",
+      "additions": 29,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "Dockerfile.formal-ai",
+      "additions": 16,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "coolify/Dockerfile",
+      "additions": 16,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docker-compose.yml",
+      "additions": 38,
+      "deletions": 8,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/CONFIGURATION.hi.md",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/CONFIGURATION.md",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/CONFIGURATION.ru.md",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/CONFIGURATION.zh.md",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/DOCKER.hi.md",
+      "additions": 19,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/DOCKER.md",
+      "additions": 43,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/DOCKER.ru.md",
+      "additions": 43,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/DOCKER.zh.md",
+      "additions": 19,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/MANIFEST.md",
+      "additions": 82,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/README.md",
+      "additions": 558,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/agent-issue-208-comments.json",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/agent-issue-208.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/agent-search-closed.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/agent-search-open.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-848.json",
+      "additions": 39,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-902.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-903.json",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-904.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-905.json",
+      "additions": 26,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-906.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-907.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-908.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-909.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-927.json",
+      "additions": 123,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-issue-982.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-search-closed.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/formal-ai-search-open.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-094c0d308cc190137316c86f742d9e1a.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-111bc2c200954b7f524e5f314e49f43e.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-143e3eb13fb70cc71773c332572e64bd.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-1f4b390d14ec5ee970de27ea80f03601.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-2f8e88bd91b64c4d24b57a9e5addd581.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-3df8fd313b592842d9dcf34bd265d7ca.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-75a3b84286ea78707e7a98291fd04331.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-800a9ae360bd5dce18063ccf923098ee.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-85a67fa222878c84e2965c6fae3576e8.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-89e32c9053c5963794bdeb5353492bdf.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-9bd1207a2aeb6b8d1b19b2db7b25f0e9.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-c36ed4109de1b12c32e40cb1a05e16fc.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-d0553b8e1b5ed88f1b8241f539ba4907.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-d437f08d56495084d25bffd6153ba948.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-d575f2a37a45a9f9a88ae2f8eed283b5.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/gist-ee00bca93008aa6cbc548848b8edb09e.json.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-issue-2119.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-issue-2130.json",
+      "additions": 12,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-issue-2146-comments.json",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-issue-2146.json",
+      "additions": 11,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2120.json",
+      "additions": 167,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2131.json",
+      "additions": 182,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2139.json",
+      "additions": 42,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2142.json",
+      "additions": 57,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2143.json",
+      "additions": 53,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2145.json",
+      "additions": 45,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2147-conversation-comments.json",
+      "additions": 92,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2147-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2147-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/hive-mind-pr-2147.json",
+      "additions": 50,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/start-command-issue-154.json",
+      "additions": 36,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b-pr-2-conversation-comments.json",
+      "additions": 572,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b-pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b-pr-2-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b-pr-2.json",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a-pr-2-conversation-comments.json",
+      "additions": 377,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a-pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a-pr-2-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb330-fa49-7c9d-a664-b7ea33bb698a-pr-2.json",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c-pr-2-conversation-comments.json",
+      "additions": 347,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c-pr-2-review-comments.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c-pr-2-reviews.json",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/github/test-hello-world-019fb331-c107-78c7-8ff6-9f127a3c593c-pr-2.json",
+      "additions": 15,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/agent-initial-XOq3KX.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-final.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-initial-PhU3X2.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-restart-1.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-restart-2.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-restart-3.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-restart-4.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/claude-restart-5.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-final.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-initial-8GWnaH.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-restart-1.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-restart-2.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-restart-3.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-restart-4.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/codex-restart-5.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/tool-logs/solution-draft-d575f2a3.log.gz",
+      "additions": 0,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/agent-model-resolution-event.md",
+      "additions": 75,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/browser-commander-default-tls.md",
+      "additions": 61,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/formal-ai-openssl-build-dependency.md",
+      "additions": 104,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/formal-ai-unattended-memory-upgrades.md",
+      "additions": 100,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/hive-mind-blocker-status.md",
+      "additions": 20,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/pr-2147-body.md",
+      "additions": 98,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/start-command-docker-network.md",
+      "additions": 59,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/case-studies/issue-2146/data/upstream-issues/start-multiple-networks.md",
+      "additions": 64,
+      "deletions": 0,
+      "changeType": "ADDED"
+    }
+  ],
+  "headRefName": "issue-2146-9f3a1aa2efb9",
+  "headRefOid": "df55afd80312a3537d60ed35f2c4a97483b12d9e",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-11T06:57:26Z",
+  "number": 2147,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660972782",
+      "name": "detect-changes",
+      "startedAt": "2026-08-11T02:39:12Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973139",
+      "name": "Instant Release",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973229",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:51Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661023642",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-11T02:39:33Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661023638",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-11T02:39:33Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:41:20Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661023630",
+      "name": "lint",
+      "startedAt": "2026-08-11T02:39:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973533",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973342",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:40:37Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661092947",
+      "name": "test-compilation",
+      "startedAt": "2026-08-11T02:40:01Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:41:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661092950",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-11T02:41:03Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:41:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661092930",
+      "name": "validate-docs",
+      "startedAt": "2026-08-11T02:40:39Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:59Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661093549",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-11T02:39:59Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973643",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973602",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-11T02:39:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661318483",
+      "name": "test-suites",
+      "startedAt": "2026-08-11T02:42:31Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:46:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661318513",
+      "name": "test-execution",
+      "startedAt": "2026-08-11T02:45:00Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:45:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661318501",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-11T02:45:12Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:59:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93661318494",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-11T02:43:56Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:39:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93660973882",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-11T02:39:11Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:31Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721226",
+      "name": "Release",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721181",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721315",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721772",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721576",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-11T02:50:32Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31453011539/job/93662721883",
+      "name": "Helm Release",
+      "startedAt": "2026-08-11T02:50:32Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    }
+  ],
+  "title": "feat(formal-ai): make Formal AI the only reachable model and run it on demand",
+  "updatedAt": "2026-08-11T06:57:26Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2147"
+}

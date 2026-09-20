@@ -1,0 +1,15 @@
+src/usage-limit.lib.mjs:16:export function isUsageLimitError(message) {
+src/usage-limit.lib.mjs:80:export function detectUsageLimit(message) {
+src/usage-limit.lib.mjs:81:  const isUsageLimit = isUsageLimitError(message);
+src/usage-limit.lib.mjs:100:export function formatUsageLimitMessage({ tool, resetTime, sessionId, resumeCommand }) {
+src/usage-limit.lib.mjs:134:export function parseUsageLimitJson(line) {
+src/usage-limit.lib.mjs:140:      if (isUsageLimitError(data.message)) {
+src/usage-limit.lib.mjs:144:          limitInfo: detectUsageLimit(data.message)
+src/usage-limit.lib.mjs:151:      if (isUsageLimitError(data.error.message)) {
+src/usage-limit.lib.mjs:155:          limitInfo: detectUsageLimit(data.error.message)
+src/opencode.lib.mjs:333:        const limitInfo = detectUsageLimit(lastMessage);
+src/opencode.lib.mjs:339:          const messageLines = formatUsageLimitMessage({
+src/codex.lib.mjs:397:        const limitInfo = detectUsageLimit(lastMessage);
+src/codex.lib.mjs:403:          const messageLines = formatUsageLimitMessage({
+src/claude.lib.mjs:1116:      const limitInfo = detectUsageLimit(lastMessage);
+src/claude.lib.mjs:1122:        const messageLines = formatUsageLimitMessage({

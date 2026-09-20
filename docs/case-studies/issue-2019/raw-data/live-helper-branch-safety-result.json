@@ -1,0 +1,25 @@
+{
+  "safeToDelete": false,
+  "branchCount": 69,
+  "uniqueBranches": [
+    {
+      "ref": "issue-25-a4e152a216ff",
+      "sha": "aff43e46d44583fe04ed780bac49f15740cb731b",
+      "uniqueCommitCount": 1,
+      "subject": "Revert \"Initial commit with task details\""
+    },
+    {
+      "ref": "issue-87-84fa7bc45fb8",
+      "sha": "2a118eafec7345fc395c4cf9c36e9ae865b5dc9b",
+      "uniqueCommitCount": 1,
+      "subject": "Revert \"Initial commit with task details\""
+    },
+    {
+      "ref": "issue-9-86efa1403a45",
+      "sha": "7f860d683f3025b3caa810d4c633b127f9f50fe8",
+      "uniqueCommitCount": 1,
+      "subject": "Revert \"Initial commit with task details\""
+    }
+  ],
+  "safetyCheckDescription": "Local Git branch reachability found 3 replacement branch tip(s) with commits not reachable from upstream branches or PR refs: issue-25-a4e152a216ff (1 commit(s), aff43e46d445 Revert \"Initial commit with task details\"); issue-87-84fa7bc45fb8 (1 commit(s), 2a118eafec73 Revert \"Initial commit with task details\"); issue-9-86efa1403a45 (1 commit(s), 7f860d683f30 Revert \"Initial commit with task details\")."
+}

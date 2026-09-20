@@ -1,0 +1,79 @@
+== CI integrity regression ==
+ci-integrity-2150.test.mjs: all assertions passed
+== Deterministic log smoke ==
+Testing that log files contain version and command at the start...
+📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-27-50-674Z.log
+   (All output will be logged here)
+
+🚀 solve v2.12.0
+🔧 Raw command executed:
+   /home/box/.npm/_npx/387698761821791d/node_modules/node/bin/node /tmp/gh-issue-solver-1786457752545/src/solve.mjs https://example.com/not-a-github-repository --dry-run --skip-tool-check --skip-claude-check
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 1.03 3.96 4.01 (6 CPUs)
+   Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+   Process RSS: 110 MB, heap 25 MB
+   Disk (/): 141.2 GB available / 192.7 GB total (26.7% used)
+📈 [RESOURCES] phase=solve_start ts=2026-08-11T16%3A27%3A51.179Z load1=1.03 load5=3.96 load15=4.01 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10574385152 memUsedBytes=1967108096 processRssBytes=115535872 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=151568904192 diskUsedBytes=55314599936 diskUsedPercent=26.73490803235396 mem=9.8%20GB%20available%20%2F%2011.7%20GB%20total disk=141.2%20GB%20available%20%2F%20192.7%20GB%20total
+Error: Invalid GitHub URL format
+  Not a GitHub URL
+
+  Please provide a valid GitHub issue or pull request URL
+  Examples:
+    https://github.com/owner/repo/issues/123 (issue)
+    https://github.com/owner/repo/pull/456 (pull request)
+  You can also use:
+    http://github.com/owner/repo/issues/123 (will be converted to https)
+    github.com/owner/repo/issues/123 (will add https://)
+    owner/repo/issues/123 (will be converted to full URL)
+📈 Resource usage (solve exit 1):
+   CPU load: 1.03 3.96 4.01 (6 CPUs)
+   Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+   Process RSS: 111 MB, heap 26 MB
+   Disk (/): 141.2 GB available / 192.7 GB total (26.7% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-08-11T16%3A27%3A51.193Z load1=1.03 load5=3.96 load15=4.01 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10574385152 memUsedBytes=1967108096 processRssBytes=115929088 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=151568904192 diskUsedBytes=55314599936 diskUsedPercent=26.73490803235396 mem=9.8%20GB%20available%20%2F%2011.7%20GB%20total disk=141.2%20GB%20available%20%2F%20192.7%20GB%20total
+
+❌ Invalid GitHub URL
+📁 Full log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-27-50-674Z.log
+Log file: solve-2026-08-11T16-27-50-674Z.log
+
+Checking log file contents...
+# Solve.mjs Log - 2026-08-11T16:27:50.674Z
+
+[2026-08-11T16:27:50.706Z] [INFO] 📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T16-27-50-674Z.log
+[2026-08-11T16:27:50.712Z] [INFO]    (All output will be logged here)
+[2026-08-11T16:27:51.079Z] [INFO] 
+[2026-08-11T16:27:51.084Z] [INFO] 🚀 solve v2.12.0
+[2026-08-11T16:27:51.087Z] [INFO] 🔧 Raw command executed:
+[2026-08-11T16:27:51.092Z] [INFO]    /home/box/.npm/_npx/387698761821791d/node_modules/node/bin/node /tmp/gh-issue-solver-1786457752545/src/solve.mjs https://example.com/not-a-github-repository --dry-run --skip-tool-check --skip-claude-check
+[2026-08-11T16:27:51.095Z] [INFO] 
+[2026-08-11T16:27:51.176Z] [INFO] 🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+[2026-08-11T16:27:51.182Z] [INFO] 📈 Resource usage (solve start):
+[2026-08-11T16:27:51.182Z] [INFO]    CPU load: 1.03 3.96 4.01 (6 CPUs)
+[2026-08-11T16:27:51.182Z] [INFO]    Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+[2026-08-11T16:27:51.182Z] [INFO]    Process RSS: 110 MB, heap 25 MB
+[2026-08-11T16:27:51.182Z] [INFO]    Disk (/): 141.2 GB available / 192.7 GB total (26.7% used)
+[2026-08-11T16:27:51.182Z] [INFO] 📈 [RESOURCES] phase=solve_start ts=2026-08-11T16%3A27%3A51.179Z load1=1.03 load5=3.96 load15=4.01 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10574385152 memUsedBytes=1967108096 processRssBytes=115535872 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=151568904192 diskUsedBytes=55314599936 diskUsedPercent=26.73490803235396 mem=9.8%20GB%20available%20%2F%2011.7%20GB%20total disk=141.2%20GB%20available%20%2F%20192.7%20GB%20total
+[2026-08-11T16:27:51.187Z] [STDERR] Error: Invalid GitHub URL format
+[2026-08-11T16:27:51.188Z] [STDERR]   Not a GitHub URL
+[2026-08-11T16:27:51.188Z] [STDERR] 
+  Please provide a valid GitHub issue or pull request URL
+[2026-08-11T16:27:51.189Z] [STDERR]   Examples:
+[2026-08-11T16:27:51.189Z] [STDERR]     https://github.com/owner/repo/issues/123 (issue)
+[2026-08-11T16:27:51.190Z] [STDERR]     https://github.com/owner/repo/pull/456 (pull request)
+[2026-08-11T16:27:51.190Z] [STDERR]   You can also use:
+[2026-08-11T16:27:51.191Z] [STDERR]     http://github.com/owner/repo/issues/123 (will be converted to https)
+[2026-08-11T16:27:51.192Z] [STDERR]     github.com/owner/repo/issues/123 (will add https://)
+[2026-08-11T16:27:51.193Z] [STDERR]     owner/repo/issues/123 (will be converted to full URL)
+[2026-08-11T16:27:51.195Z] [INFO] 📈 Resource usage (solve exit 1):
+[2026-08-11T16:27:51.195Z] [INFO]    CPU load: 1.03 3.96 4.01 (6 CPUs)
+[2026-08-11T16:27:51.195Z] [INFO]    Memory: 9.8 GB available / 11.7 GB total (1.8 GB used)
+
+Verifying version appears in log...
+Version found in log file
+
+Verifying command appears in log...
+Command found in log file
+
+Log file verification passed - version and command are present

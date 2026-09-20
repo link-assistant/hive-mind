@@ -15,11 +15,11 @@ console.log('hideBin(process.argv):', hideBin(process.argv));
 // Test step by step what's happening
 const y = yargs(hideBin(process.argv));
 
-y.command('$0 <github-url>', 'Monitor GitHub issues and create PRs', (yargs) => {
+y.command('$0 <github-url>', 'Monitor GitHub issues and create PRs', yargs => {
   yargs.positional('github-url', {
     type: 'string',
     description: 'GitHub organization, repository, or user URL to monitor',
-    demandOption: true
+    demandOption: true,
   });
 });
 
@@ -28,35 +28,35 @@ y.usage('Usage: $0 <github-url> [options]');
 y.option('once', {
   type: 'boolean',
   description: 'Run once and exit instead of continuous monitoring',
-  default: false
+  default: false,
 });
 
 y.option('fork', {
   type: 'boolean',
-  description: 'Fork the repository if you don\'t have write access',
+  description: "Fork the repository if you don't have write access",
   alias: 'f',
-  default: false
+  default: false,
 });
 
 y.option('verbose', {
   type: 'boolean',
   description: 'Enable verbose logging',
   alias: 'v',
-  default: false
+  default: false,
 });
 
 y.option('all-issues', {
   type: 'boolean',
   description: 'Process all open issues regardless of labels',
   alias: 'a',
-  default: false
+  default: false,
 });
 
 y.option('skip-issues-with-prs', {
   type: 'boolean',
   description: 'Skip issues that already have open pull requests',
   alias: 's',
-  default: false
+  default: false,
 });
 
 y.help('h');

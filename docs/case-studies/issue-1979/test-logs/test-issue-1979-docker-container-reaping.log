@@ -1,0 +1,29 @@
+Testing issue #1979: docker task-container reaping
+============================================================
+  ✅ PASS: default keep policy is on-failure
+  ✅ PASS: keep policy is case-insensitive
+  ✅ PASS: invalid keep policy falls back to on-failure
+  ✅ PASS: non-docker sessions never trigger docker cleanup
+  ✅ PASS: ambiguous docker completion keeps the container by default
+  ✅ PASS: ambiguous kept container message includes manual cleanup
+  ✅ PASS: executed docker status without an exit code is removed after liveness checks pass
+Session 1979-executed-0 has finished. Sending notification to chat 12345
+  ✅ PASS: successful docker task removes the container by default
+  ✅ PASS: cleanup targets the session UUID container name
+  ✅ PASS: successful default cleanup does not show keep instructions
+  ✅ PASS: successful docker session is untracked after cleanup attempt
+Session 1979-failed-2 has finished. Sending notification to chat 12345
+  ✅ PASS: failed docker task is kept by default
+  ✅ PASS: failed docker task completion message says the container was kept
+  ✅ PASS: failed docker task message includes cleanup command
+  ✅ PASS: failed docker session is still completed in the monitor
+Session 1979-failed-2 has finished. Sending notification to chat 12345
+  ✅ PASS: HIVE_MIND_KEEP_TASK_CONTAINER=never removes failed containers too
+  ✅ PASS: never policy suppresses keep instructions
+Session 1979-executed-0 has finished. Sending notification to chat 12345
+  ✅ PASS: HIVE_MIND_KEEP_TASK_CONTAINER=always keeps successful containers
+  ✅ PASS: always policy surfaces keep instructions for successful containers
+
+============================================================
+Results: 19 passed, 0 failed, 19 total
+============================================================

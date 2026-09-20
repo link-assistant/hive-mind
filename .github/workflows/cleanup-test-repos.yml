@@ -9,49 +9,62 @@ on:
         type: boolean
         default: false
 
+# Least privilege by default (zizmor excessive-permissions): `read-all` also
+# grants read access to actions, packages, security events and more. This
+# workflow only needs to check out the repository; every deletion it performs
+# goes through TEST_GITHUB_USER_REPO_DELETION_TOKEN, not GITHUB_TOKEN.
+permissions:
+  contents: read
+
+env:
+  GIT_CONFIG_COUNT: '1'
+  GIT_CONFIG_KEY_0: init.defaultBranch
+  GIT_CONFIG_VALUE_0: main
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ secrets.TEST_GITHUB_USER_REPO_DELETION_TOKEN }}
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20.x
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.x
 
-    - name: Configure GitHub CLI authentication
-      run: |
-        echo "Checking GitHub authentication status..."
-        gh auth status
-        echo ""
-        echo "Refreshing GitHub token with delete_repo scope..."
-        gh auth refresh -h github.com -s delete_repo
+      - name: Configure GitHub CLI authentication
+        run: |
+          echo "Checking GitHub authentication status..."
+          gh auth status
+          echo ""
+          echo "Refreshing GitHub token with delete_repo scope..."
+          gh auth refresh -h github.com -s delete_repo
 
-    - name: Run cleanup script
-      run: |
-        echo "Starting test repository cleanup..."
-        echo ""
+      - name: Run cleanup script
+        run: |
+          echo "Starting test repository cleanup..."
+          echo ""
 
-        if [ "${{ inputs.dry_run }}" = "true" ]; then
-          echo "Running in DRY RUN mode..."
-          ./cleanup-test-repos.mjs --skip-archived --dry-run
-        else
-          echo "Running in FORCE mode (will delete repositories)..."
-          ./cleanup-test-repos.mjs --skip-archived --force
-        fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Running in DRY RUN mode..."
+            ./cleanup-test-repos.mjs --skip-archived --dry-run
+          else
+            echo "Running in FORCE mode (will delete repositories)..."
+            ./cleanup-test-repos.mjs --skip-archived --force
+          fi
 
-    - name: Summary
-      if: always()
-      run: |
-        echo ""
-        echo "Cleanup workflow completed!"
-        if [ "${{ inputs.dry_run }}" = "true" ]; then
-          echo "Mode: DRY RUN (no repositories were deleted)"
-        else
-          echo "Mode: FORCE (repositories were deleted)"
-        fi
+      - name: Summary
+        if: always()
+        run: |
+          echo ""
+          echo "Cleanup workflow completed!"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Mode: DRY RUN (no repositories were deleted)"
+          else
+            echo "Mode: FORCE (repositories were deleted)"
+          fi

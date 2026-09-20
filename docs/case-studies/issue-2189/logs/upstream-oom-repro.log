@@ -1,0 +1,53 @@
+# Upstream reproduction of the V8 self-abort classification gap (link-foundation/start#165)
+# start-command 0.32.1, Docker 29.6.0, Linux 6.8.0
+# $ --isolated docker --image node:24 -- bash -c '<base64 decode>; node --max-old-space-size=64 /tmp/oom.mjs'
+# oom.mjs: const held = []; for (;;) held.push('x'.repeat(1024 * 1024));
+
+== container log tail ==
+Platform: linux
+Node Version: v24.3.0
+Working Directory: /tmp/upstream-repro
+==================================================
+
+
+<--- Last few GCs --->
+
+[1:0xa485000]      626 ms: Scavenge 51.9 (84.5) -> 50.5 (99.8) MB, pooled: 0 MB, 51.78 / 0.00 ms  (average mu = 0.943, current mu = 0.943) allocation failure; 
+[1:0xa485000]      790 ms: Mark-Compact 66.6 (99.8) -> 64.4 (194.2) MB, pooled: 0 MB, 140.80 / 0.00 ms  (average mu = 0.782, current mu = 0.490) allocation failure; scavenge might not succeed
+
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+----- Native stack trace -----
+
+ 1: 0x757658 node::OOMErrorHandler(char const*, v8::OOMDetails const&) [node]
+ 2: 0xc60e30  [node]
+ 3: 0xc60f1f  [node]
+ 4: 0xf047f5  [node]
+ 5: 0xf1615c  [node]
+ 6: 0xeeb613  [node]
+ 7: 0xec1120  [node]
+ 8: 0x13b8a18  [node]
+ 9: 0x1acdd09  [node]
+Docker container "docker-1788423255481-l595xv" exited with code 139
+Container kept because the command failed.
+Remove when done: docker rm -f docker-1788423255481-l595xv
+
+==================================================
+Finished: 2026-09-03 08:14:20.707
+Exit Code: 139
+
+== $ --status 006e2eb8-5903-4c72-9934-45e1eed57fb5 ==
+006e2eb8-5903-4c72-9934-45e1eed57fb5
+  uuid 006e2eb8-5903-4c72-9934-45e1eed57fb5
+  pid 219193
+  processIds
+      wrapperPid 219193
+      containerId 1fd0867d24555e4193d8ae870851dad23094996a01782b0df5989cbc3ce33ec3
+  status executed
+  exitCode 139
+  command "bash -c echo Ly8gRm9yY2UgYSBWOCBoZWFwLWxpbWl0IHNlbGYtYWJvcnQ6IGdyYWR1YWwgZ3Jvd3RoIHVuZGVyIGEgc21hbGwgb2xkLXNwYWNlIGNhcC4KY29uc3QgaGVsZCA9IFtdOwpmb3IgKDs7KSBoZWxkLnB1c2goJ3gnLnJlcGVhdCgxMDI0ICogMTAyNCkpOwo= | base64 -d > /tmp/oom.mjs; node --max-old-space-size=64 /tmp/oom.mjs"
+  logPath /tmp/start-command/logs/isolation/docker/006e2eb8-5903-4c72-9934-45e1eed57fb5.log
+  startTime "2026-09-03T08:14:15.486Z"
+  endTime "2026-09-03T08:14:20.707Z"
+
+== docker inspect '{{.State.OOMKilled}} {{.State.ExitCode}}' ==
+false 139

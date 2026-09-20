@@ -1,5 +1,24 @@
 // Sentry integration library for hive-mind
 import { isSentryEnabled, captureException, captureMessage, startTransaction } from './instrument.mjs';
+import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
+
+const sanitizeError = error => {
+  const source = error instanceof Error ? error : new Error(String(error));
+  const sanitized = new Error(sanitizeCredentialText(source.message));
+  sanitized.name = source.name;
+  if (source.stack) sanitized.stack = sanitizeCredentialText(source.stack);
+  return sanitized;
+};
+
+const sanitizeContext = (value, seen = new WeakSet()) => {
+  if (typeof value === 'string') return sanitizeCredentialText(value);
+  if (value instanceof Error) return sanitizeError(value);
+  if (!value || typeof value !== 'object') return value;
+  if (seen.has(value)) return '[Circular]';
+  seen.add(value);
+  if (Array.isArray(value)) return value.map(item => sanitizeContext(item, seen));
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeContext(item, seen)]));
+};
 
 // Lazy import of Sentry to handle cases where it's not installed
 let Sentry = null;
@@ -7,7 +26,7 @@ const getSentry = async () => {
   if (!Sentry) {
     try {
       Sentry = await import('@sentry/node');
-    } catch (error) {
+    } catch {
       // Sentry not installed, return null
       return null;
     }
@@ -84,7 +103,7 @@ export const withSentry = (fn, name, op = 'task') => {
       return result;
     } catch (error) {
       transaction.setStatus('internal_error');
-      captureException(error, {
+      captureException(sanitizeError(error), {
         operation: name,
         args: args.length > 0 ? `${args.length} arguments` : 'no arguments',
       });
@@ -117,12 +136,15 @@ export const withSpan = async (name, callback) => {
     return callback();
   }
 
-  return sentry.startSpan({
-    name,
-    op: 'function',
-  }, async () => {
-    return callback();
-  });
+  return sentry.startSpan(
+    {
+      name,
+      op: 'function',
+    },
+    async () => {
+      return callback();
+    }
+  );
 };
 
 /**
@@ -136,7 +158,7 @@ export const logToSentry = (message, level = 'info', context = {}) => {
     return;
   }
 
-  captureMessage(message, level, context);
+  captureMessage(sanitizeCredentialText(message), level, sanitizeContext(context));
 };
 
 /**
@@ -150,7 +172,7 @@ export const reportError = (error, context = {}) => {
     return;
   }
 
-  captureException(error, { ...context, level: 'error' });
+  captureException(sanitizeError(error), { ...sanitizeContext(context), level: 'error' });
 };
 
 /**
@@ -166,21 +188,21 @@ export const reportWarning = (warning, context = {}) => {
 
   // Convert string warnings to Error objects for better stack traces
   const warningError = typeof warning === 'string' ? new Error(warning) : warning;
-  captureException(warningError, { ...context, level: 'warning' });
+  captureException(sanitizeError(warningError), { ...sanitizeContext(context), level: 'warning' });
 };
 
 /**
  * Add breadcrumb for better error context
  * @param {Object} breadcrumb - Breadcrumb data
  */
-export const addBreadcrumb = async (breadcrumb) => {
+export const addBreadcrumb = async breadcrumb => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.addBreadcrumb(breadcrumb);
+    sentry.addBreadcrumb(sanitizeContext(breadcrumb));
   }
 };
 
@@ -188,14 +210,14 @@ export const addBreadcrumb = async (breadcrumb) => {
  * Set user context for Sentry
  * @param {Object} user - User data
  */
-export const setUserContext = async (user) => {
+export const setUserContext = async user => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setUser(user);
+    sentry.setUser(sanitizeContext(user));
   }
 };
 
@@ -211,7 +233,7 @@ export const setExtraContext = async (key, value) => {
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setExtra(key, value);
+    sentry.setExtra(key, sanitizeContext(value));
   }
 };
 
@@ -219,14 +241,14 @@ export const setExtraContext = async (key, value) => {
  * Set tags for Sentry
  * @param {Object} tags - Tags to set
  */
-export const setTags = async (tags) => {
+export const setTags = async tags => {
   if (!isSentryEnabled() || sentryDisabled) {
     return;
   }
 
   const sentry = await getSentry();
   if (sentry) {
-    sentry.setTags(tags);
+    sentry.setTags(sanitizeContext(tags));
   }
 };
 
@@ -270,8 +292,16 @@ export const closeSentry = async (timeout = 2000) => {
     return;
   }
 
+  // Issue #1346: Use Promise.race with a hard deadline so a hung sentry.close()
+  // (e.g. from @sentry/profiling-node native thread) cannot block the caller forever.
   try {
-    await sentry.close(timeout);
+    let hardDeadlineId;
+    await Promise.race([
+      sentry.close(timeout),
+      new Promise(resolve => {
+        hardDeadlineId = setTimeout(resolve, timeout + 1000);
+      }),
+    ]).finally(() => clearTimeout(hardDeadlineId));
   } catch (error) {
     // Silently fail if close fails
     if (process.env.DEBUG === 'true') {

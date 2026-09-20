@@ -1,0 +1,5 @@
+Weekly limit reached ∙ resets 5am -> isUsageLimit=true, resetTime=5:00 AM
+Session limit reached ∙ resets 10am -> isUsageLimit=true, resetTime=10:00 AM
+You've hit your usage limit. Please try again at 12:16 PM. -> isUsageLimit=true, resetTime=12:16 PM
+Rate limit exceeded. Available at 09:00 pm -> isUsageLimit=true, resetTime=09:00 pm
+Random error message with no limits -> isUsageLimit=false, resetTime=null

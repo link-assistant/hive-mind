@@ -1,0 +1,37 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your Hive Mind deployment has been created in the {{ .Release.Namespace }} namespace.
+
+To check the status of your deployment:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "hive-mind.name" . }}
+
+To access the Hive Mind container:
+
+  kubectl exec -it -n {{ .Release.Namespace }} deployment/{{ include "hive-mind.fullname" . }} -- /bin/bash
+
+Inside the container, you'll need to authenticate:
+
+  # Authenticate with GitHub
+  gh auth login -h github.com -s repo,workflow,user,read:org,gist
+
+  # Authenticate with Claude
+  claude
+
+  # Now you can use hive and solve commands
+  solve https://github.com/owner/repo/issues/123
+
+{{- if .Values.persistence.enabled }}
+
+Persistent storage is enabled. Your data will be stored in:
+  PVC: {{ .Values.persistence.existingClaim | default (include "hive-mind.fullname" .) }}
+  Size: {{ .Values.persistence.size }}
+{{- else }}
+
+WARNING: Persistent storage is disabled. All data will be lost when the pod restarts.
+To enable persistence, set persistence.enabled=true in your values.
+{{- end }}
+
+For more information:
+  - Documentation: https://github.com/link-assistant/hive-mind
+  - Issues: https://github.com/link-assistant/hive-mind/issues

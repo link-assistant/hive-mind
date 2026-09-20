@@ -1,0 +1,405 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Closes #188.\n\n## Problem\n\n`clients setup` could only take an existing token through `--token` in argv (visible in shell history and process listings), had no way to run against an isolated configuration root, could echo a token back through router error bodies, and releases shipped Linux archives only — so macOS users had no supported install path and nothing exercised the client lifecycle on macOS.\n\n## What changed\n\n- **Darwin release assets.** `publish-release-artifacts` is now a per-platform matrix (`linux-amd64`, `linux-arm64`, `darwin-arm64`, `darwin-amd64`), each leg cross-building with `--target`, packaging per-platform `.tar.gz` / `.cdx.json` / `.sha256` names, and falling back to `shasum -a 256` where GNU `sha256sum` is absent. Both Darwin slices build on the Apple Silicon runner, so the x86_64 asset does not depend on the shrinking Intel macOS runner pool.\n- **Secret-safe token input.** `clients setup` gained `--token-stdin` and reads `LINK_ASSISTANT_ROUTER_TOKEN` (alias `LINK_ASSISTANT_TOKEN`). Precedence is `--token` → `--token-stdin` → env; `--token`/`--token-stdin` are mutually exclusive; a non-router token is rejected before anything is written, naming the checked inputs without echoing the value.\n- **Redacted diagnostics.** `ClientError::message` is now the single choke point and runs every client diagnostic — including router error bodies, IO, and serde errors — through `login_url::redact_secrets`; `client_command::failed` redacts as well.\n- **Isolated home.** `clients --home DIR` resolves every client config root under `DIR` and ignores the clients' override variables *and* ambient token variables, so automation can prove setup → doctor → launch → remove without touching real user settings.\n- **macOS release lifecycle.** New `verify-macos-client-lifecycle` job downloads the published `darwin-arm64` asset, verifies checksums, runs the shipped binaries natively, opens an `ssh -L` forward to a remote router, and runs the host CLI lifecycle test against it. It skips cleanly when the SSH secrets are absent.\n\n## Reproduction and tests\n\nBefore this change, `link-assistant-router clients setup codex --token-stdin` failed with an unknown-argument error, and a router 401 body quoting the token was printed verbatim.\n\nNew automated coverage:\n\n- `tests/clients_cli_test.rs`: token accepted on stdin; token accepted from the documented env var; non-router token rejected from every input with exit code 2 and no echo; full isolated-home lifecycle leaves the real configuration untouched; an isolated home ignores a token variable exported in the calling shell; a router error body that echoes the token is redacted (`la_sk_[redacted]` present, `la_sk_leaky` absent).\n- `tests/host_client_lifecycle_test.rs` (new, opt-in via `ROUTER_HOST_CLI_TESTS=1` + `ROUTER_HOST_CLI_URL` + `ROUTER_HOST_CLI_TOKEN`): runs the shipped binaries for codex, claude-code, opencode, qwen-code, and agent through setup → show → doctor → optional launch → remove against a real router, asserting the token never appears in output and the managed credential file is deleted.\n- `tests/release_workflow_test.rs`: asserts the four build targets, per-platform asset naming, the `shasum` fallback, and the macOS lifecycle job with its SSH forward.\n\n`cargo fmt`, `cargo clippy --locked --all-targets --all-features`, and `cargo test` pass locally.\n",
+  "closedAt": "2026-08-16T19:00:01Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T18:07:20Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:07:20Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/188",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "61ea8603974a89d3b7f95d98e2c0c56dab5a87aa"
+    },
+    {
+      "authoredDate": "2026-08-16T18:22:48Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:22:48Z",
+      "messageBody": "…cted diagnostics",
+      "messageHeadline": "feat(clients): token-stdin, documented token env, isolated home, reda…",
+      "oid": "34344c45964d3ecc204663747583a1901e0bd298"
+    },
+    {
+      "authoredDate": "2026-08-16T18:23:43Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:23:43Z",
+      "messageBody": "…cycle",
+      "messageHeadline": "ci(release): publish darwin binaries and verify the macOS client life…",
+      "oid": "8ef7f0c59297f71b57b3c66662d6beef357b751b"
+    },
+    {
+      "authoredDate": "2026-08-16T18:28:53Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:28:53Z",
+      "messageBody": "…ent home",
+      "messageHeadline": "docs: document macOS install, token stdin/env input, and isolated cli…",
+      "oid": "db912df13a2470b299a94bad9e7221b461d30429"
+    },
+    {
+      "authoredDate": "2026-08-16T18:28:54Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:28:54Z",
+      "messageBody": "",
+      "messageHeadline": "Merge main",
+      "oid": "53b3cf43055ab665a18c051d83f9d4e243e20b23"
+    },
+    {
+      "authoredDate": "2026-08-16T18:42:53Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T18:42:53Z",
+      "messageBody": "…overage gates",
+      "messageHeadline": "refactor(tests): split client modules and files to satisfy size and c…",
+      "oid": "ce6bb8642e66e3f56a612e8c43fded52a5509094"
+    }
+  ],
+  "createdAt": "2026-08-16T18:07:30Z",
+  "files": [
+    {
+      "path": ".github/workflows/release.yml",
+      "additions": 103,
+      "deletions": 12,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": ".gitkeep",
+      "additions": 2,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "README.md",
+      "additions": 31,
+      "deletions": 5,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_macos_client_setup.md",
+      "additions": 14,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "coverage-baseline.txt",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "docs/use-cases/configure-clients.md",
+      "additions": 33,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/cli.rs",
+      "additions": 11,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/client_command.rs",
+      "additions": 45,
+      "deletions": 7,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients.rs",
+      "additions": 34,
+      "deletions": 131,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/clients/files.rs",
+      "additions": 144,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/main.rs",
+      "additions": 2,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/clients_cli_test.rs",
+      "additions": 3,
+      "deletions": 101,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/clients_secret_safety_test.rs",
+      "additions": 292,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/common/mod.rs",
+      "additions": 106,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/host_client_lifecycle_test.rs",
+      "additions": 232,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "tests/release_workflow_test.rs",
+      "additions": 35,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-188-4a82fc1c3124",
+  "headRefOid": "ce6bb8642e66e3f56a612e8c43fded52a5509094",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T19:00:01Z",
+  "number": 198,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:43:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209717400",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T18:43:03Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:43:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209717413",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T18:43:03Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:43:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209717498",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T18:43:07Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:43:00Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209717859",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T18:43:00Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:44:41Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209819774",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T18:43:50Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:45:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209819766",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T18:43:50Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:47:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209819773",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T18:43:50Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:46:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209927357",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T18:44:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:53:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209927365",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T18:51:50Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:48:31Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209927401",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T18:44:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:47:24Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95209927394",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T18:44:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95210995264",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T18:53:35Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211286488",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T18:56:01Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211286328",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T18:56:01Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211286849",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T18:56:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211286820",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T18:56:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211287074",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-16T18:56:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211287349",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T18:56:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:56:01Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31965409969/job/95211287361",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-16T18:56:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "feat(clients): macOS-ready client setup with secret-safe token input",
+  "updatedAt": "2026-08-16T19:00:03Z",
+  "url": "https://github.com/link-assistant/router/pull/198"
+}

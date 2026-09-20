@@ -1,0 +1,24 @@
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2644808Z time="2026-05-01T09:30:24.253017575Z" level=info msg="Loading containers: start."
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2645404Z time="2026-05-01T09:30:24.253069142Z" level=info msg="NRI is disabled"
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2646069Z time="2026-05-01T09:30:24.253082297Z" level=info msg="[graphdriver] trying configured driver: overlay2"
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2646939Z time="2026-05-01T09:30:24.260984455Z" level=error msg="failed to mount overlay: invalid argument" storage-driver=overlay2
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2647891Z time="2026-05-01T09:30:24.262258795Z" level=info msg="stopping healthcheck following graceful shutdown" module=libcontainerd
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2649089Z time="2026-05-01T09:30:24.262328919Z" level=info msg="stopping event stream following graceful shutdown" error="context canceled" module=libcontainerd namespace=plugins.moby
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2650468Z time="2026-05-01T09:30:25.263632368Z" level=info msg="Daemon shutdown complete" error="failed to start daemon: error initializing graphdriver: driver not supported: overlay2"
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2651983Z failed to start daemon: error initializing graphdriver: driver not supported: overlay2
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.2652694Z [dind-entrypoint] WARN: Continuing anyway; the user shell will still start, but 'docker' may fail
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8234749Z Client: Docker Engine - Community
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8235240Z  Version:    29.4.1
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8235456Z  Context:    default
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8235750Z  Debug Mode: false
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8235953Z  Plugins:
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8236332Z   buildx: Docker Buildx (Docker Inc.)
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8236601Z     Version:  v0.33.0
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8236930Z     Path:     /usr/libexec/docker/cli-plugins/docker-buildx
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8237349Z   compose: Docker Compose (Docker Inc.)
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8237678Z     Version:  v5.1.3
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8237975Z     Path:     /usr/libexec/docker/cli-plugins/docker-compose
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8238217Z 
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8238290Z Server:
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8239329Z Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+docker-pr-check	Verify system & development tools in running containers	2026-05-01T09:30:55.8972578Z ##[error]Process completed with exit code 1.

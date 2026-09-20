@@ -1,0 +1,8 @@
+🦋 changeset v3.0.1
+
+Error: spawn bun ENOENT
+    at ChildProcess._handle.onexit (node:internal/child_process:286:19)
+    at onErrorNT (node:internal/child_process:484:16)
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+🦋 Exited with code 1
+

@@ -1,0 +1,25 @@
+{
+  "body": "During hive-mind PR https://github.com/link-assistant/hive-mind/pull/1044 for issue https://github.com/link-assistant/hive-mind/issues/1043, I reviewed the latest JavaScript package `agent-commander@0.4.3` against hive-mind's embedded tool adapters.\n\nThe current hive-mind integration can route basic execution through `agent-commander`, but several hive-mind options still cannot be expressed through the public agent-commander API without falling back to direct tool-specific command construction.\n\nNeeded parity surface:\n\n- Claude: thinking budget / effort env handling, 1M context disable behavior, sub-session auto-compact envs, MCP config without Playwright, useless/disallowed tool flags, read-only / permission modes, verbose/fallback/resume/session behavior, and custom binary/env passthrough.\n- Codex: reasoning effort mapping, context window / auto-compact config, MCP config generation, sandbox/approval mode parity, custom binary/env passthrough, and the prompt-file path used for large prompts.\n- OpenCode: config/permission env parity, custom binary/env passthrough, and prompt-file or equivalent large-prompt support.\n- `agent`: hive-mind verbose handling, resume/no-fork equivalents where supported, permission/config parity, custom binary/env passthrough, and full JSON usage/result reporting.\n\nRequest:\n\nProvide typed agent-commander options or a documented raw args/env/config passthrough that lets hive-mind control these features only through agent-commander when `--use-agent-commander` is enabled. This would let hive-mind remove remaining adapter-level compromises while keeping default embedded execution unchanged.",
+  "closed": true,
+  "comments": [
+    {
+      "id": "IC_kwDOQTX-kM8AAAABA8V-gQ",
+      "author": { "login": "konard" },
+      "authorAssociation": "MEMBER",
+      "body": "We need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context autocompacts and you can continue indefinetely, do as much as possible in one go, until it is each and every requirement fully addressed, and everything is totally done.",
+      "createdAt": "2026-05-01T06:58:58Z",
+      "includesCreatedEdit": false,
+      "isMinimized": false,
+      "minimizedReason": "",
+      "reactionGroups": [],
+      "url": "https://github.com/link-assistant/agent-commander/issues/29#issuecomment-4358241921",
+      "viewerDidAuthor": true
+    }
+  ],
+  "createdAt": "2026-05-01T05:12:29Z",
+  "number": 29,
+  "state": "CLOSED",
+  "title": "Expose hive-mind execution parity options for claude/codex/opencode/agent",
+  "updatedAt": "2026-05-01T10:53:52Z",
+  "url": "https://github.com/link-assistant/agent-commander/issues/29"
+}

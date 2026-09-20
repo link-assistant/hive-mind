@@ -14,19 +14,19 @@ console.log('   Starting hive.mjs with a non-existent repo to trigger quick shut
 
 const hiveProcess = spawn('node', ['./hive.mjs', 'https://github.com/nonexistent/repo', '--once', '--dry-run'], {
   stdio: ['pipe', 'pipe', 'pipe'],
-  cwd: '/tmp/gh-issue-solver-1757428526964'
+  cwd: '/tmp/gh-issue-solver-1757428526964',
 });
 
 let output = '';
 let errors = '';
 
-hiveProcess.stdout.on('data', (data) => {
+hiveProcess.stdout.on('data', data => {
   const text = data.toString();
   output += text;
   process.stdout.write(`   [stdout] ${text}`);
 });
 
-hiveProcess.stderr.on('data', (data) => {
+hiveProcess.stderr.on('data', data => {
   const text = data.toString();
   errors += text;
   process.stderr.write(`   [stderr] ${text}`);
@@ -38,18 +38,18 @@ setTimeout(2000).then(() => {
   hiveProcess.kill('SIGINT');
 });
 
-hiveProcess.on('close', (code) => {
+hiveProcess.on('close', code => {
   console.log(`   ✅ Process exited with code ${code}`);
-  
+
   // Check if output contains duplicate shutdown messages
   const shutdownMessages = (output.match(/🛑 Received.*signal, shutting down gracefully/g) || []).length;
-  
+
   if (shutdownMessages <= 1) {
     console.log(`   ✅ Good: Found ${shutdownMessages} shutdown message(s) (no duplicates)`);
   } else {
     console.log(`   ❌ Issue: Found ${shutdownMessages} shutdown messages (duplicates detected)`);
   }
-  
+
   // Check for cleaner error messages
   const noisyErrors = output.match(/\/bin\/sh: \d+:|Command failed:/g) || [];
   if (noisyErrors.length === 0) {
@@ -57,7 +57,7 @@ hiveProcess.on('close', (code) => {
   } else {
     console.log(`   ⚠️  Found ${noisyErrors.length} noisy error prefixes that should be cleaned`);
   }
-  
+
   console.log('\n🎯 Test complete!');
   console.log('\n📋 Summary of improvements made:');
   console.log('   ✅ Added isShuttingDown flag to prevent duplicate SIGINT messages');
@@ -67,6 +67,6 @@ hiveProcess.on('close', (code) => {
   console.log('   ✅ Enhanced shutdown process to wait for workers to finish gracefully');
 });
 
-hiveProcess.on('error', (err) => {
+hiveProcess.on('error', err => {
   console.error(`   ❌ Process error: ${err.message}`);
 });

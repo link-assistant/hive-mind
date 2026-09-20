@@ -8,7 +8,7 @@ async function testGraphQLBatchQuery() {
   console.log('🔬 Testing GitHub GraphQL API for batch PR queries\n');
 
   // Test repository
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
   const issueNumbers = [186, 189, 194]; // Sample issue numbers to test
 
@@ -16,7 +16,9 @@ async function testGraphQLBatchQuery() {
   const query = `
     query GetPullRequestsForIssues {
       repository(owner: "${owner}", name: "${repo}") {
-        ${issueNumbers.map(num => `
+        ${issueNumbers
+          .map(
+            num => `
         issue${num}: issue(number: ${num}) {
           number
           title
@@ -36,7 +38,9 @@ async function testGraphQLBatchQuery() {
               }
             }
           }
-        }`).join('\n')}
+        }`
+          )
+          .join('\n')}
       }
     }
   `;
@@ -49,7 +53,7 @@ async function testGraphQLBatchQuery() {
     // Execute GraphQL query using gh api graphql
     const result = execSync(`gh api graphql -f query='${query}'`, {
       encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer
     });
 
     const data = JSON.parse(result);
@@ -92,7 +96,6 @@ async function testGraphQLBatchQuery() {
     console.log('  - More efficient for batch processing');
     console.log('  - Less likely to hit rate limits');
     console.log('  - Can fetch up to ~100 issues in a single query (GraphQL complexity limits apply)');
-
   } catch (error) {
     console.error('❌ GraphQL query failed:', error.message);
     console.error('Error output:', error.stderr?.toString() || error.stdout?.toString());
@@ -103,15 +106,12 @@ async function testGraphQLBatchQuery() {
 async function testSearchAPIForPRs() {
   console.log('\n\n🔬 Alternative: Testing GitHub Search API for linked PRs\n');
 
-  const owner = 'deep-assistant';
+  const owner = 'link-assistant';
   const repo = 'hive-mind';
 
   try {
     // Search for all open PRs in the repository
-    const searchResult = execSync(
-      `gh api "search/issues?q=repo:${owner}/${repo}+type:pr+state:open" --jq '.items[] | {number, title, state, body}'`,
-      { encoding: 'utf8' }
-    );
+    const searchResult = execSync(`gh api "search/issues?q=repo:${owner}/${repo}+type:pr+state:open" --jq '.items[] | {number, title, state, body}'`, { encoding: 'utf8' });
 
     console.log('✅ Search API query successful!');
     console.log('Results:', searchResult);
@@ -120,7 +120,6 @@ async function testSearchAPIForPRs() {
     console.log('   - Look for patterns like "Fixes #123", "Closes #456"');
     console.log('   - Build a map of issue->PRs relationships');
     console.log('   - This approach requires only 1 API call for all PRs');
-
   } catch (error) {
     console.error('❌ Search API query failed:', error.message);
   }

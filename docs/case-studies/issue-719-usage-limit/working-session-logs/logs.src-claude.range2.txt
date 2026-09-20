@@ -1,0 +1,131 @@
+  1080	          let remainingMs = delay;
+  1081	          const countdownTimer = setInterval(async () => {
+  1082	            remainingMs -= countdownInterval;
+  1083	            if (remainingMs > 0) {
+  1084	              const remainingMinutes = Math.round(remainingMs / (1000 * 60));
+  1085	              await log(`⏳ ${remainingMinutes} minutes remaining until retry...`);
+  1086	            }
+  1087	          }, countdownInterval);
+  1088	          // Wait before retrying
+  1089	          await new Promise(resolve => setTimeout(resolve, delay));
+  1090	          clearInterval(countdownTimer);
+  1091	        } else {
+  1092	          // Wait before retrying
+  1093	          await new Promise(resolve => setTimeout(resolve, delay));
+  1094	        }
+  1095	        await log('\n🔄 Retrying now...');
+  1096	        // Increment retry count and retry
+  1097	        retryCount++;
+  1098	        return await executeWithRetry();
+  1099	      } else {
+  1100	        await log(`\n\n❌ 503 network error persisted after ${retryLimits.max503Retries} retries`, { level: 'error' });
+  1101	        await log('   The Anthropic API appears to be experiencing network issues.', { level: 'error' });
+  1102	        await log('   Please try again later or check https://status.anthropic.com/', { level: 'error' });
+  1103	        return {
+  1104	          success: false,
+  1105	          sessionId,
+  1106	          limitReached: false,
+  1107	          limitResetTime: null,
+  1108	          messageCount,
+  1109	          toolUseCount,
+  1110	          is503Error: true
+  1111	        };
+  1112	      }
+  1113	    }
+  1114	    if (commandFailed) {
+  1115	      // Check for usage limit errors first (more specific)
+  1116	      const limitInfo = detectUsageLimit(lastMessage);
+  1117	      if (limitInfo.isUsageLimit) {
+  1118	        limitReached = true;
+  1119	        limitResetTime = limitInfo.resetTime;
+  1120	
+  1121	        // Format and display user-friendly message
+  1122	        const messageLines = formatUsageLimitMessage({
+  1123	          tool: 'Claude',
+  1124	          resetTime: limitInfo.resetTime,
+  1125	          sessionId,
+  1126	          resumeCommand: argv.url ? `${process.argv[0]} ${process.argv[1]} --auto-continue ${argv.url}` : null
+  1127	        });
+  1128	
+  1129	        for (const line of messageLines) {
+  1130	          await log(line, { level: 'warning' });
+  1131	        }
+  1132	      } else if (lastMessage.includes('context_length_exceeded')) {
+  1133	        await log('\n\n❌ Context length exceeded. Try with a smaller issue or split the work.', { level: 'error' });
+  1134	      } else {
+  1135	        await log(`\n\n❌ Claude command failed with exit code ${exitCode}`, { level: 'error' });
+  1136	        if (sessionId && !argv.resume) {
+  1137	          await log(`📌 Session ID for resuming: ${sessionId}`);
+  1138	          await log('\nTo resume this session, run:');
+  1139	          await log(`   ${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}`);
+  1140	        }
+  1141	      }
+  1142	    }
+  1143	    // Additional failure detection: if no messages were processed and there were stderr errors,
+  1144	    // or if the command produced no output at all, treat it as a failure
+  1145	    //
+  1146	    // This is critical for detecting "silent failures" where:
+  1147	    // 1. Claude CLI encounters an internal error (e.g., "kill EPERM" from timeout)
+  1148	    // 2. The error is logged to stderr but exit code is 0 or exit event is never sent
+  1149	    // 3. Result: messageCount=0, toolUseCount=0, but stderrErrors has content
+  1150	    //
+  1151	    // Common cause: sudo commands that timeout
+  1152	    // - Timeout triggers process.kill() in Claude CLI
+  1153	    // - If child process runs with sudo (root), parent can't kill it → EPERM error
+  1154	    // - Error logged to stderr, but command doesn't properly fail
+  1155	    //
+  1156	    // Workaround (applied in system prompt):
+  1157	    // - Instruct Claude to run sudo commands (installations) in background
+  1158	    // - Background processes avoid timeout kill mechanism
+  1159	    // - Prevents EPERM errors and false success reports
+  1160	    //
+  1161	    // See: docs/dependencies-research/claude-code-issues/README.md for full details
+  1162	    if (!commandFailed && stderrErrors.length > 0 && messageCount === 0 && toolUseCount === 0) {
+  1163	      commandFailed = true;
+  1164	      await log('\n\n❌ Command failed: No messages processed and errors detected in stderr', { level: 'error' });
+  1165	      await log('Stderr errors:', { level: 'error' });
+  1166	      for (const err of stderrErrors.slice(0, 5)) {
+  1167	        await log(`   ${err.substring(0, 200)}`, { level: 'error' });
+  1168	      }
+  1169	    }
+  1170	    if (commandFailed) {
+  1171	      // Take resource snapshot after failure
+  1172	      const resourcesAfter = await getResourceSnapshot();
+  1173	      await log('\n📈 System resources after execution:', { verbose: true });
+  1174	      await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+  1175	      await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+  1176	      // Log attachment will be handled by solve.mjs when it receives success=false
+  1177	      await log('', { verbose: true });
+  1178	      return {
+  1179	        success: false,
+  1180	        sessionId,
+  1181	        limitReached,
+  1182	        limitResetTime,
+  1183	        messageCount,
+  1184	        toolUseCount
+  1185	      };
+  1186	    }
+  1187	    await log('\n\n✅ Claude command completed');
+  1188	    await log(`📊 Total messages: ${messageCount}, Tool uses: ${toolUseCount}`);
+  1189	    // Calculate and display total token usage from session JSONL file
+  1190	    if (sessionId && tempDir) {
+  1191	      try {
+  1192	        const tokenUsage = await calculateSessionTokens(sessionId, tempDir);
+  1193	        if (tokenUsage) {
+  1194	          await log('\n💰 Token Usage Summary:');
+  1195	          // Display per-model breakdown
+  1196	          if (tokenUsage.modelUsage) {
+  1197	            const modelIds = Object.keys(tokenUsage.modelUsage);
+  1198	            for (const modelId of modelIds) {
+  1199	              const usage = tokenUsage.modelUsage[modelId];
+  1200	              await log(`\n   📊 ${usage.modelName || modelId}:`);
+  1201	              await displayModelUsage(usage, log);
+  1202	            }
+  1203	            // Show totals if multiple models were used
+  1204	            if (modelIds.length > 1) {
+  1205	              await log('\n   📈 Total across all models:');
+  1206	              // Show cost comparison
+  1207	              await log('\n   💰 Cost estimation:');
+  1208	              if (tokenUsage.totalCostUSD !== null && tokenUsage.totalCostUSD !== undefined) {
+  1209	                await log(`      Public pricing estimate: $${tokenUsage.totalCostUSD.toFixed(6)} USD`);
+  1210	              } else {

@@ -1,0 +1,29 @@
+Testing validateForkParent export... ✅ PASSED
+Testing validateForkParent documentation... ✅ PASSED
+Testing validation called for existing forks... ✅ PASSED
+Testing error message references issue #967... ✅ PASSED
+Testing safe auto-recovery for non-fork/mismatch repos (Issue #1518)... ✅ PASSED
+Testing API error handling... ✅ PASSED
+Testing parent vs source distinction... ✅ PASSED
+Testing validation for forkOwner code path... ✅ PASSED
+Testing non-fork repository detection... ✅ PASSED
+Testing success message on valid fork... ✅ PASSED
+Testing retry logic for network errors (Issue #1311)... ✅ PASSED
+Testing isNetworkError flag in return value (Issue #1311)... ✅ PASSED
+Testing network error message differentiation (Issue #1311)... ✅ PASSED
+Testing isTransientNetworkError helper exists... ✅ PASSED
+Testing error context in auto-recovery messages... ✅ PASSED
+Testing post-creation fork validation (Issue #1518)... ✅ PASSED
+Testing verbose fork command logging (Issue #1518)... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion flag support (Issue #1518)... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion option in config... ✅ PASSED
+Testing --allow-force-non-fork-repository-deletion in option suggestions... ✅ PASSED
+Testing verbose fork output logging (Issue #1518)... ✅ PASSED
+Testing fork parent validation in creation/discovery path (Issue #1518)... ✅ PASSED
+Testing missing delete_repo scope remediation (Issue #1651)... ✅ PASSED
+
+==================================================
+Test Results for fork parent validation:
+  ✅ Passed: 23
+  ❌ Failed: 0
+==================================================

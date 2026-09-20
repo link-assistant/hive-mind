@@ -1,0 +1,124 @@
+Usage: solve.mjs <issue-url> [options]
+
+Positionals:
+  issue-url  The GitHub issue URL to solve                              [string]
+
+Options:
+      --version                             Show version number        [boolean]
+  -r, --resume                              Resume from a previous session ID
+                                            (when limit was reached)    [string]
+      --only-prepare-command                Only prepare and print the claude
+                                            command without executing it
+                                                                       [boolean]
+  -n, --dry-run                             Prepare everything but do not
+                                            execute Claude (alias for
+                                            --only-prepare-command)    [boolean]
+      --skip-tool-check                     Skip tool connection check (useful
+                                            in CI environments)
+                                                      [boolean] [default: false]
+      --skip-claude-check                   Alias for --skip-tool-check (kept
+                                            for backward compatibility with
+                                            CI/tests) [boolean] [default: false]
+  -m, --model                               Model to use (for claude: opus,
+                                            sonnet, haiku; for opencode: grok,
+                                            gpt4o; for codex: gpt5, gpt5-codex,
+                                            o3)    [string] [default: (default)]
+      --auto-pull-request-creation          Automatically create a draft pull
+                                            request before running Claude
+                                                       [boolean] [default: true]
+  -v, --verbose                             Enable verbose logging for debugging
+                                                      [boolean] [default: false]
+  -f, --fork                                Fork the repository if you don't
+                                            have write access
+                                                      [boolean] [default: false]
+      --auto-fork                           Automatically fork public
+                                            repositories without write access
+                                            (fails for private repos)
+                                                      [boolean] [default: false]
+      --attach-logs                         Upload the solution draft log file
+                                            to the Pull Request on completion
+                                            (⚠️ WARNING: May expose sensitive
+                                            data)     [boolean] [default: false]
+      --auto-close-pull-request-on-fail     Automatically close the pull request
+                                            if execution fails
+                                                      [boolean] [default: false]
+      --auto-continue                       Continue with existing PR when issue
+                                            URL is provided (instead of creating
+                                            new PR)   [boolean] [default: false]
+  -c, --auto-continue-limit                 Automatically continue when Claude
+                                            limit resets (waits until reset
+                                            time)     [boolean] [default: false]
+      --auto-resume-on-errors               Automatically resume on network
+                                            errors (503, etc.) with exponential
+                                            backoff   [boolean] [default: false]
+      --auto-continue-only-on-new-comments  Explicitly fail on absence of new
+                                            comments in auto-continue or
+                                            continue mode
+                                                      [boolean] [default: false]
+      --auto-commit-uncommitted-changes     Automatically commit and push
+                                            uncommitted changes made by Claude
+                                            (disabled by default)
+                                                      [boolean] [default: false]
+      --auto-restart-on-uncommitted-change  Automatically restart when
+      s                                     uncommitted changes are detected to
+                                            allow the tool to handle them
+                                            (default: true, use --no-auto-restar
+                                            t-on-uncommitted-changes to disable)
+                                                       [boolean] [default: true]
+      --auto-restart-max-iterations         Maximum number of auto-restart
+                                            iterations when uncommitted changes
+                                            are detected (default: 3)
+                                                           [number] [default: 3]
+      --continue-only-on-feedback           Only continue if feedback is
+                                            detected (works only with pull
+                                            request link or issue link with
+                                            --auto-continue)
+                                                      [boolean] [default: false]
+  -w, --watch                               Monitor continuously for feedback
+                                            and auto-restart when detected
+                                            (stops when PR is merged)
+                                                      [boolean] [default: false]
+      --watch-interval                      Interval in seconds for checking
+                                            feedback in watch mode (default: 60)
+                                                          [number] [default: 60]
+      --min-disk-space                      Minimum required disk space in MB
+                                            (default: 500)
+                                                         [number] [default: 500]
+  -l, --log-dir                             Directory to save log files
+                                            (defaults to current working
+                                            directory)                  [string]
+      --think                               Thinking level: low (Think.), medium
+                                            (Think hard.), high (Think harder.),
+                                            max (Ultrathink.)
+                              [string] [choices: "low", "medium", "high", "max"]
+  -b, --base-branch                         Target branch for the pull request
+                                            (defaults to repository default
+                                            branch)                     [string]
+      --sentry                              Enable Sentry error tracking and
+                                            monitoring (use --no-sentry to
+                                            disable)   [boolean] [default: true]
+      --auto-cleanup                        Automatically delete temporary
+                                            working directory on completion
+                                            (error, success, or CTRL+C).
+                                            Default: true for private repos,
+                                            false for public repos. Use explicit
+                                            flag to override.          [boolean]
+      --auto-merge-default-branch-to-pull-  Automatically merge the default
+      request-branch                        branch to the pull request branch
+                                            when continuing work (only in
+                                            continue mode)
+                                                      [boolean] [default: false]
+      --allow-fork-divergence-resolution-u  Allow automatic force-push
+      sing-force-push-with-lease            (--force-with-lease) when fork
+                                            diverges from upstream (DANGEROUS:
+                                            can overwrite fork history)
+                                                      [boolean] [default: false]
+      --allow-to-push-to-contributors-pull  When continuing a fork PR as a
+      -requests-as-maintainer               maintainer, attempt to push directly
+                                            to the contributor's fork if "Allow
+                                            edits by maintainers" is enabled.
+                                            Requires --auto-fork to be enabled.
+                                                      [boolean] [default: false]
+      --tool                                AI tool to use for solving issues
+           [string] [choices: "claude", "opencode", "codex"] [default: "claude"]
+  -h, --help                                Show help                  [boolean]

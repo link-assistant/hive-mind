@@ -1,0 +1,256 @@
+test-suites	UNKNOWN STEP	﻿2026-04-28T19:23:21.0552465Z Current runner version: '2.334.0'
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0587067Z ##[group]Runner Image Provisioner
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0588281Z Hosted Compute Agent
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0589154Z Version: 20260422.526
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0590079Z Commit: e1a9e573f4d0838b3a7c1b07401aeb29ed3635a9
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0591321Z Build Date: 2026-04-22T09:31:31Z
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0592377Z Worker ID: {ae15e9d2-b62f-40d2-b98e-142697149bba}
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0593477Z Azure Region: northcentralus
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0594569Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0596758Z ##[group]Operating System
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0597648Z Ubuntu
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0598585Z 24.04.4
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0599250Z LTS
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0599965Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0601191Z ##[group]Runner Image
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0602060Z Image: ubuntu-24.04
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0602860Z Version: 20260426.100.1
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0604890Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260426.100/images/ubuntu/Ubuntu2404-Readme.md
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0607717Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260426.100
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0609244Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0613668Z ##[group]GITHUB_TOKEN Permissions
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0617205Z Actions: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0618091Z ArtifactMetadata: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0618935Z Attestations: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0619931Z Checks: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0620740Z Contents: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0621477Z Deployments: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0622424Z Discussions: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0622985Z Issues: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0623457Z Metadata: read
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0624066Z Models: read
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0624614Z Packages: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0625100Z Pages: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0626131Z PullRequests: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0626725Z RepositoryProjects: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0627372Z SecurityEvents: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0627918Z Statuses: write
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0628500Z VulnerabilityAlerts: read
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0629161Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0631236Z Secret source: Actions
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.0632325Z Prepare workflow directory
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.1127268Z Prepare all required actions
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.1179216Z Getting action download info
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.4751346Z Download action repository 'actions/checkout@v5' (SHA:93cb6efe18208431cddfb8368fd83d5badbf9bfd)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.6006935Z Download action repository 'actions/setup-node@v5' (SHA:a0853c24544627f65ddf259abe73b1d18a591444)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.8973745Z Complete job name: test-suites
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9701328Z ##[group]Run actions/checkout@v5
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9702179Z with:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9702653Z   repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9703433Z   token: ***
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9703865Z   ssh-strict: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9704295Z   ssh-user: git
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9704741Z   persist-credentials: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9705430Z   clean: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9705869Z   sparse-checkout-cone-mode: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9706430Z   fetch-depth: 1
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9706874Z   fetch-tags: false
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9707321Z   show-progress: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9707776Z   lfs: false
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9708190Z   submodules: false
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9708632Z   set-safe-directory: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9709320Z env:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9709782Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:21.9710342Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0744241Z Syncing repository: link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0747571Z ##[group]Getting Git version info
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0748876Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0750769Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0788756Z git version 2.54.0
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0810431Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0826144Z Temporarily overriding HOME='/home/runner/work/_temp/903884da-68dc-4b8d-b4fd-6a3ce040dd28' before making global git config changes
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0829432Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0831876Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0879473Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0883072Z ##[group]Initializing the repository
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0888099Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0996426Z hint: Using 'master' as the name for the initial branch. This default branch name
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.0998370Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1000062Z hint: to use in all of your new repositories, which will suppress this warning,
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1001350Z hint: call:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1002085Z hint:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1002960Z hint: 	git config --global init.defaultBranch <name>
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1004038Z hint:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1005088Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1007070Z hint: 'development'. The just-created branch can be renamed via this command:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1008375Z hint:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1009081Z hint: 	git branch -m <name>
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1009916Z hint:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1011017Z hint: Disable this message with "git config set advice.defaultBranchName false"
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1012923Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1016338Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1058874Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1060715Z ##[group]Disabling automatic garbage collection
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1062608Z [command]/usr/bin/git config --local gc.auto 0
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1093074Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1094313Z ##[group]Setting up auth
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1100739Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1136879Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1522953Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1556560Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1788832Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.1822173Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.2066319Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.2101979Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.2102757Z ##[group]Fetching the repository
+test-suites	UNKNOWN STEP	2026-04-28T19:23:22.2111055Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +206602874c73fda859087fa82933c3a2ed492527:refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5893561Z From https://github.com/link-assistant/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5894178Z  * [new ref]         206602874c73fda859087fa82933c3a2ed492527 -> origin/main
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5926997Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5927682Z ##[group]Determining the checkout info
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5930550Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5936405Z [command]/usr/bin/git sparse-checkout disable
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.5981380Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.6008356Z ##[group]Checking out the ref
+test-suites	UNKNOWN STEP	2026-04-28T19:23:32.6012357Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.6878273Z Updating files:  48% (1238/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.6888760Z Updating files:  49% (1253/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.6941071Z Updating files:  50% (1278/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.6967911Z Updating files:  51% (1304/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.6984035Z Updating files:  52% (1330/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.7089213Z Updating files:  53% (1355/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.8945495Z Updating files:  54% (1381/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9179374Z Updating files:  55% (1406/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9276014Z Updating files:  56% (1432/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9379219Z Updating files:  57% (1457/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9660062Z Updating files:  58% (1483/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9710041Z Updating files:  59% (1509/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9842242Z Updating files:  60% (1534/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9880922Z Updating files:  61% (1560/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:33.9968650Z Updating files:  62% (1585/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0102403Z Updating files:  63% (1611/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0134340Z Updating files:  64% (1636/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0152460Z Updating files:  65% (1662/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0164167Z Updating files:  66% (1687/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0179280Z Updating files:  67% (1713/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0213707Z Updating files:  68% (1739/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0226975Z Updating files:  69% (1764/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0240553Z Updating files:  70% (1790/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0253607Z Updating files:  71% (1815/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0266330Z Updating files:  72% (1841/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0280955Z Updating files:  73% (1866/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0295563Z Updating files:  74% (1892/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0311291Z Updating files:  75% (1917/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0325831Z Updating files:  76% (1943/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0338849Z Updating files:  77% (1969/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0352876Z Updating files:  78% (1994/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0366657Z Updating files:  79% (2020/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0381499Z Updating files:  80% (2045/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0394380Z Updating files:  81% (2071/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0408994Z Updating files:  82% (2096/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0424454Z Updating files:  83% (2122/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0438308Z Updating files:  84% (2148/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0450817Z Updating files:  85% (2173/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0469378Z Updating files:  86% (2199/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0486432Z Updating files:  87% (2224/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0508251Z Updating files:  88% (2250/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0534564Z Updating files:  89% (2275/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0565487Z Updating files:  90% (2301/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0596636Z Updating files:  91% (2326/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0621195Z Updating files:  92% (2352/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0640810Z Updating files:  93% (2378/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0661559Z Updating files:  94% (2403/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0683995Z Updating files:  95% (2429/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0703116Z Updating files:  96% (2454/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0723100Z Updating files:  97% (2480/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0741216Z Updating files:  98% (2505/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0764863Z Updating files:  99% (2531/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0765392Z Updating files: 100% (2556/2556)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0765779Z Updating files: 100% (2556/2556), done.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0807145Z Switched to a new branch 'main'
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0810360Z branch 'main' set up to track 'origin/main'.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0872290Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0918791Z [command]/usr/bin/git log -1 --format=%H
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.0946138Z 206602874c73fda859087fa82933c3a2ed492527
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1201228Z ##[group]Run actions/setup-node@v5
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1201577Z with:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1201761Z   node-version: 24.x
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1201971Z   always-auth: false
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1202171Z   check-latest: false
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1202523Z   token: ***
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1202740Z   package-manager-cache: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1202979Z env:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1203187Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.1203635Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.2675193Z Found in cache @ /opt/hostedtoolcache/node/24.15.0/x64
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.2679424Z (node:2314) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.2680267Z (Use `node --trace-deprecation ...` to show where the warning was created)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.2682131Z ##[group]Environment details
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6301371Z node: v24.15.0
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6301764Z npm: 11.12.1
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6302174Z yarn: 1.22.22
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6302922Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6458685Z ##[group]Run npm install
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6458994Z [36;1mnpm install[0m
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6579981Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6580250Z env:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6580474Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:34.6580755Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.6926826Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.6934825Z > @link-assistant/hive-mind@1.58.0 prepare
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.6935780Z > husky
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.6935954Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7504914Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7506156Z added 472 packages, and audited 473 packages in 8s
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7506543Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7506814Z 97 packages are looking for funding
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7514068Z   run `npm fund` for details
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7702477Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7703219Z 10 vulnerabilities (6 moderate, 4 high)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7703927Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7704368Z To address all issues, run:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7704956Z   npm audit fix
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7705491Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.7705961Z Run `npm audit` for details.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8380625Z ##[group]Run npm test
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8380902Z [36;1mnpm test[0m
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8443443Z shell: /usr/bin/bash -e {0}
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8443697Z env:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8443907Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.8444188Z ##[endgroup]
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.9697011Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.9697987Z > @link-assistant/hive-mind@1.58.0 test
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.9698532Z > node scripts/run-tests.mjs --suite default
+test-suites	UNKNOWN STEP	2026-04-28T19:23:42.9698759Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:43.0471409Z Running 70 default test file(s)...
+test-suites	UNKNOWN STEP	2026-04-28T19:23:43.0472559Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:43.0472833Z [1/70] tests/limits-display.test.mjs
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1758707Z <anonymous_script>:567
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1759640Z       throw new Error(`Failed to resolve the path to '${moduleSpecifier}' from '${packageModulePath}'.`);
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1776514Z             ^
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1776740Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1777678Z Error: Failed to resolve the path to 'getenv' from '/opt/hostedtoolcache/node/24.15.0/x64/lib/node_modules/getenv-v-latest'.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1778831Z     at npm (eval at <anonymous> (file:///home/runner/work/hive-mind/hive-mind/src/queue-config.lib.mjs:29:29), <anonymous>:567:13)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1779750Z     at async eval (eval at <anonymous> (file:///home/runner/work/hive-mind/hive-mind/src/queue-config.lib.mjs:29:29), <anonymous>:867:24)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1780548Z     at async file:///home/runner/work/hive-mind/hive-mind/src/queue-config.lib.mjs:39:22
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1780879Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1780992Z Node.js v24.15.0
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1828662Z 
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1828947Z Failed test files:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1829399Z   - tests/limits-display.test.mjs (exit 1)
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.1973124Z ##[error]Process completed with exit code 1.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.2094909Z Post job cleanup.
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3014861Z [command]/usr/bin/git version
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3056158Z git version 2.54.0
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3094094Z Temporarily overriding HOME='/home/runner/work/_temp/c23fa41d-11bb-47b5-842d-0e3795bece63' before making global git config changes
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3095674Z Adding repository directory to the temporary git global config as a safe directory
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3100461Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3140329Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3177893Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3429502Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3457310Z http.https://github.com/.extraheader
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3468291Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3504330Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3786735Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.3819450Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-suites	UNKNOWN STEP	2026-04-28T19:23:44.4209176Z Cleaning up orphan processes

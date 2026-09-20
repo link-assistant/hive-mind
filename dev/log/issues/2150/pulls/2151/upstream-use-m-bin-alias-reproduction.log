@@ -1,0 +1,11 @@
+Isolated npm prefix: /tmp/tmp.y4EDBC2olI
+
+added 1 package in 922ms
+npm error code EEXIST
+npm error path /tmp/tmp.y4EDBC2olI/bin/zx
+npm error EEXIST: file already exists
+npm error File exists: /tmp/tmp.y4EDBC2olI/bin/zx
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-08-11T15_58_29_163Z-debug-0.log
+Reproduced: second use-m alias cannot share the package binary (exit 1).

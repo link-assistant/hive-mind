@@ -12,7 +12,7 @@ console.log('Test 1: Simple message test');
 try {
   const result = execSync('echo "What is 2+2?" | opencode run -m opencode/grok-code', {
     encoding: 'utf-8',
-    timeout: 30000
+    timeout: 30000,
   });
   console.log('✅ Test 1 passed');
   console.log('Response:', result.substring(0, 200));
@@ -27,7 +27,7 @@ console.log('Test 2: Message as argument');
 try {
   const result = execSync('opencode run -m opencode/grok-code "What is the capital of France?"', {
     encoding: 'utf-8',
-    timeout: 30000
+    timeout: 30000,
   });
   console.log('✅ Test 2 passed');
   console.log('Response:', result.substring(0, 200));

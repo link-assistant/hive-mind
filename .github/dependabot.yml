@@ -1,0 +1,52 @@
+version: 2
+
+# Keep supported ecosystems in one reviewable update. The release workflow's
+# dependency-freshness job covers use-m pins and setup-action inputs that
+# Dependabot cannot update by itself.
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: daily
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+    # Issue #2264 requires the freshness gate and update PR to converge on the
+    # same newest release. GitHub otherwise delays version updates by 3 days.
+    cooldown:
+      exclude: ['*']
+
+  - package-ecosystem: github-actions
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+    cooldown:
+      exclude: ['*']
+
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /coolify
+      - /experiments/solve-dockerize
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+    cooldown:
+      exclude: ['*']
+
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /coolify
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+    cooldown:
+      exclude: ['*']
+
+  - package-ecosystem: helm
+    directory: /helm/hive-mind
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+    cooldown:
+      exclude: ['*']

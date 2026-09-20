@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1662-f172a7412294", "mergedAt": "2026-04-24T08:48:29Z", "number": 1663, "title": "Support Telegram options before URL", "url": "https://github.com/link-assistant/hive-mind/pull/1663" },
+  { "headRefName": "issue-1658-eb9d0c1c5c6a", "mergedAt": "2026-04-23T23:16:02Z", "number": 1659, "title": "fix: support LINO isolation override links", "url": "https://github.com/link-assistant/hive-mind/pull/1659" },
+  { "headRefName": "issue-1482-d7d9d80928b8", "mergedAt": "2026-03-29T10:44:21Z", "number": 1488, "title": "feat: add early --base-branch validation in telegram bot", "url": "https://github.com/link-assistant/hive-mind/pull/1488" },
+  { "headRefName": "issue-1521-4fc3bc079ec0", "mergedAt": "2026-04-04T09:37:14Z", "number": 1522, "title": "fix: pass OPENCODE_VERBOSE env var to agent process for HTTP logging (#1521)", "url": "https://github.com/link-assistant/hive-mind/pull/1522" },
+  { "headRefName": "issue-812-1585f477d07f", "mergedAt": "2026-01-08T03:41:55Z", "number": 816, "title": "feat: Add option to execute `bunx claude` instead of `claude` that should improve speed and memory usage", "url": "https://github.com/link-assistant/hive-mind/pull/816" },
+  { "headRefName": "issue-975-d2e66b3ab810", "mergedAt": "2025-12-23T22:33:56Z", "number": 976, "title": "fix: enable Docker and Helm publishing for instant releases", "url": "https://github.com/link-assistant/hive-mind/pull/976" },
+  { "headRefName": "issue-1045-1d8f6329c289", "mergedAt": "2025-12-31T18:24:32Z", "number": 1046, "title": "fix: Add --auto-continue-on-limit-reset option to hive command", "url": "https://github.com/link-assistant/hive-mind/pull/1046" },
+  { "headRefName": "issue-651-7c1b0584", "mergedAt": "2025-11-03T02:41:26Z", "number": 652, "title": "Fix: argv._[0] returns undefined with yargs named positionals", "url": "https://github.com/link-assistant/hive-mind/pull/652" },
+  { "headRefName": "issue-1092-8a4f0bf2a7f0", "mergedAt": "2026-01-10T21:34:40Z", "number": 1093, "title": "fix: Detect malformed flag patterns like \"-- model\" (Issue #1092)", "url": "https://github.com/link-assistant/hive-mind/pull/1093" },
+  { "headRefName": "issue-1209-d6171572e78f", "mergedAt": "2026-02-06T11:54:13Z", "number": 1210, "title": "feat: automatic solve option forwarding from hive config (issue #1209)", "url": "https://github.com/link-assistant/hive-mind/pull/1210" }
+]

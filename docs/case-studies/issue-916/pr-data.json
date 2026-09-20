@@ -1,0 +1,20 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #916.\n\n### 📋 Issue Reference\nFixes #916\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "comments": [],
+  "commits": [
+    {
+      "authoredDate": "2025-12-11T16:15:13Z",
+      "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }],
+      "committedDate": "2025-12-11T16:15:13Z",
+      "messageBody": "Adding CLAUDE.md with task information for AI processing.\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/916",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "2811359a75249183aba40f364a4fd92ccb55c8c4"
+    }
+  ],
+  "createdAt": "2025-12-11T16:15:20Z",
+  "labels": [],
+  "number": 917,
+  "state": "OPEN",
+  "title": "[WIP] Add a note to system message, that it might be useful to check comments to pull request/issue not only in the beginning of the work, but also after work is finished"
+}

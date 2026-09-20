@@ -38,7 +38,7 @@ This document contains findings from testing Claude Code's session management ca
   - May hang in non-interactive mode (not suitable for automation)
   - Maintains conversation context from the last session
 
-- **`-r` or `--resume` flag**: 
+- **`-r` or `--resume` flag**:
   - Without arguments: Allows interactive selection of a conversation to resume
   - With session ID: Attempts to resume specific session (but creates new session as noted above)
 
@@ -71,6 +71,7 @@ We created three test scripts to verify session behavior:
 3. **test-session-node.mjs** - Node.js-specific implementation
 
 All scripts confirm the same behavior across runtimes and demonstrate:
+
 - Session ID extraction from JSON output
 - Custom session ID creation with `--session-id`
 - Context restoration using `--resume`
@@ -118,7 +119,7 @@ All scripts confirm the same behavior across runtimes and demonstrate:
 ## Limitations
 
 - The `--resume` flag creates new session IDs (but DOES restore context)
-- The `--session-id` flag creates new sessions (doesn't restore context) 
+- The `--session-id` flag creates new sessions (doesn't restore context)
 - Once a session ID is used, it becomes locked and cannot be reused
 - Session data IS stored in JSONL files and IS accessible via `--resume`
 - The `-c` flag may hang in non-interactive mode
@@ -129,6 +130,7 @@ All scripts confirm the same behavior across runtimes and demonstrate:
 ## Recommendations
 
 For automation tasks that need context:
+
 1. **Use `--resume <session-id>` to restore conversation context** (this actually works!)
 2. Extract session IDs from previous runs using JSON output parsing
 3. Be aware that resumed sessions get new IDs but maintain conversation history
@@ -136,6 +138,7 @@ For automation tasks that need context:
 5. Fall back to including context in prompts if session restoration fails
 
 For session ID management:
+
 1. Delete JSONL files to recycle session IDs when needed
 2. Use file existence checks to verify session availability
 3. Implement cleanup scripts to manage old sessions

@@ -1,0 +1,326 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Closes #186.\n\n## Problem 1 — Codex rejected every client that sends an output cap\n\n`reject_unsupported_codex_output_limit` in `src/subscription_proxy.rs` answered\nHTTP 400 for any non-Anthropic surface carrying `max_output_tokens` /\n`max_tokens` / `max_completion_tokens`, because the Codex capability matrix\nmarked `output_token_limit` as `Unsupported`. Every ordinary OpenAI-compatible\nclient sends one, so OpenCode, Grok CLI and `@link-assistant/agent` were all\nunusable against a Codex subscription.\n\n**Fix:** the Codex capability is now `Emulated`. The field is still stripped\nfrom the upstream request (the ChatGPT backend really does reject it), and the\nnew `src/output_limit.rs` enforces the cap inside the router:\n\n- Chat Completions: content truncated, `finish_reason: \"length\"`.\n- Responses: text parts truncated, `status: \"incomplete\"` with\n  `incomplete_details.reason: \"max_output_tokens\"`.\n- Streaming: `ResponsesChatStreamTranslator` caps deltas and terminates the\n  stream; the native `/v1/responses` relay goes through the new\n  `ResponsesStreamRewriter`, which emits a synthetic `response.incomplete`\n  followed by `data: [DONE]`.\n\nDocumented limitation: the budget uses the router's ~4 characters-per-token\nestimate (same heuristic as `count_tokens_estimate`) and hidden reasoning\ntokens are not observable, so the cap bounds visible output, not billed tokens.\n\n## Problem 2 — catalog aliases lost their identity\n\nBoth the buffered path (`response_to_chat_completion`) and the streaming path\n(`ResponsesChatStreamTranslator::capture_identity`) replaced the requested\nmodel with the model the upstream served, and native `/v1/responses` was a byte\nrelay. Requesting `codex-auto-review` therefore came back as `gpt-5.6-luna`.\n\n**Fix:** the requested id stays authoritative in `model` on buffered and\nstreamed replies across all OpenAI surfaces. The concrete upstream model is\nexposed separately as the `x_router_upstream_model` body field and the\n`x-router-upstream-model` response header.\n\n## Reproduction\n\nBefore this branch, against a Codex subscription:\n\n```console\n$ curl .../v1/chat/completions -d '{\"model\":\"gpt-5\",\"max_tokens\":32000,\"messages\":[...]}'\n400 Codex subscriptions cannot honor output-token limits ...\n$ curl .../v1/chat/completions -d '{\"model\":\"codex-auto-review\",...}' | jq .model\n\"gpt-5.6-luna\"\n```\n\nBoth are now covered by automated tests.\n\n## Tests\n\n- `src/output_limit_tests.rs` — 10 unit tests: budget accounting, multibyte-safe\n  truncation, buffered chat/Responses enforcement, model-identity preservation,\n  SSE rewriting including events split across chunks and cap termination.\n- `tests/router_e2e/cases_regressions.rs`:\n  - `codex_output_limit_policy_distinguishes_client_surfaces` rewritten for the\n    new policy: capped requests return 200, reach upstream without\n    `max_output_tokens`, and are truncated with the protocol's length signal.\n  - `opencode_request_body_with_an_output_cap_works_against_codex` — the exact\n    OpenCode body (cap + tools + `tool_choice`), buffered and streamed, plus a\n    tool loop whose second turn carries the tool result back (acceptance\n    checks 1, 2, 4).\n  - `advertised_model_ids_keep_their_identity_on_every_openai_surface` — every\n    `/v1/models` id, plus a concrete id and an alias, asserted for consistent\n    identity on buffered and streaming Chat Completions and Responses\n    (acceptance check 3).\n- `src/subscription_proxy_tests.rs::codex_strips_the_output_cap_it_enforces_locally`.\n\nLocal CI: `cargo fmt`, `cargo clippy --all-targets --all-features` (clean),\nfull `cargo test` (green).\n\n## Not covered here\n\nLive acceptance runs against a real ChatGPT subscription with OpenCode, Grok\nCLI and `@link-assistant/agent` (requested in the issue comments) need real\ncredentials and were not run in this environment.\n\nDocs: README gains a \"Model identity and output limits\" section; changelog\nfragment added (`bump: minor`).\n",
+  "closedAt": "2026-08-16T18:06:33Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T17:28:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T17:28:08Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/186",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "c84aea3355eb56bc4c31a8ee611bec376db89497"
+    },
+    {
+      "authoredDate": "2026-08-16T17:49:54Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T17:49:54Z",
+      "messageBody": "…entity\n\nCodex subscriptions answered HTTP 400 for any request carrying an output\ncap, which broke every ordinary OpenAI-compatible client (OpenCode, Grok\nCLI, @link-assistant/agent). The ChatGPT backend does reject the field, so\nthe router now strips it upstream and enforces the cap locally instead of\nrefusing the request: visible output is truncated and the exchange ends\nwith finish_reason \"length\" or status \"incomplete\".\n\nResponses also replaced the requested model id with the concrete model the\nprovider served, losing catalog aliases such as codex-auto-review. The\nrequested id now stays authoritative in `model` for buffered and streamed\nreplies, and the concrete model is reported through the\nx_router_upstream_model field and x-router-upstream-model header.\n\nCloses #186",
+      "messageHeadline": "fix(codex): emulate output-token caps and preserve requested model id…",
+      "oid": "9a5bea667a398520c892f4895b66882a735ce6e9"
+    },
+    {
+      "authoredDate": "2026-08-16T17:55:39Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T17:55:39Z",
+      "messageBody": "",
+      "messageHeadline": "chore: update coverage baseline to 78.513725",
+      "oid": "4b345adf3d427c47fb0ac52f2fb1913f3fea98cf"
+    }
+  ],
+  "createdAt": "2026-08-16T17:28:18Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "README.md",
+      "additions": 18,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_120000_issue_186_codex_output_limits_and_model_identity.md",
+      "additions": 22,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "coverage-baseline.txt",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/capabilities.rs",
+      "additions": 2,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/lib.rs",
+      "additions": 1,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/output_limit.rs",
+      "additions": 331,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/output_limit_tests.rs",
+      "additions": 141,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/responses.rs",
+      "additions": 55,
+      "deletions": 23,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/subscription_proxy.rs",
+      "additions": 50,
+      "deletions": 38,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/subscription_proxy_tests.rs",
+      "additions": 11,
+      "deletions": 70,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e/cases_regressions.rs",
+      "additions": 223,
+      "deletions": 20,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-186-e956e1222360",
+  "headRefOid": "4b345adf3d427c47fb0ac52f2fb1913f3fea98cf",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T18:06:33Z",
+  "number": 197,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:56:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95203904903",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T17:55:48Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:56:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95203904813",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T17:55:48Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:55:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95203904819",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T17:55:48Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:55:46Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95203905263",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T17:55:47Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:57:34Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204000719",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T17:56:43Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:58:19Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204000701",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T17:56:39Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:59:42Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204000651",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T17:56:38Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:59:38Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204110330",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T17:57:36Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T17:59:06Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204110256",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T17:57:37Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:00:39Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204110237",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T17:57:36Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:00:17Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204110254",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T17:57:36Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204478329",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T18:00:41Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204802170",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T18:03:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204801874",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T18:03:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204802232",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T18:03:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204802413",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T18:03:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204802266",
+      "name": "Publish attested binaries (${{ matrix.arch }})",
+      "startedAt": "2026-08-16T18:03:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T18:03:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31963066260/job/95204802693",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T18:03:12Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "fix(codex): emulate output-token caps and preserve requested model identity",
+  "updatedAt": "2026-08-16T18:06:34Z",
+  "url": "https://github.com/link-assistant/router/pull/197"
+}

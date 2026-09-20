@@ -1,0 +1,13 @@
+command-stream loaders reachable from each binary
+
+binary              modules   cold burst (static)   reachable (incl. dynamic)
+task                93        6                     8
+fix                 95        6                     8
+review              90        5                     9
+solve               156       1                     25
+hive                135       0                     17
+hive-telegram-bot   186       0                     17
+hive-cleanup        109       0                     10
+start-screen        89        0                     8
+configure-claude    19        0                     0
+hive-screens        18        0                     0

@@ -1,0 +1,11 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "https://github.com/konard/private-logs/tree/main/log-tmp-start-command-logs-isolation-screen-35fc4ce8-b33f-4f50-bd95-02a228b14e82\n\nI had to stop it manually at: https://github.com/ProverCoderAI/docker-git/pull/242#issuecomment-4412163334\n\nIn case of cancellation of CI/CD, we should suggest user to do review, and if required ask him to restart the CI/CD, if it is cancelled by timeout that was set by workflow, we should treat it as error. If it was cancelled manually, we should ask user to restart it manually, or if it is not required to be run - decide on whatever to merge or not.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.\n\nPlease plan and execute everything in a single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.",
+  "createdAt": "2026-05-09T09:32:10Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 1769,
+  "state": "OPEN",
+  "title": "Cancelled CI/CD lead to bug",
+  "updatedAt": "2026-05-09T15:01:54Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1769"
+}

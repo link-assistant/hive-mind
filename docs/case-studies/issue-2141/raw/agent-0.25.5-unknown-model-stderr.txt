@@ -1,0 +1,18 @@
+
+1732 |           suggestion = `Did you mean: ${knownProviderID}/${fullModelKey}?`;
+1733 |           break;
+1734 |         }
+1735 |       }
+1736 | 
+1737 |       throw new ModelNotFoundError({ providerID, modelID, suggestion });
+                       ^
+ProviderModelNotFoundError: ProviderModelNotFoundError
+ data: {
+  providerID: "nonexistent-provider",
+  modelID: "nope",
+  suggestion: undefined,
+},
+
+      at getModel (/home/box/.bun/install/global/node_modules/@link-assistant/agent/src/provider/provider.ts:1737:17)
+      at processTicksAndRejections (native:7:39)
+

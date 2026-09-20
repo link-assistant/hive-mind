@@ -1,0 +1,107 @@
+ci-integrity-2150.test.mjs: all assertions passed
+✔ tests/ci-integrity-2150.test.mjs (584.398633ms)
+solve-tool-uncommitted-2150.test.mjs: all assertions passed
+✔ tests/solve-tool-uncommitted-2150.test.mjs (88.548867ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 603.156464
+Issue #2032 default thinking-off regression tests passed.
+===========================================
+Unit Tests: URL Hash Fragment Handling
+Issue #991 Fix Verification
+===========================================
+
+Test Suite 1: parseGitHubUrl - Hash Fragment Handling
+
+✅ PASS: PR URL with issuecomment hash fragment
+✅ PASS: Issue URL with issuecomment hash fragment
+✅ PASS: PR URL with discussion hash fragment
+✅ PASS: PR URL with pullrequestreview hash fragment
+✅ PASS: Issue URL without hash fragment (baseline)
+
+Test Suite 2: validateGitHubUrl - Hash Fragment Handling
+
+✅ PASS: validateGitHubUrl with PR + hash fragment returns correct number
+✅ PASS: validateGitHubUrl with issue + hash fragment returns correct number
+
+Test Suite 3: parseUrlComponents - Hash Fragment Handling (Bug Fix)
+
+✅ PASS: parseUrlComponents strips hash fragment from PR URL
+✅ PASS: parseUrlComponents strips hash fragment from issue URL
+✅ PASS: parseUrlComponents handles discussion fragment
+✅ PASS: parseUrlComponents handles pullrequestreview fragment
+✅ PASS: parseUrlComponents works without hash (baseline)
+
+Test Suite 4: Edge Cases
+
+✅ PASS: Empty hash fragment is handled
+✅ PASS: Multiple hash chars (unusual but possible)
+✅ PASS: URL with query params and hash
+
+===========================================
+Results: 15 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+===========================================
+Unit Tests: Telegram URL Validation
+===========================================
+
+Test Suite 1: /solve command - Valid URLs (Should Pass)
+
+✅ PASS: Valid issue URL
+✅ PASS: Valid PR URL
+✅ PASS: Valid issue URL with options
+✅ PASS: Valid PR URL with query params
+
+Test Suite 2: /solve command - Invalid URLs (Should Fail)
+
+✅ PASS: Repository URL only (no issue/PR)
+✅ PASS: Repository URL with trailing slash
+✅ PASS: User profile URL
+✅ PASS: Issues list URL (no specific issue)
+✅ PASS: Pull requests list URL (no specific PR)
+✅ PASS: Missing URL
+✅ PASS: Non-GitHub URL
+✅ PASS: GitHub Actions URL
+✅ PASS: GitHub file URL
+
+Test Suite 3: /hive command - Valid URLs (Should Pass)
+
+✅ PASS: Valid repository URL
+✅ PASS: Valid organization URL
+✅ PASS: Valid repository URL with trailing slash
+
+Test Suite 4: /hive command - Invalid URLs (Should Fail)
+
+✅ PASS: Issue URL (not allowed for hive)
+✅ PASS: PR URL (not allowed for hive)
+✅ PASS: Missing URL
+
+===========================================
+Results: 19 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+Testing memory-check.mjs exists... ✅ PASSED
+Testing memory-check.mjs --help... ✅ PASSED
+Testing memory-check.mjs basic execution... ✅ PASSED
+Testing memory-check.mjs disk space check... ✅ PASSED
+Testing memory-check.mjs RAM check... ✅ PASSED
+Testing memory-check.mjs verbose output... ✅ PASSED
+Testing memory-check.mjs syntax check... ✅ PASSED
+Testing memory-check.mjs platform detection... ✅ PASSED
+Testing memory-check.mjs exit code on success... ✅ PASSED
+Testing memory-check.mjs execution... ✅ PASSED
+
+==================================================
+Test Results for memory-check.mjs:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Platform: linux
+==================================================

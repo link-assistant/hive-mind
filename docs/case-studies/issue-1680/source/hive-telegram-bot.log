@@ -1,0 +1,694 @@
+Validating solve overrides...
+✅ Solve overrides validated successfully
+Validating hive overrides...
+✅ Hive overrides validated successfully
+🤖 SwarmMindBot is starting...
+Bot token: 8490528355...
+Allowed chats (lino): (
+  -1002975819706
+  -1002861722681
+)
+Commands enabled: { solve: true, hive: true }
+Solve overrides (lino): (
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+  --auto-attach-solution-summary
+  --isolation
+  screen
+)
+Hive overrides (lino): (
+  --all-issues
+  --once
+  --skip-issues-with-prs
+  --attach-logs
+  --verbose
+  --no-tool-check
+  --auto-accept-invite
+  --tokens-budget-stats
+  --auto-attach-solution-summary
+  --isolation
+  screen
+)
+[VERBOSE] Verbose logging enabled
+[VERBOSE] Bot start time (Unix): 1777107359
+[VERBOSE] Bot start time (ISO): 2026-04-25T08:55:59.000Z
+[VERBOSE] Launch attempt 1: deleting webhook...
+[VERBOSE] Launch attempt 1: starting polling...
+[VERBOSE] /start command received
+[VERBOSE] isForwardedOrReply: Checking message fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE]   message.reply_to_message: {"message_id":857,"from":{"id":1339837872,"is_bot":false,"first_name":"Konstantin","last_name":"Dyachenko","username":"drakonard","language_code":"en","is_premium":true},"chat":{"id":-1002975819706,"title":"Pull Request from Hive Mind","is_forum":true,"type":"supergroup"},"date":1759480502,"message_thread_id":857,"forum_topic_created":{"name":"Запросы на генерацию Pull Requests","icon_color":16766590,"icon_custom_emoji_id":"5309832892262654231"},"is_topic_message":true}
+[VERBOSE]   message.reply_to_message?.message_id: 857
+[VERBOSE] isForwardedOrReply: FALSE - reply is to forum topic creation, not user reply
+[VERBOSE]   Forum topic: {
+  name: 'Запросы на генерацию Pull Requests',
+  icon_color: 16766590,
+  icon_custom_emoji_id: '5309832892262654231'
+}
+[VERBOSE] isForwardedOrReply: FALSE - no forwarding or reply detected
+[VERBOSE] /start passed all checks
+[VERBOSE] /codex command received
+[VERBOSE] /codex passed all checks, executing...
+link-assistant
+link-assistant/hive-mind
+{"number":1678,"title":"We must never show truncated log on `--attach-logs`, and logs processing should be correct"}
+[VERBOSE] /solve_queue: SolveQueue initialized with separate tool queues
+[VERBOSE] No active session found for URL https://github.com/link-assistant/hive-mind/issues/1678
+[VERBOSE] /solve_queue found 0 running claude processes
+[VERBOSE] /solve_queue found 0 running agent processes
+[VERBOSE] /solve_queue found 0 running codex processes
+[VERBOSE] /limits memory: 736MB used of 11961MB total (6% used)
+[VERBOSE] /limits CPU load: 0.00 (1m), 0.11 (5m), 0.13 (15m), 6 CPUs, 2% used
+[VERBOSE] /solve_queue: CPU 5m load avg: 0.11, cpus: 6, usage: 2%
+[VERBOSE] /limits disk space: 63722MB free of 98122MB total (65% free)
+[VERBOSE] /limits-cache: Cache miss for Codex limits, fetching from API...
+[VERBOSE] /limits Codex auth loaded from: /home/box/.codex/auth.json
+[VERBOSE] /limits fetching Codex usage from API...
+[VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
+[VERBOSE] /limits Codex auth mode: chatgpt
+[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex plan type: pro
+[VERBOSE] /limits Codex API request headers: {
+  "Accept": "application/json",
+  "Authorization": "Bearer ..._FGKKIY8",
+  "User-Agent": "hive-mind-codex-limits/1.0"
+}
+[VERBOSE] /limits Codex API HTTP status: 200 OK
+[VERBOSE] /limits Codex API response headers: {
+  "alt-svc": "h3=\":443\"; ma=86400",
+  "cf-cache-status": "DYNAMIC",
+  "cf-ray": "9f1c2e600f33362a-FRA",
+  "connection": "keep-alive",
+  "content-encoding": "br",
+  "content-type": "application/json",
+  "cross-origin-opener-policy": "same-origin-allow-popups",
+  "date": "Sat, 25 Apr 2026 09:04:37 GMT",
+  "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.01,\"max_age\":604800}",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=pMnlmVSF0LjzjornCkjU6mCnPUaugKr6fl%2BiJgkMi4ch%2FuISss6c7Jz4NS%2BbZlAN4PnxjMiLq2OlE24BeDpnDDHyECnjR37YtEd3Mjf2y5KG6ggNel5O0nMzBkzr\"}]}",
+  "server": "cloudflare",
+  "set-cookie": "__cflb=0H28vzvP5FJafnkHxj4bgBpHuC4ehSRtwRNSHAvfcu9; HttpOnly; SameSite=None; Secure; Path=/; Expires=Sat, 25 Apr 2026 10:04:37 GMT",
+  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+  "transfer-encoding": "chunked",
+  "x-content-type-options": "nosniff",
+  "x-oai-request-id": "9bee3cea-323c-488d-b052-a9027442b808",
+  "x-openai-proxy-wasm": "v0.1"
+}
+[VERBOSE] /limits Codex API response body: {
+  "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
+  "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
+  "email": "deep.assistant.team@proton.me",
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 0,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 18000,
+      "reset_at": 1777125877
+    },
+    "secondary_window": {
+      "used_percent": 44,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 295263,
+      "reset_at": 1777403140
+    }
+  },
+  "code_review_rate_limit": null,
+  "additional_rate_limits": [
+    {
+      "limit_name": "GPT-5.3-Codex-Spark",
+      "metered_feature": "codex_bengalfox",
+      "rate_limit": {
+        "allowed": true,
+        "limit_reached": false,
+        "primary_window": {
+          "used_percent": 0,
+          "limit_window_seconds": 18000,
+          "reset_after_seconds": 18000,
+          "reset_at": 1777125877
+        },
+        "secondary_window": {
+          "used_percent": 0,
+          "limit_window_seconds": 604800,
+          "reset_after_seconds": 604800,
+          "reset_at": 1777712677
+        }
+      }
+    }
+  ],
+  "credits": {
+    "has_credits": false,
+    "unlimited": false,
+    "overage_limit_reached": false,
+    "balance": "0",
+    "approx_local_messages": [
+      0,
+      0
+    ],
+    "approx_cloud_messages": [
+      0,
+      0
+    ]
+  },
+  "spend_control": {
+    "reached": false
+  },
+  "rate_limit_reached_type": null,
+  "promo": null,
+  "referral_beacon": null
+}
+[VERBOSE] Dynamically imported isolation-runner for per-command isolation
+[VERBOSE] Using isolation (screen), session: 5c14bfc3-0767-4a47-b4ba-7580d4b4903f
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Using $ binary at: /home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Backend: screen, Session ID: 5c14bfc3-0767-4a47-b4ba-7580d4b4903f
+[VERBOSE] isolation-runner: $ --isolated screen --detached --session 5c14bfc3-0767-4a47-b4ba-7580d4b4903f -- solve https://github.com/link-assistant/hive-mind/issues/1678 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+[VERBOSE] isolation-runner: Output: │ session   8918b4c9-6992-4b35-ae97-7dba16076846
+│ start     2026-04-25 09:04:37.889
+│
+│ isolation screen
+│ mode      detached
+│ screen    5c14bfc3-0767-4a47-b4ba-7580d4b4903f
+│
+$ solve https://github.com/link-assistant/hive-mind/issues/1678 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+
+
+✓
+│ finish    2026-04-25 09:04:37.913
+│ duration  0.028s
+│ exit      0
+│
+│ isolation screen
+│ mode      detached
+│ sc
+[VERBOSE] Session 5c14bfc3-0767-4a47-b4ba-7580d4b4903f tracked in memory (mode: isolation:screen)
+[VERBOSE] /codex command received
+[VERBOSE] /codex passed all checks, executing...
+ideav
+ideav/crm
+{"number":2117,"title":"index.php Найди уязвимости безопасности и сделай issue на каждую"}
+[VERBOSE] No active session found for URL https://github.com/ideav/crm/issues/2117
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "8918b4c9-6992-4b35-ae97-7dba16076846",
+  "pid": null,
+  "status": "executing",
+  "exitCode": null,
+  "command": "solve https://github.com/link-assistant/hive-mind/issues/1678 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --au
+[VERBOSE] /solve_queue found 0 running claude processes
+[VERBOSE] /solve_queue found 1 running codex processes
+[VERBOSE] /solve_queue processes: [{"pid":"3303","name":"codex"}]
+[VERBOSE] /solve_queue found 0 running agent processes
+[VERBOSE] /limits memory: 906MB used of 11961MB total (8% used)
+[VERBOSE] /limits CPU load: 0.16 (1m), 0.25 (5m), 0.17 (15m), 6 CPUs, 4% used
+[VERBOSE] /solve_queue: CPU 5m load avg: 0.25, cpus: 6, usage: 4%
+[VERBOSE] /limits disk space: 62701MB free of 98122MB total (64% free)
+[VERBOSE] /limits-cache: Cache miss for Codex limits, fetching from API...
+[VERBOSE] /limits Codex auth loaded from: /home/box/.codex/auth.json
+[VERBOSE] /limits fetching Codex usage from API...
+[VERBOSE] /limits Codex API request: GET https://chatgpt.com/backend-api/wham/usage
+[VERBOSE] /limits Codex auth mode: chatgpt
+[VERBOSE] /limits Codex account id: e9c72023-174b-4cfd-8374-963550c2ef98
+[VERBOSE] /limits Codex plan type: pro
+[VERBOSE] /limits Codex API request headers: {
+  "Accept": "application/json",
+  "Authorization": "Bearer ..._FGKKIY8",
+  "User-Agent": "hive-mind-codex-limits/1.0"
+}
+[VERBOSE] /limits Codex API HTTP status: 200 OK
+[VERBOSE] /limits Codex API response headers: {
+  "alt-svc": "h3=\":443\"; ma=86400",
+  "cf-cache-status": "DYNAMIC",
+  "cf-ray": "9f1c44c15a1cdca8-FRA",
+  "connection": "keep-alive",
+  "content-encoding": "br",
+  "content-type": "application/json",
+  "cross-origin-opener-policy": "same-origin-allow-popups",
+  "date": "Sat, 25 Apr 2026 09:19:53 GMT",
+  "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.01,\"max_age\":604800}",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=xwAk9KM8UFd9Ac2x2zefUT5b7waglmlTAT1wTSkKdToqbniWtOPirUp9e%2FN%2BgmtoMzOqqO1JnucN3l87XGuZgDNVgQXkoEIl5%2FkotJfW8dwXMtJSjt3SQhPSNEcS\"}]}",
+  "server": "cloudflare",
+  "set-cookie": "__cflb=0H28vzvP5FJafnkHxj4bgBpHuC4ehSRtzwMwwDUoobH; HttpOnly; SameSite=None; Secure; Path=/; Expires=Sat, 25 Apr 2026 10:19:53 GMT",
+  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+  "transfer-encoding": "chunked",
+  "x-content-type-options": "nosniff",
+  "x-oai-request-id": "dd5dc934-1ab0-4c14-b4f1-f33f482fe930",
+  "x-openai-proxy-wasm": "v0.1"
+}
+[VERBOSE] /limits Codex API response body: {
+  "user_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
+  "account_id": "user-L0EEWb2lWzu0Zzy528cP54Wc",
+  "email": "deep.assistant.team@proton.me",
+  "plan_type": "pro",
+  "rate_limit": {
+    "allowed": true,
+    "limit_reached": false,
+    "primary_window": {
+      "used_percent": 2,
+      "limit_window_seconds": 18000,
+      "reset_after_seconds": 17152,
+      "reset_at": 1777125944
+    },
+    "secondary_window": {
+      "used_percent": 45,
+      "limit_window_seconds": 604800,
+      "reset_after_seconds": 294347,
+      "reset_at": 1777403139
+    }
+  },
+  "code_review_rate_limit": null,
+  "additional_rate_limits": [
+    {
+      "limit_name": "GPT-5.3-Codex-Spark",
+      "metered_feature": "codex_bengalfox",
+      "rate_limit": {
+        "allowed": true,
+        "limit_reached": false,
+        "primary_window": {
+          "used_percent": 0,
+          "limit_window_seconds": 18000,
+          "reset_after_seconds": 18000,
+          "reset_at": 1777126793
+        },
+        "secondary_window": {
+          "used_percent": 0,
+          "limit_window_seconds": 604800,
+          "reset_after_seconds": 604800,
+          "reset_at": 1777713593
+        }
+      }
+    }
+  ],
+  "credits": {
+    "has_credits": false,
+    "unlimited": false,
+    "overage_limit_reached": false,
+    "balance": "0",
+    "approx_local_messages": [
+      0,
+      0
+    ],
+    "approx_cloud_messages": [
+      0,
+      0
+    ]
+  },
+  "spend_control": {
+    "reached": false
+  },
+  "rate_limit_reached_type": null,
+  "promo": null,
+  "referral_beacon": null
+}
+[VERBOSE] /limits GitHub rate limit response: {
+  "resources": {
+    "core": {
+      "limit": 5000,
+      "used": 38,
+      "remaining": 4962,
+      "reset": 1777109569
+    },
+    "search": {
+      "limit": 30,
+      "used": 0,
+      "remaining": 30,
+      "reset": 1777108853
+    },
+    "graphql": {
+      "limit": 5000,
+      "used": 33,
+      "remaining": 4967,
+      "reset": 1777109378
+    },
+    "integration_manifest": {
+      "limit": 5000,
+      "used": 0,
+      "remaining": 5000,
+      "reset": 1777112393
+    },
+    "source_import": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777108853
+    },
+    "code_scanning_upload": {
+      "limit": 5000,
+      "used": 38,
+      "remaining": 4962,
+      "reset": 1777109569
+    },
+    "code_scanning_autofix": {
+      "limit": 10,
+      "used": 0,
+      "remaining": 10,
+      "reset": 1777108853
+    },
+    "actions_runner_registration": {
+      "limit": 10000,
+      "used": 0,
+      "remaining": 10000,
+      "reset": 1777112393
+    },
+    "scim": {
+      "limit": 15000,
+      "used": 0,
+      "remaining": 15000,
+      "reset": 1777112393
+    },
+    "dependency_snapshots": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777108853
+    },
+    "dependency_sbom": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777108853
+    },
+    "audit_log": {
+      "limit": 1750,
+      "used": 0,
+      "remaining": 1750,
+      "reset": 1777112393
+    },
+    "audit_log_streaming": {
+      "limit": 15,
+      "used": 0,
+      "remaining": 15,
+      "reset": 1777112393
+    },
+    "code_search": {
+      "limit": 10,
+      "used": 0,
+      "remaining": 10,
+      "reset": 1777108853
+    }
+  },
+  "rate": {
+    "limit": 5000,
+    "used": 38,
+    "remaining": 4962,
+    "reset": 1777109569
+  }
+}
+[VERBOSE] /limits GitHub API: 4962/5000 remaining (99% available)
+[VERBOSE] Dynamically imported isolation-runner for per-command isolation
+[VERBOSE] Using isolation (screen), session: 6a0ec9c3-04b5-4c22-acc2-8f21e934036e
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Using $ binary at: /home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Backend: screen, Session ID: 6a0ec9c3-04b5-4c22-acc2-8f21e934036e
+[VERBOSE] isolation-runner: $ --isolated screen --detached --session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e -- solve https://github.com/ideav/crm/issues/2117 --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+[VERBOSE] isolation-runner: Output: │ session   e44d4086-0b1b-47f2-8733-3abe937e43c5
+│ start     2026-04-25 09:19:53.474
+│
+│ isolation screen
+│ mode      detached
+│ screen    6a0ec9c3-04b5-4c22-acc2-8f21e934036e
+│
+$ solve https://github.com/ideav/crm/issues/2117 --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+
+
+✓
+│ finish    2026-04-25 09:19:53.501
+│ duration  0.030s
+│ exit      0
+│
+│ isolation screen
+│ mode      detached
+│ screen    6a0ec9c3-04b5-4c22-
+[VERBOSE] Session 6a0ec9c3-04b5-4c22-acc2-8f21e934036e tracked in memory (mode: isolation:screen)
+[VERBOSE] /codex command received
+[VERBOSE] /codex passed all checks, executing...
+link-assistant
+link-assistant/hive-mind
+{"number":1680,"title":"/codex command message stuck at `⏳ Solve command executing...`, with no message update"}
+[VERBOSE] No active session found for URL https://github.com/link-assistant/hive-mind/issues/1680
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "8918b4c9-6992-4b35-ae97-7dba16076846",
+  "pid": null,
+  "status": "executing",
+  "exitCode": null,
+  "command": "solve https://github.com/link-assistant/hive-mind/issues/1678 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --au
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "e44d4086-0b1b-47f2-8733-3abe937e43c5",
+  "pid": null,
+  "status": "executed",
+  "exitCode": 0,
+  "command": "solve https://github.com/ideav/crm/issues/2117 --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary",
+
+[VERBOSE] /solve_queue found 0 running claude processes
+[VERBOSE] /solve_queue found 0 running agent processes
+[VERBOSE] /solve_queue found 0 running codex processes
+[VERBOSE] /limits memory: 1150MB used of 11961MB total (10% used)
+[VERBOSE] /limits CPU load: 0.12 (1m), 0.10 (5m), 0.11 (15m), 6 CPUs, 2% used
+[VERBOSE] /solve_queue: CPU 5m load avg: 0.10, cpus: 6, usage: 2%
+[VERBOSE] /limits disk space: 62608MB free of 98122MB total (64% free)
+[VERBOSE] /limits-cache: Using cached Codex limits (TTL: 10 minutes)
+[VERBOSE] /limits GitHub rate limit response: {
+  "resources": {
+    "core": {
+      "limit": 5000,
+      "used": 249,
+      "remaining": 4751,
+      "reset": 1777109569
+    },
+    "search": {
+      "limit": 30,
+      "used": 0,
+      "remaining": 30,
+      "reset": 1777109367
+    },
+    "graphql": {
+      "limit": 5000,
+      "used": 91,
+      "remaining": 4909,
+      "reset": 1777109378
+    },
+    "integration_manifest": {
+      "limit": 5000,
+      "used": 0,
+      "remaining": 5000,
+      "reset": 1777112907
+    },
+    "source_import": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777109367
+    },
+    "code_scanning_upload": {
+      "limit": 5000,
+      "used": 249,
+      "remaining": 4751,
+      "reset": 1777109569
+    },
+    "code_scanning_autofix": {
+      "limit": 10,
+      "used": 0,
+      "remaining": 10,
+      "reset": 1777109367
+    },
+    "actions_runner_registration": {
+      "limit": 10000,
+      "used": 0,
+      "remaining": 10000,
+      "reset": 1777112907
+    },
+    "scim": {
+      "limit": 15000,
+      "used": 0,
+      "remaining": 15000,
+      "reset": 1777112907
+    },
+    "dependency_snapshots": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777109367
+    },
+    "dependency_sbom": {
+      "limit": 100,
+      "used": 0,
+      "remaining": 100,
+      "reset": 1777109367
+    },
+    "audit_log": {
+      "limit": 1750,
+      "used": 0,
+      "remaining": 1750,
+      "reset": 1777112907
+    },
+    "audit_log_streaming": {
+      "limit": 15,
+      "used": 0,
+      "remaining": 15,
+      "reset": 1777112907
+    },
+    "code_search": {
+      "limit": 10,
+      "used": 0,
+      "remaining": 10,
+      "reset": 1777109367
+    }
+  },
+  "rate": {
+    "limit": 5000,
+    "used": 249,
+    "remaining": 4751,
+    "reset": 1777109569
+  }
+}
+[VERBOSE] /limits GitHub API: 4751/5000 remaining (95% available)
+[VERBOSE] Dynamically imported isolation-runner for per-command isolation
+[VERBOSE] Using isolation (screen), session: 50afafe7-3fe7-4053-82b9-f6932cae2b95
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Using $ binary at: /home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Backend: screen, Session ID: 50afafe7-3fe7-4053-82b9-f6932cae2b95
+[VERBOSE] isolation-runner: $ --isolated screen --detached --session 50afafe7-3fe7-4053-82b9-f6932cae2b95 -- solve https://github.com/link-assistant/hive-mind/issues/1680 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+[VERBOSE] isolation-runner: Output: │ session   b1711bff-a275-45d4-b3ce-384077c5a18f
+│ start     2026-04-25 09:28:27.565
+│
+│ isolation screen
+│ mode      detached
+│ screen    50afafe7-3fe7-4053-82b9-f6932cae2b95
+│
+$ solve https://github.com/link-assistant/hive-mind/issues/1680 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary
+
+
+✓
+│ finish    2026-04-25 09:28:27.592
+│ duration  0.030s
+│ exit      0
+│
+│ isolation screen
+│ mode      detached
+│ sc
+[VERBOSE] Session 50afafe7-3fe7-4053-82b9-f6932cae2b95 tracked in memory (mode: isolation:screen)
+[VERBOSE] /limits command received
+[VERBOSE] isForwardedOrReply: Checking message fields...
+[VERBOSE]   message.forward_origin: undefined
+[VERBOSE]   message.forward_origin?.type: undefined
+[VERBOSE]   message.forward_from: undefined
+[VERBOSE]   message.forward_from_chat: undefined
+[VERBOSE]   message.forward_from_message_id: undefined
+[VERBOSE]   message.forward_signature: undefined
+[VERBOSE]   message.forward_sender_name: undefined
+[VERBOSE]   message.forward_date: undefined
+[VERBOSE]   message.reply_to_message: {"message_id":32470,"from":{"id":1339837872,"is_bot":false,"first_name":"Konstantin","last_name":"Dyachenko","username":"drakonard","language_code":"en","is_premium":true},"chat":{"id":-1002975819706,"title":"Pull Request from Hive Mind","is_forum":true,"type":"supergroup"},"date":1766849807,"message_thread_id":32470,"forum_topic_created":{"name":"Testing","icon_color":7322096,"icon_custom_emoji_id":"5411138633765757782"},"is_topic_message":true}
+[VERBOSE]   message.reply_to_message?.message_id: 32470
+[VERBOSE] isForwardedOrReply: FALSE - reply is to forum topic creation, not user reply
+[VERBOSE]   Forum topic: {
+  name: 'Testing',
+  icon_color: 7322096,
+  icon_custom_emoji_id: '5411138633765757782'
+}
+[VERBOSE] isForwardedOrReply: FALSE - no forwarding or reply detected
+[VERBOSE] /limits-cache: Cache miss for Claude limits, fetching from API...
+[VERBOSE] /limits-cache: Using cached Codex limits (TTL: 10 minutes)
+[VERBOSE] /limits-cache: Using cached GitHub limits
+[VERBOSE] /limits-cache: Using cached memory info
+[VERBOSE] /limits-cache: Using cached CPU info
+[VERBOSE] /limits-cache: Using cached disk info
+[VERBOSE] /limits credentials loaded from: /home/box/.claude/.credentials.json
+[VERBOSE] /limits fetching usage from API...
+[VERBOSE] /limits API request: GET https://api.anthropic.com/api/oauth/usage
+[VERBOSE] /limits API request headers: {
+  "Accept": "application/json",
+  "Content-Type": "application/json",
+  "User-Agent": "claude-code/2.0.55",
+  "Authorization": "Bearer ...PIayAQAA",
+  "anthropic-beta": "oauth-2025-04-20"
+}
+[VERBOSE] /limits API HTTP status: 200 OK
+[VERBOSE] /limits API response headers: {
+  "anthropic-organization-id": "684cb0ba-85b8-4b30-a841-e92fb92cc97f",
+  "cf-cache-status": "DYNAMIC",
+  "cf-ray": "9f1c51bdae731963-FRA",
+  "connection": "keep-alive",
+  "content-encoding": "gzip",
+  "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+  "content-type": "application/json",
+  "date": "Sat, 25 Apr 2026 09:28:44 GMT",
+  "request-id": "req_011CaQFdzgRE9EEUSidAGeJZ",
+  "server": "cloudflare",
+  "server-timing": "x-originResponse;dur=126",
+  "set-cookie": "_cfuvid=2b6slnyTyUiwbkixDXhRA3BvOKQgLNj4dpYs3RxFdSI-1777109324.4240873-1.0.1.1-ufL8QRsDhUTaVETgFbDbekX7qJ0hJh7DIJ9JZxufUDw; HttpOnly; SameSite=None; Secure; Path=/; Domain=api.anthropic.com",
+  "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+  "transfer-encoding": "chunked",
+  "vary": "Accept-Encoding",
+  "x-envoy-upstream-service-time": "123",
+  "x-robots-tag": "none"
+}
+[VERBOSE] /limits API response body: {
+  "five_hour": {
+    "utilization": 0,
+    "resets_at": "2026-04-25T13:50:00.594103+00:00"
+  },
+  "seven_day": {
+    "utilization": 21,
+    "resets_at": "2026-04-30T14:00:00.594127+00:00"
+  },
+  "seven_day_oauth_apps": null,
+  "seven_day_opus": null,
+  "seven_day_sonnet": {
+    "utilization": 20,
+    "resets_at": "2026-04-30T14:00:00.594136+00:00"
+  },
+  "seven_day_cowork": null,
+  "seven_day_omelette": {
+    "utilization": 0,
+    "resets_at": null
+  },
+  "iguana_necktie": null,
+  "omelette_promotional": null,
+  "extra_usage": {
+    "is_enabled": false,
+    "monthly_limit": null,
+    "used_credits": null,
+    "utilization": null,
+    "currency": null
+  }
+}
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "8918b4c9-6992-4b35-ae97-7dba16076846",
+  "pid": null,
+  "status": "executing",
+  "exitCode": null,
+  "command": "solve https://github.com/link-assistant/hive-mind/issues/1678 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --au
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "e44d4086-0b1b-47f2-8733-3abe937e43c5",
+  "pid": null,
+  "status": "executed",
+  "exitCode": 0,
+  "command": "solve https://github.com/ideav/crm/issues/2117 --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary",
+
+/home/box/.bun/bin/$
+[VERBOSE] isolation-runner: Status query result: {
+  "uuid": "b1711bff-a275-45d4-b3ce-384077c5a18f",
+  "pid": null,
+  "status": "executing",
+  "exitCode": null,
+  "command": "solve https://github.com/link-assistant/hive-mind/issues/1680 --think max --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --au
+[VERBOSE] /solve_queue found 0 running claude processes
+[VERBOSE] /solve_queue found 0 running agent processes
+[VERBOSE] /solve_queue found 0 running codex processes

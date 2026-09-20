@@ -1,0 +1,11 @@
+# Source: full run log, lines 6896-6903 and 6965-6971
+# The ONLY draft -> ready transition in the entire 102244-line run.
+# It was performed by the AI model itself (a Bash tool call it decided to make),
+# not by hive-mind code: `gh pr edit 142 ... && gh pr ready 142`.
+# The command text is truncated here to the tail that matters.
+
+--- assistant tool_use (line ~6898), tail of the command ---
+&& gh pr ready 142"
+
+--- tool_result (line ~6968) ---
+        "content": "https://github.com/link-foundation/js-ai-driven-development-pipeline-template/pull/142\n✓ Pull request link-foundation/js-ai-driven-development-pipeline-template#142 is marked as \"ready for review\"",

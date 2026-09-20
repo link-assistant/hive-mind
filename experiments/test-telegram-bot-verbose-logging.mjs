@@ -175,8 +175,7 @@ test('Detailed verbose logging added to isForwardedOrReply function', () => {
   }
 
   // Check for result logging
-  if (!botCode.includes('[VERBOSE] isForwardedOrReply: FALSE') ||
-      !botCode.includes('[VERBOSE] isForwardedOrReply: TRUE')) {
+  if (!botCode.includes('[VERBOSE] isForwardedOrReply: FALSE') || !botCode.includes('[VERBOSE] isForwardedOrReply: TRUE')) {
     throw new Error('Result logging not found in isForwardedOrReply');
   }
 });
@@ -192,7 +191,7 @@ console.log('\n✅ All tests passed! Verbose logging is properly implemented.');
 console.log('\n📋 Summary of changes:');
 console.log('  ✓ Added --verbose CLI flag to yargs config');
 console.log('  ✓ Added VERBOSE constant based on argv and env var');
-console.log('  ✓ Added bot.on(\'message\') listener for debugging');
+console.log("  ✓ Added bot.on('message') listener for debugging");
 console.log('  ✓ Added verbose logging throughout command handlers');
 console.log('  ✓ Added verbose logging to webhook deletion and bot launch');
 console.log('  ✓ Added detailed field inspection in isForwardedOrReply function');

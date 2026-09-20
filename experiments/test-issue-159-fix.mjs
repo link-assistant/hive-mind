@@ -111,7 +111,6 @@ try {
   console.log('🔧 The key improvement:');
   console.log('   OLD: Fork sync only runs if `git remote add upstream` succeeds');
   console.log('   NEW: Fork sync runs if upstream remote exists (added or pre-existing)');
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   process.exit(1);

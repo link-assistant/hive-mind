@@ -1,0 +1,57 @@
+.github/workflows/release.yml:130:9: shellcheck reported issue in this script: SC2193:warning:2:32: The arguments to this comparison can never be equal. Make sure your syntax is correct [shellcheck]
+    |
+130 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:130:74: "github.head_ref" is potentially untrusted. avoid using it directly in inline scripts. instead, pass it through an environment variable. see https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions for more details [expression]
+.github/workflows/release.yml:496:9: shellcheck reported issue in this script: SC2086:info:2:28: Double quote to prevent globbing and word splitting [shellcheck]
+    |
+496 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:571:9: shellcheck reported issue in this script: SC2086:info:1:26: Double quote to prevent globbing and word splitting [shellcheck]
+    |
+571 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:571:9: shellcheck reported issue in this script: SC2086:info:2:80: Double quote to prevent globbing and word splitting [shellcheck]
+    |
+571 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:718:9: shellcheck reported issue in this script: SC2046:warning:5:33: Quote this to prevent word splitting [shellcheck]
+    |
+718 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:718:9: shellcheck reported issue in this script: SC2046:warning:6:3: Quote this to prevent word splitting [shellcheck]
+    |
+718 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:844:9: shellcheck reported issue in this script: SC2046:warning:5:33: Quote this to prevent word splitting [shellcheck]
+    |
+844 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:844:9: shellcheck reported issue in this script: SC2046:warning:6:3: Quote this to prevent word splitting [shellcheck]
+    |
+844 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:936:9: shellcheck reported issue in this script: SC2086:info:1:26: Double quote to prevent globbing and word splitting [shellcheck]
+    |
+936 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:936:9: shellcheck reported issue in this script: SC2086:info:2:80: Double quote to prevent globbing and word splitting [shellcheck]
+    |
+936 |         run: |
+    |         ^~~~
+.github/workflows/release.yml:1072:9: shellcheck reported issue in this script: SC2046:warning:5:33: Quote this to prevent word splitting [shellcheck]
+     |
+1072 |         run: |
+     |         ^~~~
+.github/workflows/release.yml:1072:9: shellcheck reported issue in this script: SC2046:warning:6:3: Quote this to prevent word splitting [shellcheck]
+     |
+1072 |         run: |
+     |         ^~~~
+.github/workflows/release.yml:1197:9: shellcheck reported issue in this script: SC2046:warning:5:33: Quote this to prevent word splitting [shellcheck]
+     |
+1197 |         run: |
+     |         ^~~~
+.github/workflows/release.yml:1197:9: shellcheck reported issue in this script: SC2046:warning:6:3: Quote this to prevent word splitting [shellcheck]
+     |
+1197 |         run: |
+     |         ^~~~

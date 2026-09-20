@@ -1,0 +1,56 @@
+{
+  "capturedAt": "2026-08-08T22:32:17Z",
+  "agent": {
+    "latestRelease": {
+      "tag": "js-v0.25.7",
+      "publishedAt": "2026-08-05T11:05:09Z",
+      "url": "https://github.com/link-assistant/agent/releases/tag/js-v0.25.7"
+    },
+    "main": {
+      "sha": "a51ec6fb399b1de4de94c946629d7ab34928bad5",
+      "modelConfig": "https://github.com/link-assistant/agent/blob/a51ec6fb399b1de4de94c946629d7ab34928bad5/js/src/cli/model-config.js#L68-L90",
+      "observation": "The malformed --model branch logs that the default will be used and then continues."
+    },
+    "reportedIssue": {
+      "number": 293,
+      "state": "OPEN",
+      "createdAt": "2026-08-08T16:35:53Z",
+      "title": "Fail closed when a detected --model flag cannot be parsed",
+      "url": "https://github.com/link-assistant/agent/issues/293"
+    }
+  },
+  "formalAi": {
+    "issue904FixRelease": {
+      "tag": "v0.326.1",
+      "publishedAt": "2026-08-04T14:38:14Z",
+      "url": "https://github.com/link-assistant/formal-ai/releases/tag/v0.326.1",
+      "guarantee": "Plan-only repository work ends planned_not_executed with a Planned, not executed answer."
+    },
+    "latestRelease": {
+      "tag": "v0.333.2",
+      "publishedAt": "2026-08-06T11:54:56Z",
+      "url": "https://github.com/link-assistant/formal-ai/releases/tag/v0.333.2"
+    },
+    "main": {
+      "sha": "5625a53a29291cc55f1c587c13d9bdb3c2c0f4c8",
+      "cargoVersion": "0.333.2"
+    },
+    "reportedLifecycleBlocker": {
+      "number": 982,
+      "state": "OPEN",
+      "createdAt": "2026-08-08T22:30:04Z",
+      "title": "Support unattended non-destructive persisted-memory upgrades",
+      "url": "https://github.com/link-assistant/formal-ai/issues/982"
+    }
+  },
+  "startCommand": {
+    "testedVersion": "0.30.3",
+    "reportedNetworkGap": {
+      "number": 154,
+      "state": "OPEN",
+      "createdAt": "2026-08-08T22:31:40Z",
+      "title": "Allow Docker-isolated sessions to join named networks",
+      "url": "https://github.com/link-foundation/start/issues/154"
+    }
+  }
+}

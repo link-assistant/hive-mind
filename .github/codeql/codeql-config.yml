@@ -1,0 +1,12 @@
+# CodeQL configuration for hive-mind.
+#
+# `dev/log/` holds evidence collected while investigating issues: downloaded CI
+# logs, GitHub API payloads and verbatim copies of upstream template scripts.
+# Those copies are not part of this project's source, are never executed here,
+# and cannot be fixed in this repository, so scanning them only produces
+# unactionable alerts. The same directory is already excluded from the
+# formatting and duplication checks (see .github and package.json scripts).
+name: hive-mind CodeQL config
+
+paths-ignore:
+  - dev/log

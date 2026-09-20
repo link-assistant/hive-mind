@@ -22,6 +22,7 @@ This directory contains reproducible test cases for issues encountered with the 
 16. **issue-16-unwanted-stdout.mjs** - Unwanted stdout output even with mirror:false
 17. **issue-17-trace-logs-in-ci.mjs** - command-stream emits trace logs when CI=true environment variable is set
 18. **issue-18-auto-quoting-control.mjs** - Lack of ability to turn off auto-quoting causes full command strings to be misinterpreted
+19. **issue-19-stderr-ignore-not-working.mjs** - The stderr: 'ignore' option doesn't actually suppress stderr output
 
 ## Critical Issues
 
@@ -38,6 +39,8 @@ This directory contains reproducible test cases for issues encountered with the 
 ⚠️ **Issue #17 - Trace Logs in CI Environment**: When the `CI` environment variable is set to `true` (as in GitHub Actions), command-stream emits trace logs to stderr in the format `[TRACE 2025-01-14T12:34:56.789Z] ...`. These logs appear even with `mirror: false` and `capture: true` options, breaking JSON parsing and causing test failures. Workaround: redirect stderr with `2>/dev/null` or filter trace logs from output.
 
 ⚠️ **Issue #18 - Auto-Quoting Control**: command-stream lacks the ability to turn off auto-quoting, which causes full command strings to be misinterpreted as quoted commands. This breaks telegram bot command execution and similar use cases where pre-constructed command strings need to be executed. Always use `child_process.spawn()` or `execSync()` for commands requiring precise argument control.
+
+⚠️ **Issue #19 - stderr: 'ignore' Option Doesn't Work**: The `$({ stderr: 'ignore' })` and `$({ silent: true, stderr: 'ignore' })` options don't actually suppress stderr output. This causes non-blocking error messages to pollute logs in worker processes and background tasks, making successful execution look broken. In hive-mind issue #583, this caused "fatal: not a git repository" and "YError: Not enough arguments" to appear with ERROR labels even though execution was proceeding normally. Workarounds: (1) Use shell-level redirection `2>/dev/null`, or (2) Use `execSync` with `stdio: [..., 'ignore']` for precise control.
 
 ## Running the Tests
 
@@ -92,12 +95,14 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
 ## UX Evaluation of command-stream Library
 
 ### Strengths
+
 1. **Clean syntax** - The `$` template literal provides an elegant, bash-like syntax
 2. **Cross-runtime support** - Works with both Node.js and Bun (with caveats)
 3. **Streaming support** - Ability to handle real-time output via `.stream()`
 4. **Promise-based** - Modern async/await support
 
 ### Pain Points
+
 1. **Shell escaping complexity** - Interpolation of complex strings fails silently or unexpectedly
 2. **Automatic quote addition** - `"${variable}"` syntax adds unwanted single quotes to output
 3. **Inconsistent error API** - Uses `error.code` instead of standard `error.exitCode`
@@ -108,27 +113,32 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
 ### Developer Experience Issues
 
 #### 1. Escaping Surprises
+
 - **Expected**: String interpolation "just works"
 - **Reality**: Complex strings with quotes, backticks, or newlines break commands
 - **Impact**: Developers waste time debugging shell escaping issues
 
 #### 2. Automatic Quote Addition (Critical Issue #9)
+
 - **Expected**: `"${variable}"` passes the variable value cleanly
 - **Reality**: command-stream adds single quotes, resulting in `'value'` instead of `value`
 - **Impact**: GitHub issues/PRs get titles with quotes, data corruption in production
 - **Workaround**: Must use `child_process.execSync()` instead for precise string handling
 
 #### 3. Error Handling Confusion
+
 - **Expected**: Standard Node.js error properties (`exitCode`)
 - **Reality**: Custom property names (`code`)
 - **Impact**: Copy-pasted error handling code fails
 
 #### 4. Runtime Inconsistency
+
 - **Expected**: Same behavior across Node.js and Bun
 - **Reality**: Bun fails with ENOENT errors for basic commands
 - **Impact**: Scripts work in development but fail in production
 
 #### 5. Silent Failures
+
 - **Expected**: Clear errors when commands fail
 - **Reality**: Some escaping issues cause silent data corruption
 - **Impact**: Bugs reach production undetected
@@ -165,11 +175,12 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
 ### For Developers Using command-stream
 
 1. **Critical: Avoid quote interpolation bug**
+
    ```javascript
    // DON'T: This adds unwanted single quotes to the output!
    await $`gh issue create --title "${title}"`;
    // Results in: issue title becomes 'My Title' instead of: My Title
-   
+
    // WORKAROUND: Use child_process for precise string handling
    const { execSync } = await import('child_process');
    const command = `gh issue create --title "${title}"`;
@@ -177,15 +188,17 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
    ```
 
 2. **Defensive coding practices**
+
    ```javascript
    // DON'T: Direct interpolation of user content
    await $`echo "${userContent}" > file.txt`;
-   
+
    // DO: Use fs operations for complex content
    await fs.writeFile('file.txt', userContent);
    ```
 
 3. **Error handling pattern**
+
    ```javascript
    try {
      const result = await $`command`;
@@ -198,6 +211,7 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
    ```
 
 4. **Runtime detection**
+
    ```javascript
    const runtime = process.versions.bun ? 'bun' : 'node';
    if (runtime === 'bun') {
@@ -215,6 +229,7 @@ When dealing with user-generated or complex content, prefer Node.js fs operation
    - Authentication operations: Fall back to child_process when command-stream fails silently
    - **CI environments**: Add `2>/dev/null` to commands or filter trace logs (critical issue #17)
    - **Full command strings**: Use spawn() or execSync() for pre-constructed commands (critical issue #18)
+   - **Suppressing stderr**: Use `2>/dev/null` or execSync with `stdio` options; don't rely on `$({ stderr: 'ignore' })` (critical issue #19)
 
 ## Alternative Approaches
 
@@ -228,6 +243,7 @@ If command-stream issues become blockers, consider:
 ## CI/CD Specific Issues
 
 ### Issue #17: Trace Logs in CI Environment
+
 When `CI=true` is set (GitHub Actions, GitLab CI, etc.), command-stream emits verbose trace logs to stderr:
 
 ```javascript
@@ -239,7 +255,8 @@ JSON.parse(result.stdout); // Fails due to trace logs mixed in
 const result = await $`echo '{"status":"ok"}' 2>/dev/null`;
 
 // Workaround 2: Filter trace logs
-const output = result.stdout.split('\n')
+const output = result.stdout
+  .split('\n')
   .filter(line => !line.startsWith('[TRACE'))
   .join('\n');
 ```
@@ -249,6 +266,7 @@ See `issue-17-technical-analysis.md` for detailed analysis.
 ## Conclusion
 
 While command-stream offers an elegant syntax for shell operations, it currently has significant UX issues that can lead to frustration and bugs. The library would benefit from:
+
 - Better automatic escaping
 - Standardized error handling
 - Improved Bun compatibility
@@ -256,6 +274,7 @@ While command-stream offers an elegant syntax for shell operations, it currently
 - Comprehensive documentation
 
 Until these issues are addressed, developers should:
+
 - Prefer fs operations over shell commands
 - Always test with actual production data
 - Have fallback strategies for shell operations

@@ -1,0 +1,37 @@
+
+📋 hive-cleanup command (#1848) Tests
+
+✅ parseTaskUrl parses a PR URL
+✅ parseTaskUrl parses an issue URL
+✅ parseTaskUrl tolerates a trailing .git and ssh form
+✅ parseTaskUrl returns null for non-GitHub strings
+✅ extractTaskRefsFromCommand extracts the URL from a solve command (issue gist)
+✅ extractTaskRefsFromCommand dedupes repeated references
+✅ parseRemoteUrl handles https and ssh remotes
+✅ folderMatchesActiveTask matches a PR head branch exactly
+✅ folderMatchesActiveTask matches an issue task by issue-prefix + repo
+✅ folderMatchesActiveTask does NOT match a different issue number
+✅ folderMatchesActiveTask does NOT match issue branch in a different repo
+✅ folderMatchesActiveTask returns null for non-git folders
+✅ matchHiveMindPattern recognises solve workspace clones
+✅ matchHiveMindPattern ignores unrelated names
+✅ classifyEntry keeps the protected start-command folder by default
+✅ classifyEntry removes start-command when forced
+✅ classifyEntry keeps system-owned temp by default
+✅ classifyEntry keeps the cleanup process own clone (self)
+✅ classifyEntry keeps a process-held folder
+✅ classifyEntry keeps a folder matching an active task branch
+✅ classifyEntry keeps a dirty clone by default and removes it with keepDirty=false
+✅ classifyEntry removes an inactive hive-mind clone
+✅ classifyEntry keeps unrecognised entries unless --all
+✅ classifyEntry: --all still keeps protected, system and active entries
+✅ classifyEntries reproduces the issue gist scenario
+✅ formatBytes formats sizes like du -h
+✅ summarize aggregates counts and bytes
+✅ formatTaskSummary includes PR and session context
+✅ formatEntryContext includes active task and git context
+✅ describeReason returns human-readable labels
+
+============================================================
+
+📊 Results: 30 passed, 0 failed, 30 total

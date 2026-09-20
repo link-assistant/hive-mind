@@ -1,0 +1,1052 @@
+diff --git a/.changeset/issue-1999-resource-diagnostics.md b/.changeset/issue-1999-resource-diagnostics.md
+new file mode 100644
+index 000000000..2434ee7f1
+--- /dev/null
++++ b/.changeset/issue-1999-resource-diagnostics.md
+@@ -0,0 +1,5 @@
++---
++"@link-assistant/hive-mind": patch
++---
++
++Add solve resource diagnostics and Docker disk-usage fallback markers so Telegram completion messages can show full container filesystem usage even when the task container cannot be inspected after exit.
+diff --git a/docs/case-studies/issue-1999/README.md b/docs/case-studies/issue-1999/README.md
+new file mode 100644
+index 000000000..8176a62db
+--- /dev/null
++++ b/docs/case-studies/issue-1999/README.md
+@@ -0,0 +1,131 @@
++# Case Study — Issue #1999
++
++**Title:** No space used on finish of container
++**Issue:** https://github.com/link-assistant/hive-mind/issues/1999
++**Pull Request:** https://github.com/link-assistant/hive-mind/pull/2000
++**Branch:** `issue-1999-8ce06377068e`
++
++## Summary
++
++Issue #1999 reports that the Telegram completion message for a Docker-isolated
++`/solve` run showed the container filesystem size only at start, not at
++completion. The attached screenshot proves the gap: the `Disk usage` section
++contains `Container filesystem size: On start: 52 KB`, but no `On completion`
++line.
++
++The deeper requirement is broader than the screenshot:
++
++- show full container / filesystem disk usage after the task finishes, including
++  temp directories and software installed outside the cloned repository;
++- print CPU, memory, and disk indicators at the start and end of `solve`;
++- print the same indicators around AI restart iterations;
++- have the Telegram bot log CPU, memory, and disk usage periodically from
++  outside the task container;
++- compile the collected issue/PR evidence and analysis in this folder.
++
++## Evidence Collected
++
++| File                                                                     | Purpose                                                                   |
++| ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
++| [`issue.json`](./issue.json)                                             | Issue metadata and body captured with `gh issue view`.                    |
++| [`issue-comments.json`](./issue-comments.json)                           | Issue comments, empty at capture time.                                    |
++| [`pr-conversation-comments.json`](./pr-conversation-comments.json)       | PR conversation comments, empty at capture time.                          |
++| [`pr-review-comments.json`](./pr-review-comments.json)                   | PR inline review comments, empty at capture time.                         |
++| [`pr-reviews.json`](./pr-reviews.json)                                   | PR reviews, empty at capture time.                                        |
++| [`assets/issue-1999-screenshot.png`](./assets/issue-1999-screenshot.png) | Screenshot from the issue showing the missing completion filesystem size. |
++
++## Timeline
++
++| Time (UTC)             | Event                                                      |
++| ---------------------- | ---------------------------------------------------------- |
++| `2026-06-29T18:02:10Z` | Issue #1999 opened by `konard`.                            |
++| `2026-06-29T18:03:41Z` | Issue updated with the screenshot attachment.              |
++| `2026-06-29T18:04:49Z` | Draft PR #2000 opened on branch `issue-1999-8ce06377068e`. |
++
++There were no issue comments, PR conversation comments, PR inline comments, or
++reviews when this case study was compiled.
++
++## Existing Behavior
++
++Two diagnostics already existed before this issue:
++
++- `solve.disk-diagnostics.lib.mjs` writes repository-size markers after clone and
++  after AI execution. These measure the working tree, not the whole container.
++- `session-monitor.lib.mjs` appends Docker container filesystem size to the
++  Telegram completion message when it can inspect the task container and read
++  the Docker writable-layer size.
++
++This explains the screenshot. The start size was captured while the Docker
++container was still inspectable. The completion size depended on a later monitor
++probe. If that probe returned `null`, the formatter had no fallback and therefore
++printed only `On start`.
++
++Docker's official CLI docs say `docker inspect --size` adds container size fields
++and works for stopped containers, but that still assumes the container exists and
++is inspectable when the monitor runs. The Engine API documents the same size
++data as `SizeRw` / `SizeRootFs` when size information is requested.
++
++## Root Cause
++
++The monitor was relying on an outside-container Docker inspection after the task
++had already reached a terminal state. That is fragile for detached automation:
++the start-command lifecycle or cleanup policy can remove the container, hide it
++behind an unavailable status record, or make the monitor unable to resolve the
++container name by the time it builds the final Telegram message.
++
++The repository-size markers were not enough to compensate because they only
++measure `tempDir`. The issue explicitly asks for disk usage that includes
++software, package caches, and temporary directories created outside the cloned
++repository.
++
++## Solution Applied
++
++The fix adds a second diagnostics channel that is written by `solve` itself from
++inside the task before the container exits:
++
++- `src/solve.resource-diagnostics.lib.mjs` captures CPU load, CPU count, memory
++  totals/available/process RSS, and full filesystem usage with `fs.statfsSync`.
++- `src/solve.mjs` records resource snapshots at solve start, after clone, after
++  AI execution, and just before `safeExit`.
++- `src/solve.restart-shared.lib.mjs` records snapshots before and after each AI
++  restart iteration.
++- `src/session-monitor.lib.mjs` parses the `📈 [RESOURCES]` markers and uses the
++  final solve snapshot as the Docker completion filesystem fallback when Docker
++  inspection cannot produce `containerFilesystemAfterBytes`.
++- `src/bot-lifecycle.lib.mjs` includes a compact CPU/memory/disk summary in each
++  heartbeat log entry, so operators also get outside-container telemetry from
++  the Telegram bot process.
++
++The fallback is intentionally narrow: an explicit Docker completion size still
++wins. The solve-log fallback is only used for Docker sessions when the completion
++Docker size is missing.
++
++Node's official `fs` documentation lists `fs.statfsSync(path[, options])` as the
++sync filesystem statistics API. That gives the in-container measurement a stable
++Node built-in instead of shelling out to `df`.
++
++## Verification Plan
++
++Automated tests added:
++
++- `tests/test-issue-1999-resource-diagnostics.mjs` validates resource snapshot
++  capture, marker round-tripping, best-final-marker selection, formatting, and
++  heartbeat summary shape.
++- `tests/test-issue-1999-session-monitor-disk-fallback.mjs` reproduces the
++  screenshot-class failure: Docker start size exists, completion Docker inspect
++  is missing, and the monitor must still render a container `On completion`
++  size from the final solve resource marker.
++- `tests/test-issue-1927-bot-lifecycle.mjs` was extended to assert that heartbeat
++  entries carry resource telemetry and continue logging when resource capture
++  fails.
++
++Related regression tests to keep running:
++
++- `tests/test-issue-1945-disk-diagnostics.mjs`
++- `tests/test-issue-1945-session-monitor-integration.mjs`
++
++## References
++
++- Docker CLI `docker inspect --size`: https://docs.docker.com/reference/cli/docker/inspect/
++- Docker Engine API container size fields: https://docs.docker.com/reference/api/engine/version/v1.43/
++- Node.js `fs.statfsSync`: https://nodejs.org/api/fs.html
+diff --git a/docs/case-studies/issue-1999/assets/issue-1999-screenshot.png b/docs/case-studies/issue-1999/assets/issue-1999-screenshot.png
+new file mode 100644
+index 000000000..42282fdcd
+Binary files /dev/null and b/docs/case-studies/issue-1999/assets/issue-1999-screenshot.png differ
+diff --git a/docs/case-studies/issue-1999/issue-comments.json b/docs/case-studies/issue-1999/issue-comments.json
+new file mode 100644
+index 000000000..fe51488c7
+--- /dev/null
++++ b/docs/case-studies/issue-1999/issue-comments.json
+@@ -0,0 +1 @@
++[]
+diff --git a/docs/case-studies/issue-1999/issue.json b/docs/case-studies/issue-1999/issue.json
+new file mode 100644
+index 000000000..5a5e0a34a
+--- /dev/null
++++ b/docs/case-studies/issue-1999/issue.json
+@@ -0,0 +1,12 @@
++{
++  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
++  "body": "<img width=\"681\" height=\"782\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/652475dd-99c5-4b17-a32e-ad14bf42ef09\" />\n\nContainer may contain not only the folder with repository, AI can install software, and use other tmp folders, so we need to make sure we are able to check full disk space after command is finished. If we cannot catch the moment of `solve` command finished, and the container already exited we must must print CPU/memory/and disk usage in solve command before exist, so we can get it from logs in telegram bot.\n\nSo we can display Disk usage, and for debug we should output CPU, memory, disk indicators on start of solve command and at the end of solve command, so if anything will fail we might know why. Also we should display these between AI restarts. So we might catch diagnostics information when AI sessions are not active.\n\nAlso each 5 minutes, telegram bot can measure these from outside the container, so we at least get the last valid value. And these should be logged in telegram bot log.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code. Also double check to fully apply requirements to entire codebase, so if we have issue in multiple places, it should be fixed in all them.\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.\n\n",
++  "comments": [],
++  "createdAt": "2026-06-29T18:02:10Z",
++  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
++  "number": 1999,
++  "state": "OPEN",
++  "title": "No space used on finish of container",
++  "updatedAt": "2026-06-29T18:03:41Z",
++  "url": "https://github.com/link-assistant/hive-mind/issues/1999"
++}
+diff --git a/docs/case-studies/issue-1999/pr-conversation-comments.json b/docs/case-studies/issue-1999/pr-conversation-comments.json
+new file mode 100644
+index 000000000..fe51488c7
+--- /dev/null
++++ b/docs/case-studies/issue-1999/pr-conversation-comments.json
+@@ -0,0 +1 @@
++[]
+diff --git a/docs/case-studies/issue-1999/pr-review-comments.json b/docs/case-studies/issue-1999/pr-review-comments.json
+new file mode 100644
+index 000000000..fe51488c7
+--- /dev/null
++++ b/docs/case-studies/issue-1999/pr-review-comments.json
+@@ -0,0 +1 @@
++[]
+diff --git a/docs/case-studies/issue-1999/pr-reviews.json b/docs/case-studies/issue-1999/pr-reviews.json
+new file mode 100644
+index 000000000..fe51488c7
+--- /dev/null
++++ b/docs/case-studies/issue-1999/pr-reviews.json
+@@ -0,0 +1 @@
++[]
+diff --git a/src/bot-lifecycle.lib.mjs b/src/bot-lifecycle.lib.mjs
+index d472a5ad9..a723c32da 100644
+--- a/src/bot-lifecycle.lib.mjs
++++ b/src/bot-lifecycle.lib.mjs
+@@ -12,6 +12,8 @@
+  * @see https://github.com/link-assistant/hive-mind/issues/1927
+  */
+ 
++import { RESOURCE_PHASE_BOT_HEARTBEAT, captureResourceSnapshot, summarizeResourceSnapshot } from './solve.resource-diagnostics.lib.mjs';
++
+ const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
+ 
+ /**
+@@ -26,14 +28,28 @@ const DEFAULT_HEARTBEAT_INTERVAL_MS = 60 * 1000;
+  *
+  * @returns {{ start: () => void, stop: () => void, beat: () => void, get timer(): any }}
+  */
+-export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval } = {}) {
++export function createHeartbeat({ logger, getActiveSessionCount, intervalMs = DEFAULT_HEARTBEAT_INTERVAL_MS, processImpl = process, setIntervalImpl = setInterval, clearIntervalImpl = clearInterval, captureResources = captureResourceSnapshot, resourceDiskPath = '/' } = {}) {
+   let timer = null;
+ 
+   const beat = () => {
+     try {
++      let resources = null;
++      try {
++        if (typeof captureResources === 'function') {
++          resources = summarizeResourceSnapshot(
++            captureResources({
++              phase: RESOURCE_PHASE_BOT_HEARTBEAT,
++              diskPath: resourceDiskPath,
++            })
++          );
++        }
++      } catch {
++        resources = null;
++      }
+       logger.heartbeat({
+         activeSessions: typeof getActiveSessionCount === 'function' ? getActiveSessionCount(false) : undefined,
+         uptimeSec: Math.floor(processImpl.uptime()),
++        resources,
+       });
+     } catch {
+       /* heartbeat must never crash the bot */
+diff --git a/src/session-monitor.lib.mjs b/src/session-monitor.lib.mjs
+index 2e5041c90..38c553291 100644
+--- a/src/session-monitor.lib.mjs
++++ b/src/session-monitor.lib.mjs
+@@ -343,10 +343,11 @@ async function resolvePullRequestUrlFromSessionLog(logPath, ctx, { verbose = fal
+  * build the Telegram extraSection. Returns an empty string if there is no
+  * repository or docker filesystem data to show.
+  */
+-async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
++export async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, readFile = fs.readFile, isolationBackend = null, containerFilesystemStartBytes = null, containerFilesystemAfterBytes = null } = {}) {
+   if (!logPath && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
+   try {
+     const diskLib = await import('./solve.disk-diagnostics.lib.mjs');
++    const resourceLib = await import('./solve.resource-diagnostics.lib.mjs');
+     let logText = '';
+     if (logPath) {
+       try {
+@@ -358,11 +359,17 @@ async function buildDiskDiagnosticsExtraSection(logPath, { verbose = false, read
+       }
+     }
+     const parsed = diskLib.parseDiskMarkers(logText);
+-    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(containerFilesystemStartBytes) && !Number.isFinite(containerFilesystemAfterBytes)) return '';
++    const parsedResources = resourceLib.parseResourceMarkers(logText);
++    const bestResourceMarker = resourceLib.selectBestDiskResourceMarker(parsedResources);
++    const solveStartResourceMarker = parsedResources.byPhase?.[resourceLib.RESOURCE_PHASE_SOLVE_START] || null;
++    const useResourceFallback = String(isolationBackend || '').toLowerCase() === 'docker' && !Number.isFinite(containerFilesystemAfterBytes) && Number.isFinite(bestResourceMarker?.disk?.usedBytes);
++    const effectiveContainerFilesystemAfterBytes = useResourceFallback ? bestResourceMarker.disk.usedBytes : containerFilesystemAfterBytes;
++    const effectiveContainerFilesystemStartBytes = useResourceFallback && Number.isFinite(solveStartResourceMarker?.disk?.usedBytes) ? solveStartResourceMarker.disk.usedBytes : containerFilesystemStartBytes;
++    if (!parsed.afterClone && !parsed.afterAgent && !Number.isFinite(effectiveContainerFilesystemStartBytes) && !Number.isFinite(effectiveContainerFilesystemAfterBytes)) return '';
+     return diskLib.formatDiskDiagnosticsBlock(parsed, {
+       isolationBackend,
+-      containerFilesystemStartBytes,
+-      containerFilesystemAfterBytes,
++      containerFilesystemStartBytes: effectiveContainerFilesystemStartBytes,
++      containerFilesystemAfterBytes: effectiveContainerFilesystemAfterBytes,
+     });
+   } catch (error) {
+     if (verbose) {
+diff --git a/src/solve.mjs b/src/solve.mjs
+index 6fefd5cc1..ca03342ce 100755
+--- a/src/solve.mjs
++++ b/src/solve.mjs
+@@ -49,7 +49,8 @@ const { runKeepWorkingUntilDone } = await import('./solve.keep-working.lib.mjs')
+ const { runEscalation } = await import('./solve.escalate.lib.mjs');
+ const { finalizeSolveProcess } = await import('./solve.finalize.lib.mjs');
+ const exitHandler = await import('./exit-handler.lib.mjs');
+-const { initializeExitHandler, installGlobalExitHandlers, safeExit, logActiveHandles } = exitHandler;
++const { initializeExitHandler, installGlobalExitHandlers, safeExit: baseSafeExit, logActiveHandles } = exitHandler;
++const { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
+ const { createInterruptWrapper } = await import('./solve.interrupt.lib.mjs');
+ // Issue #1823: working-session guard for --do-not-shutdown-in-the-middle-of-working-session.
+ const { configureWorkingSession, beginWorkingSession, endWorkingSession } = await import('./working-session.lib.mjs');
+@@ -69,9 +70,7 @@ const { prepareFeedbackAndTimestamps, checkUncommittedChanges, checkForkActions
+ const { validateAndExitOnInvalidClaudeSubAgentModel, validateAndExitOnInvalidModel } = await import('./models/index.mjs');
+ const { autoAcceptInviteForRepo } = await import('./solve.accept-invite.lib.mjs');
+ const { handleAutoForkOption, handleMaintainerForkAccess } = await import('./solve.fork-detection.lib.mjs');
+-// Initialize log file early (before argument parsing) to capture all output
+ const logFile = await initializeLogFile(null);
+-// Log version and raw command IMMEDIATELY after log file initialization
+ const versionInfo = await getVersionInfo();
+ await log('');
+ await log(`🚀 solve v${versionInfo}`);
+@@ -80,6 +79,15 @@ await log('🔧 Raw command executed:');
+ await log(`   ${rawCommand}`);
+ await log('');
+ 
++let finalResourceSnapshotRecorded = false;
++const safeExit = async (code = 0, reason = 'Process completed', options = {}) => {
++  if (!finalResourceSnapshotRecorded) {
++    finalResourceSnapshotRecorded = true;
++    await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_EXIT, log, diskPath: '/', label: `solve exit ${code}` });
++  }
++  return await baseSafeExit(code, reason, options);
++};
++
+ let argv;
+ try {
+   argv = await parseArguments(yargs, hideBin);
+@@ -98,6 +106,7 @@ configureGitHubRateLimitLogging({
+   enabled: argv.githubRateLimitsLogging === true,
+   log,
+ });
++await recordResourceSnapshot({ phase: RESOURCE_PHASE_SOLVE_START, log, diskPath: '/', label: 'solve start' });
+ 
+ // Early logs go to cwd; custom log dir takes effect after argv is parsed
+ // Conditionally import tool-specific functions after argv is parsed
+@@ -507,6 +516,7 @@ try {
+   });
+ 
+   cleanupContext.diskDiagnostics = { beforeBytes: await recordAfterCloneSize({ tempDir, log }) };
++  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_CLONE, log, diskPath: '/', label: 'after repository clone' });
+ 
+   // Verify default branch and status using the new module
+   // Pass argv, owner, repo, issueUrl for empty repository auto-initialization (--auto-init-repository)
+@@ -830,6 +840,7 @@ try {
+   } catch (diskError) {
+     await log(`⚠️  Disk-size measurement failed: ${cleanErrorMessage(diskError)}`, { level: 'warning', verbose: true });
+   }
++  await recordResourceSnapshot({ phase: RESOURCE_PHASE_AFTER_AGENT, log, diskPath: '/', label: 'after AI execution' });
+ 
+   // Issue #1823: Mark the end of the AI working session. If a graceful-shutdown interrupt arrived
+   // during the session (deferred by the working-session guard), honor it now: auto-commit any
+diff --git a/src/solve.resource-diagnostics.lib.mjs b/src/solve.resource-diagnostics.lib.mjs
+new file mode 100644
+index 000000000..4e58d9183
+--- /dev/null
++++ b/src/solve.resource-diagnostics.lib.mjs
+@@ -0,0 +1,322 @@
++import fs from 'node:fs';
++import os from 'node:os';
++
++export const RESOURCE_MARKER_PREFIX = '📈 [RESOURCES]';
++
++export const RESOURCE_PHASE_SOLVE_START = 'solve_start';
++export const RESOURCE_PHASE_AFTER_CLONE = 'after_clone';
++export const RESOURCE_PHASE_AFTER_AGENT = 'after_agent';
++export const RESOURCE_PHASE_SOLVE_EXIT = 'solve_exit';
++export const RESOURCE_PHASE_RESTART_BEFORE = 'restart_before';
++export const RESOURCE_PHASE_RESTART_AFTER = 'restart_after';
++export const RESOURCE_PHASE_BOT_HEARTBEAT = 'bot_heartbeat';
++
++const RESOURCE_PHASES_BY_PREFERENCE = [RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_START, RESOURCE_PHASE_RESTART_BEFORE];
++
++function finiteNumber(value) {
++  return Number.isFinite(value) ? value : null;
++}
++
++function clampPercent(value) {
++  if (!Number.isFinite(value)) return null;
++  return Math.max(0, Math.min(100, value));
++}
++
++function readLinuxMemAvailableBytes(readFileSync = fs.readFileSync, platform = process.platform) {
++  if (platform !== 'linux') return null;
++  try {
++    const text = readFileSync('/proc/meminfo', 'utf8');
++    const match = text.match(/^MemAvailable:\s+(\d+)\s+kB$/m);
++    if (!match) return null;
++    return Number.parseInt(match[1], 10) * 1024;
++  } catch {
++    return null;
++  }
++}
++
++export function captureResourceSnapshot(options = {}) {
++  const { phase = 'snapshot', diskPath = '/', now = () => new Date(), osImpl = os, fsImpl = fs, processImpl = process } = options;
++
++  const timestamp = (() => {
++    try {
++      return now().toISOString();
++    } catch {
++      return new Date().toISOString();
++    }
++  })();
++
++  const load = (() => {
++    try {
++      const values = osImpl.loadavg();
++      return {
++        load1: finiteNumber(values[0]),
++        load5: finiteNumber(values[1]),
++        load15: finiteNumber(values[2]),
++      };
++    } catch {
++      return { load1: null, load5: null, load15: null };
++    }
++  })();
++
++  const cpuCount = (() => {
++    try {
++      const cpus = osImpl.cpus();
++      return Array.isArray(cpus) ? cpus.length : null;
++    } catch {
++      return null;
++    }
++  })();
++
++  const totalMemoryBytes = (() => {
++    try {
++      return finiteNumber(osImpl.totalmem());
++    } catch {
++      return null;
++    }
++  })();
++
++  const freeMemoryBytes = (() => {
++    try {
++      return finiteNumber(osImpl.freemem());
++    } catch {
++      return null;
++    }
++  })();
++
++  const availableMemoryBytes = readLinuxMemAvailableBytes(fsImpl.readFileSync?.bind(fsImpl), processImpl.platform || process.platform) ?? freeMemoryBytes;
++  const usedMemoryBytes = totalMemoryBytes !== null && availableMemoryBytes !== null ? Math.max(0, totalMemoryBytes - availableMemoryBytes) : null;
++
++  const processMemory = (() => {
++    try {
++      const usage = processImpl.memoryUsage();
++      return {
++        rssBytes: finiteNumber(usage.rss),
++        heapUsedBytes: finiteNumber(usage.heapUsed),
++      };
++    } catch {
++      return { rssBytes: null, heapUsedBytes: null };
++    }
++  })();
++
++  const disk = (() => {
++    const path = String(diskPath || '/');
++    try {
++      if (typeof fsImpl.statfsSync !== 'function') {
++        return { path, totalBytes: null, freeBytes: null, availableBytes: null, usedBytes: null, usedPercent: null, error: 'statfs unavailable' };
++      }
++      const stat = fsImpl.statfsSync(path);
++      const blockSize = Number(stat.bsize || stat.frsize || 0);
++      const blocks = Number(stat.blocks);
++      const bfree = Number(stat.bfree);
++      const bavail = Number(stat.bavail);
++      const totalBytes = Number.isFinite(blockSize) && Number.isFinite(blocks) ? blockSize * blocks : null;
++      const freeBytes = Number.isFinite(blockSize) && Number.isFinite(bfree) ? blockSize * bfree : null;
++      const availableBytes = Number.isFinite(blockSize) && Number.isFinite(bavail) ? blockSize * bavail : freeBytes;
++      const usedBytes = totalBytes !== null && freeBytes !== null ? Math.max(0, totalBytes - freeBytes) : null;
++      const usedPercent = totalBytes && usedBytes !== null ? clampPercent((usedBytes / totalBytes) * 100) : null;
++      return { path, totalBytes, freeBytes, availableBytes, usedBytes, usedPercent, error: null };
++    } catch (error) {
++      return {
++        path,
++        totalBytes: null,
++        freeBytes: null,
++        availableBytes: null,
++        usedBytes: null,
++        usedPercent: null,
++        error: error?.message || String(error),
++      };
++    }
++  })();
++
++  return {
++    phase: String(phase || 'snapshot'),
++    timestamp,
++    cpu: { ...load, cpuCount },
++    memory: {
++      totalBytes: totalMemoryBytes,
++      freeBytes: freeMemoryBytes,
++      availableBytes: availableMemoryBytes,
++      usedBytes: usedMemoryBytes,
++      processRssBytes: processMemory.rssBytes,
++      processHeapUsedBytes: processMemory.heapUsedBytes,
++    },
++    disk,
++  };
++}
++
++export function formatBytes(bytes) {
++  if (!Number.isFinite(bytes)) return '? B';
++  const abs = Math.abs(bytes);
++  if (abs >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
++  if (abs >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
++  if (abs >= 1024) return `${Math.round(bytes / 1024)} KB`;
++  return `${Math.round(bytes)} B`;
++}
++
++function formatNumber(value, decimals = 2) {
++  return Number.isFinite(value) ? value.toFixed(decimals) : '?';
++}
++
++function encodeValue(value) {
++  if (value === null || value === undefined) return 'null';
++  return encodeURIComponent(String(value));
++}
++
++function numberField(name, value) {
++  return Number.isFinite(value) ? `${name}=${value}` : `${name}=null`;
++}
++
++export function buildResourceMarker(snapshot) {
++  const s = snapshot || {};
++  const cpu = s.cpu || {};
++  const memory = s.memory || {};
++  const disk = s.disk || {};
++  return [
++    RESOURCE_MARKER_PREFIX,
++    `phase=${encodeValue(s.phase || 'snapshot')}`,
++    `ts=${encodeValue(s.timestamp || new Date().toISOString())}`,
++    numberField('load1', cpu.load1),
++    numberField('load5', cpu.load5),
++    numberField('load15', cpu.load15),
++    numberField('cpuCount', cpu.cpuCount),
++    numberField('memTotalBytes', memory.totalBytes),
++    numberField('memAvailableBytes', memory.availableBytes),
++    numberField('memUsedBytes', memory.usedBytes),
++    numberField('processRssBytes', memory.processRssBytes),
++    `diskPath=${encodeValue(disk.path || '/')}`,
++    numberField('diskTotalBytes', disk.totalBytes),
++    numberField('diskAvailableBytes', disk.availableBytes),
++    numberField('diskUsedBytes', disk.usedBytes),
++    numberField('diskUsedPercent', disk.usedPercent),
++    disk.error ? `error=${encodeValue(disk.error)}` : null,
++    `mem=${encodeValue(`${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total`)}`,
++    `disk=${encodeValue(`${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total`)}`,
++  ]
++    .filter(Boolean)
++    .join(' ');
++}
++
++function parseNumber(value) {
++  if (value === 'null' || value === undefined) return null;
++  const n = Number(value);
++  return Number.isFinite(n) ? n : null;
++}
++
++function parseMarkerLine(line) {
++  const idx = line.indexOf(RESOURCE_MARKER_PREFIX);
++  if (idx < 0) return null;
++  const payload = line.slice(idx + RESOURCE_MARKER_PREFIX.length).trim();
++  const parts = payload.split(/\s+/).filter(Boolean);
++  const fields = {};
++  for (const part of parts) {
++    const eq = part.indexOf('=');
++    if (eq <= 0) continue;
++    fields[part.slice(0, eq)] = part.slice(eq + 1);
++  }
++  const phase = decodeURIComponent(fields.phase || 'snapshot');
++  return {
++    phase,
++    timestamp: decodeURIComponent(fields.ts || ''),
++    cpu: {
++      load1: parseNumber(fields.load1),
++      load5: parseNumber(fields.load5),
++      load15: parseNumber(fields.load15),
++      cpuCount: parseNumber(fields.cpuCount),
++    },
++    memory: {
++      totalBytes: parseNumber(fields.memTotalBytes),
++      availableBytes: parseNumber(fields.memAvailableBytes),
++      usedBytes: parseNumber(fields.memUsedBytes),
++      processRssBytes: parseNumber(fields.processRssBytes),
++    },
++    disk: {
++      path: decodeURIComponent(fields.diskPath || '/'),
++      totalBytes: parseNumber(fields.diskTotalBytes),
++      availableBytes: parseNumber(fields.diskAvailableBytes),
++      usedBytes: parseNumber(fields.diskUsedBytes),
++      usedPercent: parseNumber(fields.diskUsedPercent),
++      error: fields.error ? decodeURIComponent(fields.error) : null,
++    },
++  };
++}
++
++export function parseResourceMarkers(logText) {
++  if (typeof logText !== 'string' || !logText) return { markers: [], byPhase: {} };
++  const markers = [];
++  const byPhase = {};
++  for (const line of logText.split(/\r?\n/)) {
++    const marker = parseMarkerLine(line);
++    if (!marker) continue;
++    markers.push(marker);
++    byPhase[marker.phase] = marker;
++  }
++  return { markers, byPhase };
++}
++
++export function selectBestDiskResourceMarker(parsed) {
++  const byPhase = parsed?.byPhase || {};
++  for (const phase of RESOURCE_PHASES_BY_PREFERENCE) {
++    const marker = byPhase[phase];
++    if (Number.isFinite(marker?.disk?.usedBytes)) return marker;
++  }
++  const markers = Array.isArray(parsed?.markers) ? parsed.markers : [];
++  for (let i = markers.length - 1; i >= 0; i--) {
++    if (Number.isFinite(markers[i]?.disk?.usedBytes)) return markers[i];
++  }
++  return null;
++}
++
++export function formatResourceSnapshotForLog(snapshot, label = null) {
++  const s = snapshot || {};
++  const phaseLabel = label || String(s.phase || 'snapshot').replace(/_/g, ' ');
++  const cpu = s.cpu || {};
++  const memory = s.memory || {};
++  const disk = s.disk || {};
++  const lines = [`📈 Resource usage (${phaseLabel}):`, `   CPU load: ${formatNumber(cpu.load1)} ${formatNumber(cpu.load5)} ${formatNumber(cpu.load15)}${Number.isFinite(cpu.cpuCount) ? ` (${cpu.cpuCount} CPUs)` : ''}`, `   Memory: ${formatBytes(memory.availableBytes)} available / ${formatBytes(memory.totalBytes)} total (${formatBytes(memory.usedBytes)} used)`, `   Process RSS: ${formatBytes(memory.processRssBytes)}${Number.isFinite(memory.processHeapUsedBytes) ? `, heap ${formatBytes(memory.processHeapUsedBytes)}` : ''}`, `   Disk (${disk.path || '/'}): ${formatBytes(disk.availableBytes)} available / ${formatBytes(disk.totalBytes)} total${Number.isFinite(disk.usedPercent) ? ` (${disk.usedPercent.toFixed(1)}% used)` : ''}`];
++  if (disk.error) lines.push(`   Disk probe error: ${disk.error}`);
++  lines.push(buildResourceMarker(snapshot));
++  return lines.join('\n');
++}
++
++export async function recordResourceSnapshot({ phase, log, diskPath = '/', label = null, capture = captureResourceSnapshot } = {}) {
++  if (typeof log !== 'function') return null;
++  try {
++    const snapshot = capture({ phase, diskPath });
++    await log(formatResourceSnapshotForLog(snapshot, label));
++    return snapshot;
++  } catch (error) {
++    await log(`⚠️  Resource usage measurement failed (${phase || 'snapshot'}): ${error?.message || error}`, { level: 'warning', verbose: true });
++    return null;
++  }
++}
++
++export function summarizeResourceSnapshot(snapshot) {
++  if (!snapshot) return null;
++  const cpu = snapshot.cpu || {};
++  const memory = snapshot.memory || {};
++  const disk = snapshot.disk || {};
++  return {
++    phase: snapshot.phase || null,
++    timestamp: snapshot.timestamp || null,
++    cpu: {
++      load1: cpu.load1,
++      load5: cpu.load5,
++      load15: cpu.load15,
++      cpuCount: cpu.cpuCount,
++    },
++    memory: {
++      totalBytes: memory.totalBytes,
++      availableBytes: memory.availableBytes,
++      usedBytes: memory.usedBytes,
++      processRssBytes: memory.processRssBytes,
++    },
++    disk: {
++      path: disk.path,
++      totalBytes: disk.totalBytes,
++      availableBytes: disk.availableBytes,
++      usedBytes: disk.usedBytes,
++      usedPercent: disk.usedPercent,
++      error: disk.error || null,
++    },
++  };
++}
+diff --git a/src/solve.restart-shared.lib.mjs b/src/solve.restart-shared.lib.mjs
+index d79d0ec6e..093215e4b 100644
+--- a/src/solve.restart-shared.lib.mjs
++++ b/src/solve.restart-shared.lib.mjs
+@@ -32,6 +32,7 @@ const fs = (await use('fs')).promises;
+ const lib = await import('./lib.mjs');
+ const { log, formatAligned, extractToolErrorCore } = lib;
+ const { ensurePullRequestBaseBranch } = await import('./solve.pr-base-guard.lib.mjs');
++const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
+ 
+ // Import Sentry integration
+ const sentryLib = await import('./sentry.lib.mjs');
+@@ -177,6 +178,13 @@ export const getUncommittedChangesDetails = async tempDir => {
+ export const executeToolIteration = async params => {
+   const { issueUrl, owner, repo, issueNumber, prNumber, branchName, tempDir, workspaceTmpDir, mergeStateStatus, feedbackLines, argv } = params;
+ 
++  await recordResourceSnapshot({
++    phase: RESOURCE_PHASE_RESTART_BEFORE,
++    log,
++    diskPath: '/',
++    label: 'before AI restart iteration',
++  });
++
+   // Import necessary modules for tool execution
+   const memoryCheck = await import('./memory-check.mjs');
+   const { getResourceSnapshot } = memoryCheck;
+@@ -462,6 +470,12 @@ export const executeToolIteration = async params => {
+   }
+ 
+   await ensurePullRequestBaseBranch({ owner, repo, prNumber, argv, log, formatAligned, $ });
++  await recordResourceSnapshot({
++    phase: RESOURCE_PHASE_RESTART_AFTER,
++    log,
++    diskPath: '/',
++    label: 'after AI restart iteration',
++  });
+   return toolResult;
+ };
+ 
+diff --git a/tests/test-issue-1927-bot-lifecycle.mjs b/tests/test-issue-1927-bot-lifecycle.mjs
+index 2c660d838..45f9ff4f9 100644
+--- a/tests/test-issue-1927-bot-lifecycle.mjs
++++ b/tests/test-issue-1927-bot-lifecycle.mjs
+@@ -71,12 +71,27 @@ function fakeTimers() {
+   const logger = captureLogger();
+   const timers = fakeTimers();
+   const proc = { uptime: () => 42 };
+-  const hb = createHeartbeat({ logger, getActiveSessionCount: () => 3, intervalMs: 1000, processImpl: proc, setIntervalImpl: timers.setInterval, clearIntervalImpl: timers.clearInterval });
++  const hb = createHeartbeat({
++    logger,
++    getActiveSessionCount: () => 3,
++    intervalMs: 1000,
++    processImpl: proc,
++    setIntervalImpl: timers.setInterval,
++    clearIntervalImpl: timers.clearInterval,
++    captureResources: () => ({
++      phase: 'bot_heartbeat',
++      timestamp: '2026-06-29T18:00:00.000Z',
++      cpu: { load1: 1, load5: 0.5, load15: 0.25, cpuCount: 4 },
++      memory: { totalBytes: 16, availableBytes: 8, usedBytes: 8, processRssBytes: 4 },
++      disk: { path: '/', totalBytes: 100, availableBytes: 75, usedBytes: 25, usedPercent: 25, error: null },
++    }),
++  });
+ 
+   assert(hb.timer === null, 'heartbeat starts with no timer');
+   hb.start();
+   assert(logger.heartbeats.length === 1, 'start() writes an immediate beat (no waiting a full interval)');
+   assert(logger.heartbeats[0].activeSessions === 3 && logger.heartbeats[0].uptimeSec === 42, 'beat carries active session count and integer uptime');
++  assert(logger.heartbeats[0].resources.disk.usedBytes === 25, 'beat carries a structured resource snapshot for outside-container logs');
+   assert(hb.timer && timers.active.size === 1, 'start() registers exactly one interval');
+   assert(hb.timer.unrefCalled === true, "the interval is unref'd so it never keeps the process alive on its own");
+   assert(hb.timer.ms === 1000, 'the configured interval is used');
+@@ -113,6 +128,26 @@ function fakeTimers() {
+   assert(threw === false, 'a heartbeat logging failure is swallowed (never crashes the bot)');
+ }
+ 
++// A resource probe failure must not suppress the heartbeat itself.
++{
++  const logger = captureLogger();
++  const timers = fakeTimers();
++  const proc = { uptime: () => 9 };
++  const hb = createHeartbeat({
++    logger,
++    getActiveSessionCount: () => 1,
++    processImpl: proc,
++    setIntervalImpl: timers.setInterval,
++    clearIntervalImpl: timers.clearInterval,
++    captureResources: () => {
++      throw new Error('statfs failed');
++    },
++  });
++  hb.start();
++  assert(logger.heartbeats.length === 1, 'a failed resource probe still writes a heartbeat');
++  assert(logger.heartbeats[0].resources === null, 'failed resource probe is recorded as null resources');
++}
++
+ // =============================================================================
+ // resumeSessionsOnLaunch
+ // =============================================================================
+diff --git a/tests/test-issue-1999-resource-diagnostics.mjs b/tests/test-issue-1999-resource-diagnostics.mjs
+new file mode 100644
+index 000000000..c78782028
+--- /dev/null
++++ b/tests/test-issue-1999-resource-diagnostics.mjs
+@@ -0,0 +1,149 @@
++#!/usr/bin/env node
++/**
++ * Tests for full-container resource diagnostics added for issue #1999.
++ *
++ * The solve process writes CPU, memory, and full filesystem snapshots to the
++ * captured log as `📈 [RESOURCES]` markers. The Telegram monitor can parse those
++ * markers later even if Docker can no longer inspect the exited task container.
++ *
++ * Run with: node tests/test-issue-1999-resource-diagnostics.mjs
++ *
++ * @see https://github.com/link-assistant/hive-mind/issues/1999
++ */
++
++import assert from 'node:assert/strict';
++
++import { RESOURCE_MARKER_PREFIX, RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_AFTER_CLONE, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, buildResourceMarker, captureResourceSnapshot, formatResourceSnapshotForLog, parseResourceMarkers, selectBestDiskResourceMarker, summarizeResourceSnapshot } from '../src/solve.resource-diagnostics.lib.mjs';
++
++let passed = 0;
++let failed = 0;
++
++async function test(name, fn) {
++  try {
++    await fn();
++    console.log(`✅ ${name}`);
++    passed++;
++  } catch (error) {
++    console.error(`❌ ${name}`);
++    console.error(error?.stack || error);
++    failed++;
++  }
++}
++
++const fakeOs = {
++  loadavg: () => [1.25, 0.75, 0.5],
++  cpus: () => [{}, {}, {}, {}],
++  totalmem: () => 16 * 1024 ** 3,
++  freemem: () => 6 * 1024 ** 3,
++};
++
++const fakeFs = {
++  readFileSync: file => {
++    assert.equal(file, '/proc/meminfo');
++    return 'MemTotal:       16777216 kB\nMemAvailable:    8388608 kB\n';
++  },
++  statfsSync: targetPath => {
++    assert.equal(targetPath, '/');
++    return {
++      bsize: 4096,
++      blocks: 10_000_000,
++      bfree: 2_500_000,
++      bavail: 2_000_000,
++    };
++  },
++};
++
++const fakeProcess = {
++  platform: 'linux',
++  memoryUsage: () => ({
++    rss: 128 * 1024 ** 2,
++    heapUsed: 64 * 1024 ** 2,
++  }),
++};
++
++function fakeSnapshot(phase, usedBytes) {
++  return {
++    phase,
++    timestamp: `2026-06-29T18:00:0${usedBytes % 10}.000Z`,
++    cpu: { load1: 1, load5: 0.5, load15: 0.25, cpuCount: 4 },
++    memory: {
++      totalBytes: 16 * 1024 ** 3,
++      availableBytes: 8 * 1024 ** 3,
++      usedBytes: 8 * 1024 ** 3,
++      processRssBytes: 128 * 1024 ** 2,
++      processHeapUsedBytes: 64 * 1024 ** 2,
++    },
++    disk: {
++      path: '/',
++      totalBytes: 40 * 1024 ** 3,
++      freeBytes: 40 * 1024 ** 3 - usedBytes,
++      availableBytes: 40 * 1024 ** 3 - usedBytes,
++      usedBytes,
++      usedPercent: (usedBytes / (40 * 1024 ** 3)) * 100,
++      error: null,
++    },
++  };
++}
++
++await test('captureResourceSnapshot records CPU, memory, process, and filesystem stats', () => {
++  const snapshot = captureResourceSnapshot({
++    phase: RESOURCE_PHASE_SOLVE_START,
++    diskPath: '/',
++    now: () => new Date('2026-06-29T18:00:00.000Z'),
++    osImpl: fakeOs,
++    fsImpl: fakeFs,
++    processImpl: fakeProcess,
++  });
++
++  assert.equal(snapshot.phase, RESOURCE_PHASE_SOLVE_START);
++  assert.equal(snapshot.timestamp, '2026-06-29T18:00:00.000Z');
++  assert.equal(snapshot.cpu.load1, 1.25);
++  assert.equal(snapshot.cpu.cpuCount, 4);
++  assert.equal(snapshot.memory.totalBytes, 16 * 1024 ** 3);
++  assert.equal(snapshot.memory.availableBytes, 8 * 1024 ** 3);
++  assert.equal(snapshot.memory.usedBytes, 8 * 1024 ** 3);
++  assert.equal(snapshot.memory.processRssBytes, 128 * 1024 ** 2);
++  assert.equal(snapshot.disk.path, '/');
++  assert.equal(snapshot.disk.totalBytes, 40_960_000_000);
++  assert.equal(snapshot.disk.usedBytes, 30_720_000_000);
++});
++
++await test('resource marker round-trips through a captured log haystack', () => {
++  const start = fakeSnapshot(RESOURCE_PHASE_SOLVE_START, 1 * 1024 ** 3);
++  const exit = fakeSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 7 * 1024 ** 3);
++  const logText = ['[2026-06-29T18:00:00Z] start', buildResourceMarker(start), '[2026-06-29T18:10:00Z] done', buildResourceMarker(exit)].join('\n');
++
++  const parsed = parseResourceMarkers(logText);
++  assert.equal(parsed.markers.length, 2);
++  assert.equal(parsed.byPhase[RESOURCE_PHASE_SOLVE_START].disk.usedBytes, 1 * 1024 ** 3);
++  assert.equal(parsed.byPhase[RESOURCE_PHASE_SOLVE_EXIT].disk.usedBytes, 7 * 1024 ** 3);
++  assert.equal(parsed.byPhase[RESOURCE_PHASE_SOLVE_EXIT].disk.path, '/');
++});
++
++await test('selectBestDiskResourceMarker prefers final solve snapshots over earlier checkpoints', () => {
++  const parsed = parseResourceMarkers([buildResourceMarker(fakeSnapshot(RESOURCE_PHASE_AFTER_CLONE, 2 * 1024 ** 3)), buildResourceMarker(fakeSnapshot(RESOURCE_PHASE_AFTER_AGENT, 5 * 1024 ** 3)), buildResourceMarker(fakeSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 6 * 1024 ** 3))].join('\n'));
++
++  const marker = selectBestDiskResourceMarker(parsed);
++  assert.equal(marker.phase, RESOURCE_PHASE_SOLVE_EXIT);
++  assert.equal(marker.disk.usedBytes, 6 * 1024 ** 3);
++});
++
++await test('formatResourceSnapshotForLog prints a human block plus the parseable marker', () => {
++  const text = formatResourceSnapshotForLog(fakeSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 7 * 1024 ** 3), 'solve exit 0');
++  assert.match(text, /^📈 Resource usage \(solve exit 0\):/);
++  assert.match(text, /CPU load:/);
++  assert.match(text, /Memory:/);
++  assert.match(text, /Process RSS:/);
++  assert.match(text, /Disk \(\//);
++  assert.match(text, new RegExp(RESOURCE_MARKER_PREFIX.replace('[', '\\[').replace(']', '\\]')));
++});
++
++await test('summarizeResourceSnapshot keeps heartbeat metadata compact and structured', () => {
++  const summary = summarizeResourceSnapshot(fakeSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 3 * 1024 ** 3));
++  assert.deepEqual(Object.keys(summary).sort(), ['cpu', 'disk', 'memory', 'phase', 'timestamp']);
++  assert.equal(summary.memory.processRssBytes, 128 * 1024 ** 2);
++  assert.equal(summary.disk.usedBytes, 3 * 1024 ** 3);
++});
++
++console.log(`\n${passed} passed, ${failed} failed`);
++process.exit(failed > 0 ? 1 : 0);
+diff --git a/tests/test-issue-1999-session-monitor-disk-fallback.mjs b/tests/test-issue-1999-session-monitor-disk-fallback.mjs
+new file mode 100644
+index 000000000..ab7d6f2ca
+--- /dev/null
++++ b/tests/test-issue-1999-session-monitor-disk-fallback.mjs
+@@ -0,0 +1,121 @@
++#!/usr/bin/env node
++/**
++ * Issue #1999 regression test: Docker completion messages must still show full
++ * container filesystem usage when the monitor cannot inspect the exited task
++ * container at completion time.
++ *
++ * The fallback comes from solve-log `📈 [RESOURCES]` snapshots, which measure
++ * the whole filesystem from inside the task before the container exits.
++ *
++ * Run with: node tests/test-issue-1999-session-monitor-disk-fallback.mjs
++ *
++ * @see https://github.com/link-assistant/hive-mind/issues/1999
++ */
++
++import assert from 'node:assert/strict';
++import fs from 'node:fs';
++import os from 'node:os';
++import path from 'node:path';
++
++import { DISK_PHASE_AFTER_AGENT, DISK_PHASE_AFTER_CLONE, buildDiskMarker } from '../src/solve.disk-diagnostics.lib.mjs';
++import { RESOURCE_PHASE_AFTER_AGENT, RESOURCE_PHASE_SOLVE_EXIT, RESOURCE_PHASE_SOLVE_START, buildResourceMarker } from '../src/solve.resource-diagnostics.lib.mjs';
++import { buildDiskDiagnosticsExtraSection } from '../src/session-monitor.lib.mjs';
++
++let passed = 0;
++let failed = 0;
++
++async function test(name, fn) {
++  try {
++    await fn();
++    console.log(`✅ ${name}`);
++    passed++;
++  } catch (error) {
++    console.error(`❌ ${name}`);
++    console.error(error?.stack || error);
++    failed++;
++  }
++}
++
++function resourceSnapshot(phase, usedBytes) {
++  return {
++    phase,
++    timestamp: new Date('2026-06-29T18:00:00.000Z').toISOString(),
++    cpu: { load1: 1, load5: 0.75, load15: 0.5, cpuCount: 4 },
++    memory: {
++      totalBytes: 16 * 1024 ** 3,
++      availableBytes: 8 * 1024 ** 3,
++      usedBytes: 8 * 1024 ** 3,
++      processRssBytes: 128 * 1024 ** 2,
++      processHeapUsedBytes: 64 * 1024 ** 2,
++    },
++    disk: {
++      path: '/',
++      totalBytes: 40 * 1024 ** 3,
++      availableBytes: 40 * 1024 ** 3 - usedBytes,
++      usedBytes,
++      usedPercent: (usedBytes / (40 * 1024 ** 3)) * 100,
++      error: null,
++    },
++  };
++}
++
++function writeFakeLog(lines) {
++  const file = path.join(os.tmpdir(), `hm-1999-monitor-${Date.now()}-${Math.floor(Math.random() * 1e6)}.log`);
++  fs.writeFileSync(file, lines.join('\n'));
++  return file;
++}
++
++await test('docker disk block falls back to solve_exit resource usage when Docker after-size is unavailable', async () => {
++  const logFile = writeFakeLog([
++    buildDiskMarker({ phase: DISK_PHASE_AFTER_CLONE, bytes: 250 * 1024 ** 2, path: '/tmp/gh-issue-solver-1999' }),
++    buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_SOLVE_START, 52 * 1024)),
++    buildDiskMarker({
++      phase: DISK_PHASE_AFTER_AGENT,
++      bytes: 750 * 1024 ** 2,
++      deltaBytes: 500 * 1024 ** 2,
++      path: '/tmp/gh-issue-solver-1999',
++    }),
++    buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_AFTER_AGENT, 6 * 1024 ** 3)),
++    buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 7 * 1024 ** 3)),
++  ]);
++
++  try {
++    const block = await buildDiskDiagnosticsExtraSection(logFile, {
++      isolationBackend: 'docker',
++      containerFilesystemStartBytes: 52 * 1024,
++      containerFilesystemAfterBytes: null,
++    });
++
++    assert.match(block, /Repository size:/);
++    assert.match(block, /Cloned:\s+250 MB/);
++    assert.match(block, /On completion:\s+750 MB \(\+500 MB\)/);
++    assert.match(block, /Container filesystem size:/);
++    assert.match(block, /On start:\s+52 KB/);
++    assert.match(block, /On completion:\s+7\.0 GB/);
++    assert.match(block, /⚠️ Total disk usage per task exceeds 5\.0 GB/);
++  } finally {
++    fs.rmSync(logFile, { force: true });
++  }
++});
++
++await test('explicit Docker completion size wins over resource-marker fallback', async () => {
++  const logFile = writeFakeLog([buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_SOLVE_START, 1 * 1024 ** 3)), buildResourceMarker(resourceSnapshot(RESOURCE_PHASE_SOLVE_EXIT, 7 * 1024 ** 3))]);
++
++  try {
++    const block = await buildDiskDiagnosticsExtraSection(logFile, {
++      isolationBackend: 'docker',
++      containerFilesystemStartBytes: 500 * 1024 ** 2,
++      containerFilesystemAfterBytes: 2 * 1024 ** 3,
++    });
++
++    assert.match(block, /Container filesystem size:/);
++    assert.match(block, /On start:\s+500 MB/);
++    assert.match(block, /On completion:\s+2\.0 GB/);
++    assert.doesNotMatch(block, /7\.0 GB/);
++  } finally {
++    fs.rmSync(logFile, { force: true });
++  }
++});
++
++console.log(`\n${passed} passed, ${failed} failed`);
++process.exit(failed > 0 ? 1 : 0);

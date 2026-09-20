@@ -1,0 +1,2 @@
+src/claude.stream-events.lib.mjs 64ms
+tests/test-issue-1974-claude-stream-completion.mjs 15ms

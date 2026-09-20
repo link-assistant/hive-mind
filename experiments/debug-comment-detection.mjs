@@ -24,7 +24,7 @@ async function $(command) {
 async function debugCommentDetection() {
   try {
     // Test with the current PR #169
-    const owner = 'deep-assistant';
+    const owner = 'link-assistant';
     const repo = 'hive-mind';
     const prNumber = 169;
 
@@ -58,9 +58,7 @@ async function debugCommentDetection() {
       console.log(`   Found ${prConversationComments.length} total conversation comments`);
 
       // Debug: show the latest comments
-      const latestComments = prConversationComments
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 3);
+      const latestComments = prConversationComments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 3);
 
       console.log('   Latest comments:');
       latestComments.forEach((comment, i) => {
@@ -76,9 +74,7 @@ async function debugCommentDetection() {
 
     // Count new comments after last commit
     const allPrComments = [...prReviewComments, ...prConversationComments];
-    const newPrComments = allPrComments.filter(comment =>
-      new Date(comment.created_at) > lastCommitTime
-    ).length;
+    const newPrComments = allPrComments.filter(comment => new Date(comment.created_at) > lastCommitTime).length;
 
     console.log(`\n📈 Comment Analysis:`);
     console.log(`   Total PR comments: ${allPrComments.length}`);
@@ -105,7 +101,6 @@ async function debugCommentDetection() {
       console.log(`\n❌ Continue mode: No feedback lines would be added`);
       return false;
     }
-
   } catch (error) {
     console.error(`\n❌ Error during comment detection test: ${error.message}`);
     return false;

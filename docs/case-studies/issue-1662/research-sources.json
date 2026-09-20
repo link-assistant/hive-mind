@@ -1,0 +1,20 @@
+[
+  {
+    "title": "Issue 1662: options before first positional argument",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1662",
+    "type": "primary_issue_data",
+    "local_copy": "issue-1662.json"
+  },
+  {
+    "title": "Yargs documentation",
+    "url": "https://yargs.js.org/",
+    "type": "upstream_documentation",
+    "note": "Yargs documents commands, grouped options, generated help, and positional argument configuration through positional()."
+  },
+  {
+    "title": "yargs-parser README",
+    "url": "https://github.com/yargs/yargs-parser",
+    "type": "upstream_documentation",
+    "note": "The parser returns option key/value pairs and an underscore array for positional arguments; this matches the behavior Telegram command parsing should reuse instead of treating args[0] as the URL."
+  }
+]

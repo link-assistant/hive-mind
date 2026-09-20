@@ -1,0 +1,6 @@
+
+> @link-assistant/hive-mind@2.0.19 format:check
+> prettier --check "**/*.{js,mjs,json,md}" --ignore-path .prettierignore
+
+Checking formatting...
+All matched files use Prettier code style!

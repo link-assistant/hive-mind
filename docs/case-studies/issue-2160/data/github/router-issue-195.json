@@ -1,0 +1,18 @@
+{
+  "assignees": [],
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "body": "## Reproduction\n\nOn the published v0.77.0 image:\n\n1. Issue a client token with `--max-tokens 30000` and a sufficient request limit.\n2. Run Codex through `/v1/responses` with a tool loop.\n3. Inspect `tokens list` after the request.\n\nObserved token state:\n\n```text\nrequests: 4/10\ntokens: 39273/30000\n```\n\nThe request was admitted while under the limit, and its final usage pushed the persisted total 9,273 tokens past the configured cap.\n\n## Expected behavior\n\n- A hard token-spend cap must have an explicit, documented enforcement contract that does not silently allow unbounded one-response overshoot.\n- Prefer reserving a conservative maximum before dispatch, rejecting or clamping requests whose declared output budget cannot fit, and reconciling the reservation against actual provider usage afterward.\n- If exact prevention is impossible for streaming/provider constraints, define and enforce a bounded overshoot rule and expose reserved plus actual usage to administrators.\n- Apply the same behavior across Responses, Chat Completions, Anthropic Messages, Gemini, Qwen, and all protocol bridges.\n- Concurrent requests must reserve budget atomically so several admitted requests cannot overshoot together.\n- Add tests for a single large response, streaming, tool loops, concurrent requests, cancellation, missing usage, and provider errors.",
+  "closedAt": "2026-08-17T06:07:59Z",
+  "createdAt": "2026-08-16T06:37:14Z",
+  "labels": [],
+  "number": 195,
+  "state": "CLOSED",
+  "title": "Enforce max_tokens without allowing one response to overshoot the budget",
+  "updatedAt": "2026-08-17T06:07:59Z",
+  "url": "https://github.com/link-assistant/router/issues/195"
+}

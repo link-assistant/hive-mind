@@ -1,0 +1,7 @@
+use-m: https://unpkg.com/use-m@8.15.0/use.js
+node: v20.20.2
+prefix: /tmp/use-m-concurrency-wLrx6H
+
+0/24 concurrent use('command-stream') calls failed in 3524ms
+
+exit code: 0 — race did not trigger this run, retry or raise the concurrency

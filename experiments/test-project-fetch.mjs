@@ -26,7 +26,6 @@ try {
       console.log(`      ${index + 1}. #${issue.number}: ${issue.title}`);
     });
   }
-
 } catch (error) {
   console.log(`   Expected error: ${error.message}`);
   console.log('   This is expected since we are testing with a hypothetical project');

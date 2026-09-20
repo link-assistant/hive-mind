@@ -1,0 +1,38 @@
+# issue #1914 — live preflight reproduction on a vfs daemon
+#
+# Captured 2026-06-14T17:28:08Z by running preflightDockerIsolation()
+# against the real Docker daemon inside a hive-mind-dind container. This
+# environment is itself configured exactly like the failing production
+# deploy: the nested daemon is on the 'vfs' storage driver.
+#
+## docker info storage driver
+vfs
+#
+## docker data root + free space (df -Pk on the data root)
+/var/lib/docker
+Filesystem     1024-blocks     Used Available Capacity Mounted on
+overlay          100476656 39122084  61338188      39% /var/lib/docker
+#
+## preflightDockerIsolation({ env: { HIVE_MIND_IMAGE_VARIANT: 'dind' }, verbose: true })
+[VERBOSE] isolation-runner: docker image inspect 'konard/hive-mind-dind:latest': present
+[VERBOSE] isolation-runner: docker storage driver: vfs
+[VERBOSE] isolation-runner: Docker data root '/var/lib/docker' has 58.5 GiB free
+✅ Docker isolation image 'konard/hive-mind-dind:latest' is already present locally — isolated tasks reuse it (no multi-GB pull). See issue #1914.
+⚠️ The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.
+
+--- preflight result ---
+{
+  "image": "konard/hive-mind-dind:latest",
+  "isDind": true,
+  "socketMounted": false,
+  "imagePresent": true,
+  "storageDriver": "vfs",
+  "storageDriverOk": false,
+  "diskAvailableGiB": 58.5,
+  "ok": true,
+  "warningCount": 1
+}
+
+--- warnings ---
+[1] The Docker daemon backing '--isolation docker' is using the 'vfs' storage driver, which performs NO copy-on-write: it stores a full copy of every image layer, so the multi-GB Hive Mind images consume many times their size on disk and isolated tasks can fail with 'failed to register layer: no space left on device' (issue #1914). Switch to a copy-on-write driver: rebuild/redeploy with the current Dockerfile.dind (it defaults to 'fuse-overlayfs'), or for an already-running container add '-e DIND_STORAGE_DRIVER=fuse-overlayfs' to the bot container's 'docker run' and recreate it.
+

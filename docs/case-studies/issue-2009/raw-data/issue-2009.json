@@ -1,0 +1,22 @@
+{
+  "number": 2009,
+  "title": "We need to improve our error message in GitHub and in logs",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2009",
+  "state": "OPEN",
+  "author": "konard",
+  "createdAt": "2026-07-03T15:01:49Z",
+  "updatedAt": "2026-07-03T15:01:49Z",
+  "labels": ["documentation", "enhancement"],
+  "extractedRequirements": [
+    "Remove the repeated administrator-only CLI details line from GitHub comments and logs.",
+    "Remove the vague phrase `If this requires elevated Hive Mind access`.",
+    "When the task requester is not the authenticated Hive Mind GitHub user, ask a Hive Mind administrator to handle manual recreation or fix of the repository.",
+    "When the task requester and authenticated user match, provide direct delete, recreate, or manual repository repair guidance with example commands.",
+    "For fork divergence, inspect actual fork and upstream data before recommending force-with-lease.",
+    "When no fork-only commits exist, recommend rerunning with `--allow-fork-divergence-resolution-using-force-push-with-lease`.",
+    "When commits may be lost, list exactly what commits would be lost.",
+    "Audit other comments and logs that use similar vague `if` statements.",
+    "Collect related data under `docs/case-studies/issue-2009` and include online research, requirements, and solution plans.",
+    "Execute everything in the single prepared pull request #2010."
+  ]
+}

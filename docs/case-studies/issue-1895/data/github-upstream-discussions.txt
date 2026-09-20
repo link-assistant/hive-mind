@@ -1,0 +1,35 @@
+# Upstream GitHub Community discussions tracking the API/linking gaps
+# Captured 2026-06-13T11:25:46Z
+
+## #112224 — Github should support closing issues by merging PRs to non-main branches
+   url:       https://github.com/orgs/community/discussions/112224
+   category:  Pull Requests
+   upvotes:   6
+   comments:  2
+   answered:  false
+   locked:    false
+
+## #155339 — GraphQL: Missing mutations for linking existing branch and pull request
+   url:       https://github.com/orgs/community/discussions/155339
+   category:  Apps, API and Webhooks
+   upvotes:   7
+   comments:  3
+   answered:  false
+   locked:    false
+
+## #179613 — How to Retrieve Linked Issues for a Pull Request via REST API
+   url:       https://github.com/orgs/community/discussions/179613
+   category:  Apps, API and Webhooks
+   upvotes:   1
+   comments:  4
+   answered:  false
+   locked:    false
+
+## #177657 — How can I automatically close an issue when a pull request is merged?
+   url:       https://github.com/orgs/community/discussions/177657
+   category:  Other Feature Feedback, Questions, & Ideas
+   upvotes:   1
+   comments:  3
+   answered:  true
+   locked:    false
+

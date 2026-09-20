@@ -1,0 +1,12 @@
+ci-integrity-2150.test.mjs: all assertions passed
+✔ tests/ci-integrity-2150.test.mjs (613.423954ms)
+ci-workflow-cancellation-2082.test.mjs: all assertions passed
+✔ tests/ci-workflow-cancellation-2082.test.mjs (90.52817ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 631.032794

@@ -1,0 +1,17 @@
+2026-09-04T10:24:38.9555854Z 
+2026-09-04T10:24:38.9556795Z > @link-assistant/hive-mind@2.16.0 changeset:version
+2026-09-04T10:24:38.9557192Z > changeset version
+2026-09-04T10:24:38.9557311Z 
+2026-09-04T10:24:38.9998364Z 🦋 changeset v3.0.1
+2026-09-04T10:24:39.2504454Z 
+2026-09-04T10:24:39.2505227Z Error: spawn bun ENOENT
+2026-09-04T10:24:39.2506104Z     at ChildProcess._handle.onexit (node:internal/child_process:287:19)
+2026-09-04T10:24:39.2506784Z     at onErrorNT (node:internal/child_process:525:16)
+2026-09-04T10:24:39.2507564Z     at process.processTicksAndRejections (node:internal/process/task_queues:90:21)
+2026-09-04T10:24:39.2508559Z 🦋 Exited with code 1
+2026-09-04T10:24:39.2508801Z 
+2026-09-04T10:24:39.2698264Z Error: Command failed with exit code 1: npm run changeset:version
+2026-09-04T10:24:39.2773645Z ##[error]Process completed with exit code 1.
+2026-09-04T10:24:39.2927138Z Post job cleanup.
+2026-09-04T10:24:39.3659590Z [command]/usr/bin/git version
+2026-09-04T10:24:39.3700724Z git version 2.55.0

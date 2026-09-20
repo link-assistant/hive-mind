@@ -1,0 +1,49 @@
+# issue #1914 — proof that fuse-overlayfs works in the box-dind environment
+#
+# Captured 2026-06-14 inside a konard/hive-mind-dind container (the same kind
+# that runs the bot in production). Establishes that the PR #1926 fix
+# (DIND_STORAGE_DRIVER=fuse-overlayfs) starts a working copy-on-write daemon,
+# de-risking the "explicit driver = no fallback" behaviour of box's entrypoint.
+
+## Environment probes
+$ ls -la /dev/fuse
+crw-rw-rw- 1 root root 10, 229 /dev/fuse                 # present (provided by --privileged)
+$ command -v fuse-overlayfs ; fuse-overlayfs --version
+/usr/bin/fuse-overlayfs
+fusermount3 version: 3.14.0 ; fuse-overlayfs: version 1.13-dev
+$ grep overlay /proc/filesystems
+nodev   overlay
+$ docker info --format '{{.Driver}}'
+vfs                                                       # forced by ENV DIND_STORAGE_DRIVER=vfs
+$ env | grep DIND_STORAGE_DRIVER
+DIND_STORAGE_DRIVER=vfs                                   # <-- baked into the OLD Dockerfile.dind
+
+## Root cause (refined)
+# box's dind-entrypoint auto-detects: overlay2 -> fuse-overlayfs -> vfs (with
+# graceful fallback). It would have picked a copy-on-write driver here. But the
+# Hive Mind Dockerfile.dind baked `ENV DIND_STORAGE_DRIVER="vfs"` (commit
+# 44d2c29e, "Default DinD storage driver to vfs"), so box used ONLY vfs and never
+# tried a CoW driver. The dockerd log confirms it started directly on vfs:
+#   level=info msg="Docker daemon" ... storage-driver=vfs version=29.5.3
+# (no overlay2/fuse-overlayfs attempts logged).
+
+## Capability proof: a manual fuse-overlayfs mount (what docker's graphdriver does)
+$ mkdir -p /tmp/fot/{lower,upper,work,merged}
+$ echo hello-from-lower > /tmp/fot/lower/base.txt
+$ fuse-overlayfs -o lowerdir=/tmp/fot/lower,upperdir=/tmp/fot/upper,workdir=/tmp/fot/work /tmp/fot/merged
+# exit code: 0
+$ cat /tmp/fot/merged/base.txt
+hello-from-lower                                          # lower layer visible through the overlay
+$ echo new-upper-write > /tmp/fot/merged/added.txt
+$ ls /tmp/fot/upper/
+added.txt                                                 # copy-on-write: writes land in upperdir
+$ grep fot/merged /proc/mounts
+fuse-overlayfs /tmp/fot/merged fuse.fuse-overlayfs rw,nosuid,nodev,noatime,user_id=1001,group_id=1001,default_permissions 0 0
+$ fusermount3 -u /tmp/fot/merged                          # clean unmount
+
+## Conclusion
+# fuse-overlayfs mounts and performs copy-on-write here. Docker's fuse-overlayfs
+# storage driver uses exactly this mechanism, so DIND_STORAGE_DRIVER=fuse-overlayfs
+# yields a working CoW daemon. Under CoW, registering a 498 MB layer costs
+# ~498 MB (not the ~30 GB cumulative copy that vfs makes), so the multi-GB image
+# fits and "failed to register layer: no space left on device" no longer occurs.

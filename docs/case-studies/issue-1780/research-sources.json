@@ -1,0 +1,44 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1780",
+  "pr": "https://github.com/link-assistant/hive-mind/pull/1781",
+  "related_internal_prs": [
+    {
+      "ref": "https://github.com/link-assistant/hive-mind/pull/1687",
+      "note": "Original /log <UUID> with extractSessionIdFromText helper."
+    },
+    {
+      "ref": "https://github.com/link-assistant/hive-mind/issues/524",
+      "note": "Original /stop <UUID> ask — already shipped, reused as the UUID branch of the new dispatcher."
+    },
+    {
+      "ref": "https://github.com/link-assistant/hive-mind/issues/1081",
+      "note": "Original chat-pause /stop. The URL/UUID branches must run BEFORE its forwarded/reply rejection."
+    },
+    {
+      "ref": "https://github.com/link-assistant/hive-mind/issues/1080",
+      "note": "Source of SolveQueue.findByUrl(url) — reused unchanged."
+    },
+    {
+      "ref": "https://github.com/link-assistant/hive-mind/issues/1159",
+      "note": "Per-tool queues and SolveQueue.cancel(id) — reused unchanged."
+    }
+  ],
+  "external_references": [
+    {
+      "ref": "https://github.com/link-foundation/start/issues/112",
+      "note": "$ --stop <uuid> contract that this feature depends on."
+    },
+    {
+      "ref": "https://github.com/link-foundation/start",
+      "note": "Upstream start-command CLI."
+    },
+    {
+      "ref": "https://core.telegram.org/bots/api#message",
+      "note": "Telegram Bot API Message object — reply_to_message and caption fields used by extractStopTarget."
+    },
+    {
+      "ref": "https://datatracker.ietf.org/doc/html/rfc4122#section-4.4",
+      "note": "RFC 4122 v4 UUID format used for session IDs (already enforced by extractSessionIdFromText)."
+    }
+  ]
+}

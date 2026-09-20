@@ -1,0 +1,36 @@
+== 1. router on 443 with TLS ==
+[2m2026-08-22T16:36:20.586022Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+[2m2026-08-22T16:36:20.758579Z[0m [32m INFO[0m [2mlink_assistant_router[0m[2m:[0m Link.Assistant.Router v0.109.0
+token issued: 221 chars
+
+== 2. task container: git wired to the router, no GitHub credential ==
+url.https://link-assistant-router/git/.insteadof=https://github.com/
+http.https://link-assistant-router/.sslcainfo=/etc/hive-mind-router-ca.pem
+http.https://link-assistant-router/.extraheader=Authorization: Bearer la_sk_REDACTED
+user.name=probe
+user.email=probe@example.com
+
+== 3. clone through the router ==
+Cloning into '/tmp/repo'...
+f5e3e3e Revert "Initial commit with task details"
+origin	https://link-assistant-router/git/link-assistant/hive-mind (fetch)
+origin	https://link-assistant-router/git/link-assistant/hive-mind (push)
+
+== 4. destructive: delete the branch (expected: refused by the router) ==
+error: RPC failed; HTTP 403 curl 22 The requested URL returned error: 403
+send-pack: unexpected disconnect while reading sideband packet
+fatal: the remote end hung up unexpectedly
+Everything up-to-date
+
+== 5. destructive: force-update the branch to unrelated history (expected: refused) ==
+To https://link-assistant-router/git/link-assistant/hive-mind
+ + f5e3e3e...a861cb3 HEAD -> issue-2164-90464ce530a2 (forced update)
+
+== 6. control: the branch is untouched on the remote ==
+a861cb3b1dadad62b00b29918b3f459500453958	refs/heads/issue-2164-90464ce530a2
+
+== 7. router request log ==
+{"body":"001f# service=git-receive-pack\n0000012e0dc1613ff94a64aac34bb5e7cf69332b62a913a1 refs/heads/codex-fix-1\u0000report-status report-status-v2 delete-refs side-band-64k ofs-delta atomic object-format=sha1 quiet age
+{"body":{"base64":"MDAzNXNoYWxsb3cgZjVlM2UzZTM1MjU4NDFmZjYxMzA0MjA5MTczMjQ5MDBjNDk0NTZkYwowMGMyZjVlM2UzZTM1MjU4NDFmZjYxMzA0MjA5MTczMjQ5MDBjNDk0NTZkYyBhODYxY2IzYjFkYWRhZDYyYjAwYjI5OTE4YjNmNDU5NTAwNDUzOTU4IHJlZnMvaGVhZHMva
+{"correlation_id":"1a5e0596-1ad0-40e2-b620-453e189b8be3","headers":{"cache-control":"no-cache, max-age=0, must-revalidate","content-security-policy":"default-src 'none'; sandbox","content-type":"application/x-git-receive
+{"body":"0006\u0002\u00000013\u0001000eunpack ok\n002f\u0001002aok refs/heads/issue-2164-90464ce530a2\n0009\u000100000000","correlation_id":"1a5e0596-1ad0-40e2-b620-453e189b8be3","phase":"client_response_body","time":"20

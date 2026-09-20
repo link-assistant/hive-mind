@@ -1,0 +1,8 @@
+[
+  { "mergedAt": "2026-05-12T17:37:12Z", "number": 1789, "title": "fix(telegram): complete localized bot output fallbacks", "url": "https://github.com/link-assistant/hive-mind/pull/1789" },
+  { "mergedAt": "2026-05-11T09:33:06Z", "number": 1779, "title": "Allow terminal watch for task requesters", "url": "https://github.com/link-assistant/hive-mind/pull/1779" },
+  { "mergedAt": "2026-05-10T21:27:08Z", "number": 676, "title": "Localize Telegram command UI", "url": "https://github.com/link-assistant/hive-mind/pull/676" },
+  { "mergedAt": "2026-05-06T07:17:58Z", "number": 384, "title": "feat(i18n): add internationalisation for terminal output and Telegram bot (en/ru/zh/hi)", "url": "https://github.com/link-assistant/hive-mind/pull/384" },
+  { "mergedAt": "2026-05-06T11:12:46Z", "number": 388, "title": "feat: Two-track i18n with --ui-language and --work-language (#378)", "url": "https://github.com/link-assistant/hive-mind/pull/388" },
+  { "mergedAt": "2026-05-12T21:44:34Z", "number": 1794, "title": "Display subscription end date in /limits for Claude and Codex", "url": "https://github.com/link-assistant/hive-mind/pull/1794" }
+]

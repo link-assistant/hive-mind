@@ -1,0 +1,29 @@
+Testing isolation-runner.lib.mjs
+============================================================
+
+  generateSessionId:
+  ✅ PASS: Returns a string
+  ✅ PASS: UUID has correct length (36 chars)
+  ✅ PASS: UUID matches v4 format
+  ✅ PASS: Generates unique IDs
+
+  isValidIsolationBackend:
+  ✅ PASS: screen is valid
+  ✅ PASS: tmux is valid
+  ✅ PASS: docker is valid
+  ✅ PASS: ssh is not valid (not supported in telegram bot)
+  ✅ PASS: invalid backend is rejected
+  ✅ PASS: empty string is rejected
+
+  VALID_ISOLATION_BACKENDS:
+  ✅ PASS: Is an array
+  ✅ PASS: Has 3 backends
+  ✅ PASS: Contains screen
+  ✅ PASS: Contains tmux
+  ✅ PASS: Contains docker
+
+============================================================
+Results: 15 passed, 0 failed, 15 total
+============================================================
+
+✅ All tests passed!

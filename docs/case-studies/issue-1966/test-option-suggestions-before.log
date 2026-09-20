@@ -1,0 +1,20 @@
+30 |
+31 | const enhancedSolveMessage = enhanceErrorMessage(
+32 |   'Unknown argument: mode',
+33 |   makeSolveParser()
+34 | );
+35 | assert.match(enhancedSolveMessage, /Did you mean `--model` option\?/);
+            ^
+AssertionError: The input did not match the regular expression /Did you mean `--model` option\?/. Input:
+
+'Unknown argument: mode\n\nDid you mean one of these?\n  • --model\n  • -d\n  • -m'
+
+ generatedMessage: true,
+     actual: "Unknown argument: mode\n\nDid you mean one of these?\n  • --model\n  • -d\n  • -m",
+   expected: /Did you mean `--model` option\?/,
+   operator: "match",
+       code: "ERR_ASSERTION"
+
+      at /tmp/gh-issue-solver-1782064329981/tests/test-option-suggestions-1966.mjs:35:8
+
+Bun v1.3.14 (Linux x64)

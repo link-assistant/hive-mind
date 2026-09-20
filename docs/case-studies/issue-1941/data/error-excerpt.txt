@@ -1,0 +1,26 @@
+Error excerpt — issue #1941
+Source: solution-draft-log.txt (full log downloaded from the Gist linked in the upstream failure comment)
+Repository under solve: G-Ivan-A/hybrid-Intelligence-lab, PR #252 (head branch issue-251-45845bc22310)
+
+----- interruption & failure (log lines 5573-5577) -----
+[2026-06-18T11:48:23.225Z] [INFO] 
+[2026-06-18T11:48:23.225Z] [INFO] ⚠️  Session interrupted by user (CTRL+C)
+[2026-06-18T11:48:23.226Z] [ERROR] 
+[2026-06-18T11:48:23.226Z] [ERROR] 
+[2026-06-18T11:48:23.226Z] [ERROR] ❌ Claude command failed with exit code 130
+
+----- preceding context: API call had SUCCEEDED (status 200) right before CTRL+C (lines 5477-5480) -----
+[2026-06-18T11:48:22.382Z] [INFO] [log_80eedd, request-id: "req_011CcAfxtVots3JssSPk6XPW"] post https://api.anthropic.com/v1/messages?beta=true succeeded with status 200 in 1786ms
+[2026-06-18T11:48:22.392Z] [INFO] [log_80eedd] response start {
+[2026-06-18T11:48:22.399Z] [INFO]   url: "https://api.anthropic.com/v1/messages?beta=true",
+[2026-06-18T11:48:22.400Z] [INFO]   status: 200,
+
+----- the verbose Response/ReadableStream object dump whose final printed token was a lone '}' (lines 5560-5564) -----
+[2026-06-18T11:48:22.492Z] [INFO]   status: 200,
+[2026-06-18T11:48:22.492Z] [INFO]   body: sU {
+[2026-06-18T11:48:22.493Z] [INFO]     iterator: [AsyncGeneratorFunction: s],
+[2026-06-18T11:48:22.493Z] [INFO]     controller: AbortController {
+[2026-06-18T11:48:22.493Z] [INFO]       signal: [AbortSignal ...],
+
+----- resulting GitHub failure comment (G-Ivan-A/hybrid-Intelligence-lab#252, comment 4741631558) -----
+CLAUDE execution failed with }

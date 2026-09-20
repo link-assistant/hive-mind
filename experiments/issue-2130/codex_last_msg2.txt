@@ -1,0 +1,1 @@
+Tool calls and function execution are not allowed without explicit agent mode. Enable agent mode only for an isolated execution environment.

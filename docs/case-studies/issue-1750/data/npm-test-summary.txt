@@ -1,0 +1,8 @@
+Command: npm test
+Environment: Node v20.20.2, npm 11.12.1
+Result: PASS
+
+Summary:
+- scripts/run-tests.mjs selected 90 default test files.
+- All 90 selected test files passed.
+- The raw 4,267-line log was intentionally not committed because existing token-sanitization tests print token-shaped fixture values.

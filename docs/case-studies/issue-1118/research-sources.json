@@ -1,0 +1,85 @@
+{
+  "official_documentation": [
+    {
+      "title": "REST API endpoints for repository invitations - GitHub Docs",
+      "url": "https://docs.github.com/en/rest/collaborators/invitations",
+      "description": "Official GitHub documentation for repository invitation endpoints"
+    },
+    {
+      "title": "REST API endpoints for organization members - GitHub Docs",
+      "url": "https://docs.github.com/en/rest/orgs/members",
+      "description": "Official GitHub documentation for organization membership endpoints"
+    },
+    {
+      "title": "GitHub CLI Manual",
+      "url": "https://cli.github.com/manual/",
+      "description": "Official GitHub CLI documentation"
+    },
+    {
+      "title": "gh api command reference",
+      "url": "https://cli.github.com/manual/gh_api",
+      "description": "Documentation for making API requests via gh CLI"
+    }
+  ],
+  "github_cli_issues": [
+    {
+      "title": "New feature to add administrative commands to invite users to organization and remove users",
+      "url": "https://github.com/cli/cli/issues/9122",
+      "status": "OPEN",
+      "description": "Feature request to add gh org invite command"
+    },
+    {
+      "title": "GH api invitations - integer parsing issue",
+      "url": "https://github.com/cli/cli/issues/8159",
+      "status": "CLOSED",
+      "description": "Bug report about using -F flag for typed parameters"
+    }
+  ],
+  "related_projects": [
+    {
+      "title": "accept-github-invitations",
+      "url": "https://github.com/hi-ashleyj/accept-github-invitations",
+      "description": "Node.js utility to automatically accept repo invitations"
+    },
+    {
+      "title": "Repository Gardener (Google)",
+      "url": "https://github.com/GoogleCloudPlatform/repository-gardener",
+      "description": "Contains auto-accept invitation functionality (deprecated)"
+    },
+    {
+      "title": "PyGithub",
+      "url": "https://github.com/PyGithub/PyGithub",
+      "description": "Python library with AuthenticatedUser.get_invitations() and accept_invitation() methods"
+    }
+  ],
+  "community_discussions": [
+    {
+      "title": "Is there GitHub rest API that we could use to accept invitations to org/team?",
+      "url": "https://github.com/orgs/community/discussions/29606",
+      "description": "Discussion about accepting organization invitations via API"
+    },
+    {
+      "title": "FR: Auto-accept invitations - repository-gardener",
+      "url": "https://github.com/GoogleCloudPlatform/repository-gardener/issues/44",
+      "description": "Feature request for auto-accepting invitations"
+    },
+    {
+      "title": "auto-accept invites cron - repo-automation-bots",
+      "url": "https://github.com/googleapis/repo-automation-bots/issues/1139",
+      "status": "CLOSED",
+      "description": "Discussion about implementing auto-accept as a cron job"
+    }
+  ],
+  "articles_and_tutorials": [
+    {
+      "title": "Automating GitHub Org Invitations",
+      "url": "https://dev.to/github/automating-org-invitations-with-github-37b9",
+      "description": "Tutorial on automating organization invitations using Probot"
+    },
+    {
+      "title": "Automated GitHub Organization Invites",
+      "url": "https://medium.com/code-applied-to-life/automated-github-organization-invites-3e940aa27040",
+      "description": "Blog post about automating invitations with Ruby/Sinatra"
+    }
+  ]
+}

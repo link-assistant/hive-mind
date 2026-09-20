@@ -1,0 +1,11 @@
+{
+  "number": 1760,
+  "title": "/hive command incorrectly detected a private repository issue as issue with no pull requests",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1760",
+  "state": "OPEN",
+  "createdAt": "2026-05-06T11:31:38Z",
+  "updatedAt": "2026-05-06T19:20:46Z",
+  "labels": ["bug"],
+  "bodySummary": ["A /hive run against a private repository used --skip-issues-with-prs.", "One private issue was incorrectly detected as having no pull requests.", "As a result, two pull requests were created for the same issue.", "The reporter provided a raw execution log and requested a sanitized case study without committing private or sensitive data."],
+  "privacyNote": "The original issue body names the private repository and links a raw gist log. This file intentionally summarizes that body instead of copying the raw private log URL or contents."
+}

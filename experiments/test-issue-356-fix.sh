@@ -5,7 +5,7 @@
 set -e
 
 SESSION_NAME="test-issue-356-$$"
-TEST_REPO="https://github.com/deep-assistant/hive-mind"
+TEST_REPO="https://github.com/link-assistant/hive-mind"
 
 echo "=== Testing Issue #356 Fix ==="
 echo "This test verifies that running start-screen with an existing session"

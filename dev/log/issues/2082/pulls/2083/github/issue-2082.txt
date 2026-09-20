@@ -1,0 +1,58 @@
+title:	Check for all false positives, false negatives, warnings and errors in CI/CD and fix them all
+state:	OPEN
+author:	konard (Konstantin Diachenko)
+labels:	bug
+comments:	0
+assignees:	
+projects:	
+milestone:	
+issue-type:	Bug
+parent:	
+sub-issues:	
+sub-issues-completed:	
+blocked-by:	
+blocking:	
+number:	2082
+--
+### Latest default-branch CI/CD runs
+
+| Workflow | Status | Conclusion | Run |
+| --- | --- | --- | --- |
+| Checks and release | in_progress | in_progress | [run](https://github.com/link-assistant/hive-mind/actions/runs/29686761617) |
+
+Use all the best practices from CI/CD templates (check full file tree to compare for all GitHub workflow and CI/CD scripts file), if the same issue is found in template report issue also in templates:
+
+- https://github.com/link-foundation/js-ai-driven-development-pipeline-template
+
+We should compare all files, so we don't have more CI/CD errors in the future and reuse all the best practices from these templates.
+
+Follow the CI/CD best practices collected in [https://github.com/link-assistant/hive-mind/blob/main/docs/CI-CD-BEST-PRACTICES.md](https://github.com/link-assistant/hive-mind/blob/main/docs/CI-CD-BEST-PRACTICES.md).
+
+Please plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.
+
+---
+
+<details>
+<summary>Context collected by <code>/fix --ci-cd</code></summary>
+
+- **Repository:** [link-assistant/hive-mind](https://github.com/link-assistant/hive-mind)
+- **Default branch:** `main`
+- **Latest commit:** `a85bc83` ([commit](https://github.com/link-assistant/hive-mind/commit/a85bc83009f7f937b724443f23ac6725b3770294)) — Merge pull request #2081 from link-assistant/issue-2080-6ae1420f3197
+- **CI/CD runs found:** 1 (0 not passing)
+
+**Detected languages**
+
+- **JavaScript** — 97.8%
+- **Shell** — 1.9%
+- **Dockerfile** — 0.3%
+- **Go Template** — 0.0%
+
+**Recommended CI/CD templates**
+
+Apply the best practices from these templates, in priority order (most-used language first):
+
+1. **JavaScript / TypeScript** — [link-foundation/js-ai-driven-development-pipeline-template](https://github.com/link-foundation/js-ai-driven-development-pipeline-template) _(detected: JavaScript)_
+
+Other detected languages without a dedicated template: Shell, Dockerfile, Go Template.
+
+</details>

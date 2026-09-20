@@ -1,0 +1,2525 @@
+{
+  "installed": [],
+  "available": [
+    {
+      "pluginId": "linear@openai-curated",
+      "name": "linear",
+      "marketplaceName": "openai-curated",
+      "version": "0.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/linear"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "atlassian-rovo@openai-curated",
+      "name": "atlassian-rovo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/atlassian-rovo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "google-calendar@openai-curated",
+      "name": "google-calendar",
+      "marketplaceName": "openai-curated",
+      "version": "1.2.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/google-calendar"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "gmail@openai-curated",
+      "name": "gmail",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/gmail"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "slack@openai-curated",
+      "name": "slack",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/slack"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "teams@openai-curated",
+      "name": "teams",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/teams"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "sharepoint@openai-curated",
+      "name": "sharepoint",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/sharepoint"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "outlook-email@openai-curated",
+      "name": "outlook-email",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/outlook-email"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "outlook-calendar@openai-curated",
+      "name": "outlook-calendar",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/outlook-calendar"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "canva@openai-curated",
+      "name": "canva",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/canva"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "figma@openai-curated",
+      "name": "figma",
+      "marketplaceName": "openai-curated",
+      "version": "2.0.12",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/figma"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hugging-face@openai-curated",
+      "name": "hugging-face",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hugging-face"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "jam@openai-curated",
+      "name": "jam",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/jam"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "netlify@openai-curated",
+      "name": "netlify",
+      "marketplaceName": "openai-curated",
+      "version": "1.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/netlify"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "stripe@openai-curated",
+      "name": "stripe",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/stripe"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "vercel@openai-curated",
+      "name": "vercel",
+      "marketplaceName": "openai-curated",
+      "version": "0.21.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/vercel"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "game-studio@openai-curated",
+      "name": "game-studio",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/game-studio"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "superpowers@openai-curated",
+      "name": "superpowers",
+      "marketplaceName": "openai-curated",
+      "version": "5.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/superpowers"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "box@openai-curated",
+      "name": "box",
+      "marketplaceName": "openai-curated",
+      "version": "0.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/box"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "github@openai-curated",
+      "name": "github",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.6",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/github"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "circleci@openai-curated",
+      "name": "circleci",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/circleci"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "google-drive@openai-curated",
+      "name": "google-drive",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.7",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/google-drive"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "deepnote@openai-curated",
+      "name": "deepnote",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.5",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/deepnote"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "notion@openai-curated",
+      "name": "notion",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.5",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/notion"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "cloudflare@openai-curated",
+      "name": "cloudflare",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/cloudflare"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "sentry@openai-curated",
+      "name": "sentry",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/sentry"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "build-ios-apps@openai-curated",
+      "name": "build-ios-apps",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/build-ios-apps"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "build-macos-apps@openai-curated",
+      "name": "build-macos-apps",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/build-macos-apps"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "build-web-apps@openai-curated",
+      "name": "build-web-apps",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/build-web-apps"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_USE"
+    },
+    {
+      "pluginId": "build-web-data-visualization@openai-curated",
+      "name": "build-web-data-visualization",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.21",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/build-web-data-visualization"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_USE"
+    },
+    {
+      "pluginId": "test-android-apps@openai-curated",
+      "name": "test-android-apps",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/test-android-apps"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "life-science-research@openai-curated",
+      "name": "life-science-research",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/life-science-research"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "zotero@openai-curated",
+      "name": "zotero",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/zotero"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "expo@openai-curated",
+      "name": "expo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/expo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "coderabbit@openai-curated",
+      "name": "coderabbit",
+      "marketplaceName": "openai-curated",
+      "version": "1.1.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/coderabbit"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "neon-postgres@openai-curated",
+      "name": "neon-postgres",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/neon-postgres"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "remotion@openai-curated",
+      "name": "remotion",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/remotion"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "plugin-eval@openai-curated",
+      "name": "plugin-eval",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/plugin-eval"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "alpaca@openai-curated",
+      "name": "alpaca",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/alpaca"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "amplitude@openai-curated",
+      "name": "amplitude",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/amplitude"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "attio@openai-curated",
+      "name": "attio",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/attio"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "binance@openai-curated",
+      "name": "binance",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/binance"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "biorender@openai-curated",
+      "name": "biorender",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/biorender"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "brand24@openai-curated",
+      "name": "brand24",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/brand24"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "brex@openai-curated",
+      "name": "brex",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/brex"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "carta-crm@openai-curated",
+      "name": "carta-crm",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/carta-crm"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "cb-insights@openai-curated",
+      "name": "cb-insights",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/cb-insights"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "channel99@openai-curated",
+      "name": "channel99",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/channel99"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "circleback@openai-curated",
+      "name": "circleback",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/circleback"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "clickup@openai-curated",
+      "name": "clickup",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/clickup"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "cloudinary@openai-curated",
+      "name": "cloudinary",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/cloudinary"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "cogedim@openai-curated",
+      "name": "cogedim",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/cogedim"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "common-room@openai-curated",
+      "name": "common-room",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/common-room"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "conductor@openai-curated",
+      "name": "conductor",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/conductor"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "coupler-io@openai-curated",
+      "name": "coupler-io",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/coupler-io"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "coveo@openai-curated",
+      "name": "coveo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/coveo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "cube@openai-curated",
+      "name": "cube",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/cube"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "daloopa@openai-curated",
+      "name": "daloopa",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/daloopa"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "demandbase@openai-curated",
+      "name": "demandbase",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/demandbase"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "dnb-finance-analytics@openai-curated",
+      "name": "dnb-finance-analytics",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/dnb-finance-analytics"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "docket@openai-curated",
+      "name": "docket",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/docket"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "domotz-preview@openai-curated",
+      "name": "domotz-preview",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/domotz-preview"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "dovetail@openai-curated",
+      "name": "dovetail",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/dovetail"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "dow-jones-factiva@openai-curated",
+      "name": "dow-jones-factiva",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/dow-jones-factiva"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "egnyte@openai-curated",
+      "name": "egnyte",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/egnyte"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "finn@openai-curated",
+      "name": "finn",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/finn"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "fireflies@openai-curated",
+      "name": "fireflies",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/fireflies"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "fyxer@openai-curated",
+      "name": "fyxer",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/fyxer"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "govtribe@openai-curated",
+      "name": "govtribe",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/govtribe"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "granola@openai-curated",
+      "name": "granola",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/granola"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "happenstance@openai-curated",
+      "name": "happenstance",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/happenstance"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "help-scout@openai-curated",
+      "name": "help-scout",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/help-scout"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hex@openai-curated",
+      "name": "hex",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.0",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hex"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "highlevel@openai-curated",
+      "name": "highlevel",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/highlevel"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hostinger@openai-curated",
+      "name": "hostinger",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hostinger"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hubspot@openai-curated",
+      "name": "hubspot",
+      "marketplaceName": "openai-curated",
+      "version": "2.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hubspot"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "keybid-puls@openai-curated",
+      "name": "keybid-puls",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/keybid-puls"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "marcopolo@openai-curated",
+      "name": "marcopolo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/marcopolo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "mem@openai-curated",
+      "name": "mem",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/mem"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "monday-com@openai-curated",
+      "name": "monday-com",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/monday-com"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "moody-s@openai-curated",
+      "name": "moody-s",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/moody-s"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "morningstar@openai-curated",
+      "name": "morningstar",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/morningstar"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "motherduck@openai-curated",
+      "name": "motherduck",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/motherduck"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "mt-newswires@openai-curated",
+      "name": "mt-newswires",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/mt-newswires"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "myregistry-com@openai-curated",
+      "name": "myregistry-com",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/myregistry-com"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "network-solutions@openai-curated",
+      "name": "network-solutions",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/network-solutions"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "omni-analytics@openai-curated",
+      "name": "omni-analytics",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/omni-analytics"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "otter-ai@openai-curated",
+      "name": "otter-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/otter-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "particl-market-research@openai-curated",
+      "name": "particl-market-research",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/particl-market-research"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "pipedrive@openai-curated",
+      "name": "pipedrive",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/pipedrive"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "pitchbook@openai-curated",
+      "name": "pitchbook",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/pitchbook"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "policynote@openai-curated",
+      "name": "policynote",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/policynote"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "pylon@openai-curated",
+      "name": "pylon",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/pylon"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "quartr@openai-curated",
+      "name": "quartr",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/quartr"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "quicknode@openai-curated",
+      "name": "quicknode",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/quicknode"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "ranked-ai@openai-curated",
+      "name": "ranked-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/ranked-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "razorpay@openai-curated",
+      "name": "razorpay",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/razorpay"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "read-ai@openai-curated",
+      "name": "read-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/read-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "readwise@openai-curated",
+      "name": "readwise",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/readwise"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "responsive@openai-curated",
+      "name": "responsive",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/responsive"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "scite@openai-curated",
+      "name": "scite",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/scite"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "semrush@openai-curated",
+      "name": "semrush",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/semrush"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "sendgrid@openai-curated",
+      "name": "sendgrid",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/sendgrid"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "setu-bharat-connect-billpay@openai-curated",
+      "name": "setu-bharat-connect-billpay",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/setu-bharat-connect-billpay"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "signnow@openai-curated",
+      "name": "signnow",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/signnow"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "skywatch@openai-curated",
+      "name": "skywatch",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/skywatch"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "statsig@openai-curated",
+      "name": "statsig",
+      "marketplaceName": "openai-curated",
+      "version": "2.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/statsig"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "streak@openai-curated",
+      "name": "streak",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/streak"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "taxdown@openai-curated",
+      "name": "taxdown",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/taxdown"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "teamwork-com@openai-curated",
+      "name": "teamwork-com",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/teamwork-com"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "third-bridge@openai-curated",
+      "name": "third-bridge",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/third-bridge"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "tinman-ai@openai-curated",
+      "name": "tinman-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/tinman-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "united-rentals@openai-curated",
+      "name": "united-rentals",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/united-rentals"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "vantage@openai-curated",
+      "name": "vantage",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/vantage"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "waldo@openai-curated",
+      "name": "waldo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/waldo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "weatherpromise@openai-curated",
+      "name": "weatherpromise",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/weatherpromise"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "windsor-ai@openai-curated",
+      "name": "windsor-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/windsor-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "yepcode@openai-curated",
+      "name": "yepcode",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/yepcode"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "render@openai-curated",
+      "name": "render",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/render"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "temporal@openai-curated",
+      "name": "temporal",
+      "marketplaceName": "openai-curated",
+      "version": "0.2.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/temporal"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hyperframes@openai-curated",
+      "name": "hyperframes",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hyperframes"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "heygen@openai-curated",
+      "name": "heygen",
+      "marketplaceName": "openai-curated",
+      "version": "2.2.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/heygen"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "supabase@openai-curated",
+      "name": "supabase",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.10",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/supabase"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "codex-security@openai-curated",
+      "name": "codex-security",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.10",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/codex-security"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_USE"
+    },
+    {
+      "pluginId": "twilio-developer-kit@openai-curated",
+      "name": "twilio-developer-kit",
+      "marketplaceName": "openai-curated",
+      "version": "0.2.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/twilio-developer-kit"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "openai-developers@openai-curated",
+      "name": "openai-developers",
+      "marketplaceName": "openai-curated",
+      "version": "1.2.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/openai-developers"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "asana@openai-curated",
+      "name": "asana",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.4",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/asana"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "datadog@openai-curated",
+      "name": "datadog",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/datadog"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "zoom@openai-curated",
+      "name": "zoom",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/zoom"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "similarweb@openai-curated",
+      "name": "similarweb",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/similarweb"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "lseg@openai-curated",
+      "name": "lseg",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/lseg"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "s-p@openai-curated",
+      "name": "s-p",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/s-p"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "datasite@openai-curated",
+      "name": "datasite",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/datasite"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "factset@openai-curated",
+      "name": "factset",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/factset"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "zoominfo@openai-curated",
+      "name": "zoominfo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/zoominfo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "docusign@openai-curated",
+      "name": "docusign",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/docusign"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "mixpanel@openai-curated",
+      "name": "mixpanel",
+      "marketplaceName": "openai-curated",
+      "version": "2.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/mixpanel"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "mixpanel-headless@openai-curated",
+      "name": "mixpanel-headless",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/mixpanel-headless"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "aiera@openai-curated",
+      "name": "aiera",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/aiera"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "close@openai-curated",
+      "name": "close",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/close"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "apollo@openai-curated",
+      "name": "apollo",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/apollo"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "meticulate@openai-curated",
+      "name": "meticulate",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/meticulate"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "thoughtspot@openai-curated",
+      "name": "thoughtspot",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/thoughtspot"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "midpage@openai-curated",
+      "name": "midpage",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/midpage"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "clay@openai-curated",
+      "name": "clay",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/clay"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "calendly@openai-curated",
+      "name": "calendly",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/calendly"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "rox@openai-curated",
+      "name": "rox",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/rox"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hg-insights@openai-curated",
+      "name": "hg-insights",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hg-insights"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "airtable@openai-curated",
+      "name": "airtable",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/airtable"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "convex@openai-curated",
+      "name": "convex",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/convex"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "outreach@openai-curated",
+      "name": "outreach",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/outreach"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "shutterstock@openai-curated",
+      "name": "shutterstock",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/shutterstock"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "replit@openai-curated",
+      "name": "replit",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/replit"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "lovable@openai-curated",
+      "name": "lovable",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/lovable"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "quickbooks@openai-curated",
+      "name": "quickbooks",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/quickbooks"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "intercom@openai-curated",
+      "name": "intercom",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/intercom"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "chronograph-lp@openai-curated",
+      "name": "chronograph-lp",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/chronograph-lp"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "nvidia@openai-curated",
+      "name": "nvidia",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/nvidia"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "posthog@openai-curated",
+      "name": "posthog",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/posthog"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "actively@openai-curated",
+      "name": "actively",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/actively"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "zoho@openai-curated",
+      "name": "zoho",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/zoho"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "fiscal-ai@openai-curated",
+      "name": "fiscal-ai",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/fiscal-ai"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "picsart@openai-curated",
+      "name": "picsart",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/picsart"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "alation@openai-curated",
+      "name": "alation",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/alation"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "fal@openai-curated",
+      "name": "fal",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/fal"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "hebbia@openai-curated",
+      "name": "hebbia",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/hebbia"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "wix@openai-curated",
+      "name": "wix",
+      "marketplaceName": "openai-curated",
+      "version": "1.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/wix"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "base44@openai-curated",
+      "name": "base44",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3-beta.1",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/base44"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "ngs-analysis@openai-curated",
+      "name": "ngs-analysis",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/ngs-analysis"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "superhuman@openai-curated",
+      "name": "superhuman",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/superhuman"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "shopify@openai-curated",
+      "name": "shopify",
+      "marketplaceName": "openai-curated",
+      "version": "1.3.3",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/shopify"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "magicpath@openai-curated",
+      "name": "magicpath",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.1",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/magicpath"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "brighthire@openai-curated",
+      "name": "brighthire",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.1",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/brighthire"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "catalyst-by-zoho@openai-curated",
+      "name": "catalyst-by-zoho",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.1",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/catalyst-by-zoho"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "glean@openai-curated",
+      "name": "glean",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.0",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/glean"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "chronograph-gp@openai-curated",
+      "name": "chronograph-gp",
+      "marketplaceName": "openai-curated",
+      "version": "1.0.0",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/chronograph-gp"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "openai-ads-conversions@openai-curated",
+      "name": "openai-ads-conversions",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.0",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/openai-ads-conversions"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "boltz-api-cli@openai-curated",
+      "name": "boltz-api-cli",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.1",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/boltz-api-cli"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "replayio@openai-curated",
+      "name": "replayio",
+      "marketplaceName": "openai-curated",
+      "version": "0.1.0",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/replayio"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    },
+    {
+      "pluginId": "digitalocean@openai-curated",
+      "name": "digitalocean",
+      "marketplaceName": "openai-curated",
+      "version": "0.2.2",
+      "installed": false,
+      "enabled": false,
+      "source": {
+        "source": "local",
+        "path": "/home/box/.codex/.tmp/plugins/plugins/digitalocean"
+      },
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_INSTALL"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+✅ aliasForPackage strips @ and replaces / for scoped names
+✅ isRetryableNpmError detects ENOTEMPTY and friends
+✅ computeBackoffMs grows exponentially
+[preinstall-use-m] ✅ installed command-stream@0.18.0 as command-stream-v-0.18.0 (attempt 1)
+✅ installWithRetry returns ok on first success
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ⚠️  attempt 2/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ✅ installed command-stream@0.18.0 as command-stream-v-0.18.0 (attempt 3)
+✅ installWithRetry retries on ENOTEMPTY then succeeds
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ❌ giving up on command-stream@0.18.0 after 1 attempt(s)
+✅ installWithRetry aborts immediately on non-retryable error
+[preinstall-use-m] ⚠️  attempt 1/3 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ℹ️  command-stream-v-0.18.0 already present in /tmp/preinstall-1724-goj0Q8; treating as success despite npm error
+✅ installWithRetry treats package-present-on-disk as recovered success
+
+Passed: 7 / 7

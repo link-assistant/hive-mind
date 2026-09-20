@@ -1,0 +1,47 @@
+# Issue 1637 CPU/load snapshot
+Fri Apr 17 22:41:06 UTC 2026
+
+## uname
+Linux 2681c9c18959 6.8.0-94-generic #96-Ubuntu SMP PREEMPT_DYNAMIC Fri Jan  9 20:36:55 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+
+## node
+{
+  "node": "v20.20.2",
+  "platform": "linux",
+  "arch": "x64"
+}
+
+## os load and CPU count
+{
+  "loadavg": [
+    1.34,
+    2.47,
+    2.81
+  ],
+  "cpus": 6,
+  "availableParallelism": 6
+}
+
+## /proc/loadavg
+1.34 2.47 2.81 1/1469 204522
+
+## nproc
+6
+
+## uptime
+ 22:41:06 up 59 days,  3:46,  0 user,  load average: 1.34, 2.47, 2.81
+
+## /proc/stat selected lines
+cpu  142803623 37830 28684654 2887233509 1098065 0 756388 0 0 0
+cpu0 16553862 5645 4770508 488487550 185010 0 160850 0 0 0
+cpu1 28032295 6851 4717202 477255633 173245 0 93498 0 0 0
+cpu2 26508661 4492 4675845 478831354 182341 0 64650 0 0 0
+cpu3 13096547 8128 4752018 491137741 189432 0 292608 0 0 0
+cpu4 25417485 6443 4844571 479600362 185546 0 100298 0 0 0
+cpu5 33194769 6269 4924509 471920868 182489 0 44481 0 0 0
+procs_running 1
+procs_blocked 0
+
+## runnable/blocking process state counts
+R 2
+S 209

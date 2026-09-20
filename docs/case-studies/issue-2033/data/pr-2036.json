@@ -1,0 +1,10 @@
+{
+  "number": 2036,
+  "url": "https://github.com/link-assistant/hive-mind/pull/2036",
+  "baseRefName": "main",
+  "headRefName": "issue-2033-afa46c3d022d",
+  "isDraftAtCollection": true,
+  "titleAtCollection": "[WIP] Set `--model opus` as default for `--tool claude`",
+  "headRefOidAtCollection": "a9df528ccc50d972e85330d645da62a16ecd8c41",
+  "collectedAt": "2026-07-10T08:00:00Z"
+}

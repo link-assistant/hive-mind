@@ -1,0 +1,20 @@
+FAIL: missing terminal result after Exit code 144 is retryable
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:135:10
+    at test (file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:45:11)
+    at file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:130:7
+FAIL: Claude stream missing result resumes the captured session
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+false !== true
+
+    at file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:185:12
+    at async test (file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:45:5)
+    at async file:///tmp/gh-issue-solver-1783582399181/tests/test-issue-2023-claude-missing-result-resume.mjs:140:1
+
+Total: 2 tests
+Passed: 0
+Failed: 2

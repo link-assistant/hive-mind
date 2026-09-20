@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Evidence shim: records how `formal-ai with codex` invokes the real codex CLI.
+{
+  echo "ARGV:"; printf '  %q\n' "$@"
+  echo "CODEX_HOME=${CODEX_HOME:-<unset>}"
+  echo "OPENAI_API_KEY=${OPENAI_API_KEY:+<set>}"
+  echo "OPENAI_BASE_URL=${OPENAI_BASE_URL:-<unset>}"
+  echo "FORMAL_AI_API_KEY=${FORMAL_AI_API_KEY:+<set>}"
+  echo "ENV(matching openai|codex|formal):"
+  env | grep -iE 'openai|codex|formal' | sed 's/^/  /'
+  if [ -n "$CODEX_HOME" ] && [ -f "$CODEX_HOME/config.toml" ]; then
+    echo "CONFIG.TOML:"; sed 's/^/  /' "$CODEX_HOME/config.toml"
+  fi
+} > /tmp/gh-issue-solver-1785688606123/experiments/issue-2130/codex-shim-capture.txt 2>&1
+echo '{"type":"thread.started","thread_id":"shim"}'
+exit 0

@@ -1,0 +1,16 @@
+{
+  "number": 2007,
+  "title": "Double check that we have an option for immediate or interactive input to the claude and codex and other tools as we get events about the issue and pull request",
+  "url": "https://github.com/link-assistant/hive-mind/issues/2007",
+  "state": "OPEN",
+  "createdAt": "2026-07-02T23:08:20Z",
+  "updatedAt": "2026-07-02T23:08:20Z",
+  "author": {
+    "login": "konard",
+    "name": "Konstantin Diachenko",
+    "is_bot": false
+  },
+  "labels": ["documentation", "enhancement"],
+  "body": "For example: \n\nhttps://github.com/uselessgoddess/restruct-priv/pull/11 (here comments are used during the working session of our AI agent in solve command).\n\nWe need to double check that we have an option for immediate or interactive input to the claude and codex and other tools as we get events about the issue and pull request.\n\nI don't remember if it was implemented or not, but it is not enabled by default for sure, so we need to either improve existing option and explain how it works, so we can start testing. Or if we don't have such option, that can be enabled separately we need fully implement it as experimental option.\n\nThat will be much more convenient if our users will be able to do any feedback (issue title or description or something else about it is updated), issue comments are added, pull request comments are added. Pull request description is the responsibility of the AI agent, so no changes here.\n\nOn any such events, we need to notify the agent about these events (using direct json input streaming to claude/codex CLIs and other tools), so we will guarantee the agent will be aware of what is happening even if agent does not decide to go and check it himself.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nPlease plan and execute everything in this single pull request, you have unlimited time and context, as context auto-compacts and you can continue indefinitely, until it is each and every requirement fully addressed, and everything is totally done.\n\n",
+  "comments": []
+}

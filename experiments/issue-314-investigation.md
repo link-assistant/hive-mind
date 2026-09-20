@@ -3,6 +3,7 @@
 ## Problem Statement
 
 Command that fails:
+
 ```bash
 solve https://github.com/netkeep80/jsonRVM/issues/1 --auto-continue --attach-logs --verbose --model opus --fork --think max
 ```
@@ -10,10 +11,12 @@ solve https://github.com/netkeep80/jsonRVM/issues/1 --auto-continue --attach-log
 ## Key Feedback
 
 From PR comment:
+
 > You didn't understand the issue, it was the fork of the user that was provided for the tool to solve.
 > So gh tool was setup with konard account, and fork was created in konard's user, so it is our own fork, not someone else's.
 
 This means:
+
 - The gh CLI is authenticated as konard
 - There's a fork: konard/jsonRVM (forked from netkeep80/jsonRVM)
 - konard previously created a PR from this fork
@@ -45,19 +48,24 @@ This means:
 ## Potential Issues
 
 ### Issue #1: Branch Not Fetched
+
 When `gh repo clone konard/jsonRVM` is executed, it might only fetch the default branch. When trying to checkout a PR branch, the branch might not exist locally or in the fetched remote branches.
 
 The code tries to handle this at line 477:
+
 ```javascript
 const fetchResult = await $({ cwd: tempDir })`git fetch origin`;
 ```
 
 But this might fail if:
+
 - The branch was never pushed to konard/jsonRVM
 - The branch only exists in a different remote
 
 ### Issue #2: Wrong Remote Configuration
+
 After cloning, the `origin` remote points to konard/jsonRVM. But what if:
+
 - The PR branch was created in a different fork?
 - The branch name exists but points to a different fork's branch?
 

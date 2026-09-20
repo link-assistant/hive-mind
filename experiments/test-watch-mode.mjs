@@ -10,16 +10,16 @@ const testParams = {
   owner: 'test',
   repo: 'repo',
   issueNumber: '1',
-  prNumber: '123',  // This should be set after PR creation
+  prNumber: '123', // This should be set after PR creation
   prBranch: 'issue-1-abc123',
   branchName: 'issue-1-abc123',
   tempDir: '/tmp/test',
   argv: {
     watch: true,
-    watchInterval: 5,  // Short interval for testing
+    watchInterval: 5, // Short interval for testing
     autoContinue: true,
-    verbose: true
-  }
+    verbose: true,
+  },
 };
 
 console.log('Test parameters:');
@@ -52,7 +52,7 @@ if (!testParams2.argv.watch) {
 console.log('\nTest with watch disabled:');
 const testParams3 = {
   ...testParams,
-  argv: { ...testParams.argv, watch: false }
+  argv: { ...testParams.argv, watch: false },
 };
 if (!testParams3.argv.watch) {
   console.log('❌ Watch mode NOT enabled - argv.watch is false');

@@ -1,0 +1,450 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "Closes #189.\n\n## Problem\n\nThe router carried two admin credential models. Startup minted an admin-scoped\n`la_sk_` HS256 JWT, while the first-visitor claim (web, Telegram, VK) and\n`/api/admin/rotate` produced an opaque `la_admin_…` value persisted as a\nSHA-256 digest in `admin-claim.json` — no `sub`, no `iat`/`exp`, no `scope`, no\nlisting, no revocation. Two consequences reported on the issue:\n\n- after a claim, the startup `bootstrap-admin` JWT still showed as `active` /\n  `0 / ∞` with a Revoke button, while already answering `401` on\n  `/api/tokens/list`;\n- a claimed/rotated `la_admin_…` credential succeeded on `/api/tokens/list` but\n  answered `401 invalid token` on `/v1/models` — `authenticate_client` only ever\n  called `token_manager.validate_token`, which requires the `la_sk_` prefix.\n\n## Solution\n\nOne credential model. The claim now issues an ordinary admin-scoped `la_sk_`\nJWT with `sub`, `iat`, `exp`, `label` and `scope=admin`.\n\n- **`src/admin.rs`** — `AdminClaim` holds a `TokenManager` (`with_token_manager`\n  / `attach_token_manager`, `OnceLock` for boot ordering). The claim file stores\n  the token *id*, never the value. The two-phase anti-bricking handshake is\n  preserved by minting the candidate **already revoked**: it authorises nothing\n  on any surface until `confirm` reinstates it. Confirming also calls\n  `revoke_other_admin_tokens(keep_id)`, retiring the startup `bootstrap-admin`\n  token by id. `rotate_with_ttl` CAS-checks the on-disk claim (digest *and* id)\n  under the exclusive claim lock, then mints the replacement via\n  `rotate_admin_token(previous_id, …)` — one atomic swap.\n- **`src/token.rs`** — `reinstate_token` and `revoke_other_admin_tokens`.\n- **`src/admin_api.rs`** — `/api/admin/bootstrap` and `/api/admin/rotate` accept\n  an optional `{\"ttl_hours\": n}` (clamped to one year); `require_admin` now\n  delegates to `proxy::is_admin_authorised`, so both ports run one rule.\n- **`src/proxy.rs`** — `authenticate_client` short-circuits on an admin\n  credential (claimed credential or constant-time `TOKEN_ADMIN_KEY`) before\n  `validate_token`. `scope=admin` is now a superset of client access: one\n  administrator credential manages tokens *and* reaches `/v1/models`.\n- **Migration** — existing `la_admin_…` claims keep authorising, `doctor` prints\n  `admin_credential_warning: WARNING legacy opaque \\`la_admin_\\` credential …`,\n  and the first rotate converts the claim into a JWT.\n\n`TOKEN_ADMIN_KEY` is unchanged as an optional bootstrap/compatibility\ncredential, and the first-claim lock stays global across web, Telegram and VK.\n\n### Deliberate behaviour worth a reviewer's eye\n\nWhen a claimed admin JWT expires or is revoked, `claimed` stays true — bootstrap\ndoes **not** reopen, because that would be a takeover vector on an idle\ndeployment. The operator is told through `/api/admin/status` and `doctor`.\n\n## Tests\n\nReproducing coverage first, then the fix (all green locally: 428 lib tests plus\nevery integration suite).\n\n- `src/admin_tests.rs::jwt_model` — credential shape and claims, inert\n  unconfirmed candidate, retirement of `bootstrap-admin` on confirm,\n  administrator-chosen TTL and clamping, expiry, revocation, atomic rotation by\n  id, restart persistence, \"the claim file never holds the token\", and legacy\n  `la_admin_` compatibility plus rotation-into-JWT migration.\n- `tests/admin_ui_test.rs` — the harness now runs a persistent token store and\n  can restart: web claim yields an admin JWT (`credential_kind: \"jwt\"`), TTL\n  choice honoured, startup `bootstrap-admin` shown revoked after a claim,\n  credential survives a restart, rotation atomic across a restart, expired\n  credential stops administering.\n- `tests/chat_admin_test.rs` — a chat claim yields an admin-scoped JWT that also\n  administers the HTTP surface, and a claim in one channel closes the other\n  (cross-channel exclusion).\n- `tests/router_e2e/cases_regressions.rs::an_admin_credential_both_manages_tokens_and_reaches_the_models`\n  — the acceptance check from the issue comments: `TOKEN_ADMIN_KEY` and an\n  admin-scoped JWT each answer `200` on both `/api/tokens/list` and\n  `/v1/models`, and both surfaces reject the credential once revoked.\n\nDocs (README admin-access section, chat-bot use case) and a `changelog.d`\nfragment are included; the sign-in placeholder now reads `la_sk_…` and\n`ui/dist` is rebuilt.\n",
+  "closedAt": "2026-08-16T20:51:38Z",
+  "commits": [
+    {
+      "authoredDate": "2026-08-16T19:00:49Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:00:49Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/router/issues/189",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "92d28b24a6645c8ffeefd9384d664a148f24d3cd"
+    },
+    {
+      "authoredDate": "2026-08-16T19:19:00Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:19:00Z",
+      "messageBody": "The two-phase claim now mints an admin-scoped JWT through the shared\nTokenManager: phase one issues it revoked (inert everywhere), phase two\nreinstates it and retires every superseded admin token, and rotation\nrevokes the outgoing credential by id. Legacy la_admin_ claims keep\nworking and rotate into a JWT.\n\nRefs #189",
+      "messageHeadline": "feat(admin): mint first-visitor admin credentials as scoped la_sk_ JWTs",
+      "oid": "41473b1ab50430f5e555ae0692c490f1b273bc65"
+    },
+    {
+      "authoredDate": "2026-08-16T19:23:51Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:23:51Z",
+      "messageBody": "",
+      "messageHeadline": "test(admin): cover the JWT credential model in unit tests",
+      "oid": "fb34eaacb3f7160d6793e03c6cd15062da7c48d2"
+    },
+    {
+      "authoredDate": "2026-08-16T19:28:59Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:28:59Z",
+      "messageBody": "",
+      "messageHeadline": "test(admin): end-to-end coverage for the JWT admin credential model",
+      "oid": "338fe8b5b3f6722562dd906951cd7fd31a43268f"
+    },
+    {
+      "authoredDate": "2026-08-16T19:33:34Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:33:34Z",
+      "messageBody": "",
+      "messageHeadline": "docs(admin): document the single admin JWT credential model",
+      "oid": "7a31a9684bc2ddb9f3702468e0c5490eb8dc49f9"
+    },
+    {
+      "authoredDate": "2026-08-16T19:33:57Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:33:57Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-189-11afc2c5b939",
+      "oid": "df4527d50a18d425b9cc2de418076eeae9ed4036"
+    },
+    {
+      "authoredDate": "2026-08-16T19:41:31Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T19:41:31Z",
+      "messageBody": "…aseline",
+      "messageHeadline": "fix(admin): satisfy clippy 1.97 some_filter and update the coverage b…",
+      "oid": "f0f45c04a6c86e78b67ff50dc6fe880eb9bf88c2"
+    },
+    {
+      "authoredDate": "2026-08-16T20:14:05Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:14:05Z",
+      "messageBody": "",
+      "messageHeadline": "chore: re-run CI",
+      "oid": "78e6d26f720d8c80dabb5bbe80fa4517a91318fd"
+    },
+    {
+      "authoredDate": "2026-08-16T20:35:08Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-16T20:35:08Z",
+      "messageBody": "",
+      "messageHeadline": "Merge remote-tracking branch 'origin/main' into issue-189-11afc2c5b939",
+      "oid": "04f9c3c976e84194dede61beabe2b3c9a9d78597"
+    }
+  ],
+  "createdAt": "2026-08-16T19:01:00Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 2,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "README.md",
+      "additions": 24,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "changelog.d/20260816_180000_issue_189_admin_jwt_credential_model.md",
+      "additions": 34,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "docs/use-cases/chat-admin-bots.md",
+      "additions": 4,
+      "deletions": 3,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/admin.rs",
+      "additions": 349,
+      "deletions": 194,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/admin_api.rs",
+      "additions": 44,
+      "deletions": 20,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/admin_tests.rs",
+      "additions": 410,
+      "deletions": 0,
+      "changeType": "ADDED"
+    },
+    {
+      "path": "src/main.rs",
+      "additions": 29,
+      "deletions": 11,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/proxy.rs",
+      "additions": 35,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "src/token.rs",
+      "additions": 55,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/admin_ui_test.rs",
+      "additions": 223,
+      "deletions": 6,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/chat_admin_test.rs",
+      "additions": 77,
+      "deletions": 2,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e/cases_regressions.rs",
+      "additions": 56,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "tests/router_e2e_test.rs",
+      "additions": 7,
+      "deletions": 0,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "ui/dist/assets/app.js",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    },
+    {
+      "path": "ui/src/SignIn.jsx",
+      "additions": 1,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-189-11afc2c5b939",
+  "headRefOid": "04f9c3c976e84194dede61beabe2b3c9a9d78597",
+  "isDraft": false,
+  "mergeStateStatus": "UNKNOWN",
+  "mergeable": "UNKNOWN",
+  "mergedAt": "2026-08-16T20:51:38Z",
+  "number": 199,
+  "state": "MERGED",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:41:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223856085",
+      "name": "Detect Changes",
+      "startedAt": "2026-08-16T20:40:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:41:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223856046",
+      "name": "Version Modification Check",
+      "startedAt": "2026-08-16T20:40:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:40:19Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223856013",
+      "name": "Tunnel Image Smoke Test",
+      "startedAt": "2026-08-16T20:40:09Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:40:08Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223856340",
+      "name": "Create Changelog PR",
+      "startedAt": "2026-08-16T20:40:08Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:41:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223980196",
+      "name": "Changelog Fragment Check",
+      "startedAt": "2026-08-16T20:41:09Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:43:36Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223980245",
+      "name": "Lint and Format Check",
+      "startedAt": "2026-08-16T20:41:10Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:44:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95223980153",
+      "name": "Dependency Audit",
+      "startedAt": "2026-08-16T20:41:09Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:43:50Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224081533",
+      "name": "Test (ubuntu-latest)",
+      "startedAt": "2026-08-16T20:42:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:45:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224081590",
+      "name": "Test (macos-latest)",
+      "startedAt": "2026-08-16T20:44:22Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:45:27Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224081464",
+      "name": "Test (windows-latest)",
+      "startedAt": "2026-08-16T20:42:01Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:44:47Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224081559",
+      "name": "Test Coverage",
+      "startedAt": "2026-08-16T20:42:02Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:10Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224550455",
+      "name": "Build Package",
+      "startedAt": "2026-08-16T20:45:51Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224820971",
+      "name": "Auto Release",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224820894",
+      "name": "Instant Release",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:10Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224821321",
+      "name": "Create GitHub Release",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224821303",
+      "name": "Build Docker Image (${{ matrix.variant }} / ${{ matrix.arch }})",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224821211",
+      "name": "Publish attested binaries (${{ matrix.os }}-${{ matrix.arch }})",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224821767",
+      "name": "Publish Multi-Platform Docker Manifests",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-16T20:48:11Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/router/actions/runs/31971214202/job/95224821499",
+      "name": "Verify macOS client lifecycle",
+      "startedAt": "2026-08-16T20:48:11Z",
+      "status": "COMPLETED",
+      "workflowName": "CI/CD Pipeline"
+    }
+  ],
+  "title": "feat(admin): use the scoped JWT model for first-visitor web and chat admin credentials",
+  "updatedAt": "2026-08-16T20:51:39Z",
+  "url": "https://github.com/link-assistant/router/pull/199"
+}

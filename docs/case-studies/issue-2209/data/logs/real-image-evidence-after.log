@@ -1,0 +1,92 @@
+
+=== pulling the starting release ghcr.io/link-assistant/formal-ai:0.345.0 ===
+
+=== idle update to ghcr.io/link-assistant/formal-ai:latest ===
+⬇️ Checking for a newer Formal AI image (ghcr.io/link-assistant/formal-ai:latest)
+🛑 Formal AI sidecar stopped (updating the Formal AI image); memory volume 'hive-mind-formal-ai-memory' preserved
+[VERBOSE] formal-ai-sidecar: removed container=false network='hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: created volume 'hive-mind-formal-ai-memory'
+[VERBOSE] formal-ai-updater: no memory migration required (schema none, state missing)
+[VERBOSE] formal-ai-sidecar: created internal network 'hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: 'hive-mind-formal-ai' healthy after 6 probe(s) (version=0.347.0, memory schema=unknown)
+✅ Formal AI updated to 0.347.0; the sidecar stays stopped until a Formal AI task needs it
+{
+  "status": "updated",
+  "image": "ghcr.io/link-assistant/formal-ai:latest",
+  "digest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "version": "0.347.0",
+  "memorySchemaVersion": null
+}
+
+=== the next task acquires a sidecar ===
+[VERBOSE] formal-ai-image: using 'sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82' (accepted-update) already present locally, digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82
+[VERBOSE] formal-ai-sidecar: created internal network 'hive-mind-formal-ai'
+🧠 Starting the Formal AI sidecar (ghcr.io/link-assistant/formal-ai:latest @ sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, accepted-update) on the internal network 'hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: 'hive-mind-formal-ai' healthy after 5 probe(s) (version=0.347.0, memory schema=unknown)
+[VERBOSE] formal-ai-sidecar: lease 'issue-2209-evidence-a' acquired (1 active), image=ghcr.io/link-assistant/formal-ai:latest (accepted-update), digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, address=172.19.0.2, formal-ai=0.347.0, memory schema=unknown
+{
+  "image": "ghcr.io/link-assistant/formal-ai:latest",
+  "imageSource": "accepted-update",
+  "leaseDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "dockerReportsDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "baseUrl": "http://172.19.0.2:8080",
+  "probedVersion": "0.347.0",
+  "probedMemorySchema": null
+}
+
+=== what that task would record as its Formal AI version (issue #2208) ===
+🧠 Formal AI: local wrapper version 0.336.0 (minimum 0.336.0)
+🧠 Formal AI: using the configured server http://172.19.0.2:8080
+🧠 Formal AI: serving backend 0.347.0 at http://172.19.0.2:8080, image ghcr.io/link-assistant/formal-ai:latest, digest sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82
+🧠 Formal AI: local wrapper 0.336.0 differs from the serving backend 0.347.0; provenance records the backend
+{
+  "localWrapperVersion": "0.336.0",
+  "servingVersion": "0.347.0",
+  "backend": {
+    "baseUrl": "http://172.19.0.2:8080",
+    "version": "0.347.0",
+    "memory": {
+      "compatible": true,
+      "maximum_readable_schema_version": 2,
+      "migration_required": false,
+      "migration_state": "missing",
+      "minimum_readable_schema_version": 1,
+      "schema_version": null,
+      "target_schema_version": 2
+    },
+    "image": "ghcr.io/link-assistant/formal-ai:latest",
+    "imageDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+    "imageSource": "accepted-update",
+    "leased": true,
+    "startedLocally": false,
+    "probedAt": "2026-09-05T11:03:54.672Z"
+  }
+}
+🛑 Formal AI sidecar stopped (no Formal AI tasks running); memory volume 'hive-mind-formal-ai-memory' preserved
+[VERBOSE] formal-ai-sidecar: removed container=true network='hive-mind-formal-ai'
+
+=== a later task, after the sidecar was stopped again ===
+[VERBOSE] formal-ai-image: using 'sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82' (accepted-update) already present locally, digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82
+[VERBOSE] formal-ai-sidecar: created internal network 'hive-mind-formal-ai'
+🧠 Starting the Formal AI sidecar (ghcr.io/link-assistant/formal-ai:latest @ sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, accepted-update) on the internal network 'hive-mind-formal-ai'
+[VERBOSE] formal-ai-sidecar: 'hive-mind-formal-ai' healthy after 6 probe(s) (version=0.347.0, memory schema=unknown)
+[VERBOSE] formal-ai-sidecar: lease 'issue-2209-evidence-b' acquired (1 active), image=ghcr.io/link-assistant/formal-ai:latest (accepted-update), digest=sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82, address=172.19.0.2, formal-ai=0.347.0, memory schema=unknown
+{
+  "leaseDigest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "probedVersion": "0.347.0"
+}
+🛑 Formal AI sidecar stopped (no Formal AI tasks running); memory volume 'hive-mind-formal-ai-memory' preserved
+[VERBOSE] formal-ai-sidecar: removed container=true network='hive-mind-formal-ai'
+
+=== persisted acceptance ===
+{
+  "image": "ghcr.io/link-assistant/formal-ai:latest",
+  "digest": "sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82",
+  "previousDigest": "sha256:6417ddeb215304d17d30f5300a187bfc16a4bbd7b74f586449f8fa8b2325d369",
+  "version": "0.347.0",
+  "migrationId": null,
+  "memorySchemaVersion": null,
+  "updatedAt": "2026-09-05T11:03:47.269Z"
+}
+
+PASS: 0.347.0 (sha256:e4aeffa3d89ac3f994988b41150497019da365d993bc5a548faa072e49f22e82) was accepted, started and observed serving both tasks.

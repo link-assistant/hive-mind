@@ -1,0 +1,82 @@
+[
+  {
+    "name": "agent-cli-e2e.yml",
+    "size": 18286
+  },
+  {
+    "name": "agentic-cli-matrix.yml",
+    "size": 13203
+  },
+  {
+    "name": "coverage.yml",
+    "size": 11586
+  },
+  {
+    "name": "desktop-release.yml",
+    "size": 44375
+  },
+  {
+    "name": "external-benchmarks.yml",
+    "size": 8609
+  },
+  {
+    "name": "issue-1028-agent-ladder.yml",
+    "size": 3437
+  },
+  {
+    "name": "job-headroom.yml",
+    "size": 5939
+  },
+  {
+    "name": "learning-cycle.yml",
+    "size": 2347
+  },
+  {
+    "name": "links.yml",
+    "size": 9608
+  },
+  {
+    "name": "macos-core-tests.yml",
+    "size": 13599
+  },
+  {
+    "name": "pin-base-commit.yml",
+    "size": 1721
+  },
+  {
+    "name": "proactive-failure-report-e2e.yml",
+    "size": 3107
+  },
+  {
+    "name": "question-necessity-ratchet.yml",
+    "size": 1960
+  },
+  {
+    "name": "release.yml",
+    "size": 60200
+  },
+  {
+    "name": "security.yml",
+    "size": 6316
+  },
+  {
+    "name": "stock-rust-install.yml",
+    "size": 2180
+  },
+  {
+    "name": "summarization-ratchet.yml",
+    "size": 3978
+  },
+  {
+    "name": "task-ladder.yml",
+    "size": 4310
+  },
+  {
+    "name": "workflows.yml",
+    "size": 9978
+  },
+  {
+    "name": "write-effect-ladder.yml",
+    "size": 4533
+  }
+]

@@ -1,0 +1,50 @@
+{
+  "issue": "https://github.com/link-assistant/hive-mind/issues/1823",
+  "pull_request": "https://github.com/link-assistant/hive-mind/pull/1824",
+  "captured_log": {
+    "execution_id": "fc60434a-8323-4825-b4ee-7cef4df5ac01",
+    "source": "https://raw.githubusercontent.com/konard/private-logs/main/log-tmp-start-command-logs-isolation-screen-fc60434a-8323-4825-b4ee-7cef4df5ac01/tmp-start-command-logs-isolation-screen-fc60434a-8323-4825-b4ee-7cef4df5ac01.log",
+    "local_copy": "logs/tmp-start-command-logs-isolation-screen-fc60434a-8323-4825-b4ee-7cef4df5ac01.log.gz",
+    "bytes": 34578679,
+    "lines": 41462,
+    "download_method": "gh api repos/konard/private-logs/git/blobs/<sha> --jq .content | base64 -d (token expired on the original raw URL; fetched via authenticated Blobs API)"
+  },
+  "repository_sources": ["src/hive.mjs", "src/hive.shutdown.lib.mjs", "src/exit-handler.lib.mjs", "src/solve.interrupt.lib.mjs", "src/reviewers-hive.mjs", "src/solve.auto-continue.lib.mjs"],
+  "online_sources": [
+    {
+      "title": "Child process | Node.js Documentation (detached option, process group leader, unref)",
+      "url": "https://nodejs.org/api/child_process.html",
+      "used_for": "Confirms `detached: true` makes the child a new process-group leader, isolating it from the parent's controlling-terminal SIGINT; and that the parent keeps waiting unless subprocess.unref() is called."
+    },
+    {
+      "title": "Process | Node.js Documentation (signal events, multiple listeners)",
+      "url": "https://nodejs.org/api/process.html",
+      "used_for": "Confirms Node runs ALL registered listeners for a signal, and that installing a SIGINT listener removes Node's default exit behavior."
+    },
+    {
+      "title": "How to handle process signals in Node.js (CoreUI)",
+      "url": "https://coreui.io/answers/how-to-handle-process-signals-in-nodejs/",
+      "used_for": "Background on registering and coordinating multiple signal handlers."
+    },
+    {
+      "title": "How to Build a Graceful Shutdown Handler in Node.js (OneUptime)",
+      "url": "https://oneuptime.com/blog/post/2026-01-06-nodejs-graceful-shutdown-handler/view",
+      "used_for": "Best practice: a single shutdown manager other modules hook into; idempotent isShuttingDown guard; reserve process.exit() for forced/timeout paths."
+    },
+    {
+      "title": "node-graceful (npm)",
+      "url": "https://www.npmjs.com/package/node-graceful",
+      "used_for": "Existing library that lets listeners return promises to delay exit until cleanup completes — same contract we implement in-house."
+    },
+    {
+      "title": "kill-with-style (npm)",
+      "url": "https://www.npmjs.com/package/kill-with-style",
+      "used_for": "Existing library for reliably killing a process tree/group — relevant to the force-kill (second-interrupt) path."
+    },
+    {
+      "title": "SIGINT/SIGTERM handlers prevent graceful shutdown (openai/openai-agents-js#184)",
+      "url": "https://github.com/openai/openai-agents-js/issues/184",
+      "used_for": "Real-world example of a dependency's own signal handler racing the application's graceful shutdown — the same class of bug as the hive/exit-handler double-handler race."
+    }
+  ]
+}

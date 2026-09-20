@@ -1,0 +1,52 @@
+Testing issue #1209: solve options in overrides...
+
+
+--- Test: Issue #1209: --gitkeep-file in solve-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --getkeep-file (typo) should fail ---
+Exit code: 1
+Result: ✅ PASSED - Has expected validation error
+
+--- Test: Issue #1209: --gitkeep-file in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --claude-file in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --auto-gitkeep-file in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --auto-close-pull-request-on-fail in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --enable-workspaces in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --base-branch in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: --no-playwright-mcp-auto-cleanup in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: Multiple solve-passthrough options in hive-overrides ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+--- Test: Issue #1209: Full corrected configuration ---
+Exit code: 0
+Result: ✅ PASSED - Validation passed as expected
+
+
+=== Test Summary ===
+Total: 11 | ✅ Passed: 11 | ❌ Failed: 0
+
+🎉 All tests passed!

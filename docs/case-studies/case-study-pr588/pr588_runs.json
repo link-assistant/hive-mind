@@ -1,1 +1,90 @@
-[{"conclusion":"success","createdAt":"2025-10-09T09:06:46Z","databaseId":18371262626,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T09:14:08Z","url":"https://github.com/reagento/dishka/actions/runs/18371262626"},{"conclusion":"action_required","createdAt":"2025-10-09T08:48:34Z","databaseId":18370799499,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T08:48:34Z","url":"https://github.com/reagento/dishka/actions/runs/18370799499"},{"conclusion":"failure","createdAt":"2025-10-09T08:37:05Z","databaseId":18370513207,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T08:42:22Z","url":"https://github.com/reagento/dishka/actions/runs/18370513207"},{"conclusion":"failure","createdAt":"2025-10-09T08:09:47Z","databaseId":18369814716,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T08:16:28Z","url":"https://github.com/reagento/dishka/actions/runs/18369814716"},{"conclusion":"failure","createdAt":"2025-10-09T07:56:32Z","databaseId":18369494097,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T08:01:04Z","url":"https://github.com/reagento/dishka/actions/runs/18369494097"},{"conclusion":"action_required","createdAt":"2025-10-09T07:53:12Z","databaseId":18369424758,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T07:53:12Z","url":"https://github.com/reagento/dishka/actions/runs/18369424758"},{"conclusion":"action_required","createdAt":"2025-10-09T07:48:26Z","databaseId":18369320865,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request","name":"CI","status":"completed","updatedAt":"2025-10-09T07:48:26Z","url":"https://github.com/reagento/dishka/actions/runs/18369320865"},{"conclusion":"success","createdAt":"2025-10-09T07:48:26Z","databaseId":18369320874,"displayTitle":"Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter","event":"pull_request_target","name":"Event Notifier","status":"completed","updatedAt":"2025-10-09T07:48:41Z","url":"https://github.com/reagento/dishka/actions/runs/18369320874"}]
+[
+  {
+    "conclusion": "success",
+    "createdAt": "2025-10-09T09:06:46Z",
+    "databaseId": 18371262626,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T09:14:08Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18371262626"
+  },
+  {
+    "conclusion": "action_required",
+    "createdAt": "2025-10-09T08:48:34Z",
+    "databaseId": 18370799499,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T08:48:34Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18370799499"
+  },
+  {
+    "conclusion": "failure",
+    "createdAt": "2025-10-09T08:37:05Z",
+    "databaseId": 18370513207,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T08:42:22Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18370513207"
+  },
+  {
+    "conclusion": "failure",
+    "createdAt": "2025-10-09T08:09:47Z",
+    "databaseId": 18369814716,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T08:16:28Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18369814716"
+  },
+  {
+    "conclusion": "failure",
+    "createdAt": "2025-10-09T07:56:32Z",
+    "databaseId": 18369494097,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T08:01:04Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18369494097"
+  },
+  {
+    "conclusion": "action_required",
+    "createdAt": "2025-10-09T07:53:12Z",
+    "databaseId": 18369424758,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T07:53:12Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18369424758"
+  },
+  {
+    "conclusion": "action_required",
+    "createdAt": "2025-10-09T07:48:26Z",
+    "databaseId": 18369320865,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request",
+    "name": "CI",
+    "status": "completed",
+    "updatedAt": "2025-10-09T07:48:26Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18369320865"
+  },
+  {
+    "conclusion": "success",
+    "createdAt": "2025-10-09T07:48:26Z",
+    "databaseId": 18369320874,
+    "displayTitle": "Fix KeyError when using FromDishka[WebSocket] without plain WebSocket parameter",
+    "event": "pull_request_target",
+    "name": "Event Notifier",
+    "status": "completed",
+    "updatedAt": "2025-10-09T07:48:41Z",
+    "url": "https://github.com/reagento/dishka/actions/runs/18369320874"
+  }
+]

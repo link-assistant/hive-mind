@@ -1,0 +1,96 @@
+name: Broken Link Checker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.md'
+      - '**.html'
+      - '.github/workflows/links.yml'
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - '**.md'
+      - '**.html'
+      - '.github/workflows/links.yml'
+  workflow_dispatch:
+
+# Concurrency: Only one workflow run per branch at a time
+# - For main branch: let runs finish so a newer push does not cancel an
+#   in-flight link check.
+# - For PR branches: cancel older runs so new pushes supersede stale checks.
+# See: docs/case-studies/issue-25/DETAILED-COMPARISON.md for context
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  link-checker:
+    name: Check Links
+    runs-on: ubuntu-latest
+    # Typical run: <1min with lychee cache. 10min prevents slow
+    # external hosts or Wayback Machine probes from hanging the workflow.
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check links with lychee
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          # Check all Markdown and HTML files
+          # Exclude case-studies directory - these are research documents from
+          # external repos with references to files and issues that don't exist
+          # in this repository (similar exclusion pattern as eslint.config.js)
+          # Exclude the Vite source HTML because its root-relative app asset
+          # URLs are only valid when served by Vite.
+          args: >-
+            --verbose
+            --no-progress
+            --cache
+            --max-cache-age 1d
+            --max-retries 3
+            --timeout 30
+            --exclude-path docs/case-studies
+            --exclude-path examples/universal-app/index.html
+            './**/*.md'
+            './**/*.html'
+          # Don't fail the workflow immediately - we want to check web archive first
+          fail: false
+          # Output file for broken links report (used by check-web-archive.mjs)
+          output: lychee/out.md
+          # Write a job summary
+          jobSummary: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check broken links against Web Archive
+        if: steps.lychee.outputs.exit_code != 0
+        id: webarchive
+        run: node scripts/check-web-archive.mjs
+        env:
+          LYCHEE_OUTPUT: lychee/out.md
+
+      - name: Fail if broken links found and no web archive fallback
+        if: steps.lychee.outputs.exit_code != 0 && steps.webarchive.outputs.all_archived != 'true'
+        run: |
+          echo "::error::Broken links were detected with no Web Archive fallback available."
+          echo ""
+          echo "What happened:"
+          echo "  lychee found one or more broken links in the *.md and *.html files of this repository."
+          echo "  The Web Archive (Wayback Machine) check found no archived versions for some of them."
+          echo ""
+          echo "How to fix:"
+          echo "  1. Review the 'Check links with lychee' step above for a full list of broken links."
+          echo "  2. For links marked with a '::notice::' annotation above, a Web Archive version exists."
+          echo "     Replace those broken links with the suggested archive.org URL."
+          echo "  3. For links with no archive version, either:"
+          echo "     a. Find an updated URL that points to the same or equivalent content."
+          echo "     b. Remove the link if the content is no longer relevant."
+          echo "     c. Add the URL to .lycheeignore if it is a known false positive."
+          echo ""
+          echo "Report location: lychee/out.md (available as a workflow artifact if configured)."
+          exit 1

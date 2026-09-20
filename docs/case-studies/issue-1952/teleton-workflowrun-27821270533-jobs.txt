@@ -1,0 +1,12 @@
+{"conclusion":"success","name":"CI / TypeScript","status":"completed"}
+{"conclusion":"success","name":"CI / Build (SDK with DTS)","status":"completed"}
+{"conclusion":"success","name":"Security audit","status":"completed"}
+{"conclusion":"failure","name":"CI / Deploy artifacts","status":"completed"}
+{"conclusion":"failure","name":"CI / Build (Runtime) (22)","status":"completed"}
+{"conclusion":"failure","name":"CI / OpenAPI","status":"completed"}
+{"conclusion":"success","name":"CI / Test","status":"completed"}
+{"conclusion":"cancelled","name":"CI / Build (Runtime) (20)","status":"completed"}
+{"conclusion":"success","name":"CI / Lint","status":"completed"}
+{"conclusion":"skipped","name":"CI / Quality (push)","status":"completed"}
+{"conclusion":"skipped","name":"notify","status":"completed"}
+{"conclusion":"skipped","name":"Deploy to Vercel","status":"completed"}

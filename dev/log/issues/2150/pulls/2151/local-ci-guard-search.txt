@@ -1,0 +1,345 @@
+docs/CI-CD-BEST-PRACTICES.md:174:    !cancelled() &&
+docs/CI-CD-BEST-PRACTICES.md:279:    if: ${{ !cancelled() && needs.lint.result == 'success' }}
+docs/CI-CD-BEST-PRACTICES.md:289:- **Dependent writers:** Use `needs` and require successful prerequisites. A cancelled prerequisite must make its write job not start.
+docs/CI-CD-BEST-PRACTICES.md:295:Use `!cancelled()` instead of `always()` in job conditions so cancellation propagates correctly through the job graph. A bare `always()` can keep downstream work running after cancellation.
+package.json:26:    "check:duplication": "jscpd .",
+package.json:67:    "jscpd": "^4.0.5",
+.github/workflows/release.yml:45:# This is the inverse of the original policy, which cancelled on main and queued
+.github/workflows/release.yml:48:# IMPORTANT: jobs must use !cancelled() rather than always() in `if:`, or they keep
+.github/workflows/release.yml:62:    timeout-minutes: 10
+.github/workflows/release.yml:94:    timeout-minutes: 10
+.github/workflows/release.yml:113:    timeout-minutes: 10
+.github/workflows/release.yml:153:    timeout-minutes: 15
+.github/workflows/release.yml:156:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:189:    timeout-minutes: 15
+.github/workflows/release.yml:226:      - name: Run code duplication check
+.github/workflows/release.yml:228:          echo "Running jscpd code duplication detection..."
+.github/workflows/release.yml:229:          npm run check:duplication
+.github/workflows/release.yml:230:          echo "Code duplication check passed"
+.github/workflows/release.yml:237:    timeout-minutes: 10
+.github/workflows/release.yml:240:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:264:    timeout-minutes: 30
+.github/workflows/release.yml:267:      !cancelled() &&
+.github/workflows/release.yml:302:    timeout-minutes: 20
+.github/workflows/release.yml:305:      !cancelled() &&
+.github/workflows/release.yml:390:    timeout-minutes: 20
+.github/workflows/release.yml:393:      !cancelled() &&
+.github/workflows/release.yml:466:    timeout-minutes: 15
+.github/workflows/release.yml:469:    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
+.github/workflows/release.yml:494:    timeout-minutes: 30
+.github/workflows/release.yml:498:      !cancelled() &&
+.github/workflows/release.yml:547:    timeout-minutes: 20
+.github/workflows/release.yml:550:    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:583:    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+.github/workflows/release.yml:585:    timeout-minutes: 30
+.github/workflows/release.yml:680:    # !cancelled() allows concurrency cancellation. See: docs/case-studies/issue-1278/
+.github/workflows/release.yml:681:    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:683:    timeout-minutes: 60
+.github/workflows/release.yml:769:    # Use !cancelled() instead of always() to allow concurrency cancellation.
+.github/workflows/release.yml:771:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:773:    timeout-minutes: 30
+.github/workflows/release.yml:834:    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:835:    timeout-minutes: 60
+.github/workflows/release.yml:914:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:916:    timeout-minutes: 30
+.github/workflows/release.yml:975:    # Use !cancelled() instead of always() to allow concurrency cancellation.
+.github/workflows/release.yml:977:    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
+.github/workflows/release.yml:979:    timeout-minutes: 20
+.github/workflows/release.yml:1011:    timeout-minutes: 30
+.github/workflows/release.yml:1077:    # Use !cancelled() instead of always() to allow concurrency cancellation.
+.github/workflows/release.yml:1079:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1081:    timeout-minutes: 60
+.github/workflows/release.yml:1163:    # Use !cancelled() instead of always() to allow concurrency cancellation.
+.github/workflows/release.yml:1165:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1167:    timeout-minutes: 30
+.github/workflows/release.yml:1228:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1229:    timeout-minutes: 60
+.github/workflows/release.yml:1308:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1310:    timeout-minutes: 30
+.github/workflows/release.yml:1369:    # Use !cancelled() instead of always() to allow concurrency cancellation.
+.github/workflows/release.yml:1371:    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
+.github/workflows/release.yml:1373:    timeout-minutes: 20
+.github/workflows/release.yml:1405:    timeout-minutes: 15
+scripts/workflow-lint.lib.mjs:5: *   A job without `timeout-minutes` inherits GitHub's 360-minute default, so a
+scripts/workflow-lint.lib.mjs:72:    // call and a step's `timeout-minutes:` cannot satisfy the job.
+scripts/workflow-lint.lib.mjs:78:    if (keyMatch[1] === 'timeout-minutes') {
+scripts/workflow-lint.lib.mjs:98: * Jobs that must declare `timeout-minutes` but do not.
+scripts/workflow-lint.lib.mjs:101: * `timeout-minutes` on them, so the timeout has to live in the called workflow.
+scripts/workflow-lint.lib.mjs:114: * `always()` is true even when the run has been cancelled, so a job guarded by
+scripts/workflow-lint.lib.mjs:116: * documents this at the top of the file — "Docker jobs use !cancelled() instead
+scripts/workflow-lint.lib.mjs:121: * `!cancelled()` expresses the actual intent in every case here: run regardless
+scripts/workflow-lint.lib.mjs:137: * should be cancelled — nothing is published from them and the runners are
+tests/test-issue-2132-budget-stats-placement.mjs:8: * Reported duplication (same session, two consecutive comments):
+tests/test-issue-1939-docker-isolation.mjs:159:    isTerminalSessionStatus: s => ['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error'].includes(s),
+tests/test-issue-1979-docker-container-reaping.mjs:19:const terminalStatuses = new Set(['executed', 'completed', 'failed', 'cancelled', 'canceled', 'error', 'killed', 'terminated']);
+tests/test-telegram-solve-queue.mjs:207:  const cancelled = queue.cancel(item.id);
+tests/test-telegram-solve-queue.mjs:208:  if (!cancelled) {
+tests/test-telegram-solve-queue.mjs:217:    throw new Error('Total cancelled should be 1');
+tests/test-telegram-solve-queue.mjs:488:  if (QueueItemStatus.CANCELLED !== 'cancelled') {
+tests/test-telegram-solve-queue.mjs:489:    throw new Error('CANCELLED should be "cancelled"');
+tests/test-merge-auto-resolve-sequential-1807.mjs:237:  // The first PR was not merged because we cancelled mid-wait, so autoResolved
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:11: *    detected as a duplicate (within-session deduplication still works)
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:164:// ===== Test: Within-session deduplication still works =====
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:165:console.log('\n📋 Within-Session Deduplication\n');
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:307:test('Auto-restart-until-mergeable Log ends a session and resets deduplication scope', () => {
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:319:  assert(newResult === false, 'Auto-restart-until-mergeable Log should reset deduplication — old "Ready to merge" ignored');
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:322:test('Auto-restart Log (watch mode) ends a session and resets deduplication scope', () => {
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:333:  assert(newResult === false, 'Auto-restart Log should reset deduplication — old "Ready to merge" ignored');
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:336:test('Auto-restart Failure Log ends a session and resets deduplication scope', () => {
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:342:  assert(newResult === false, 'Auto-restart Failure Log should reset deduplication — old "Ready to merge" ignored');
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:348:test('AI Work Session Completed ends a session and resets deduplication scope', () => {
+tests/test-ready-to-merge-after-solution-draft-1584.mjs:358:  assert(newResult === false, 'AI Work Session Completed should reset deduplication — old "Ready to merge" ignored');
+tests/test-cancelled-ci-rerun-1769.mjs:4: * Unit Tests: Issue #1769 - cancelled CI rerun failure must not wait forever.
+tests/test-cancelled-ci-rerun-1769.mjs:14:import { CANCELLED_CI_REVIEW_MARKER, buildCancelledCIReviewComment, getRetriggerableWorkflowRuns, shouldStopForCancelledCIReview } from '../src/cancelled-ci-rerun.lib.mjs';
+tests/test-cancelled-ci-rerun-1769.mjs:43:console.log('Unit Tests: Issue #1769 - cancelled CI rerun failure handling');
+tests/test-cancelled-ci-rerun-1769.mjs:50:test('cancelled CI auto-rerun failure exits with a human-review reason instead of waiting forever', () => {
+tests/test-cancelled-ci-rerun-1769.mjs:51:  assert(autoMergeSrc.includes('ci_cancelled_requires_review'), 'watchUntilMergeable should return ci_cancelled_requires_review when cancelled CI cannot be re-triggered automatically');
+tests/test-cancelled-ci-rerun-1769.mjs:54:test('cancelled CI auto-rerun failure posts a review comment before exiting', () => {
+tests/test-cancelled-ci-rerun-1769.mjs:55:  assert(autoMergeSrc.includes('buildCancelledCIReviewComment'), 'watchUntilMergeable should build a cancelled-CI review comment for manual action');
+tests/test-cancelled-ci-rerun-1769.mjs:56:  assert(autoMergeSrc.includes('post_cancelled_ci_review_comment'), 'watchUntilMergeable should report comment-posting failures with a cancelled-CI-specific context');
+tests/test-cancelled-ci-rerun-1769.mjs:59:test('cancelled/stale workflow runs are the only automatic rerun candidates', () => {
+tests/test-cancelled-ci-rerun-1769.mjs:62:    { id: 2, conclusion: 'cancelled' },
+tests/test-cancelled-ci-rerun-1769.mjs:68:  assert(runs.map(run => run.id).join(',') === '2,3', 'Expected only cancelled and stale runs to be retriggerable');
+tests/test-cancelled-ci-rerun-1769.mjs:72:  const retriggerableRuns = [{ id: 25595105760, name: 'Check', conclusion: 'cancelled' }];
+tests/test-cancelled-ci-rerun-1769.mjs:84:    conclusion: 'cancelled',
+tests/test-cancelled-ci-rerun-1769.mjs:90:      details: ['E2E (Clone cache) [cancelled] - https://github.com/ProverCoderAI/docker-git/actions/runs/25595105760/job/75139593668'],
+tests/test-cancelled-ci-rerun-1769.mjs:100:  assert(comment.includes('timeout-minutes'), 'Expected comment to tell reviewers to treat workflow timeouts as CI failures');
+tests/test-cancelled-ci-rerun-1769.mjs:103:test('cancelled-CI review comments are marked as tool-generated comments', () => {
+tests/test-cancelled-ci-rerun-1769.mjs:104:  assert(TOOL_GENERATED_COMMENT_MARKERS.includes(CANCELLED_CI_REVIEW_MARKER), 'Expected cancelled-CI review comments to be excluded from AI-authored comment detection');
+tests/test-invalid-workflow-file-1690.mjs:86:  const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/test-invalid-workflow-file-1690.mjs:220:await test('All cancelled → noCiTriggered (NOT ci_failure)', async () => {
+tests/test-invalid-workflow-file-1690.mjs:222:    workflowRuns: [{ id: 1, name: 'CI', status: 'completed', conclusion: 'cancelled' }],
+tests/test-invalid-workflow-file-1690.mjs:226:  assert(result.noCiTriggered === true, 'cancelled keeps noCiTriggered behavior');
+tests/test-merge-queue-cancel-1588.mjs:56:  assert.equal(processor.isCancelled, false, 'Should not be cancelled initially');
+tests/test-merge-queue-cancel-1588.mjs:60:  assert.equal(processor.isCancelled, true, 'Should be cancelled after cancel()');
+tests/test-merge-queue-cancel-1588.mjs:66:  assert.ok(replyMarkupBeforeCancel !== undefined, 'Reply markup should include cancel button when not cancelled');
+tests/test-merge-queue-cancel-1588.mjs:69:  assert.equal(replyMarkupAfterCancel, undefined, 'Reply markup should be undefined (no cancel button) when cancelled');
+tests/test-merge-queue-cancel-1588.mjs:120:  // The fix should conditionally omit reply_markup when cancelled
+tests/test-merge-queue-cancel-1588.mjs:128:  //    - When waiting for target branch CI before starting, the queue could not be cancelled
+tests/test-merge-queue-cancel-1588.mjs:132:  //    - When waiting for post-merge CI, the queue could not be cancelled
+tests/test-use-m-single-flight-2113.mjs:6: * per `use()` call with no in-flight deduplication, and 38 modules under `src/`
+tests/test-false-positive-ci-success-1480.mjs:109:          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/cicd-best-practices-concurrency-2128.test.mjs:32:assert.match(concurrencySection, /cancelled prerequisite[\s\S]*write job[^\n]*not start/i);
+tests/cicd-best-practices-concurrency-2128.test.mjs:36:assert.match(concurrencySection, /`!cancelled\(\)`[\s\S]*`always\(\)`/);
+tests/test-issue-1780-stop-by-url.mjs:237:  assert(queue.cancelCalls.length === 0, 'processing item is NOT cancelled via queue.cancel', { calls: queue.cancelCalls });
+tests/test-queue-compact-display-1891.mjs:4: * Tests for issue #1891: reduce duplication in the /queue detailed
+tests/test-queue-compact-display-1891.mjs:100:  // Old verbose duplication gone.
+tests/test-interactive-mode-images.mjs:10: *    commit-SHA ?raw=true URL, content-hash de-duplication, disabled + failure degradation
+tests/test-ready-to-merge-pagination-1645.mjs:9: * scopes deduplication to the wrong session and suppresses the final readiness
+tests/test-ready-to-merge-pagination-1645.mjs:84:console.log('Unit Tests: Issue #1645 - Ready-to-merge deduplication pagination');
+tests/test-billing-limit-detection.mjs:278:  assert.ok('cancelledChecks' in result, 'Result should have cancelledChecks property');
+tests/test-billing-limit-detection.mjs:301:  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+tests/test-billing-limit-detection.mjs:307:  assert.equal(cancelled.length, 0, 'No checks should be cancelled');
+tests/test-billing-limit-detection.mjs:323:test('Some checks cancelled (no failures) → status should be cancelled', () => {
+tests/test-billing-limit-detection.mjs:326:    { name: 'test', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 2 },
+tests/test-billing-limit-detection.mjs:327:    { name: 'lint', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 3 },
+tests/test-billing-limit-detection.mjs:331:  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+tests/test-billing-limit-detection.mjs:334:  assert.equal(cancelled.length, 2, 'Two checks should be cancelled');
+tests/test-billing-limit-detection.mjs:338:  const hasCancelled = cancelled.length > 0;
+tests/test-billing-limit-detection.mjs:341:  else if (hasCancelled && !hasFailed) status = 'cancelled';
+tests/test-billing-limit-detection.mjs:344:  assert.equal(status, 'cancelled', 'Status should be cancelled when only cancelled checks remain');
+tests/test-billing-limit-detection.mjs:347:test('Mixed failures and cancelled → status should be failure', () => {
+tests/test-billing-limit-detection.mjs:350:    { name: 'test', status: 'completed', conclusion: 'cancelled', type: 'check_run', id: 2 },
+tests/test-billing-limit-detection.mjs:354:  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+tests/test-billing-limit-detection.mjs:357:  assert.equal(cancelled.length, 1, 'One check should be cancelled');
+tests/test-billing-limit-detection.mjs:361:  const hasCancelled = cancelled.length > 0;
+tests/test-billing-limit-detection.mjs:365:  assert.equal(status, 'failure', 'Mixed failures and cancelled should report as failure');
+tests/test-billing-limit-detection.mjs:461:test('CI cancelled should NOT trigger AI restart (should re-trigger instead)', () => {
+tests/test-billing-limit-detection.mjs:462:  const blocker = { type: 'ci_cancelled', message: 'CI cancelled', details: ['test'], sha: 'abc123' };
+tests/test-billing-limit-detection.mjs:464:  assert.equal(shouldRestart, false, 'CI cancelled should NOT trigger restart');
+tests/test-billing-limit-detection.mjs:523:test('Stale checks (no failures) → status should be cancelled (needs re-triggering)', () => {
+tests/test-billing-limit-detection.mjs:530:  const cancelled = checks.filter(c => c.conclusion === 'cancelled');
+tests/test-billing-limit-detection.mjs:534:  const hasCancelled = cancelled.length > 0;
+tests/test-billing-limit-detection.mjs:538:  if (hasStale && !hasFailed && !hasCancelled) status = 'cancelled';
+tests/test-billing-limit-detection.mjs:539:  else if ((hasCancelled || hasStale) && !hasFailed) status = 'cancelled';
+tests/test-billing-limit-detection.mjs:542:  assert.equal(status, 'cancelled', 'Stale-only checks should report as cancelled (needs re-trigger)');
+tests/test-billing-limit-detection.mjs:597:  const nonMergeableStatuses = ['failure', 'cancelled', 'pending', 'no_checks', 'unknown'];
+tests/test-billing-limit-detection.mjs:603:    } else if (status === 'cancelled') {
+tests/test-billing-limit-detection.mjs:604:      blockers.push({ type: 'ci_cancelled' });
+tests/test-billing-limit-detection.mjs:613:// Edge case: billing limit check for cancelled jobs
+tests/test-billing-limit-detection.mjs:619:  // This verifies the logic flow: when CI is cancelled, we check billing limits first
+tests/test-billing-limit-detection.mjs:620:  // If billing limit is detected, we report billing_limit not ci_cancelled
+tests/test-billing-limit-detection.mjs:634:  const ciStatus = { cancelledChecks: [{ name: 'test' }], staleChecks: [], sha: 'abc123' };
+tests/test-billing-limit-detection.mjs:638:    const cancelledOrStale = [...ciStatus.cancelledChecks, ...ciStatus.staleChecks];
+tests/test-billing-limit-detection.mjs:639:    blockers.push({ type: 'ci_cancelled', details: cancelledOrStale.map(c => c.name), sha: ciStatus.sha });
+tests/test-billing-limit-detection.mjs:642:  assert.equal(blockers.length, 1, 'Should add ci_cancelled blocker');
+tests/test-billing-limit-detection.mjs:643:  assert.equal(blockers[0].type, 'ci_cancelled', 'Blocker type should be ci_cancelled');
+tests/test-billing-limit-detection.mjs:655:    { id: 1, name: 'CI', conclusion: 'cancelled' },
+tests/test-billing-limit-detection.mjs:660:  const retriggerable = runs.filter(r => r.conclusion === 'cancelled' || r.conclusion === 'stale');
+tests/test-billing-limit-detection.mjs:661:  assert.equal(retriggerable.length, 2, 'Both cancelled and stale runs should be re-triggerable');
+tests/test-billing-limit-detection.mjs:677:    { ciStatus: 'cancelled', expectedAction: 'ci_cancelled', aiRestart: false },
+tests/test-billing-limit-detection.mjs:688:    } else if (ciStatus === 'cancelled') {
+tests/test-billing-limit-detection.mjs:689:      blockers.push({ type: 'ci_cancelled' });
+tests/test-billing-limit-detection.mjs:737:    assert.ok(Array.isArray(result.cancelledChecks), 'cancelledChecks should be an array');
+tests/test-auto-restart-consistency-1567.mjs:9: * 3. Cross-process "Ready to merge" deduplication
+tests/test-auto-restart-consistency-1567.mjs:71:// ===== Test Group 2: Session URL Deduplication =====
+tests/test-auto-restart-consistency-1567.mjs:72:console.log('\n📋 Session URL Deduplication (hasActiveSessionForUrl)\n');
+tests/test-auto-restart-consistency-1567.mjs:139:// ===== Test Group 3: Cross-Process Ready to Merge Deduplication =====
+tests/test-auto-restart-consistency-1567.mjs:140:console.log('\n📋 Cross-Process Ready to Merge Deduplication\n');
+tests/test-auto-restart-consistency-1567.mjs:143: * Simulate the dual-layer deduplication logic from the fix
+tests/test-auto-restart-consistency-1567.mjs:145:function simulateDualLayerDeduplication(inMemoryFlag, existingComments) {
+tests/test-auto-restart-consistency-1567.mjs:151:      // Cross-process deduplication: another process already posted
+tests/test-auto-restart-consistency-1567.mjs:164:  const result = simulateDualLayerDeduplication(false, []);
+tests/test-auto-restart-consistency-1567.mjs:173:  const result = simulateDualLayerDeduplication(false, existingComments);
+tests/test-auto-restart-consistency-1567.mjs:179:  const result = simulateDualLayerDeduplication(true, []);
+tests/test-auto-restart-consistency-1567.mjs:200:  const result = simulateDualLayerDeduplication(false, existingComments);
+tests/test-auto-restart-consistency-1567.mjs:214:  const resultA = simulateDualLayerDeduplication(processAFlag, []);
+tests/test-auto-restart-consistency-1567.mjs:219:  const resultBNoCrossCheck = simulateDualLayerDeduplication(processBFlag, []);
+tests/test-auto-restart-consistency-1567.mjs:232:  const resultA = simulateDualLayerDeduplication(processAFlag, []);
+tests/test-auto-restart-consistency-1567.mjs:239:  const resultB = simulateDualLayerDeduplication(processBFlag, existingAfterA);
+tests/test-auto-restart-consistency-1567.mjs:241:  assert(resultB.commentPosted === false, 'Process B should NOT post (cross-process deduplication)');
+tests/test-cancelled-timeout-fail-1952.mjs:4: * Unit Tests: Issue #1952 - cancelled-by-timeout CI must be treated as a failure.
+tests/test-cancelled-timeout-fail-1952.mjs:6: * Reproduces the teleton-agent PR #670 failure: a job that hit its `timeout-minutes`
+tests/test-cancelled-timeout-fail-1952.mjs:7: * limit surfaces as a check-run with conclusion 'cancelled', but the parent workflow_run
+tests/test-cancelled-timeout-fail-1952.mjs:9: * status='cancelled' and the auto-merge loop posted a "Cancelled CI/CD Requires Review"
+tests/test-cancelled-timeout-fail-1952.mjs:20:import { classifyCancelledCIByWorkflowRuns, getFailedWorkflowRuns, getIncompleteWorkflowRuns, FAILURE_LIKE_WORKFLOW_RUN_CONCLUSIONS } from '../src/cancelled-ci-rerun.lib.mjs';
+tests/test-cancelled-timeout-fail-1952.mjs:48:console.log('Unit Tests: Issue #1952 - cancelled-by-timeout CI treated as failure');
+tests/test-cancelled-timeout-fail-1952.mjs:60:  // 'cancelled', but the parent workflow_run concluded 'failure'.
+tests/test-cancelled-timeout-fail-1952.mjs:73:test('genuine manual/concurrency cancellation classifies as cancelled (re-triggerable)', () => {
+tests/test-cancelled-timeout-fail-1952.mjs:74:  const runs = [{ id: 2, status: 'completed', conclusion: 'cancelled', name: 'Lint', html_url: 'https://example/run/2' }];
+tests/test-cancelled-timeout-fail-1952.mjs:75:  assert(classifyCancelledCIByWorkflowRuns({ runs }).classification === 'cancelled', 'pure cancellation should remain re-triggerable cancelled');
+tests/test-cancelled-timeout-fail-1952.mjs:78:test('stale run with no failures classifies as cancelled', () => {
+tests/test-cancelled-timeout-fail-1952.mjs:80:  assert(classifyCancelledCIByWorkflowRuns({ runs }).classification === 'cancelled', 'stale should map to cancelled re-trigger flow');
+tests/test-cancelled-timeout-fail-1952.mjs:85:    { id: 4, status: 'completed', conclusion: 'cancelled', name: 'Lint' },
+tests/test-cancelled-timeout-fail-1952.mjs:92:  // Issue #1952: "wait until all checks are success, fail or cancelled, to auto restart".
+tests/test-cancelled-timeout-fail-1952.mjs:94:    { id: 6, status: 'completed', conclusion: 'cancelled', name: 'Lint' },
+tests/test-cancelled-timeout-fail-1952.mjs:116:test('empty run list classifies as cancelled (no failure/no pending signal)', () => {
+tests/test-cancelled-timeout-fail-1952.mjs:117:  assert(classifyCancelledCIByWorkflowRuns({ runs: [] }).classification === 'cancelled', 'no runs => fall back to existing cancelled re-trigger flow');
+tests/test-cancelled-timeout-fail-1952.mjs:127:test('getMergeBlockers cross-references workflow runs in the cancelled branch', () => {
+tests/test-cancelled-timeout-fail-1952.mjs:128:  assert(helpersSrc.includes('classifyCancelledCIByWorkflowRuns'), 'getMergeBlockers should classify cancelled CI by workflow-run conclusions');
+tests/test-cancelled-timeout-fail-1952.mjs:131:test('getMergeBlockers emits ci_failure when a cancelled check belongs to a failed workflow run', () => {
+tests/test-cancelled-timeout-fail-1952.mjs:150:  assert(autoMergeSrc.includes('cancelledBlocker && !billingBlocker && !ciFailureBlocker'), 'the cancelled-review path must be skipped when a ci_failure blocker is present');
+tests/test-merge-queue.mjs:182:  assert.equal(processor.isCancelled, false, 'Should not be cancelled initially');
+tests/test-merge-queue.mjs:773:  // 6. CI Run A may be cancelled or produce incomplete results
+tests/test-merge-queue.mjs:781:  // - No workflows are cancelled due to concurrent merges
+tests/test-merge-queue.mjs:801:  // causing those jobs to be cancelled (likely due to GitHub's concurrency groups).
+tests/test-merge-queue.mjs:812:  // The gap between docker amd64 completing and arm64 being cancelled is ~10 minutes
+tests/test-merge-queue.mjs:815:  assert.ok(arm64WasStillRunning > 0, 'arm64 was cancelled after amd64 completed');
+tests/test-merge-queue.mjs:1144:  // 1. Workflow runs to be cancelled (superseded by new commits)
+tests/test-merge-queue.mjs:1184:  // The first CI run was cancelled before completion
+tests/test-merge-queue.mjs:1186:  assert.ok(ciRun1Duration < 2 * 60 * 1000, 'CI run 1 was cancelled quickly (< 2 minutes)');
+tests/test-merge-queue.mjs:1188:  // Typical CI duration is 15-30 minutes, but it was cancelled after just 83 seconds
+tests/test-merge-queue.mjs:1189:  assert.equal(ciRun1Duration, 83 * 1000, 'CI run 1 was cancelled after 83 seconds');
+tests/test-merge-queue.mjs:1354:test('MergeQueueProcessor formatProgressMessage does NOT show cancelling indicator when not cancelled', () => {
+tests/test-merge-queue.mjs:1377:  // Should NOT have the cancelling indicator when not cancelled
+tests/test-merge-queue.mjs:1378:  assert.ok(!message.includes('Cancelling\\.\\.\\.'), 'Should NOT include Cancelling indicator when not cancelled');
+tests/test-merge-queue.mjs:1381:test('MergeQueueProcessor formatFinalMessage shows correct cancelled status', () => {
+tests/test-merge-queue.mjs:1414:  assert.ok(message.includes('🛑'), 'Should include stop emoji for cancelled status');
+tests/test-merge-queue.mjs:1470:  const cancelledCheck = () => processor.isCancelled;
+tests/test-merge-queue.mjs:1471:  assert.equal(cancelledCheck(), true, 'cancelledCheck should return true after cancel()');
+tests/solve-queue.test.mjs:106:  assert.equal(QueueItemStatus.CANCELLED, 'cancelled');
+tests/solve-queue.test.mjs:167:  const cancelled = queue.cancel(item.id);
+tests/solve-queue.test.mjs:169:  assert.equal(cancelled, true, 'Cancel should return true');
+tests/solve-queue.test.mjs:172:  assert.equal(queue.getStats().totalCancelled, 1, 'Total cancelled should be 1');
+tests/solve-queue.test.mjs:288:test('findByUrl does not find cancelled items', () => {
+tests/solve-queue.test.mjs:303:  assert.equal(found, null, 'Should not find cancelled item');
+tests/test-merge-cancel-latency-2072.mjs:3: * Issue #2072: /merge was not cancelled immediately on Cancel button click
+tests/test-merge-cancel-latency-2072.mjs:47:  let cancelled = false;
+tests/test-merge-cancel-latency-2072.mjs:49:    cancelled = true;
+tests/test-merge-cancel-latency-2072.mjs:53:  const result = await cancellableSleep(LONG_DELAY_MS, () => cancelled);
+tests/test-merge-cancel-latency-2072.mjs:57:  assert.equal(result.cancelled, true, 'Should report cancelled');
+tests/test-merge-cancel-latency-2072.mjs:61:await asyncTest('cancellableSleep returns immediately when already cancelled', async () => {
+tests/test-merge-cancel-latency-2072.mjs:66:  assert.equal(result.cancelled, true, 'Should report cancelled');
+tests/test-merge-cancel-latency-2072.mjs:67:  assert.ok(elapsed < 100, `Should not sleep at all when cancelled up front, took ${elapsed}ms`);
+tests/test-merge-cancel-latency-2072.mjs:70:await asyncTest('cancellableSleep still sleeps the full delay when not cancelled', async () => {
+tests/test-merge-cancel-latency-2072.mjs:75:  assert.equal(result.cancelled, false, 'Should not report cancelled');
+tests/test-merge-cancel-latency-2072.mjs:118:  assert.equal(result.status, 'cancelled', 'Should report a cancelled status');
+tests/test-merge-cancel-latency-2072.mjs:122:await asyncTest('a PR cancelled during the mergeability check is skipped, not failed', async () => {
+tests/test-merge-cancel-latency-2072.mjs:123:  // checkPRMergeable reports `cancelled` when the UNKNOWN-mergeability retry delay
+tests/test-merge-cancel-latency-2072.mjs:135:  assert.equal(result.cancelled, true, 'Should report cancelled rather than unmergeable');
+tests/test-merge-cancel-latency-2072.mjs:136:  assert.ok(elapsed < MAX_CANCEL_LATENCY_MS, `Should return promptly when cancelled, took ${elapsed}ms`);
+tests/test-attach-logs-safety-net-1952.mjs:13: * exits (billing_limit, ci_cancelled_requires_review, external_review_limit, limit reached) can
+tests/test-ready-to-merge-cross-session-1389.mjs:20: * deduplication while allowing fresh notifications when a new session starts.
+tests/test-ready-to-merge-cross-session-1389.mjs:26: * @see https://github.com/link-assistant/hive-mind/issues/1323 (introduced the deduplication)
+tests/test-ready-to-merge-cross-session-1389.mjs:62: * Simulates the OLD buggy deduplication logic from v1.25.7.
+tests/test-ready-to-merge-cross-session-1389.mjs:68:function simulateOldBuggyDeduplication(allPrCommentBodies, signature) {
+tests/test-ready-to-merge-cross-session-1389.mjs:82: * Simulates the NEW fixed deduplication logic (in-memory flag, v1.26.0+).
+tests/test-ready-to-merge-cross-session-1389.mjs:87:function simulateNewFixedDeduplication(readyToMergeCommentPosted) {
+tests/test-ready-to-merge-cross-session-1389.mjs:126:  const session3Result = simulateOldBuggyDeduplication(allPrCommentBodies, signature);
+tests/test-ready-to-merge-cross-session-1389.mjs:138:  const result = simulateOldBuggyDeduplication(allPrCommentBodies, signature);
+tests/test-ready-to-merge-cross-session-1389.mjs:154:  const result = simulateNewFixedDeduplication(initialFlag);
+tests/test-ready-to-merge-cross-session-1389.mjs:168:  const result = simulateNewFixedDeduplication(flagAfterFirstPost);
+tests/test-ready-to-merge-cross-session-1389.mjs:184:  const session3Result = simulateNewFixedDeduplication(session3ReadyToMergeCommentPosted);
+tests/test-ready-to-merge-cross-session-1389.mjs:194:  const session3SecondDetection = simulateNewFixedDeduplication(session3ReadyToMergeCommentPosted);
+tests/test-ready-to-merge-cross-session-1389.mjs:209:  const oldResult = simulateOldBuggyDeduplication(prCommentHistory, signature);
+tests/test-ready-to-merge-cross-session-1389.mjs:212:  const newResult = simulateNewFixedDeduplication(false); // false = new session
+tests/test-ready-to-merge-cross-session-1389.mjs:228:  const oldResult = simulateOldBuggyDeduplication(prHistoryWithCurrentSessionComment, signature);
+tests/test-ready-to-merge-cross-session-1389.mjs:231:  const newResult = simulateNewFixedDeduplication(true); // true = already posted this session
+tests/test-ready-to-merge-cross-session-1389.mjs:236:  // Both approaches agree for within-session deduplication
+tests/test-ready-to-merge-cross-session-1389.mjs:260:    const result = simulateNewFixedDeduplication(readyToMergeCommentPosted);
+tests/test-ready-to-merge-cross-session-1389.mjs:273:  const session1Result = simulateNewFixedDeduplication(incorrectlySharedFlag);
+tests/test-ready-to-merge-cross-session-1389.mjs:277:  const session2BugResult = simulateNewFixedDeduplication(incorrectlySharedFlag);
+tests/test-ready-to-merge-cross-session-1389.mjs:280:  const session2CorrectResult = simulateNewFixedDeduplication(false); // Always false at start
+tests/test-issue-1871-stop-running-session-by-url.mjs:224:  assert(queue.cancelCalls.length === 1, 'queued item is cancelled', { calls: queue.cancelCalls });
+tests/test-issue-1783-stop-improvements.mjs:184:  assert(queue.cancelCalls.length === 1 && queue.cancelCalls[0] === 'q-card-1', 'queued item is cancelled', { calls: queue.cancelCalls });
+tests/test-issue-1783-stop-improvements.mjs:231:  assert(queue.cancelCalls.length === 1, 'queued item is still cancelled when messageInfo is missing');
+tests/test-no-ci-checks-1345.mjs:119:    cancelledChecks: [],
+tests/test-issue-1949-overload-no-model-switch.mjs:191:test('a model that equals its resolved id renders without duplication', () => {
+tests/ci-workflow-cancellation-2082.test.mjs:7: * been cancelled, so the job runs on regardless. release.yml documents this at
+tests/ci-workflow-cancellation-2082.test.mjs:8: * the top of the file ("Docker jobs use !cancelled() instead of always() ...
+tests/ci-workflow-cancellation-2082.test.mjs:11: * still used `always()`, five of them without a `!cancelled()` alongside it.
+tests/ci-workflow-cancellation-2082.test.mjs:18: * queues them everywhere else. A release cancelled between `npm publish` and the
+tests/ci-workflow-cancellation-2082.test.mjs:40:    timeout-minutes: 5
+tests/ci-workflow-cancellation-2082.test.mjs:46:    timeout-minutes: 5
+tests/ci-workflow-cancellation-2082.test.mjs:54:    timeout-minutes: 5
+tests/ci-workflow-cancellation-2082.test.mjs:56:      !cancelled() &&
+tests/ci-workflow-cancellation-2082.test.mjs:65:  assert.match(jobs[2].condition, /^!cancelled\(\)/, 'a block-scalar condition without always() is read correctly');
+tests/ci-workflow-cancellation-2082.test.mjs:117:  assert.deepEqual(offenders, [], `use !cancelled() instead of always() so the job stops when the run is cancelled.\nOffending jobs:\n  ${offenders.join('\n  ')}`);
+tests/test-budget-stats-issue-1508.mjs:169:// ==== Test Group: Sub-session deduplication in multi-model ====
+tests/test-misleading-merge-logs-1712.mjs:14: * 4. When the cancelled branch fires, the cancelled blocker's `details` field includes the
+tests/test-misleading-merge-logs-1712.mjs:89:  // The pending/queued/cancelled checks must surface html_url to the blocker code.
+tests/test-misleading-merge-logs-1712.mjs:96:// ci_cancelled blockers, and assert that `details` contain the URL. We can't import
+tests/test-misleading-merge-logs-1712.mjs:130:// Mirrors the cancelled branch in src/solve.auto-merge-helpers.lib.mjs
+tests/test-misleading-merge-logs-1712.mjs:131:function buildCancelledBlocker(cancelledChecks, sha) {
+tests/test-misleading-merge-logs-1712.mjs:133:    type: 'ci_cancelled',
+tests/test-misleading-merge-logs-1712.mjs:134:    message: 'CI/CD checks were cancelled or became stale',
+tests/test-misleading-merge-logs-1712.mjs:135:    details: cancelledChecks.map(c => {
+tests/test-misleading-merge-logs-1712.mjs:209:test('cancelled branch: blocker details include conclusion and URL', () => {
+tests/test-misleading-merge-logs-1712.mjs:210:  const cancelledChecks = [
+tests/test-misleading-merge-logs-1712.mjs:214:      conclusion: 'cancelled',
+tests/test-misleading-merge-logs-1712.mjs:218:  const blocker = buildCancelledBlocker(cancelledChecks, 'aa35cde4280238d066db4a771a662a6ebdcb604a');
+tests/test-misleading-merge-logs-1712.mjs:219:  assert(blocker.type === 'ci_cancelled', `expected ci_cancelled, got ${blocker.type}`);
+tests/test-misleading-merge-logs-1712.mjs:220:  assert(blocker.details[0].includes('[cancelled]'), `expected details to include [cancelled], got: ${blocker.details[0]}`);
+tests/test-misleading-merge-logs-1712.mjs:239:  const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/test-misleading-merge-logs-1712.mjs:298:// ===== Issue #1712 follow-up: cross-commit listing, deduplication, less duplication =====
+tests/test-misleading-merge-logs-1712.mjs:355:    { sha: 'older1', runs: [{ id: 1, name: 'X', status: 'completed', conclusion: 'cancelled', html_url: 'https://x/1' }] },
+tests/test-auto-restart-counter-1323.mjs:123:// ===== Test: Deduplication prevents duplicate posting =====
+tests/test-auto-restart-counter-1323.mjs:124:console.log('\n📋 Deduplication Logic Tests\n');
+tests/test-repo-actions-consensus-1503.mjs:17:// Test harness — uses inline counter to avoid jscpd cross-file clone detection
+tests/test-issue-2141-error-text.mjs:26:import { buildCancelledCIReviewComment } from '../src/cancelled-ci-rerun.lib.mjs';
+tests/test-issue-2141-error-text.mjs:205:console.log('\ncancelled-CI review comment (src/cancelled-ci-rerun.lib.mjs)');
+tests/test-fix-ci-cd.mjs:97:    { status: 'completed', conclusion: 'cancelled' },
+tests/test-issue-1228-options-deduplication.mjs:2:// Test script to verify issue #1228 fix: options deduplication in /solve and /hive command responses
+tests/test-issue-1228-options-deduplication.mjs:5:console.log('Testing issue #1228: Options deduplication in bot responses...\n');
+tests/test-issue-1228-options-deduplication.mjs:92:    'Options line should contain locked overrides (showing duplication)'
+tests/test-budget-stats-issue-1501.mjs:7: * 1. JSONL token duplication — same message ID counted multiple times (upstream: anthropics/claude-code#6805)
+tests/test-budget-stats-issue-1501.mjs:119:// ==== Test Group: JSONL Deduplication ====
+tests/test-budget-stats-issue-1501.mjs:120:console.log('\n\u{1f4cb} Test Group: JSONL deduplication by message ID\n');
+tests/test-budget-stats-issue-1501.mjs:180:runTest('does not show JSONL deduplication stats to user', () => {
+tests/test-budget-stats-issue-1501.mjs:192:  assertNotContains(result, 'JSONL deduplication', 'Should NOT show deduplication to user');
+tests/test-action-required-ci-stuck-1466.mjs:9: * 2. When workflow runs are completed but non-executing (action_required, cancelled,
+tests/test-action-required-ci-stuck-1466.mjs:71:    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/test-action-required-ci-stuck-1466.mjs:131:test('All workflows completed with cancelled → treat as CI not triggered', () => {
+tests/test-action-required-ci-stuck-1466.mjs:134:      { id: 1, name: 'CI', status: 'completed', conclusion: 'cancelled' },
+tests/test-action-required-ci-stuck-1466.mjs:135:      { id: 2, name: 'Tests', status: 'completed', conclusion: 'cancelled' },
+tests/test-action-required-ci-stuck-1466.mjs:140:  assert(result.workflowRunConclusions === 'cancelled', 'Should report cancelled conclusion');
+tests/test-action-required-ci-stuck-1466.mjs:159:test('Mixed non-executing conclusions (action_required + cancelled) → treat as CI not triggered', () => {
+tests/test-action-required-ci-stuck-1466.mjs:163:      { id: 2, name: 'Tests', status: 'completed', conclusion: 'cancelled' },
+tests/test-action-required-ci-stuck-1466.mjs:169:  assert(result.workflowRunConclusions.includes('cancelled'), 'Should include cancelled');
+tests/test-telegram-auth-command.mjs:144:    cancelled: true,
+tests/test-telegram-auth-command.mjs:149:  assert.match(message, /cancelled locally/);
+tests/test-telegram-auth-command.mjs:214:      return { code: null, stdout: 'Code: ABCD-1234\nhttps://github.com/login/device', stderr: '', cancelled: true };
+tests/test-stale-rerun-check-2031.mjs:23:  { type: 'ci_cancelled', message: 'superseded run' },
+tests/test-budget-stats.mjs:141:runTest('does not show JSONL deduplication line', () => {
+tests/test-budget-stats.mjs:145:  assertNotContains(result, 'JSONL deduplication', 'Should NOT show deduplication stats');
+tests/ci-workflow-timeouts-2082.test.mjs:6: * A GitHub Actions job without `timeout-minutes` inherits the default limit of
+tests/ci-workflow-timeouts-2082.test.mjs:18: * calls a reusable workflow with `uses:` does NOT support `timeout-minutes` —
+tests/ci-workflow-timeouts-2082.test.mjs:39:    timeout-minutes: 10
+tests/ci-workflow-timeouts-2082.test.mjs:66:  // The false-positive trap: `timeout-minutes` is not valid on a reusable-workflow
+tests/ci-workflow-timeouts-2082.test.mjs:73:  assert.deepEqual(findJobsMissingTimeout(yaml), [], 'a job that calls a reusable workflow is exempt — timeout-minutes is not supported there');
+tests/ci-workflow-timeouts-2082.test.mjs:105:    timeout-minutes: 5
+tests/ci-workflow-timeouts-2082.test.mjs:133:  assert.deepEqual(offenders, [], `every job must set timeout-minutes (see docs/CI-CD-BEST-PRACTICES.md).\nMissing on:\n  ${offenders.join('\n  ')}`);
+tests/test-false-positive-workflow-run-race-1480.mjs:85:    const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/test-false-positive-iteration-count-1503.mjs:84:          const allRunsNonExecuting = allRunsCompleted && workflowRuns.every(r => r.conclusion === 'action_required' || r.conclusion === 'cancelled' || r.conclusion === 'stale' || r.conclusion === 'skipped');
+tests/test-timeline-linked-prs.mjs:171:  // Apply deduplication logic
+tests/test-merge-auto-resolve-1805.mjs:184:await asyncTest('Issue #1805: runAutoResolve stops mid-pass when cancelled', async () => {

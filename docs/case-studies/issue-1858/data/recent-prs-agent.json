@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1851-e32e0e6d591c", "mergedAt": "2026-06-04T23:54:43Z", "number": 1852, "title": "Add cleanup process diagnostics for agent PIDs", "url": "https://github.com/link-assistant/hive-mind/pull/1852" },
+  { "headRefName": "issue-1803-854359847a6b", "mergedAt": "2026-05-15T21:53:00Z", "number": 1804, "title": "fix(auto-fork): trust forkRepoName from PR head data, don't re-prefix (#1803)", "url": "https://github.com/link-assistant/hive-mind/pull/1804" },
+  { "headRefName": "issue-1845-cd4f58dbfe8f", "mergedAt": "2026-06-02T01:00:17Z", "number": 1846, "title": "fix(solve): surface core tool error instead of bare `CLAUDE execution failed` (#1845)", "url": "https://github.com/link-assistant/hive-mind/pull/1846" },
+  { "headRefName": "issue-1741-bce8d99a69e4", "mergedAt": "2026-05-02T10:17:35Z", "number": 1742, "title": "fix: unify context-fill budget stats across tools", "url": "https://github.com/link-assistant/hive-mind/pull/1742" },
+  { "headRefName": "issue-1827-50ef63b89bba", "mergedAt": "2026-05-28T10:43:00Z", "number": 1828, "title": "Stop the AI's own session comments from triggering false auto-restarts (#1827)", "url": "https://github.com/link-assistant/hive-mind/pull/1828" },
+  { "headRefName": "issue-1623-b65916b22c07", "mergedAt": "2026-04-17T08:49:55Z", "number": 1624, "title": "feat: add Playwright MCP fallback guidance for all tools", "url": "https://github.com/link-assistant/hive-mind/pull/1624" },
+  { "headRefName": "issue-1043-824a8917a5fe", "mergedAt": "2026-05-02T04:57:00Z", "number": 1044, "title": "feat: Expand experimental agent-commander execution", "url": "https://github.com/link-assistant/hive-mind/pull/1044" },
+  { "headRefName": "issue-1600-2173cb340ccf", "mergedAt": "2026-04-17T08:24:44Z", "number": 1622, "title": "fix: calculation bugs and format unification", "url": "https://github.com/link-assistant/hive-mind/pull/1622" },
+  { "headRefName": "issue-1590-9a985f177077", "mergedAt": "2026-04-12T11:35:52Z", "number": 1591, "title": "Track sub-agent calls and show per-call stats in budget display (#1590)", "url": "https://github.com/link-assistant/hive-mind/pull/1591" },
+  { "headRefName": "issue-1541-1cbd40e0ebd4", "mergedAt": "2026-04-08T07:11:56Z", "number": 1542, "title": "fix: filter verbose log messages falsely emitted as error events (#1541)", "url": "https://github.com/link-assistant/hive-mind/pull/1542" }
+]

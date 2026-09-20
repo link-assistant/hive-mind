@@ -1,0 +1,25 @@
+26879:🔍 Development log finalize: issue #191, PR #192, branch issue-191-66112f3ba3f7, session 60d82f4e-0f54-4f28-b583-654914b9294b, log slice from byte 0
+26885:🧾 Development log artifacts written to dev/log/issues/191/pulls/192/sessions/60d82f4e-0f54-4f28-b583-654914b9294b (log bytes 0-2660092)
+26887:⚠️  Development log collection failed: Development-log publication rescan found residual credential material.
+26895:📝 No AI comments detected, attaching working session summary...
+98889:  📊 Log size: 19492KB
+170849:🔄 RESTART TRIGGERED:        Uncommitted changes detected
+170850:   Restart iteration:      1/5
+178955:🔍 Development log finalize: issue #191, PR #192, branch issue-191-66112f3ba3f7, session 42e652b1-b4ff-464a-b7d4-8b5857189488, log slice from byte 0
+178961:🧾 Development log artifacts written to dev/log/issues/191/pulls/192/sessions/42e652b1-b4ff-464a-b7d4-8b5857189488 (log bytes 0-37951473)
+178963:⚠️  Development log collection failed: Development-log publication rescan found residual credential material.
+178971:📝 No AI comments detected, attaching working session summary...
+278001:  📊 Log size: 57548KB
+377066:🔄 RESTART TRIGGERED:        Uncommitted changes detected
+377067:   Restart iteration:      2/5
+381423:🔍 Development log finalize: issue #191, PR #192, branch issue-191-66112f3ba3f7, session 7a6e5ba3-6d61-4c21-ba92-e99c77f78578, log slice from byte 0
+381429:🧾 Development log artifacts written to dev/log/issues/191/pulls/192/sessions/7a6e5ba3-6d61-4c21-ba92-e99c77f78578 (log bytes 0-80317341)
+381431:⚠️  Development log collection failed: Development-log publication rescan found residual credential material.
+381439:📝 No AI comments detected, attaching working session summary...
+659442:  📊 Log size: 136356KB
+937481:🔄 RESTART TRIGGERED:        Uncommitted changes detected
+937482:   Restart iteration:      3/5
+941976:🔍 Development log finalize: issue #191, PR #192, branch issue-191-66112f3ba3f7, session 1f5063de-e97f-4e02-b7b2-c7e43b078742, log slice from byte 0
+941982:🧾 Development log artifacts written to dev/log/issues/191/pulls/192/sessions/1f5063de-e97f-4e02-b7b2-c7e43b078742 (log bytes 0-199382735)
+941984:⚠️  Development log collection failed: Development-log publication rescan found residual credential material.
+941992:📝 No AI comments detected, attaching working session summary...

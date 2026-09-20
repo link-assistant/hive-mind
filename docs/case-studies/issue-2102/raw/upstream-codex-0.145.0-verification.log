@@ -1,0 +1,170 @@
+# Upstream verification — openai/codex at tag `rust-v0.145.0`
+#
+# Annotated tag object: 1635de866c61d1b76e50b31928ee6d61482435a8
+#   → commit 25af12f7e61572b0bc18ddb1008be543b91519b0 (the sha cited in issue #2102)
+#   gh api repos/openai/codex/git/refs/tags/rust-v0.145.0 --jq .object
+#   gh api repos/openai/codex/git/tags/1635de86… --jq .object.sha
+# Fetched 2026-07-25 with:
+#   gh api "repos/openai/codex/contents/<path>?ref=rust-v0.145.0" --jq .content | base64 -d
+#
+# Purpose: confirm, from source rather than from the error string, that
+# `request_plugin_install` can never install a plugin during `codex exec`.
+# That is what makes provisioning before `codex exec` the only workable path
+# and what justifies treating the rejection as a Hive Mind-side failure.
+
+=== 1. The plugin id is compared by exact equality against a server-supplied list
+=== codex-rs/core/src/tools/handlers/request_plugin_install.rs
+
+   150:        let tool = discoverable_tools
+   151:            .into_iter()
+   152:            .find(|tool| {
+   153:                tool.id() == requested_tool_id
+   154:                    && match self.presentation {
+   155:                        ToolSuggestPresentation::ListTool => {
+   156:                            Some(tool.tool_type()) == requested_tool_type
+   157:                        }
+   158:                        ToolSuggestPresentation::RecommendationContext => {
+   159:                            matches!(tool, DiscoverableTool::Plugin(_))
+   160:                        }
+   161:                    }
+   162:            })
+   163:            .ok_or_else(|| {
+   164:                let (argument_name, source) = match self.presentation {
+   165:                    ToolSuggestPresentation::ListTool => (
+   166:                        "tool_id",
+   167:                        format!(
+   168:                            "the discoverable tools returned by {LIST_AVAILABLE_PLUGINS_TO_INSTALL_TOOL_NAME}"
+   169:                        ),
+   170:                    ),
+   171:                    ToolSuggestPresentation::RecommendationContext => (
+   172:                        "plugin_id",
+   173:                        "the entries in the <recommended_plugins> list".to_string(),
+   174:                    ),
+   175:                };
+   176:                FunctionCallError::RespondToModel(format!(
+   177:                    "{argument_name} must match one of {source}"
+   178:                ))
+   179:            })?;
+
+`tool.id() == requested_tool_id` is plain string equality — no normalization,
+no marketplace aliasing. Line 176-178 is the exact message observed in
+production ("plugin_id must match one of the entries in the
+<recommended_plugins> list").
+
+=== 2. Even a matching id only *asks*: it emits an MCP elicitation
+=== codex-rs/core/src/tools/handlers/request_plugin_install.rs
+
+   213:        let request_id = RequestId::String(suggestion_id.into());
+   214:        let request = build_request_plugin_install_elicitation_request(suggest_reason, &tool);
+   215:        let elicitation = session
+   216:            .request_mcp_server_elicitation(
+   217:                turn.as_ref(),
+   218:                CODEX_APPS_MCP_SERVER_NAME.to_string(),
+   219:                request_id,
+   220:                request,
+   221:            )
+   222:            .await;
+   223:        let response = elicitation.response;
+   ...
+   227:        let user_confirmed = response
+   228:            .as_ref()
+   229:            .is_some_and(|response| response.action == ElicitationAction::Accept);
+   230:
+   231:        let auth = session.services.auth_manager.auth().await;
+   232:        let completed = if user_confirmed {
+   233:            verify_request_plugin_install_completed(&session, &turn, manager, &tool, auth.as_ref())
+   234:                .await
+   235:        } else {
+   236:            false
+   237:        };
+
+Installation only proceeds when the host UI *accepts* the elicitation.
+
+=== 3. `codex exec` auto-cancels every elicitation
+=== codex-rs/exec/src/lib.rs
+
+  1661:    let handle_result = match request {
+  1662:        ServerRequest::McpServerElicitationRequest { request_id, .. } => {
+  1663:            // Exec auto-cancels elicitation instead of surfacing it
+  1664:            // interactively. Preserve that behavior for attached subagent
+  1665:            // threads too so we do not turn a cancel into a decline/error.
+  1666:            match canceled_mcp_server_elicitation_response() {
+
+Therefore `user_confirmed` is always false under `codex exec`, and step 2 can
+never complete an install — regardless of the allowlist. This is the decisive
+fact: the rejection observed in production is not the only barrier, it is the
+first of two.
+
+=== 4. The `<recommended_plugins>` list is server-driven and capped
+=== codex-rs/core-plugins/src/remote.rs
+
+   855:pub async fn fetch_recommended_plugins(
+   ...
+   859:    let auth = ensure_chatgpt_auth(auth)?;
+   860:    let base_url = config.chatgpt_base_url.trim_end_matches('/');
+   861:    let url = format!("{base_url}/ps/plugins/suggested");
+   862:    let client = build_reqwest_client();
+   863:    let request = authenticated_request(client.get(&url), auth)?
+   864:        .timeout(RECOMMENDED_PLUGINS_TIMEOUT)
+   865:        .query(&[("scope", "GLOBAL")]);
+   866:    let response: RecommendedPluginsResponse = send_and_decode(request, &url).await?;
+   867:    Ok(recommended_plugins_mode(response))
+
+=== codex-rs/core/src/context/recommended_plugins_instructions.rs
+
+     6:const MAX_RECOMMENDED_PLUGINS: usize = 50;
+    21:                .take(MAX_RECOMMENDED_PLUGINS)
+    38:        ("<recommended_plugins>", "</recommended_plugins>")
+
+Entries come from `GET {chatgpt_base_url}/ps/plugins/suggested?scope=GLOBAL`
+for the authenticated account. There is no local configuration key that adds
+an entry, so a repository cannot make its mandatory plugin installable this
+way.
+
+=== 5. The two marketplace spellings are genuinely distinct upstream
+=== codex-rs/core-plugins/src/lib.rs
+
+    26:pub const OPENAI_CURATED_MARKETPLACE_NAME: &str = "openai-curated";
+    27:pub const OPENAI_API_CURATED_MARKETPLACE_NAME: &str = "openai-api-curated";
+    32:pub fn is_openai_curated_marketplace_name(marketplace_name: &str) -> bool {
+    33:    marketplace_name == OPENAI_CURATED_MARKETPLACE_NAME
+    34:        || marketplace_name == OPENAI_API_CURATED_MARKETPLACE_NAME
+    35:}
+
+=== codex-rs/core-plugins/src/remote.rs
+
+    69:pub const REMOTE_GLOBAL_MARKETPLACE_NAME: &str = "openai-curated-remote";
+    70:pub const REMOTE_CREATED_BY_ME_MARKETPLACE_NAME: &str = "created-by-me-remote";
+    71:pub const REMOTE_WORKSPACE_MARKETPLACE_NAME: &str = "workspace-directory";
+
+`openai-curated` is the local marketplace `codex plugin add` installs from.
+`openai-curated-remote` is the synthesized namespace the recommended-plugin
+list is built under (`remote.rs:888-891` constructs every recommended
+`PluginId` with `REMOTE_GLOBAL_MARKETPLACE_NAME`), which is why the model asked
+for `superpowers@openai-curated-remote` and why Hive Mind must rewrite that
+selector to `superpowers@openai-curated` before calling `codex plugin add`.
+
+=== 6. Upstream status of the related change
+=== gh api repos/openai/codex/pulls/31694
+
+  {"number":31694,"title":"Allow plugin installs for backend dependency IDs",
+   "state":"open","merged":false,"merged_at":null,"created_at":"2026-07-09T02:34:39Z"}
+
+Still unmerged on 2026-07-25. And per items 2-3 it would not help `codex exec`
+even after merging: it widens the allowlist, it does not remove the
+elicitation requirement.
+
+=== 7. No existing upstream report of the exec-mode dead end
+=== gh search issues --repo openai/codex "request_plugin_install"
+=== gh search issues --repo openai/codex "recommended_plugins"
+
+  26377  Computer Use plugin install does not persist after restart in Codex desktop
+  25786  Windows desktop: Notion connector auth fails with Electron launch error ...
+  31894  gpt-5.6 Responses Lite turns do not expose exec/code-mode tools in codex exec
+  33269  Feature request: Let Codex discover and recommend marketplace plugins for user needs
+  20204  Inconsistent PreToolUse hook coverage across tool handlers
+  32035  Codex Desktop session cannot be resumed or forked after successful task completion ...
+
+None of these describe the headless case: a plugin install request that is
+rejected by the allowlist and, even when allowed, silently cancelled because
+`codex exec` answers elicitations with `Cancel`.

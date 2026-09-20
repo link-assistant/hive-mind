@@ -1,0 +1,24 @@
+image=ghcr.io/link-assistant/router:0.125.4 container=hive-mind-router-probe-2190-158758 network=hive-mind-router-probe-2190-158758
+bind command: addr=$(getent hosts link-assistant-router | head -n 1 | cut -d ' ' -f 1); [ -n "$addr" ] || { echo "hive-mind-router: 'link-assistant-router' does not resolve on the internal network; refusing to bind 0.0.0.0" >&2; exit 1; }; exec router serve --host "$addr" --port 443
+PASS: router is healthy through its alias from inside the container
+--- router logs ---
+─────────────────────────────────────────────────────────────
+Use it as: Authorization: Bearer <token>
+Rotate it with: link-assistant-router tokens rotate <id>
+─────────────────────────────────────────────────────────────
+---
+internal ip=172.19.0.2 bridge ip=172.18.0.2
+PASS: the router is not bound on loopback (so not on 0.0.0.0) (error ConnectionRefused)
+PASS: a container on the internal network reaches the router (status 200)
+PASS: a container on the default bridge is refused (error ConnectionRefused)
+PASS: the host cannot open the router port on the bridge address (000exit=7)
+PASS: the router itself still reaches api.github.com (status 200)
+PASS: tokens can still be issued through docker exec
+
+PASS: router is healthy through its alias from inside the container
+PASS: the router is not bound on loopback (so not on 0.0.0.0) (error ConnectionRefused)
+PASS: a container on the internal network reaches the router (status 200)
+PASS: a container on the default bridge is refused (error ConnectionRefused)
+PASS: the host cannot open the router port on the bridge address (000exit=7)
+PASS: the router itself still reaches api.github.com (status 200)
+PASS: tokens can still be issued through docker exec

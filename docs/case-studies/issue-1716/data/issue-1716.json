@@ -1,0 +1,10 @@
+{
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "Full log: https://gist.githubusercontent.com/konard/37fecd1108eac139d3b893c7827c692a/raw/6954ab0c86934aba6fb3a9a2b13a55fdea0d5637/3b06db69-75bb-4cbc-82b1-145606a7429a.log\n\nThe repository may have been public, and made private. Anyway if repository private it does not matter if fork exists or not, even if it is broken.\n\nWhen repository is private we should always access it directly and use regular branches and pull requests without fork.\n\nWe need to download all logs and data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), in which we will reconstruct timeline/sequence of events, list of each and all requirements from the issue, find root causes of the each problem, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).\n\nIf there is not enough data to find actual root cause, add debug output and verbose mode if not present, that will allow us to find root cause on next iteration.\n\nIf issue related to any other repository/project, where we can report issues on GitHub, please do so. Each issue must contain reproducible examples, workarounds and suggestions for fix the issue in code.",
+  "comments": [],
+  "createdAt": "2026-04-29T10:10:31Z",
+  "labels": [{ "id": "LA_kwDOPUU0qc8AAAACGYm6iw", "name": "bug", "description": "Something isn't working", "color": "d73a4a" }],
+  "number": 1716,
+  "state": "OPEN",
+  "title": "When repository is private, we should not use forks, even if they existed before"
+}

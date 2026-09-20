@@ -21,15 +21,15 @@ const argv = yargs(testArgs.slice(2)) // Skip 'node' and 'script.js'
   .option('solve', {
     type: 'boolean',
     description: 'Enable /solve command (use --no-solve to disable)',
-    default: true
+    default: true,
   })
   .option('hive', {
     type: 'boolean',
     description: 'Enable /hive command (use --no-hive to disable)',
-    default: true
+    default: true,
   })
   .parserConfiguration({
-    'boolean-negation': true
+    'boolean-negation': true,
   })
   .parseSync();
 

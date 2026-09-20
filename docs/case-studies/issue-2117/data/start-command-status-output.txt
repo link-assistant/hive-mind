@@ -1,0 +1,51 @@
+```
+box@49bd66982a6b:~$ $ --upload-log 7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56
+⏳ Uploading 2.22 MB (🔒 private)...
+- Creating gist tmp-start-command-logs-isolation-docker-e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27.log.txt
+✓ Created secret gist tmp-start-command-logs-isolation-docker-e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27.log.txt
+https://gist.github.com/konard/d95fe255245d45cb8dc7d0d670c9f785
+✅ Gist created (🔒 private)
+🔗 https://gist.github.com/konard/d95fe255245d45cb8dc7d0d670c9f785
+📄 https://gist.githubusercontent.com/konard/d95fe255245d45cb8dc7d0d670c9f785/raw/b3948048bd6400198957b77517103e14cc997fca/tmp-start-command-logs-isolation-docker-e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27.log.txt
+box@49bd66982a6b:~$ $ --status 7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56
+e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27
+  uuid e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27
+  pid 1170203
+  processIds
+      wrapperPid 1170203
+      containerId fd659c8e4294bdbdbf7bf6da26b0b2d2db96d68306a4f85bd8e3e6282398f86e
+  status executed
+  exitCode 0
+  command "gate='/tmp/hive-mind-disk-baseline-7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56'; i=0; while [ ! -e ""$gate"" ] && [ ""$i"" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f ""$gate""; exec 'solve' 'https://github.com/link-foundation/use-m/issues/68' '--think' 'xhigh' '--auto-merge' '--tool' 'codex' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'en'"
+  logPath /tmp/start-command/logs/isolation/docker/e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27.log
+  startTime "2026-07-30T06:14:21.348Z"
+  endTime "2026-07-30T20:27:36.145Z"
+  workingDirectory /home/box
+  shell /bin/sh
+  platform linux
+  options
+    isolated docker
+    isolationMode detached
+    sessionName 7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56
+    image "konard/hive-mind-dind:2.10.2"
+    volumes "/home/box/.config/gh:/home/box/.config/gh,/home/box/.gitconfig:/home/box/.gitconfig,/home/box/.codex:/home/box/.codex"
+    env HOME=/home/box,HIVE_MIND_PARENT_SESSION_ID=7b9dda93-d08e-4fb6-ae7d-0a80c5b3cf56,HIVE_MIND_IMAGE_VARIANT=dind
+    privileged true
+    user false
+    keepAlive false
+    autoRemoveDockerContainer false
+    alwaysCleanupContainer false
+    keepContainer false
+    keepContainerOnFail false
+    useCommandStream false
+    containerId fd659c8e4294bdbdbf7bf6da26b0b2d2db96d68306a4f85bd8e3e6282398f86e
+box@49bd66982a6b:~$
+```
+
+We clearly have 0 exit code, so the full solve command finished successfully, so may be the problem is with telegram bot itself, or something else happened.
+
+Here is full log - https://gist.githubusercontent.com/konard/d95fe255245d45cb8dc7d0d670c9f785/raw/b3948048bd6400198957b77517103e14cc997fca/tmp-start-command-logs-isolation-docker-e2bf4bf1-c0e7-44b5-9c67-b2bd9f58fc27.log.txt
+
+And it is fully successful.
+
+Redo the analysis and make sure we fix actual root cause of it.

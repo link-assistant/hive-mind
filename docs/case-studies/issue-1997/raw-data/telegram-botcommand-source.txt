@@ -1,0 +1,4 @@
+Source: https://core.telegram.org/bots/api#botcommand
+Fetched: 2026-06-29
+
+Relevant fact: Telegram Bot API command names are constrained to short lowercase command identifiers and may include underscores. This confirms that the legacy queue command was protocol-valid, so issue #1997 is a product UX/canonical-command cleanup rather than a protocol compatibility bug.

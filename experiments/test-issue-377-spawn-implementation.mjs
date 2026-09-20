@@ -16,46 +16,46 @@ async function findStartScreenCommand() {
 }
 
 function executeWithCommand(startScreenCmd, command, args) {
-  return new Promise((resolve) => {
+  return new Promise(resolve => {
     const allArgs = [command, ...args];
 
     console.log(`Executing: ${startScreenCmd} ${allArgs.join(' ')}`);
 
     const child = spawn(startScreenCmd, allArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false
+      detached: false,
     });
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on('data', data => {
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on('data', data => {
       stderr += data.toString();
     });
 
-    child.on('error', (error) => {
+    child.on('error', error => {
       resolve({
         success: false,
         output: stdout,
-        error: error.message
+        error: error.message,
       });
     });
 
-    child.on('close', (code) => {
+    child.on('close', code => {
       if (code === 0) {
         resolve({
           success: true,
-          output: stdout
+          output: stdout,
         });
       } else {
         resolve({
           success: false,
           output: stdout,
-          error: stderr || `Command exited with code ${code}`
+          error: stderr || `Command exited with code ${code}`,
         });
       }
     });

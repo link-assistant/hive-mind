@@ -1,0 +1,15 @@
+Testing issue #2015: oomKilled status terminates Telegram sessions
+========================================================================
+  ❌ FAIL: links-notation $ --status parses oomKilled true
+  ❌ FAIL: JSON $ --status parses oomKilled true
+  ❌ FAIL: oomKilled true is terminal without a backend liveness probe
+  ❌ FAIL: Telegram message is completed when oomKilled true is present
+  ❌ FAIL: killed completion uses the requested locale
+  ✅ PASS: killed completion does not leak the raw i18n key
+  ❌ FAIL: OOM completion names the SIGKILL signal
+  ❌ FAIL: OOM completion reports synthesized exit code 137
+  ❌ FAIL: OOM-killed session is removed from active tracking
+
+========================================================================
+Results: 1 passed, 8 failed, 9 total
+========================================================================

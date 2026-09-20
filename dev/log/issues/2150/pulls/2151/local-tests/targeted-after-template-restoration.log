@@ -1,0 +1,274 @@
+RUN tests/test-use-with-retry.mjs
+
+📋 isCorruptInstallError
+
+✅ detects SyntaxError cause as corrupt install
+✅ detects "Unexpected end of input" cause message
+✅ detects "Failed to resolve the path" message
+✅ detects ERR_INVALID_PACKAGE_CONFIG by code (issue #1712)
+✅ detects ERR_INVALID_PACKAGE_CONFIG on cause
+✅ detects a missing transitive module inside an installed package (issue #2113)
+✅ detects use-m alias cleanup races after self-healing (issue #2113)
+✅ detects "Invalid package config" by message (no code)
+✅ does not flag unrelated errors
+
+📋 extractCorruptedFilePath
+
+✅ extracts file path from import-failed message
+✅ extracts directory path from resolve-failed message
+✅ extracts package.json path from invalid-package-config message (issue #1712)
+✅ extracts alias path from use-m cleanup failure (issue #2113)
+✅ returns null when no path is present
+
+📋 isTransientInstallError (issue #2092)
+
+✅ detects a failed global npm install
+✅ does not flag unrelated errors as transient installs
+✅ retries a failed global install with backoff and no cleanup
+✅ repairs a pinned alias install when an older alias owns the package binary
+✅ rethrows the install failure after exhausting attempts
+
+📋 resolveAliasDir (issue #2092)
+
+✅ walks up nested paths to the alias install dir
+✅ keeps versioned alias dirs intact
+✅ falls back to the parent directory without an alias segment
+
+📋 removeAliasWithRetry (issue #2113)
+
+✅ gives recursive rm an explicit retry budget for transient filesystem races
+
+📋 useWithRetry — happy path
+
+✅ returns module on first try when use() succeeds
+
+📋 useWithRetry — recovery
+
+✅ retries after SyntaxError cause and cleans up alias dir
+✅ retries after resolve-path failure and cleans up alias dir
+✅ retries after ERR_INVALID_PACKAGE_CONFIG and cleans up alias dir (issue #1712)
+✅ retries after a transitive module is missing and cleans up the whole alias dir (issue #2113)
+✅ recovers when use-m self-healing loses an ENOTEMPTY cleanup race (issue #2113)
+✅ does not retry on unrelated errors
+✅ rethrows after exhausting attempts on corrupt install
+✅ continues retrying when cleanup itself fails
+
+📋 useWithRetry — Node's poisoned ESM cache (issue #2092)
+
+✅ falls back to a cache-busted import when the same path fails again
+✅ keeps retrying normally when the cache-busted import also fails
+✅ does not cache-bust for resolve-path failures
+
+📋 wrapUseWithRetry (issue #2092)
+
+✅ pins mutable runtime package specifiers (issue #2150)
+✅ unwraps Node 24's CommonJS namespace marker (issue #2150)
+✅ preserves real ESM namespaces with meaningful named exports
+✅ wrapped use recovers from a corrupt command-stream install
+✅ wrapped use forwards extra arguments
+✅ wrapping is idempotent
+✅ non-corrupt errors propagate through the wrapper
+✅ ensureUseM returns a retry-wrapped use
+
+📊 43 test(s): ✅ 43 passed, ❌ 0 failed
+
+RUN tests/test-preinstall-use-m-packages-1724.mjs
+✅ aliasForPackage strips @ and replaces / for scoped names
+✅ isRetryableNpmError detects ENOTEMPTY and friends
+✅ computeBackoffMs grows exponentially
+[preinstall-use-m] ✅ installed command-stream@0.18.0 as command-stream-v-0.18.0 (attempt 1)
+✅ installWithRetry disables package bin links so versioned aliases can coexist
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ⚠️  attempt 2/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ✅ installed command-stream@0.18.0 as command-stream-v-0.18.0 (attempt 3)
+✅ installWithRetry retries on ENOTEMPTY then succeeds
+[preinstall-use-m] ⚠️  attempt 1/3 failed for zx: Command failed: npm install
+[preinstall-use-m] ✅ installed zx@8.8.5 as zx-v-8.8.5 without replacing an unrelated package binary
+✅ installWithRetry safely repairs a use-m alias bin-link collision
+[preinstall-use-m] ⚠️  attempt 1/4 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ❌ giving up on command-stream@0.18.0 after 1 attempt(s)
+✅ installWithRetry aborts immediately on non-retryable error
+[preinstall-use-m] ⚠️  attempt 1/3 failed for command-stream: Command failed: npm install
+[preinstall-use-m] ℹ️  command-stream-v-0.18.0 already present in /tmp/preinstall-1724-qKQfjh; treating as success despite npm error
+✅ installWithRetry treats package-present-on-disk as recovered success
+
+Passed: 8 / 8
+RUN tests/ci-integrity-2150.test.mjs
+ci-integrity-2150.test.mjs: all assertions passed
+RUN tests/ci-workflow-cancellation-2082.test.mjs
+ci-workflow-cancellation-2082.test.mjs: all assertions passed
+RUN tests/test-memory-check.mjs
+Testing memory-check.mjs exists... ✅ PASSED
+Testing memory-check.mjs --help... ✅ PASSED
+Testing memory-check.mjs basic execution... ✅ PASSED
+Testing memory-check.mjs disk space check... ✅ PASSED
+Testing memory-check.mjs RAM check... ✅ PASSED
+Testing memory-check.mjs verbose output... ✅ PASSED
+Testing memory-check.mjs syntax check... ✅ PASSED
+Testing memory-check.mjs platform detection... ✅ PASSED
+Testing memory-check.mjs exit code on success... ✅ PASSED
+Testing memory-check.mjs execution... ✅ PASSED
+
+==================================================
+Test Results for memory-check.mjs:
+  ✅ Passed: 10
+  ❌ Failed: 0
+  Platform: linux
+==================================================
+RUN tests/solve-tool-uncommitted-2150.test.mjs
+solve-tool-uncommitted-2150.test.mjs: all assertions passed
+RUN tests/test-issue-2130-log-noise.mjs
+✔ buildAuthRemedyLines keeps the vendor remedy for a vendor model (4.381529ms)
+✔ buildAuthRemedyLines replaces the vendor remedy for a Formal AI model (0.430995ms)
+✔ every tool adapter routes its vendor login advice through buildAuthRemedyLines (9.350985ms)
+✔ codexRunAlreadyFailed recognises the signals a failed run leaves behind (0.782501ms)
+✔ describeCodexLastMessageOutcome does not warn when a failed run wrote no final message (1.245595ms)
+✔ describeCodexLastMessageOutcome still warns when a successful run wrote no final message (0.412439ms)
+✔ describeCodexLastMessageOutcome keeps warning about a read error that is not a missing file (0.270535ms)
+✔ describeCodexLastMessageOutcome reports a captured final message (0.27313ms)
+✔ buildCodexRunDiagnostics does not warn about missing usage when the turn never completed (1.367283ms)
+✔ buildCodexRunDiagnostics still warns about missing usage after a clean run (0.7124ms)
+✔ buildCodexRunDiagnostics reports the usage totals it does find (44.033141ms)
+✔ setupGitCredentialHelper uses the global gitconfig when gh can write it (1.110123ms)
+✔ setupGitCredentialHelper falls back to the clone-local config when the global one is read-only (0.800053ms)
+✔ setupGitCredentialHelper warns only when no credential helper could be configured at all (0.485927ms)
+✔ checkFileInBranch runs its existence probe silently (2.21254ms)
+✔ QUIET_PROBE captures the output it refuses to mirror (0.285342ms)
+✔ quietProbe binds the quiet options to an option-callable $ (0.438207ms)
+✔ quietProbe memoizes per $ so a probe in a loop binds once (0.615137ms)
+✔ quietProbe returns a plain tagged template unchanged instead of crashing (0.958569ms)
+✔ quietProbe swallows the promise a non-configurable $ returns for the options call (0.777692ms)
+✔ quietProbe passes a non-function through untouched (0.21948ms)
+✔ the probes evidenced in the attached logs are all quiet now (15.694558ms)
+✔ callers do not defeat the quiet terminal-state probes (issue #2144) (9.211446ms)
+✔ no source file mirrors a bare `gh api user --jq .login` (556.147792ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 672.715498
+RUN tests/test-issue-1102-fix.mjs
+===========================================
+Issue #1102 Fix Tests
+===========================================
+
+Test Suite 1: /hive command accepts issues_list URLs
+
+✅ PASS: issues_list URL should be valid for /hive
+✅ PASS: pulls_list URL should be valid for /hive
+✅ PASS: repo URL should still be valid for /hive
+✅ PASS: user URL should still be valid for /hive
+
+Test Suite 2: URL normalization for /hive
+
+✅ PASS: issues_list URL returns parsed data with type issues_list
+✅ PASS: issues_list URL returns correct owner/repo
+
+Test Suite 3: Non-printable character cleaning
+
+✅ PASS: URL with Zero-Width Space should be cleaned
+✅ PASS: URL with BOM should be cleaned
+✅ PASS: URL with Zero-Width Non-Joiner should be cleaned
+
+Test Suite 4: Error message escaping
+
+✅ PASS: Error message should escape underscores in URLs
+✅ PASS: escapeMarkdown should escape underscores
+✅ PASS: escapeMarkdown should escape asterisks
+
+Test Suite 5: /solve command should still reject issues_list
+
+✅ PASS: issues_list URL should be rejected for /solve
+✅ PASS: pulls_list URL should be rejected for /solve
+✅ PASS: Specific issue URL should still be valid for /solve
+✅ PASS: Specific PR URL should still be valid for /solve
+
+===========================================
+Results: 16 passed, 0 failed
+===========================================
+
+✅ All Issue #1102 fix tests passed!
+RUN tests/test-telegram-validate-url.mjs
+===========================================
+Unit Tests: Telegram URL Validation
+===========================================
+
+Test Suite 1: /solve command - Valid URLs (Should Pass)
+
+✅ PASS: Valid issue URL
+✅ PASS: Valid PR URL
+✅ PASS: Valid issue URL with options
+✅ PASS: Valid PR URL with query params
+
+Test Suite 2: /solve command - Invalid URLs (Should Fail)
+
+✅ PASS: Repository URL only (no issue/PR)
+✅ PASS: Repository URL with trailing slash
+✅ PASS: User profile URL
+✅ PASS: Issues list URL (no specific issue)
+✅ PASS: Pull requests list URL (no specific PR)
+✅ PASS: Missing URL
+✅ PASS: Non-GitHub URL
+✅ PASS: GitHub Actions URL
+✅ PASS: GitHub file URL
+
+Test Suite 3: /hive command - Valid URLs (Should Pass)
+
+✅ PASS: Valid repository URL
+✅ PASS: Valid organization URL
+✅ PASS: Valid repository URL with trailing slash
+
+Test Suite 4: /hive command - Invalid URLs (Should Fail)
+
+✅ PASS: Issue URL (not allowed for hive)
+✅ PASS: PR URL (not allowed for hive)
+✅ PASS: Missing URL
+
+===========================================
+Results: 19 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+RUN tests/test-url-hash-fragment.mjs
+===========================================
+Unit Tests: URL Hash Fragment Handling
+Issue #991 Fix Verification
+===========================================
+
+Test Suite 1: parseGitHubUrl - Hash Fragment Handling
+
+✅ PASS: PR URL with issuecomment hash fragment
+✅ PASS: Issue URL with issuecomment hash fragment
+✅ PASS: PR URL with discussion hash fragment
+✅ PASS: PR URL with pullrequestreview hash fragment
+✅ PASS: Issue URL without hash fragment (baseline)
+
+Test Suite 2: validateGitHubUrl - Hash Fragment Handling
+
+✅ PASS: validateGitHubUrl with PR + hash fragment returns correct number
+✅ PASS: validateGitHubUrl with issue + hash fragment returns correct number
+
+Test Suite 3: parseUrlComponents - Hash Fragment Handling (Bug Fix)
+
+✅ PASS: parseUrlComponents strips hash fragment from PR URL
+✅ PASS: parseUrlComponents strips hash fragment from issue URL
+✅ PASS: parseUrlComponents handles discussion fragment
+✅ PASS: parseUrlComponents handles pullrequestreview fragment
+✅ PASS: parseUrlComponents works without hash (baseline)
+
+Test Suite 4: Edge Cases
+
+✅ PASS: Empty hash fragment is handled
+✅ PASS: Multiple hash chars (unusual but possible)
+✅ PASS: URL with query params and hash
+
+===========================================
+Results: 15 passed, 0 failed
+===========================================
+
+✅ All tests passed!
+RUN tests/test-issue-2032-default-think-off.mjs
+Issue #2032 default thinking-off regression tests passed.

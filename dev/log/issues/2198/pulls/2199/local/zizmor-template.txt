@@ -1,0 +1,60 @@
+ INFO zizmor: 🌈 zizmor v1.30.0
+ WARN audit: zizmor: zizmor is running in offline mode by default; some audits and auto-fixes will not be available. see https://docs.zizmor.sh/usage/#operating-modes for details
+ INFO audit: zizmor: 🌈 completed .github/actions/publish-dockerhub/action.yml
+ INFO audit: zizmor: 🌈 completed .github/actions/setup-buildx-resilient/action.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/example-app.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/links.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/release.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/security.yml
+ INFO audit: zizmor: 🌈 completed .github/workflows/workflows.yml
+help[self-repository]: use GitHub's dedicated self-repository syntax
+  --> .github/actions/publish-dockerhub/action.yml:38:13
+   |
+37 |     - name: Set up Docker Buildx (resilient)
+   |       -------------------------------------- this step
+38 |       uses: ./.github/actions/setup-buildx-resilient
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use '$/...' instead of './...'
+   |
+   = note: audit confidence → High
+   = note: this finding has an auto-fix
+   = help: audit documentation → https://docs.zizmor.sh/audits/#self-repository
+
+help[self-repository]: use GitHub's dedicated self-repository syntax
+   --> .github/workflows/release.yml:379:15
+    |
+377 |       - name: Set up Docker Buildx (resilient)
+    |         -------------------------------------- this step
+378 |         if: steps.docker_config.outputs.enabled == 'true'
+379 |         uses: ./.github/actions/setup-buildx-resilient
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use '$/...' instead of './...'
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#self-repository
+
+help[self-repository]: use GitHub's dedicated self-repository syntax
+   --> .github/workflows/release.yml:711:15
+    |
+706 |       - name: Build and push platform image by digest
+    |         --------------------------------------------- this step
+...
+711 |         uses: ./.github/actions/publish-dockerhub
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use '$/...' instead of './...'
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#self-repository
+
+help[self-repository]: use GitHub's dedicated self-repository syntax
+   --> .github/workflows/release.yml:751:15
+    |
+750 |       - name: Set up Docker Buildx (resilient)
+    |         -------------------------------------- this step
+751 |         uses: ./.github/actions/setup-buildx-resilient
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ use '$/...' instead of './...'
+    |
+    = note: audit confidence → High
+    = note: this finding has an auto-fix
+    = help: audit documentation → https://docs.zizmor.sh/audits/#self-repository
+
+59 findings (33 ignored, 22 suppressed, 4 safe fixes): 0 informational, 4 low, 0 medium, 0 high

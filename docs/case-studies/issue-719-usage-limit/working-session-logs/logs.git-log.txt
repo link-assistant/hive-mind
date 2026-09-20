@@ -1,0 +1,5 @@
+1550f71 docs(case-study-719): add index, logs, and timeline + usage-limit demo script
+419e64b fix(github): always use usage-limit gist comment when comment too long (PR 722, Fixes #719)
+4262e08 fix(validation): accept reset times with optional space before AM/PM (usage-limit auto-continue)\n\n- Update parseResetTime to handle formats like '12:16 PM'\n- Add experiment script experiments/parse-reset-time.mjs to validate parsing\n\nRefs #719
+9df04d9 feat(usage-limit): handle usage limit as failure with reset-time comments across tools; add case study artifacts; bump version to 0.33.5 (Fixes #719)
+42c9e44 docs(case-study/719): add evidence and timeline; fix PR link to #722

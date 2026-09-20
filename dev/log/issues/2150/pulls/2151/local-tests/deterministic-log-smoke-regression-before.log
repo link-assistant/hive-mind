@@ -1,0 +1,83 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: log smoke test uses a deterministic non-GitHub fixture
+    at file:///tmp/gh-issue-solver-1786457752545/tests/ci-integrity-2150.test.mjs:65:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:439:25)
+    at async node:internal/modules/esm/loader:643:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '#!/usr/bin/env bash\n' +
+    '# verify-log-file-contents.sh\n' +
+    '#\n' +
+    '# Verifies that solve.mjs log files contain the version string and executed command.\n' +
+    '# This ensures the logging behaviour introduced in issue #517 remains intact.\n' +
+    '#\n' +
+    '# Usage:\n' +
+    '#   bash scripts/verify-log-file-contents.sh\n' +
+    '#\n' +
+    '# Exit code 0 = log file contains expected entries; non-zero = verification failed.\n' +
+    '\n' +
+    'set -euo pipefail\n' +
+    '\n' +
+    'echo "Testing that log files contain version and command at the start..."\n' +
+    'set +e\n' +
+    'timeout 30s ./src/solve.mjs "https://github.com/test/repo/issues/1" --dry-run --skip-tool-check 2>&1 | tee test-log-output.txt\n' +
+    'SOLVE_STATUS=${PIPESTATUS[0]}\n' +
+    'set -e\n' +
+    '\n' +
+    "# A disconnected dry-run may wait for GitHub until the test's explicit timeout.\n" +
+    '# Every other failure is a real command regression and must fail this script.\n' +
+    'if [ "$SOLVE_STATUS" -ne 0 ] && [ "$SOLVE_STATUS" -ne 124 ]; then\n' +
+    '  echo "solve dry-run failed with exit code $SOLVE_STATUS"\n' +
+    '  exit "$SOLVE_STATUS"\n' +
+    'fi\n' +
+    '\n' +
+    'LOG_FILE=$(grep -o "solve-[0-9T-]*Z\\.log" test-log-output.txt | head -1)\n' +
+    '\n' +
+    'if [ -z "$LOG_FILE" ]; then\n' +
+    '  echo "Could not find log file path in output"\n' +
+    '  cat test-log-output.txt\n' +
+    '  exit 1\n' +
+    'fi\n' +
+    '\n' +
+    'echo "Log file: $LOG_FILE"\n' +
+    '\n' +
+    'if [ ! -f "$LOG_FILE" ]; then\n' +
+    '  echo "Log file not found: $LOG_FILE"\n' +
+    '  ls -la solve-*.log || echo "No solve log files found"\n' +
+    '  exit 1\n' +
+    'fi\n' +
+    '\n' +
+    'echo ""\n' +
+    'echo "Checking log file contents..."\n' +
+    'head -30 "$LOG_FILE"\n' +
+    '\n' +
+    'echo ""\n' +
+    'echo "Verifying version appears in log..."\n' +
+    'if grep -q "solve v" "$LOG_FILE"; then\n' +
+    '  echo "Version found in log file"\n' +
+    'else\n' +
+    '  echo "Version NOT found in log file"\n' +
+    '  exit 1\n' +
+    'fi\n' +
+    '\n' +
+    'echo ""\n' +
+    'echo "Verifying command appears in log..."\n' +
+    'if grep -q "Raw command executed:" "$LOG_FILE"; then\n' +
+    '  echo "Command found in log file"\n' +
+    'else\n' +
+    '  echo "Command NOT found in log file"\n' +
+    '  exit 1\n' +
+    'fi\n' +
+    '\n' +
+    'echo ""\n' +
+    'echo "Log file verification passed - version and command are present"\n',
+  expected: /https:\/\/example\.com\/not-a-github-repository/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

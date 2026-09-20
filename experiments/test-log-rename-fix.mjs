@@ -103,7 +103,6 @@ async function simulateSessionIdCapture() {
         console.log(`⚠️ Could not clean up test files: ${e.message}`);
       }
     }, 1000);
-
   } catch (error) {
     console.log(`❌ ERROR during test: ${error.message}`);
   }

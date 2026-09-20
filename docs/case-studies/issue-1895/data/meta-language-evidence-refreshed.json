@@ -1,0 +1,36 @@
+{
+  "data": {
+    "repository": {
+      "defaultBranchRef": { "name": "main" },
+      "pr65": { "number": 65, "baseRefName": "issue-47-76af108c0f24", "headRefName": "issue-49-3a3011bb1089", "merged": true, "mergedAt": "2026-06-11T00:11:58Z", "closingIssuesReferences": { "nodes": [] } },
+      "pr66": { "number": 66, "baseRefName": "issue-47-76af108c0f24", "headRefName": "issue-50-2b26543616e5", "merged": true, "mergedAt": "2026-06-10T23:53:40Z", "closingIssuesReferences": { "nodes": [] } },
+      "issue49": {
+        "number": 49,
+        "state": "CLOSED",
+        "stateReason": "COMPLETED",
+        "timelineItems": {
+          "nodes": [
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": { "number": 48 } },
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": { "number": 65 } },
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": {} },
+            { "__typename": "ClosedEvent", "closer": { "__typename": "PullRequest", "number": 48 } }
+          ]
+        }
+      },
+      "issue50": {
+        "number": 50,
+        "state": "CLOSED",
+        "stateReason": "COMPLETED",
+        "timelineItems": {
+          "nodes": [
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": { "number": 48 } },
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": { "number": 66 } },
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": {} },
+            { "__typename": "CrossReferencedEvent", "willCloseTarget": false, "source": { "number": 80 } },
+            { "__typename": "ClosedEvent", "closer": { "__typename": "Commit" } }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "OpenAI Codex app-server documentation",
+    "url": "https://developers.openai.com/codex/app-server",
+    "accessedAt": "2026-07-14",
+    "findings": ["App-server is the bidirectional integration used by rich Codex clients.", "A client initializes a connection, starts or resumes a thread, starts a turn, and consumes streamed notifications.", "turn/steer appends input to an in-flight turn without creating a new turn."]
+  },
+  {
+    "name": "OpenAI Codex app-server open-source protocol README",
+    "url": "https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md",
+    "accessedAt": "2026-07-14",
+    "findings": ["turn/steer requires threadId, expectedTurnId, and input and returns the accepting turnId.", "Steering rejects a missing/stale active turn and non-steerable review or manual-compaction turns.", "clientUserMessageId can correlate the resulting user-message item."]
+  },
+  {
+    "name": "OpenAI Codex non-interactive mode",
+    "url": "https://developers.openai.com/codex/noninteractive",
+    "accessedAt": "2026-07-14",
+    "findings": ["codex exec is the documented pipeline and CI interface.", "--json streams output events as JSONL.", "Piped stdin is initial prompt/context; the page does not define a later-turn stdin protocol."]
+  },
+  {
+    "name": "Anthropic Claude Code CLI reference",
+    "url": "https://code.claude.com/docs/en/cli-reference",
+    "accessedAt": "2026-07-14",
+    "findings": ["--input-format supports stream-json in print mode.", "--replay-user-messages acknowledges messages received through stream-json stdin.", "The CLI can keep one process connected to a realtime input stream."]
+  },
+  {
+    "name": "Anthropic Agent SDK streaming input mode",
+    "url": "https://platform.claude.com/docs/en/agent-sdk/streaming-vs-single-mode",
+    "accessedAt": "2026-07-14",
+    "findings": ["Streaming input mode supports a persistent interactive session.", "It preserves context across multiple messages and supports queued messages."]
+  },
+  {
+    "name": "JSON-RPC 2.0 specification",
+    "url": "https://www.jsonrpc.org/specification",
+    "accessedAt": "2026-07-14",
+    "findings": ["Request IDs correlate responses while notifications intentionally omit responses.", "A small client must distinguish requests, responses, errors, and notifications."]
+  },
+  {
+    "name": "Node.js child_process documentation",
+    "url": "https://nodejs.org/api/child_process.html",
+    "accessedAt": "2026-07-14",
+    "findings": ["child_process.spawn exposes writable stdin and readable stdout/stderr streams.", "It is sufficient to host a local JSONL app-server transport without a new runtime dependency."]
+  },
+  {
+    "name": "Hive Mind issue #1708 case study",
+    "url": "../../issue-1708/README.md",
+    "accessedAt": "2026-07-14",
+    "findings": ["Introduced --auto-input-until-mergeable and the queue-versus-stream policy.", "Identified uncommitted changes, CI, comments, and metadata as live-input sources."]
+  },
+  {
+    "name": "Hive Mind issue #2007 case study",
+    "url": "../../issue-2007/README.md",
+    "accessedAt": "2026-07-14",
+    "findings": ["Claude and Agent use live input while Codex remains on restart/resume fallback.", "Previously identified app-server turn/steer as the required future Codex transport."]
+  },
+  {
+    "name": "Hive Mind issue #814 streaming-input experiments",
+    "url": "../../../../experiments/issue-814-streaming-input/",
+    "accessedAt": "2026-07-14",
+    "findings": ["Repository experiments exercise multiple Claude stream-json user messages and concurrent I/O.", "The experiments distinguish queued feedback from immediate interruption semantics."]
+  }
+]

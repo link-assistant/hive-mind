@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Git branch documentation",
+    "url": "https://git-scm.com/docs/git-branch",
+    "accessed": "2026-05-12",
+    "finding": "git branch --show-current prints the current branch name, which is not the same as proving HEAD resolves to a commit."
+  },
+  {
+    "title": "Git glossary - unborn branch",
+    "url": "https://git-scm.com/docs/gitglossary/2.44.0.html",
+    "accessed": "2026-05-12",
+    "finding": "Git HEAD can point at a branch that does not yet exist and has no commit; Git calls this an unborn branch."
+  },
+  {
+    "title": "Git rev-parse documentation",
+    "url": "https://git-scm.com/docs/git-rev-parse/2.39.3.html",
+    "accessed": "2026-05-12",
+    "finding": "git rev-parse --verify HEAD is the documented way to verify that HEAD names a valid object, and it errors when the revision is not valid."
+  },
+  {
+    "title": "Git checkout documentation",
+    "url": "https://git-scm.com/docs/git-checkout/2.19.2.html",
+    "accessed": "2026-05-12",
+    "finding": "git checkout -b creates a new branch from an optional start point. The start point must resolve to an object Git can use."
+  },
+  {
+    "title": "GitHub REST API - repository contents",
+    "url": "https://docs.github.com/en/rest/repos/contents",
+    "accessed": "2026-05-12",
+    "finding": "The create-or-update file endpoint accepts a commit message and Base64 file content, which supports the existing --auto-init-repository README initialization path."
+  }
+]

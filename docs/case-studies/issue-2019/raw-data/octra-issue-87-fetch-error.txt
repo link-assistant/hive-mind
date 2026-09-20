@@ -1,0 +1,5 @@
+gh issue view 87 --repo Payel-git-ol/Octra failed:
+
+GraphQL: Could not resolve to an issue or pull request with the number of 87. (repository.issue)
+
+The related merged pull request is preserved in octra-pr-88.json.

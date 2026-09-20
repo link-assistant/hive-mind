@@ -1,0 +1,107 @@
+
+📋 Progress Bar Tests
+
+✅ getProgressBar returns correct length
+✅ getProgressBar at 0% shows all empty
+✅ getProgressBar at 100% shows all filled
+✅ getProgressBar at 50% shows half filled
+✅ getProgressBar handles edge values
+
+📋 Progress Bar Threshold Marker Tests (Issue #1242)
+
+✅ getProgressBar with threshold returns correct length
+✅ getProgressBar with threshold includes marker character
+✅ getProgressBar with threshold at 65% places marker correctly
+✅ getProgressBar with threshold at 90% places marker correctly
+✅ getProgressBar with threshold at 97% places marker correctly
+✅ getProgressBar with null threshold returns original format
+✅ getProgressBar threshold marker replaces one block
+✅ DISPLAY_THRESHOLDS constants are defined
+✅ formatCodexLimitsSection renders 5 hour and weekly sections
+✅ formatCodexLimitsSection renders error state
+
+📋 Math.floor Percentage Tests (Issue #1133)
+
+✅ formatUsageMessage uses Math.floor for session percentage
+✅ formatUsageMessage shows 100% only when exactly 100
+✅ formatUsageMessage floors various percentages correctly
+✅ Math.floor ensures 100% means exactly full
+
+📋 Time Passed Percentage Tests
+
+✅ calculateTimePassedPercentage returns null for null input
+✅ calculateTimePassedPercentage returns valid percentage for future date
+✅ calculateTimePassedPercentage handles 5-hour period
+✅ calculateTimePassedPercentage handles 168-hour period (weekly)
+
+📋 formatUsageMessage Comprehensive Tests
+
+✅ formatUsageMessage includes all required sections
+✅ formatUsageMessage handles null percentages
+✅ formatUsageMessage includes optional system info
+✅ formatUsageMessage caps displayed CPU cores when load average exceeds CPU count
+✅ formatUsageMessage localizes Russian reset times and queue labels
+
+📋 Subscription End-Date Tests (Issue #1793)
+
+✅ formatCodexLimitsSection renders subscription end line when subscription is provided
+✅ formatCodexLimitsSection does NOT render subscription line when endsAt is null
+✅ formatUsageMessage renders Trial ends line when claude_code_trial_ends_at is set
+✅ formatUsageMessage renders Subscription: <status> when only subscription_status is known
+✅ formatUsageMessage does NOT render any subscription line when subscription is null
+✅ getCodexSubscriptionInfo decodes id_token and returns chatgpt_subscription_active_until
+✅ getCodexSubscriptionInfo falls back to access_token when id_token is missing
+✅ getCodexSubscriptionInfo returns error for non-chatgpt auth mode
+✅ formatCodexLimitsSection renders subscription line in Russian locale
+
+📋 Edge Cases for Display
+
+✅ formatUsageMessage handles 0% correctly
+✅ formatUsageMessage handles extreme values
+
+📋 Warning Emoji Tests (Issue #1242)
+
+✅ formatUsageMessage shows warning emoji when session exceeds threshold
+✅ formatUsageMessage does not show warning emoji when below threshold
+✅ formatUsageMessage shows warning for system resources when exceeded
+✅ formatUsageMessage shows threshold markers in progress bars
+
+📋 Claude Error Display Tests (Issue #1343)
+
+✅ formatUsageMessage with claudeError shows error once in Claude limits section
+✅ formatUsageMessage with claudeError still shows system resource sections
+✅ formatUsageMessage with null claudeError shows normal Claude data
+
+📋 Sections Array / Extra Sections Tests (Issue #1387)
+
+✅ formatUsageMessage wraps all content in a single code block
+✅ formatUsageMessage with extraSections includes extra content inside code block
+✅ formatUsageMessage with claudeError and extraSections includes extra content inside code block
+✅ formatUsageMessage with empty extraSections works as before
+✅ formatUsageMessage sections are separated by blank lines
+
+📋 formatRetryAfterMessage Tests (Issue #1446)
+
+✅ formatRetryAfterMessage returns "Try again later." for null
+✅ formatRetryAfterMessage returns "Try again later." for undefined
+✅ formatRetryAfterMessage returns "Try again later." for "0"
+✅ formatRetryAfterMessage returns "Try again later." for negative value
+✅ formatRetryAfterMessage formats seconds correctly for small values
+✅ formatRetryAfterMessage formats seconds correctly for minutes
+✅ formatRetryAfterMessage formats seconds correctly for hours
+✅ formatRetryAfterMessage formats exact minutes without trailing seconds
+✅ formatRetryAfterMessage handles HTTP-date format
+✅ formatRetryAfterMessage handles HTTP-date in the past
+✅ formatRetryAfterMessage with rate-limit error message in formatUsageMessage
+✅ formatRetryAfterMessage with positive retry-after in formatUsageMessage
+✅ formatUsageMessage localizes core labels for Russian
+✅ formatUsageMessage localizes core labels for Chinese and Hindi
+✅ formatCodexLimitsSection localizes additional Codex labels
+
+📊 Test Results
+
+Tests passed: 66
+Tests failed: 0
+Total tests: 66
+
+✅ All tests passed!

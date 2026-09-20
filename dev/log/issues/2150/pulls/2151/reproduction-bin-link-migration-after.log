@@ -1,0 +1,120 @@
+[use-m] acquired install lock for 'command-stream-v-latest' at /tmp/hive-mind-use-m-locks/command-stream-v-latest.lock
+[use-m] use('command-stream') loading (alias command-stream-v-latest)
+[use-m] use('command-stream') pinned to 'command-stream@0.18.0'
+[use-m] use('command-stream') loaded in 303ms
+[use-m] use('getenv') pinned to 'getenv@2.0.0'
+[use-m] acquired install lock for 'getenv-v-2.0.0' at /tmp/hive-mind-use-m-locks/getenv-v-2.0.0.lock
+[use-m] use('getenv@2.0.0') loading (alias getenv-v-2.0.0)
+[use-m] use('getenv@2.0.0') loaded in 235ms
+[use-m] use('links-notation') pinned to 'links-notation@0.13.0'
+[use-m] acquired install lock for 'links-notation-v-0.13.0' at /tmp/hive-mind-use-m-locks/links-notation-v-0.13.0.lock
+[use-m] use('links-notation@0.13.0') loading (alias links-notation-v-0.13.0)
+[use-m] use('links-notation@0.13.0') loaded in 275ms
+[use-m] use('fs') loading (alias fs-v-latest)
+[use-m] use('fs') loaded in 1ms
+[use-m] use('path') loading (alias path-v-latest)
+[use-m] use('path') loaded in 1ms
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('crypto') loading (alias crypto-v-latest)
+[use-m] use('crypto') loaded in 5ms
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('os') loading (alias os-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('os') joined an in-flight load (alias os-v-latest)
+[use-m] use('os') loaded in 1ms
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('os') joined an in-flight load (alias os-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+📁 Log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T15-57-20-899Z.log
+   (All output will be logged here)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] acquired install lock for 'zx-v-latest' at /tmp/hive-mind-use-m-locks/zx-v-latest.lock
+[use-m] use('zx') loading (alias zx-v-latest)
+[use-m] use('zx') pinned to 'zx@8.8.5'
+[use-m] use('zx@8.8.5') failed on attempt 1/3: Failed to install zx@8.8.5 globally into '/home/box/.nvm/versions/node/v20.20.2/lib/node_modules' after 3 attempts.
+Attempts:
+  - 1/3: npm error code EEXIST
+npm error path /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error EEXIST: file already exists
+npm error File exists: /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-08-11T15_57_21_314Z-debug-0.log
+  - 2/3: npm error code EEXIST
+npm error path /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error EEXIST: file already exists
+npm error File exists: /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-08-11T15_57_23_078Z-debug-0.log
+  - 3/3: npm error code EEXIST
+npm error path /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error EEXIST: file already exists
+npm error File exists: /home/box/.nvm/versions/node/v20.20.2/bin/zx
+npm error Remove the existing file and try again, or run npm
+npm error with --force to overwrite files recklessly.
+npm error A complete log of this run can be found in: /home/box/.npm/_logs/2026-08-11T15_57_25_860Z-debug-0.log — retrying
+[use-m] use('zx@8.8.5') repaired npm's alias bin-link collision
+[use-m] use('zx') loaded in 6850ms
+
+🚀 solve v2.12.0
+🔧 Raw command executed:
+   /home/box/.nvm/versions/node/v20.20.2/bin/node /tmp/gh-issue-solver-1786457752545/src/solve.mjs invalid-url
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 0.94 0.94 1.30 (6 CPUs)
+   Memory: 10.1 GB available / 11.7 GB total (1.6 GB used)
+   Process RSS: 96 MB, heap 26 MB
+   Disk (/): 127.2 GB available / 192.7 GB total (34.0% used)
+📈 [RESOURCES] phase=solve_start ts=2026-08-11T15%3A57%3A27.910Z load1=0.94 load5=0.94 load15=1.3 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10866905088 memUsedBytes=1674588160 processRssBytes=100937728 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=136575528960 diskUsedBytes=70307975168 diskUsedPercent=33.98157542913312 mem=10.1%20GB%20available%20%2F%2011.7%20GB%20total disk=127.2%20GB%20available%20%2F%20192.7%20GB%20total
+Error: Invalid GitHub URL for solve command
+  URL type 'user' is not supported
+  Please provide a valid GitHub issue or pull request URL
+  Examples:
+    https://github.com/owner/repo/issues/123 (issue)
+    https://github.com/owner/repo/pull/456 (pull request)
+📈 Resource usage (solve exit 1):
+   CPU load: 0.94 0.94 1.30 (6 CPUs)
+   Memory: 10.1 GB available / 11.7 GB total (1.6 GB used)
+   Process RSS: 97 MB, heap 27 MB
+   Disk (/): 127.2 GB available / 192.7 GB total (34.0% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-08-11T15%3A57%3A27.921Z load1=0.94 load5=0.94 load15=1.3 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=10866905088 memUsedBytes=1674588160 processRssBytes=101330944 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=136575528960 diskUsedBytes=70307975168 diskUsedPercent=33.98157542913312 mem=10.1%20GB%20available%20%2F%2011.7%20GB%20total disk=127.2%20GB%20available%20%2F%20192.7%20GB%20total
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+
+❌ Invalid GitHub URL
+📁 Full log file: /tmp/gh-issue-solver-1786457752545/solve-2026-08-11T15-57-20-899Z.log

@@ -1,0 +1,136 @@
+[2026-06-16T13:47:10.683Z] [INFO]   "type": "assistant",
+[2026-06-16T13:47:10.683Z] [INFO]   "message": {
+[2026-06-16T13:47:10.683Z] [INFO]     "id": "5eea7f71-4909-44a9-8cdb-97e57e172597",
+[2026-06-16T13:47:10.683Z] [INFO]     "container": null,
+[2026-06-16T13:47:10.683Z] [INFO]     "model": "<synthetic>",
+[2026-06-16T13:47:10.683Z] [INFO]     "role": "assistant",
+[2026-06-16T13:47:10.683Z] [INFO]     "stop_details": null,
+[2026-06-16T13:47:10.683Z] [INFO]     "stop_reason": "stop_sequence",
+[2026-06-16T13:47:10.683Z] [INFO]     "stop_sequence": "",
+[2026-06-16T13:47:10.683Z] [INFO]     "type": "message",
+[2026-06-16T13:47:10.683Z] [INFO]     "usage": {
+[2026-06-16T13:47:10.683Z] [INFO]       "input_tokens": 0,
+[2026-06-16T13:47:10.683Z] [INFO]       "output_tokens": 0,
+[2026-06-16T13:47:10.683Z] [INFO]       "cache_creation_input_tokens": 0,
+[2026-06-16T13:47:10.683Z] [INFO]       "cache_read_input_tokens": 0,
+[2026-06-16T13:47:10.683Z] [INFO]       "server_tool_use": {
+[2026-06-16T13:47:10.683Z] [INFO]         "web_search_requests": 0,
+[2026-06-16T13:47:10.683Z] [INFO]         "web_fetch_requests": 0
+[2026-06-16T13:47:10.683Z] [INFO]       },
+[2026-06-16T13:47:10.683Z] [INFO]       "service_tier": null,
+[2026-06-16T13:47:10.683Z] [INFO]       "cache_creation": {
+[2026-06-16T13:47:10.683Z] [INFO]         "ephemeral_1h_input_tokens": 0,
+[2026-06-16T13:47:10.683Z] [INFO]         "ephemeral_5m_input_tokens": 0
+[2026-06-16T13:47:10.683Z] [INFO]       },
+[2026-06-16T13:47:10.683Z] [INFO]       "inference_geo": null,
+[2026-06-16T13:47:10.683Z] [INFO]       "iterations": null,
+[2026-06-16T13:47:10.683Z] [INFO]       "speed": null
+[2026-06-16T13:47:10.683Z] [INFO]     },
+[2026-06-16T13:47:10.683Z] [INFO]     "content": [
+[2026-06-16T13:47:10.683Z] [INFO]       {
+[2026-06-16T13:47:10.683Z] [INFO]         "type": "text",
+[2026-06-16T13:47:10.683Z] [INFO]         "text": "API Error: Stream idle timeout - partial response received"
+[2026-06-16T13:47:10.683Z] [INFO]       }
+[2026-06-16T13:47:10.683Z] [INFO]     ],
+[2026-06-16T13:47:10.683Z] [INFO]     "context_management": null
+[2026-06-16T13:47:10.683Z] [INFO]   },
+[2026-06-16T13:47:10.683Z] [INFO]   "parent_tool_use_id": null,
+[2026-06-16T13:47:10.683Z] [INFO]   "session_id": "1dbe466b-d9da-40c8-8204-b012a3d0f3a3",
+[2026-06-16T13:47:10.683Z] [INFO]   "uuid": "82d8cb0d-5340-444f-b61e-a3d1ddccb3e0",
+[2026-06-16T13:47:10.683Z] [INFO]   "error": "unknown",
+[2026-06-16T13:47:10.683Z] [INFO]   "request_id": "req_011Cc73Ad2QAi6fGK4b1DHS9"
+[2026-06-16T13:47:10.683Z] [INFO] }
+[2026-06-16T13:47:10.685Z] [INFO] {
+[2026-06-16T13:47:10.685Z] [INFO]   "type": "result",
+[2026-06-16T13:47:10.685Z] [INFO]   "subtype": "success",
+[2026-06-16T13:47:10.685Z] [INFO]   "is_error": true,
+[2026-06-16T13:47:10.685Z] [INFO]   "api_error_status": null,
+[2026-06-16T13:47:10.685Z] [INFO]   "duration_ms": 6635374,
+[2026-06-16T13:47:10.685Z] [INFO]   "duration_api_ms": 5901906,
+[2026-06-16T13:47:10.685Z] [INFO]   "num_turns": 391,
+[2026-06-16T13:47:10.685Z] [INFO]   "result": "API Error: Stream idle timeout - partial response received",
+[2026-06-16T13:47:10.685Z] [INFO]   "stop_reason": "stop_sequence",
+[2026-06-16T13:47:10.685Z] [INFO]   "session_id": "1dbe466b-d9da-40c8-8204-b012a3d0f3a3",
+[2026-06-16T13:47:10.685Z] [INFO]   "total_cost_usd": 34.10799650000003,
+[2026-06-16T13:47:10.685Z] [INFO]   "usage": {
+[2026-06-16T13:47:10.685Z] [INFO]     "input_tokens": 58378,
+[2026-06-16T13:47:10.685Z] [INFO]     "cache_creation_input_tokens": 888394,
+[2026-06-16T13:47:10.685Z] [INFO]     "cache_read_input_tokens": 25442097,
+[2026-06-16T13:47:10.685Z] [INFO]     "output_tokens": 351819,
+[2026-06-16T13:47:10.685Z] [INFO]     "server_tool_use": {
+[2026-06-16T13:47:10.685Z] [INFO]       "web_search_requests": 0,
+[2026-06-16T13:47:10.685Z] [INFO]       "web_fetch_requests": 0
+[2026-06-16T13:47:10.685Z] [INFO]     },
+[2026-06-16T13:47:10.685Z] [INFO]     "service_tier": "standard",
+[2026-06-16T13:47:10.685Z] [INFO]     "cache_creation": {
+[2026-06-16T13:47:10.685Z] [INFO]       "ephemeral_1h_input_tokens": 888394,
+[2026-06-16T13:47:10.685Z] [INFO]       "ephemeral_5m_input_tokens": 0
+[2026-06-16T13:47:10.685Z] [INFO]     },
+[2026-06-16T13:47:10.685Z] [INFO]     "inference_geo": "not_available",
+[2026-06-16T13:47:10.685Z] [INFO]     "iterations": [
+[2026-06-16T13:47:10.685Z] [INFO]       {
+[2026-06-16T13:47:10.685Z] [INFO]         "input_tokens": 317,
+[2026-06-16T13:47:10.685Z] [INFO]         "output_tokens": 336,
+[2026-06-16T13:47:10.685Z] [INFO]         "cache_read_input_tokens": 43406,
+[2026-06-16T13:47:10.685Z] [INFO]         "cache_creation_input_tokens": 1156,
+[2026-06-16T13:47:10.685Z] [INFO]         "cache_creation": {
+[2026-06-16T13:47:10.685Z] [INFO]           "ephemeral_5m_input_tokens": 0,
+[2026-06-16T13:47:10.685Z] [INFO]           "ephemeral_1h_input_tokens": 1156
+[2026-06-16T13:47:10.685Z] [INFO]         },
+[2026-06-16T13:47:10.685Z] [INFO]         "type": "message"
+[2026-06-16T13:47:10.685Z] [INFO]       }
+[2026-06-16T13:47:10.685Z] [INFO]     ],
+[2026-06-16T13:47:10.685Z] [INFO]     "speed": "standard"
+[2026-06-16T13:47:10.685Z] [INFO]   },
+[2026-06-16T13:47:10.685Z] [INFO]   "modelUsage": {
+[2026-06-16T13:47:10.685Z] [INFO]     "claude-opus-4-8": {
+[2026-06-16T13:47:10.685Z] [INFO]       "inputTokens": 58398,
+[2026-06-16T13:47:10.685Z] [INFO]       "outputTokens": 447281,
+[2026-06-16T13:47:10.685Z] [INFO]       "cacheReadInputTokens": 26375293,
+[2026-06-16T13:47:10.685Z] [INFO]       "cacheCreationInputTokens": 955690,
+[2026-06-16T13:47:10.685Z] [INFO]       "webSearchRequests": 0,
+[2026-06-16T13:47:10.685Z] [INFO]       "costUSD": 34.10799650000003,
+[2026-06-16T13:47:10.685Z] [INFO]       "contextWindow": 200000,
+[2026-06-16T13:47:10.685Z] [INFO]       "maxOutputTokens": 64000
+[2026-06-16T13:47:10.685Z] [INFO]     }
+[2026-06-16T13:47:10.685Z] [INFO]   },
+[2026-06-16T13:47:10.685Z] [INFO]   "permission_denials": [],
+[2026-06-16T13:47:10.685Z] [INFO]   "terminal_reason": "completed",
+[2026-06-16T13:47:10.685Z] [INFO]   "fast_mode_state": "off",
+[2026-06-16T13:47:10.685Z] [INFO]   "uuid": "cdce2d97-1e97-4db7-8e39-7d654da2641a"
+[2026-06-16T13:47:10.685Z] [INFO] }
+[2026-06-16T13:47:10.686Z] [INFO] 📌 Result event received, starting 30s stream close timeout (Issue #1280)
+[2026-06-16T13:47:10.686Z] [INFO] 💰 Anthropic official cost captured from success result: $34.107997
+[2026-06-16T13:47:10.686Z] [INFO] 📝 Captured result summary from Claude output
+[2026-06-16T13:47:10.687Z] [INFO] 📊 Session num_turns: 391
+[2026-06-16T13:47:10.687Z] [INFO] ⚠️ Detected error from Claude CLI (subtype: success)
+[2026-06-16T13:47:11.215Z] [INFO] ✅ Stream closed normally after result event
+[2026-06-16T13:47:11.216Z] [ERROR] 
+[2026-06-16T13:47:11.216Z] [ERROR] 
+[2026-06-16T13:47:11.216Z] [ERROR] ❌ Claude command failed with exit code 1
+[2026-06-16T13:47:11.216Z] [INFO] 📌 Session ID: 1dbe466b-d9da-40c8-8204-b012a3d0f3a3
+[2026-06-16T13:47:11.216Z] [INFO] 
+[2026-06-16T13:47:11.216Z] [INFO] 💡 To continue this session:
+[2026-06-16T13:47:11.216Z] [INFO] 
+[2026-06-16T13:47:11.217Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --model opus)
+[2026-06-16T13:47:11.217Z] [INFO] 
+[2026-06-16T13:47:11.217Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-16T13:47:11.217Z] [INFO] 
+[2026-06-16T13:47:11.236Z] [INFO] 
+[2026-06-16T13:47:11.236Z] [INFO] 📈 System resources after execution:
+[2026-06-16T13:47:11.236Z] [INFO]    Memory: MemFree:         5780768 kB
+[2026-06-16T13:47:11.236Z] [INFO]    Load: 0.52 2.36 2.62 1/594 1712072
+[2026-06-16T13:47:11.236Z] [INFO] 
+[2026-06-16T13:47:11.236Z] [INFO] 💡 To continue this session:
+[2026-06-16T13:47:11.236Z] [INFO] 
+[2026-06-16T13:47:11.236Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --model opus)
+[2026-06-16T13:47:11.236Z] [INFO] 
+[2026-06-16T13:47:11.236Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-16T13:47:11.236Z] [INFO] 
+[2026-06-16T13:47:11.237Z] [INFO] 
+[2026-06-16T13:47:11.237Z] [INFO] 💡 To continue this session:
+[2026-06-16T13:47:11.237Z] [INFO]    Interactive mode:    (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --model opus)
+[2026-06-16T13:47:11.237Z] [INFO]    Autonomous mode:     (cd "/tmp/gh-issue-solver-1781610978632" && claude --resume 1dbe466b-d9da-40c8-8204-b012a3d0f3a3 --output-format stream-json --dangerously-skip-permissions --model opus -p "Continue.")
+[2026-06-16T13:47:11.238Z] [INFO] 
+[2026-06-16T13:47:11.238Z] [INFO] 
+[2026-06-16T13:47:11.238Z] [INFO] 📄 Attaching failure logs to Pull Request...

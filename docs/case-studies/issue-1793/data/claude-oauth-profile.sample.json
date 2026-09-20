@@ -1,0 +1,29 @@
+{
+  "_note": "Captured 2026-05-12 from GET https://api.anthropic.com/api/oauth/profile (Bearer OAuth token from claude-code). Truncated, sensitive fields removed.",
+  "account": {
+    "uuid": "<uuid>",
+    "full_name": "<redacted>",
+    "display_name": "<redacted>",
+    "email": "<redacted>",
+    "has_claude_max": true,
+    "has_claude_pro": false,
+    "created_at": "2025-10-08T13:16:41.147780Z"
+  },
+  "organization": {
+    "uuid": "<uuid>",
+    "organization_type": "claude_max",
+    "billing_type": "stripe_subscription",
+    "rate_limit_tier": "default_claude_max_20x",
+    "seat_tier": null,
+    "has_extra_usage_enabled": false,
+    "subscription_status": "active",
+    "subscription_created_at": "2025-10-09T02:30:53.133490Z",
+    "claude_code_trial_ends_at": null,
+    "claude_code_trial_duration_days": null
+  },
+  "application": {
+    "uuid": "<uuid>",
+    "name": "Claude Code",
+    "slug": "claude-code"
+  }
+}

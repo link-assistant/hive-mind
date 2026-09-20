@@ -1,0 +1,49 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/router/issues/comments/5309613759",
+    "html_url": "https://github.com/link-assistant/router/issues/195#issuecomment-5309613759",
+    "issue_url": "https://api.github.com/repos/link-assistant/router/issues/195",
+    "id": 5309613759,
+    "node_id": "IC_kwDORq-Bqc8AAAABPHpGvw",
+    "user": {
+      "login": "konard",
+      "id": 1431904,
+      "node_id": "MDQ6VXNlcjE0MzE5MDQ=",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/konard",
+      "html_url": "https://github.com/konard",
+      "followers_url": "https://api.github.com/users/konard/followers",
+      "following_url": "https://api.github.com/users/konard/following{/other_user}",
+      "gists_url": "https://api.github.com/users/konard/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/konard/subscriptions",
+      "organizations_url": "https://api.github.com/users/konard/orgs",
+      "repos_url": "https://api.github.com/users/konard/repos",
+      "events_url": "https://api.github.com/users/konard/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/konard/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "created_at": "2026-08-16T20:52:35Z",
+    "updated_at": "2026-08-16T20:52:35Z",
+    "body": "## 🚨 Solution Draft Failed\nThe automated solution draft encountered an error:\n```\nThe solver stopped before creating a pull request.\n\nReason: System checks failed\n```\n\n### What you can do\n- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.\n- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `opus` (`claude-opus-5`)\n- Thinking level: off (disabled)\n- **Model: Claude Opus 5** (`claude-opus-5`)\n\n<details>\n<summary>Click to expand failure log (6KB)</summary>\n\n```\n# Solve.mjs Log - 2026-08-16T20:52:27.598Z\n\n[2026-08-16T20:52:27.604Z] [INFO] 📁 Log file: /home/box/solve-2026-08-16T20-52-27-598Z.log\n[2026-08-16T20:52:27.611Z] [INFO]    (All output will be logged here)\n[2026-08-16T20:52:28.909Z] [INFO] \n[2026-08-16T20:52:28.915Z] [INFO] 🚀 solve v2.12.2\n[2026-08-16T20:52:28.922Z] [INFO] 🔧 Raw command executed:\n[2026-08-16T20:52:28.932Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/link-assistant/router/issues/195 --model opus --auto-pull-request-creation --verbose --auto-fork --gitkeep-file --auto-gitkeep-file --do-not-shutdown-in-the-middle-of-working-session --attach-logs --on-session-kill report --session-kill-resume-attempts 1 --no-auto-continue --auto-resume-on-limit-reset --auto-restart-on-uncommitted-changes --auto-resume-on-uncommitted-changes-maximum-context-window-usage 50 --auto-restart-max-iterations 5 --auto-resume-max-iterations 5 --previous-anthropic-cost 0 --auto-merge --auto-restart-until-mergeable --watch-interval 60 --min-disk-space 10240 --think off --thinking-budget-claude-minimum-version 2.1.12 --max-thinking-budget 31999 --sub-session-size 150k --prefix-fork-name-with-owner-name --tool claude --interactive-image-upload --tokens-budget-stats --p…mcp --prompt-check-sibling-pull-requests --prompt-experiments-folder ./experiments --prompt-examples-folder ./examples --playwright-mcp --playwright-mcp-auto-cleanup --useless-tools-disabled --disable-report-issue --auto-attach-solution-summary --auto-accept-invite --finalize 0 --escalate-steps 1 --language en\n[2026-08-16T20:52:28.946Z] [INFO] \n[2026-08-16T20:52:29.042Z] [INFO] 🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.\n[2026-08-16T20:52:29.055Z] [INFO] 📈 Resource usage (solve start):\n[2026-08-16T20:52:29.055Z] [INFO]    CPU load: 2.49 2.78 3.45 (6 CPUs)\n[2026-08-16T20:52:29.055Z] [INFO]    Memory: 10.3 GB available / 11.7 GB total (1.4 GB used)\n[2026-08-16T20:52:29.055Z] [INFO]    Process RSS: 99 MB, heap 19 MB\n[2026-08-16T20:52:29.055Z] [INFO]    Disk (/): 9.8 GB available / 192.7 GB total (94.9% used)\n[2026-08-16T20:52:29.055Z] [INFO] 📈 [RESOURCES] phase=solve_start ts=2026-08-16T20%3A52%3A29.053Z load1=2.49 load5=2.78 load15=3.45 cpuCount=6 memTotalBytes=12541485056 memAvailableBytes=11072401408 memUsedBytes=1469083648 processRssBytes=104099840 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=10533576704 diskUsedBytes=196349927424 diskUsedPercent=94.90075419353413 mem=10.3%20GB%20available%20%2F%2011.7%20GB%20total disk=9.8%20GB%20available%20%2F%20192.7%20GB%20total\n[2026-08-16T20:52:29.059Z] [INFO] \n[2026-08-16T20:52:29.061Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED\n[2026-08-16T20:52:29.062Z] [INFO] \n[2026-08-16T20:52:29.066Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.\n[2026-08-16T20:52:29.069Z] [INFO]    The log may contain sensitive information such as:\n[2026-08-16T20:52:29.070Z] [INFO]    • API keys, tokens, or secrets\n[2026-08-16T20:52:29.072Z] [INFO]    • File paths and directory structures\n[2026-08-16T20:52:29.075Z] [INFO]    • Command outputs and error messages\n[2026-08-16T20:52:29.076Z] [INFO]    • Internal system information\n[2026-08-16T20:52:29.077Z] [INFO] \n[2026-08-16T20:52:29.079Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log\n[2026-08-16T20:52:29.082Z] [INFO]        might contain sensitive data that should not be shared publicly.\n[2026-08-16T20:52:29.085Z] [INFO] \n[2026-08-16T20:52:29.087Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)\n[2026-08-16T20:52:29.091Z] [INFO] \n[2026-08-16T20:52:30.097Z] [STDOUT]    Countdown: 5 seconds remaining...\r\n[2026-08-16T20:52:31.099Z] [STDOUT]    Countdown: 4 seconds remaining...\r\n[2026-08-16T20:52:32.102Z] [STDOUT]    Countdown: 3 seconds remaining...\r\n[2026-08-16T20:52:33.104Z] [STDOUT]    Countdown: 2 seconds remaining...\r\n[2026-08-16T20:52:34.106Z] [STDOUT]    Countdown: 1 seconds remaining...\r   Proceeding with log attachment enabled.                    \n[2026-08-16T20:52:34.106Z] [INFO] \n[2026-08-16T20:52:34.194Z] [INFO] ❌ Insufficient disk space: 10046MB available, 10240MB required\n[2026-08-16T20:52:34.197Z] [INFO]    This may prevent successful operations.\n[2026-08-16T20:52:34.199Z] [INFO]    Please free up disk space and try again.\n[2026-08-16T20:52:34.203Z] [INFO] 📈 Resource usage (solve exit 1):\n[2026-08-16T20:52:34.203Z] [INFO]    CPU load: 2.45 2.77 3.44 (6 CPUs)\n[2026-08-16T20:52:34.203Z] [INFO]    Memory: 10.3 GB available / 11.7 GB total (1.4 GB used)\n[2026-08-16T20:52:34.203Z] [INFO]    Process RSS: 101 MB, heap 27 MB\n[2026-08-16T20:52:34.203Z] [INFO]    Disk (/): 9.8 GB available / 192.7 GB total (94.9% used)\n[2026-08-16T20:52:34.203Z] [INFO] 📈 [RESOURCES] phase=solve_exit ts=2026-08-16T20%3A52%3A34.202Z load1=2.45 load5=2.77 load15=3.44 cpuCount=6 memTotalBytes=12541485056 memAvailableBytes=11063332864 memUsedBytes=1478152192 processRssBytes=105410560 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=10533494784 diskUsedBytes=196350009344 diskUsedPercent=94.90079378748706 mem=10.3%20GB%20available%20%2F%2011.7%20GB%20total disk=9.8%20GB%20available%20%2F%20192.7%20GB%20total\n[2026-08-16T20:52:34.208Z] [STDERR] [use-m] use('path') joined an in-flight load (alias path-v-latest)\n[2026-08-16T20:52:34.208Z] [INFO] \n[2026-08-16T20:52:34.210Z] [ERROR] ❌ System checks failed\n[2026-08-16T20:52:34.212Z] [INFO] 📁 Full log file: /home/box/solve-2026-08-16T20-52-27-598Z.log\n[2026-08-16T20:52:34.217Z] [INFO] \n[2026-08-16T20:52:34.217Z] [INFO] 📄 Notifying issue #195 about solver failure with logs...\n[2026-08-16T20:52:34.223Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[2026-08-16T20:52:34.268Z] [STDERR] [use-m] use('https') loading (alias https-v-latest)\n[2026-08-16T20:52:34.269Z] [STDERR] [use-m] use('https') loaded in 2ms\n[2026-08-16T20:52:34.536Z] [INFO]   🤖 Model info fetched for comment\n\n```\n\n</details>\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": {
+      "url": "https://api.github.com/repos/link-assistant/router/issues/comments/5309613759/reactions",
+      "total_count": 0,
+      "+1": 0,
+      "-1": 0,
+      "laugh": 0,
+      "hooray": 0,
+      "confused": 0,
+      "heart": 0,
+      "rocket": 0,
+      "eyes": 0
+    },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

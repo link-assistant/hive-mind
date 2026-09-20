@@ -1,0 +1,67 @@
+{
+  "body": "## Summary\n\nFixes #1478\n\nThe `gh pr create` command in `solve.auto-pr.lib.mjs` could fail with transient GitHub server errors (e.g., `\"Something went wrong while executing your query\"`) during service disruptions, causing the entire solve session to abort without any retry attempt.\n\n### Root Cause\n\nOn 2026-03-24, a confirmed GitHub service disruption caused the `gh pr create` GraphQL mutation to return a 500-class error. The Cyrillic characters in the PR title (\"update враг снайпер\") were initially suspected but ruled out — GitHub's API fully supports UTF-8/Cyrillic in PR titles.\n\nThe code already had retry logic for:\n- Compare API eventual consistency (lines 571-624)\n- PR verification eventual consistency (lines 1206-1259)\n\nBut the `gh pr create` command itself had **no retry logic** for transient server errors.\n\n### Changes\n\n- **`src/solve.auto-pr.lib.mjs`**: Added retry loop with exponential backoff (3 attempts, 5s/10s/15s delays) for transient GitHub API errors during PR creation. Non-transient errors (auth, validation, \"No commits between\") still fail immediately.\n- **`tests/test-pr-creation-retry-1478.mjs`**: 24 tests covering transient error detection, retry behavior, backoff timing, and the original bug scenario.\n- **`docs/case-studies/issue-1478/`**: Full root cause analysis with timeline, evidence, and references to GitHub status page and cli/cli issues.\n- **`.changeset/pr-creation-retry-1478.md`**: Changeset for patch release.\n\n## Test plan\n\n- [x] All 24 new tests pass (`node tests/test-pr-creation-retry-1478.mjs`)\n- [x] Transient errors (GraphQL 500, 502, 503, 504, network errors) are correctly detected\n- [x] Non-transient errors (auth, validation) are NOT retried\n- [x] Retry backoff follows correct timing (5s, 10s, 15s)\n- [x] Original bug scenario (exact error message from issue) triggers retry and succeeds\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)",
+  "commits": [
+    { "authoredDate": "2026-03-25T09:45:13Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-03-25T09:45:13Z", "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/1478", "messageHeadline": "Initial commit with task details", "oid": "f95316688c37939863a5d4b115d90c2936084b64" },
+    {
+      "authoredDate": "2026-03-25T09:50:44Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+      ],
+      "committedDate": "2026-03-25T09:50:44Z",
+      "messageBody": "…ssue #1478)\n\nThe `gh pr create` command could fail with transient GitHub server errors\n(e.g., \"Something went wrong while executing your query\") during GitHub\nservice disruptions. The code had no retry mechanism for these errors,\ncausing immediate failure. This adds exponential backoff retry (up to 3\nattempts with 5s/10s/15s delays) for transient server errors, following\nthe same pattern used for compare API and PR verification retries.\nAlso adds case study documentation with root cause analysis.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "add retry logic for transient GitHub API errors during PR creation (I…",
+      "oid": "017c171a86148b23cd1d7dae8a824570180bef10"
+    },
+    {
+      "authoredDate": "2026-03-25T09:51:53Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+      ],
+      "committedDate": "2026-03-25T09:51:53Z",
+      "messageBody": "24 tests covering:\n- Transient error detection (GraphQL errors, 502/503/504, network errors)\n- Non-transient error exclusion (auth, validation, permissions)\n- Retry logic with exponential backoff (5s, 10s, 15s)\n- Original bug scenario reproduction\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "add tests for PR creation transient error retry logic (Issue #1478)",
+      "oid": "c6aeef77a86a140cd9ca79973c105e8dccffb425"
+    },
+    {
+      "authoredDate": "2026-03-25T09:52:37Z",
+      "authors": [
+        { "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" },
+        { "email": "noreply@anthropic.com", "id": "MDQ6VXNlcjgxODQ3", "login": "claude", "name": "Claude Opus 4.6" }
+      ],
+      "committedDate": "2026-03-25T09:52:37Z",
+      "messageBody": "Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>",
+      "messageHeadline": "add changeset for PR creation retry fix (Issue #1478)",
+      "oid": "185a6a0136c368167f5228c7ff51f15e97d5b354"
+    },
+    { "authoredDate": "2026-03-25T09:53:33Z", "authors": [{ "email": "drakonard@gmail.com", "id": "MDQ6VXNlcjE0MzE5MDQ=", "login": "konard", "name": "konard" }], "committedDate": "2026-03-25T09:53:33Z", "messageBody": "This reverts commit f95316688c37939863a5d4b115d90c2936084b64.", "messageHeadline": "Revert \"Initial commit with task details\"", "oid": "9ed29b704cda40ed1680ffaf662946b82842b647" }
+  ],
+  "headRefOid": "9ed29b704cda40ed1680ffaf662946b82842b647",
+  "mergedAt": null,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:32Z", "conclusion": "SUCCESS", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508114680", "name": "detect-changes", "startedAt": "2026-03-25T09:55:20Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:18Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508115035", "name": "Instant Release", "startedAt": "2026-03-25T09:55:18Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:18Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508115109", "name": "Create Changeset PR", "startedAt": "2026-03-25T09:55:18Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:45Z", "conclusion": "SUCCESS", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508146469", "name": "Check for Manual Version Changes", "startedAt": "2026-03-25T09:55:34Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:53Z", "conclusion": "SUCCESS", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508146459", "name": "Check for Changesets", "startedAt": "2026-03-25T09:55:35Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "FAILURE", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508146435", "name": "lint", "startedAt": "2026-03-25T09:55:35Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:18Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508115276", "name": "Docker Publish Instant (${{ matrix.platform }})", "startedAt": "2026-03-25T09:55:18Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:08Z", "conclusion": "SUCCESS", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508193015", "name": "test-compilation", "startedAt": "2026-03-25T09:55:55Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:04Z", "conclusion": "FAILURE", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508192960", "name": "check-file-line-limits", "startedAt": "2026-03-25T09:55:55Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:09Z", "conclusion": "SUCCESS", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508192967", "name": "validate-docs", "startedAt": "2026-03-25T09:55:55Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:53Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508193469", "name": "helm-pr-check", "startedAt": "2026-03-25T09:55:53Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:18Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508115160", "name": "Docker Publish Instant (Merge)", "startedAt": "2026-03-25T09:55:18Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508231890", "name": "test-suites", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508231889", "name": "test-execution", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508231763", "name": "memory-check-linux", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508231606", "name": "docker-pr-check", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:55:18Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508115173", "name": "Helm Release (Instant)", "startedAt": "2026-03-25T09:55:18Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508232034", "name": "Release", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508231930", "name": "Docker Publish (${{ matrix.platform }})", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508232323", "name": "Docker Publish (Merge)", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" },
+    { "__typename": "CheckRun", "completedAt": "2026-03-25T09:56:11Z", "conclusion": "SKIPPED", "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/23535079153/job/68508232566", "name": "Helm Release", "startedAt": "2026-03-25T09:56:11Z", "status": "COMPLETED", "workflowName": "Checks and release" }
+  ],
+  "title": "add retry logic for transient GitHub API errors during PR creation (Issue #1478)"
+}

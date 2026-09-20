@@ -1,0 +1,44 @@
+================================================================================
+Unit Tests: /solve_queue Command (Issue #1232)
+================================================================================
+
+📋 Registration Tests
+
+✅ registerSolveQueueCommand registers a command handler
+✅ registerSolveQueueCommand returns handleSolveQueueCommand function
+✅ Command regex matches solve_queue
+✅ Command regex matches solvequeue
+✅ Command regex matches solve-queue
+✅ Command regex matches SOLVE_QUEUE (case insensitive)
+✅ Command regex does not match solve
+✅ Command regex does not match queue
+
+📋 Permission Tests
+
+✅ Rejects non-group chat
+✅ Rejects unauthorized chat
+✅ Ignores old messages
+✅ Ignores forwarded messages
+
+📋 Queue Status Output Tests
+
+✅ Shows queue status for empty queue
+✅ Shows processing count in per-queue breakdown
+✅ Shows queue with pending items
+
+📋 Hint Text Regression Tests
+
+✅ locales/en.lino uses /solve_queue in hint text (not /solve-queue)
+✅ help message includes /solve_queue using backtick code block
+✅ telegram-bot.mjs includes solve_queue in text fallback handlers
+✅ telegram-solve-queue.lib.mjs uses /solve_queue in log messages (not /solve-queue)
+✅ telegram-solve-queue.lib.mjs uses [solve_queue] log tag (not [solve-queue])
+✅ help message includes /accept_invites using backtick code block
+✅ telegram-accept-invitations.lib.mjs uses /accept_invites in log messages (not /accept-invites)
+
+================================================================================
+Test Results for /solve_queue command:
+  ✅ Passed: 22
+  ❌ Failed: 0
+  Total: 22
+================================================================================

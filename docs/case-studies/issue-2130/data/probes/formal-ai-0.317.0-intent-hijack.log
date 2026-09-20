@@ -1,0 +1,16 @@
+== the session_context the gemini CLI really sends
+  <session_context>
+This is the Gemini CLI. We are s   -> run_shell_command({"command":"date"})
+
+== the same context with only the date sentence removed
+  <session_context>
+This is the Gemini CLI. We are s   -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})
+
+== narrowing the trigger to a phrase
+  Today's date is Sunday, August 2, 2026.              -> run_shell_command({"command":"date"})
+  The current time is 20:00.                           -> run_shell_command({"command":"date"})
+  The date is Sunday.                                  -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})
+  Today is Sunday, August 2, 2026.                     -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})
+  date                                                 -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})
+  My operating system is: linux                        -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})
+                                                       -> write_file({"content":"print(\"Hello, world!\")","file_path":"main.py"})

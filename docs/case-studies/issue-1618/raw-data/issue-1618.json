@@ -1,0 +1,15 @@
+{
+  "assignees": [],
+  "author": { "id": "MDQ6VXNlcjE0MzE5MDQ=", "is_bot": false, "login": "konard", "name": "Konstantin Diachenko" },
+  "body": "We should have aliases like this:\n\n```\n/claude \n/codex\n/opencode\n/agent\n```\n\nthat are equivalent to\n\n```\n/solve --tool claude\n/solve --tool codex\n/solve --tool opencode\n/solve --tool agent\n```\n\nAll related docs should be updated, /help command also.\n\nWe need to collect data related about the issue to this repository, make sure we compile that data to `./docs/case-studies/issue-{id}` folder, and use it to do deep case study analysis (also make sure to search online for additional facts and data), list of each and all requirements from the issue, and propose possible solutions and solution plans for each requirement (we should also check known existing components/libraries, that solve similar problem or can help in solutions).",
+  "createdAt": "2026-04-16T09:16:14Z",
+  "labels": [
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6jw", "name": "documentation", "description": "Improvements or additions to documentation", "color": "0075ca" },
+    { "id": "LA_kwDOPUU0qc8AAAACGYm6mA", "name": "enhancement", "description": "New feature or request", "color": "a2eeef" }
+  ],
+  "number": 1618,
+  "state": "OPEN",
+  "title": "Per tool /solve aliases in hive-telegram bot",
+  "updatedAt": "2026-04-16T09:16:14Z",
+  "url": "https://github.com/link-assistant/hive-mind/issues/1618"
+}

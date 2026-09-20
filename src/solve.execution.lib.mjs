@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { ensureUseM } from './use-m-bootstrap.lib.mjs';
 
 // Main execution logic module for solve command
 // Extracted from solve.mjs to keep files under 1500 lines
@@ -7,13 +8,15 @@
 // Check if use is already defined globally (when imported from solve.mjs)
 // If not, fetch it (when running standalone)
 if (typeof globalThis.use === 'undefined') {
-  globalThis.use = (await eval(await (await fetch('https://unpkg.com/use-m/use.js')).text())).use;
+  await ensureUseM();
 }
 const use = globalThis.use;
 
 // Use command-stream for consistent $ behavior across runtimes
-const { $ } = await use('command-stream');
-
+const { $: __rawDollar$ } = await use('command-stream');
+const { wrapDollarWithGhRetry } = await import('./github-rate-limit.lib.mjs');
+const { QUIET_PROBE } = await import('./quiet-probe.lib.mjs'); // issue #2130: keep read-only probe payloads out of the attached log
+const $ = wrapDollarWithGhRetry(__rawDollar$);
 const os = (await use('os')).default;
 const path = (await use('path')).default;
 const fs = (await use('fs')).promises;
@@ -24,12 +27,7 @@ const memoryCheck = await import('./memory-check.mjs');
 
 // Import shared library functions
 const lib = await import('./lib.mjs');
-const {
-  log,
-  getLogFile,
-  cleanErrorMessage,
-  formatAligned
-} = lib;
+const { log, getLogFile, cleanErrorMessage, formatAligned } = lib;
 
 // Import GitHub-related functions
 const githubLib = await import('./github.lib.mjs');
@@ -37,13 +35,10 @@ const githubLib = await import('./github.lib.mjs');
 const sentryLib = await import('./sentry.lib.mjs');
 const { reportError } = sentryLib;
 
-const {
-  sanitizeLogContent,
-  attachLogToGitHub
-} = githubLib;
+const { sanitizeLogContent, attachLogToGitHub } = githubLib;
 
 // Create or find temporary directory for cloning the repository
-export const setupTempDirectory = async (argv) => {
+export const setupTempDirectory = async argv => {
   let tempDir;
   let isResuming = argv.resume;
 
@@ -65,7 +60,7 @@ export const setupTempDirectory = async (argv) => {
       reportError(err, {
         context: 'resume_session_setup',
         sessionId: argv.resume,
-        operation: 'find_session_log'
+        operation: 'find_session_log',
       });
       await log(`Warning: Session log for ${argv.resume} not found, but continuing with resume attempt`);
       tempDir = path.join(os.tmpdir(), `gh-issue-solver-resume-${argv.resume}-${Date.now()}`);
@@ -92,26 +87,37 @@ export const setupRepository = async (argv, owner, repo) => {
     await log(`${formatAligned('', 'Checking fork status...', '')}\n`);
 
     // Get current user
-    const userResult = await $`gh api user --jq .login`;
+    const userResult = await $(QUIET_PROBE)`gh api user --jq .login`;
     if (userResult.code !== 0) {
       await log(`${formatAligned('❌', 'Error:', 'Failed to get current user')}`);
       process.exit(1);
     }
     const currentUser = userResult.stdout.toString().trim();
 
+    // Determine fork name based on --prefix-fork-name-with-owner-name option
+    const forkRepoName = argv.prefixForkNameWithOwnerName ? `${owner}-${repo}` : repo;
+    const forkFullName = `${currentUser}/${forkRepoName}`;
+
     // Check if fork already exists
-    const forkCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+    const forkCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
 
     if (forkCheckResult.code === 0) {
       // Fork exists
-      await log(`${formatAligned('✅', 'Fork exists:', `${currentUser}/${repo}`)}`);
-      repoToClone = `${currentUser}/${repo}`;
-      forkedRepo = `${currentUser}/${repo}`;
+      await log(`${formatAligned('✅', 'Fork exists:', forkFullName)}`);
+      repoToClone = forkFullName;
+      forkedRepo = forkFullName;
       upstreamRemote = `${owner}/${repo}`;
     } else {
       // Need to create fork
       await log(`${formatAligned('🔄', 'Creating fork...', '')}`);
-      const forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+      let forkResult;
+      if (argv.prefixForkNameWithOwnerName) {
+        // Use --fork-name flag to create fork with owner prefix
+        forkResult = await $`gh repo fork ${owner}/${repo} --fork-name ${forkRepoName} --clone=false`;
+      } else {
+        // Standard fork creation (no custom name)
+        forkResult = await $`gh repo fork ${owner}/${repo} --clone=false`;
+      }
 
       // Check if fork creation failed or if fork already exists
       if (forkResult.code !== 0) {
@@ -125,7 +131,7 @@ export const setupRepository = async (argv, owner, repo) => {
       if (forkOutput.includes('already exists')) {
         // Fork was created by another worker - treat as if fork already existed
         await log(`${formatAligned('ℹ️', 'Fork exists:', 'Already created by another worker')}`);
-        await log(`${formatAligned('✅', 'Using existing fork:', `${currentUser}/${repo}`)}`);
+        await log(`${formatAligned('✅', 'Using existing fork:', forkFullName)}`);
 
         // Retry verification with exponential backoff
         // GitHub may need time to propagate the fork visibility across their infrastructure
@@ -135,10 +141,10 @@ export const setupRepository = async (argv, owner, repo) => {
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // 2s, 4s, 8s, 16s, 32s
-          await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay/1000}s)...`)}`);
+          await log(`${formatAligned('⏳', 'Verifying fork:', `Attempt ${attempt}/${maxRetries} (waiting ${delay / 1000}s)...`)}`);
           await new Promise(resolve => setTimeout(resolve, delay));
 
-          const reCheckResult = await $`gh repo view ${currentUser}/${repo} --json name 2>/dev/null`;
+          const reCheckResult = await $`gh repo view ${forkFullName} --json name 2>/dev/null`;
           if (reCheckResult.code === 0) {
             forkVerified = true;
             await log(`${formatAligned('✅', 'Fork verified:', 'Successfully confirmed fork exists')}`);
@@ -152,15 +158,15 @@ export const setupRepository = async (argv, owner, repo) => {
           process.exit(1);
         }
       } else {
-        await log(`${formatAligned('✅', 'Fork created:', `${currentUser}/${repo}`)}`);
+        await log(`${formatAligned('✅', 'Fork created:', forkFullName)}`);
 
         // Wait a moment for fork to be ready
         await log(`${formatAligned('⏳', 'Waiting:', 'For fork to be ready...')}`);
         await new Promise(resolve => setTimeout(resolve, 3000));
       }
 
-      repoToClone = `${currentUser}/${repo}`;
-      forkedRepo = `${currentUser}/${repo}`;
+      repoToClone = forkFullName;
+      forkedRepo = forkFullName;
       upstreamRemote = `${owner}/${repo}`;
     }
   }
@@ -190,7 +196,11 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
           log,
           sanitizeLogContent,
           verbose: argv.verbose || false,
-          errorMessage: cleanErrorMessage(error)
+          errorMessage: cleanErrorMessage(error),
+          // Issue #1225: Pass model and tool info for PR comments
+          argv,
+          requestedModel: argv.originalModel || argv.model,
+          tool: argv.tool || 'claude',
         });
 
         if (logUploadSuccess) {
@@ -200,7 +210,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
         reportError(attachError, {
           context: 'attach_error_log',
           prNumber: global.createdPR?.number,
-          operation: 'attach_log_to_pr'
+          operation: 'attach_log_to_pr',
         });
         await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
       }
@@ -221,7 +231,7 @@ export const handleExecutionError = async (error, shouldAttachLogs, owner, repo,
       reportError(closeError, {
         context: 'close_pr_on_error',
         prNumber: global.createdPR?.number,
-        operation: 'close_pull_request'
+        operation: 'close_pull_request',
       });
       await log(`⚠️  Could not close pull request: ${closeError.message}`, { level: 'warning' });
     }
@@ -242,7 +252,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
       reportError(cleanupError, {
         context: 'cleanup_temp_directory',
         tempDir,
-        operation: 'remove_temp_dir'
+        operation: 'remove_temp_dir',
       });
       await log(' ⚠️  (failed)');
     }
@@ -256,7 +266,7 @@ export const cleanupTempDirectory = async (tempDir, argv, limitReached) => {
 };
 
 // Execute the main solve logic with Claude
-export const executeMainSolveLogic = async (tempDir, repoToClone, _claudePath, _argv, _issueUrl, _sessionId, _owner, _repo, _issueNumber) => {
+export const executeMainSolveLogic = async (tempDir, repoToClone) => {
   // Clone the repository (or fork) using gh tool with authentication
   await log(`\n${formatAligned('📥', 'Cloning repository:', repoToClone)}`);
 

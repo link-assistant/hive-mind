@@ -1,0 +1,16 @@
+{
+  "name": "token-link-assistant-hive-mind-does-not-exist",
+  "repository": "link-assistant/hive-mind-does-not-exist",
+  "expectation": "control: a package that certainly does not exist",
+  "url": "https://ghcr.io/token?service=ghcr.io&scope=repository:link-assistant/hive-mind-does-not-exist:pull",
+  "status": 403,
+  "verdict": "absent or invisible — no such package for an anonymous caller",
+  "body": {
+    "errors": [
+      {
+        "code": "DENIED",
+        "message": "requested access to the resource is denied"
+      }
+    ]
+  }
+}

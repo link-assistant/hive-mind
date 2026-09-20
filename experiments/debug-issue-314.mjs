@@ -10,7 +10,7 @@ console.log('the system fails to properly detect and access the fork repository.
 
 console.log('THE PROBLEM:');
 console.log('1. Initial run: solve https://github.com/netkeep80/jsonRVM/issues/1 --fork');
-console.log('   - Creates fork in user\'s account');
+console.log("   - Creates fork in user's account");
 console.log('   - Creates PR from fork to upstream');
 console.log('   - PR branch exists in fork, not in upstream\n');
 
@@ -35,7 +35,7 @@ console.log('');
 console.log('3. src/solve.mjs:308');
 console.log('   - setupRepository(argv, owner, repo)');
 console.log('   - Only checks argv.fork flag');
-console.log('   - Doesn\'t know about fork PR from auto-continue');
+console.log("   - Doesn't know about fork PR from auto-continue");
 console.log('');
 console.log('4. src/solve.repository.lib.mjs:75-204');
 console.log('   - setupRepository() only checks argv.fork');

@@ -7,11 +7,11 @@
 import { handleBranchCheckoutError, handleBranchCreationError, handleBranchVerificationError } from '../src/solve.branch-errors.lib.mjs';
 
 // Mock dependencies - $ needs to handle cwd option
-const $ = (options) => {
+const $ = options => {
   // Return a function that can be called with template literals
   return () => Promise.resolve({ code: 0, stdout: 'mock branch output' });
 };
-const log = async (msg) => console.log(msg);
+const log = async msg => console.log(msg);
 const formatAligned = (icon, label, value) => `${icon} ${label} ${value}`.trim();
 const argv = { verbose: false };
 
@@ -29,7 +29,7 @@ async function testBranchCheckoutError() {
     argv,
     formatAligned,
     log,
-    $
+    $,
   });
 }
 
@@ -38,12 +38,12 @@ async function testBranchCreationError() {
 
   await handleBranchCreationError({
     branchName: 'feature-test-123',
-    errorOutput: 'fatal: A branch named \'feature-test-123\' already exists.',
+    errorOutput: "fatal: A branch named 'feature-test-123' already exists.",
     tempDir: '/tmp/test-repo',
-    owner: 'deep-assistant',
+    owner: 'link-assistant',
     repo: 'hive-mind',
     formatAligned,
-    log
+    log,
   });
 }
 
@@ -55,12 +55,12 @@ async function testBranchVerificationError() {
     branchName: 'issue-276-expected',
     actualBranch: 'main',
     prNumber: 281,
-    owner: 'deep-assistant',
+    owner: 'link-assistant',
     repo: 'hive-mind',
     tempDir: '/tmp/test-repo',
     formatAligned,
     log,
-    $
+    $,
   });
 }
 

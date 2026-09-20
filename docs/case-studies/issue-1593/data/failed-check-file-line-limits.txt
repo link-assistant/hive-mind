@@ -1,0 +1,50 @@
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	﻿2026-04-11T04:01:57.4849214Z ##[group]Run bash scripts/check-file-line-limits.sh
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4849718Z [36;1mbash scripts/check-file-line-limits.sh[0m
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4875173Z shell: /usr/bin/bash -e {0}
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4875468Z env:
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4875699Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4875995Z ##[endgroup]
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4953183Z Checking that all .mjs files are under 1500 lines...
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.4997916Z ./src/solve.interrupt.lib.mjs: 73 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5014988Z ./src/telegram-bot.mjs: 1488 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5030660Z ./src/token-sanitization.lib.mjs: 570 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5046474Z ./src/claude.runtime-switch.lib.mjs: 175 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5064127Z ./src/solve.auto-continue.lib.mjs: 644 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5082943Z ./src/log-upload.lib.mjs: 173 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5100599Z ./src/unicode-sanitization.lib.mjs: 67 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5118064Z ./src/solve.auto-pr.lib.mjs: 1465 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5136151Z ./src/github-merge-ci.lib.mjs: 285 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5154129Z ./src/opencode.lib.mjs: 613 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5171408Z ./src/solve.auto-ensure.lib.mjs: 128 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5189732Z ./src/telegram-start-stop-command.lib.mjs: 253 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5207725Z ./src/solve.validation.lib.mjs: 411 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5225810Z ./src/review.mjs: 443 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5243498Z ./src/architecture-care.prompts.lib.mjs: 52 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5260931Z ./src/solve.accept-invite.lib.mjs: 97 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5278275Z ./src/github-linking.lib.mjs: 127 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5295761Z ./src/claude.lib.mjs: 1500 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5313758Z ./src/solve.error-handlers.lib.mjs: 252 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5330892Z ./src/instrument.mjs: 193 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5348681Z ./src/solve.execution.lib.mjs: 286 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5366914Z ./src/solve.session.lib.mjs: 181 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5384670Z ./src/session-monitor.lib.mjs: 354 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5402943Z ./src/hive.recheck.lib.mjs: 86 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5420538Z ./src/github-error-reporter.lib.mjs: 303 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5438616Z ./src/solve.feedback.lib.mjs: 430 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5456344Z ./src/solve.watch.lib.mjs: 499 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5474056Z ./src/claude.command-builder.lib.mjs: 89 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5491626Z ./src/queue-config.lib.mjs: 343 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5509587Z ./src/telegram-markdown.lib.mjs: 140 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5527065Z ./src/memory-check.mjs: 414 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5545533Z ./src/telegram-message-filters.lib.mjs: 218 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5563437Z ./src/isolation-runner.lib.mjs: 254 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5580853Z ./src/solve.restart-shared.lib.mjs: 385 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5598434Z ./src/claude.prompts.lib.mjs: 360 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5615919Z ./src/github.lib.mjs: 1497 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5633530Z ./src/telegram-merge-queue.lib.mjs: 918 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5650652Z ./src/git.lib.mjs: 343 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5668243Z ./src/lib.mjs: 721 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5686393Z ./src/telegram-merge-command.lib.mjs: 451 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5704390Z ./src/version-info.lib.mjs: 1242 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5721520Z ./src/config.lib.mjs: 568 lines
+check-file-line-limits	Check file line limits (.mjs files and release.yml)	2026-04-11T04:01:57.5739164Z ./src/github.batch.lib.mjs: 339 lines

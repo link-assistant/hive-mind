@@ -1,0 +1,50 @@
+[
+  {
+    "title": "Hive Mind issue #1678",
+    "url": "https://github.com/link-assistant/hive-mind/issues/1678",
+    "type": "github-issue",
+    "notes": "Primary requirements source."
+  },
+  {
+    "title": "Hive Mind PR #1679",
+    "url": "https://github.com/link-assistant/hive-mind/pull/1679",
+    "type": "github-pr",
+    "notes": "Prepared solution PR for this issue."
+  },
+  {
+    "title": "web-capture PR #107 truncated comment",
+    "url": "https://github.com/link-assistant/web-capture/pull/107#issuecomment-4316778290",
+    "type": "github-comment",
+    "notes": "Concrete reproduction showing the truncated solution draft log comment."
+  },
+  {
+    "title": "gh-upload-log PR #28",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/28",
+    "type": "github-pr",
+    "notes": "Fixed repository creation failures and name collision handling."
+  },
+  {
+    "title": "gh-upload-log PR #30",
+    "url": "https://github.com/link-foundation/gh-upload-log/pull/30",
+    "type": "github-pr",
+    "notes": "Changed large log uploads to shared public/private repositories by default."
+  },
+  {
+    "title": "GitHub REST API endpoints for gists",
+    "url": "https://docs.github.com/en/rest/gists/gists?apiVersion=2026-03-10",
+    "type": "official-docs",
+    "notes": "Documents gist response fields including raw_url, public, and truncated."
+  },
+  {
+    "title": "GitHub REST API endpoints for repositories",
+    "url": "https://docs.github.com/en/rest/repos/repos?apiVersion=2026-03-10",
+    "type": "official-docs",
+    "notes": "Documents repository response fields including visibility."
+  },
+  {
+    "title": "GitHub token expiration and revocation",
+    "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/token-expiration-and-revocation",
+    "type": "official-docs",
+    "notes": "Background reference for why expiring raw-token URLs should not be preferred in durable comments."
+  }
+]

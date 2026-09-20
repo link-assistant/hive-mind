@@ -1,0 +1,17 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/link-cli/issues/comments/4432584607",
+    "html_url": "https://github.com/link-foundation/link-cli/issues/79#issuecomment-4432584607",
+    "issue_url": "https://api.github.com/repos/link-foundation/link-cli/issues/79",
+    "id": 4432584607,
+    "node_id": "IC_kwDONXCAbs8AAAABCDPfnw",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-05-12T16:21:17Z",
+    "updated_at": "2026-05-12T16:21:17Z",
+    "body": "https://github.com/link-foundation/link-cli/actions/runs/25747032579/job/75613378020 GitHub Pages deploy was skipped.\n\ncsharp.yml and rust.yml was not triggered at all. That is critical bug, that needs fixing, requirements are not fully met.\n\n",
+    "author_association": "MEMBER",
+    "pin": null,
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/link-cli/issues/comments/4432584607/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null
+  }
+]

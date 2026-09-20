@@ -1,0 +1,17 @@
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: '@link-assistant/hive-mind@1.69.10',
+npm warn EBADENGINE   required: { node: '>=24.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.2', npm: '11.13.0' }
+npm warn EBADENGINE }
+
+added 493 packages, and audited 494 packages in 4s
+
+98 packages are looking for funding
+  run `npm fund` for details
+
+11 vulnerabilities (6 moderate, 5 high)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.

@@ -1,0 +1,30 @@
+# Issue #2102 — end-to-end attempt in this sandbox (no ChatGPT auth available)
+#
+# codex-cli 0.145.0, CODEX_HOME=/home/box/codex-home-2102 (a scoped home, as the preflight uses)
+
+$ ls ~/.codex/auth.json
+ls: cannot access '/home/box/.codex/auth.json': No such file or directory
+
+$ codex plugin list --available --json
+{
+  "installed": [],
+  "available": []
+}
+
+$ codex plugin add superpowers@openai-curated
+Error: plugin `superpowers` was not found in marketplace `openai-curated`
+
+$ codex debug prompt-input | jq -r '..|.text? // empty' | grep -o 'superpowers:[a-z-]*' | sort -u | wc -l
+0
+
+$ codex debug prompt-input — skills actually visible:
+
+# Conclusion: an unauthenticated Codex reports an EMPTY marketplace catalog, so
+# `codex plugin add superpowers@openai-curated` fails with the same
+# "not found in marketplace" shape as the *wrong-marketplace* case, and
+# `codex debug prompt-input` renders no skills at all. The requirement-detection
+# half of the fix is therefore verified against the real repository checkout
+# (raw/green-03-real-checkout.log) and the rejection-diagnostic half against the
+# real production byte stream (raw/green-02-production-log-replay.log), while the
+# "14 superpowers:* skills visible before codex exec" measurement needs a
+# ChatGPT-authenticated Codex and is listed as outstanding in requirements.md.

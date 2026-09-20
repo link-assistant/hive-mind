@@ -1,0 +1,356 @@
+=== Start Command Log ===
+Execution ID: d85c3e47-a7c2-4a27-a645-dc7e8302af16
+Timestamp: 2026-08-21 19:26:57.172
+Command: gate='/tmp/hive-mind-disk-baseline-518a0630-7b96-4ca4-aa44-b01d3c15243b'; i=0; while [ ! -e "$gate" ] && [ "$i" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec 'solve' 'https://github.com/ideav/crm/issues/4804' '--tool' 'claude' '--attach-logs' '--verbose' '--no-tool-check' '--disable-report-issue' '--language' 'en'
+Environment: docker
+Mode: detached
+Session: 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Image: konard/hive-mind-dind:2.12.5
+Platform: linux
+Node Version: v24.3.0
+Working Directory: /home/box
+==================================================
+
+Command started in detached docker container: 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Container ID: 54891b16d492
+Container will exit automatically after command completes.
+Container will be removed after successful completion.
+Container will be kept if the command fails or Docker reports OOMKilled.
+Remove when done: docker rm -f 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Attach with: docker attach 518a0630-7b96-4ca4-aa44-b01d3c15243b
+View logs: docker logs 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Live log: /tmp/start-command/logs/isolation/docker/d85c3e47-a7c2-4a27-a645-dc7e8302af16.log
+[dind-entrypoint] Starting dockerd (storage-driver=fuse-overlayfs, data-root=/var/lib/docker)
+[dind-entrypoint] dockerd is ready after 1s
+[dind-entrypoint] image preload/passthrough complete
+[use-m] acquired install lock for 'command-stream-v-latest' at /tmp/hive-mind-use-m-locks/command-stream-v-latest.lock
+[use-m] use('command-stream') loading (alias command-stream-v-latest)
+[use-m] use('command-stream') pinned to 'command-stream@0.18.0'
+[use-m] use('command-stream') loaded in 6725ms
+[use-m] use('getenv') pinned to 'getenv@2.0.0'
+[use-m] acquired install lock for 'getenv-v-2.0.0' at /tmp/hive-mind-use-m-locks/getenv-v-2.0.0.lock
+[use-m] use('getenv@2.0.0') loading (alias getenv-v-2.0.0)
+[use-m] use('getenv@2.0.0') loaded in 310ms
+[use-m] use('links-notation') pinned to 'links-notation@0.13.0'
+[use-m] acquired install lock for 'links-notation-v-0.13.0' at /tmp/hive-mind-use-m-locks/links-notation-v-0.13.0.lock
+[use-m] use('links-notation@0.13.0') loading (alias links-notation-v-0.13.0)
+[use-m] use('links-notation@0.13.0') loaded in 324ms
+[use-m] use('fs') loading (alias fs-v-latest)
+[use-m] use('fs') loaded in 0ms
+[use-m] use('path') loading (alias path-v-latest)
+[use-m] use('path') loaded in 1ms
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('crypto') loading (alias crypto-v-latest)
+[use-m] use('crypto') loaded in 2ms
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('os') loading (alias os-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('os') joined an in-flight load (alias os-v-latest)
+[use-m] use('os') loaded in 2ms
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('os') joined an in-flight load (alias os-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+📁 Log file: /home/box/solve-2026-08-21T19-27-16-457Z.log
+   (All output will be logged here)
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+[use-m] acquired install lock for 'zx-v-latest' at /tmp/hive-mind-use-m-locks/zx-v-latest.lock
+[use-m] use('zx') loading (alias zx-v-latest)
+[use-m] use('zx') pinned to 'zx@8.8.5'
+[use-m] use('zx') loaded in 2015ms
+
+🚀 solve v2.12.5
+🔧 Raw command executed:
+   /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/ideav/crm/issues/4804 --tool claude --attach-logs --verbose --no-tool-check --disable-report-issue --language en
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 2.59 1.63 2.57 (6 CPUs)
+   Memory: 10.7 GB available / 11.7 GB total (1.0 GB used)
+   Process RSS: 87 MB, heap 24 MB
+   Disk (/): 126.0 GB available / 192.7 GB total (34.6% used)
+📈 [RESOURCES] phase=solve_start ts=2026-08-21T19%3A27%3A20.394Z load1=2.59 load5=1.63 load15=2.57 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11452059648 memUsedBytes=1089433600 processRssBytes=91738112 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=135242289152 diskUsedBytes=71641214976 diskUsedPercent=34.625963053615514 mem=10.7%20GB%20available%20%2F%2011.7%20GB%20total disk=126.0%20GB%20available%20%2F%20192.7%20GB%20total
+
+⚠️  SECURITY WARNING: --attach-logs is ENABLED
+
+   This option will upload the complete solution draft log file to the Pull Request.
+   The log may contain sensitive information such as:
+   • API keys, tokens, or secrets
+   • File paths and directory structures
+   • Command outputs and error messages
+   • Internal system information
+
+   ⚠️  DO NOT use this option with public repositories or if the log
+       might contain sensitive data that should not be shared publicly.
+
+   Continuing in 5 seconds... (Press Ctrl+C to abort)
+
+   Countdown: 5 seconds remaining...   Countdown: 4 seconds remaining...   Countdown: 3 seconds remaining...   Countdown: 2 seconds remaining...   Countdown: 1 seconds remaining...   Proceeding with log attachment enabled.                    
+
+💾 Disk space check: 128916MB available (10240MB required) ✅
+🧠 Memory check: 11158MB available, swap: 4095MB (286MB used), total: 14967MB (256MB required) ✅
+⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)
+⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)
+🎭 Checking Playwright MCP preflight for Claude Code...
+Checking MCP server health…
+
+playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 - ✔ Connected
+🎭 Playwright MCP probe: 'mcp list' exit=0, playwright rows=1 [playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 - ✔ Connected]
+🎭 Playwright MCP reported as connected by mcp list
+🎭 Playwright MCP ready for Claude Code
+📋 URL validation:
+   Input URL: https://github.com/ideav/crm/issues/4804
+   Is Issue URL: true
+   Is PR URL: false
+🔍 --auto-accept-invite: Checking for pending invitation to ideav/crm...
+   Found 7 total pending repo invitation(s)
+   No pending repository invitation found for ideav/crm
+   Found 0 total pending org invitation(s)
+   No pending organization invitation found for ideav
+ℹ️  --auto-accept-invite: No pending invitation found for ideav/crm or organization ideav
+🔍 Checking repository access for auto-fork...
+{"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+   Repository visibility: public
+✅ Auto-fork: Write access detected to public repository, working directly on repository
+🔍 Checking repository write permissions...
+{"admin":false,"maintain":false,"pull":true,"push":true,"triage":true}
+✅ Repository write access: Confirmed
+ideav
+ideav/crm
+   Repository visibility: public
+   Auto-cleanup default: false (repository is public)
+🔍 Auto-continue enabled: Checking for existing PRs for issue #4804...
+🔍 Checking for existing branches in ideav/crm...
+[]
+[]
+📝 No existing PRs found for issue #4804 - creating new PR
+📝 Issue mode: Working with issue #4804
+
+Creating temporary directory: /tmp/gh-issue-solver-1787340465644
+
+📥 Cloning repository:       ideav/crm
+Cloning into '/tmp/gh-issue-solver-1787340465644'...
+true
+✅ Cloned to:                /tmp/gh-issue-solver-1787340465644
+🧹 Ignoring AI tool scratch directories in this workspace: .formal-ai/, .playwright-mcp/
+origin	https://github.com/ideav/crm.git (fetch)
+origin	https://github.com/ideav/crm.git (push)
+ℹ️  gh auth setup-git could not write the global gitconfig: failed to set up git credential helper: failed to run git: error: could not write config file /home/box/.gitconfig: Device or resource busy
+🔑 Configured the gh credential helper for this clone (the global gitconfig is not writable)
+
+📊 [DISK] phase=after_clone bytes=105207602 path=/tmp/gh-issue-solver-1787340465644 size=100 MB
+📈 Resource usage (after repository clone):
+   CPU load: 2.75 1.82 2.59 (6 CPUs)
+   Memory: 10.4 GB available / 11.7 GB total (1.3 GB used)
+   Process RSS: 79 MB, heap 20 MB
+   Disk (/): 125.0 GB available / 192.7 GB total (35.1% used)
+📈 [RESOURCES] phase=after_clone ts=2026-08-21T19%3A28%3A01.309Z load1=2.75 load5=1.82 load15=2.59 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11149578240 memUsedBytes=1391915008 processRssBytes=82911232 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=134174003200 diskUsedBytes=72709500928 diskUsedPercent=35.14229195614795 mem=10.4%20GB%20available%20%2F%2011.7%20GB%20total disk=125.0%20GB%20available%20%2F%20192.7%20GB%20total
+main
+71fdaf6b20ab8c3dde467f97caf286eb656cdab2
+
+📌 Default branch:           main
+
+🌿 Creating branch:          issue-4804-203a323f30b1 from main (default)
+Switched to a new branch 'issue-4804-203a323f30b1'
+branch 'issue-4804-203a323f30b1' set up to track 'origin/main'.
+🔍 Verifying:                Branch creation...
+issue-4804-203a323f30b1
+✅ Branch created:           issue-4804-203a323f30b1
+✅ Current branch:           issue-4804-203a323f30b1
+   Branch operation: Create new branch
+   Branch verification: Matches expected
+
+🚀 Auto PR creation:         ENABLED
+     Creating:               Initial commit and draft PR...
+
+   Using .gitkeep mode (--claude-file=false, --gitkeep-file=true, --auto-gitkeep-file=true)
+📝 Creating:                 .gitkeep (default)
+   Issue URL from argv['issue-url']: https://github.com/ideav/crm/issues/4804
+   Issue URL from argv._[0]: https://github.com/ideav/crm/issues/4804
+   Final issue URL: https://github.com/ideav/crm/issues/4804
+   .gitkeep already exists, appending timestamp...
+✅ File created:             .gitkeep
+📦 Adding file:              To git staging
+M  .gitkeep
+   Git status after add: M  .gitkeep
+📝 Creating commit:          With .gitkeep file
+[issue-4804-203a323f30b1 244879a2] Initial commit with task details
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+✅ Commit created:           Successfully with .gitkeep
+   Commit output: [issue-4804-203a323f30b1 244879a2] Initial commit with task details
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+244879a2dadb050f8b08fe7cfa7cd906f2bc567e
+   Commit hash: 244879a...
+244879a2 Initial commit with task details
+   Latest commit: 244879a2 Initial commit with task details
+   Git status: clean
+origin	https://github.com/ideav/crm.git (fetch)
+origin	https://github.com/ideav/crm.git (push)
+   Remotes: origin	https://github.com/ideav/crm.git (fetch)
+* issue-4804-203a323f30b1 244879a2 [origin/main: ahead 1] Initial commit with task details
+  main                    71fdaf6b [origin/main] Delete local/readme.md (#4802)
+   Branch info: * issue-4804-203a323f30b1 244879a2 [origin/main: ahead 1] Initial commit with task details
+  main                    71fdaf6b [origin/main] Delete local/readme.md (#4802)
+📤 Pushing branch:           To remote repository...
+   Push command: git push -u origin issue-4804-203a323f30b1
+remote: 
+remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        
+remote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        
+remote: 
+To https://github.com/ideav/crm.git
+ * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1
+branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.
+   Push exit code: 0
+   Push output: remote: 
+remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        
+remote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        
+remote: 
+To https://github.com/ideav/crm.git
+ * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1
+branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.
+✅ Branch pushed:            Successfully to remote
+   Push output: remote: 
+remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        
+remote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        
+remote: 
+To https://github.com/ideav/crm.git
+ * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1
+branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.
+   Waiting for GitHub to sync...
+1
+   Compare API check: 1 commit(s) ahead of main
+   GitHub compare API ready: 1 commit(s) found
+issue-4804-203a323f30b1
+   Branch verified on GitHub: issue-4804-203a323f30b1
+244879a2dadb050f8b08fe7cfa7cd906f2bc567e
+   Remote commit SHA: 244879a...
+📋 Getting issue:            Title from GitHub...
+Исправления templates/atex/cut-optimizer.html
+   Issue title: "Исправления templates/atex/cut-optimizer.html"
+👤 Getting user:             Current GitHub account...
+konard
+   Current user: konard
+   User has collaborator access
+   User has collaborator access
+🔄 Fetching:                 Latest main branch...
+✅ Base updated:             Fetched latest main
+🔍 Checking:                 Commits between branches...
+1
+   Commits ahead of origin/main: 1
+✅ Commits found:            1 commit(s) ahead
+🔀 Creating PR:              Draft pull request...
+🎯 Target branch:            main (default)
+   PR Title: [WIP] Исправления templates/atex/cut-optimizer.html
+   Base branch: main
+   Head branch: issue-4804-203a323f30b1
+   Assignee: konard
+   PR Body:
+## 🤖 AI-Powered Solution Draft
+
+This pull request is being automatically generated to solve issue #4804.
+
+### 📋 Issue Reference
+Fixes #4804
+
+### 🚧 Status
+**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.
+
+### 📝 Implementation Details
+_Details will be added as the solution draft is developed..._
+
+---
+*This PR was created automatically by the AI issue solver*
+[use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)
+   Command: cd "/tmp/gh-issue-solver-1787340465644" && gh pr create --draft --title "$(cat '/tmp/pr-title-1787340491461.txt')" --body-file "/tmp/pr-body-1787340490803.md" --base main --head issue-4804-203a323f30b1 --repo ideav/crm --assignee konard
+
+❌ FATAL ERROR:              PR creation failed
+
+  🔍 What happened:
+     PR creation failed: GraphQL: Something went wrong while executing your query on 2026-08-21T19:28:14Z. Please include `811E:19A5B0:3A5AA9:37C97F:6A88A6CC` when reporting this issue.
+
+  💡 The solve command cannot continue without a pull request.
+
+  🔧 How to fix:
+
+  Option 1: Retry without auto-PR creation
+     ./solve.mjs "https://github.com/ideav/crm/issues/4804" --no-auto-pull-request-creation
+     (The AI agent will create the PR during the session)
+
+  Option 2: Create PR manually first
+     cd /tmp/gh-issue-solver-1787340465644
+     gh pr create --draft --title "Fix issue #4804" --body "Fixes #4804" --repo ideav/crm
+     Then use: ./solve.mjs "https://github.com/ideav/crm/issues/4804" --continue
+
+  Option 3: Debug the issue
+     cd /tmp/gh-issue-solver-1787340465644
+     git status
+     git log --oneline -5
+     gh pr create --draft --repo ideav/crm  # Try manually to see detailed error
+
+Error executing command:
+Stack trace: Error: PR creation failed: GraphQL: Something went wrong while executing your query on 2026-08-21T19:28:14Z. Please include `811E:19A5B0:3A5AA9:37C97F:6A88A6CC` when reporting this issue.
+    at handleAutoPrCreation (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.auto-pr.lib.mjs:1281:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs:546:24
+   📁 Full log file: /home/box/solve-2026-08-21T19-27-16-457Z.log
+   ℹ️ No uncommitted changes to preserve before recovery.
+ℹ️  Error issue creation is disabled by CLI configuration.
+
+📄 Attempting to attach failure logs to original issue #4804...
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('https') loading (alias https-v-latest)
+[use-m] use('https') loaded in 4ms
+  🤖 Model info fetched for comment
+  🔍 Sanitizing log content to mask GitHub tokens...
+  🔧 Escaping code blocks in log content for safe embedding...
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+[use-m] use('fs') joined an in-flight load (alias fs-v-latest)
+{"url":"https://api.github.com/repos/ideav/crm/issues/comments/5374321977","html_url":"https://github.com/ideav/crm/issues/4804#issuecomment-5374321977","issue_url":"https://api.github.com/repos/ideav/crm/issues/4804","id":5374321977,"node_id":"IC_kwDORExwRs8AAAABQFWlOQ","user":{"login":"konard","id":1431904,"node_id":"MDQ6VXNlcjE0MzE5MDQ=","avatar_url":"https://avatars.githubusercontent.com/u/1431904?u=eef2c91c80a671714d3fd8c08ef91b297840056b&v=4","gravatar_id":"","url":"https://api.github.com/users/konard","html_url":"https://github.com/konard","followers_url":"https://api.github.com/users/konard/followers","following_url":"https://api.github.com/users/konard/following{/other_user}","gists_url":"https://api.github.com/users/konard/gists{/gist_id}","starred_url":"https://api.github.com/users/konard/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/konard/subscriptions","organizations_url":"https://api.github.com/users/konard/orgs","repos_url":"https://api.github.com/users/konard/repos","events_url":"https://api.github.com/users/konard/events{/privacy}","received_events_url":"https://api.github.com/users/konard/received_events","type":"User","user_view_type":"public","site_admin":false},"created_at":"2026-08-21T19:28:15Z","updated_at":"2026-08-21T19:28:15Z","author_association":"COLLABORATOR","body":"## 🚨 Solution Draft Failed\nThe automated solution draft encountered an error:\n```\nPR creation failed: GraphQL: Something went wrong while executing your query on 2026-08-21T19:28:14Z. Please include `811E:19A5B0:3A5AA9:37C97F:6A88A6CC` when reporting this issue.\n```\n\n### What you can do\n- Resolve the repository, account, permissions, or environment problem described above, then rerun the solver.\n- Repository owner or Hive Mind administrator path: handle manual recreation or fix of the repository when the required action is outside the requester access.\n- Repository deletion can require a separate GitHub account or token with repository deletion permission; Hive Mind does not rely on that permission by default.\n\n### 🤖 **Models used:**\n- Tool: Anthropic Claude Code\n- Requested: `opus` (`claude-opus-5`)\n- **Model: Claude Opus 5** (`claude-opus-5`)\n\n<details>\n<summary>Click to expand failure log (20KB)</summary>\n\n```\n# Solve.mjs Log - 2026-08-21T19:27:16.457Z\n\n[2026-08-21T19:27:16.484Z] [INFO] 📁 Log file: /home/box/solve-2026-08-21T19-27-16-457Z.log\n[2026-08-21T19:27:16.496Z] [INFO]    (All output will be logged here)\n[2026-08-21T19:27:20.260Z] [INFO] \n[2026-08-21T19:27:20.264Z] [INFO] 🚀 solve v2.12.5\n[2026-08-21T19:27:20.266Z] [INFO] 🔧 Raw command executed:\n[2026-08-21T19:27:20.272Z] [INFO]    /home/box/.nvm/versions/node/v20.20.2/bin/node /home/box/.bun/bin/solve https://github.com/ideav/crm/issues/4804 --tool claude --attach-logs --verbose --no-tool-check --disable-report-issue --language en\n[2026-08-21T19:27:20.280Z] [INFO] \n[2026-08-21T19:27:20.380Z] [INFO] 🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.\n[2026-08-21T19:27:20.398Z] [INFO] 📈 Resource usage (solve start):\n[2026-08-21T19:27:20.398Z] [INFO]    CPU load: 2.59 1.63 2.57 (6 CPUs)\n[2026-08-21T19:27:20.398Z] [INFO]    Memory: 10.7 GB available / 11.7 GB total (1.0 GB used)\n[2026-08-21T19:27:20.398Z] [INFO]    Process RSS: 87 MB, heap 24 MB\n[2026-08-21T19:27:20.398Z] [INFO]    Disk (/): 126.0 GB available / 192.7 GB total (34.6% used)\n[2026-08-21T19:27:20.398Z] [INFO] 📈 [RESOURCES] phase=solve_start ts=2026-08-21T19%3A27%3A20.394Z load1=2.59 load5=1.63 load15=2.57 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11452059648 memUsedBytes=1089433600 processRssBytes=91738112 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=135242289152 diskUsedBytes=71641214976 diskUsedPercent=34.625963053615514 mem=10.7%20GB%20available%20%2F%2011.7%20GB%20total disk=126.0%20GB%20available%20%2F%20192.7%20GB%20total\n[2026-08-21T19:27:20.409Z] [INFO] \n[2026-08-21T19:27:20.412Z] [WARNING] ⚠️  SECURITY WARNING: --attach-logs is ENABLED\n[2026-08-21T19:27:20.416Z] [INFO] \n[2026-08-21T19:27:20.435Z] [INFO]    This option will upload the complete solution draft log file to the Pull Request.\n[2026-08-21T19:27:20.443Z] [INFO]    The log may contain sensitive information such as:\n[2026-08-21T19:27:20.447Z] [INFO]    • API keys, tokens, or secrets\n[2026-08-21T19:27:20.456Z] [INFO]    • File paths and directory structures\n[2026-08-21T19:27:20.464Z] [INFO]    • Command outputs and error messages\n[2026-08-21T19:27:20.471Z] [INFO]    • Internal system information\n[2026-08-21T19:27:20.474Z] [INFO] \n[2026-08-21T19:27:20.477Z] [INFO]    ⚠️  DO NOT use this option with public repositories or if the log\n[2026-08-21T19:27:20.482Z] [INFO]        might contain sensitive data that should not be shared publicly.\n[2026-08-21T19:27:20.487Z] [INFO] \n[2026-08-21T19:27:20.491Z] [INFO]    Continuing in 5 seconds... (Press Ctrl+C to abort)\n[2026-08-21T19:27:20.494Z] [INFO] \n[2026-08-21T19:27:21.501Z] [STDOUT]    Countdown: 5 seconds remaining...\r\n[2026-08-21T19:27:22.503Z] [STDOUT]    Countdown: 4 seconds remaining...\r\n[2026-08-21T19:27:23.508Z] [STDOUT]    Countdown: 3 seconds remaining...\r\n[2026-08-21T19:27:24.511Z] [STDOUT]    Countdown: 2 seconds remaining...\r\n[2026-08-21T19:27:25.512Z] [STDOUT]    Countdown: 1 seconds remaining...\r   Proceeding with log attachment enabled.                    \n[2026-08-21T19:27:25.513Z] [INFO] \n[2026-08-21T19:27:25.654Z] [INFO] 💾 Disk space check: 128916MB available (10240MB required) ✅\n[2026-08-21T19:27:25.661Z] [INFO] 🧠 Memory check: 11158MB available, swap: 4095MB (286MB used), total: 14967MB (256MB required) ✅\n[2026-08-21T19:27:25.707Z] [INFO] ⏩ Skipping tool connection validation (dry-run mode or skip-tool-connection-check enabled)\n[2026-08-21T19:27:25.713Z] [INFO] ⏩ Skipping GitHub authentication check (dry-run mode or skip-tool-connection-check enabled)\n[2026-08-21T19:27:25.717Z] [INFO] 🎭 Checking Playwright MCP preflight for Claude Code...\n[2026-08-21T19:27:29.056Z] [STDOUT] Checking MCP server health…\n\n[2026-08-21T19:27:34.168Z] [STDOUT] playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 - ✔ Connected\n[2026-08-21T19:27:34.843Z] [INFO] 🎭 Playwright MCP probe: 'mcp list' exit=0, playwright rows=1 [playwright: npx -y @playwright/mcp@latest --isolated --headless --no-sandbox --timeout-action=600000 --viewport-size 1920x1080 - ✔ Connected]\n[2026-08-21T19:27:34.851Z] [INFO] 🎭 Playwright MCP reported as connected by mcp list\n[2026-08-21T19:27:34.856Z] [INFO] 🎭 Playwright MCP ready for Claude Code\n[2026-08-21T19:27:34.860Z] [INFO] 📋 URL validation:\n[2026-08-21T19:27:34.864Z] [INFO]    Input URL: https://github.com/ideav/crm/issues/4804\n[2026-08-21T19:27:34.868Z] [INFO]    Is Issue URL: true\n[2026-08-21T19:27:34.872Z] [INFO]    Is PR URL: false\n[2026-08-21T19:27:34.877Z] [INFO] 🔍 --auto-accept-invite: Checking for pending invitation to ideav/crm...\n[2026-08-21T19:27:35.412Z] [INFO]    Found 7 total pending repo invitation(s)\n[2026-08-21T19:27:35.419Z] [INFO]    No pending repository invitation found for ideav/crm\n[2026-08-21T19:27:36.001Z] [INFO]    Found 0 total pending org invitation(s)\n[2026-08-21T19:27:36.011Z] [INFO]    No pending organization invitation found for ideav\n[2026-08-21T19:27:36.018Z] [INFO] ℹ️  --auto-accept-invite: No pending invitation found for ideav/crm or organization ideav\n[2026-08-21T19:27:36.035Z] [INFO] 🔍 Checking repository access for auto-fork...\n[2026-08-21T19:27:36.670Z] [STDOUT] {\"admin\":false,\"maintain\":false,\"pull\":true,\"push\":true,\"triage\":true}\n[2026-08-21T19:27:37.150Z] [INFO]    Repository visibility: public\n[2026-08-21T19:27:37.177Z] [INFO] ✅ Auto-fork: Write access detected to public repository, working directly on repository\n[2026-08-21T19:27:37.190Z] [INFO] 🔍 Checking repository write permissions...\n[2026-08-21T19:27:37.765Z] [STDOUT] {\"admin\":false,\"maintain\":false,\"pull\":true,\"push\":true,\"triage\":true}\n[2026-08-21T19:27:37.779Z] [INFO] ✅ Repository write access: Confirmed\n[2026-08-21T19:27:38.224Z] [STDOUT] ideav\n[2026-08-21T19:27:38.911Z] [STDOUT] ideav/crm\n[2026-08-21T19:27:39.975Z] [INFO]    Repository visibility: public\n[2026-08-21T19:27:39.982Z] [INFO]    Auto-cleanup default: false (repository is public)\n[2026-08-21T19:27:39.987Z] [INFO] 🔍 Auto-continue enabled: Checking for existing PRs for issue #4804...\n[2026-08-21T19:27:39.995Z] [INFO] 🔍 Checking for existing branches in ideav/crm...\n[2026-08-21T19:27:45.001Z] [STDOUT] []\n[2026-08-21T19:27:45.610Z] [STDOUT] []\n[2026-08-21T19:27:45.632Z] [INFO] 📝 No existing PRs found for issue #4804 - creating new PR\n[2026-08-21T19:27:45.637Z] [INFO] 📝 Issue mode: Working with issue #4804\n[2026-08-21T19:27:45.646Z] [INFO] \n[2026-08-21T19:27:45.646Z] [INFO] Creating temporary directory: /tmp/gh-issue-solver-1787340465644\n[2026-08-21T19:27:45.656Z] [INFO] \n[2026-08-21T19:27:45.656Z] [INFO] 📥 Cloning repository:       ideav/crm\n[2026-08-21T19:27:46.190Z] [STDOUT] Cloning into '/tmp/gh-issue-solver-1787340465644'...\n[2026-08-21T19:28:00.963Z] [STDOUT] true\n[2026-08-21T19:28:00.970Z] [INFO] ✅ Cloned to:                /tmp/gh-issue-solver-1787340465644\n[2026-08-21T19:28:00.982Z] [INFO] 🧹 Ignoring AI tool scratch directories in this workspace: .formal-ai/, .playwright-mcp/\n[2026-08-21T19:28:01.016Z] [STDOUT] origin\thttps://github.com/ideav/crm.git (fetch)\norigin\thttps://github.com/ideav/crm.git (push)\n[2026-08-21T19:28:01.173Z] [INFO] ℹ️  gh auth setup-git could not write the global gitconfig: failed to set up git credential helper: failed to run git: error: could not write config file /home/box/.gitconfig: Device or resource busy\n[2026-08-21T19:28:01.257Z] [INFO] 🔑 Configured the gh credential helper for this clone (the global gitconfig is not writable)\n[2026-08-21T19:28:01.280Z] [INFO] \n[2026-08-21T19:28:01.280Z] [INFO] 📊 [DISK] phase=after_clone bytes=105207602 path=/tmp/gh-issue-solver-1787340465644 size=100 MB\n[2026-08-21T19:28:01.330Z] [INFO] 📈 Resource usage (after repository clone):\n[2026-08-21T19:28:01.330Z] [INFO]    CPU load: 2.75 1.82 2.59 (6 CPUs)\n[2026-08-21T19:28:01.330Z] [INFO]    Memory: 10.4 GB available / 11.7 GB total (1.3 GB used)\n[2026-08-21T19:28:01.330Z] [INFO]    Process RSS: 79 MB, heap 20 MB\n[2026-08-21T19:28:01.330Z] [INFO]    Disk (/): 125.0 GB available / 192.7 GB total (35.1% used)\n[2026-08-21T19:28:01.330Z] [INFO] 📈 [RESOURCES] phase=after_clone ts=2026-08-21T19%3A28%3A01.309Z load1=2.75 load5=1.82 load15=2.59 cpuCount=6 memTotalBytes=12541493248 memAvailableBytes=11149578240 memUsedBytes=1391915008 processRssBytes=82911232 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=134174003200 diskUsedBytes=72709500928 diskUsedPercent=35.14229195614795 mem=10.4%20GB%20available%20%2F%2011.7%20GB%20total disk=125.0%20GB%20available%20%2F%20192.7%20GB%20total\n[2026-08-21T19:28:01.417Z] [STDOUT] main\n[2026-08-21T19:28:01.507Z] [INFO] \n[2026-08-21T19:28:01.507Z] [INFO] 📌 Default branch:           main\n[2026-08-21T19:28:02.088Z] [INFO] \n[2026-08-21T19:28:02.088Z] [INFO] 🌿 Creating branch:          issue-4804-203a323f30b1 from main (default)\n[2026-08-21T19:28:02.128Z] [STDERR] Switched to a new branch 'issue-4804-203a323f30b1'\n[2026-08-21T19:28:02.129Z] [STDOUT] branch 'issue-4804-203a323f30b1' set up to track 'origin/main'.\n[2026-08-21T19:28:02.132Z] [INFO] 🔍 Verifying:                Branch creation...\n[2026-08-21T19:28:02.159Z] [INFO] ✅ Branch created:           issue-4804-203a323f30b1\n[2026-08-21T19:28:02.163Z] [INFO] ✅ Current branch:           issue-4804-203a323f30b1\n[2026-08-21T19:28:02.167Z] [INFO]    Branch operation: Create new branch\n[2026-08-21T19:28:02.170Z] [INFO]    Branch verification: Matches expected\n[2026-08-21T19:28:02.182Z] [INFO] \n[2026-08-21T19:28:02.182Z] [INFO] 🚀 Auto PR creation:         ENABLED\n[2026-08-21T19:28:02.187Z] [INFO]      Creating:               Initial commit and draft PR...\n[2026-08-21T19:28:02.193Z] [INFO] \n[2026-08-21T19:28:02.198Z] [INFO]    Using .gitkeep mode (--claude-file=false, --gitkeep-file=true, --auto-gitkeep-file=true)\n[2026-08-21T19:28:02.200Z] [INFO] 📝 Creating:                 .gitkeep (default)\n[2026-08-21T19:28:02.208Z] [INFO]    Issue URL from argv['issue-url']: https://github.com/ideav/crm/issues/4804\n[2026-08-21T19:28:02.213Z] [INFO]    Issue URL from argv._[0]: https://github.com/ideav/crm/issues/4804\n[2026-08-21T19:28:02.221Z] [INFO]    Final issue URL: https://github.com/ideav/crm/issues/4804\n[2026-08-21T19:28:02.226Z] [INFO]    .gitkeep already exists, appending timestamp...\n[2026-08-21T19:28:02.236Z] [INFO] ✅ File created:             .gitkeep\n[2026-08-21T19:28:02.240Z] [INFO] 📦 Adding file:              To git staging\n[2026-08-21T19:28:02.324Z] [STDOUT] M  .gitkeep\n[2026-08-21T19:28:02.326Z] [INFO]    Git status after add: M  .gitkeep\n[2026-08-21T19:28:02.330Z] [INFO] 📝 Creating commit:          With .gitkeep file\n[2026-08-21T19:28:02.379Z] [STDOUT] [issue-4804-203a323f30b1 244879a2] Initial commit with task details\n 1 file changed, 2 insertions(+), 1 deletion(-)\n[2026-08-21T19:28:02.382Z] [INFO] ✅ Commit created:           Successfully with .gitkeep\n[2026-08-21T19:28:02.387Z] [INFO]    Commit output: [issue-4804-203a323f30b1 244879a2] Initial commit with task details\n[2026-08-21T19:28:02.387Z] [INFO]  1 file changed, 2 insertions(+), 1 deletion(-)\n[2026-08-21T19:28:02.408Z] [INFO]    Commit hash: 244879a...\n[2026-08-21T19:28:02.450Z] [STDOUT] 244879a2 Initial commit with task details\n[2026-08-21T19:28:02.451Z] [INFO]    Latest commit: 244879a2 Initial commit with task details\n[2026-08-21T19:28:02.495Z] [INFO]    Git status: clean\n[2026-08-21T19:28:02.518Z] [STDOUT] origin\thttps://github.com/ideav/crm.git (fetch)\norigin\thttps://github.com/ideav/crm.git (push)\n[2026-08-21T19:28:02.520Z] [INFO]    Remotes: origin\thttps://github.com/ideav/crm.git (fetch)\n[2026-08-21T19:28:02.550Z] [STDOUT] * issue-4804-203a323f30b1 244879a2 [origin/main: ahead 1] Initial commit with task details\n  main                    71fdaf6b [origin/main] Delete local/readme.md (#4802)\n[2026-08-21T19:28:02.551Z] [INFO]    Branch info: * issue-4804-203a323f30b1 244879a2 [origin/main: ahead 1] Initial commit with task details\n[2026-08-21T19:28:02.551Z] [INFO]   main                    71fdaf6b [origin/main] Delete local/readme.md (#4802)\n[2026-08-21T19:28:02.556Z] [INFO] 📤 Pushing branch:           To remote repository...\n[2026-08-21T19:28:02.559Z] [INFO]    Push command: git push -u origin issue-4804-203a323f30b1\n[2026-08-21T19:28:04.653Z] [STDOUT] remote: \n[2026-08-21T19:28:04.654Z] [STDOUT] remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        \nremote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        \nremote: \n[2026-08-21T19:28:04.676Z] [STDOUT] To https://github.com/ideav/crm.git\n * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1\n[2026-08-21T19:28:04.699Z] [STDOUT] branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.\n[2026-08-21T19:28:04.708Z] [INFO]    Push exit code: 0\n[2026-08-21T19:28:04.712Z] [INFO]    Push output: remote: \n[2026-08-21T19:28:04.712Z] [INFO] remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        \n[2026-08-21T19:28:04.712Z] [INFO] remote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        \n[2026-08-21T19:28:04.712Z] [INFO] remote: \n[2026-08-21T19:28:04.712Z] [INFO] To https://github.com/ideav/crm.git\n[2026-08-21T19:28:04.712Z] [INFO]  * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1\n[2026-08-21T19:28:04.712Z] [INFO] branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.\n[2026-08-21T19:28:04.721Z] [INFO] ✅ Branch pushed:            Successfully to remote\n[2026-08-21T19:28:04.734Z] [INFO]    Push output: remote: \n[2026-08-21T19:28:04.734Z] [INFO] remote: Create a pull request for 'issue-4804-203a323f30b1' on GitHub by visiting:        \n[2026-08-21T19:28:04.734Z] [INFO] remote:      https://github.com/ideav/crm/pull/new/issue-4804-203a323f30b1        \n[2026-08-21T19:28:04.734Z] [INFO] remote: \n[2026-08-21T19:28:04.734Z] [INFO] To https://github.com/ideav/crm.git\n[2026-08-21T19:28:04.734Z] [INFO]  * [new branch]        issue-4804-203a323f30b1 -> issue-4804-203a323f30b1\n[2026-08-21T19:28:04.734Z] [INFO] branch 'issue-4804-203a323f30b1' set up to track 'origin/issue-4804-203a323f30b1'.\n[2026-08-21T19:28:04.740Z] [INFO]    Waiting for GitHub to sync...\n[2026-08-21T19:28:07.572Z] [STDOUT] 1\n[2026-08-21T19:28:07.585Z] [INFO]    Compare API check: 1 commit(s) ahead of main\n[2026-08-21T19:28:07.588Z] [INFO]    GitHub compare API ready: 1 commit(s) found\n[2026-08-21T19:28:08.082Z] [INFO]    Branch verified on GitHub: issue-4804-203a323f30b1\n[2026-08-21T19:28:08.553Z] [INFO]    Remote commit SHA: 244879a...\n[2026-08-21T19:28:08.556Z] [INFO] 📋 Getting issue:            Title from GitHub...\n[2026-08-21T19:28:09.033Z] [STDOUT] Исправления templates/atex/cut-optimizer.html\n[2026-08-21T19:28:09.048Z] [INFO]    Issue title: \"Исправления templates/atex/cut-optimizer.html\"\n[2026-08-21T19:28:09.050Z] [INFO] 👤 Getting user:             Current GitHub account...\n[2026-08-21T19:28:09.627Z] [STDOUT] konard\n[2026-08-21T19:28:09.645Z] [INFO]    Current user: konard\n[2026-08-21T19:28:10.117Z] [INFO]    User has collaborator access\n[2026-08-21T19:28:10.136Z] [INFO]    User has collaborator access\n[2026-08-21T19:28:10.147Z] [INFO] 🔄 Fetching:                 Latest main branch...\n[2026-08-21T19:28:10.697Z] [INFO] ✅ Base updated:             Fetched latest main\n[2026-08-21T19:28:10.704Z] [INFO] 🔍 Checking:                 Commits between branches...\n[2026-08-21T19:28:10.746Z] [STDOUT] 1\n[2026-08-21T19:28:10.752Z] [INFO]    Commits ahead of origin/main: 1\n[2026-08-21T19:28:10.758Z] [INFO] ✅ Commits found:            1 commit(s) ahead\n[2026-08-21T19:28:10.767Z] [INFO] 🔀 Creating PR:              Draft pull request...\n[2026-08-21T19:28:10.777Z] [INFO] 🎯 Target branch:            main (default)\n[2026-08-21T19:28:10.783Z] [INFO]    PR Title: [WIP] Исправления templates/atex/cut-optimizer.html\n[2026-08-21T19:28:10.787Z] [INFO]    Base branch: main\n[2026-08-21T19:28:10.791Z] [INFO]    Head branch: issue-4804-203a323f30b1\n[2026-08-21T19:28:10.797Z] [INFO]    Assignee: konard\n[2026-08-21T19:28:10.799Z] [INFO]    PR Body:\n[2026-08-21T19:28:10.799Z] [INFO] ## 🤖 AI-Powered Solution Draft\n[2026-08-21T19:28:10.799Z] [INFO] \n[2026-08-21T19:28:10.799Z] [INFO] This pull request is being automatically generated to solve issue #4804.\n[2026-08-21T19:28:10.799Z] [INFO] \n[2026-08-21T19:28:10.799Z] [INFO] ### 📋 Issue Reference\n[2026-08-21T19:28:10.799Z] [INFO] Fixes #4804\n[2026-08-21T19:28:10.799Z] [INFO] \n[2026-08-21T19:28:10.799Z] [INFO] ### 🚧 Status\n[2026-08-21T19:28:10.799Z] [INFO] **Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n[2026-08-21T19:28:10.799Z] [INFO] \n[2026-08-21T19:28:10.799Z] [INFO] ### 📝 Implementation Details\n[2026-08-21T19:28:10.799Z] [INFO] _Details will be added as the solution draft is developed..._\n[2026-08-21T19:28:10.799Z] [INFO] \n[2026-08-21T19:28:10.799Z] [INFO] ---\n[2026-08-21T19:28:10.799Z] [INFO] *This PR was created automatically by the AI issue solver*\n[2026-08-21T19:28:10.809Z] [STDERR] [use-m] use('command-stream') joined an in-flight load (alias command-stream-v-latest)\n[2026-08-21T19:28:11.478Z] [INFO]    Command: cd \"/tmp/gh-issue-solver-1787340465644\" && gh pr create --draft --title \"$(cat '/tmp/pr-title-1787340491461.txt')\" --body-file \"/tmp/pr-body-1787340490803.md\" --base main --head issue-4804-203a323f30b1 --repo ideav/crm --assignee konard\n[2026-08-21T19:28:14.595Z] [INFO] \n[2026-08-21T19:28:14.602Z] [ERROR] ❌ FATAL ERROR:              PR creation failed\n[2026-08-21T19:28:14.607Z] [INFO] \n[2026-08-21T19:28:14.610Z] [INFO]   🔍 What happened:\n[2026-08-21T19:28:14.615Z] [INFO]      PR creation failed: GraphQL: Something went wrong while executing your query on 2026-08-21T19:28:14Z. Please include `811E:19A5B0:3A5AA9:37C97F:6A88A6CC` when reporting this issue.\n[2026-08-21T19:28:14.626Z] [INFO] \n[2026-08-21T19:28:14.633Z] [INFO]   💡 The solve command cannot continue without a pull request.\n[2026-08-21T19:28:14.641Z] [INFO] \n[2026-08-21T19:28:14.648Z] [INFO]   🔧 How to fix:\n[2026-08-21T19:28:14.654Z] [INFO] \n[2026-08-21T19:28:14.656Z] [INFO]   Option 1: Retry without auto-PR creation\n[2026-08-21T19:28:14.661Z] [INFO]      ./solve.mjs \"https://github.com/ideav/crm/issues/4804\" --no-auto-pull-request-creation\n[2026-08-21T19:28:14.665Z] [INFO]      (The AI agent will create the PR during the session)\n[2026-08-21T19:28:14.669Z] [INFO] \n[2026-08-21T19:28:14.674Z] [INFO]   Option 2: Create PR manually first\n[2026-08-21T19:28:14.676Z] [INFO]      cd /tmp/gh-issue-solver-1787340465644\n[2026-08-21T19:28:14.679Z] [INFO]      gh pr create --draft --title \"Fix issue #4804\" --body \"Fixes #4804\" --repo ideav/crm\n[2026-08-21T19:28:14.683Z] [INFO]      Then use: ./solve.mjs \"https://github.com/ideav/crm/issues/4804\" --continue\n[2026-08-21T19:28:14.686Z] [INFO] \n[2026-08-21T19:28:14.689Z] [INFO]   Option 3: Debug the issue\n[2026-08-21T19:28:14.692Z] [INFO]      cd /tmp/gh-issue-solver-1787340465644\n[2026-08-21T19:28:14.698Z] [INFO]      git status\n[2026-08-21T19:28:14.701Z] [INFO]      git log --oneline -5\n[2026-08-21T19:28:14.704Z] [INFO]      gh pr create --draft --repo ideav/crm  # Try manually to see detailed error\n[2026-08-21T19:28:14.707Z] [INFO] \n[2026-08-21T19:28:14.714Z] [INFO] Error executing command:\n[2026-08-21T19:28:14.717Z] [INFO] Stack trace: Error: PR creation failed: GraphQL: Something went wrong while executing your query on 2026-08-21T19:28:14Z. Please include `811E:19A5B0:3A5AA9:37C97F:6A88A6CC` when reporting this issue.\n[2026-08-21T19:28:14.717Z] [INFO]     at handleAutoPrCreation (file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.auto-pr.lib.mjs:1281:19)\n[2026-08-21T19:28:14.717Z] [INFO]     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n[2026-08-21T19:28:14.717Z] [INFO]     at async file:///home/box/.bun/install/global/node_modules/@link-assistant/hive-mind/src/solve.mjs:546:24\n[2026-08-21T19:28:14.720Z] [ERROR]    📁 Full log file: /home/box/solve-2026-08-21T19-27-16-457Z.log\n[2026-08-21T19:28:14.765Z] [INFO]    ℹ️ No uncommitted changes to preserve before recovery.\n[2026-08-21T19:28:14.768Z] [INFO] ℹ️  Error issue creation is disabled by CLI configuration.\n[2026-08-21T19:28:14.770Z] [INFO] \n[2026-08-21T19:28:14.770Z] [INFO] 📄 Attempting to attach failure logs to original issue #4804...\n[2026-08-21T19:28:14.776Z] [STDERR] [use-m] use('fs') joined an in-flight load (alias fs-v-latest)\n[2026-08-21T19:28:14.813Z] [STDERR] [use-m] use('https') loading (alias https-v-latest)\n[2026-08-21T19:28:14.817Z] [STDERR] [use-m] use('https') loaded in 4ms\n[2026-08-21T19:28:15.154Z] [INFO]   🤖 Model info fetched for comment\n\n```\n\n</details>\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*","reactions":{"url":"https://api.github.com/repos/ideav/crm/issues/comments/5374321977/reactions","total_count":0,"+1":0,"-1":0,"laugh":0,"hooray":0,"confused":0,"heart":0,"rocket":0,"eyes":0},"performed_via_github_app":null,"minimized":null,"pin":null}  📎 Failure log uploaded to Issue as comment (id=5374321977)
+  📊 Log size: 21KB
+📎 Failure log posted to original issue #4804
+[use-m] use('path') joined an in-flight load (alias path-v-latest)
+
+❌ Error occurred
+📁 Full log file: /home/box/solve-2026-08-21T19-27-16-457Z.log
+
+Container kept for investigation: 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Reason: exitCode=1 oomKilled=false
+Inspect: docker exec -it 518a0630-7b96-4ca4-aa44-b01d3c15243b sh (if running) or docker start -ai 518a0630-7b96-4ca4-aa44-b01d3c15243b
+Remove when done: docker rm -f 518a0630-7b96-4ca4-aa44-b01d3c15243b
+
+==================================================
+Finished: 2026-08-21 19:28:18.015
+Exit Code: 1

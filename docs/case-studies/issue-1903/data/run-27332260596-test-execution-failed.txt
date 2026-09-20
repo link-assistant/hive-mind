@@ -1,0 +1,235 @@
+test-execution	UNKNOWN STEP	﻿2026-06-11T07:54:07.4755352Z Current runner version: '2.335.1'
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4789345Z ##[group]Runner Image Provisioner
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4790980Z Hosted Compute Agent
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4791939Z Version: 20260520.533
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4793135Z Commit: 189110e25284a9812c124fd27b339e2fb4f2f9db
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4794380Z Build Date: 2026-05-20T17:44:04Z
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4795470Z Worker ID: {eb657596-b6bd-4549-8517-29623041f182}
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4796784Z Azure Region: eastus
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4797719Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4800104Z ##[group]Operating System
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4801509Z Ubuntu
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4802343Z 24.04.4
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4803315Z LTS
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4804203Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4805254Z ##[group]Runner Image
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4806404Z Image: ubuntu-24.04
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4807330Z Version: 20260525.161.1
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4809440Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260525.161/images/ubuntu/Ubuntu2404-Readme.md
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4812604Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260525.161
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4814279Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4819625Z ##[group]GITHUB_TOKEN Permissions
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4822807Z Actions: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4823911Z ArtifactMetadata: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4824901Z Attestations: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4825860Z Checks: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4826863Z CodeQuality: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4827769Z Contents: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4828828Z CopilotRequests: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4829858Z Deployments: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4831047Z Discussions: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4832038Z Issues: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4832946Z Metadata: read
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4833963Z Models: read
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4834988Z Packages: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4835959Z Pages: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4837051Z PullRequests: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4838038Z RepositoryProjects: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4839171Z SecurityEvents: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4840492Z Statuses: write
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4841484Z VulnerabilityAlerts: read
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4842574Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4845513Z Secret source: Actions
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.4846852Z Prepare workflow directory
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.5404451Z Prepare all required actions
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.5459477Z Getting action download info
+test-execution	UNKNOWN STEP	2026-06-11T07:54:07.9860762Z Download action repository 'actions/checkout@v5' (SHA:93cb6efe18208431cddfb8368fd83d5badbf9bfd)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.1057397Z Download action repository 'actions/setup-node@v5' (SHA:a0853c24544627f65ddf259abe73b1d18a591444)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.3444859Z Complete job name: test-execution
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4261329Z ##[group]Run actions/checkout@v5
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4262305Z with:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4262800Z   repository: link-assistant/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4267668Z   token: ***
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4268128Z   ssh-strict: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4268598Z   ssh-user: git
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4269066Z   persist-credentials: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4269617Z   clean: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4270089Z   sparse-checkout-cone-mode: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4270837Z   fetch-depth: 1
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4271314Z   fetch-tags: false
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4271800Z   show-progress: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4272296Z   lfs: false
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4272732Z   submodules: false
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4273207Z   set-safe-directory: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4273980Z env:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4274467Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.4275063Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5471108Z Syncing repository: link-assistant/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5474360Z ##[group]Getting Git version info
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5475799Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5477976Z [command]/usr/bin/git version
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5590961Z git version 2.54.0
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5613615Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5629728Z Temporarily overriding HOME='/home/runner/work/_temp/0e5f2166-be2d-40a1-bb6a-9af11a0a902f' before making global git config changes
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5633081Z Adding repository directory to the temporary git global config as a safe directory
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5636164Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5713766Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5718082Z ##[group]Initializing the repository
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5723343Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5849599Z hint: Using 'master' as the name for the initial branch. This default branch name
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5851251Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5852369Z hint: to use in all of your new repositories, which will suppress this warning,
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5853240Z hint: call:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5853804Z hint:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5854898Z hint: 	git config --global init.defaultBranch <name>
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5856114Z hint:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5856793Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5857875Z hint: 'development'. The just-created branch can be renamed via this command:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5858726Z hint:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5859192Z hint: 	git branch -m <name>
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5859727Z hint:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5860824Z hint: Disable this message with "git config set advice.defaultBranchName false"
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5862050Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5866117Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5920477Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5921432Z ##[group]Disabling automatic garbage collection
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5922166Z [command]/usr/bin/git config --local gc.auto 0
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5949621Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5951527Z ##[group]Setting up auth
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5957387Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.5994245Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6359360Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6396422Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6602335Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6632655Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6846914Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6880563Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6881782Z ##[group]Fetching the repository
+test-execution	UNKNOWN STEP	2026-06-11T07:54:08.6890738Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +ea897f73a321ad5b24093196b3cdf4d2aeaa0691:refs/remotes/origin/main
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0312689Z From https://github.com/link-assistant/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0314049Z  * [new ref]         ea897f73a321ad5b24093196b3cdf4d2aeaa0691 -> origin/main
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0348327Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0348872Z ##[group]Determining the checkout info
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0351179Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0356365Z [command]/usr/bin/git sparse-checkout disable
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0402763Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0428146Z ##[group]Checking out the ref
+test-execution	UNKNOWN STEP	2026-06-11T07:54:19.0432374Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.0882980Z Updating files:  36% (1234/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1129172Z Updating files:  37% (1263/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1281575Z Updating files:  38% (1297/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1297389Z Updating files:  39% (1331/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1341880Z Updating files:  40% (1365/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1427719Z Updating files:  41% (1399/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1467361Z Updating files:  42% (1433/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1558655Z Updating files:  43% (1467/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.1722243Z Updating files:  44% (1501/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.2259923Z Updating files:  45% (1535/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3144926Z Updating files:  46% (1570/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3225478Z Updating files:  47% (1604/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3291834Z Updating files:  48% (1638/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3784979Z Updating files:  49% (1672/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3875418Z Updating files:  50% (1706/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.3905992Z Updating files:  51% (1740/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.4001112Z Updating files:  52% (1774/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.4017707Z Updating files:  53% (1808/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.4034887Z Updating files:  54% (1842/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.4916595Z Updating files:  55% (1877/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.4936167Z Updating files:  56% (1911/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.5030776Z Updating files:  57% (1945/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.5057142Z Updating files:  58% (1979/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.5159394Z Updating files:  59% (2013/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.6991999Z Updating files:  60% (2047/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7139370Z Updating files:  61% (2081/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7300784Z Updating files:  62% (2115/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7603848Z Updating files:  63% (2149/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7676374Z Updating files:  64% (2184/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7776796Z Updating files:  65% (2218/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.7945894Z Updating files:  66% (2252/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8005201Z Updating files:  67% (2286/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8028195Z Updating files:  68% (2320/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8043509Z Updating files:  69% (2354/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8062512Z Updating files:  70% (2388/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8098542Z Updating files:  71% (2422/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8116868Z Updating files:  72% (2456/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8134384Z Updating files:  73% (2491/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8150943Z Updating files:  74% (2525/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8169635Z Updating files:  75% (2559/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8188071Z Updating files:  76% (2593/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8206445Z Updating files:  77% (2627/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8223941Z Updating files:  78% (2661/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8241040Z Updating files:  79% (2695/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8260400Z Updating files:  80% (2729/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8279437Z Updating files:  81% (2763/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8307628Z Updating files:  82% (2798/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8335959Z Updating files:  83% (2832/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8354828Z Updating files:  84% (2866/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8389481Z Updating files:  85% (2900/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8421202Z Updating files:  86% (2934/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8464720Z Updating files:  87% (2968/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8516089Z Updating files:  88% (3002/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8575998Z Updating files:  89% (3036/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8613440Z Updating files:  90% (3070/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8646964Z Updating files:  91% (3105/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8675161Z Updating files:  92% (3139/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8700574Z Updating files:  93% (3173/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8727833Z Updating files:  94% (3207/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8753830Z Updating files:  95% (3241/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8777713Z Updating files:  96% (3275/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8803321Z Updating files:  97% (3309/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8826340Z Updating files:  98% (3343/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8852943Z Updating files:  99% (3377/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8853515Z Updating files: 100% (3411/3411)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8854414Z Updating files: 100% (3411/3411), done.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8902710Z Switched to a new branch 'main'
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8905595Z branch 'main' set up to track 'origin/main'.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.8989117Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9034699Z [command]/usr/bin/git log -1 --format=%H
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9056452Z ea897f73a321ad5b24093196b3cdf4d2aeaa0691
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9377077Z ##[group]Run actions/setup-node@v5
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9377380Z with:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9377581Z   node-version: 24.x
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9377802Z   always-auth: false
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9378020Z   check-latest: false
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9381541Z   token: ***
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9381789Z   package-manager-cache: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9382044Z env:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9382257Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:20.9382533Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.0878687Z Found in cache @ /opt/hostedtoolcache/node/24.16.0/x64
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.0882302Z (node:2218) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.0883241Z (Use `node --trace-deprecation ...` to show where the warning was created)
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.0885586Z ##[group]Environment details
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5492120Z node: v24.16.0
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5492632Z npm: 11.13.0
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5493120Z yarn: 1.22.22
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5494787Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5641426Z ##[group]Run npm install
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5641736Z ^[[36;1mnpm install^[[0m
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5679551Z shell: /usr/bin/bash -e {0}
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5679828Z env:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5680054Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+test-execution	UNKNOWN STEP	2026-06-11T07:54:21.5680825Z ##[endgroup]
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9088702Z npm error code ECONNRESET
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9089559Z npm error network aborted
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9098513Z npm error network This is a problem related to network connectivity.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9099960Z npm error network In most cases you are behind a proxy or have bad network settings.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9101260Z npm error network
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9102667Z npm error network If you are behind a proxy, please make sure that the 'proxy' config is set properly.  See: 'npm help config'
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9119511Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-06-11T07_54_21_624Z-debug-0.log
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9733496Z ##[error]Process completed with exit code 1.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:28.9896944Z Post job cleanup.
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0713541Z [command]/usr/bin/git version
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0749365Z git version 2.54.0
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0785675Z Temporarily overriding HOME='/home/runner/work/_temp/62ab1b2c-5df2-4e12-adfb-26fc2db26e10' before making global git config changes
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0787629Z Adding repository directory to the temporary git global config as a safe directory
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0791323Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0824526Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.0881728Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1107746Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1133387Z http.https://github.com/.extraheader
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1143759Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1174902Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1397112Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1426610Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+test-execution	UNKNOWN STEP	2026-06-11T07:54:29.1782621Z Cleaning up orphan processes

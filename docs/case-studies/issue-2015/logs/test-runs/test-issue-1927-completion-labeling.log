@@ -1,0 +1,36 @@
+Testing issue #1927: killed-session completion labeling
+============================================================
+  ✅ PASS: exit 137 → killed
+  ✅ PASS: exit 137 → failed (a kill is a failure)
+  ✅ PASS: exit 137 → SIGKILL signal
+  ✅ PASS: exit 143 → killed via SIGTERM
+  ✅ PASS: exit 1 → failed
+  ✅ PASS: exit 1 → NOT killed (no signal)
+  ✅ PASS: exit 1 → no signal
+  ✅ PASS: exit 0 → success (not failed, not killed)
+  ✅ PASS: status "killed" with no exit code → killed
+  ✅ PASS: status "oom-killed" → killed
+  ✅ PASS: explicit exitCode 137 wins
+  ✅ PASS: falls back to statusResult.exitCode
+  ✅ PASS: a failure status with no code synthesizes exit 1
+  ✅ PASS: a success status with no code stays null
+  ✅ PASS: explicit exitCode 0 is preserved (not treated as missing)
+  ✅ PASS: OOM-killed message starts with ❌ (never the ✅ success badge)
+  ✅ PASS: OOM-killed message says "Work session killed"
+  ✅ PASS: OOM-killed message names the SIGKILL signal
+  ✅ PASS: OOM-killed message shows the real exit code 137
+  ✅ PASS: OOM-killed message NEVER says "finished successfully"
+  ✅ PASS: SIGTERM message shows ❌ + SIGTERM + exit code 143
+  ✅ PASS: status-only kill starts with ❌
+  ✅ PASS: status-only kill says "Work session killed"
+  ✅ PASS: status-only kill suppresses the misleading "(exit code: 1)" sentinel
+  ✅ PASS: plain failure starts with ❌
+  ✅ PASS: plain failure shows "failed (exit code: 1)"
+  ✅ PASS: plain failure is NOT labeled killed
+  ✅ PASS: success starts with ✅
+  ✅ PASS: success says "finished successfully"
+  ✅ PASS: completion message includes the session name
+
+============================================================
+Results: 30 passed, 0 failed, 30 total
+============================================================

@@ -1,0 +1,1 @@
+link-assistant/hive-mind:src/telegram-bot.mjs: bot.command([/^solve$/i, /^do$/i, /^continue$/i], handleSolveCommand); // /do and /continue are aliases (issue #525)

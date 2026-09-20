@@ -1,0 +1,47 @@
+34:  attachLogToGitHub
+193:    await log('   CLAUDE.md revert failed or not needed', { verbose: true });
+217:          await log('\n🔄 To resume when limit resets, use:\n');
+252:// Verify results by searching for new PRs and comments
+254:  await log('\n🔍 Searching for created pull requests or comments...');
+261:      throw new Error(`Failed to get current user: ${userResult.stderr ? userResult.stderr.toString() : 'Unknown error'}`);
+276:      await log('  ⚠️  Failed to check pull requests');
+362:        let logUploadSuccess = false;
+365:          logUploadSuccess = await attachLogToGitHub({
+383:        if (shouldAttachLogs && logUploadSuccess) {
+384:          await log('📎 Solution draft log has been attached to the Pull Request');
+385:        } else if (shouldAttachLogs && !logUploadSuccess) {
+386:          await log('⚠️  Solution draft log upload was requested but failed');
+391:          await safeExit(0, 'Process completed successfully');
+401:    // If no PR found, search for recent comments on the issue
+402:    await log('\n🔍 Checking for new comments on issue #' + issueNumber + '...');
+404:    // Get all comments and filter them
+405:    const allCommentsResult = await $`gh api repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+408:      await log('  ⚠️  Failed to check comments');
+414:    // Filter for new comments by current user
+415:    const newCommentsByUser = allComments.filter(comment =>
+416:      comment.user.login === currentUser && new Date(comment.created_at) > referenceTime
+421:      await log(`  ✅ Found new comment by ${currentUser}`);
+426:        await attachLogToGitHub({
+445:        await log('📎 Solution draft log has been attached to the issue');
+447:      await log('\n✨ A clarifying comment has been added to the issue.');
+450:        await safeExit(0, 'Process completed successfully');
+454:      await log(`  ℹ️  Issue has ${allComments.length} existing comment(s)`);
+456:      await log('  ℹ️  No comments found on issue');
+460:    await log('\n📋 No new pull request or comment was created.');
+468:      await safeExit(0, 'Process completed successfully');
+485:      await safeExit(0, 'Process completed successfully');
+491:// Handle execution errors with log attachment
+497:  // If --attach-logs is enabled, try to attach failure logs
+499:    await log('\n📄 Attempting to attach failure logs...');
+501:    // Try to attach to existing PR first
+504:        const logUploadSuccess = await attachLogToGitHub({
+517:        if (logUploadSuccess) {
+518:          await log('📎 Failure log attached to Pull Request');
+520:      } catch (attachError) {
+521:        reportError(attachError, {
+522:          context: 'attach_success_log',
+524:          operation: 'attach_log_to_pr'
+526:        await log(`⚠️  Could not attach failure log: ${attachError.message}`, { level: 'warning' });
+535:      const result = await $`gh pr close ${global.createdPR.number} --repo ${owner}/${repo} --comment "Auto-closed due to execution failure. Logs have been attached for debugging."`;
+537:        await log('✅ Pull request closed successfully');
+543:        context: 'close_success_pr',

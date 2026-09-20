@@ -1,0 +1,37 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5256146817",
+    "html_url": "https://github.com/link-assistant/hive-mind/pull/2151#issuecomment-5256146817",
+    "issue_url": "https://api.github.com/repos/link-assistant/hive-mind/issues/2151",
+    "id": 5256146817,
+    "node_id": "IC_kwDOPUU0qc8AAAABOUpvgQ",
+    "user": {
+      "login": "github-advanced-security[bot]",
+      "id": 62310815,
+      "node_id": "MDM6Qm90NjIzMTA4MTU=",
+      "avatar_url": "https://avatars.githubusercontent.com/in/57789?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/github-advanced-security%5Bbot%5D",
+      "html_url": "https://github.com/apps/github-advanced-security",
+      "followers_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/followers",
+      "following_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/following{/other_user}",
+      "gists_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/subscriptions",
+      "organizations_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/orgs",
+      "repos_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/repos",
+      "events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/github-advanced-security%5Bbot%5D/received_events",
+      "type": "Bot",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "created_at": "2026-08-11T16:48:56Z",
+    "updated_at": "2026-08-11T16:48:56Z",
+    "body": "You are seeing this message because GitHub Code Scanning has recently been set up for this repository, or this pull request contains the workflow file for the Code Scanning tool.\n\n### What Enabling Code Scanning Means:\n\n- The 'Security' tab will display more code scanning analysis results (e.g., for the default branch).\n- Depending on your configuration and choice of analysis tool, future pull requests will be annotated with code scanning analysis results.\n- You will be able to see the analysis results for the pull request's branch on this [overview](/link-assistant/hive-mind/security/code-scanning?query=pr%3A2151+is%3Aopen) once the scans have completed and the checks have passed.\n\nFor more information about GitHub Code Scanning, check out [the documentation](https://docs.github.com/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning).\n",
+    "author_association": "NONE",
+    "reactions": { "url": "https://api.github.com/repos/link-assistant/hive-mind/issues/comments/5256146817/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

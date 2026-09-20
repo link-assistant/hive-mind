@@ -1,0 +1,350 @@
+{
+  "author": {
+    "id": "MDQ6VXNlcjE0MzE5MDQ=",
+    "is_bot": false,
+    "login": "konard",
+    "name": "Konstantin Diachenko"
+  },
+  "baseRefName": "main",
+  "body": "## 🤖 AI-Powered Solution Draft\n\nThis pull request is being automatically generated to solve issue #2158.\n\n### 📋 Issue Reference\nFixes #2158\n\n### 🚧 Status\n**Work in Progress** - The AI assistant is currently analyzing and implementing the solution draft.\n\n### 📝 Implementation Details\n_Details will be added as the solution draft is developed..._\n\n---\n*This PR was created automatically by the AI issue solver*",
+  "closedAt": null,
+  "commits": [
+    {
+      "authoredDate": "2026-08-15T13:49:44Z",
+      "authors": [
+        {
+          "email": "drakonard@gmail.com",
+          "id": "MDQ6VXNlcjE0MzE5MDQ=",
+          "login": "konard",
+          "name": "konard"
+        }
+      ],
+      "committedDate": "2026-08-15T13:49:44Z",
+      "messageBody": "Adding .gitkeep for PR creation (default mode).\nThis file will be removed when the task is complete.\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2158",
+      "messageHeadline": "Initial commit with task details",
+      "oid": "f802b4373b6ff51f7360f2501130a3331c156971"
+    }
+  ],
+  "createdAt": "2026-08-15T13:49:55Z",
+  "files": [
+    {
+      "path": ".gitkeep",
+      "additions": 2,
+      "deletions": 1,
+      "changeType": "MODIFIED"
+    }
+  ],
+  "headRefName": "issue-2158-b622a1cbe93e",
+  "headRefOid": "f802b4373b6ff51f7360f2501130a3331c156971",
+  "isDraft": true,
+  "mergeStateStatus": "CLEAN",
+  "mergeable": "MERGEABLE",
+  "mergedAt": null,
+  "number": 2159,
+  "state": "OPEN",
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609242",
+      "name": "detect-changes",
+      "startedAt": "2026-08-15T13:50:01Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:51:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265060/job/95020609478",
+      "name": "CodeQL (javascript-typescript)",
+      "startedAt": "2026-08-15T13:50:01Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:51:07Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265060/job/95020609286",
+      "name": "CodeQL (actions)",
+      "startedAt": "2026-08-15T13:50:01Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609593",
+      "name": "Instant Release",
+      "startedAt": "2026-08-15T13:49:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:19Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265060/job/95020609272",
+      "name": "Dependency Review",
+      "startedAt": "2026-08-15T13:50:00Z",
+      "status": "COMPLETED",
+      "workflowName": "Security"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609555",
+      "name": "Create Changeset PR",
+      "startedAt": "2026-08-15T13:49:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651097",
+      "name": "Check for Manual Version Changes",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651390",
+      "name": "Check for Changesets",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020650918",
+      "name": "lint",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609533",
+      "name": "Docker Publish Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-15T13:49:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609494",
+      "name": "Docker Publish DinD Instant (${{ matrix.platform }})",
+      "startedAt": "2026-08-15T13:49:58Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651469",
+      "name": "test-compilation",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651480",
+      "name": "check-file-line-limits",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651514",
+      "name": "validate-docs",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651464",
+      "name": "helm-pr-check",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609711",
+      "name": "Docker Publish Instant (Merge)",
+      "startedAt": "2026-08-15T13:49:59Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609680",
+      "name": "Docker Publish DinD Instant (Merge)",
+      "startedAt": "2026-08-15T13:49:59Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651688",
+      "name": "test-suites",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651564",
+      "name": "test-execution",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651349",
+      "name": "memory-check-linux",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651617",
+      "name": "docker-pr-check",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:49:58Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020609862",
+      "name": "Helm Release (Instant)",
+      "startedAt": "2026-08-15T13:49:59Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651599",
+      "name": "Release",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020652023",
+      "name": "Docker Publish (${{ matrix.platform }})",
+      "startedAt": "2026-08-15T13:50:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651813",
+      "name": "Docker Publish DinD (${{ matrix.platform }})",
+      "startedAt": "2026-08-15T13:50:22Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020652052",
+      "name": "Docker Publish (Merge)",
+      "startedAt": "2026-08-15T13:50:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020651955",
+      "name": "Docker Publish DinD (Merge)",
+      "startedAt": "2026-08-15T13:50:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:22Z",
+      "conclusion": "SKIPPED",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020652077",
+      "name": "Helm Release",
+      "startedAt": "2026-08-15T13:50:23Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:40Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/actions/runs/31888265062/job/95020652019",
+      "name": "Pipeline Status",
+      "startedAt": "2026-08-15T13:50:24Z",
+      "status": "COMPLETED",
+      "workflowName": "Checks and release"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-08-15T13:50:59Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/link-assistant/hive-mind/runs/95020714157",
+      "name": "CodeQL",
+      "startedAt": "2026-08-15T13:50:57Z",
+      "status": "COMPLETED",
+      "workflowName": ""
+    }
+  ],
+  "title": "[WIP] Keep working on formal-ai support",
+  "updatedAt": "2026-08-15T13:49:56Z",
+  "url": "https://github.com/link-assistant/hive-mind/pull/2159"
+}

@@ -1,0 +1,37 @@
+{
+  "issueNumber": 1287,
+  "timestamp": "2026-02-13T22:56:14.890Z",
+  "commandExecuted": "solve https://github.com/netkeep80/aprover/issues/56 --tool agent --attach-logs --verbose --no-tool-check --auto-resume-on-limit-reset --tokens-budget-stats",
+  "errorType": "FreeUsageLimitError",
+  "httpStatusCode": 429,
+  "retryAfterSeconds": 3832,
+  "agentErrorDetails": {
+    "type": "error",
+    "exitCode": 0,
+    "errorDetectedInOutput": true,
+    "errorType": "AgentError",
+    "errorMatch": "Failed after 3 attempts. Last error: Rate limit exceeded. Please try again later.",
+    "message": "Agent reported error: Failed after 3 attempts. Last error: Rate limit exceeded. Please try again later.",
+    "sessionId": null,
+    "limitReached": false,
+    "limitResetTime": null
+  },
+  "apiResponse": {
+    "type": "error",
+    "error": {
+      "type": "FreeUsageLimitError",
+      "message": "Rate limit exceeded. Please try again later."
+    }
+  },
+  "rootCause": {
+    "description": "Log upload to PR skipped due to overly strict sessionId requirement",
+    "file": "src/solve.mjs",
+    "line": 1115,
+    "condition": "if (shouldAttachLogs && sessionId && global.createdPR && global.createdPR.number)",
+    "issue": "sessionId is null when agent fails early, causing the entire log upload block to be skipped"
+  },
+  "proposedFix": {
+    "description": "Remove sessionId from the condition, making it consistent with handleFailure() pattern",
+    "newCondition": "if (shouldAttachLogs && global.createdPR && global.createdPR.number)"
+  }
+}

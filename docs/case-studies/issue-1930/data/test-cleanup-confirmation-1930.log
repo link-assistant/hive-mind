@@ -1,0 +1,13 @@
+
+📋 cleanup confirmation (#1930) Tests
+
+✅ plain yes confirms deletion
+✅ hidden Ctrl+Tab terminal escape before yes still confirms
+✅ hidden Ctrl+Tab terminal escape after yes still confirms
+✅ typed text removed with backspace before yes still confirms
+✅ partial or extra visible text does not confirm
+✅ package exposes hive-cleanup as the cleanup executable
+
+============================================================
+
+📊 Results: 6 passed, 0 failed, 6 total

@@ -1,0 +1,18 @@
+{
+  "number": 8,
+  "head": {
+    "ref": "renovate/eslint-plugin-vitest-replacement",
+    "sha": "276e2015dadc6e490ac972d6e75a7d016cd56fe0",
+    "repo": "ProverCoderAI/effect-template",
+    "owner": "ProverCoderAI"
+  },
+  "base": {
+    "ref": "main",
+    "repo": "ProverCoderAI/effect-template",
+    "owner": "ProverCoderAI"
+  },
+  "user": "renovate[bot]",
+  "state": "open",
+  "created_at": "2026-01-13T09:41:16Z",
+  "title": "chore(deps): replace dependency eslint-plugin-vitest with @vitest/eslint-plugin ^1.0.1"
+}

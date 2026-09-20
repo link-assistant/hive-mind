@@ -45,7 +45,6 @@ try {
 
   // await $`${claude} -p "hi" --output-format stream-json --verbose --model sonnet`;
 
-
   const command = $({ stdin: 'hi\n', mirror: false })`${claude} --output-format stream-json --verbose --model sonnet`;
 
   // Working example 1
@@ -67,7 +66,6 @@ try {
   }
 
   await command;
-
 } catch (error) {
   console.error('❌ Test failed:', error.message);
   process.exit(1);

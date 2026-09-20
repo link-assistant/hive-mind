@@ -1,0 +1,13 @@
+
+> @link-assistant/hive-mind@1.61.0 format:check
+> prettier --check "**/*.{js,mjs,json,md}" --ignore-path .prettierignore
+
+Checking formatting...
+[warn] docs/case-studies/issue-1705/data/box-issue-80-case-study.md
+[warn] docs/case-studies/issue-1705/data/box-issue-80-research.md
+[warn] docs/case-studies/issue-1705/data/box-latest-release.json
+[warn] docs/case-studies/issue-1705/data/box-repo.json
+[warn] docs/case-studies/issue-1705/data/issue-1705-comments.json
+[warn] docs/case-studies/issue-1705/data/issue-1705.json
+[warn] docs/case-studies/issue-1705/data/pr-1736.json
+[warn] Code style issues found in 7 files. Run Prettier with --write to fix.

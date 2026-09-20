@@ -1,0 +1,21 @@
+==> Registering the fixture marketplace
+
+==> FACT 1: a freshly installed plugin materializes its skills
+    /home/box/issue-2088-claude-repro/claude-config/plugins/cache/hive2088/demo/1.0.0/skills/demo-skill/SKILL.md exists
+      id=demo@hive2088 enabled=True installPath=/home/box/issue-2088-claude-repro/claude-config/plugins/cache/hive2088/demo/1.0.0
+
+==> FACT 2: delete only the payload — enablement still reports healthy
+      id=demo@hive2088 enabled=True installPath=/home/box/issue-2088-claude-repro/claude-config/plugins/cache/hive2088/demo/1.0.0
+    ...for an installPath that no longer exists
+    running the CLI again does not re-materialize it
+
+==> FACT 3: 'claude plugin install' repairs the payload
+    /home/box/issue-2088-claude-repro/claude-config/plugins/cache/hive2088/demo/1.0.0/skills/demo-skill/SKILL.md restored
+
+==> RESULT
+    Claude Code shares the Codex failure mode: enablement is recorded
+    independently of the materialized payload, 'plugin list' reports the
+    stale state as healthy, and re-running the install command repairs it.
+    hive-mind does not install Claude plugins today, so no Claude
+    provisioning path is wired up; the repair primitive is shared so one
+    can be added without duplicating this logic.

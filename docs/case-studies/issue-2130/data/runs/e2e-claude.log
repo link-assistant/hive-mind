@@ -1,0 +1,402 @@
+# exit=0 signal=null
+## stdout
+{"type":"system","subtype":"init","cwd":"/tmp/hive-2130-e2e-claude-F9gl6d","session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","tools":["Task","Bash","DesignSync","Edit","EnterWorktree","ExitWorktree","Monitor","NotebookEdit","PushNotification","Read","ReportFindings","ScheduleWakeup","SendMessage","Skill","TaskCreate","TaskGet","TaskList","TaskOutput","TaskStop","TaskUpdate","WaitForMcpServers","WebFetch","WebSearch","Workflow","Write"],"mcp_servers":[{"name":"playwright","status":"pending"}],"model":"formal-ai","permissionMode":"bypassPermissions","slash_commands":["deep-research","design-sync","dataviz","update-config","verify","debug","code-review","simplify","batch","fewer-permission-prompts","doctor","claude-api","run","run-skill-generator","agents","clear","color","compact","config","context","effort","fast","heapdump","init","mcp","model","__remote-workflow","workflow-launch-exec","reload-skills","rename","review","security-review","usage","insights","recap","goal","design","design-consent","design-revoke","team-onboarding"],"apiKeySource":"none","claude_code_version":"2.1.220","output_style":"default","agents":["claude","Explore","general-purpose","Plan","statusline-setup"],"skills":["deep-research","design-sync","dataviz","update-config","verify","debug","code-review","simplify","batch","fewer-permission-prompts","doctor","claude-api","run","run-skill-generator"],"plugins":[],"capabilities":["interrupt_receipt_v1","interrupt_cancel_queued_v1","msg_lifecycle_v1"],"analytics_disabled":false,"product_feedback_disabled":false,"uuid":"1791bc82-7cca-4ae5-b26e-55faf148b64b","fast_mode_state":"off","fast_mode_disabled_reason":"disabled_by_env"}
+[log_623679] sending request {
+  method: "post",
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  options: {
+    method: "post",
+    path: "/v1/messages?beta=true",
+    body: {
+      model: "formal-ai",
+      messages: [
+        [Object ...], [Object ...]
+      ],
+      system: [
+        [Object ...], [Object ...], [Object ...]
+      ],
+      tools: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      tool_choice: undefined,
+      metadata: [Object ...],
+      max_tokens: 128000,
+      thinking: [Object ...],
+      context_management: [Object ...],
+      output_config: [Object ...],
+      stream: true,
+    },
+    timeout: 600000,
+    signal: AbortSignal {
+      [Symbol(events.maxEventTargetListeners)]: 50,
+      [Symbol(events.maxEventTargetListenersWarned)]: false,
+      aborted: false,
+      reason: undefined,
+      onabort: null,
+      throwIfAborted: [Function: throwIfAborted],
+      addEventListener: [Function: addEventListener],
+      removeEventListener: [Function: removeEventListener],
+      dispatchEvent: [Function: dispatchEvent],
+    },
+    stream: true,
+  },
+  headers: {
+    accept: "application/json",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,effort-2025-11-24",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "anthropic-version": "2023-06-01",
+    authorization: "***",
+    "content-type": "application/json",
+    "user-agent": "claude-cli/2.1.220 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-claude-code-session-id": "8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "600",
+  },
+}
+[log_623679] post http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true succeeded with status 200 in 358ms
+[log_623679] response start {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  headers: {
+    "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-origin": "*",
+    connection: "close",
+    "content-length": "2320",
+    "content-type": "text/event-stream",
+  },
+  durationMs: 358,
+}
+response 200 http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true Headers {
+  "content-type": "text/event-stream",
+  "content-length": "2320",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+  "connection": "close",
+} ReadableStream { locked: false, state: 'readable', supportsBYOB: false }
+[log_623679] response parsed {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  body: _Q {
+    iterator: [AsyncGeneratorFunction: i],
+    controller: AbortController {
+      signal: [AbortSignal ...],
+      abort: [Function: abort],
+    },
+    [Symbol(Symbol.asyncIterator)]: [Function],
+    tee: [Function: tee],
+    toReadableStream: [Function: toReadableStream],
+  },
+  durationMs: 362,
+}
+{"type":"assistant","message":{"content":[{"text":"Let me update .formal-ai/general-change-plan.lino for you.","type":"text"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.000004407029071983623,"context_used_tokens":313613,"context_window_tokens":71161999360,"disk_free_bytes":142323998720,"memory_used_bytes":627226},"id":"msg_5df492d52cd92b9e","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":10672,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"44571281-46a5-4eea-9a20-7202066779db","timestamp":"2026-08-02T17:48:35.197Z"}
+{"type":"assistant","message":{"content":[{"id":"call_ea87229f58c8481d","input":{"file_path":"/tmp/hive-2130-e2e-claude-F9gl6d/.formal-ai/general-change-plan.lino","content":"general_change_plan\n  id \"general_change_plan_f5aa614eb3f43f87\"\n  execution_mode \"literal_file\"\n  goal \"Write a file hello.txt containing Hello World, in JavaScript.\"\n  target \"hello.txt\"\n  step 1\n    capability \"Write\"\n    action \"append the composed plan to .formal-ai/general-change-plan.lino\"\n    expected_evidence \"written plan event impulse_82db9568f4376d8f\"\n  step 2\n    capability \"Write\"\n    action \"write the requested content to hello.txt\"\n    expected_evidence \"workspace file hello.txt\"\n  step 3\n    capability \"Run\"\n    action \"run the request-derived verification command\"\n    expected_evidence \"Hello World, in JavaScript.\"\n    command \"cat hello.txt\"\n  verification_command \"cat hello.txt\"\n"},"name":"Write","type":"tool_use"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.000004407029071983623,"context_used_tokens":313613,"context_window_tokens":71161999360,"disk_free_bytes":142323998720,"memory_used_bytes":627226},"id":"msg_5df492d52cd92b9e","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":10672,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"1760746c-17da-4be0-a975-45b9d404a43f","timestamp":"2026-08-02T17:48:35.202Z"}
+{"type":"user","message":{"role":"user","content":[{"tool_use_id":"call_ea87229f58c8481d","type":"tool_result","content":"File created successfully at: /tmp/hive-2130-e2e-claude-F9gl6d/.formal-ai/general-change-plan.lino (file state is current in your context — no need to Read it back)"}]},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"98214dc1-11b5-492c-9ddd-90c8bb86d60b","timestamp":"2026-08-02T17:48:35.249Z","tool_use_result":{"type":"create","filePath":"/tmp/hive-2130-e2e-claude-F9gl6d/.formal-ai/general-change-plan.lino","content":"general_change_plan\n  id \"general_change_plan_f5aa614eb3f43f87\"\n  execution_mode \"literal_file\"\n  goal \"Write a file hello.txt containing Hello World, in JavaScript.\"\n  target \"hello.txt\"\n  step 1\n    capability \"Write\"\n    action \"append the composed plan to .formal-ai/general-change-plan.lino\"\n    expected_evidence \"written plan event impulse_82db9568f4376d8f\"\n  step 2\n    capability \"Write\"\n    action \"write the requested content to hello.txt\"\n    expected_evidence \"workspace file hello.txt\"\n  step 3\n    capability \"Run\"\n    action \"run the request-derived verification command\"\n    expected_evidence \"Hello World, in JavaScript.\"\n    command \"cat hello.txt\"\n  verification_command \"cat hello.txt\"\n","structuredPatch":[],"originalFile":null,"userModified":false}}
+[log_87d833] sending request {
+  method: "post",
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  options: {
+    method: "post",
+    path: "/v1/messages?beta=true",
+    body: {
+      model: "formal-ai",
+      messages: [
+        [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      system: [
+        [Object ...], [Object ...], [Object ...]
+      ],
+      tools: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      tool_choice: undefined,
+      metadata: [Object ...],
+      max_tokens: 128000,
+      thinking: [Object ...],
+      context_management: [Object ...],
+      output_config: [Object ...],
+      stream: true,
+    },
+    timeout: 600000,
+    signal: AbortSignal {
+      [Symbol(events.maxEventTargetListeners)]: 50,
+      [Symbol(events.maxEventTargetListenersWarned)]: false,
+      aborted: false,
+      reason: undefined,
+      onabort: null,
+      throwIfAborted: [Function: throwIfAborted],
+      addEventListener: [Function: addEventListener],
+      removeEventListener: [Function: removeEventListener],
+      dispatchEvent: [Function: dispatchEvent],
+    },
+    stream: true,
+  },
+  headers: {
+    accept: "application/json",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,effort-2025-11-24",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "anthropic-version": "2023-06-01",
+    authorization: "***",
+    "content-type": "application/json",
+    "user-agent": "claude-cli/2.1.220 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-claude-code-session-id": "8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "600",
+  },
+}
+[log_87d833] post http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true succeeded with status 200 in 194ms
+[log_87d833] response start {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  headers: {
+    "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-origin": "*",
+    connection: "close",
+    "content-length": "1460",
+    "content-type": "text/event-stream",
+  },
+  durationMs: 194,
+}
+response 200 http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true Headers {
+  "content-type": "text/event-stream",
+  "content-length": "1460",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+  "connection": "close",
+} ReadableStream { locked: false, state: 'readable', supportsBYOB: false }
+[log_87d833] response parsed {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  body: _Q {
+    iterator: [AsyncGeneratorFunction: i],
+    controller: AbortController {
+      signal: [AbortSignal ...],
+      abort: [Function: abort],
+    },
+    [Symbol(Symbol.asyncIterator)]: [Function],
+    tee: [Function: tee],
+    toReadableStream: [Function: toReadableStream],
+  },
+  durationMs: 194,
+}
+{"type":"assistant","message":{"content":[{"text":"Let me update hello.txt for you.","type":"text"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.000004410324070948306,"context_used_tokens":313847,"context_window_tokens":71161890816,"disk_free_bytes":142323781632,"memory_used_bytes":627695},"id":"msg_8ab2d1259e117b5a","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":10894,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"548f1008-2ee2-4675-970e-90079fbe2c00","timestamp":"2026-08-02T17:48:35.462Z"}
+{"type":"assistant","message":{"content":[{"id":"call_89c9ca823651a52d","input":{"file_path":"/tmp/hive-2130-e2e-claude-F9gl6d/hello.txt","content":"Hello World, in JavaScript."},"name":"Write","type":"tool_use"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.000004410324070948306,"context_used_tokens":313847,"context_window_tokens":71161890816,"disk_free_bytes":142323781632,"memory_used_bytes":627695},"id":"msg_8ab2d1259e117b5a","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":10894,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"a43e453d-9789-4ef8-a667-29bf20f48c9c","timestamp":"2026-08-02T17:48:35.464Z"}
+{"type":"user","message":{"role":"user","content":[{"tool_use_id":"call_89c9ca823651a52d","type":"tool_result","content":"File created successfully at: /tmp/hive-2130-e2e-claude-F9gl6d/hello.txt (file state is current in your context — no need to Read it back)"}]},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"8e190bca-3033-41e1-915f-a5d13cd75fec","timestamp":"2026-08-02T17:48:35.534Z","tool_use_result":{"type":"create","filePath":"/tmp/hive-2130-e2e-claude-F9gl6d/hello.txt","content":"Hello World, in JavaScript.","structuredPatch":[],"originalFile":null,"userModified":false}}
+[log_818e2c] sending request {
+  method: "post",
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  options: {
+    method: "post",
+    path: "/v1/messages?beta=true",
+    body: {
+      model: "formal-ai",
+      messages: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      system: [
+        [Object ...], [Object ...], [Object ...]
+      ],
+      tools: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      tool_choice: undefined,
+      metadata: [Object ...],
+      max_tokens: 128000,
+      thinking: [Object ...],
+      context_management: [Object ...],
+      output_config: [Object ...],
+      stream: true,
+    },
+    timeout: 600000,
+    signal: AbortSignal {
+      [Symbol(events.maxEventTargetListeners)]: 50,
+      [Symbol(events.maxEventTargetListenersWarned)]: false,
+      aborted: false,
+      reason: undefined,
+      onabort: null,
+      throwIfAborted: [Function: throwIfAborted],
+      addEventListener: [Function: addEventListener],
+      removeEventListener: [Function: removeEventListener],
+      dispatchEvent: [Function: dispatchEvent],
+    },
+    stream: true,
+  },
+  headers: {
+    accept: "application/json",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,effort-2025-11-24",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "anthropic-version": "2023-06-01",
+    authorization: "***",
+    "content-type": "application/json",
+    "user-agent": "claude-cli/2.1.220 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-claude-code-session-id": "8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "600",
+  },
+}
+[log_818e2c] post http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true succeeded with status 200 in 436ms
+[log_818e2c] response start {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  headers: {
+    "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-origin": "*",
+    connection: "close",
+    "content-length": "1399",
+    "content-type": "text/event-stream",
+  },
+  durationMs: 436,
+}
+response 200 http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true Headers {
+  "content-type": "text/event-stream",
+  "content-length": "1399",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+  "connection": "close",
+} ReadableStream { locked: false, state: 'readable', supportsBYOB: false }
+[log_818e2c] response parsed {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  body: _Q {
+    iterator: [AsyncGeneratorFunction: i],
+    controller: AbortController {
+      signal: [AbortSignal ...],
+      abort: [Function: abort],
+    },
+    [Symbol(Symbol.asyncIterator)]: [Function],
+    tee: [Function: tee],
+    toReadableStream: [Function: toReadableStream],
+  },
+  durationMs: 437,
+}
+{"type":"assistant","message":{"content":[{"text":"Let me run a quick command to get that for you.","type":"text"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.0000044230772945815085,"context_used_tokens":314754,"context_window_tokens":71161767936,"disk_free_bytes":142323535872,"memory_used_bytes":629508},"id":"msg_6224e9e6c919b31f","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":11064,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"f8e82565-b3b3-403d-ba96-245c110842fd","timestamp":"2026-08-02T17:48:36.029Z"}
+{"type":"assistant","message":{"content":[{"id":"call_92e37903773e086c","input":{"command":"cat hello.txt"},"name":"Bash","type":"tool_use"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.0000044230772945815085,"context_used_tokens":314754,"context_window_tokens":71161767936,"disk_free_bytes":142323535872,"memory_used_bytes":629508},"id":"msg_6224e9e6c919b31f","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":11064,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"3e8e39dc-9813-4d09-ade2-bf539d20b3fc","timestamp":"2026-08-02T17:48:36.037Z"}
+{"type":"user","message":{"role":"user","content":[{"tool_use_id":"call_92e37903773e086c","type":"tool_result","content":"Hello World, in JavaScript.","is_error":false}]},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"431e26ea-8b27-4691-b393-a48061f5f6de","timestamp":"2026-08-02T17:48:42.861Z","tool_use_result":{"stdout":"Hello World, in JavaScript.","stderr":"","interrupted":false,"isImage":false,"noOutputExpected":false}}
+[log_7f7e9a] sending request {
+  method: "post",
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  options: {
+    method: "post",
+    path: "/v1/messages?beta=true",
+    body: {
+      model: "formal-ai",
+      messages: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      system: [
+        [Object ...], [Object ...], [Object ...]
+      ],
+      tools: [
+        [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...], [Object ...]
+      ],
+      tool_choice: undefined,
+      metadata: [Object ...],
+      max_tokens: 128000,
+      thinking: [Object ...],
+      context_management: [Object ...],
+      output_config: [Object ...],
+      stream: true,
+    },
+    timeout: 600000,
+    signal: AbortSignal {
+      [Symbol(events.maxEventTargetListeners)]: 50,
+      [Symbol(events.maxEventTargetListenersWarned)]: false,
+      aborted: false,
+      reason: undefined,
+      onabort: null,
+      throwIfAborted: [Function: throwIfAborted],
+      addEventListener: [Function: addEventListener],
+      removeEventListener: [Function: removeEventListener],
+      dispatchEvent: [Function: dispatchEvent],
+    },
+    stream: true,
+  },
+  headers: {
+    accept: "application/json",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advisor-tool-2026-03-01,effort-2025-11-24",
+    "anthropic-dangerous-direct-browser-access": "true",
+    "anthropic-version": "2023-06-01",
+    authorization: "***",
+    "content-type": "application/json",
+    "user-agent": "claude-cli/2.1.220 (external, sdk-cli)",
+    "x-app": "cli",
+    "x-claude-code-session-id": "8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e",
+    "x-stainless-arch": "x64",
+    "x-stainless-lang": "js",
+    "x-stainless-os": "Linux",
+    "x-stainless-package-version": "0.94.0",
+    "x-stainless-retry-count": "0",
+    "x-stainless-runtime": "node",
+    "x-stainless-runtime-version": "v26.3.0",
+    "x-stainless-timeout": "600",
+  },
+}
+[log_7f7e9a] post http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true succeeded with status 200 in 764ms
+[log_7f7e9a] response start {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  headers: {
+    "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-origin": "*",
+    connection: "close",
+    "content-length": "1853",
+    "content-type": "text/event-stream",
+  },
+  durationMs: 764,
+}
+response 200 http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true Headers {
+  "content-type": "text/event-stream",
+  "content-length": "1853",
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-headers": "content-type,authorization,x-api-key,x-goog-api-key,anthropic-api-key",
+  "connection": "close",
+} ReadableStream { locked: false, state: 'readable', supportsBYOB: false }
+[log_7f7e9a] response parsed {
+  url: "http://127.0.0.1:34305/api/anthropic/v1/messages?beta=true",
+  status: 200,
+  body: _Q {
+    iterator: [AsyncGeneratorFunction: i],
+    controller: AbortController {
+      signal: [AbortSignal ...],
+      abort: [Function: abort],
+    },
+    [Symbol(Symbol.asyncIterator)]: [Function],
+    tee: [Function: tee],
+    toReadableStream: [Function: toReadableStream],
+  },
+  durationMs: 765,
+}
+{"type":"assistant","message":{"content":[{"text":"Completed the general change request for hello.txt and verified it with `cat hello.txt`.\n\nPlan event (.formal-ai/general-change-plan.lino):\n\ngeneral_change_plan\n  id \"general_change_plan_f5aa614eb3f43f87\"\n  execution_mode \"literal_file\"\n  goal \"Write a file hello.txt containing Hello World, in JavaScript.\"\n  target \"hello.txt\"\n  step 1\n    capability \"Write\"\n    action \"append the composed plan to .formal-ai/general-change-plan.lino\"\n    expected_evidence \"written plan event impulse_82db9568f4376d8f\"\n  step 2\n    capability \"Write\"\n    action \"write the requested content to hello.txt\"\n    expected_evidence \"workspace file hello.txt\"\n  step 3\n    capability \"Run\"\n    action \"run the request-derived verification command\"\n    expected_evidence \"Hello World, in JavaScript.\"\n    command \"cat hello.txt\"\n  verification_command \"cat hello.txt\"","type":"text"}],"context":{"avg_utf8_bytes_per_char":2,"context_used_fraction":0.000004432487025685254,"context_used_tokens":315251,"context_window_tokens":71122825216,"disk_free_bytes":142245650432,"memory_used_bytes":630503},"id":"msg_19ea5b23c3e23e71","model":"formal-ai","role":"assistant","stop_reason":null,"stop_sequence":null,"type":"message","usage":{"input_tokens":11138,"output_tokens":0},"context_management":null},"parent_tool_use_id":null,"session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","uuid":"eff592ef-8e22-4c08-a3b7-41911b4e6736","timestamp":"2026-08-02T17:48:43.693Z"}
+{"is_error":false,"duration_api_ms":2046,"num_turns":4,"stop_reason":"end_turn","session_id":"8413e3bf-3cc9-4d76-8e53-c3ef5c8b425e","total_cost_usd":0.26824,"usage":{"input_tokens":43768,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1976,"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0},"inference_geo":"","iterations":[],"speed":"standard"},"modelUsage":{"formal-ai":{"inputTokens":43768,"outputTokens":1976,"cacheReadInputTokens":0,"cacheCreationInputTokens":0,"webSearchRequests":0,"costUSD":0.26824,"contextWindow":200000,"maxOutputTokens":32000,"canonicalModel":"formal-ai","provider":"firstParty"}},"permission_denials":[],"terminal_reason":"completed","fast_mode_state":"off","fast_mode_disabled_reason":"disabled_by_env","subtype":"success","api_error_status":null,"result":"Completed the general change request for hello.txt and verified it with `cat hello.txt`.\n\nPlan event (.formal-ai/general-change-plan.lino):\n\ngeneral_change_plan\n  id \"general_change_plan_f5aa614eb3f43f87\"\n  execution_mode \"literal_file\"\n  goal \"Write a file hello.txt containing Hello World, in JavaScript.\"\n  target \"hello.txt\"\n  step 1\n    capability \"Write\"\n    action \"append the composed plan to .formal-ai/general-change-plan.lino\"\n    expected_evidence \"written plan event impulse_82db9568f4376d8f\"\n  step 2\n    capability \"Write\"\n    action \"write the requested content to hello.txt\"\n    expected_evidence \"workspace file hello.txt\"\n  step 3\n    capability \"Run\"\n    action \"run the request-derived verification command\"\n    expected_evidence \"Hello World, in JavaScript.\"\n    command \"cat hello.txt\"\n  verification_command \"cat hello.txt\"","ttft_ms":693,"ttft_stream_ms":692,"time_to_request_ms":322,"type":"result","duration_ms":9198,"uuid":"8bdd2ab1-437a-48dc-b7a4-91860907c650"}
+
+## stderr
+⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence over your claude.ai login · Unset it to load your organization's connectors
+

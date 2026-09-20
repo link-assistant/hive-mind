@@ -1,0 +1,171 @@
+   300	        })`cat ${promptFile} | ${codexPath} exec resume ${argv.resume} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+   301	      } else {
+   302	        execCommand = $({
+   303	          cwd: tempDir,
+   304	          mirror: false
+   305	        })`cat ${promptFile} | ${codexPath} exec --model ${mappedModel} --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox`;
+   306	      }
+   307	
+   308	      await log(`${formatAligned('📋', 'Command details:', '')}`);
+   309	      await log(formatAligned('📂', 'Working directory:', tempDir, 2));
+   310	      await log(formatAligned('🌿', 'Branch:', branchName, 2));
+   311	      await log(formatAligned('🤖', 'Model:', `Codex ${argv.model.toUpperCase()}`, 2));
+   312	      if (argv.fork && forkedRepo) {
+   313	        await log(formatAligned('🍴', 'Fork:', forkedRepo, 2));
+   314	      }
+   315	
+   316	      await log(`\n${formatAligned('▶️', 'Streaming output:', '')}\n`);
+   317	
+   318	      let exitCode = 0;
+   319	      let sessionId = null;
+   320	      let limitReached = false;
+   321	      let limitResetTime = null;
+   322	      let lastMessage = '';
+   323	      let authError = false;
+   324	
+   325	      for await (const chunk of execCommand.stream()) {
+   326	        if (chunk.type === 'stdout') {
+   327	          const output = chunk.data.toString();
+   328	          await log(output);
+   329	          lastMessage = output;
+   330	
+   331	          // Try to parse JSON output to extract session info
+   332	          // Codex CLI uses thread_id instead of session_id
+   333	          try {
+   334	            const lines = output.split('\n');
+   335	            for (const line of lines) {
+   336	              if (!line.trim()) continue;
+   337	              const data = JSON.parse(line);
+   338	              // Check for both thread_id (codex) and session_id (legacy)
+   339	              if ((data.thread_id || data.session_id) && !sessionId) {
+   340	                sessionId = data.thread_id || data.session_id;
+   341	                await log(`📌 Session ID: ${sessionId}`);
+   342	              }
+   343	
+   344	              // Check for authentication errors (401 Unauthorized)
+   345	              // These should never be retried as they indicate missing/invalid credentials
+   346	              if (data.type === 'error' && data.message &&
+   347	                  (data.message.includes('401 Unauthorized') ||
+   348	                   data.message.includes('401') ||
+   349	                   data.message.includes('Unauthorized'))) {
+   350	                authError = true;
+   351	                await log('\n❌ Authentication error detected: 401 Unauthorized', { level: 'error' });
+   352	                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+   353	                await log('   💡 Please run: codex login', { level: 'error' });
+   354	              }
+   355	
+   356	              // Also check turn.failed events for auth errors
+   357	              if (data.type === 'turn.failed' && data.error && data.error.message &&
+   358	                  (data.error.message.includes('401 Unauthorized') ||
+   359	                   data.error.message.includes('401') ||
+   360	                   data.error.message.includes('Unauthorized'))) {
+   361	                authError = true;
+   362	                await log('\n❌ Authentication error detected in turn.failed event', { level: 'error' });
+   363	                await log('   This error cannot be resolved by retrying.', { level: 'error' });
+   364	                await log('   💡 Please run: codex login', { level: 'error' });
+   365	              }
+   366	            }
+   367	          } catch {
+   368	            // Not JSON, continue
+   369	          }
+   370	        }
+   371	
+   372	        if (chunk.type === 'stderr') {
+   373	          const errorOutput = chunk.data.toString();
+   374	          if (errorOutput) {
+   375	            await log(errorOutput, { stream: 'stderr' });
+   376	          }
+   377	        } else if (chunk.type === 'exit') {
+   378	          exitCode = chunk.code;
+   379	        }
+   380	      }
+   381	
+   382	      // Check for authentication errors first - these should never be retried
+   383	      if (authError) {
+   384	        const resourcesAfter = await getResourceSnapshot();
+   385	        await log('\n📈 System resources after execution:', { verbose: true });
+   386	        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+   387	        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+   388	
+   389	        // Throw an error to stop retries and propagate the auth failure
+   390	        const error = new Error('Codex authentication failed - 401 Unauthorized. Please run: codex login');
+   391	        error.isAuthError = true;
+   392	        throw error;
+   393	      }
+   394	
+   395	      if (exitCode !== 0) {
+   396	        // Check for usage limit errors first (more specific)
+   397	        const limitInfo = detectUsageLimit(lastMessage);
+   398	        if (limitInfo.isUsageLimit) {
+   399	          limitReached = true;
+   400	          limitResetTime = limitInfo.resetTime;
+   401	
+   402	          // Format and display user-friendly message
+   403	          const messageLines = formatUsageLimitMessage({
+   404	            tool: 'Codex',
+   405	            resetTime: limitInfo.resetTime,
+   406	            sessionId,
+   407	            resumeCommand: sessionId ? `${process.argv[0]} ${process.argv[1]} ${argv.url} --resume ${sessionId}` : null
+   408	          });
+   409	
+   410	          for (const line of messageLines) {
+   411	            await log(line, { level: 'warning' });
+   412	          }
+   413	        } else {
+   414	          await log(`\n\n❌ Codex command failed with exit code ${exitCode}`, { level: 'error' });
+   415	        }
+   416	
+   417	        const resourcesAfter = await getResourceSnapshot();
+   418	        await log('\n📈 System resources after execution:', { verbose: true });
+   419	        await log(`   Memory: ${resourcesAfter.memory.split('\n')[1]}`, { verbose: true });
+   420	        await log(`   Load: ${resourcesAfter.load}`, { verbose: true });
+   421	
+   422	        return {
+   423	          success: false,
+   424	          sessionId,
+   425	          limitReached,
+   426	          limitResetTime
+   427	        };
+   428	      }
+   429	
+   430	      await log('\n\n✅ Codex command completed');
+   431	
+   432	      return {
+   433	        success: true,
+   434	        sessionId,
+   435	        limitReached,
+   436	        limitResetTime
+   437	      };
+   438	    } catch (error) {
+   439	      // Don't report auth errors to Sentry as they are user configuration issues
+   440	      if (!error.isAuthError) {
+   441	        reportError(error, {
+   442	          context: 'execute_codex',
+   443	          command: params.command,
+   444	          codexPath: params.codexPath,
+   445	          operation: 'run_codex_command'
+   446	        });
+   447	      }
+   448	
+   449	      await log(`\n\n❌ Error executing Codex command: ${error.message}`, { level: 'error' });
+   450	
+   451	      // Re-throw auth errors to stop any outer retry loops
+   452	      if (error.isAuthError) {
+   453	        throw error;
+   454	      }
+   455	
+   456	      return {
+   457	        success: false,
+   458	        sessionId: null,
+   459	        limitReached: false,
+   460	        limitResetTime: null
+   461	      };
+   462	    }
+   463	  };
+   464	
+   465	  // Start the execution with retry logic
+   466	  return await executeWithRetry();
+   467	};
+   468	
+   469	export const checkForUncommittedChanges = async (tempDir, owner, repo, branchName, $, log, autoCommit = false, autoRestartEnabled = true) => {
+   470	  // Similar to Claude and OpenCode version, check for uncommitted changes

@@ -1,0 +1,16 @@
+.github/workflows/release.yml
+scripts/bump-version.rs
+scripts/check-changelog-fragment.rs
+scripts/check-file-size.rs
+scripts/check-release-needed.rs
+scripts/check-version-modification.rs
+scripts/collect-changelog.rs
+scripts/create-changelog-fragment.rs
+scripts/create-github-release.rs
+scripts/detect-code-changes.rs
+scripts/get-bump-type.rs
+scripts/get-version.rs
+scripts/git-config.rs
+scripts/publish-crate.rs
+scripts/rust-paths.rs
+scripts/version-and-commit.rs

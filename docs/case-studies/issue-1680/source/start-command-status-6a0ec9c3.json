@@ -1,0 +1,23 @@
+{
+  "uuid": "e44d4086-0b1b-47f2-8733-3abe937e43c5",
+  "pid": null,
+  "status": "executed",
+  "exitCode": 0,
+  "command": "solve https://github.com/ideav/crm/issues/2117 --tool codex --attach-logs --verbose --no-tool-check --auto-accept-invite --tokens-budget-stats --auto-attach-solution-summary",
+  "logPath": "/tmp/start-command/logs/isolation/screen/e44d4086-0b1b-47f2-8733-3abe937e43c5.log",
+  "startTime": "2026-04-25T09:19:53.475Z",
+  "endTime": "2026-04-25T09:38:05.632Z",
+  "workingDirectory": "/home/box",
+  "shell": "/bin/sh",
+  "platform": "linux",
+  "options": {
+    "isolated": "screen",
+    "isolationMode": "detached",
+    "sessionName": "6a0ec9c3-04b5-4c22-acc2-8f21e934036e",
+    "image": null,
+    "endpoint": null,
+    "user": false,
+    "keepAlive": false,
+    "useCommandStream": false
+  }
+}

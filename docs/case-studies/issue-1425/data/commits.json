@@ -1,0 +1,17 @@
+[
+  { "date": "2026-03-13T07:54:13Z", "message": "1.31.0", "sha": "2db358adfc04cb77b773a341844f5a1fc3102def" },
+  { "date": "2026-03-13T07:48:54Z", "message": "Merge pull request #1384 from link-assistant/issue-1383-840a4f1607d5\n\nfeat: add ", "sha": "31a4668e08924e0ce195ab6c5c1b167e0dc3d0d1" },
+  { "date": "2026-03-13T07:43:09Z", "message": "Merge pull request #1414 from link-assistant/issue-1413-27d2c684e8b1\n\nfix: preve", "sha": "bf59d392269f8d6a74ec3988130517568086baa5" },
+  { "date": "2026-03-13T07:35:02Z", "message": "Merge pull request #1420 from link-assistant/issue-1419-f16b173187e6\n\nfix: preve", "sha": "14fdb8bd33c7e509119fb5fe07cdae030ee2b5b3" },
+  { "date": "2026-03-13T07:31:08Z", "message": "fix: reduce solve.mjs to comply with 1500-line limit after main merge\n\nAfter mer", "sha": "7406b4fa03517e3d3640aa61e36b46a8cb97093f" },
+  { "date": "2026-03-13T07:30:23Z", "message": "Merge remote-tracking branch 'origin/main' into issue-1383-840a4f1607d5", "sha": "91fb3cdab90525bae89b95c2e4860a0673884867" },
+  { "date": "2026-03-13T07:30:21Z", "message": "fix: reduce file sizes to comply with 1500-line limit (Issue #1383)\n\nBoth src/so", "sha": "1f9c885cc731535b70d772be00821e8f49ee38ae" },
+  { "date": "2026-03-13T07:21:50Z", "message": "feat: rename --auto-ensure-all-requirements-are-met to --finalize (Issue #1383)\n", "sha": "78a350484405f9c20f49ffb304e0216ff220d246" },
+  { "date": "2026-03-13T07:18:14Z", "message": "style: fix Prettier formatting in issue-1419 case study\n\nCo-Authored-By: Claude ", "sha": "b228a8e62d90eb4ba3bf5fe7df29263a83060fbf" },
+  { "date": "2026-03-13T07:17:57Z", "message": "Merge main into issue-1383-840a4f1607d5 and rename --auto-ensure-all-requirement", "sha": "6749a9cb5cfb3e793a0b04c7c94f72947ed5d403" },
+  { "date": "2026-03-13T07:16:08Z", "message": "fix: prevent root from polluting /home/hive/.config during Docker build\n\nWhen US", "sha": "2a4c0b7b2d7af16753b5f996ddb1f12040dda589" },
+  { "date": "2026-03-13T07:15:22Z", "message": "Merge pull request #1352 from link-assistant/issue-1351-c265b9720dbc\n\nOn CTRL+C:", "sha": "6062434abe47021a8edb8c2d344c18bb4a749bbc" },
+  { "date": "2026-03-13T07:09:44Z", "message": "Merge pull request #1408 from link-assistant/issue-1407-bb649fb020e6\n\nfix: hide ", "sha": "45cc60afa727512b5482e45d677fa9b3736f5370" },
+  { "date": "2026-03-13T07:05:36Z", "message": "Initial commit with task details\n\nAdding .gitkeep for PR creation (default mode)", "sha": "781669db84e443f584d5199fd35ebd0891359b1f" },
+  { "date": "2026-03-11T21:14:08Z", "message": "1.30.5", "sha": "e94570f2e5026a40192dae88b2f0f71cc7046927" }
+]

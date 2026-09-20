@@ -1,0 +1,105 @@
+[use-m] acquired install lock for 'command-stream-v-latest' at /tmp/hive-mind-use-m-locks/command-stream-v-latest.lock
+[use-m] use('command-stream') loading (alias command-stream-v-latest)
+[use-m] use('command-stream') loaded in 4214ms
+{"type":"function","keys":["AnsiUtils","ProcessRunner","captureTerminal","configureAnsi","create","disableVirtualCommands","enableVirtualCommands","exec","forceCleanupAll","getAnsiConfig","listCommands","literal","openTerminal","processOutput","quote","quoteLiteral","raw","readAsciicast","register","resetGlobalState","run","set","sh","shell","unregister","unrollTerminalFrames","unset","$","default"],"dollar":"function","default":"function"}
+{
+  "name": "command-stream",
+  "version": "0.19.0",
+  "description": "Modern $ shell utility library with streaming, async iteration, and EventEmitter support, optimized for Bun runtime",
+  "type": "module",
+  "main": "./src/$.cjs",
+  "module": "./src/$.mjs",
+  "exports": {
+    ".": {
+      "import": "./src/$.mjs",
+      "require": "./src/$.cjs",
+      "default": "./src/$.mjs"
+    },
+    "./process-runner": "./src/process-runner.mjs",
+    "./package.json": "./package.json"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/link-foundation/command-stream.git",
+    "directory": "js"
+  },
+  "homepage": "https://github.com/link-foundation/command-stream/tree/main/js#readme",
+  "bugs": {
+    "url": "https://github.com/link-foundation/command-stream/issues"
+  },
+  "scripts": {
+    "test": "cd .. && bun test js/tests/ --timeout 10000",
+    "test:coverage": "cd .. && bun test js/tests/ --coverage --timeout 10000",
+    "test:features": "cd .. && bun test js/tests/*.features.test.mjs --timeout 10000",
+    "test:comparison": "cd .. && bun test js/tests/*.features.test.mjs --reporter=verbose --timeout 10000",
+    "test:readme": "cd .. && bun test js/tests/readme-examples.test.mjs --timeout 10000",
+    "test:sync": "cd .. && bun test js/tests/sync.test.mjs --timeout 10000",
+    "test:builtin": "cd .. && bun test js/tests/builtin-commands.test.mjs --timeout 10000",
+    "test:pipe": "cd .. && bun test js/tests/pipe.test.mjs --timeout 10000",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:duplication": "jscpd .",
+    "check": "bun run lint && bun run format:check && bun run check:duplication",
+    "build:terminal-font": "node scripts/build-terminal-font.mjs",
+    "prepare": "cd .. && js/node_modules/.bin/husky || true",
+    "changeset": "changeset",
+    "changeset:version": "bun scripts/changeset-version.mjs",
+    "changeset:publish": "changeset publish",
+    "changeset:status": "changeset status --since=origin/main"
+  },
+  "keywords": [
+    "shell",
+    "command",
+    "streaming",
+    "async",
+    "iteration",
+    "eventemitter",
+    "bun",
+    "node",
+    "cross-runtime"
+  ],
+  "author": "link-foundation",
+  "license": "Unlicense",
+  "engines": {
+    "bun": ">=1.0.0",
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "README.md",
+    "BEST-PRACTICES.md",
+    "src/",
+    "docs/",
+    "examples/"
+  ],
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "dejavu-fonts-ttf": "^2.37.3",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "jscpd": "^4.0.5",
+    "lint-staged": "^16.2.6",
+    "prettier": "^3.6.2",
+    "subset-font": "^2.5.0"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs}": [
+      "eslint --fix --max-warnings 0 --no-warn-ignored",
+      "prettier --write",
+      "prettier --check"
+    ],
+    "*.md": [
+      "prettier --write",
+      "prettier --check"
+    ]
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@xterm/headless": "^6.0.0",
+    "gifenc": "^1.0.3",
+    "node-pty": "^1.2.0-beta.14"
+  }
+}

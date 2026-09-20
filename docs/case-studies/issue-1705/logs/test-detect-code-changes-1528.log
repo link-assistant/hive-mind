@@ -1,0 +1,59 @@
+🧪 Detect Code Changes Tests (Issue #1528)
+
+--- isExcludedFromCodeChanges ---
+
+Testing README.md is excluded... ✅ PASSED
+Testing docs/analysis.md is excluded... ✅ PASSED
+Testing CHANGELOG.md is excluded... ✅ PASSED
+Testing .changeset/ files are excluded... ✅ PASSED
+Testing data/ files are excluded... ✅ PASSED
+Testing docs/ files are excluded... ✅ PASSED
+Testing experiments/ files are excluded... ✅ PASSED
+Testing .gitkeep is NOT excluded by isExcludedFromCodeChanges (handled by positive matching)... ✅ PASSED
+Testing .gitkeep in subdirectory is NOT excluded by isExcludedFromCodeChanges... ✅ PASSED
+Testing src/*.mjs files are NOT excluded... ✅ PASSED
+Testing tests/*.mjs files are NOT excluded... ✅ PASSED
+Testing package.json is NOT excluded... ✅ PASSED
+Testing .github/workflows/release.yml is NOT excluded... ✅ PASSED
+Testing Dockerfile is NOT excluded... ✅ PASSED
+Testing eslint.config.mjs is NOT excluded... ✅ PASSED
+Testing scripts/detect-code-changes.mjs is NOT excluded... ✅ PASSED
+Testing helm/Chart.yaml is NOT excluded... ✅ PASSED
+
+--- matchesPattern (codePattern positive matching) ---
+
+Testing .mjs files match code pattern... ✅ PASSED
+Testing .js files match code pattern... ✅ PASSED
+Testing .json files match code pattern... ✅ PASSED
+Testing .yml files match code pattern... ✅ PASSED
+Testing .yaml files match code pattern... ✅ PASSED
+Testing workflow files match code pattern... ✅ PASSED
+Testing .gitkeep does NOT match code pattern... ✅ PASSED
+Testing .gitkeep in subdirectory does NOT match code pattern... ✅ PASSED
+Testing Dockerfile does NOT match code pattern... ✅ PASSED
+Testing .sh files do NOT match code pattern... ✅ PASSED
+Testing .txt files do NOT match code pattern... ✅ PASSED
+Testing .gitignore does NOT match code pattern... ✅ PASSED
+
+--- Integration: full pipeline (exclusion + positive matching) ---
+
+Testing .gitkeep-only change produces no code files (issue #1528)... ✅ PASSED
+Testing .gitkeep in subdirectory produces no code files... ✅ PASSED
+Testing mixed .gitkeep + code change correctly detects code files... ✅ PASSED
+Testing docs-only change produces no code files... ✅ PASSED
+Testing markdown-only change produces no code files... ✅ PASSED
+Testing changeset-only change produces no code files... ✅ PASSED
+Testing unknown file types (no extension, .txt, .log) produce no code files... ✅ PASSED
+Testing workflow file change is detected as code... ✅ PASSED
+Testing package.json change is detected as code... ✅ PASSED
+Testing data/ .json files are excluded despite matching code pattern extension... ✅ PASSED
+Testing experiments/ .mjs files are excluded despite matching code pattern extension... ✅ PASSED
+Testing realistic mixed change set is correctly classified... ✅ PASSED
+Testing pull_request synchronize event SHA range skips a single metadata-only update (issue #1665)... ✅ PASSED
+Testing pull_request synchronize event SHA range includes code from a multi-commit push (issue #1665)... ✅ PASSED
+Testing pull_request synchronize synthetic merge fallback uses only the latest PR head commit (issue #1665)... ✅ PASSED
+
+==================================================
+Results: 44 passed, 0 failed out of 44 tests
+
+✅ All tests passed!

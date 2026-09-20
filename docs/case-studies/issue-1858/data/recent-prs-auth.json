@@ -1,0 +1,12 @@
+[
+  { "headRefName": "issue-1809-ad1b428698b3", "mergedAt": "2026-05-16T12:13:46Z", "number": 1810, "title": "fix(gemini): produce meaningful JSONL output and reach feature parity (closes #1809)", "url": "https://github.com/link-assistant/hive-mind/pull/1810" },
+  { "headRefName": "issue-1793-b8b0656b942f", "mergedAt": "2026-05-12T21:44:34Z", "number": 1794, "title": "Display subscription end date in /limits for Claude and Codex", "url": "https://github.com/link-assistant/hive-mind/pull/1794" },
+  { "headRefName": "issue-1783-da3ec60ac57c", "mergedAt": "2026-05-11T15:27:46Z", "number": 1784, "title": "fix(telegram): update queue card on /stop and authorize task requesters", "url": "https://github.com/link-assistant/hive-mind/pull/1784" },
+  { "headRefName": "issue-1603-d47eafcfffb1", "mergedAt": "2026-04-15T06:14:28Z", "number": 1604, "title": "docs: document real codex setup and persistence flow", "url": "https://github.com/link-assistant/hive-mind/pull/1604" },
+  { "headRefName": "issue-1651-6eada026ace3", "mergedAt": "2026-04-20T17:28:01Z", "number": 1652, "title": "fix(solve): explain missing delete_repo scope when fork auto-recovery fails (#1651)", "url": "https://github.com/link-assistant/hive-mind/pull/1652" },
+  { "headRefName": "issue-1627-a1a795a1b22c", "mergedAt": "2026-04-17T19:33:52Z", "number": 1628, "title": "feat(claude): disable useless tools and MCP connectors in autonomous runs", "url": "https://github.com/link-assistant/hive-mind/pull/1628" },
+  { "headRefName": "issue-513-c2f93fb5", "mergedAt": "2026-05-01T09:03:02Z", "number": 556, "title": "Add direct Qwen Code support", "url": "https://github.com/link-assistant/hive-mind/pull/556" },
+  { "headRefName": "issue-1369-a0ba6c12a4e6", "mergedAt": "2026-03-02T19:19:45Z", "number": 1370, "title": "Fix: Use authenticated curl for private GitHub issue images to prevent session crash", "url": "https://github.com/link-assistant/hive-mind/pull/1370" },
+  { "headRefName": "issue-1387-58f50eb40061", "mergedAt": "2026-03-04T10:42:45Z", "number": 1388, "title": "Skip empty Claude subsection headers when auth error occurs in /limits output", "url": "https://github.com/link-assistant/hive-mind/pull/1388" },
+  { "headRefName": "issue-1462-e30ddf67d4fa", "mergedAt": "2026-03-22T09:19:38Z", "number": 1463, "title": "fix: improve PR creation failure error messaging and log upload fallback (Issue #1462)", "url": "https://github.com/link-assistant/hive-mind/pull/1463" }
+]

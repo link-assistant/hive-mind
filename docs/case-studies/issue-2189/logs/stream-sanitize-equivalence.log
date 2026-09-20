@@ -1,0 +1,12 @@
+source: /tmp/issue-2189-WUy6va/session.log (4.04 MB)
+stats: {
+  sourceSize: 4233167,
+  bytesRead: 4233167,
+  blocks: 6,
+  forcedReleases: 0,
+  charsWritten: 4216161
+}
+peak heap delta during stream: 10.3 MB
+whole-file result length: 4216161
+streamed result length:   4216161
+identical: true

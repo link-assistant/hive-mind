@@ -1,0 +1,19 @@
+log: docs/case-studies/issue-2140/raw/solve-run-issue-905.log.txt.gz
+log lines: 96410, logged chunks: 23746
+
+line     stream  in-tool_result-dump  type            thread_id
+1011     stdout  false                thread.started  019fcaed-943e-7091-9fa1-475c6bc56a7f
+1083     stdout  false                turn.started    
+3187     stderr  true                 thread.started  019fc374-eaec-78e3-851f-44dfcbb4ecd1
+3188     stderr  true                 turn.started    
+3222     stderr  true                 thread.started  019fc374-eaec-78e3-851f-44dfcbb4ecd1
+3223     stderr  true                 turn.started    
+96246    stdout  false                turn.completed  
+
+tally: {
+  'thread.started@stdout': 1,
+  'turn.started@stdout': 1,
+  'thread.started@stderr': 2,
+  'turn.started@stderr': 2,
+  'turn.completed@stdout': 1
+}

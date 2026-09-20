@@ -1,0 +1,26 @@
+PASS: /task command is recognized
+PASS: /split adds --split by default and keeps user options
+PASS: /task does not add --split by default
+PASS: /task explicit --split keeps split mode available
+PASS: explicit --split is not duplicated
+PASS: pull request URLs are not accepted as task issue URL
+PASS: tool can be parsed from task command arguments
+PASS: task issue creation parses repository link before issue text
+PASS: task issue creation parses repository link after issue text
+PASS: task issue creation parses --repository before issue text
+PASS: task issue creation parses --repository after issue text
+PASS: reply issue creation combines inline repo with replied issue text
+PASS: reply issue creation combines inline issue text with replied repo
+PASS: reply with bare /task uses repo and issue text from replied message
+PASS: reply issue creation tolerates the same repo inline and in reply
+PASS: combining two different repositories still reports a conflict
+PASS: inline /task issue creation strips command prefix
+PASS: task issue title truncates the first line with ASCII ellipsis
+PASS: task issue creation replies with the created issue URL
+PASS: handleTaskCommand creates issue when replying with repo and issue text in reply
+PASS: forwarded /task (new API forward_origin) is ignored — no issue created, no execution
+PASS: forwarded /split (split mode) is ignored — no execution
+PASS: /split reports enhanced unknown option and does not execute
+PASS: non-forwarded /task still creates an issue (regression guard)
+
+Total: 24, Passed: 24, Failed: 0

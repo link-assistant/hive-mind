@@ -1,0 +1,16 @@
+# Source: full run log, lines 8105-8113
+# isContinueMode was false for the ENTIRE run, so both the draft branch of
+# startWorkSession() and the ready branch of endWorkSession() — which were both
+# gated behind `if (isContinueMode && prNumber)` — never executed.
+# Confirmation: the markers "Starting work session" and "Ending work session"
+# appear 0 times in the whole 102244-line log.
+
+   shouldRestart (auto-detected): false
+   temporaryWatch (will be enabled): false
+   prNumber: 142
+   prBranch: null
+   branchName: issue-141-71671ce6c096
+   isContinueMode: false
+
+📊 startWatchMode called with:
+   argv.watch: false

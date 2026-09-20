@@ -61,7 +61,8 @@ jobs:
           # workflow is the caller's, so this reads the original event.
           # Passed through the environment rather than interpolated into the
           # `run:` line (zizmor template-injection).
-          PREFLIGHT_MODE: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && 'release' || 'report' }}
+          # validate-pr is an explicit required-check run, not a publication.
+          PREFLIGHT_MODE: ${{ ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode != 'validate-pr')) && 'release' || 'report' }}
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
           # Reachability, not just writability: what an anonymous consumer gets

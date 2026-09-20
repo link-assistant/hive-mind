@@ -99,6 +99,9 @@ const silent = { log() {}, error() {} };
     if (key.startsWith('gh pr create')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/9999\n', stderr: '' };
     }
+    if (key.startsWith('gh workflow run')) {
+      return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/actions/runs/7777\n', stderr: '' };
+    }
     return { code: 0, stdout: '', stderr: '' };
   };
 
@@ -139,6 +142,9 @@ const silent = { log() {}, error() {} };
     if (key.startsWith('gh pr list')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/42\n', stderr: '' };
     }
+    if (key.startsWith('gh workflow run')) {
+      return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/actions/runs/7777\n', stderr: '' };
+    }
     return { code: 0, stdout: '', stderr: '' };
   };
 
@@ -170,6 +176,9 @@ function createHarness({ pushResult, version = '2.13.5' }) {
     }
     if (key.startsWith('gh pr create')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/1234\n', stderr: '' };
+    }
+    if (key.startsWith('gh workflow run')) {
+      return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/actions/runs/7777\n', stderr: '' };
     }
     return { code: 0, stdout: '', stderr: '' };
   };

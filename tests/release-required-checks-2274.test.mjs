@@ -12,6 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { landViaPullRequest } from '../scripts/release-pull-request.lib.mjs';
 
@@ -36,9 +37,7 @@ const runner = async (command, args = []) => {
     return { code: 0, stdout: '', stderr: '' };
   }
   if (call.startsWith('gh pr merge')) {
-    return validationPassed
-      ? { code: 0, stdout: '', stderr: '' }
-      : { code: 1, stdout: '', stderr: 'Required status check "Pipeline Status" is expected.' };
+    return validationPassed ? { code: 0, stdout: '', stderr: '' } : { code: 1, stdout: '', stderr: 'Required status check "Pipeline Status" is expected.' };
   }
 
   return { code: 0, stdout: '', stderr: '' };
@@ -54,11 +53,41 @@ const result = await landViaPullRequest({
 });
 
 assert.equal(result.landed, true);
-assert.ok(
-  calls.includes('gh workflow run release.yml --ref release/v2.31.0-35519980846 --raw-field release_mode=validate-pr --raw-field bump_type=patch'),
-  'the generated release head must receive an explicit validation run'
-);
+assert.ok(calls.includes('gh workflow run release.yml --ref release/v2.31.0-35519980846 --raw-field release_mode=validate-pr --raw-field bump_type=patch'), 'the generated release head must receive an explicit validation run');
 assert.ok(calls.includes('gh run watch 4242 --exit-status --compact'), 'the release must wait for validation to finish successfully');
 assert.ok(calls.findIndex(call => call.startsWith('gh run watch')) < calls.findIndex(call => call.startsWith('gh pr merge')), 'validation must finish before the first merge attempt');
+
+const failedValidationCalls = [];
+await assert.rejects(
+  landViaPullRequest({
+    runner: async (command, args = []) => {
+      const call = [command, ...args].join(' ');
+      failedValidationCalls.push(call);
+      if (call.startsWith('gh pr list')) return { code: 0, stdout: '', stderr: '' };
+      if (call.startsWith('gh pr create')) return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/10000\n', stderr: '' };
+      if (call.startsWith('gh workflow run')) return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/actions/runs/4343\n', stderr: '' };
+      if (call.startsWith('gh run watch')) return { code: 1, stdout: '', stderr: 'Pipeline Status failed' };
+      return { code: 0, stdout: '', stderr: '' };
+    },
+    version: '2.31.0',
+    runId: 'failed-validation',
+    logger: { log() {}, error() {} },
+    sanitizeForPublication: async text => text,
+  }),
+  /gh run watch 4343/,
+  'a failed validation run must abort release landing'
+);
+assert.equal(
+  failedValidationCalls.some(call => call.startsWith('gh pr merge')),
+  false,
+  'a release PR with failed validation must never reach merge'
+);
+
+const releaseWorkflow = readFileSync('.github/workflows/release.yml', 'utf8');
+const preflightWorkflow = readFileSync('.github/workflows/release-preflight.yml', 'utf8');
+assert.match(releaseWorkflow, /options: \[instant, changeset-pr, validate-pr\]/, 'the dispatched validation mode must be accepted by workflow_dispatch');
+assert.equal((releaseWorkflow.match(/actions: write/g) || []).length, 2, 'both jobs that can create release pull requests need permission to dispatch their validation run');
+assert.equal((releaseWorkflow.match(/checks: read/g) || []).length, 0, 'watching an Actions run must not add an unrelated Checks API permission');
+assert.match(preflightWorkflow, /release_mode != 'validate-pr'/, 'validation must report preflight findings without acting like a publication');
 
 console.log('release-required-checks-2274.test.mjs: all assertions passed');

@@ -665,6 +665,10 @@ zh
           be
             github
               url "第一个参数必须是 GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *无需执行任何操作*\n\n`{{repository}}` 没有开放的议题。未启动工作会话。"
     work
       session
         starting "🔄 正在启动..."

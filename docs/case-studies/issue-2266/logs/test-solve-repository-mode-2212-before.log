@@ -1,0 +1,37 @@
+ok - reproduction: validateGitHubUrl alone still rejects a repository URL
+ok - repository mode recognizes exactly the URLs the validator rejects
+ok - open-issues query parameters go into the endpoint, never into -f fields
+ok - open-issues request always paginates and clamps per_page to 1..100
+ok - pull requests are recognized and excluded from the selection
+ok - selection is oldest-first regardless of input order
+ok - ties on created_at fall back to the issue number
+ok - over the limit only the oldest N are kept and the rest are reported as skipped
+ok - GitHub sub-issue limit per parent is 100
+ok - excluded issue numbers are never selected
+ok - malformed entries are dropped instead of crashing the run
+ok - normalizeOpenIssueEntry keeps the REST database id needed by the sub-issues API
+ok - closing keywords are repeated per issue (GitHub ignores comma lists)
+ok - combined issue title reflects whether everything fit under the limit
+ok - combined issue body lists every issue and its required closing reference
+ok - combined issue body says how many issues were left out over the limit
+ok - summary lines mention the skipped issues only when there are any
+ok - prepare collects the open issues without creating anything
+ok - resolve creates one combined issue and attaches every issue as a sub-issue
+ok - resolve turns on deep analysis and the sub-issue check for the generated issue
+ok - resolve leaves issue and pull request URLs untouched
+not ok - issue #2266: resolve treats a repository with no open issues as successful no-work
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'o/r has no open issues to solve.'
+- undefined
+
+    at file:///tmp/gh-issue-solver-1789883728372/tests/test-solve-repository-mode-2212.mjs:282:10
+    at async file:///tmp/gh-issue-solver-1789883728372/tests/test-solve-repository-mode-2212.mjs:543:5 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'o/r has no open issues to solve.',
+  expected: undefined,
+  operator: 'strictEqual',
+  diff: 'simple'
+}

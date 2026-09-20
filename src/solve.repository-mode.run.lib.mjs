@@ -249,7 +249,7 @@ export async function createRepositoryModeIssue({ repository, prepared, run = ru
  * @param {number} [params.limit]
  * @param {boolean} [params.dryRun] - prepare only; do not create anything
  * @param {object} [params.attachOptions] - forwarded to {@link attachSubIssues}
- * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, error?: string}>}
+ * @returns {Promise<{handled: boolean, issueUrl?: string, issue?: object, prepared?: object, argvOverrides?: object, noWork?: boolean, message?: string, error?: string}>}
  */
 export async function resolveRepositoryModeTarget({ url, log = null, run = runCommand, limit = MAX_SUB_ISSUES_PER_PARENT, dryRun = false, attachOptions = {} }) {
   const repository = parseRepositoryModeUrl(url);
@@ -275,7 +275,9 @@ export async function resolveRepositoryModeTarget({ url, log = null, run = runCo
   }
 
   if (prepared.selected.length === 0) {
-    return { handled: true, error: `${repository.fullName} has no open issues to solve.` };
+    const message = `${repository.fullName} has no open issues. Nothing to do.`;
+    await emit(`ℹ️  ${message}`);
+    return { handled: true, noWork: true, message, prepared };
   }
 
   if (dryRun) {

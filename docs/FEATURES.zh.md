@@ -136,7 +136,7 @@ Hive Mind 具备高度创造力，与大多数（普通）程序员难以区分�
 - 按标签过滤或处理所有 Issue
 - 对无写入权限的仓库自动 fork
 - 以可配置的间隔持续监控
-- 仓库模式：将仓库 URL 传给 `solve`，即可把所有开放 Issue 合并为一个带 GitHub 原生子 Issue 的 Issue，并用单个 Pull Request 一次性关闭它们
+- 仓库模式：将仓库 URL 传给 `solve`，即可把所有开放 Issue 合并为一个带 GitHub 原生子 Issue 的 Issue，并用单个 Pull Request 一次性关闭它们；空仓库会被报告为成功的无操作结果，不会启动 Telegram 工作会话
 
 ### 9. 关键节点的人工监督
 

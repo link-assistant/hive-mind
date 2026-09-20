@@ -665,6 +665,10 @@ ru
           be
             github
               url "Первый аргумент должен быть GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *Нечего выполнять*\n\nВ `{{repository}}` нет открытых задач. Рабочий сеанс не запускался."
     work
       session
         starting "🔄 Запуск..."

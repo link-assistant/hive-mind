@@ -19,19 +19,21 @@
  * every draft it hands out, so the matching ready transition can be guaranteed by
  * code — including on the interrupt and fatal-error exit paths.
  *
- * Issue #2247: the ready transition needs one exception, and exactly one. A session
- * that produced no diff at all has nothing to review, so converting its pull request
- * to "ready for review" publishes a claim ("solution draft verified") that the diff
- * contradicts — all three reproduction runs did this, one of them with zero commits.
- * {@link ensurePullRequestIsReady} therefore accepts `requireChanges`, and an empty
- * measured diff records a *deliberate* draft: it is removed from the outstanding
- * registry, so neither `endWorkSession()` nor the interrupt/fatal-error safety nets
- * undo the decision, and the next session start clears it again. An unmeasured diff
- * (`measured: false` — gh failed) is never treated as empty.
+ * Issue #2247: a session that produced no diff at all has nothing to review, so
+ * converting its pull request to "ready for review" publishes a claim ("solution
+ * draft verified") that the diff contradicts. {@link ensurePullRequestIsReady}
+ * therefore accepts `requireChanges`, and an empty measured diff records a
+ * *deliberate* draft. Issue #2263 applies the same invariant to terminal failures:
+ * a clean worktree after a recovery commit is not evidence that verification
+ * succeeded. Deliberate drafts are removed from the outstanding registry, so
+ * `endWorkSession()` and the interrupt/fatal-error safety nets cannot undo them;
+ * the next working session clears the previous verdict and may try again. An
+ * unmeasured diff (`measured: false` — gh failed) is never treated as empty.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2247
+ * @see https://github.com/link-assistant/hive-mind/issues/2263
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 

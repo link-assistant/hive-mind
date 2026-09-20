@@ -1,87 +1,69 @@
 #!/usr/bin/env node
 
-/**
- * Preserve a failed session's working tree without advancing its PR branch.
- *
- * The original issue #1834 recovery helper committed and pushed every dirty
- * byte before retrying. Issue #2263 demonstrated why a recovery snapshot is
- * not a solution commit: the failed Kotlin canary published corrupted source
- * and Main.class, then a clean-worktree check treated that commit as success.
- *
- * A git stash object gives recovery the same durable local evidence while
- * leaving HEAD and the pull-request branch untouched. The stash is applied
- * immediately (and kept), so a resumed/fresh agent can inspect and repair the
- * work. Diagnostics are also retained in the normal attached session log.
- *
- * This helper remains best-effort and never throws: preservation failure must
- * not mask the critical error which brought the caller here.
- */
+// Issue #1834 (PR #1835 feedback): "On all critical errors we auto commit uncommitted changes by
+// default." When the tool hits a critical error and has to discard/restart a session (e.g. the
+// corrupted extended-thinking-block 400, anthropics/claude-code#63147), any work the agent already
+// made on disk would otherwise be silently lost when the session context is reset. This helper
+// commits — and best-effort pushes — those uncommitted changes so the partial work is preserved in
+// the PR branch history before recovery proceeds.
+//
+// It is intentionally dependency-light (receives `$` and `log`) and NEVER throws: a failure to
+// commit must not mask the original critical error or break the recovery flow.
 
-import { ensureAiToolScratchIgnored } from './ai-tool-scratch.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
-const noopLog = async () => {};
-const emptyResult = () => ({ committed: false, pushed: false, preserved: false, recoveryRef: null, restored: false });
-
 /**
- * Snapshot uncommitted changes outside branch history before recovery.
- *
- * `branchName` and `push` remain accepted for API compatibility, but failed or
- * unverified work is intentionally never pushed to that branch (#2263).
+ * Commit (and optionally push) any uncommitted changes in a working tree before critical-error
+ * recovery resets the session.
  *
  * @param {object} params
- * @param {string} params.tempDir working tree to inspect
- * @param {string} [params.branchName] retained for backwards compatibility
- * @param {Function} params.$ command-stream tagged-template executor
- * @param {Function} [params.log] async logger
- * @param {string} [params.reason] short diagnostic reason
- * @param {boolean} [params.push] retained for backwards compatibility
- * @returns {Promise<{committed: false, pushed: false, preserved: boolean, recoveryRef: (string|null), restored: boolean}>}
+ * @param {string} params.tempDir - Working tree (git clone) to inspect.
+ * @param {string} [params.branchName] - Branch to push to (push skipped when absent).
+ * @param {Function} params.$ - command-stream tagged-template executor.
+ * @param {Function} params.log - async logger.
+ * @param {string} [params.reason] - Short human-readable reason, recorded in the commit message.
+ * @param {boolean} [params.push=true] - Whether to push after committing.
+ * @returns {Promise<{committed: boolean, pushed: boolean}>}
  */
-export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchName: _branchName, $, log = noopLog, reason = 'critical error', push: _push = true }) => {
-  if (!tempDir || typeof $ !== 'function') return emptyResult();
-
+export const commitUncommittedChangesOnCriticalError = async ({ tempDir, branchName, $, log, reason = 'critical error', push = true }) => {
+  if (!tempDir || typeof $ !== 'function') {
+    return { committed: false, pushed: false };
+  }
   try {
-    // Local excludes make generated compiler output disappear before both the
-    // status probe and stash snapshot. In particular, `javac Main.java` must
-    // never turn Main.class into a source change.
-    await ensureAiToolScratchIgnored(tempDir, log);
-
     const statusResult = await $({ cwd: tempDir })`git status --porcelain 2>&1`;
     const statusOutput = statusResult.stdout?.toString().trim() || '';
     if (!statusOutput) {
-      await log('   ℹ️ No uncommitted source changes to preserve before recovery.', { verbose: true });
-      return emptyResult();
+      await log('   ℹ️ No uncommitted changes to preserve before recovery.', { verbose: true });
+      return { committed: false, pushed: false };
     }
-
-    await log(`💾 Critical error (${reason}) — preserving uncommitted evidence outside the pull-request branch before recovery...`);
+    await log(`💾 Critical error (${reason}) — auto-committing uncommitted changes to preserve work before recovery...`);
     for (const line of statusOutput.split('\n')) await log(`   ${line}`, { verbose: true });
-
-    const recoveryMessage = `hive-mind recovery evidence: ${reason}`;
-    const stashResult = await $({ cwd: tempDir })`git stash push --include-untracked --message ${recoveryMessage}`;
-    if (stashResult.code !== 0) {
-      await log(`⚠️ Could not snapshot changes before recovery: ${stashResult.stderr?.toString().trim() || stashResult.stdout?.toString().trim()}`, { level: 'warning' });
-      return emptyResult();
+    const addResult = await $({ cwd: tempDir })`git add -A`;
+    if (addResult.code !== 0) {
+      await log(`⚠️ Could not stage changes before recovery: ${addResult.stderr?.toString().trim()}`, { level: 'warning' });
+      return { committed: false, pushed: false };
     }
-
-    const refResult = await $({ cwd: tempDir })`git rev-parse --verify refs/stash`;
-    const recoveryRef = refResult.code === 0 && refResult.stdout?.toString().trim() ? refResult.stdout.toString().trim() : 'stash@{0}';
-    await log(`✅ Recovery evidence preserved outside branch history (${recoveryRef}).`);
-
-    // Apply without dropping: the next agent sees the exact failed worktree,
-    // while refs/stash remains an independent recovery copy.
-    const restoreResult = await $({ cwd: tempDir })`git stash apply --index ${recoveryRef}`;
-    if (restoreResult.code !== 0) {
-      await log(`⚠️ Evidence was preserved, but the working tree could not be restored automatically: ${restoreResult.stderr?.toString().trim() || restoreResult.stdout?.toString().trim()}`, { level: 'warning' });
-      return { committed: false, pushed: false, preserved: true, recoveryRef, restored: false };
+    const commitMessage = `🛟 Auto-commit before critical-error recovery (${reason})`;
+    const commitResult = await $({ cwd: tempDir })`git commit -m ${commitMessage}`;
+    if (commitResult.code !== 0) {
+      await log(`⚠️ Could not commit changes before recovery: ${commitResult.stderr?.toString().trim() || commitResult.stdout?.toString().trim()}`, { level: 'warning' });
+      return { committed: false, pushed: false };
     }
-
-    await log('✅ Failed working tree restored for diagnosis or repair; PR branch HEAD was not changed.');
-    return { committed: false, pushed: false, preserved: true, recoveryRef, restored: true };
+    await log('✅ Uncommitted changes committed before recovery.');
+    if (!push || !branchName) {
+      return { committed: true, pushed: false };
+    }
+    const pushResult = await $({ cwd: tempDir })`git push origin ${branchName} 2>&1`;
+    if (pushResult.code === 0) {
+      await log('✅ Preserved work pushed to remote.');
+      return { committed: true, pushed: true };
+    }
+    await log(`⚠️ Committed locally but could not push preserved work: ${pushResult.stderr?.toString().trim() || pushResult.stdout?.toString().trim()}`, { level: 'warning' });
+    return { committed: true, pushed: false };
   } catch (error) {
-    reportError(error, { context: 'preserve_uncommitted_on_critical_error', tempDir, operation: 'stash_recovery_evidence' });
-    await log(`⚠️ Error while preserving recovery evidence (continuing anyway): ${error.message}`, { level: 'warning' });
-    return emptyResult();
+    reportError(error, { context: 'commit_uncommitted_on_critical_error', tempDir, operation: 'auto_commit_recovery' });
+    await log(`⚠️ Error while auto-committing before recovery (continuing anyway): ${error.message}`, { level: 'warning' });
+    return { committed: false, pushed: false };
   }
 };
 

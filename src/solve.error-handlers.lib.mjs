@@ -34,11 +34,11 @@ export const handleFailure = async options => {
     }
   }
 
-  // Issue #1845 / #1834: preserve dirty work on all failures by default.
+  // Issue #1845 / #1834: "On all failures we automatically commit uncommitted changes by default."
   // Exceptions, unhandled rejections and main-execution errors exit here WITHOUT passing through the
-  // tool-failure recovery chokepoint in solve.mjs, so snapshot work outside the
-  // PR branch first (#2263). Gated by the legacy config option (default on).
-  // Best-effort: never let a preservation failure mask the original error.
+  // tool-failure auto-commit chokepoint in solve.mjs, so preserve (commit + push) any work the agent
+  // left on disk first. Gated by config (default on; HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false).
+  // Best-effort: never let a commit failure mask the original error.
   try {
     const { criticalErrorRecovery } = await import('./config.lib.mjs');
     if (criticalErrorRecovery.autoCommitUncommittedChanges && cleanupContext?.tempDir) {
@@ -52,7 +52,7 @@ export const handleFailure = async options => {
       });
     }
   } catch (preserveError) {
-    await log(`  ⚠️  Could not preserve changes before failure exit: ${preserveError.message}`, { verbose: true });
+    await log(`  ⚠️  Could not auto-commit changes before failure exit: ${preserveError.message}`, { verbose: true });
   }
 
   // Offer to create GitHub issue for the error

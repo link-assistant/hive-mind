@@ -12,8 +12,8 @@
  * exited successfully with the blocker unresolved.
  *
  * The issue requires: one auto-restart system, every label in `N/M` form, a hard
- * stop after the limit, and a real failure with off-branch recovery so the
- * diagnostic evidence stays available without becoming a solution commit.
+ * stop after the limit, and a real failure with auto-commit fail recovery so the
+ * result stays visible.
  */
 
 import assert from 'node:assert';
@@ -101,19 +101,16 @@ const failure = await failOnAutoRestartBudgetExhausted({
 
 assert.equal(failure.reason, AUTO_RESTART_LIMIT_REACHED_REASON, 'the run reports the limit as its failure reason');
 assert.equal(failure.iterationsUsed, 5, 'the failure reports the run-wide iteration count');
-assert.equal(failure.preserved, true, 'fail recovery snapshots the uncommitted evidence');
-assert.equal(failure.committed, false, 'fail recovery does not promote failed work to a commit');
-assert.equal(failure.pushed, false, 'fail recovery does not push failed work to the PR branch');
+assert.equal(failure.committed, true, 'fail recovery auto-commits the uncommitted work');
+assert.equal(failure.pushed, true, 'fail recovery pushes it so the result is visible');
 assert.ok(
-  dirty$.calls.some(c => c.includes('git stash push')),
-  'an off-branch recovery snapshot was made'
+  dirty$.calls.some(c => c.includes('git commit')),
+  'a real commit was made'
 );
 assert.ok(
-  dirty$.calls.some(c => c.includes('git stash apply')),
-  'the preserved working tree was restored'
+  dirty$.calls.some(c => c.includes('git push')),
+  'the preserved work was pushed'
 );
-assert.ok(!dirty$.calls.some(c => c.includes('git commit')), 'failed bytes were not committed');
-assert.ok(!dirty$.calls.some(c => c.includes('git push')), 'failed bytes were not pushed');
 assert.ok(
   dirty$.calls.some(c => c.includes('gh api')),
   'a limit-reached comment was posted to the PR'
@@ -150,7 +147,7 @@ assert.ok(!autoMergeSource.includes('triggered (iteration ${restartCount})'), 'n
 assert.ok(!autoMergeSource.includes('Log (iteration ${restartCount})'), 'no more "(iteration N)" log title');
 assert.ok(!/\$\{autoRestartCount\}\/\$\{maxAutoRestartIterations\}/.test(watchSource), 'labels are built by the shared formatter, not inlined');
 
-// Both loops must route exhaustion through the one fail + recovery path.
+// Both loops must route exhaustion through the one fail + auto-commit path.
 assert.ok(watchSource.includes('failOnAutoRestartBudgetExhausted'), 'the watch loop fails on exhaustion');
 assert.ok(autoMergeSource.includes('failOnAutoRestartBudgetExhausted'), 'the auto-merge loop fails on exhaustion');
 assert.ok(finalizeSource.includes('safeExit(1'), 'the process exits non-zero when the limit was reached');

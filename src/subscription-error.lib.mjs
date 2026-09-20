@@ -306,7 +306,7 @@ export const isSubscriptionBlockedError = input => detectSubscriptionError(input
  *
  * @returns {string[]} lines
  */
-export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = null, tempDir = null, branchName = null, committed = null, preserved = null, resumeCommand = null } = {}) => {
+export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = null, tempDir = null, branchName = null, committed = null, resumeCommand = null } = {}) => {
   if (!info) return [];
   const toolName = (info.tool || tool || 'tool').toUpperCase();
   const lines = [];
@@ -321,8 +321,7 @@ export const formatSubscriptionErrorReport = (info, { tool = null, sessionId = n
   lines.push('');
   lines.push('   What to do:');
   for (const step of info.guidance || []) lines.push(`     • ${step}`);
-  if (preserved === true) lines.push('   💾 Uncommitted evidence was preserved outside pull-request branch history before stopping.');
-  else if (committed === true) lines.push('   💾 Uncommitted changes were auto-committed and pushed before stopping.');
+  if (committed === true) lines.push('   💾 Uncommitted changes were auto-committed and pushed before stopping.');
   else if (committed === false) lines.push('   ⚠️  No uncommitted changes to preserve (working tree was clean).');
   if (tempDir) lines.push(`   📁 Working directory: ${tempDir}`);
   if (branchName) lines.push(`   🌿 Branch: ${branchName}`);

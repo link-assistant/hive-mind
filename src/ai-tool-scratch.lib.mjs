@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Issues #2119/#2263: keep AI tools' scratch state and generated compiler
- * outputs out of the solver's workspace bookkeeping.
+ * Issue #2119: keep AI tools' own scratch state out of the solver's workspace
+ * bookkeeping.
  *
  * AI tools drop working files into the directory they are run in. Formal AI
  * writes `.formal-ai/` (a `general-change-plan.lino` plan file and friends);
@@ -43,18 +43,7 @@ export const AI_TOOL_SCRATCH_PATHS = [
   { path: '.playwright-mcp/', tool: 'playwright-mcp' },
 ];
 
-/**
- * Untracked compiler outputs which are never source changes.
- *
- * Keep this deliberately narrow. Build directories and archives can be
- * intentional project artifacts, while a `.class` emitted beside a `.java`
- * file by `javac Main.java` is unambiguously generated (#2263).
- */
-export const GENERATED_BUILD_ARTIFACT_PATTERNS = ['*.class'];
-
-const EXCLUDE_HEADER = '# hive-mind: tool scratch and generated compiler outputs (issues #2119, #2263)';
-
-const porcelainPath = statusLine => statusLine.slice(3).trim().replace(/^"|"$/g, '');
+const EXCLUDE_HEADER = '# hive-mind: AI tool scratch directories (issue #2119)';
 
 /**
  * Does this `git status --porcelain` line describe only AI tool scratch state?
@@ -65,18 +54,12 @@ const porcelainPath = statusLine => statusLine.slice(3).trim().replace(/^"|"$/g,
 export const isAiToolScratchPath = statusLine => {
   if (typeof statusLine !== 'string') return false;
   // Porcelain v1: two status characters, a space, then the path.
-  const filePath = porcelainPath(statusLine);
+  const filePath = statusLine.slice(3).trim().replace(/^"|"$/g, '');
   if (!filePath) return false;
   return AI_TOOL_SCRATCH_PATHS.some(({ path: scratchPath }) => {
     const withoutSlash = scratchPath.replace(/\/$/, '');
     return filePath === withoutSlash || filePath.startsWith(`${withoutSlash}/`);
   });
-};
-
-/** True for an untracked Java compiler output in porcelain-v1 status. */
-export const isGeneratedBuildArtifactPath = statusLine => {
-  if (typeof statusLine !== 'string' || !statusLine.startsWith('?? ')) return false;
-  return /(?:^|\/)[^/]*\.class$/u.test(porcelainPath(statusLine));
 };
 
 /**
@@ -93,7 +76,7 @@ export const filterAiToolScratchFromStatus = statusOutput => {
   if (!statusOutput) return '';
   return statusOutput
     .split('\n')
-    .filter(line => line.trim() && !isAiToolScratchPath(line) && !isGeneratedBuildArtifactPath(line))
+    .filter(line => line.trim() && !isAiToolScratchPath(line))
     .join('\n');
 };
 
@@ -131,8 +114,7 @@ export const ensureAiToolScratchIgnored = async (tempDir, log = null) => {
       .map(line => line.trim())
       .filter(Boolean)
   );
-  const localExcludes = [...AI_TOOL_SCRATCH_PATHS.map(entry => entry.path), ...GENERATED_BUILD_ARTIFACT_PATTERNS];
-  const missing = localExcludes.filter(exclude => !existingLines.has(exclude));
+  const missing = AI_TOOL_SCRATCH_PATHS.map(entry => entry.path).filter(scratchPath => !existingLines.has(scratchPath));
 
   if (missing.length === 0) {
     return { applied: true, reason: 'already_present', added: [] };
@@ -149,15 +131,13 @@ export const ensureAiToolScratchIgnored = async (tempDir, log = null) => {
     return { applied: false, reason: 'unwritable' };
   }
 
-  await report(`🧹 Ignoring tool scratch and generated compiler outputs in this workspace: ${missing.join(', ')}`);
+  await report(`🧹 Ignoring AI tool scratch directories in this workspace: ${missing.join(', ')}`);
   return { applied: true, added: missing };
 };
 
 export default {
   AI_TOOL_SCRATCH_PATHS,
-  GENERATED_BUILD_ARTIFACT_PATTERNS,
   ensureAiToolScratchIgnored,
   filterAiToolScratchFromStatus,
   isAiToolScratchPath,
-  isGeneratedBuildArtifactPath,
 };

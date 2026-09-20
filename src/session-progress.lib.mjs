@@ -220,7 +220,7 @@ let noProgressFailure = null;
 /** @returns {boolean} true once a restart loop stopped for lack of progress */
 export const hasNoProgressFailure = () => Boolean(noProgressFailure);
 
-/** @returns {{reason: string, preserved: boolean, committed: boolean, pushed: boolean, occurrences: number}|null} */
+/** @returns {{reason: string, committed: boolean, pushed: boolean, occurrences: number}|null} */
 export const getNoProgressFailure = () => noProgressFailure;
 
 /** Clear the recorded failure. Intended for tests. */
@@ -236,7 +236,7 @@ export const resetNoProgressFailure = () => {
  * and died with its temporary clone), publish one comment, and record the
  * failure so the process exits non-zero.
  *
- * Never throws: a failed preservation attempt or comment must not mask the stop itself.
+ * Never throws: a failed commit or comment must not mask the stop itself.
  *
  * @param {Object} params
  * @param {string} params.owner
@@ -251,7 +251,7 @@ export const resetNoProgressFailure = () => {
  * @param {string} [params.mode] - which loop stopped
  * @param {number|null} [params.remainingIterations]
  * @param {boolean} [params.verbose]
- * @returns {Promise<{reason: string, preserved: boolean, committed: boolean, pushed: boolean, occurrences: number}>}
+ * @returns {Promise<{reason: string, committed: boolean, pushed: boolean, occurrences: number}>}
  */
 export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, tempDir, branchName, $: command, log = noopLog, formatAligned = (icon, label, value) => `${icon} ${label} ${value}`, verdict = null, mode = null, remainingIterations = null, verbose = false }) => {
   await log('');
@@ -269,13 +269,13 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
     await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: 'no progress between sessions' });
   }
 
-  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: false });
+  const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: true });
 
   if (prNumber) {
     await reportNoProgressStop({ $: command, owner, repo, targetNumber: prNumber, mode, verdict, remainingIterations, verbose, log });
   }
 
-  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, preserved: preserved.preserved, committed: preserved.committed, pushed: preserved.pushed, occurrences: verdict?.occurrences || 2 };
+  noProgressFailure = { reason: NO_PROGRESS_STOP_REASON, committed: preserved.committed, pushed: preserved.pushed, occurrences: verdict?.occurrences || 2 };
   return noProgressFailure;
 };
 

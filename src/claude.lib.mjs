@@ -199,8 +199,8 @@ export const executeClaudeCommand = async params => {
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
-  // then escalate to a fresh restart, preserving uncommitted evidence off-branch before each
-  // attempt (#2263). Created once so its resume/restart caps persist across recursive retry calls.
+  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
+  // once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;

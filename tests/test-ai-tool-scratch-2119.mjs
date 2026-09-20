@@ -27,7 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { AI_TOOL_SCRATCH_PATHS, GENERATED_BUILD_ARTIFACT_PATTERNS, ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, isAiToolScratchPath, isGeneratedBuildArtifactPath } from '../src/ai-tool-scratch.lib.mjs';
+import { AI_TOOL_SCRATCH_PATHS, ensureAiToolScratchIgnored, filterAiToolScratchFromStatus, isAiToolScratchPath } from '../src/ai-tool-scratch.lib.mjs';
 import { ensureUseM } from '../src/use-m-bootstrap.lib.mjs';
 
 const use = await ensureUseM();
@@ -47,13 +47,9 @@ assert.ok(!isAiToolScratchPath('?? examples'), 'a new examples/ directory is the
 assert.ok(!isAiToolScratchPath(' M src/solve.mjs'), 'a modified source file is real work');
 assert.ok(!isAiToolScratchPath('?? .formal-ai-notes.md'), 'a similarly named file outside the scratch directory is real work');
 assert.ok(!isAiToolScratchPath(''), 'an empty line is not a scratch path');
-assert.ok(isGeneratedBuildArtifactPath('?? Main.class'), 'an untracked javac output is generated build state');
-assert.ok(!isGeneratedBuildArtifactPath(' M Main.class'), 'a class file already tracked by the project is not hidden');
-assert.ok(!isGeneratedBuildArtifactPath('?? Main.java'), 'source remains visible');
 
 // The exact status output the Scala run saw: only `examples` survives.
 assert.equal(filterAiToolScratchFromStatus('?? .formal-ai/\n?? examples'), '?? examples', 'the scratch directory is dropped and the real change is kept');
-assert.equal(filterAiToolScratchFromStatus('?? Main.class\n M Main.java'), ' M Main.java', 'generated class output is dropped while modified source remains');
 assert.equal(filterAiToolScratchFromStatus('?? .formal-ai/'), '', 'a workspace containing nothing but scratch state reads as clean - the restart loop stops');
 assert.equal(filterAiToolScratchFromStatus(''), '');
 
@@ -72,14 +68,16 @@ try {
   // Reproduce the workspace state: the tool left its plan file behind.
   await mkdir(path.join(workspace, '.formal-ai'), { recursive: true });
   await writeFile(path.join(workspace, '.formal-ai', 'general-change-plan.lino'), 'plan\n');
-  await writeFile(path.join(workspace, 'Main.class'), Buffer.from([0xca, 0xfe, 0xba, 0xbe]));
 
   const before = (await $`git -C ${workspace} status --porcelain`).stdout.toString().trim();
-  assert.equal(before, '?? .formal-ai/\n?? Main.class', 'without the fix git reports scratch and compiler output as untracked changes');
+  assert.equal(before, '?? .formal-ai/', 'without the fix git reports the scratch directory as an untracked change');
 
   const applied = await ensureAiToolScratchIgnored(workspace);
   assert.equal(applied.applied, true);
-  assert.deepEqual(applied.added, [...AI_TOOL_SCRATCH_PATHS.map(entry => entry.path), ...GENERATED_BUILD_ARTIFACT_PATTERNS]);
+  assert.deepEqual(
+    applied.added,
+    AI_TOOL_SCRATCH_PATHS.map(entry => entry.path)
+  );
 
   const after = (await $`git -C ${workspace} status --porcelain`).stdout.toString().trim();
   assert.equal(after, '', 'git itself now ignores the scratch directory, so every caller agrees');

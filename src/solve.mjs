@@ -984,7 +984,6 @@ try {
         tempDir,
         branchName,
         committed: preservedWork ? preservedWork.committed : null,
-        preserved: preservedWork ? preservedWork.preserved : null,
         resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
       });
       for (const line of reportLines) await log(line, { level: 'error' });
@@ -1061,7 +1060,7 @@ try {
   } else {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
-  // The legacy option now preserves critical-error evidence outside PR history (#2263).
+  // When limit is reached, force auto-commit of any uncommitted changes to preserve work. Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by default." A failed/errored session is a critical error, so auto-commit (and push) to preserve any work the agent left on disk. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
   const { criticalErrorRecovery } = await import('./config.lib.mjs');
   const criticalError = success === false || errorDuringExecution === true;
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached || (criticalError && criticalErrorRecovery.autoCommitUncommittedChanges);

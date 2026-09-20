@@ -252,8 +252,8 @@ export const watchForFeedback = async params => {
       // Issue #2119: the shared budget is exhausted. Previously this logged a
       // warning and broke out of the loop, leaving the very uncommitted changes
       // that triggered every restart on a temporary clone that is then deleted.
-      // Now the run fails and the work is preserved off-branch first, so the
-      // evidence remains available without presenting it as a solution.
+      // Now the run fails and the work is auto-committed first, so the result
+      // stays visible in the PR.
       if (hasExhaustedAutoRestartBudget()) {
         const changes = await getUncommittedChangesDetails(tempDir);
         budgetExhaustion = await failOnAutoRestartBudgetExhausted({

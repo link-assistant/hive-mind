@@ -99,7 +99,7 @@ test('classifyRetryableError marks it non-retryable with a subscription label', 
   assert.equal(classification.isRetryable, false, 'must not be retried — waiting cannot fix an account block');
   assert.equal(classification.isCapacity, false, 'must not trigger a fallback-model switch');
   assert.equal(classification.isSubscriptionError, true);
-  assert.equal(classification.label, 'subscription access blocked');
+  assert.equal(classification.label, 'subscription access unavailable');
 });
 
 // ---------------------------------------------------------------------------
@@ -230,11 +230,11 @@ test('solve.mjs classifies every tool, not only the ones with structured codes',
   assert.ok(source.includes('toolResult?.subscriptionError || detectSubscriptionError('), 'must fall back to re-classifying the rendered message');
 });
 
-test('hive.mjs stops the whole queue when a worker reports the block', () => {
+test('hive.mjs stops the whole queue when a worker reports unavailable access', () => {
   const source = read('hive.mjs');
   assert.ok(source.includes('if (line.includes(SUBSCRIPTION_BLOCKED_MARKER)) noteSubscriptionBlock(workerId, line)'), 'worker output must be scanned for the marker');
   assert.match(source, /noteSubscriptionBlock = \([\s\S]*?issueQueue\.stop\(\);/, 'the queue must be stopped');
-  assert.ok(source.includes("await safeExit(1, 'Subscription/account access blocked')"), 'the hive must exit non-zero');
+  assert.ok(source.includes("await safeExit(1, 'Tool subscription/access unavailable')"), 'the hive must exit non-zero');
 });
 
 // ---------------------------------------------------------------------------
@@ -274,7 +274,7 @@ test('a log without the marker produces no Telegram section', () => {
 
 test('the Telegram section names the cause, the code and the preserved work', () => {
   const section = formatSubscriptionBlockedSection(parseSubscriptionBlockFromLog(SESSION_LOG));
-  assert.ok(section.startsWith('🚫 '), section.slice(0, 40));
+  assert.ok(section.startsWith('⚠️ '), section.slice(0, 40));
   assert.equal((section.match(/```/g) || []).length, 2, 'the body must be a single fenced block');
   assert.ok(section.includes('oauth_org_not_allowed'), section);
   assert.ok(section.includes('not a usage limit'), section);

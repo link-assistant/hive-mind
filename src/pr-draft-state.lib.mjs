@@ -19,19 +19,21 @@
  * every draft it hands out, so the matching ready transition can be guaranteed by
  * code — including on the interrupt and fatal-error exit paths.
  *
- * Issue #2247: the ready transition needs one exception, and exactly one. A session
- * that produced no diff at all has nothing to review, so converting its pull request
- * to "ready for review" publishes a claim ("solution draft verified") that the diff
- * contradicts — all three reproduction runs did this, one of them with zero commits.
- * {@link ensurePullRequestIsReady} therefore accepts `requireChanges`, and an empty
- * measured diff records a *deliberate* draft: it is removed from the outstanding
- * registry, so neither `endWorkSession()` nor the interrupt/fatal-error safety nets
- * undo the decision, and the next session start clears it again. An unmeasured diff
- * (`measured: false` — gh failed) is never treated as empty.
+ * Issue #2247: a session that produced no diff at all has nothing to review, so
+ * converting its pull request to "ready for review" publishes a claim ("solution
+ * draft verified") that the diff contradicts. {@link ensurePullRequestIsReady}
+ * therefore accepts `requireChanges`, and an empty measured diff records a
+ * *deliberate* draft. Issue #2263 applies the same invariant to terminal failures:
+ * a clean worktree after a recovery commit is not evidence that verification
+ * succeeded. Deliberate drafts are removed from the outstanding registry, so
+ * `endWorkSession()` and the interrupt/fatal-error safety nets cannot undo them;
+ * the next working session clears the previous verdict and may try again. An
+ * unmeasured diff (`measured: false` — gh failed) is never treated as empty.
  *
  * @see https://github.com/link-assistant/hive-mind/issues/2123
  * @see https://github.com/link-assistant/hive-mind/issues/2182
  * @see https://github.com/link-assistant/hive-mind/issues/2247
+ * @see https://github.com/link-assistant/hive-mind/issues/2263
  * @see docs/case-studies/issue-2182/README.md for the full timeline and evidence
  */
 
@@ -53,15 +55,15 @@ const noopLog = async () => {};
 const outstandingWorkingSessionDrafts = new Map();
 
 /**
- * Issue #2247: pull requests this process is leaving in draft on purpose, because the
- * session that just ended produced an empty diff.
+ * Issues #2247/#2263: pull requests this process is leaving in draft on purpose,
+ * because the session produced an empty diff or ended in failure.
  *
  * Separate from {@link outstandingWorkingSessionDrafts} because the two mean opposite
  * things: an outstanding draft is an obligation to convert, a deliberate draft is a
  * decision not to. Keeping the decision in the same module as the transition is what
  * makes it survive the later `endWorkSession()` call, which knows nothing about diffs.
  *
- * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), changeStats: (Object|null), since: string}>}
+ * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), kind: string, changeStats: (Object|null), since: string}>}
  */
 const deliberateDrafts = new Map();
 
@@ -97,9 +99,9 @@ export const resetWorkingSessionDrafts = () => {
  * Issue #2247: record that this process is leaving `prNumber` in draft on purpose.
  * Drops it from the outstanding registry, so the safety nets do not "restore" it.
  */
-export const markPullRequestLeftInDraft = ({ owner, repo, prNumber, reason = null, changeStats = null }) => {
+export const markPullRequestLeftInDraft = ({ owner, repo, prNumber, reason = null, kind = 'deliberate', changeStats = null }) => {
   untrackWorkingSessionDraft({ owner, repo, prNumber });
-  deliberateDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason, changeStats, since: new Date().toISOString() });
+  deliberateDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason, kind, changeStats, since: new Date().toISOString() });
 };
 
 /** The deliberate-draft record for a pull request, or null. */
@@ -260,6 +262,25 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
 };
 
 /**
+ * Restore draft mode after a failed/unverified solution and make that decision
+ * dominate every later session-end, interrupt, and auto-merge ready safeguard.
+ *
+ * The deliberate record is written even when GitHub's conversion call fails:
+ * retrying `ready` later would make the state less safe, never more safe.
+ */
+export const ensurePullRequestStaysDraftAfterFailure = async options => {
+  const result = await setPullRequestDraftState({ ...options, target: 'draft' });
+  markPullRequestLeftInDraft({
+    owner: options?.owner,
+    repo: options?.repo,
+    prNumber: options?.prNumber,
+    reason: options?.reason || 'the solution session failed or verification did not succeed',
+    kind: 'failure',
+  });
+  return result;
+};
+
+/**
  * Put a pull request into draft mode when a working session starts/restarts/resumes.
  * No-op when the PR is already a draft, merged, or closed.
  */
@@ -308,7 +329,7 @@ export const ensurePullRequestIsReady = async ({ requireChanges = false, changeS
     const stats = changeStats || (await getChangeStats({ owner, repo, prNumber, $, log }));
     if (stats && stats.measured && !stats.hasChanges) {
       const reason = 'no changes were produced by this session';
-      markPullRequestLeftInDraft({ owner, repo, prNumber, reason, changeStats: stats });
+      markPullRequestLeftInDraft({ owner, repo, prNumber, reason, kind: 'no_changes', changeStats: stats });
       await log(`  ⚠️  PR #${prNumber} keeps its draft status: ${reason}`, { level: 'warning' });
       return { ok: true, changed: false, skipped: true, reason: 'no_changes', error: null, changeStats: stats };
     }
@@ -327,6 +348,7 @@ export default {
   getPullRequestsLeftInDraft,
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,
+  ensurePullRequestStaysDraftAfterFailure,
   getOutstandingWorkingSessionDrafts,
   markPullRequestLeftInDraft,
   restorePullRequestsLeftInDraft,

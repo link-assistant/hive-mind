@@ -55,6 +55,12 @@ export const collectClaudeStreamEventFacts = data => {
     messageCountDelta: 0,
     toolUseCountDelta: 0,
     lastText: null,
+    // Issue #2263: whether this event carries a tool result, and whether the
+    // final result in the event failed. Unlike toolResultError, this also
+    // represents successful results so a later success can clear an earlier
+    // exploratory failure.
+    toolResultObserved: false,
+    toolResultFailed: false,
     toolResultError: null,
     // Issue #2160: set when toolResultError is an in-session, self-handled tool failure.
     toolResultErrorIsBenign: false,
@@ -74,10 +80,16 @@ export const collectClaudeStreamEventFacts = data => {
         facts.compactionSummary = item.text;
       }
     }
-    if (item.type === 'tool_result' && item.is_error === true) facts.toolResultError = normalizeToolResultError(item.content);
+    if (item.type === 'tool_result') {
+      facts.toolResultObserved = true;
+      facts.toolResultFailed = item.is_error === true;
+      facts.toolResultError = facts.toolResultFailed ? normalizeToolResultError(item.content) : null;
+    }
   }
 
-  if (!facts.toolResultError && typeof data.tool_use_result === 'string' && data.tool_use_result.trim().startsWith('Error:')) {
+  if (!facts.toolResultObserved && typeof data.tool_use_result === 'string' && data.tool_use_result.trim().startsWith('Error:')) {
+    facts.toolResultObserved = true;
+    facts.toolResultFailed = true;
     facts.toolResultError = data.tool_use_result.trim();
   }
 
@@ -88,6 +100,24 @@ export const collectClaudeStreamEventFacts = data => {
   }
 
   return facts;
+};
+
+/**
+ * Fold stream facts into the last observed tool result.
+ *
+ * A failed command followed by a successful edit/test is normal agent work;
+ * the later result clears it. A diagnostic-rich failure immediately followed
+ * only by the provider's top-level `subtype: success` is not verified success
+ * (#2263); bare exit-status probes retain issue #2160's benign classification.
+ */
+export const updateTerminalToolResult = (previous, facts) => {
+  if (!facts?.toolResultObserved) return previous || { observed: false, failed: false, benign: false, error: null };
+  return {
+    observed: true,
+    failed: facts.toolResultFailed === true,
+    benign: facts.toolResultFailed === true && facts.toolResultErrorIsBenign === true,
+    error: facts.toolResultFailed === true ? facts.toolResultError || 'Tool result failed without diagnostics' : null,
+  };
 };
 
 export const shouldFailClaudeStreamWithoutResult = ({ commandFailed, streamingInput, resultEventReceived }) => {

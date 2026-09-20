@@ -41,6 +41,7 @@ import { createHash } from 'node:crypto';
 
 import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
 import { filterAiToolScratchFromStatus } from './ai-tool-scratch.lib.mjs';
+import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { reportAutomationStop } from './automation-stop-reporting.lib.mjs';
 import { getRemainingAutoRestartIterations } from './auto-restart-budget.lib.mjs';
 
@@ -261,6 +262,12 @@ export const failOnNoProgressBetweenSessions = async ({ owner, repo, prNumber, t
     await log(formatAligned('', 'Budget left unused:', `${remainingIterations} restart iteration${remainingIterations === 1 ? '' : 's'}`, 2), { level: 'error' });
   }
   await log('');
+
+  // Issue #2263: terminal failure must dominate any earlier readiness decision,
+  // including the restart iteration's own finally block.
+  if (prNumber) {
+    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $: command, log, formatAligned, reason: 'no progress between sessions' });
+  }
 
   const preserved = await commitUncommittedChangesOnCriticalError({ tempDir, branchName, $: command, log, reason: 'stopped after two identical AI sessions', push: true });
 

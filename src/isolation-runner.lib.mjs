@@ -42,6 +42,8 @@ export { isUnknownDockerExitCode, parseSessionExitFooter, parseSessionListOutput
 // resume/attach wrappers can use them without importing this runner (a cycle).
 import { findStartCommandBinary, getCommandStreamDollar } from './start-command-cli.lib.mjs';
 export { findStartCommandBinary };
+import { killDockerContainer } from './docker-container-control.lib.mjs';
+export { killDockerContainer };
 // Issue #2189: `$ --resume` / `$ --resume-all`, added in start-command 0.33.0
 // (link-foundation/start#162). Re-exported so callers keep reaching every
 // isolation verb through this module.
@@ -937,23 +939,6 @@ export async function removeDockerContainer(containerName, verbose = false) {
     };
   }
 }
-/** Stop a Docker task without removing it, so completion diagnostics and the
- * configured retention policy can still inspect its writable layer. */
-export async function killDockerContainer(containerName, verbose = false) {
-  if (!containerName) return { success: false, output: '', error: 'missing container name' };
-  try {
-    const $ = await getCommandStreamDollar();
-    const result = await $({ mirror: false })`docker kill ${containerName}`;
-    const output = result.stdout?.toString() || result.stderr?.toString() || '';
-    if (verbose) console.log(`[VERBOSE] isolation-runner: docker kill '${containerName}' succeeded`);
-    return { success: true, output, error: null };
-  } catch (error) {
-    const stderr = error?.stderr?.toString?.().trim() || '';
-    if (verbose) console.log(`[VERBOSE] isolation-runner: docker kill '${containerName}' failed: ${stderr || error?.message || error}`);
-    return { success: false, output: error?.stdout?.toString?.() || '', error: stderr || error?.message || String(error) };
-  }
-}
-
 /** Finish the pre-command gate without opening it after a resource update failure.
  * Removing (or killing) the gated container prevents an unlimited task launch. */
 export async function finalizeDockerContainerStartGate(containerName, { resourceLimitError = null, verbose = false, releaseGate = releaseDockerContainerStartGate, removeContainer = removeDockerContainer, killContainer = killDockerContainer } = {}) {

@@ -37,7 +37,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
-import { detectContainerDiskLimitBreach } from './container-resource-limits.lib.mjs';
+import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -494,38 +494,12 @@ export function shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning = 
   if (!Number.isFinite(observedAt)) return true;
   return now - observedAt >= intervalMs;
 }
-function formatResourceLimitBytes(bytes) {
-  if (!Number.isFinite(bytes)) return 'unknown';
-  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit++;
-  }
-  return `${value >= 10 || unit === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unit]}`;
-}
-export function formatContainerResourceLimitExceededSection(sessionInfo) {
-  const breach = sessionInfo?.containerResourceLimitExceeded;
-  if (breach?.resource !== 'disk') return '';
-  return [`🛑 *Container resource limit exceeded*`, `Writable layer: ${formatResourceLimitBytes(breach.observedBytes)} used; limit ${formatResourceLimitBytes(breach.limitBytes)}.`, 'The task container was stopped.'].join('\n');
-}
-export async function enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedBytes, { verbose = false, killContainer = null } = {}) {
-  const breach = detectContainerDiskLimitBreach({ limitBytes: sessionInfo?.containerResourceLimits?.diskBytes, observedBytes });
-  if (!breach) return null;
-  sessionInfo.containerResourceLimitExceeded = { ...breach, observedAt: new Date().toISOString() };
-  persistSessionSnapshot(sessionName, sessionInfo);
-  const stop =
-    killContainer ||
-    (async (containerName, killVerbose) => {
-      const runner = await getIsolationRunner();
-      return runner.killDockerContainer(containerName, killVerbose);
-    });
-  const result = await stop(sessionInfo?.sessionId || sessionName, verbose);
-  const message = `Session ${sessionName} exceeded its Docker writable-layer limit (${formatResourceLimitBytes(observedBytes)} > ${formatResourceLimitBytes(breach.limitBytes)})`;
-  if (result?.success) console.warn(`[session-monitor] ${message}; container stopped`);
-  else console.error(`[session-monitor] ${message}; docker kill failed: ${result?.error || 'unknown error'}`);
-  return { ...breach, stopped: Boolean(result?.success), error: result?.error || null };
+export { formatContainerResourceLimitExceededSection };
+export function enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedBytes, options = {}) {
+  return enforceContainerDiskLimit(sessionName, sessionInfo, observedBytes, {
+    ...options,
+    persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+  });
 }
 async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });

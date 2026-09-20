@@ -12,10 +12,10 @@
  *      resumed in place — no `executeWithIsolation`, no second clone — and the
  *      recovery session is tracked under the name `$` returns, keeping the
  *      original execution UUID.
- *   2. Formal AI (#2146) and `--use-router` tasks are deliberately excluded:
- *      their internal Docker networks are attached by Hive Mind *after* the
- *      container is created, so a resumed container would come up without them
- *      and the task would fail open. They fall back to a fresh launch.
+ *   2. Formal AI (#2146), `--use-router`, and resource-limited tasks are
+ *      deliberately excluded: their networks or Docker HostConfig controls are
+ *      applied by Hive Mind *after* container creation, so a snapshot-derived
+ *      resume would lose them. They fall back to a fresh launch.
  *   3. Every other refusal — screen/tmux backend, missing UUID, vanished
  *      container, an older `$` that has no `--resume`, an upstream "still
  *      running" refusal — falls back to the previous behaviour instead of
@@ -41,6 +41,7 @@ console.log('='.repeat(78));
 const SESSION = '30920087-c181-47f0-bc75-66a78402d400';
 const UUID = 'f0b5c8f2-2f3f-4a0e-9a4f-2b1c7d5e6a90';
 const TOOL_SESSION = '9c2a1b7e-3d44-4c11-9f0d-8a7b6c5d4e3f';
+const RESOURCE_LIMITS = { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } };
 
 /** A killed session that every gate should let through. */
 const killedSession = (overrides = {}) => ({
@@ -49,7 +50,7 @@ const killedSession = (overrides = {}) => ({
   executionUuid: UUID,
   command: 'solve',
   tool: 'claude',
-  containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } },
+  containerResourceLimits: null,
   args: ['https://github.com/link-assistant/hive-mind/issues/2189', '--auto-continue'],
   ...overrides,
 });
@@ -73,6 +74,8 @@ const formalAi = planSameContainerResume({ sessionName: SESSION, sessionInfo: ki
 assert(formalAi.eligible === false && formalAi.reason === IN_PLACE_SKIP_REASONS.FORMAL_AI_TASK, 'a Formal AI task is not resumed in place (#2146 requires it to fail closed)');
 assert(planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ model: 'formal-ai', args: ['url'] }) }).reason === IN_PLACE_SKIP_REASONS.FORMAL_AI_TASK, 'the Formal AI gate keys off the model, not only the args');
 assert(planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ args: ['url', '--use-router'] }) }).reason === IN_PLACE_SKIP_REASONS.ROUTER_TASK, 'a --use-router task is not resumed in place');
+const resourceLimited = planSameContainerResume({ sessionName: SESSION, sessionInfo: killedSession({ containerResourceLimits: RESOURCE_LIMITS }) });
+assert(resourceLimited.eligible === false && resourceLimited.reason === IN_PLACE_SKIP_REASONS.RESOURCE_LIMITS, 'a resource-limited task uses a fresh launch so Docker limits are reapplied before its command starts');
 
 // ---------------------------------------------------------------------------
 // 2. The attempt itself
@@ -86,7 +89,7 @@ const makeRunner = (overrides = {}) => {
     generateSessionId: () => 'fresh-1111-2222-3333-444455556666',
     executeWithIsolation: async (command, args, opts) => {
       calls.launches.push({ command, args, opts });
-      return { success: true, executionUuid: 'fresh-uuid', containerFilesystemStartBytes: 1024, containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } } };
+      return { success: true, executionUuid: 'fresh-uuid', containerFilesystemStartBytes: 1024, containerResourceLimits: RESOURCE_LIMITS };
     },
     checkDockerContainerExists: async name => {
       calls.exists.push(name);
@@ -156,7 +159,7 @@ const trackedFresh = [];
 const fallbackRunner = makeRunner({ exists: false });
 const fellBack = await recoverKilledSession({
   sessionName: SESSION,
-  sessionInfo: killedSession(),
+  sessionInfo: killedSession({ containerResourceLimits: RESOURCE_LIMITS }),
   killed: true,
   env: {},
   readLastSessionId: readTool,

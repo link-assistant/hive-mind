@@ -13,7 +13,7 @@
  * stopped container's filesystem and runs the recovery command in a container
  * derived from that snapshot, keeping the original execution UUID and log.
  *
- * Not every session may take that path, and the two exceptions are deliberate:
+ * Not every session may take that path, and the exceptions are deliberate:
  *
  * - **Formal AI tasks** (issue #2146) reach their sidecar over an *internal*
  *   Docker network that Hive Mind attaches with `docker network connect` after
@@ -23,6 +23,10 @@
  *   the normal launch path, which re-acquires the sidecar lease properly.
  * - **`--use-router` tasks** are attached to the router network the same way,
  *   with a freshly minted token, and have the same problem.
+ * - **Resource-limited tasks** received CPU/RAM controls through `docker
+ *   update`, after the original container was created. Docker snapshots do not
+ *   retain those HostConfig controls, so these use the gated fresh-launch path
+ *   that reapplies every configured limit before the recovery command starts.
  *
  * Everything else — the overwhelming majority, and every session in the
  * original incident — resumes in place.
@@ -42,6 +46,7 @@ export const IN_PLACE_SKIP_REASONS = Object.freeze({
   NO_IDENTIFIER: 'no-identifier',
   FORMAL_AI_TASK: 'formal-ai-task',
   ROUTER_TASK: 'router-task',
+  RESOURCE_LIMITS: 'container-resource-limits',
   NO_RESUME_SUPPORT: 'no-resume-support',
   CONTAINER_GONE: 'container-gone',
   UNSUPPORTED: 'resume-unsupported',
@@ -79,6 +84,17 @@ export function planSameContainerResume({ sessionName = null, sessionInfo = {} }
     return { ...base, reason: IN_PLACE_SKIP_REASONS.FORMAL_AI_TASK };
   }
   if (hasUseRouterFlag(args)) return { ...base, reason: IN_PLACE_SKIP_REASONS.ROUTER_TASK };
+
+  // A replacement command is resumed by committing the stopped container and
+  // starting a new snapshot-derived one. Docker does not copy HostConfig
+  // settings changed through `docker update`, so Hive Mind's CPU/RAM controls
+  // would disappear (and the writable-layer allowance would reset). Use the
+  // normal launch path, whose start gate reapplies every configured limit
+  // before the recovery command is allowed to run.
+  const limits = sessionInfo?.containerResourceLimits;
+  if (limits && (Number.isFinite(limits.cpuCores) || Number.isFinite(limits.memoryBytes) || Number.isFinite(limits.diskBytes) || Object.values(limits.requested || {}).some(Boolean))) {
+    return { ...base, reason: IN_PLACE_SKIP_REASONS.RESOURCE_LIMITS };
+  }
 
   return { ...base, eligible: true, reason: 'ready' };
 }

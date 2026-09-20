@@ -53,15 +53,15 @@ const noopLog = async () => {};
 const outstandingWorkingSessionDrafts = new Map();
 
 /**
- * Issue #2247: pull requests this process is leaving in draft on purpose, because the
- * session that just ended produced an empty diff.
+ * Issues #2247/#2263: pull requests this process is leaving in draft on purpose,
+ * because the session produced an empty diff or ended in failure.
  *
  * Separate from {@link outstandingWorkingSessionDrafts} because the two mean opposite
  * things: an outstanding draft is an obligation to convert, a deliberate draft is a
  * decision not to. Keeping the decision in the same module as the transition is what
  * makes it survive the later `endWorkSession()` call, which knows nothing about diffs.
  *
- * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), changeStats: (Object|null), since: string}>}
+ * @type {Map<string, {owner: string, repo: string, prNumber: (number|string), reason: (string|null), kind: string, changeStats: (Object|null), since: string}>}
  */
 const deliberateDrafts = new Map();
 
@@ -97,9 +97,9 @@ export const resetWorkingSessionDrafts = () => {
  * Issue #2247: record that this process is leaving `prNumber` in draft on purpose.
  * Drops it from the outstanding registry, so the safety nets do not "restore" it.
  */
-export const markPullRequestLeftInDraft = ({ owner, repo, prNumber, reason = null, changeStats = null }) => {
+export const markPullRequestLeftInDraft = ({ owner, repo, prNumber, reason = null, kind = 'deliberate', changeStats = null }) => {
   untrackWorkingSessionDraft({ owner, repo, prNumber });
-  deliberateDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason, changeStats, since: new Date().toISOString() });
+  deliberateDrafts.set(draftKey(owner, repo, prNumber), { owner, repo, prNumber, reason, kind, changeStats, since: new Date().toISOString() });
 };
 
 /** The deliberate-draft record for a pull request, or null. */
@@ -260,6 +260,25 @@ const setPullRequestDraftState = async ({ target, owner, repo, prNumber, $, log 
 };
 
 /**
+ * Restore draft mode after a failed/unverified solution and make that decision
+ * dominate every later session-end, interrupt, and auto-merge ready safeguard.
+ *
+ * The deliberate record is written even when GitHub's conversion call fails:
+ * retrying `ready` later would make the state less safe, never more safe.
+ */
+export const ensurePullRequestStaysDraftAfterFailure = async options => {
+  const result = await setPullRequestDraftState({ ...options, target: 'draft' });
+  markPullRequestLeftInDraft({
+    owner: options?.owner,
+    repo: options?.repo,
+    prNumber: options?.prNumber,
+    reason: options?.reason || 'the solution session failed or verification did not succeed',
+    kind: 'failure',
+  });
+  return result;
+};
+
+/**
  * Put a pull request into draft mode when a working session starts/restarts/resumes.
  * No-op when the PR is already a draft, merged, or closed.
  */
@@ -308,7 +327,7 @@ export const ensurePullRequestIsReady = async ({ requireChanges = false, changeS
     const stats = changeStats || (await getChangeStats({ owner, repo, prNumber, $, log }));
     if (stats && stats.measured && !stats.hasChanges) {
       const reason = 'no changes were produced by this session';
-      markPullRequestLeftInDraft({ owner, repo, prNumber, reason, changeStats: stats });
+      markPullRequestLeftInDraft({ owner, repo, prNumber, reason, kind: 'no_changes', changeStats: stats });
       await log(`  ⚠️  PR #${prNumber} keeps its draft status: ${reason}`, { level: 'warning' });
       return { ok: true, changed: false, skipped: true, reason: 'no_changes', error: null, changeStats: stats };
     }
@@ -327,6 +346,7 @@ export default {
   getPullRequestsLeftInDraft,
   ensurePullRequestIsDraft,
   ensurePullRequestIsReady,
+  ensurePullRequestStaysDraftAfterFailure,
   getOutstandingWorkingSessionDrafts,
   markPullRequestLeftInDraft,
   restorePullRequestsLeftInDraft,

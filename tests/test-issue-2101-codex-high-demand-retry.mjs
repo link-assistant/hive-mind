@@ -23,7 +23,7 @@ for (const message of incidentMessages) {
 assert.equal(criticalErrorRecovery.autoCommitUncommittedChanges, true, 'catastrophic-failure recovery must preserve uncommitted work by default');
 
 const solveSource = fs.readFileSync(new URL('../src/solve.mjs', import.meta.url), 'utf8');
-const failureBranch = solveSource.slice(solveSource.indexOf('if (!success && !shouldSkipFailureExitForAutoLimitContinue)'), solveSource.indexOf('await safeExit(1, toolFailureMessage)'));
-assert(failureBranch.indexOf('commitUncommittedChangesOnCriticalError') < failureBranch.indexOf('attachLogToGitHub'), 'emergency commit must run before the potentially slow/failing log upload');
+const failureBranch = solveSource.slice(solveSource.indexOf('if ((!success || errorDuringExecution)'), solveSource.indexOf('// Clean up .playwright-mcp/'));
+assert(failureBranch.indexOf('commitUncommittedChangesOnCriticalError') < failureBranch.indexOf('attachLogToGitHub'), 'emergency preservation must run before the potentially slow/failing log upload');
 
-console.log('✅ issue #2101: Codex high-demand failures are resumable and emergency commits remain enabled');
+console.log('✅ issue #2101: Codex high-demand failures are resumable and emergency preservation remains enabled');

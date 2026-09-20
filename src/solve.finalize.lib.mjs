@@ -21,7 +21,19 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
     }
   };
 
-  await runFinalizationStep('temporary directory cleanup', () => cleanupTempDirectory(tempDir, argv, limitReached));
+  const autoRestartFailure = hasAutoRestartLimitFailure() ? getAutoRestartLimitFailure() : null;
+  const noProgressFailure = hasNoProgressFailure() ? getNoProgressFailure() : null;
+  const recoveryFailure = autoRestartFailure || noProgressFailure;
+
+  // Issue #2263: the recovery ref lives in this clone. Deleting the clone here
+  // would turn "preserved" into a misleading log line and destroy the only
+  // copy of the failed working tree. Normal successful runs still use the
+  // configured cleanup policy.
+  if (recoveryFailure?.preserved) {
+    await runFinalizationStep('recovery workspace retention', () => log(`\n📁 Keeping failed recovery workspace and off-branch evidence: ${tempDir}`));
+  } else {
+    await runFinalizationStep('temporary directory cleanup', () => cleanupTempDirectory(tempDir, argv, limitReached));
+  }
 
   await runFinalizationStep('final log reference', async () => {
     // Show final log file reference so users always know where to find the complete log
@@ -41,20 +53,20 @@ export async function finalizeSolveProcess({ tempDir, argv, limitReached, path, 
   await runFinalizationStep('active handle diagnostics', () => logActiveHandles(msg => log(msg)));
 
   // Issue #2119: an exhausted auto-restart budget is a failure, not a completed run.
-  if (hasAutoRestartLimitFailure()) {
-    const failure = getAutoRestartLimitFailure();
+  if (autoRestartFailure) {
+    const failure = autoRestartFailure;
     await log(`\n❌ Auto-restart limit reached after ${failure.iterationsUsed} iteration${failure.iterationsUsed !== 1 ? 's' : ''} - the blocker was never resolved.`, { level: 'error' });
-    await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
+    await log(failure.preserved ? '   Uncommitted evidence was preserved outside pull-request branch history.' : '   No uncommitted source changes were left to preserve.', { level: 'error' });
     await safeExit(1, 'Auto-restart limit reached');
     return;
   }
 
   // Issue #2247 (H3): the run stopped early on purpose, with restart budget left
   // over, because repeating an identical session cannot finish the task either.
-  if (hasNoProgressFailure()) {
-    const failure = getNoProgressFailure();
+  if (noProgressFailure) {
+    const failure = noProgressFailure;
     await log('\n❌ Stopped after two consecutive AI sessions produced identical results - no restart can make progress.', { level: 'error' });
-    await log(failure.committed ? '   Uncommitted work was auto-committed before exit, so the partial result is visible.' : '   No uncommitted work was left to preserve.', { level: 'error' });
+    await log(failure.preserved ? '   Uncommitted evidence was preserved outside pull-request branch history.' : '   No uncommitted source changes were left to preserve.', { level: 'error' });
     await safeExit(1, 'No progress between sessions');
     return;
   }

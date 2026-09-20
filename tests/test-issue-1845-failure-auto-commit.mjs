@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// Test file for issue #1845 (requirement R2): "On all failures we automatically commit
-// uncommitted changes by default."
+// Test file for issue #1845 (requirement R2): preserve uncommitted work on all
+// failures by default. Issue #2263 tightened that contract: preservation must
+// happen outside the pull-request branch, never as an unverified solution commit.
 //
 // The tool-failure chokepoint in solve.mjs already auto-commits, but the EXCEPTION paths
 // (uncaught exception, unhandled rejection, and the top-level catch via
 // handleMainExecutionError) used to exit WITHOUT preserving the work the agent left on disk.
-// handleFailure() in solve.error-handlers.lib.mjs now performs the same guarded auto-commit
+// handleFailure() in solve.error-handlers.lib.mjs now performs the same guarded snapshot
 // at the start, gated by criticalErrorRecovery.autoCommitUncommittedChanges and the presence
 // of cleanupContext.tempDir.
 //
 // These tests drive handleFailure() with a scriptable command-stream `$` double (no real git
-// or network) and assert the commit happens exactly when it should — and never throws.
+// or network) and assert the snapshot happens exactly when it should — and never throws.
 //
 // Run with: node tests/test-issue-1845-failure-auto-commit.mjs
 // @see https://github.com/link-assistant/hive-mind/issues/1845
@@ -20,7 +21,7 @@ import assert from 'assert';
 const { handleFailure } = await import('../src/solve.error-handlers.lib.mjs');
 const { criticalErrorRecovery } = await import('../src/config.lib.mjs');
 
-console.log('Testing failure-path auto-commit (Issue #1845, R2)\n');
+console.log('Testing failure-path preservation (Issues #1845/#2263)\n');
 
 let passed = 0;
 let failed = 0;
@@ -79,9 +80,9 @@ await testAsync('autoCommitUncommittedChanges defaults to true (preserve work on
   assert.strictEqual(criticalErrorRecovery.autoCommitUncommittedChanges, true, 'Auto-commit must be ON by default');
 });
 
-console.log('\n=== handleFailure auto-commit behaviour ===');
+console.log('\n=== handleFailure preservation behaviour ===');
 
-await testAsync('Commits and pushes uncommitted work when cleanupContext.tempDir is set and tree is dirty', async () => {
+await testAsync('Snapshots uncommitted work off-branch when cleanupContext.tempDir is set and tree is dirty', async () => {
   const fake$ = makeFake$(' M src/foo.mjs');
   await handleFailure(baseOptions(fake$, { tempDir: '/tmp/none', branchName: 'issue-1845' }));
   assert(
@@ -89,17 +90,15 @@ await testAsync('Commits and pushes uncommitted work when cleanupContext.tempDir
     'Should inspect the working tree'
   );
   assert(
-    fake$.calls.some(c => c.includes('git add')),
-    'Should stage the uncommitted changes'
+    fake$.calls.some(c => c.includes('git stash push')),
+    'Should snapshot the uncommitted changes'
   );
   assert(
-    fake$.calls.some(c => c.includes('git commit')),
-    'Should commit the preserved work'
+    fake$.calls.some(c => c.includes('git stash apply')),
+    'Should restore the preserved working tree'
   );
-  assert(
-    fake$.calls.some(c => c.includes('git push')),
-    'Should push the preserved work to the branch'
-  );
+  assert(!fake$.calls.some(c => c.includes('git commit')), 'Must not commit failed work');
+  assert(!fake$.calls.some(c => c.includes('git push')), 'Must not push failed work');
 });
 
 await testAsync('Does NOT commit when the working tree is clean', async () => {
@@ -124,11 +123,11 @@ await testAsync('Skips the auto-commit when cleanupContext has no tempDir (nothi
   assert(!fake$.calls.some(c => c.includes('git status')), 'No tempDir → no git inspection');
 });
 
-await testAsync('Never throws even if git commands fail (auto-commit must not mask the original error)', async () => {
+await testAsync('Never throws even if git commands fail (preservation must not mask the original error)', async () => {
   const throwing$ = () => async () => {
     throw new Error('git exploded');
   };
-  // Should resolve (not reject) — handleFailure must swallow auto-commit failures.
+  // Should resolve (not reject) — handleFailure must swallow preservation failures.
   await handleFailure(baseOptions(throwing$, { tempDir: '/tmp/none', branchName: 'b' }));
 });
 

@@ -924,7 +924,7 @@ try {
   }
   // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
-  if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
+  if ((!success || errorDuringExecution) && !shouldSkipFailureExitForAutoLimitContinue) {
     // Issue #942: show all three resume options on failure for richer guidance.   1. Interactive claude  - opens Claude Code interactively (claude only)   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
     // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
@@ -938,6 +938,13 @@ try {
     // the rendered message is re-classified here, so the whole failure surface is
     // covered by one chokepoint.
     const subscriptionInfo = toolResult?.subscriptionError || detectSubscriptionError({ message: extractToolErrorCore({ toolResult }) || toolFailureMessage, tool: toolForFailure });
+    // Issue #2263: failure is a monotonic readiness veto. Record it before
+    // recovery or remote diagnostics so every pre-exit/session-end safety net
+    // sees the deliberate draft and cannot publish failed bytes as ready.
+    if (prNumber) {
+      const { ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
+      await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $, log, formatAligned, reason: toolFailureMessage, reportError });
+    }
     if (sessionId) {
       await log('');
       await log('💡 To continue this session:');
@@ -974,6 +981,7 @@ try {
         tempDir,
         branchName,
         committed: preservedWork ? preservedWork.committed : null,
+        preserved: preservedWork ? preservedWork.preserved : null,
         resumeCommand: sessionId && argv.url ? buildSolveResumeCommand({ issueUrl: argv.url, sessionId, tool: toolForFailure, model: argv.model, fallbackModel: argv.fallbackModel, tempDir }) : null,
       });
       for (const line of reportLines) await log(line, { level: 'error' });
@@ -1050,7 +1058,9 @@ try {
   } else {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
-  // When limit is reached, force auto-commit of any uncommitted changes to preserve work. Issue #1834 (PR #1835 feedback): "on all critical errors we auto commit uncommitted changes by default." A failed/errored session is a critical error, so auto-commit (and push) to preserve any work the agent left on disk. On by default; disable via HIVE_MIND_AUTO_COMMIT_ON_CRITICAL_ERROR=false.
+  // On critical errors preserve dirty evidence outside PR branch history (#2263).
+  // The legacy option name is retained for compatibility; it now enables a
+  // recovery snapshot rather than promoting unverified work to a solution commit.
   const { criticalErrorRecovery } = await import('./config.lib.mjs');
   const criticalError = success === false || errorDuringExecution === true;
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached || (criticalError && criticalErrorRecovery.autoCommitUncommittedChanges);

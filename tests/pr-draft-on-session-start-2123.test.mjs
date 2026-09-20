@@ -195,7 +195,7 @@ await test('executeToolIteration drafts the PR before every restart iteration', 
   const iterationStart = restartSrc.indexOf('export const executeToolIteration');
   const draftCall = restartSrc.indexOf('ensurePullRequestIsDraft(', iterationStart);
   assert(iterationStart !== -1 && draftCall !== -1, 'executeToolIteration should call ensurePullRequestIsDraft');
-  const toolExecution = restartSrc.indexOf('let toolResult;', iterationStart);
+  const toolExecution = restartSrc.indexOf('let toolResult = null;', iterationStart);
   assert(draftCall < toolExecution, 'the draft conversion must happen before the AI tool runs');
 });
 

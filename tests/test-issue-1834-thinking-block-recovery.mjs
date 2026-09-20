@@ -278,11 +278,11 @@ await testAsync('Without a session id it skips resume and goes straight to a fre
 });
 
 // ============================================================
-// Section 5: Auto-commit helper preserves uncommitted work
+// Section 5: Critical-error helper preserves uncommitted work off-branch
 // ============================================================
 console.log('\n=== 5. commitUncommittedChangesOnCriticalError ===');
 
-await testAsync('Commits and pushes when there are uncommitted changes', async () => {
+await testAsync('Snapshots and restores dirty work without committing or pushing it', async () => {
   const fake$ = makeFake$(' M src/foo.mjs');
   const result = await commitUncommittedChangesOnCriticalError({
     tempDir: '/tmp/none',
@@ -291,20 +291,20 @@ await testAsync('Commits and pushes when there are uncommitted changes', async (
     log: noopLog,
     reason: 'unit-test',
   });
-  assert.strictEqual(result.committed, true, 'Should commit when the tree is dirty');
-  assert.strictEqual(result.pushed, true, 'Should push the preserved work');
+  assert.strictEqual(result.preserved, true, 'Should preserve evidence when the tree is dirty');
+  assert.strictEqual(result.restored, true, 'Should restore the evidence for the next recovery attempt');
+  assert.strictEqual(result.committed, false, 'Failed work must not become a solution commit');
+  assert.strictEqual(result.pushed, false, 'Failed work must not reach the pull-request branch');
   assert(
-    fake$.calls.some(c => c.includes('git add')),
-    'Should stage changes'
+    fake$.calls.some(c => c.includes('git stash push')),
+    'Should create an off-branch recovery snapshot'
   );
   assert(
-    fake$.calls.some(c => c.includes('git commit')),
-    'Should commit changes'
+    fake$.calls.some(c => c.includes('git stash apply')),
+    'Should restore the failed working tree after snapshotting it'
   );
-  assert(
-    fake$.calls.some(c => c.includes('git push')),
-    'Should push changes'
-  );
+  assert(!fake$.calls.some(c => c.includes('git commit')), 'Must not commit failed bytes');
+  assert(!fake$.calls.some(c => c.includes('git push')), 'Must not push failed bytes');
 });
 
 await testAsync('No-ops cleanly when the working tree is clean', async () => {
@@ -321,7 +321,7 @@ await testAsync('No-ops cleanly when the working tree is clean', async () => {
 
 await testAsync('Never throws and returns a safe result when misconfigured', async () => {
   const result = await commitUncommittedChangesOnCriticalError({ tempDir: '', $: undefined, log: noopLog });
-  assert.deepStrictEqual(result, { committed: false, pushed: false }, 'Must degrade gracefully without a working tree/$');
+  assert.deepStrictEqual(result, { committed: false, pushed: false, preserved: false, recoveryRef: null, restored: false }, 'Must degrade gracefully without a working tree/$');
 });
 
 // ============================================================

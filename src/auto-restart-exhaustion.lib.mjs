@@ -4,8 +4,7 @@
  * Issue #2119: what happens when the shared auto-restart budget runs out.
  *
  * The issue requires that after the configured number of iterations the run
- * "must actually stop (fail + auto-commit on fail recovery). So the result will
- * be actually visible."
+ * must actually stop as a failure and keep the diagnostic evidence visible.
  *
  * Before this, the two auto-restart subsystems ended differently and neither
  * preserved the work:
@@ -16,14 +15,14 @@
  *   - `solve.auto-merge.lib.mjs` posted a comment and returned
  *     `auto_restart_limit_reached`, also without committing anything.
  *
- * This module is the one exhaustion path for both: log the failure, auto-commit
- * (and push) whatever is uncommitted through the same critical-error recovery
- * helper used elsewhere, and post a single comment that states the limit, the
- * remaining blocker and what was preserved.
+ * This module is the one exhaustion path for both: log the failure, snapshot
+ * whatever is uncommitted through the critical-error recovery helper, and post
+ * one comment that states the limit, the remaining blocker and what was preserved.
  */
 
 import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
 import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed } from './auto-restart-budget.lib.mjs';
+import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
@@ -42,7 +41,7 @@ let limitFailure = null;
 /** @returns {boolean} true once any auto-restart loop exhausted the shared budget */
 export const hasAutoRestartLimitFailure = () => Boolean(limitFailure);
 
-/** @returns {{reason: string, iterationsUsed: number, committed: boolean, pushed: boolean}|null} */
+/** @returns {{reason: string, iterationsUsed: number, preserved: boolean, committed: boolean, pushed: boolean}|null} */
 export const getAutoRestartLimitFailure = () => limitFailure;
 
 /** Clear the recorded failure. Intended for tests. */
@@ -54,14 +53,14 @@ export const resetAutoRestartLimitFailure = () => {
  * Fail the run because the shared auto-restart budget is exhausted, preserving
  * any uncommitted work first.
  *
- * Never throws: a failure to commit or comment must not mask the limit itself.
+ * Never throws: a failure to preserve or comment must not mask the limit itself.
  *
  * @param {Object} params
  * @param {string} params.owner GitHub owner
  * @param {string} params.repo GitHub repository
  * @param {number|null} params.prNumber PR to comment on (comment skipped when absent)
  * @param {string} params.tempDir working tree holding the uncommitted work
- * @param {string|null} params.branchName branch to push the preserved work to
+ * @param {string|null} params.branchName branch associated with the failed work
  * @param {Function} params.$ command-stream tagged-template executor
  * @param {Function} params.log async logger
  * @param {Function} params.formatAligned aligned log formatter
@@ -79,20 +78,25 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   await log(formatAligned('', 'Remaining blocker:', blocker, 2), { level: 'error' });
   await log('');
 
-  // Fail recovery: the work that kept triggering restarts lives in a temporary
-  // clone that is about to be discarded. Commit and push it so the result is
-  // visible in the PR instead of vanishing with the clone.
+  // Issue #2263: exhaustion is terminal failure, not successful completion.
+  // Restore draft before preservation/reporting and make it a monotonic veto.
+  if (prNumber) {
+    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $, log, formatAligned, reason: `auto-restart limit ${label} reached` });
+  }
+
+  // Preserve the failed work outside the PR branch. It remains in the worktree
+  // for diagnosis/retry and in a recovery ref, without becoming a solution commit.
   const preserved = await commitUncommittedChangesOnCriticalError({
     tempDir,
     branchName,
     $,
     log,
     reason: `auto-restart limit ${label} reached`,
-    push: true,
+    push: false,
   });
 
   if (prNumber) {
-    const preservedText = preserved.committed ? `The uncommitted changes were auto-committed${preserved.pushed ? ' and pushed' : ' locally (push failed - see the log)'} so the partial result stays visible in this pull request.` : 'There were no uncommitted changes left to preserve.';
+    const preservedText = preserved.preserved ? 'The uncommitted evidence was saved in a local recovery reference and restored in the working tree. It was not promoted to the pull-request branch.' : 'There were no uncommitted source changes left to preserve.';
     const body = `## ❌ ${AUTO_RESTART_MARKER} ${label} - limit reached
 
 Hive Mind stopped after ${label} automatic restart iterations without resolving the blocker.
@@ -115,7 +119,7 @@ No further AI sessions will be started automatically for this run. Review the re
     }
   }
 
-  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, committed: preserved.committed, pushed: preserved.pushed };
+  limitFailure = { reason: AUTO_RESTART_LIMIT_REACHED_REASON, iterationsUsed, preserved: preserved.preserved, committed: preserved.committed, pushed: preserved.pushed };
   return limitFailure;
 };
 

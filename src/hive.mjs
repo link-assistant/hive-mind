@@ -804,7 +804,7 @@ if (isRunningDirectly) {
             } else if (subscriptionBlock) {
               // Issue #2161: the run did not fail because of this issue — the account
               // lost access mid-flight. Report the real reason and stop; solve has
-              // already auto-committed whatever work existed.
+              // already preserved whatever uncommitted evidence existed off-branch.
               await log(`   ${SUBSCRIPTION_BLOCKED_MARKER} Worker ${workerId} stopped on ${issueUrl} after ${duration}s: the tool account can no longer be used (exit ${exitCode}).`, { level: 'error' });
               await log(`   Restore access, then re-run the hive — this issue stays queued, not failed.`, { level: 'error' });
               gracefulStop = true;

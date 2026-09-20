@@ -18,9 +18,9 @@
 //             which the API permits omitting. When repair succeeds the resume keeps all accumulated
 //             text/tool-use history (Issue #1834 "can we do even better?").
 //   Phase 2 — repair/resume unavailable or already failed → discard the session and start fresh.
-// On every attempt we first auto-commit any uncommitted work (Issue #1834 / PR #1835 feedback:
-// "on all critical errors we auto commit uncommitted changes by default") so nothing is lost when
-// the session context resets.
+// On every attempt we first snapshot any uncommitted work (Issue #1834 / PR
+// #1835 feedback) so nothing is lost when the session context resets. Issue
+// #2263 keeps that snapshot outside pull-request branch history.
 
 import { retryLimits, criticalErrorRecovery } from './config.lib.mjs';
 import { waitWithCountdown } from './tool-retry.lib.mjs';
@@ -35,8 +35,8 @@ import { repairCorruptedThinkingBlocks } from './claude.session-transcript-repai
  *
  * @param {object} ctx
  * @param {object} ctx.argv - parsed CLI args (argv.resume is mutated to choose resume vs fresh).
- * @param {string} ctx.tempDir - working tree for auto-committing uncommitted work.
- * @param {string} [ctx.branchName] - branch to push preserved work to.
+ * @param {string} ctx.tempDir - working tree whose uncommitted work is preserved.
+ * @param {string} [ctx.branchName] - branch name retained for helper compatibility.
  * @param {Function} ctx.$ - command-stream executor.
  * @param {Function} ctx.log - async logger.
  * @param {number} [ctx.waitMs=5000] - settle delay before re-running (overridable for tests).

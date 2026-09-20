@@ -34,7 +34,7 @@ import { deployHandoffSkill } from './handoff-skill.lib.mjs'; // Issue #1877
 import { deployPlaywrightSkill } from './playwright-skill.lib.mjs'; // Issue #2190
 import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-guard.lib.mjs'; // Issue #2190
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
-import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult } from './claude.stream-events.lib.mjs';
+import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
 import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
@@ -199,8 +199,8 @@ export const executeClaudeCommand = async params => {
   let baseBranchInterventionPrompt = null;
   let baseBranchInterventionResumeCount = 0;
   // Issue #1834 (PR #1835 feedback): corrupted-thinking-block recovery — resume the session first,
-  // then escalate to a fresh restart, auto-committing uncommitted work before each attempt. Created
-  // once so its resume/restart caps persist across recursive retry calls.
+  // then escalate to a fresh restart, preserving uncommitted evidence off-branch before each
+  // attempt (#2263). Created once so its resume/restart caps persist across recursive retry calls.
   const tryThinkingBlockRecovery = createThinkingBlockRecovery({ argv, tempDir, branchName, $, log });
   const executeWithRetry = async () => {
     const promptForAttempt = baseBranchInterventionPrompt ? `${prompt}\n\n${baseBranchInterventionPrompt}\n` : prompt;
@@ -250,6 +250,11 @@ export const executeClaudeCommand = async params => {
     let resultSummary = null;
     let resultModelUsage = null;
     let lastToolResultError = null;
+    // Issue #2263: the provider can emit a top-level success envelope even
+    // when the last command (the solution's verification) failed. Track the
+    // last tool outcome separately so later successful commands clear earlier
+    // exploratory failures, while a terminal failure vetoes success.
+    let terminalToolResult = { observed: false, failed: false, benign: false, error: null };
     // Issue #2160: an in-session tool failure the AI handles itself (a blocked command, its own
     // Bash timeout, a bare non-zero exit status). Kept apart from lastToolResultError so it is not
     // reported as the session error, but still available as the last-resort detail for a
@@ -533,6 +538,7 @@ export const executeClaudeCommand = async params => {
                 }
               }
               const eventFacts = collectClaudeStreamEventFacts(data);
+              terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts);
               messageCount += eventFacts.messageCountDelta;
               toolUseCount += eventFacts.toolUseCountDelta;
               if (eventFacts.lastText) lastMessage = eventFacts.lastText;
@@ -551,6 +557,9 @@ export const executeClaudeCommand = async params => {
                   lastToolResultError = eventFacts.toolResultError;
                   await log(`⚠️ Tool result error detected: ${eventFacts.toolResultError.substring(0, 200)}`, { verbose: true });
                 }
+              } else if (eventFacts.toolResultObserved) {
+                lastToolResultError = null;
+                lastBenignToolResultError = null;
               }
               // Issue #2247 (H4): a session that keeps making the same failing tool
               // call is not working, it is looping. Stop it here instead of letting
@@ -808,6 +817,7 @@ export const executeClaudeCommand = async params => {
           await log(JSON.stringify(data, null, 2));
           await baseBranchCommandIntervention.handleStreamEvent(data);
           const eventFacts = collectClaudeStreamEventFacts(data);
+          terminalToolResult = updateTerminalToolResult(terminalToolResult, eventFacts);
           messageCount += eventFacts.messageCountDelta;
           toolUseCount += eventFacts.toolUseCountDelta;
           if (eventFacts.lastText) lastMessage = eventFacts.lastText;
@@ -817,6 +827,9 @@ export const executeClaudeCommand = async params => {
             lastBenignToolResultError = eventFacts.toolResultError;
           } else if (eventFacts.toolResultError) {
             lastToolResultError = eventFacts.toolResultError;
+          } else if (eventFacts.toolResultObserved) {
+            lastToolResultError = null;
+            lastBenignToolResultError = null;
           }
           if (data?.type === 'result') {
             resultEventReceived = true;
@@ -926,6 +939,18 @@ export const executeClaudeCommand = async params => {
       if (shouldFailClaudeStreamWithoutResult({ commandFailed, streamingInput, resultEventReceived })) {
         commandFailed = true;
         lastMessage = buildMissingClaudeResultMessage({ lastToolResultError, lastMessage, lastBenignToolResultError });
+        await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
+      }
+      // Issue #2263: Formal AI correctly surfaced `javac`'s non-zero result,
+      // then Claude's stream ended with a provider-level success envelope. A
+      // diagnostic-rich failed final tool result means verification did not
+      // succeed regardless of that envelope. Earlier failures remain harmless
+      // when a later success supersedes them, and issue #2160's bare self-handled
+      // exit statuses remain benign (updateTerminalToolResult).
+      if (resultSuccessReceived && terminalToolResult.failed && !terminalToolResult.benign) {
+        commandFailed = true;
+        errorDuringExecution = true;
+        lastMessage = `Final tool result failed: ${terminalToolResult.error}`;
         await log(`\n\n❌ Command failed: ${lastMessage}`, { level: 'error' });
       }
       // Issue #2247 (H4/H10): the loop is the reason the session ended, so it is what

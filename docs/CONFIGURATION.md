@@ -266,21 +266,24 @@ pull request target is not mergeable yet, the merge queue waits up to
 
 ### 13. Telegram Bot
 
-| Environment Variable                       | Default    | Description                                                                  |
-| ------------------------------------------ | ---------- | ---------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                           |
-| `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                            |
-| `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                 |
-| `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                  |
-| `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                        |
-| `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                         |
-| `TELEGRAM_TASK`                            | true       | Enable /task and /split commands                                             |
-| `TELEGRAM_FIX`                             | true       | Enable /fix command                                                          |
-| `TELEGRAM_ORGANIZE`                        | true       | Enable /organize issue taxonomy command                                      |
-| `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners        |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions |
-| `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                       |
-| `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                    |
+| Environment Variable                       | Default    | Description                                                                              |
+| ------------------------------------------ | ---------- | ---------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`                       | (required) | Telegram bot token from @BotFather                                                       |
+| `TELEGRAM_ALLOWED_CHATS`                   | (all)      | Allowed chat IDs (Links Notation)                                                        |
+| `TELEGRAM_SOLVE_OVERRIDES`                 | (none)     | Override options for /solve (Links Notation)                                             |
+| `TELEGRAM_HIVE_OVERRIDES`                  | (none)     | Override options for /hive (Links Notation)                                              |
+| `TELEGRAM_SOLVE`                           | true       | Enable /solve command                                                                    |
+| `TELEGRAM_HIVE`                            | true       | Enable /hive command                                                                     |
+| `TELEGRAM_TASK`                            | true       | Enable /task and /split commands                                                         |
+| `TELEGRAM_FIX`                             | true       | Enable /fix command                                                                      |
+| `TELEGRAM_ORGANIZE`                        | true       | Enable /organize issue taxonomy command                                                  |
+| `TELEGRAM_AUTH`                            | true       | Enable experimental private /auth command for allowlisted chat owners                    |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | Auto-start a separate live terminal watch message for public /solve sessions             |
+| `TELEGRAM_CONTAINER_CPU`                   | (none)     | Docker task CPU limit as fixed cores (`1.5`) or host percentage (`50%`)                  |
+| `TELEGRAM_CONTAINER_MEMORY`                | (none)     | Docker task RAM limit as a size (`2GiB`) or host percentage (`25%`)                      |
+| `TELEGRAM_CONTAINER_DISK`                  | (none)     | Docker task writable-layer limit as a size (`20GB`) or available-disk percentage (`10%`) |
+| `TELEGRAM_BOT_VERBOSE`                     | false      | Enable verbose logging                                                                   |
+| `TELEGRAM_CONFIGURATION`                   | (none)     | LINO configuration string                                                                |
 
 ### 14. YouTrack Integration
 
@@ -669,6 +672,9 @@ hive-telegram-bot [options]
 | `--dry-run`                         |       | boolean | false      | Validate without starting bot                                                                                                                                                                               |
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: auto-start a separate `/terminal_watch` message for public `/solve` sessions. Private or unknown-visibility repositories never auto-start watch messages.                                     |
 | `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`). Default `docker` runs Telegram-bot work sessions in Docker isolation with success cleanup. Pass `--isolation ''` (or set `TELEGRAM_ISOLATION=`) to opt out. |
+| `--container-cpu`                   |       | string  |            | Docker task CPU limit as fixed cores (`1.5`) or a host percentage (`50%`).                                                                                                                                  |
+| `--container-memory`                |       | string  |            | Docker task RAM limit as a fixed size (`2GiB`) or a host percentage (`25%`).                                                                                                                                |
+| `--container-disk`                  |       | string  |            | Docker task writable-layer limit as a fixed size (`20GB`) or an available-filesystem percentage (`10%`).                                                                                                    |
 
 When `/solve` is enabled, the Telegram bot also accepts `/do` and `/continue`
 as plain `/solve` aliases. The `/claude`, `/codex`, `/opencode`, `/agent`, `/qwen`,

@@ -276,6 +276,36 @@ completion message includes inspect and cleanup commands. Override the policy
 with `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` (default:
 `on-failure`).
 
+#### Docker task resource limits
+
+Telegram-launched Docker tasks can have optional per-container resource limits:
+
+```bash
+hive-telegram-bot --isolation docker \
+  --container-cpu 50% \
+  --container-memory 2GiB \
+  --container-disk 20GB
+```
+
+The equivalent environment variables are `TELEGRAM_CONTAINER_CPU`,
+`TELEGRAM_CONTAINER_MEMORY`, and `TELEGRAM_CONTAINER_DISK`. A CPU value is a
+fixed core count such as `1.5`, or a percentage of the host's logical CPUs.
+Memory and disk accept decimal units (`MB`, `GB`, `TB`), binary units (`MiB`,
+`GiB`, `TiB`), or percentages. Memory percentages use total host RAM; disk
+percentages use the space available on the filesystem at task launch.
+
+No limit is inferred: omitting a setting preserves the existing unlimited
+behavior. Docker applies CPU and RAM limits while the task is held behind its
+start gate, before the task command runs. Docker storage quotas are not portable
+across storage drivers, so Hive Mind enforces the disk setting against the
+container's writable layer on each session-monitor tick (30 seconds by default).
+When usage exceeds the limit, the container is stopped and the completion
+message reports the measured usage and configured limit. The Docker daemon must
+have the relevant CPU and memory cgroup controllers delegated; if Docker cannot
+apply a requested kernel limit, Hive Mind removes the container before its task
+command runs and reports the launch failure instead of silently running it
+unlimited.
+
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:
 

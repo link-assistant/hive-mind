@@ -174,6 +174,7 @@ const { formatUrlRepairs, hasNotableRepair, namesGitHubHost, revealHiddenCharact
 
 const { getSolveQueue, createQueueExecuteCallback } = await import('./telegram-solve-queue.lib.mjs');
 const { applySolveToolAlias, getFirstParsedPositionalArg, getSolveCommandNameFromText, getSolveToolAliasFromText, moveArgumentToFront, parseArgsWithYargs, parseCommandArgs, SOLVE_COMMAND_NAMES } = await import('./telegram-solve-command.lib.mjs');
+const { replyIfRepositoryHasNoWork } = await import('./telegram-solve-repository-preflight.lib.mjs');
 const { executeStartScreen: executeStartScreenCommand, buildExecuteAndUpdateMessage } = await import('./telegram-command-execution.lib.mjs');
 const { isChatStopped, getChatStopInfo, getStoppedChatRejectMessage, DEFAULT_STOP_REASON } = await import('./telegram-start-stop-command.lib.mjs');
 const { isOldMessage: _isOldMessage, isGroupChat: _isGroupChat, isChatAuthorized: _isChatAuthorized, isForwarded: _isForwarded, isForwardedOrReply: _isForwardedOrReply, extractCommandFromText, extractGitHubUrl: _extractGitHubUrl } = await import('./telegram-message-filters.lib.mjs');
@@ -706,6 +707,10 @@ async function handleSolveCommand(ctx) {
     await safeReply(ctx, `❌ ${escapeMarkdown(entityCheck.error)}`, { reply_to_message_id: ctx.message.message_id });
     return;
   }
+  // Issue #2266: answer an empty repository directly. The CLI repeats the
+  // check for direct use and races; preflight errors fall through to it.
+  const repliedNoWork = await replyIfRepositoryHasNoWork({ ctx, parsed: validation.parsed, locale: solveLocale, onError: error => VERBOSE && console.log(`[VERBOSE] Repository no-work preflight failed; continuing with /solve: ${error.message || error}`) });
+  if (repliedNoWork) return;
   // Use the canonical URL from validation to ensure consistent duplicate
   // detection (issue #1080) and to echo back only what the bot interpreted —
   // a `#issuecomment-…` fragment is never used to resolve the target (#2166).

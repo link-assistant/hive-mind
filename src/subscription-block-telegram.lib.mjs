@@ -1,8 +1,8 @@
 // Issue #2161: Telegram surface for subscription/account-access blocks.
 //
 // `/solve` prints a SUBSCRIPTION_BLOCKED_MARKER report into the session log when
-// the account can no longer use the agent tool (expired/cancelled Claude MAX
-// subscription, org policy, revoked ChatGPT/Codex entitlement, ...). The session
+// the provider reports unavailable tool access (inactive subscription, org
+// policy, revoked ChatGPT/Codex entitlement, ...). The session
 // monitor captures that log, so the same block can be replayed into the Telegram
 // completion message without any extra plumbing between processes.
 
@@ -11,6 +11,9 @@ import { lt } from './limits-i18n.lib.mjs';
 
 const MAX_MESSAGE_LENGTH = 400;
 const MAX_GUIDANCE_STEPS = 4;
+const LEGACY_SUBSCRIPTION_MARKER = '🚫 SUBSCRIPTION/ACCESS BLOCKED';
+const SUBSCRIPTION_MARKERS = [SUBSCRIPTION_BLOCKED_MARKER, LEGACY_SUBSCRIPTION_MARKER];
+const CAPTURED_LOG_PREFIX = /^\[[^\]\r\n]+\]\s+\[(?:ERROR|WARNING|WARN|INFO|STDOUT|STDERR|VERBOSE|DEBUG)\]\s?/;
 
 const truncate = (value, limit = MAX_MESSAGE_LENGTH) => {
   const text = String(value || '').trim();
@@ -19,6 +22,7 @@ const truncate = (value, limit = MAX_MESSAGE_LENGTH) => {
 };
 
 const stripPrefix = (line, prefix) => line.slice(line.indexOf(prefix) + prefix.length).trim();
+const stripCapturedLogPrefix = line => line.replace(CAPTURED_LOG_PREFIX, '');
 
 /**
  * Parse the last SUBSCRIPTION_BLOCKED_MARKER report out of a captured session log.
@@ -29,22 +33,29 @@ const stripPrefix = (line, prefix) => line.slice(line.indexOf(prefix) + prefix.l
  * @param {string} logText
  * @returns {null|{tool: string|null, label: string|null, message: string|null, code: string|null, reason: string|null, guidance: string[], committed: boolean|null, resumeCommand: string|null}}
  */
-export function parseSubscriptionBlockFromLog(logText) {
+export function parseSubscriptionBlockFromLog(logText, { expectedTool = null } = {}) {
   if (!logText || typeof logText !== 'string') return null;
-  if (!logText.includes(SUBSCRIPTION_BLOCKED_MARKER)) return null;
+  if (!SUBSCRIPTION_MARKERS.some(marker => logText.includes(marker))) return null;
 
   const lines = logText.split('\n');
   // Walk backwards: the richest report (from /solve) is the last one printed.
+  // A marker is valid only at the start of a captured log payload. This rejects
+  // JSON, diffs, prompts and prior logs quoted by the current tool.
   let markerIndex = -1;
+  let matchedMarker = null;
   for (let i = lines.length - 1; i >= 0; i -= 1) {
-    if (lines[i].includes(SUBSCRIPTION_BLOCKED_MARKER)) {
+    const payload = stripCapturedLogPrefix(lines[i]);
+    const marker = SUBSCRIPTION_MARKERS.find(candidate => payload.startsWith(candidate));
+    if (marker) {
       markerIndex = i;
+      matchedMarker = marker;
       break;
     }
   }
   if (markerIndex === -1) return null;
 
-  const headline = stripPrefix(lines[markerIndex], SUBSCRIPTION_BLOCKED_MARKER).replace(/^—\s*/, '');
+  const headlineLine = stripCapturedLogPrefix(lines[markerIndex]);
+  const headline = stripPrefix(headlineLine, matchedMarker).replace(/^—\s*/, '');
   const separator = headline.indexOf(':');
   const parsed = {
     tool: separator > 0 ? headline.slice(0, separator).trim() : null,
@@ -57,8 +68,10 @@ export function parseSubscriptionBlockFromLog(logText) {
     resumeCommand: null,
   };
 
+  if (expectedTool && String(parsed.tool || '').toLowerCase() !== String(expectedTool).toLowerCase()) return null;
+
   for (let i = markerIndex + 1; i < lines.length; i += 1) {
-    const raw = lines[i];
+    const raw = stripCapturedLogPrefix(lines[i]);
     if (!raw.trim()) continue;
     if (!/^\s{3}/.test(raw)) break; // end of the indented report block
     const line = raw.trim();
@@ -106,7 +119,7 @@ export function formatSubscriptionBlockedSection(parsed, { locale = null } = {})
     body.push(`${lt('subscription_blocked_resume', {}, options)}: ${parsed.resumeCommand}`);
   }
 
-  return `🚫 ${lt('subscription_blocked_title', {}, options)}\n\`\`\`\n${body.join('\n')}\n\`\`\``;
+  return `⚠️ ${lt('subscription_blocked_title', {}, options)}\n\`\`\`\n${body.join('\n')}\n\`\`\``;
 }
 
 export default {

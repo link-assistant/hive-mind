@@ -133,6 +133,7 @@ for (const ecosystem of ['npm', 'github-actions', 'docker', 'docker-compose', 'h
 }
 assert.match(dependabot, /multi-ecosystem-groups:/);
 assert.match(dependabot, /interval: daily/);
+assert.equal((dependabot.match(/cooldown:\s*\n\s*exclude: \['\*'\]/g) ?? []).length, 5, "each ecosystem opts out of GitHub's default three-day delay so its update PR agrees with the immediate freshness gate");
 
 const releaseWorkflow = fs.readFileSync(path.join(repositoryRoot, '.github', 'workflows', 'release.yml'), 'utf8');
 assert.match(releaseWorkflow, /node scripts\/check-dependency-freshness\.mjs/);

@@ -1,5 +1,13 @@
 # zizmor configuration — https://docs.zizmor.sh/configuration/
 rules:
+  # Issue #2264 intentionally opts version updates out of GitHub's default
+  # three-day cooldown. The merge gate compares against the newest stable
+  # release immediately, so delaying the update PR would leave every unrelated
+  # PR blocked without an automated remediation. Security still comes from
+  # review plus the full CI suite, rather than an age-only policy.
+  dependabot-cooldown:
+    ignore:
+      - dependabot.yml
   # Issue #2198: zizmor's `self-repository` audit (v1.30.0) asks for GitHub's
   # `uses: $/...` form, shipped 2026-07-30, instead of `uses: ./...`. actionlint
   # does not parse `$/` yet -- v1.7.12 is the newest release and support is

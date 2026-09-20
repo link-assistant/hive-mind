@@ -130,6 +130,14 @@ Dependabot creates update PRs, but an outstanding or delayed Dependabot PR does
 not make an unrelated PR fail. Conversely, a live registry check can block a
 stale PR but does not prepare the update. Both are necessary.
 
+GitHub applies a three-day cooldown to version updates by default. That safety
+default conflicts with this issue's immediate gate: CI would reject every PR as
+soon as a stable release appears while Dependabot withheld the remediation for
+three days. Each configured ecosystem therefore explicitly excludes all
+dependencies from cooldown. The scoped zizmor policy records that intentional
+zero-day threshold; review and the complete CI suite remain the acceptance
+boundary for a proposed update.
+
 The initial main ruleset required PRs but no status checks. Therefore even an
 accurate workflow failure was advisory to a maintainer with merge access. The
 final design attaches the existing terminal `pipeline-status` context to that
@@ -248,6 +256,10 @@ to freshness maintenance instead of misclassifying it as absent.
   table](https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories)
   confirms version-update support for npm, Actions, Docker, Docker Compose, and
   Helm.
+- GitHub's [Dependabot cooldown
+  reference](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown)
+  documents the default three-day delay and that `exclude` takes precedence so
+  matching dependencies update immediately.
 - npm's [trusted publishing
   documentation](https://docs.npmjs.com/trusted-publishers/) requires npm
   11.5.1+ and Node 22.14+ for OIDC publication. That directly explains the

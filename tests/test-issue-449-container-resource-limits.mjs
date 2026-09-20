@@ -9,7 +9,8 @@
 
 import assert from 'node:assert/strict';
 
-import { applyDockerContainerResourceLimits, buildDockerUpdateArgs, detectContainerDiskLimitBreach, normalizeContainerResourceLimits, resolveContainerResourceLimits } from '../src/container-resource-limits.lib.mjs';
+import { applyDockerContainerResourceLimits, buildDockerUpdateArgs, detectContainerDiskLimitBreach, normalizeContainerResourceLimits, resolveContainerResourceLimits, selectContainerResourceLimitsForBackend } from '../src/container-resource-limits.lib.mjs';
+import { finalizeDockerContainerStartGate } from '../src/isolation-runner.lib.mjs';
 import { resolveTelegramContainerResourceLimits } from '../src/telegram-container-resource-limits.lib.mjs';
 
 let passed = 0;
@@ -108,6 +109,51 @@ await test('limits are applied while the Docker start gate is closed', async () 
   assert.equal(result.success, true);
   assert.deepEqual(calls, [['update', '--cpus', '2', '--memory', String(2 * 1024 ** 3), '--memory-swap', String(2 * 1024 ** 3), 'session-449']]);
   assert.equal(result.resolved.diskBytes, 5_000_000_000);
+});
+
+await test('a failed resource update destroys the gated container without releasing user code', async () => {
+  const calls = [];
+  const result = await finalizeDockerContainerStartGate('session-449', {
+    resourceLimitError: 'memory cgroup unavailable',
+    removeContainer: async containerName => {
+      calls.push(`remove:${containerName}`);
+      return { success: true, error: null };
+    },
+    releaseGate: async containerName => {
+      calls.push(`release:${containerName}`);
+      return true;
+    },
+  });
+  assert.deepEqual(calls, ['remove:session-449']);
+  assert.deepEqual(result, { released: false, removed: true, killed: false, error: null });
+});
+
+await test('a failed gated-container removal falls back to killing without releasing user code', async () => {
+  const calls = [];
+  const result = await finalizeDockerContainerStartGate('session-449', {
+    resourceLimitError: 'memory cgroup unavailable',
+    removeContainer: async () => {
+      calls.push('remove');
+      return { success: false, error: 'remove failed' };
+    },
+    killContainer: async () => {
+      calls.push('kill');
+      return { success: true, error: null };
+    },
+    releaseGate: async () => {
+      calls.push('release');
+      return true;
+    },
+  });
+  assert.deepEqual(calls, ['remove', 'kill']);
+  assert.deepEqual(result, { released: false, removed: false, killed: true, error: null });
+});
+
+await test('Docker-only limits do not break per-command screen or tmux overrides', () => {
+  const configured = { cpu: '50%', memory: '2GiB', disk: '10%' };
+  assert.equal(selectContainerResourceLimitsForBackend('screen', configured), null);
+  assert.equal(selectContainerResourceLimitsForBackend('tmux', configured), null);
+  assert.equal(selectContainerResourceLimitsForBackend('docker', configured), configured);
 });
 
 await test('disk quota detects only measurements above the configured limit', () => {

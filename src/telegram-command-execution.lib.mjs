@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { formatFailedLaunchMessage as defaultFormatFailedLaunchMessage } from './work-session-formatting.lib.mjs';
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -130,7 +131,7 @@ export function buildExecuteAndUpdateMessage(deps) {
       sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
-      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE, containerResourceLimits: CONTAINER_RESOURCE_LIMITS });
+      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, CONTAINER_RESOURCE_LIMITS) });
       if (result.success && sessionInfo && (Number.isFinite(result.containerFilesystemStartBytes) || result.executionUuid || result.containerResourceLimits)) {
         if (Number.isFinite(result.containerFilesystemStartBytes)) sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
         if (result.containerResourceLimits) sessionInfo.containerResourceLimits = result.containerResourceLimits;

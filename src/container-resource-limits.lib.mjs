@@ -74,6 +74,11 @@ export function hasContainerResourceLimits(input = {}) {
   return Boolean(normalized.cpu || normalized.memory || normalized.disk);
 }
 
+/** Resource controls apply only to commands whose effective backend is Docker. */
+export function selectContainerResourceLimitsForBackend(backend, limits) {
+  return backend === 'docker' ? limits : null;
+}
+
 /** Host capacity used to resolve percentage limits at task launch time. */
 export function getContainerResourceCapacity({ osImpl = os, fsImpl = fs, diskPath = '/' } = {}) {
   const cpuCores = typeof osImpl.availableParallelism === 'function' ? osImpl.availableParallelism() : osImpl.cpus().length;

@@ -536,6 +536,7 @@ export async function executeWithIsolation(command, args, options = {}) {
   let containerFilesystemStartBytes = null;
   let resolvedContainerResourceLimits = null;
   let resourceLimitError = null;
+  let resourceLimitCleanupError = null;
   let formalAiAttachError = null;
   let routerAttachError = null;
   if (result.success && backend === 'docker') {
@@ -563,10 +564,10 @@ export async function executeWithIsolation(command, args, options = {}) {
         routerAttachError = await attachRouterTaskContainer({ router, sessionId, env: hostEnv, verbose });
       }
     } finally {
-      await releaseDockerContainerStartGate(sessionId, verbose);
+      const finalization = await finalizeDockerContainerStartGate(sessionId, { resourceLimitError, verbose });
+      resourceLimitCleanupError = finalization.error;
     }
   }
-  if (resourceLimitError) await removeDockerContainer(sessionId, verbose);
   if (router && (!result.success || resourceLimitError || formalAiAttachError || routerAttachError)) {
     // Fail closed for the same reason the acquire does: a task that cannot
     // reach the router must not be left running with no route to a model.
@@ -587,7 +588,8 @@ export async function executeWithIsolation(command, args, options = {}) {
     return failLaunch(`The task container could not be joined to the router (internal network, CA trust or api.github.com interception), so it was stopped rather than run without a route to any model (issue #2164): ${routerAttachError}`, { output: result.output });
   }
   if (resourceLimitError) {
-    return failLaunch(`The task container was stopped before its command ran because its resource limits could not be applied: ${resourceLimitError}`, { output: result.output });
+    const cleanupDetail = resourceLimitCleanupError ? ` Container cleanup also failed: ${resourceLimitCleanupError}` : '';
+    return failLaunch(`The task container was stopped before its command ran because its resource limits could not be applied: ${resourceLimitError}.${cleanupDetail}`, { output: result.output });
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to
@@ -950,6 +952,27 @@ export async function killDockerContainer(containerName, verbose = false) {
     if (verbose) console.log(`[VERBOSE] isolation-runner: docker kill '${containerName}' failed: ${stderr || error?.message || error}`);
     return { success: false, output: error?.stdout?.toString?.() || '', error: stderr || error?.message || String(error) };
   }
+}
+
+/**
+ * Finish the pre-command start gate without ever opening it after a resource
+ * update failure. Removing (or at least killing) the still-gated container
+ * prevents the gate timeout from eventually running the task without limits.
+ */
+export async function finalizeDockerContainerStartGate(containerName, { resourceLimitError = null, verbose = false, releaseGate = releaseDockerContainerStartGate, removeContainer = removeDockerContainer, killContainer = killDockerContainer } = {}) {
+  if (!resourceLimitError) {
+    return { released: await releaseGate(containerName, verbose), removed: false, killed: false, error: null };
+  }
+  const removal = await removeContainer(containerName, verbose);
+  if (removal?.success) return { released: false, removed: true, killed: false, error: null };
+  const kill = await killContainer(containerName, verbose);
+  if (kill?.success) return { released: false, removed: false, killed: true, error: null };
+  return {
+    released: false,
+    removed: false,
+    killed: false,
+    error: [removal?.error, kill?.error].filter(Boolean).join('; ') || 'could not remove or stop the gated container',
+  };
 }
 /**
  * Check whether a tmux session with the given name still exists.

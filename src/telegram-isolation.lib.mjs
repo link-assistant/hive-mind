@@ -9,6 +9,8 @@
  * @see https://github.com/link-assistant/hive-mind/pull/390
  */
 
+import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
+
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 
 /**
@@ -80,7 +82,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
     if (iso) {
       const sid = iso.runner.generateSessionId();
       const tool = item.tool || 'claude';
-      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose, containerResourceLimits });
+      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, containerResourceLimits) });
       if (r.success)
         trackSession(
           sid,

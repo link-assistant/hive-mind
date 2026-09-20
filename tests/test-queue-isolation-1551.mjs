@@ -65,5 +65,10 @@ assert.equal(isolationCalls[0].options.backend, 'docker', 'per-command isolation
 assert.deepEqual(isolationCalls[0].options.containerResourceLimits, { cpu: '50%', memory: '2GiB', disk: '10%' }, 'queued launch receives the bot container limits');
 assert.equal(trackCalls[0].sessionInfo.isolationBackend, 'docker', 'tracked session stores effective isolation');
 
+const screenResult = await queueCallback({ ...isolatedItem, perCommandIsolation: 'screen' });
+assert.equal(screenResult.success, true, 'non-Docker per-command override still launches');
+assert.equal(isolationCalls[1].options.backend, 'screen', 'screen remains the effective per-command backend');
+assert.equal(isolationCalls[1].options.containerResourceLimits, null, 'Docker limits are not forwarded to a screen override');
+
 q.stop();
 console.log('✅ Queue isolation test passed (issue #1551)');

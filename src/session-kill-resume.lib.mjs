@@ -103,14 +103,16 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
     let newSessionId = inPlace.sessionId;
     let executionUuid = inPlace.executionUuid;
     let containerFilesystemStartBytes = null;
+    let containerResourceLimits = sessionInfo?.containerResourceLimits || null;
 
     if (!inPlace.resumed) {
       newSessionId = runner.generateSessionId();
       const tool = sessionInfo?.tool || 'claude';
-      const result = await runner.executeWithIsolation(sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose });
+      const result = await runner.executeWithIsolation(sessionInfo?.command || 'solve', plan.command.args, { backend, sessionId: newSessionId, tool, verbose, containerResourceLimits: sessionInfo?.containerResourceLimits?.requested || null });
       if (!result?.success) return fail('start-failed');
       executionUuid = result.executionUuid || null;
       containerFilesystemStartBytes = Number.isFinite(result.containerFilesystemStartBytes) ? result.containerFilesystemStartBytes : null;
+      containerResourceLimits = result.containerResourceLimits || null;
     }
 
     trackSession(
@@ -134,6 +136,7 @@ export async function startKillRecoverySession({ sessionName, sessionInfo, plan,
         oomEventObservedAt: undefined,
         dockerBackendGoneFirstSeenAt: undefined,
         containerFilesystemStartBytes,
+        containerResourceLimits,
       },
       verbose
     );

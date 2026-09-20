@@ -55,12 +55,14 @@ const queueCallback = createIsolationAwareQueueCallback(
   async () => {
     throw new Error('fallback callback should not run when isolation is configured');
   },
-  false
+  false,
+  { cpu: '50%', memory: '2GiB', disk: '10%' }
 );
 const result = await queueCallback(isolatedItem);
 assert.equal(isolatedItem.perCommandIsolation, 'docker', 'queued item retains per-command isolation');
 assert.equal(result.success, true, 'queued isolated execution succeeds');
 assert.equal(isolationCalls[0].options.backend, 'docker', 'per-command isolation overrides bot default');
+assert.deepEqual(isolationCalls[0].options.containerResourceLimits, { cpu: '50%', memory: '2GiB', disk: '10%' }, 'queued launch receives the bot container limits');
 assert.equal(trackCalls[0].sessionInfo.isolationBackend, 'docker', 'tracked session stores effective isolation');
 
 q.stop();

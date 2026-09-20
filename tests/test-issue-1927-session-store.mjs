@@ -39,6 +39,8 @@ const serialized = serializeSessionInfo({
   containerFilesystemStartBytes: 123456,
   containerFilesystemLastBytes: 234567,
   containerFilesystemLastObservedAt: '2026-06-30T22:10:00.000Z',
+  containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } },
+  containerResourceLimitExceeded: { resource: 'disk', limitBytes: 2048, observedBytes: 4096, observedAt: '2026-06-30T22:10:00.000Z' },
   tool: 'claude',
   logPath: '/var/log/session.log',
   // runtime-only fields that must NOT be persisted:
@@ -50,6 +52,8 @@ assert(serialized.logPath === '/var/log/session.log', 'serializeSessionInfo keep
 assert(serialized.containerFilesystemStartBytes === 123456, 'serializeSessionInfo keeps docker filesystem start size');
 assert(serialized.containerFilesystemLastBytes === 234567, 'serializeSessionInfo keeps last observed docker filesystem size');
 assert(serialized.containerFilesystemLastObservedAt === '2026-06-30T22:10:00.000Z', 'serializeSessionInfo keeps last docker filesystem observation time');
+assert(serialized.containerResourceLimits.diskBytes === 2048, 'serializeSessionInfo keeps resolved container resource limits');
+assert(serialized.containerResourceLimitExceeded.observedBytes === 4096, 'serializeSessionInfo keeps resource-limit breaches for completion reporting');
 assert(!('bot' in serialized) && !('limitsSnapshot' in serialized), 'serializeSessionInfo drops runtime-only fields (bot, limitsSnapshot)');
 
 const round = deserializeSessionInfo(serialized);

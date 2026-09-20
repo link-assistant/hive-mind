@@ -30,6 +30,7 @@ import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refr
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
 import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
+import { applyDockerContainerResourceLimits, hasContainerResourceLimits, normalizeContainerResourceLimits } from './container-resource-limits.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
 export { isExecutingSessionStatus, isTerminalSessionStatus, isKilledSessionStatus } from './session-status.lib.mjs';
@@ -415,7 +416,8 @@ async function logDockerIsolationPostLaunchDiagnostics(sessionId, env = process.
  * @param {string} [options.sessionId] - UUID for session tracking (auto-generated if not provided)
  * @param {string} [options.tool] - AI tool selected for the task; used to scope Docker auth mounts
  * @param {boolean} [options.verbose] - Enable verbose logging
- * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null}>}
+ * @param {{cpu?: string|null, memory?: string|null, disk?: string|null}} [options.containerResourceLimits] - Optional Docker CPU, RAM, and writable-layer limits
+ * @returns {Promise<{success: boolean, sessionId: string, output: string, error?: string, warning?: string, containerFilesystemStartBytes?: number|null, containerResourceLimits?: object|null}>}
  */
 export async function executeWithIsolation(command, args, options = {}) {
   const { backend, verbose = false } = options;
@@ -432,6 +434,17 @@ export async function executeWithIsolation(command, args, options = {}) {
   };
   if (!VALID_ISOLATION_BACKENDS.includes(backend)) {
     return failLaunch(`Invalid isolation backend: '${backend}'. Must be one of: ${VALID_ISOLATION_BACKENDS.join(', ')}`);
+  }
+  let containerResourceLimits;
+  let containerResourceLimitsConfigured;
+  try {
+    containerResourceLimits = normalizeContainerResourceLimits(options.containerResourceLimits);
+    containerResourceLimitsConfigured = hasContainerResourceLimits(containerResourceLimits);
+  } catch (error) {
+    return failLaunch(`Invalid container resource limit: ${error?.message || error}`);
+  }
+  if (backend !== 'docker' && containerResourceLimitsConfigured) {
+    return failLaunch(`Container resource limits require the Docker isolation backend, not '${backend}'`);
   }
   const binPath = await findStartCommandBinary();
   if (!binPath) {
@@ -521,11 +534,22 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (result.error) stream(`[VERBOSE] isolation-runner: Error: ${result.error}`);
   }
   let containerFilesystemStartBytes = null;
+  let resolvedContainerResourceLimits = null;
+  let resourceLimitError = null;
   let formalAiAttachError = null;
   let routerAttachError = null;
   if (result.success && backend === 'docker') {
     try {
       containerFilesystemStartBytes = await getDockerContainerWritableLayerSize(sessionId, verbose);
+      // `$ --isolated docker` has already created and started the container, but
+      // the command itself is still waiting behind Hive Mind's start gate. This
+      // is the one point at which `docker update` can apply CPU/RAM limits before
+      // user code runs. The resolved disk limit is handed to the monitor below.
+      if (containerResourceLimitsConfigured) {
+        const resourceLimitResult = await applyDockerContainerResourceLimits(sessionId, containerResourceLimits);
+        resolvedContainerResourceLimits = resourceLimitResult.resolved;
+        resourceLimitError = resourceLimitResult.error;
+      }
       // The task command is still held by the start gate — the only safe
       // moment to add a second network. `docker network connect` is additive;
       // a single `docker run --network` would replace the default bridge and
@@ -534,19 +558,22 @@ export async function executeWithIsolation(command, args, options = {}) {
       // start#156), but it implements that with this very create → connect →
       // start sequence, and doing it here keeps the attach fail-closed on any
       // installed version instead of silently one-network on older parsers.
-      formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
-      routerAttachError = await attachRouterTaskContainer({ router, sessionId, env: hostEnv, verbose });
+      if (!resourceLimitError) {
+        formalAiAttachError = await attachFormalAiTaskContainer({ sidecar, sessionId, verbose });
+        routerAttachError = await attachRouterTaskContainer({ router, sessionId, env: hostEnv, verbose });
+      }
     } finally {
       await releaseDockerContainerStartGate(sessionId, verbose);
     }
   }
-  if (router && (!result.success || formalAiAttachError || routerAttachError)) {
+  if (resourceLimitError) await removeDockerContainer(sessionId, verbose);
+  if (router && (!result.success || resourceLimitError || formalAiAttachError || routerAttachError)) {
     // Fail closed for the same reason the acquire does: a task that cannot
     // reach the router must not be left running with no route to a model.
     if (routerAttachError) await removeDockerContainer(sessionId, verbose);
     await releaseRouterForTask({ router, sessionId, env: hostEnv, verbose });
   }
-  if (sidecar && (!result.success || formalAiAttachError)) {
+  if (sidecar && (!result.success || resourceLimitError || formalAiAttachError)) {
     // Fail closed: without the internal network the task cannot reach Formal
     // AI, and issue #2146 forbids falling back to another model.
     if (formalAiAttachError) await removeDockerContainer(sessionId, verbose);
@@ -558,6 +585,9 @@ export async function executeWithIsolation(command, args, options = {}) {
   if (routerAttachError) {
     if (sidecar) await releaseFormalAiSidecarForTask({ sidecar, sessionId, env: hostEnv, verbose });
     return failLaunch(`The task container could not be joined to the router (internal network, CA trust or api.github.com interception), so it was stopped rather than run without a route to any model (issue #2164): ${routerAttachError}`, { output: result.output });
+  }
+  if (resourceLimitError) {
+    return failLaunch(`The task container was stopped before its command ran because its resource limits could not be applied: ${resourceLimitError}`, { output: result.output });
   }
   // Issue #1939: capture the freshly-launched docker session's reported status
   // and the live container state together, so the next iteration has the data to
@@ -583,6 +613,7 @@ export async function executeWithIsolation(command, args, options = {}) {
       executionUuid,
       output: result.output,
       containerFilesystemStartBytes,
+      containerResourceLimits: resolvedContainerResourceLimits,
     };
   }
   return failLaunch(result.error, { output: result.output });
@@ -902,6 +933,22 @@ export async function removeDockerContainer(containerName, verbose = false) {
       output: stdout,
       error: stderr.trim() || error?.message || String(error),
     };
+  }
+}
+/** Stop a Docker task without removing it, so completion diagnostics and the
+ * configured retention policy can still inspect its writable layer. */
+export async function killDockerContainer(containerName, verbose = false) {
+  if (!containerName) return { success: false, output: '', error: 'missing container name' };
+  try {
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker kill ${containerName}`;
+    const output = result.stdout?.toString() || result.stderr?.toString() || '';
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker kill '${containerName}' succeeded`);
+    return { success: true, output, error: null };
+  } catch (error) {
+    const stderr = error?.stderr?.toString?.().trim() || '';
+    if (verbose) console.log(`[VERBOSE] isolation-runner: docker kill '${containerName}' failed: ${stderr || error?.message || error}`);
+    return { success: false, output: error?.stdout?.toString?.() || '', error: stderr || error?.message || String(error) };
   }
 }
 /**

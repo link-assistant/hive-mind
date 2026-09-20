@@ -49,6 +49,7 @@ const killedSession = (overrides = {}) => ({
   executionUuid: UUID,
   command: 'solve',
   tool: 'claude',
+  containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } },
   args: ['https://github.com/link-assistant/hive-mind/issues/2189', '--auto-continue'],
   ...overrides,
 });
@@ -85,7 +86,7 @@ const makeRunner = (overrides = {}) => {
     generateSessionId: () => 'fresh-1111-2222-3333-444455556666',
     executeWithIsolation: async (command, args, opts) => {
       calls.launches.push({ command, args, opts });
-      return { success: true, executionUuid: 'fresh-uuid', containerFilesystemStartBytes: 1024 };
+      return { success: true, executionUuid: 'fresh-uuid', containerFilesystemStartBytes: 1024, containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } } };
     },
     checkDockerContainerExists: async name => {
       calls.exists.push(name);
@@ -164,8 +165,10 @@ const fellBack = await recoverKilledSession({
 });
 assert(fellBack.resumed === true && fellBack.inPlace === false && fellBack.reason === 'started', 'a session that cannot be re-entered is still recovered by a fresh run');
 assert(fallbackRunner.calls.launches.length === 1, 'the fallback starts exactly one isolated run');
+assert(fallbackRunner.calls.launches[0].opts.containerResourceLimits.disk === '2KiB', 'a fresh recovery reapplies the original requested resource limits');
 assert(trackedFresh[0]?.info.executionUuid === 'fresh-uuid', 'the fresh recovery session does not inherit the dead execution UUID');
 assert(trackedFresh[0]?.info.containerFilesystemStartBytes === 1024, 'the fresh recovery session records its own filesystem baseline');
+assert(trackedFresh[0]?.info.containerResourceLimits.diskBytes === 2048, 'the fresh recovery session records its resolved resource limits');
 
 printSummary(78);
 process.exit(getFailCount() > 0 ? 1 : 0);

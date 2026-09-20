@@ -74,6 +74,25 @@ const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
+const { hasContainerResourceLimits, normalizeContainerResourceLimits } = await import('./container-resource-limits.lib.mjs');
+let CONTAINER_RESOURCE_LIMITS;
+try {
+  CONTAINER_RESOURCE_LIMITS = normalizeContainerResourceLimits({
+    cpu: config.containerCpu || getenv('TELEGRAM_CONTAINER_CPU', ''),
+    memory: config.containerMemory || getenv('TELEGRAM_CONTAINER_MEMORY', ''),
+    disk: config.containerDisk || getenv('TELEGRAM_CONTAINER_DISK', ''),
+  });
+} catch (error) {
+  console.error(`Error: Invalid container resource limit: ${error?.message || error}`);
+  process.exit(1);
+}
+if (hasContainerResourceLimits(CONTAINER_RESOURCE_LIMITS) && ISOLATION_BACKEND !== 'docker') {
+  console.error('Error: --container-cpu, --container-memory, and --container-disk require --isolation docker');
+  process.exit(1);
+}
+if (hasContainerResourceLimits(CONTAINER_RESOURCE_LIMITS)) {
+  console.log(`📏 Docker task limits enabled: CPU=${CONTAINER_RESOURCE_LIMITS.cpu || 'unlimited'}, RAM=${CONTAINER_RESOURCE_LIMITS.memory || 'unlimited'}, disk=${CONTAINER_RESOURCE_LIMITS.disk || 'unlimited'}`);
+}
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {
@@ -342,7 +361,7 @@ async function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url, recoveryNotice };
 }
 
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -760,7 +779,7 @@ async function handleSolveCommand(ctx) {
   } else {
     if (!solveQueue.executeCallback) {
       const _t = (s, i) => trackSession(s, i, VERBOSE);
-      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE);
+      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
     }
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
     const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)

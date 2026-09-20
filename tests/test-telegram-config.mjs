@@ -98,5 +98,16 @@ await test('isolation defaults to docker and stays overridable', () => {
   assert.equal(parseArgs(['--isolation', 'tmux'], { TELEGRAM_ISOLATION: 'screen' }).isolation, 'tmux');
 });
 
+await test('container limits default to unlimited and accept fixed or percentage values', () => {
+  const defaults = parseArgs([], { TELEGRAM_CONTAINER_CPU: undefined, TELEGRAM_CONTAINER_MEMORY: undefined, TELEGRAM_CONTAINER_DISK: undefined });
+  assert.equal(defaults.containerCpu, '');
+  assert.equal(defaults.containerMemory, '');
+  assert.equal(defaults.containerDisk, '');
+  const configured = parseArgs(['--container-cpu', '50%', '--container-memory', '2GiB', '--container-disk', '10%']);
+  assert.equal(configured.containerCpu, '50%');
+  assert.equal(configured.containerMemory, '2GiB');
+  assert.equal(configured.containerDisk, '10%');
+});
+
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);
 process.exit(failed > 0 ? 1 : 0);

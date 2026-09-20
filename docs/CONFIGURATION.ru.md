@@ -265,21 +265,24 @@ pull request ещё не mergeable, очередь слияния ждёт до
 
 ### 13. Telegram-бот
 
-| Переменная окружения                       | По умолчанию  | Описание                                                                                    |
-| ------------------------------------------ | ------------- | ------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                       | (обязательно) | Токен Telegram-бота от @BotFather                                                           |
-| `TELEGRAM_ALLOWED_CHATS`                   | (все)         | Разрешённые идентификаторы чатов (нотация Links)                                            |
-| `TELEGRAM_SOLVE_OVERRIDES`                 | (нет)         | Переопределения параметров для /solve (нотация Links)                                       |
-| `TELEGRAM_HIVE_OVERRIDES`                  | (нет)         | Переопределения параметров для /hive (нотация Links)                                        |
-| `TELEGRAM_SOLVE`                           | true          | Включить команду /solve                                                                     |
-| `TELEGRAM_HIVE`                            | true          | Включить команду /hive                                                                      |
-| `TELEGRAM_TASK`                            | true          | Включить команды /task и /split                                                             |
-| `TELEGRAM_FIX`                             | true          | Включить команду /fix                                                                       |
-| `TELEGRAM_ORGANIZE`                        | true          | Включить команду классификации задач /organize                                              |
-| `TELEGRAM_AUTH`                            | true          | Включить экспериментальную приватную команду /auth для владельцев разрешённых чатов         |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false         | Автоматически запускать отдельное live terminal watch сообщение для публичных /solve сессий |
-| `TELEGRAM_BOT_VERBOSE`                     | false         | Включить подробное журналирование                                                           |
-| `TELEGRAM_CONFIGURATION`                   | (нет)         | Строка конфигурации LINO                                                                    |
+| Переменная окружения                       | По умолчанию  | Описание                                                                                       |
+| ------------------------------------------ | ------------- | ---------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`                       | (обязательно) | Токен Telegram-бота от @BotFather                                                              |
+| `TELEGRAM_ALLOWED_CHATS`                   | (все)         | Разрешённые идентификаторы чатов (нотация Links)                                               |
+| `TELEGRAM_SOLVE_OVERRIDES`                 | (нет)         | Переопределения параметров для /solve (нотация Links)                                          |
+| `TELEGRAM_HIVE_OVERRIDES`                  | (нет)         | Переопределения параметров для /hive (нотация Links)                                           |
+| `TELEGRAM_SOLVE`                           | true          | Включить команду /solve                                                                        |
+| `TELEGRAM_HIVE`                            | true          | Включить команду /hive                                                                         |
+| `TELEGRAM_TASK`                            | true          | Включить команды /task и /split                                                                |
+| `TELEGRAM_FIX`                             | true          | Включить команду /fix                                                                          |
+| `TELEGRAM_ORGANIZE`                        | true          | Включить команду классификации задач /organize                                                 |
+| `TELEGRAM_AUTH`                            | true          | Включить экспериментальную приватную команду /auth для владельцев разрешённых чатов            |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false         | Автоматически запускать отдельное live terminal watch сообщение для публичных /solve сессий    |
+| `TELEGRAM_CONTAINER_CPU`                   | (нет)         | Ограничение CPU Docker-задачи: фиксированные ядра (`1.5`) или процент хоста (`50%`)            |
+| `TELEGRAM_CONTAINER_MEMORY`                | (нет)         | Ограничение ОЗУ Docker-задачи: размер (`2GiB`) или процент хоста (`25%`)                       |
+| `TELEGRAM_CONTAINER_DISK`                  | (нет)         | Ограничение writable layer Docker-задачи: размер (`20GB`) или процент доступного диска (`10%`) |
+| `TELEGRAM_BOT_VERBOSE`                     | false         | Включить подробное журналирование                                                              |
+| `TELEGRAM_CONFIGURATION`                   | (нет)         | Строка конфигурации LINO                                                                       |
 
 ### 14. Интеграция с YouTrack
 
@@ -640,6 +643,9 @@ hive-telegram-bot [options]
 | `--dry-run`                         |           | boolean | false         | Проверить без запуска бота                                                                                                                                                                                                            |
 | `--auto-start-screen-watch-message` |           | boolean | false         | Экспериментально: автоматически запускать отдельное сообщение `/terminal_watch` для публичных сессий `/solve`. Для приватных репозиториев или неизвестной видимости watch-сообщения автоматически не запускаются.                     |
 | `--isolation`                       |           | string  | `docker`      | Бэкенд изоляции (`screen`, `tmux`, `docker`). По умолчанию `docker` запускает рабочие сессии Telegram-бота в Docker-изоляции с очисткой при успехе. Для отключения передайте `--isolation ''` (или установите `TELEGRAM_ISOLATION=`). |
+| `--container-cpu`                   |           | string  |               | Ограничение CPU Docker-задачи: фиксированное число ядер (`1.5`) или процент хоста (`50%`).                                                                                                                                            |
+| `--container-memory`                |           | string  |               | Ограничение ОЗУ Docker-задачи: фиксированный размер (`2GiB`) или процент хоста (`25%`).                                                                                                                                               |
+| `--container-disk`                  |           | string  |               | Ограничение writable layer Docker-задачи: фиксированный размер (`20GB`) или процент доступного места файловой системы (`10%`).                                                                                                        |
 
 Когда `/solve` включена, Telegram-бот также принимает `/do` и `/continue`
 как обычные псевдонимы `/solve`. Команды `/claude`, `/codex`, `/opencode`,

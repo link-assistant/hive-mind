@@ -10,6 +10,7 @@
 import assert from 'node:assert/strict';
 
 import { applyDockerContainerResourceLimits, buildDockerUpdateArgs, detectContainerDiskLimitBreach, normalizeContainerResourceLimits, resolveContainerResourceLimits } from '../src/container-resource-limits.lib.mjs';
+import { resolveTelegramContainerResourceLimits } from '../src/telegram-container-resource-limits.lib.mjs';
 
 let passed = 0;
 let failed = 0;
@@ -128,6 +129,14 @@ await test('resource limits fail closed on non-Docker isolation backends', async
   });
   assert.equal(result.success, false);
   assert.match(result.error, /require the Docker isolation backend/i);
+});
+
+await test('Telegram startup requires Docker only when a limit is configured', () => {
+  assert.deepEqual(resolveTelegramContainerResourceLimits({}, 'screen').limits, { cpu: null, memory: null, disk: null });
+  assert.throws(() => resolveTelegramContainerResourceLimits({ containerCpu: '1' }, 'screen'), /require --isolation docker/i);
+  const configured = resolveTelegramContainerResourceLimits({ containerCpu: '50%', containerMemory: '2GiB' }, 'docker');
+  assert.deepEqual(configured.limits, { cpu: '50%', memory: '2GiB', disk: null });
+  assert.match(configured.summary, /CPU=50%, RAM=2GiB, disk=unlimited/);
 });
 
 console.log(`\nTotal: ${passed + failed}, Passed: ${passed}, Failed: ${failed}`);

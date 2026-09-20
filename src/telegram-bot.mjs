@@ -74,25 +74,15 @@ const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
-const { hasContainerResourceLimits, normalizeContainerResourceLimits } = await import('./container-resource-limits.lib.mjs');
-let CONTAINER_RESOURCE_LIMITS;
+const { resolveTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
+let CONTAINER_RESOURCE_LIMITS, containerResourceLimitsSummary;
 try {
-  CONTAINER_RESOURCE_LIMITS = normalizeContainerResourceLimits({
-    cpu: config.containerCpu || getenv('TELEGRAM_CONTAINER_CPU', ''),
-    memory: config.containerMemory || getenv('TELEGRAM_CONTAINER_MEMORY', ''),
-    disk: config.containerDisk || getenv('TELEGRAM_CONTAINER_DISK', ''),
-  });
+  ({ limits: CONTAINER_RESOURCE_LIMITS, summary: containerResourceLimitsSummary } = resolveTelegramContainerResourceLimits(config, ISOLATION_BACKEND));
 } catch (error) {
   console.error(`Error: Invalid container resource limit: ${error?.message || error}`);
   process.exit(1);
 }
-if (hasContainerResourceLimits(CONTAINER_RESOURCE_LIMITS) && ISOLATION_BACKEND !== 'docker') {
-  console.error('Error: --container-cpu, --container-memory, and --container-disk require --isolation docker');
-  process.exit(1);
-}
-if (hasContainerResourceLimits(CONTAINER_RESOURCE_LIMITS)) {
-  console.log(`📏 Docker task limits enabled: CPU=${CONTAINER_RESOURCE_LIMITS.cpu || 'unlimited'}, RAM=${CONTAINER_RESOURCE_LIMITS.memory || 'unlimited'}, disk=${CONTAINER_RESOURCE_LIMITS.disk || 'unlimited'}`);
-}
+if (containerResourceLimitsSummary) console.log(`📏 Docker task limits enabled: ${containerResourceLimitsSummary}`);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {

@@ -1,0 +1,31 @@
+73eb6161-bba2-4f61-aff2-e67f3efcfbdd
+  uuid 73eb6161-bba2-4f61-aff2-e67f3efcfbdd
+  pid 40569
+  processIds
+      wrapperPid 40569
+      containerId 81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664
+  status executed
+  exitCode 137
+  command 'gate=''/tmp/hive-mind-disk-baseline-45ee6a19-84af-4b45-b771-d1295e97a969''; i=0; while [ ! -e "$gate" ] && [ "$i" -lt 300 ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; echo WORKLOAD_STARTED; sleep 300'
+  logPath /tmp/start-command/logs/isolation/docker/73eb6161-bba2-4f61-aff2-e67f3efcfbdd.log
+  startTime "2026-09-15T22:19:40.193Z"
+  endTime "2026-09-15T22:19:51.688Z"
+  oomKilled false
+  exitReason "signal (SIGKILL)"
+  workingDirectory /tmp/gh-issue-solver-1789509892930
+  shell /bin/bash
+  platform linux
+  options
+    isolated docker
+    isolationMode detached
+    sessionName 45ee6a19-84af-4b45-b771-d1295e97a969
+    image "alpine:3.20"
+    env HIVE_MIND_PARENT_SESSION_ID=45ee6a19-84af-4b45-b771-d1295e97a969
+    user false
+    keepAlive false
+    autoRemoveDockerContainer false
+    alwaysCleanupContainer false
+    keepContainer false
+    keepContainerOnFail false
+    useCommandStream false
+    containerId 81f7125a7d6601dc81c05cbdfa39cfc8d0b664b053d21aced12510a5c8742664

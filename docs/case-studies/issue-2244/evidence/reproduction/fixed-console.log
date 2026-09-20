@@ -1,0 +1,4 @@
+[dind-entrypoint] Starting dockerd (storage-driver=fuse-overlayfs, data-root=/var/lib/docker)
+[dind-entrypoint] dockerd is ready after 1s
+[dind-entrypoint] image preload/passthrough complete
+WORKLOAD_REACHED i=0

@@ -12,13 +12,12 @@
  * @see https://github.com/link-assistant/hive-mind/issues/380
  */
 import crypto from 'crypto';
-import { execFile, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { lookup as lookupHost } from 'node:dns/promises';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { isExecutingSessionStatus, isTerminalSessionStatus } from './session-status.lib.mjs';
 import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormalAiTaskEnv, releaseFormalAiSidecarForTask } from './formal-ai-isolation.lib.mjs';
 // The image references live in their own module so the Formal AI sidecar can
@@ -26,10 +25,8 @@ import { acquireFormalAiSidecarForTask, attachFormalAiTaskContainer, buildFormal
 // importing this runner and creating a cycle. Re-exported here because callers
 // and tests have always reached them through the isolation runner. See #2154.
 import { getDockerIsolationImage } from './hive-mind-image.lib.mjs';
-// Issue #2247 (H1): refresh a mutable task image before launch and record which one ran.
-import { buildTaskImageProvenanceEnv, refreshTaskImage } from './task-image-refresh.lib.mjs';
 import { buildRouterGitConfigEntries, buildRouterTaskEnv, getRouterSuppressedCredentialPaths, hasUseRouterFlag, isRouterEnabled, resolveRouterBaseUrl, resolveRouterGitHubRouting } from './router-isolation.lib.mjs';
-import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask, watchRouterTaskContainer } from './router-task-isolation.lib.mjs';
+import { acquireRouterForTask, attachRouterTaskContainer, registerFormalAiWithRouter, releaseRouterForTask } from './router-task-isolation.lib.mjs';
 import { buildGitConfigEnv, GIT_PUSH_GUARD_CONTAINER_DIR, GIT_PUSH_GUARD_ESCAPE_ENV, hasForcePushOptIn, installGitPushGuard } from './git-push-guard.lib.mjs';
 export { getDockerIsolationImage, resolveDockerIsolationImageTag } from './hive-mind-image.lib.mjs';
 // Re-export the shared status predicates so existing callers that reach them via the isolation-runner module (e.g. session-monitor's `runner.isExecutingSessionStatus`) keep working. The canonical definitions live in session-status.lib.mjs so the killed/terminated/oom vocabulary stays consistent everywhere (issue #1927).
@@ -60,12 +57,6 @@ const DOCKER_ISOLATION_SHELL = 'sh';
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
 // Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. The parent releases the gate immediately after `docker inspect --size`; the fallback keeps the task from hanging forever if the parent exits at the wrong time.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
-// `docker inspect --size` asks the storage driver to walk the writable layer and
-// can block indefinitely even while ordinary inspect calls remain responsive.
-// Keep this below the child's 30-second fallback gate so an optional disk metric
-// can never hold the launch lifecycle open (issue #2244).
-export const DOCKER_SIZE_INSPECT_TIMEOUT_MS = 10_000;
-const execFileAsync = promisify(execFile);
 function normalizeTool(tool) {
   return String(tool || 'claude')
     .trim()
@@ -82,46 +73,10 @@ function buildShellCommand(command, args = []) {
 function buildDockerStartGatePath(sessionId) {
   return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
 }
-/**
- * Wrap the task command in the disk-baseline start gate, narrating every step.
- *
- * Issue #2244: the original loop was completely silent for up to 30 seconds. A
- * container SIGKILLed inside that window produced an *empty* stdout, so the
- * preserved session log could not distinguish "still waiting for the parent" from
- * "the task started and died instantly" — the incident's only evidence was the
- * absence of evidence. The markers below cost three lines in a normal run and go
- * to stderr, so the task's own stdout stays byte-identical for log parsers.
- *
- * Every construct here is POSIX `sh` (busybox included): the isolation images run
- * the inner command with `sh -c` (see DOCKER_ISOLATION_SHELL).
- */
-export function buildDockerStartGatedCommand(taskCommand, sessionId, { waitTenths = DOCKER_START_GATE_WAIT_TENTHS } = {}) {
+function buildDockerStartGatedCommand(taskCommand, sessionId) {
   const gatePath = buildDockerStartGatePath(sessionId);
   if (!gatePath) return taskCommand;
-  const waitSeconds = Math.round(waitTenths / 10);
-  const stamp = '$(date -u +%H:%M:%S)';
-  const heartbeatTenths = Math.max(1, Math.min(50, waitTenths));
-  return [`gate=${shellQuote(gatePath)}`, 'i=0', `echo "[hive-mind] start-gate: waiting up to ${waitSeconds}s at ${stamp} for the parent to release $gate" >&2`, `while [ ! -e "$gate" ] && [ "$i" -lt ${waitTenths} ]; do i=$((i+1)); if [ $((i % ${heartbeatTenths})) -eq 0 ]; then echo "[hive-mind] start-gate: still waiting after $((i / 10))s at ${stamp}" >&2; fi; sleep 0.1; done`, `if [ -e "$gate" ]; then echo "[hive-mind] start-gate: released after $((i / 10))s at ${stamp}" >&2; else echo "[hive-mind] start-gate: not released within ${waitSeconds}s; starting the task anyway at ${stamp}" >&2; fi`, 'rm -f "$gate"', `echo "[hive-mind] start-gate: starting task command at ${stamp}" >&2`, `exec ${taskCommand}`].join('; ');
-}
-/**
- * Should a DinD task container stream dockerd's own log to container stderr?
- *
- * Box writes the nested daemon's log to `DIND_LOG_FILE` (default
- * `/var/log/dockerd.log`) *inside* the container and only echoes a tail of it
- * when the readiness wait fails. Issue #2244's container was killed before that
- * point, so the file died with the container and the single line
- * `[dind-entrypoint] Starting dockerd (...)` was the whole record of a
- * six-second life. Sending the daemon to stderr keeps that evidence in the
- * session log start-command already preserves. Quiet runs are exactly the ones
- * nobody is attached to, so this is on by default; a deployment that finds the
- * daemon chatter noisy can set `HIVE_MIND_DIND_DAEMON_LOG=0`.
- */
-export function shouldStreamDindDaemonLog({ env = process.env } = {}) {
-  const raw = String(env.HIVE_MIND_DIND_DAEMON_LOG ?? '')
-    .trim()
-    .toLowerCase();
-  if (raw === '') return true;
-  return !['0', 'off', 'false', 'no', 'disabled'].includes(raw);
+  return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
 }
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
   return String(env.HIVE_MIND_IMAGE_VARIANT || '').toLowerCase() === 'dind' || String(image || '').includes('hive-mind-dind');
@@ -143,40 +98,6 @@ export function resolveHostDockerSock({ env = process.env } = {}) {
   return explicit || DEFAULT_HOST_DOCKER_SOCK;
 }
 /**
- * Per-tool host paths that a Docker-isolated task receives (issue #2190).
- *
- * Only the credential *file* and the session/transcript *directories* are
- * mounted — never the whole `~/.claude` / `~/.codex` application directory and
- * never `~/.claude.json` or `~/.agents`:
- *
- *   - the credential file is shared by every task, so a token refreshed by one
- *     task (or by the host) is immediately visible to all of them;
- *   - `projects/` and `sessions/` stay on the host for audit and discovery;
- *   - everything else (config, plugins, marketplaces, skills, MCP registrations,
- *     settings) comes from the image, so a task can neither inherit a globally
- *     synced plugin such as Superpowers nor reconfigure the global state for the
- *     tasks that follow it.
- *
- * `kind: 'file'` entries are only mounted when the host file exists (Docker
- * would otherwise create a directory in its place); `kind: 'dir'` entries are
- * created on the host by {@link prepareDockerIsolationHostPaths}.
- */
-export const DOCKER_ISOLATION_TOOL_MOUNTS = Object.freeze({
-  claude: Object.freeze([Object.freeze({ relativePath: path.join('.claude', '.credentials.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.claude', 'projects'), kind: 'dir', role: 'sessions' }), Object.freeze({ relativePath: path.join('.claude', 'sessions'), kind: 'dir', role: 'sessions' })]),
-  codex: Object.freeze([Object.freeze({ relativePath: path.join('.codex', 'auth.json'), kind: 'file', role: 'auth' }), Object.freeze({ relativePath: path.join('.codex', 'sessions'), kind: 'dir', role: 'sessions' })]),
-});
-/**
- * Is `relativePath` covered by one of the router-suppressed credential paths?
- * Suppression is by prefix so that `.claude` withholds `.claude/.credentials.json`
- * and `.claude/projects` alike: a routed task gets no vendor state at all.
- */
-function isSuppressedPath(relativePath, suppressed) {
-  for (const prefix of suppressed) {
-    if (relativePath === prefix || relativePath.startsWith(`${prefix}${path.sep}`)) return true;
-  }
-  return false;
-}
-/**
  * Build host auth mounts for a Docker-isolated task.
  *
  * GitHub auth is mounted for every task because solve/hive/task need gh. Git
@@ -186,8 +107,7 @@ function isSuppressedPath(relativePath, suppressed) {
  * container that authenticates with gh but inherits no git identity still cannot
  * commit. See issue #1939. Tool credentials are deliberately scoped: Codex
  * sessions do not receive Claude files and Claude sessions do not receive Codex
- * files, and (issue #2190) only the entries in {@link DOCKER_ISOLATION_TOOL_MOUNTS}
- * are shared — the application directories themselves stay per container.
+ * files.
  *
  * Issue #2164 (EXPERIMENTAL): with `useRouter` the vendor credential mounts are
  * withheld entirely, so the task never holds the subscription — it reaches the
@@ -199,48 +119,22 @@ function isSuppressedPath(relativePath, suppressed) {
 export function getDockerIsolationAuthMounts({ tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, ghRouted = false } = {}) {
   const mounts = [];
   const normalizedTool = normalizeTool(tool);
-  const suppressed = useRouter ? getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted }) : [];
-  if (!isSuppressedPath(path.join('.config', 'gh'), suppressed)) {
+  const suppressed = useRouter ? new Set(getRouterSuppressedCredentialPaths({ tool: normalizedTool, ghRouted })) : new Set();
+  if (!suppressed.has('.config/gh')) {
     maybeAddMount(mounts, env.GH_CONFIG_DIR || path.join(homeDir, '.config', 'gh'), path.join(DOCKER_CONTAINER_HOME, '.config', 'gh'), existsSync);
   }
   // Git identity (tool-agnostic, required for commits). Honor the same env vars git itself reads for an alternate global config location (GIT_CONFIG_GLOBAL) and the XDG base dir, falling back to the conventional `~/.gitconfig` and `~/.config/git`. Missing host paths are skipped, so a container image that already bakes a git identity is left untouched. See issue #1939.
   maybeAddMount(mounts, env.GIT_CONFIG_GLOBAL || path.join(homeDir, '.gitconfig'), path.join(DOCKER_CONTAINER_HOME, '.gitconfig'), existsSync);
   maybeAddMount(mounts, env.XDG_CONFIG_HOME ? path.join(env.XDG_CONFIG_HOME, 'git') : path.join(homeDir, '.config', 'git'), path.join(DOCKER_CONTAINER_HOME, '.config', 'git'), existsSync);
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizedTool] || []) {
-    if (isSuppressedPath(entry.relativePath, suppressed)) continue;
-    maybeAddMount(mounts, path.join(homeDir, entry.relativePath), path.join(DOCKER_CONTAINER_HOME, entry.relativePath), existsSync);
+  if (normalizedTool === 'codex') {
+    if (!suppressed.has('.codex')) maybeAddMount(mounts, path.join(homeDir, '.codex'), path.join(DOCKER_CONTAINER_HOME, '.codex'), existsSync);
+    // Issue #2074: Codex also discovers persistent user Agent Skills from ~/.agents/skills. Propagate that standard location alongside .codex so direct and Docker-isolated solver sessions expose the same capabilities.
+    if (!suppressed.has('.agents')) maybeAddMount(mounts, path.join(homeDir, '.agents'), path.join(DOCKER_CONTAINER_HOME, '.agents'), existsSync);
+  } else if (normalizedTool === 'claude') {
+    if (!suppressed.has('.claude')) maybeAddMount(mounts, path.join(homeDir, '.claude'), path.join(DOCKER_CONTAINER_HOME, '.claude'), existsSync);
+    if (!suppressed.has('.claude.json')) maybeAddMount(mounts, path.join(homeDir, '.claude.json'), path.join(DOCKER_CONTAINER_HOME, '.claude.json'), existsSync);
   }
   return mounts;
-}
-/**
- * Create the host-side session directories a Docker-isolated task mounts and
- * report a missing credential file, so a first run on a fresh host does not
- * silently launch a task with no `projects/` to write to or no credentials.
- *
- * Kept separate from {@link getDockerIsolationAuthMounts} because that function
- * is pure and is exercised in tests with paths that must not be created.
- *
- * @returns {{ created: string[], missingAuth: string[] }}
- */
-export function prepareDockerIsolationHostPaths({ tool = 'claude', homeDir = os.homedir(), fsImpl = fs, useRouter = false } = {}) {
-  const created = [];
-  const missingAuth = [];
-  if (useRouter) return { created, missingAuth };
-  for (const entry of DOCKER_ISOLATION_TOOL_MOUNTS[normalizeTool(tool)] || []) {
-    const hostPath = path.join(homeDir, entry.relativePath);
-    if (entry.kind === 'dir') {
-      if (fsImpl.existsSync(hostPath)) continue;
-      try {
-        fsImpl.mkdirSync(hostPath, { recursive: true });
-        created.push(hostPath);
-      } catch {
-        // A read-only or foreign home is not fatal: the mount is simply skipped.
-      }
-    } else if (entry.role === 'auth' && !fsImpl.existsSync(hostPath)) {
-      missingAuth.push(hostPath);
-    }
-  }
-  return { created, missingAuth };
 }
 /**
  * Resolve the image-variant marker recorded inside the isolated container.
@@ -301,7 +195,7 @@ export async function resolveFormalAiIsolationEnv(env = process.env, { lookup = 
  * reused instead of re-downloaded — no `--pull` plumbing required (issue #1879).
  */
 export function buildDockerIsolationStartArgs(command, args = [], options = {}) {
-  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard, imageProvenance = null } = options;
+  const { sessionId, tool = 'claude', env = process.env, homeDir = os.homedir(), existsSync = fs.existsSync, useRouter = false, routerToken = null, installGuard = installGitPushGuard } = options;
   // Issue #2164 (EXPERIMENTAL): router isolation replaces the credential mounts
   // with a scoped token pointing at the `hive-mind-router` sidecar. It only
   // engages when a token was actually issued; without one the task would have
@@ -322,18 +216,6 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
   startArgs.push('--shell', DOCKER_ISOLATION_SHELL);
   // The image already sets HOME=/home/box and WORKDIR /home/box; pass HOME explicitly anyway so the credential mounts under /home/box resolve even if a future image forgets to. start-command has no --workdir flag, so the working directory comes from the image's WORKDIR.
   startArgs.push('-e', `HOME=${DOCKER_CONTAINER_HOME}`, '-e', `HIVE_MIND_PARENT_SESSION_ID=${sessionId || ''}`, '-e', `HIVE_MIND_IMAGE_VARIANT=${resolveImageVariant(image, env)}`);
-  // Issue #2244: keep the nested daemon's startup log in the session log instead
-  // of in a container-local file that dies with the container. See
-  // shouldStreamDindDaemonLog for why this defaults to on.
-  if (shouldRunPrivilegedDockerIsolation(image, env) && shouldStreamDindDaemonLog({ env })) {
-    startArgs.push('-e', 'DIND_LOG_FILE=/dev/stderr');
-  }
-  // Issue #2247 (H1): the three 2026-09-13 tasks ran a week-old `solve` and no
-  // comment said so. The image the container was created from - and the digest
-  // it resolved to - travel with the task so its session comment can state them.
-  for (const [name, value] of Object.entries(buildTaskImageProvenanceEnv(imageProvenance || { image, digest: null }))) {
-    startArgs.push('-e', `${name}=${value}`);
-  }
   // A persistent Formal AI server normally runs beside the Telegram/root container. Docker-isolated `/solve` jobs must receive the same endpoint; otherwise the wrapper starts a per-job server and loses shared memory.
   if (env.HIVE_MIND_FORMAL_AI_BASE_URL) {
     startArgs.push('-e', `HIVE_MIND_FORMAL_AI_BASE_URL=${env.HIVE_MIND_FORMAL_AI_BASE_URL}`);
@@ -525,39 +407,17 @@ export async function executeWithIsolation(command, args, options = {}) {
           env: await resolveFormalAiIsolationEnv(taskEnv),
         }
       : options;
-  if (backend === 'docker') {
-    // Issue #2190: only the credential file and the session directories are
-    // shared with the task; make sure the directories exist on the host and say
-    // so when the credential file does not.
-    const prepared = prepareDockerIsolationHostPaths({ tool: effectiveOptions.tool, homeDir: effectiveOptions.homeDir || os.homedir(), useRouter: Boolean(router) });
-    for (const dir of prepared.created) if (verbose) console.log(`[VERBOSE] isolation-runner: created host directory for task mounts: ${dir}`);
-    for (const file of prepared.missingAuth) console.warn(`[WARN] isolation-runner: ${file} is missing on the host; the task container will start without ${effectiveOptions.tool ?? 'claude'} credentials`);
-  }
-  // Issue #2247 (H1): `konard/hive-mind:latest` pulled a week earlier is still
-  // "present", so Docker's default pull policy reused it and every task on
-  // 2026-09-13 ran `solve v2.22.0` while v2.28.1 was published. Refresh the
-  // reference before the container is created - once per process, and only when
-  // the tag is mutable, so a pinned image seeded into a nested daemon (#1879) is
-  // left exactly as it is - and resolve the digest either way.
-  let imageProvenance = null;
-  if (backend === 'docker') {
-    imageProvenance = await refreshTaskImage({
-      image: getDockerIsolationImage({ env: effectiveOptions.env || process.env }),
-      env: hostEnv,
-      log: verbose ? message => console.log(`[VERBOSE] isolation-runner: ${message}`) : null,
-    });
-  }
-  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null, imageProvenance });
+  const startCommandArgs = buildStartCommandArgs(command, args, { ...effectiveOptions, sessionId, useRouter: Boolean(router), routerToken: router?.token ?? null });
   if (verbose) {
     console.log(`[VERBOSE] isolation-runner: ${[binPath, ...startCommandArgs].map(shellQuote).join(' ')}`);
     if (backend === 'docker') {
       const env = effectiveOptions.env || process.env;
       const image = getDockerIsolationImage({ env });
-      const mounts = getDockerIsolationAuthMounts({ tool: effectiveOptions.tool, env, homeDir: effectiveOptions.homeDir || os.homedir(), existsSync: effectiveOptions.existsSync || fs.existsSync, useRouter: Boolean(router) });
+      const mounts = getDockerIsolationAuthMounts({ tool: effectiveOptions.tool, env, homeDir: effectiveOptions.homeDir || os.homedir(), existsSync: effectiveOptions.existsSync || fs.existsSync });
       console.log('[VERBOSE] isolation-runner: Docker isolation backend: native ($ --isolated docker)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation image: ${image}`);
       console.log(`[VERBOSE] isolation-runner: Docker isolation privileged: ${shouldRunPrivilegedDockerIsolation(image, env)}`);
-      console.log(`[VERBOSE] isolation-runner: Docker isolation pull: ${imageProvenance?.pulled ? 'refreshed from the registry' : `local copy reused (${imageProvenance?.reason || 'start-command default'})`}; digest ${imageProvenance?.digest || 'unknown'}`);
+      console.log('[VERBOSE] isolation-runner: Docker isolation pull: reuse local image if present, pull only if missing (start-command default)');
       console.log(`[VERBOSE] isolation-runner: Docker isolation mounts: ${mounts.map(m => m.target).join(', ') || '(none)'}`);
       const gitIdentityMounted = mounts.some(m => m.target === path.join(DOCKER_CONTAINER_HOME, '.gitconfig') || m.target === path.join(DOCKER_CONTAINER_HOME, '.config', 'git'));
       console.log(`[VERBOSE] isolation-runner: Docker isolation git identity propagated: ${gitIdentityMounted ? 'yes' : 'no (host ~/.gitconfig missing — child may fail with "Git identity not configured", issue #1939)'}`);
@@ -623,9 +483,6 @@ export async function executeWithIsolation(command, args, options = {}) {
     if (verbose) {
       console.log(executionUuid ? `[VERBOSE] isolation-runner: start-command execution UUID for session ${sessionId}: ${executionUuid} (this is what '$ --list' shows)` : `[VERBOSE] isolation-runner: start-command reported no execution UUID for session ${sessionId}; '$ --list' cannot be correlated for this session`);
     }
-    // Issue #2190: the task's router token is revoked the instant its container
-    // stops, however it stops. Not awaited — it resolves when the task ends.
-    if (router) watchRouterTaskContainer({ router, sessionId, env: hostEnv, verbose });
     return {
       success: true,
       sessionId,
@@ -860,22 +717,14 @@ export function parseDockerContainerWritableLayerSizeOutput(output) {
  *
  * @param {string} containerName - Container name (the session UUID)
  * @param {boolean} [verbose] - Enable verbose logging
- * @param {Object} [options] - Test/timeout overrides
- * @param {number} [options.timeoutMs] - Maximum Docker inspection duration
- * @param {Function} [options.execFileImpl] - Injectable execFile implementation
  * @returns {Promise<number|null>} Writable layer bytes, or null when unavailable.
  */
-export async function getDockerContainerWritableLayerSize(containerName, verbose = false, options = {}) {
+export async function getDockerContainerWritableLayerSize(containerName, verbose = false) {
   if (!containerName) return null;
-  const timeoutMs = Number.isFinite(options.timeoutMs) && options.timeoutMs > 0 ? options.timeoutMs : DOCKER_SIZE_INSPECT_TIMEOUT_MS;
-  const execFileImpl = options.execFileImpl || execFileAsync;
   try {
-    const result = await execFileImpl('docker', ['inspect', '--size', '-f', '{{.SizeRw}}', containerName], {
-      encoding: 'utf8',
-      timeout: timeoutMs,
-      maxBuffer: 4096,
-    });
-    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout || '');
+    const $ = await getCommandStreamDollar();
+    const result = await $({ mirror: false })`docker inspect --size -f ${'{{.SizeRw}}'} ${containerName}`;
+    const bytes = parseDockerContainerWritableLayerSizeOutput(result.stdout?.toString() || '');
     if (verbose) {
       const label = bytes === null ? 'unknown' : `${bytes} bytes`;
       console.log(`[VERBOSE] isolation-runner: docker writable layer size for '${containerName}': ${label}`);
@@ -884,12 +733,7 @@ export async function getDockerContainerWritableLayerSize(containerName, verbose
   } catch (error) {
     if (verbose) {
       const stderr = error?.stderr?.toString?.().trim();
-      const timedOut = error?.killed === true || error?.code === 'ETIMEDOUT';
-      if (timedOut) {
-        console.log(`[VERBOSE] isolation-runner: docker writable layer inspection for '${containerName}' timed out after ${timeoutMs}ms; start gate will still be released`);
-      } else {
-        console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
-      }
+      console.log(`[VERBOSE] isolation-runner: could not inspect writable layer size for '${containerName}': ${stderr || error?.message || error}`);
     }
     return null;
   }

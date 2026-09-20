@@ -1,0 +1,1 @@
+error during connect: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.55/containers/hive-mind-issue-2244-normal/json?size=1":

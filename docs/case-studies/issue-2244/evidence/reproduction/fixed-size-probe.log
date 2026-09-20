@@ -1,0 +1,2 @@
+[VERBOSE] isolation-runner: docker writable layer inspection for 'hive-mind-issue-2244-fixed' timed out after 10000ms; start gate will still be released
+{"bytes":null,"durationMilliseconds":10028}

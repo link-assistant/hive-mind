@@ -1,0 +1,3 @@
+persisted status = "executing"
+persisted exitCode = (null
+persisted endTime = (null

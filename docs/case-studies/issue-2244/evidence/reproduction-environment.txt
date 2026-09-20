@@ -1,0 +1,21 @@
+Reproduction captured: 2026-09-13 UTC
+
+Hive Mind release: v2.22.0
+Hive Mind commit: 412e00da227d51dfb2b21a568914f380cf4d0047
+Hive Mind commit date: 2026-09-07T00:52:24+00:00
+
+Image reference: docker.io/konard/hive-mind-dind@sha256:b5e71481abcc540a881d805007051211c09661911379f40e248fa4bd064fe6d7
+Image ID: sha256:bbe65ca0080b1ba610dbcf4a73dd430468d1b04865e5f9a514a51554b89caed9
+Image created: 2026-09-07T01:00:41.075797056Z
+Image size: 19699804219 bytes
+
+Docker client: 29.6.0, API 1.55
+Docker Engine: 29.6.0, API 1.55
+containerd: 2.2.5 (e53c7c1516c3b2bff98eb76f1f4117477e6f4e66)
+runc: 1.3.6 (v1.3.6-0-g491b69ba)
+Operating system: Ubuntu 24.04.4 LTS
+Kernel: 6.8.0-139-generic
+Architecture: x86_64
+Storage driver: fuse-overlayfs
+Cgroup version: 2
+Cgroup driver: cgroupfs

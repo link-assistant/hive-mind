@@ -943,9 +943,7 @@ try {
     // the rendered message is re-classified here, so the whole failure surface is
     // covered by one chokepoint.
     const subscriptionInfo = toolResult?.subscriptionError || detectSubscriptionError({ message: extractToolErrorCore({ toolResult }) || toolFailureMessage, tool: toolForFailure });
-    // Issue #2263: failure is a monotonic readiness veto. Record it before
-    // recovery or remote diagnostics so every pre-exit/session-end safety net
-    // sees the deliberate draft and cannot publish failed bytes as ready.
+    // Issue #2263: record failure before recovery so later safety nets cannot mark the PR ready.
     if (prNumber) {
       const { ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
       await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $, log, formatAligned, reason: toolFailureMessage, reportError });
@@ -1063,9 +1061,7 @@ try {
   } else {
     await log('ℹ️  Playwright MCP auto-cleanup disabled via --no-playwright-mcp-auto-cleanup', { verbose: true });
   }
-  // On critical errors preserve dirty evidence outside PR branch history (#2263).
-  // The legacy option name is retained for compatibility; it now enables a
-  // recovery snapshot rather than promoting unverified work to a solution commit.
+  // The legacy option now preserves critical-error evidence outside PR history (#2263).
   const { criticalErrorRecovery } = await import('./config.lib.mjs');
   const criticalError = success === false || errorDuringExecution === true;
   const shouldAutoCommit = argv['auto-commit-uncommitted-changes'] || limitReached || (criticalError && criticalErrorRecovery.autoCommitUncommittedChanges);

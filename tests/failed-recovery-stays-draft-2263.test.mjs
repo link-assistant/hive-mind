@@ -80,7 +80,9 @@ terminalToolResult = updateTerminalToolResult(terminalToolResult, collectClaudeS
 assert.equal(terminalToolResult.failed, false);
 
 // Replay the reported ordering through the real command wrapper: failed javac
-// result, then a provider-level success envelope. The wrapper must return a
+// result, then a provider-level success envelope. Stream classification is
+// model-independent, so native dispatch keeps this fixture hermetic instead of
+// requiring a locally installed Formal AI server. The wrapper must return a
 // failed session and retain the compiler diagnostic.
 process.env.HIVE_MIND_RESULT_STREAM_CLOSE_MS = '1000';
 process.env.HIVE_MIND_STREAM_ACTIVITY_MS = '0';
@@ -140,7 +142,7 @@ try {
     systemPrompt: 'Solve the issue.',
     escapedPrompt: 'Solve and verify.',
     escapedSystemPrompt: 'Solve the issue.',
-    argv: { model: 'formal-ai', tool: 'claude', url: 'https://github.com/link-assistant/hive-mind/issues/2263', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false },
+    argv: { model: 'sonnet', tool: 'claude', url: 'https://github.com/link-assistant/hive-mind/issues/2263', verbose: false, fallbackModel: null, disable1mContext: false, uselessToolsDisabled: false },
     log: silentLog,
     setLogFile: nextLogFile => {
       logFile = nextLogFile;

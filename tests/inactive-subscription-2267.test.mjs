@@ -100,6 +100,15 @@ await test('the operator-facing report describes unavailable access, not a block
   assert.match(`${report}\n${section}`, /inactive|unavailable/i);
 });
 
+await test('every Telegram locale avoids saying that the account is blocked', () => {
+  const parsed = parseSubscriptionBlockFromLog(CLAUDE_REPORT.join('\n'));
+  const sections = ['en', 'ru', 'zh', 'hi'].map(locale => formatSubscriptionBlockedSection(parsed, { locale }));
+  assert.doesNotMatch(sections[0], /access blocked/i);
+  assert.doesNotMatch(sections[1], /заблокирован/i);
+  assert.doesNotMatch(sections[2], /被阻止/);
+  assert.doesNotMatch(sections[3], /अवरुद्ध/);
+});
+
 await test('overflow after an edit stays in the originating Telegram topic', async () => {
   const edits = [];
   const followUps = [];

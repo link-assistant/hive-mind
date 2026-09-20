@@ -75,6 +75,8 @@ All times are UTC.
 | 2026-09-20 03:35       | A real operational-CLI probe finds the published `gh-load-issue@0.3.2` entry point cannot start; upstream issue #18 is filed.                                                                         |
 | 2026-09-20             | The `command-stream` 0.24.1 update activates its quote-context-aware interpolation fix; the issue #2119 regression is updated to prove both quoted and bare forms preserve exact arguments.           |
 | 2026-09-20             | Hive Mind's 148-declaration inventory is brought current, the CI/Dependabot/runtime layers are implemented, and regression coverage is added.                                                         |
+| 2026-09-20 04:27       | The complete PR workflow succeeds, including the 491-file suite, both production image builds, and the terminal `Pipeline Status` check on commit `f88e432a`.                                         |
+| 2026-09-20 04:28       | Main ruleset 7927725 is updated in place to require the strict GitHub Actions `Pipeline Status`; all three existing rules remain unchanged.                                                           |
 
 ## What was stale
 
@@ -275,6 +277,7 @@ to freshness maintenance instead of misclassifying it as absent.
 | `data/dependency-freshness-after.txt`                           | Expanded final scan: 148/148 declarations current.                               |
 | `data/npm-outdated-before.json`, `data/npm-outdated-after.json` | Direct npm audit snapshots taken during the manifest update.                     |
 | `data/main-ruleset-before.json`                                 | Active default-branch ruleset before adding a required terminal status.          |
+| `data/main-ruleset-after.json`                                  | Same ruleset with the verified `Pipeline Status` requirement active.             |
 | `data/gh-upload-log-issue-40*.json`                             | Original relative-path/version report and comments.                              |
 | `data/gh-upload-log-release-v0.9.0.json`                        | GitHub release metadata for the registry-missing release.                        |
 | `data/gh-upload-log-release-run-32588725260.json`               | Metadata/jobs for the false-success release run.                                 |
@@ -295,6 +298,15 @@ to freshness maintenance instead of misclassifying it as absent.
 The workflow logs exceed 1,500 lines, so they are kept compressed and were
 reviewed in bounded chunks. The JSON metadata preserves job IDs, timestamps,
 SHAs, and URLs needed to reproduce the investigation.
+
+The implementation was verified by
+[Checks and release run 35488145037](https://github.com/link-assistant/hive-mind/actions/runs/35488145037)
+on commit `f88e432a57aa5d83b92ac8413fb92324f72cf065`. Its
+[terminal check](https://github.com/link-assistant/hive-mind/actions/runs/35488145037/job/106021010255)
+completed successfully as `Pipeline Status` under GitHub Actions integration
+15368 before that exact context was added to the main ruleset. Independent API
+reads before and after the update confirm that the deletion, non-fast-forward,
+and pull-request rules were preserved byte-for-byte at the JSON object level.
 
 ## Verification and residual risks
 

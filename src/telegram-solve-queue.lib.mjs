@@ -33,6 +33,13 @@ export const QueueItemStatus = {
 function appendRemainingDuration(reason, ms, locale) {
   return `${reason} (${lt('remaining', { duration: formatDuration(ms, { locale }) }, { locale })})`;
 }
+
+function buildQueueItemTelegramOptions(item, verbose) {
+  const options = { verbose };
+  const messageThreadId = item.messageInfo?.messageThreadId ?? item.ctx?.message?.message_thread_id ?? null;
+  if (messageThreadId !== null) options.message_thread_id = messageThreadId;
+  return options;
+}
 /**
  * Queue item representing a /solve command request
  */
@@ -64,7 +71,7 @@ class SolveQueueItem {
     this.result = null;
     this.sessionName = null;
     // Message tracking - forget after STARTED
-    this.messageInfo = null; // { chatId, messageId }
+    this.messageInfo = null; // { chatId, messageId, messageThreadId }
     // Track when we last updated the Telegram message See: https://github.com/link-assistant/hive-mind/issues/1078
     this.lastMessageUpdateTime = null;
   }
@@ -704,7 +711,7 @@ export class SolveQueue {
     if (!item.messageInfo || !item.ctx) return;
     try {
       const { chatId, messageId } = item.messageInfo;
-      await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, { verbose: this.verbose });
+      await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, text, buildQueueItemTelegramOptions(item, this.verbose));
       if (trackUpdateTime) {
         item.lastMessageUpdateTime = Date.now();
       }
@@ -850,7 +857,7 @@ export class SolveQueue {
           if (chatId && messageId) {
             try {
               if (result.warning) {
-                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, { verbose: this.verbose });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, `⚠️ ${result.warning}\n\n${item.infoBlock}`, buildQueueItemTelegramOptions(item, this.verbose));
               } else if (result.success) {
                 const response = formatExecutingWorkSessionMessage({
                   sessionName,
@@ -858,7 +865,7 @@ export class SolveQueue {
                   infoBlock: item.infoBlock,
                   locale: item.locale,
                 });
-                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, { verbose: this.verbose });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, buildQueueItemTelegramOptions(item, this.verbose));
               } else {
                 // Issue #2154: a queued /solve that fails to launch reports the
                 // same way as a direct one — with its session UUID and a note
@@ -871,7 +878,7 @@ export class SolveQueue {
                   error: result.error || result.output,
                   locale: item.locale,
                 });
-                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, { verbose: this.verbose });
+                await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, response, buildQueueItemTelegramOptions(item, this.verbose));
               }
             } catch (error) {
               // Log message edit failures for debugging
@@ -893,7 +900,7 @@ export class SolveQueue {
       if (chatId && messageId && item.ctx) {
         try {
           const errorText = item.infoBlock ? `❌ Error: ${error.message}\n\n${item.infoBlock}` : `❌ Error: ${error.message}`;
-          await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, errorText, { verbose: this.verbose });
+          await safeEditMessageText(item.ctx.telegram, chatId, messageId, undefined, errorText, buildQueueItemTelegramOptions(item, this.verbose));
         } catch (editError) {
           // Log the edit failure for debugging
           // See: https://github.com/link-assistant/hive-mind/issues/1062
@@ -1064,6 +1071,7 @@ export function createQueueExecuteCallback(executeStartScreen, trackSessionFn) {
         trackSessionFn(session, {
           chatId: item.ctx?.chat?.id,
           messageId: item.messageInfo?.messageId,
+          messageThreadId: item.messageInfo?.messageThreadId ?? item.ctx?.message?.message_thread_id ?? null,
           startTime: new Date(),
           url: item.url,
           command: 'solve',

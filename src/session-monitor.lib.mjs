@@ -435,6 +435,13 @@ export async function buildSubscriptionBlockedExtraSection(logPath, { verbose = 
     return '';
   }
 }
+
+/** Preserve a forum topic when completion text overflows into follow-up messages. */
+export function buildSessionNotificationOptions(sessionInfo, verbose = false) {
+  const options = { verbose };
+  if (sessionInfo?.messageThreadId !== null && sessionInfo?.messageThreadId !== undefined) options.message_thread_id = sessionInfo.messageThreadId;
+  return options;
+}
 async function getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   if (sessionInfo?.isolationBackend !== 'docker') return null;
   const containerName = sessionInfo.sessionId || sessionName;
@@ -1032,12 +1039,13 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         // Update the original reply message if messageId is available, otherwise send new message
         let notifyFromChatId = null;
         let notifyMessageId = null;
+        const notificationOptions = buildSessionNotificationOptions(sessionInfo, verbose);
         if (sessionInfo.messageId) {
-          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, { verbose });
+          await safeEditMessageText(bot.telegram, sessionInfo.chatId, sessionInfo.messageId, undefined, message, notificationOptions);
           notifyFromChatId = sessionInfo.chatId;
           notifyMessageId = sessionInfo.messageId;
         } else {
-          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, { verbose });
+          const sent = await safeSendMessage(bot.telegram, sessionInfo.chatId, message, notificationOptions);
           notifyFromChatId = sent?.chat?.id || sessionInfo.chatId;
           notifyMessageId = sent?.message_id || null;
         }

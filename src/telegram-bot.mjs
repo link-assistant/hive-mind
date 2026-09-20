@@ -165,7 +165,8 @@ if (config.dryRun) {
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
-const { validateClaudeSubAgentModelName, validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
+const { buildModelOptionDescription } = await import('./models/index.mjs');
+const { injectLanguageIfMissing, validateModelInArgs } = await import('./telegram-command-args.lib.mjs');
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
@@ -261,52 +262,6 @@ function isForwardedOrReply(ctx) {
 // genuine user replies, so they use this instead of isForwardedOrReply.
 function isForwarded(ctx) {
   return _isForwarded(ctx, { verbose: VERBOSE });
-}
-
-/**
- * Validates the model name in the args array and returns an error message if invalid
- * @param {string[]} args - Array of command arguments
- * @param {string} tool - The tool to validate against ('claude', 'opencode', 'codex', 'agent', or 'gemini')
- * @returns {string|null} Error message if invalid, null if valid or no model specified
- */
-function validateModelInArgs(args, tool = 'claude') {
-  // Find --model or -m flag and its value
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--model' || args[i] === '-m') {
-      if (i + 1 < args.length) {
-        const modelName = args[i + 1];
-        const validation = validateModelName(modelName, tool);
-        if (!validation.valid) {
-          return validation.message;
-        }
-      }
-    } else if (args[i].startsWith('--model=')) {
-      const modelName = args[i].substring('--model='.length);
-      const validation = validateModelName(modelName, tool);
-      if (!validation.valid) {
-        return validation.message;
-      }
-    } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {
-      const modelName = args[i] === '--sub-agent-model' ? args[i + 1] : args[i].substring('--sub-agent-model='.length);
-      if (!modelName) continue;
-      if (tool !== 'claude') return `--sub-agent-model is only supported with --tool claude (current tool: ${tool})`;
-      const validation = validateClaudeSubAgentModelName(modelName);
-      if (!validation.valid) return `Invalid --sub-agent-model: ${validation.message}`;
-    }
-  }
-  return null;
-}
-// Inject --language LOCALE into spawn args if no language flag is already present.
-// Issue #378: telegram bot resolves the user's effective locale and propagates
-// it to spawned solve/hive sessions so the AI tool replies in the same language.
-function injectLanguageIfMissing(args, locale) {
-  if (!locale || !args || !Array.isArray(args)) return args;
-  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
-  for (const arg of args) {
-    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
-    if (flag && langFlags.has(flag)) return args;
-  }
-  return [...args, '--language', locale];
 }
 
 /** Validate GitHub URL for Telegram bot commands. Returns { valid, error?, parsed?, normalizedUrl? } */

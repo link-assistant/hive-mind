@@ -26,6 +26,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { classifyCloneError, cleanPartialClone } from '../src/solve.clone-errors.lib.mjs';
+import { injectLanguageIfMissing, validateModelInArgs } from '../src/telegram-command-args.lib.mjs';
 import { validateCommandOverrides } from '../src/telegram-overrides-validation.lib.mjs';
 
 const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
@@ -47,7 +48,20 @@ const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
   assert.deepEqual(over, [], `no file exceeds the ${threshold}-line warning threshold (see scripts/check-file-line-limits.sh)`);
 }
 
-// --- 2. classifyCloneError still classifies ---------------------------------
+// --- 2. Telegram command-argument helpers retain their behaviour ------------
+
+{
+  assert.equal(validateModelInArgs(['--model', 'sonnet'], 'claude'), null, 'a valid model is accepted');
+  assert.match(validateModelInArgs(['--sub-agent-model', 'not-a-model'], 'claude'), /Invalid --sub-agent-model/, 'an invalid Claude sub-agent model is rejected');
+  assert.match(validateModelInArgs(['--sub-agent-model', 'sonnet'], 'codex'), /only supported with --tool claude/, 'sub-agent models remain Claude-only');
+
+  const args = ['https://github.com/example/repo/issues/1'];
+  assert.deepEqual(injectLanguageIfMissing(args, 'de'), [...args, '--language', 'de'], 'the resolved Telegram locale is appended');
+  assert.strictEqual(injectLanguageIfMissing([...args, '--ui-language=fr'], 'de').at(-1), '--ui-language=fr', 'an explicit language flag is preserved');
+  assert.strictEqual(injectLanguageIfMissing(args, null), args, 'a missing locale leaves the original argv untouched');
+}
+
+// --- 3. classifyCloneError still classifies ---------------------------------
 
 {
   // Issue #2192: the anonymous-download wording overlaps PERMISSION,
@@ -63,7 +77,7 @@ const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
   assert.equal(classifyCloneError('something nobody has seen before').retryable, true);
 }
 
-// --- 3. cleanPartialClone empties in place, and tolerates a missing dir -----
+// --- 4. cleanPartialClone empties in place, and tolerates a missing dir -----
 
 {
   const fs = await import('node:fs/promises');
@@ -84,7 +98,7 @@ const repoRoot = join(fileURLToPath(new URL('.', import.meta.url)), '..');
   await cleanPartialClone(dir); // must not throw on ENOENT
 }
 
-// --- 4. validateCommandOverrides accepts and rejects the same as before -----
+// --- 5. validateCommandOverrides accepts and rejects the same as before -----
 
 {
   const { getLinoYargsFactory } = await import('../src/cli-arguments.lib.mjs');

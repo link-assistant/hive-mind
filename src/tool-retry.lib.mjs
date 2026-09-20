@@ -58,7 +58,7 @@ export const classifyRetryableError = value => {
   // explicitly described as temporary — see isTransientAuthError below.
   const subscriptionError = detectSubscriptionError(message);
   if (subscriptionError) {
-    return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access blocked' };
+    return { message, isRetryable: false, isCapacity: false, isSubscriptionError: true, subscriptionError, label: 'subscription access unavailable' };
   }
 
   // Issue #2161: the counterpart — Claude Code's own wording marks this

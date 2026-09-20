@@ -105,9 +105,11 @@ export function buildExecuteAndUpdateMessage(deps) {
   const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
   return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null, commandAlias = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
+    const messageThreadId = startingMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null;
+    const telegramOptions = messageThreadId === null ? { verbose: VERBOSE } : { verbose: VERBOSE, message_thread_id: messageThreadId };
     const safeEdit = async text => {
       try {
-        await safeEditMessageText(ctx.telegram, chat.id, msgId, undefined, text, { verbose: VERBOSE });
+        await safeEditMessageText(ctx.telegram, chat.id, msgId, undefined, text, telegramOptions);
       } catch (e) {
         console.error(`[telegram-bot] Failed to update message for ${commandName}: ${e.message}`);
       }
@@ -115,7 +117,7 @@ export function buildExecuteAndUpdateMessage(deps) {
     const requesterUserId = ctx.from?.id ?? null; // Issue #1688: suppress duplicate /subscribe DM
     // #1927 review follow-up: persist the full args so a killed /solve can be
     //   resumed with its exact original invocation + `--resume <lastSessionId>`.
-    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, startTime: new Date(), url: args[0], command: commandName, commandAlias, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale, args: Array.isArray(args) ? [...args] : undefined }; // #594: showLimits/limitsAtStart
+    const baseSessionInfo = { chatId: ctx.chat.id, messageId: msgId, messageThreadId, startTime: new Date(), url: args[0], command: commandName, commandAlias, tool, infoBlock, urlContext, requesterUserId, showLimits, limitsAtStart, locale, args: Array.isArray(args) ? [...args] : undefined }; // #594: showLimits/limitsAtStart
     const iso = await resolveIsolation(perCommandIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE);
     let result, session, sessionInfo;
     if (iso) {

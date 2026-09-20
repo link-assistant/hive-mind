@@ -323,11 +323,11 @@ en
     start "Start"
     subscription
       blocked
-        title "Subscription/account access blocked"
+        title "Tool subscription/access unavailable"
         provider "Provider said"
         code "Error code"
         reason "Why the run stopped"
-        note "This is not a usage limit: waiting, retrying or switching model cannot fix it."
+        note "This is not a usage limit. The provider gave no reset time; retrying or switching only the model is not expected to restore access."
         steps "What to do"
         preserved "Uncommitted work was auto-committed before stopping."
         resume "Resume after access is restored"

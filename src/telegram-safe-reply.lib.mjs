@@ -453,7 +453,7 @@ async function sendPlainRemainingEditChunks({ chunks, telegramOptions, verbose, 
   });
 }
 
-async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, verbose, scope, editChunk, sendFollowUpChunk, target }) {
+async function editTelegramTextChunks({ text, telegramOptions, followUpTelegramOptions = telegramOptions, fallbackLocale, verbose, scope, editChunk, sendFollowUpChunk, target }) {
   const chunks = splitTelegramMessageText(text);
   logChunking(scope, text, chunks, verbose);
 
@@ -467,7 +467,7 @@ async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
       logSendSuccess({ id, scope, result });
       await sendRemainingEditChunks({
         chunks: remainingChunks,
-        telegramOptions,
+        telegramOptions: followUpTelegramOptions,
         fallbackLocale,
         verbose,
         scope,
@@ -514,7 +514,7 @@ async function editTelegramTextChunks({ text, telegramOptions, fallbackLocale, v
     }
     await sendPlainRemainingEditChunks({
       chunks: [...remainingFallbackChunks, ...remainingChunks.map(stripTelegramMarkdown)],
-      telegramOptions,
+      telegramOptions: followUpTelegramOptions,
       verbose,
       scope,
       sendFollowUpChunk,
@@ -567,13 +567,17 @@ export async function safeSendMessage(telegram, chatId, text, options = {}) {
 export async function safeEditMessageText(telegram, chatId, messageId, inlineMessageId, text, options = {}) {
   const { telegramOptions, fallbackLocale, verbose } = splitOptions(options);
   const firstOptions = { parse_mode: 'Markdown', ...telegramOptions };
+  // message_thread_id selects the destination for new messages but is not a
+  // valid editMessageText parameter. Keep it only for overflow follow-ups.
+  const { message_thread_id: messageThreadId, ...editOptions } = firstOptions;
   return await editTelegramTextChunks({
     text: await sanitizeForPublication(text),
-    telegramOptions: firstOptions,
+    telegramOptions: editOptions,
+    followUpTelegramOptions: firstOptions,
     fallbackLocale,
     verbose,
     scope: 'safeEditMessageText',
-    target: { chatId, messageId, inlineMessageId },
+    target: { chatId, messageId, inlineMessageId, threadId: messageThreadId },
     editChunk: (chunk, chunkOptions) => telegram.editMessageText(chatId, messageId, inlineMessageId, chunk, chunkOptions),
     sendFollowUpChunk: chatId !== undefined && chatId !== null && typeof telegram.sendMessage === 'function' ? (chunk, chunkOptions) => telegram.sendMessage(chatId, chunk, chunkOptions) : null,
   });
@@ -714,18 +718,20 @@ function wrapTelegramEditMessageText(telegram, defaults = {}) {
     const text = args[3];
     const originalOptions = args[4] || {};
     const { telegramOptions, fallbackLocale, verbose } = splitOptions(originalOptions);
-    args[4] = telegramOptions;
+    const { message_thread_id: messageThreadId, ...editOptions } = telegramOptions;
+    args[4] = editOptions;
 
     if (typeof text !== 'string') return await original.apply(this, args);
     const sanitizedText = await sanitizeForPublication(text);
 
     return await editTelegramTextChunks({
       text: sanitizedText,
-      telegramOptions,
+      telegramOptions: editOptions,
+      followUpTelegramOptions: telegramOptions,
       fallbackLocale: fallbackLocale || defaults.fallbackLocale,
       verbose: verbose || defaults.verbose,
       scope: 'editMessageText',
-      target: { chatId: args[0], messageId: args[1], inlineMessageId: args[2] },
+      target: { chatId: args[0], messageId: args[1], inlineMessageId: args[2], threadId: messageThreadId },
       editChunk: (chunk, chunkOptions) => {
         const chunkArgs = [...args];
         chunkArgs[3] = chunk;

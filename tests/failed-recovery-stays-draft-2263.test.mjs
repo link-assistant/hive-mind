@@ -73,17 +73,35 @@ assert.equal(selfHandledProbe.benign, true, 'existing self-handled bare-exit sem
 terminalToolResult = updateTerminalToolResult(terminalToolResult, collectClaudeStreamEventFacts({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'javac-2', content: 'ok' }] } }));
 assert.equal(terminalToolResult.failed, false);
 
-const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-'));
+const fixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-worktree-'));
+const remoteFixture = await mkdtemp(path.join(os.tmpdir(), 'hive-mind-2263-remote-'));
 try {
   await run(fixture, 'git init -q');
+  await run(remoteFixture, 'git init --bare -q');
   await run(fixture, 'git config user.name "Hive Mind Test"');
   await run(fixture, 'git config user.email "hive-mind-test@example.invalid"');
   await writeFile(path.join(fixture, 'Main.java'), 'class Main { public static void main(String[] args) { System.out.println("ok"); } }\n');
   await run(fixture, 'git add Main.java && git commit -qm "valid source"');
+  await run(fixture, `git remote add origin ${quote(remoteFixture)}`);
+  await run(fixture, 'git branch -M issue-2263 && git push -qu origin issue-2263');
   const originalHead = await run(fixture, 'git rev-parse HEAD');
+  const originalRemoteHead = await run(fixture, `git --git-dir=${quote(remoteFixture)} rev-parse refs/heads/issue-2263`);
 
   await writeFile(path.join(fixture, 'Main.java'), 'class Main { public static void main(String[] args) { this is invalid } }\n');
   await writeFile(path.join(fixture, 'Main.class'), Buffer.from([0xca, 0xfe, 0xba, 0xbe]));
+
+  const verification = await command({ cwd: fixture })`${process.execPath} -e ${"process.stderr.write('Main.java:3: error: not a statement\\n'); process.exit(1)"}`;
+  assert.equal(verification.code, 1, 'the integration fixture ends in a non-zero verification command');
+  const observedVerification = updateTerminalToolResult(
+    null,
+    collectClaudeStreamEventFacts({
+      type: 'user',
+      message: { content: [{ type: 'tool_result', tool_use_id: 'fixture-verification', is_error: true, content: `Exit code ${verification.code}\n${verification.stderr}` }] },
+    })
+  );
+  assert.equal(observedVerification.failed, true);
+  assert.equal(observedVerification.benign, false);
+  assert.match(observedVerification.error, /Main\.java:3/, 'the terminal diagnostic survives classification');
 
   const preserved = await commitUncommittedChangesOnCriticalError({
     tempDir: fixture,
@@ -98,6 +116,7 @@ try {
   assert.equal(preserved.committed, false, 'failed bytes are not promoted to a solution commit');
   assert.equal(preserved.pushed, false, 'failed bytes are not pushed to the pull-request branch');
   assert.equal(await run(fixture, 'git rev-parse HEAD'), originalHead, 'the PR branch head is unchanged');
+  assert.equal(await run(fixture, `git --git-dir=${quote(remoteFixture)} rev-parse refs/heads/issue-2263`), originalRemoteHead, 'the remote PR branch is unchanged');
   assert.equal(await run(fixture, 'git log --format=%s'), 'valid source', 'no recovery commit appears in branch history');
   assert.match(await readFile(path.join(fixture, 'Main.java'), 'utf8'), /this is invalid/, 'the working copy remains available for diagnosis or repair');
   assert.match(await run(fixture, `git show ${quote(preserved.recoveryRef)}:Main.java`), /this is invalid/, 'the recovery reference retains the invalid source independently of the worktree');
@@ -107,6 +126,7 @@ try {
   assert.doesNotMatch(await run(fixture, 'git status --porcelain --untracked-files=all'), /Main\.class/, 'Main.class is absent from source-change bookkeeping');
 } finally {
   await rm(fixture, { recursive: true, force: true });
+  await rm(remoteFixture, { recursive: true, force: true });
 }
 
 // A failure is a monotonic veto for the rest of this run. This reproduces the

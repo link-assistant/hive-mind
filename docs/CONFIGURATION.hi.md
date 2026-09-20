@@ -265,21 +265,24 @@ failed माना जाता है।
 
 ### 13. Telegram Bot
 
-| Environment Variable                       | डिफ़ॉल्ट   | विवरण                                                                         |
-| ------------------------------------------ | ---------- | ----------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`                       | (आवश्यक)   | @BotFather से Telegram bot token                                              |
-| `TELEGRAM_ALLOWED_CHATS`                   | (सभी)      | अनुमत chat IDs (Links Notation)                                               |
-| `TELEGRAM_SOLVE_OVERRIDES`                 | (कोई नहीं) | /solve के लिए override विकल्प (Links Notation)                                |
-| `TELEGRAM_HIVE_OVERRIDES`                  | (कोई नहीं) | /hive के लिए override विकल्प (Links Notation)                                 |
-| `TELEGRAM_SOLVE`                           | true       | /solve command सक्षम करें                                                     |
-| `TELEGRAM_HIVE`                            | true       | /hive command सक्षम करें                                                      |
-| `TELEGRAM_TASK`                            | true       | /task और /split commands सक्षम करें                                           |
-| `TELEGRAM_FIX`                             | true       | /fix command सक्षम करें                                                       |
-| `TELEGRAM_ORGANIZE`                        | true       | /organize issue taxonomy command सक्षम करें                                   |
-| `TELEGRAM_AUTH`                            | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें  |
-| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | public /solve sessions के लिए अलग live terminal watch message auto-start करें |
-| `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                    |
-| `TELEGRAM_CONFIGURATION`                   | (कोई नहीं) | LINO configuration string                                                     |
+| Environment Variable                       | डिफ़ॉल्ट   | विवरण                                                                                |
+| ------------------------------------------ | ---------- | ------------------------------------------------------------------------------------ |
+| `TELEGRAM_BOT_TOKEN`                       | (आवश्यक)   | @BotFather से Telegram bot token                                                     |
+| `TELEGRAM_ALLOWED_CHATS`                   | (सभी)      | अनुमत chat IDs (Links Notation)                                                      |
+| `TELEGRAM_SOLVE_OVERRIDES`                 | (कोई नहीं) | /solve के लिए override विकल्प (Links Notation)                                       |
+| `TELEGRAM_HIVE_OVERRIDES`                  | (कोई नहीं) | /hive के लिए override विकल्प (Links Notation)                                        |
+| `TELEGRAM_SOLVE`                           | true       | /solve command सक्षम करें                                                            |
+| `TELEGRAM_HIVE`                            | true       | /hive command सक्षम करें                                                             |
+| `TELEGRAM_TASK`                            | true       | /task और /split commands सक्षम करें                                                  |
+| `TELEGRAM_FIX`                             | true       | /fix command सक्षम करें                                                              |
+| `TELEGRAM_ORGANIZE`                        | true       | /organize issue taxonomy command सक्षम करें                                          |
+| `TELEGRAM_AUTH`                            | true       | allowlisted chat owners के लिए experimental private /auth command सक्षम करें         |
+| `TELEGRAM_AUTO_START_SCREEN_WATCH_MESSAGE` | false      | public /solve sessions के लिए अलग live terminal watch message auto-start करें        |
+| `TELEGRAM_CONTAINER_CPU`                   | (कोई नहीं) | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)                |
+| `TELEGRAM_CONTAINER_MEMORY`                | (कोई नहीं) | Docker task RAM limit: size (`2GiB`) या host percentage (`25%`)                      |
+| `TELEGRAM_CONTAINER_DISK`                  | (कोई नहीं) | Docker task writable-layer limit: size (`20GB`) या available-disk percentage (`10%`) |
+| `TELEGRAM_BOT_VERBOSE`                     | false      | verbose logging सक्षम करें                                                           |
+| `TELEGRAM_CONFIGURATION`                   | (कोई नहीं) | LINO configuration string                                                            |
 
 ### 14. YouTrack एकीकरण
 
@@ -638,6 +641,9 @@ hive-telegram-bot [options]
 | `--dry-run`                         |       | boolean | false      | bot शुरू किए बिना validate करें                                                                                                                                                                                            |
 | `--auto-start-screen-watch-message` |       | boolean | false      | Experimental: public `/solve` sessions के लिए अलग `/terminal_watch` message auto-start करें। Private या unknown-visibility repositories में watch messages auto-start नहीं होते।                                           |
 | `--isolation`                       |       | string  | `docker`   | Isolation backend (`screen`, `tmux`, `docker`)। डिफ़ॉल्ट `docker` Telegram-bot work sessions को Docker isolation में success cleanup के साथ चलाता है। opt out के लिए `--isolation ''` (या `TELEGRAM_ISOLATION=`) पास करें। |
+| `--container-cpu`                   |       | string  |            | Docker task CPU limit: fixed cores (`1.5`) या host percentage (`50%`)।                                                                                                                                                     |
+| `--container-memory`                |       | string  |            | Docker task RAM limit: fixed size (`2GiB`) या host percentage (`25%`)।                                                                                                                                                     |
+| `--container-disk`                  |       | string  |            | Docker task writable-layer limit: fixed size (`20GB`) या available-filesystem percentage (`10%`)।                                                                                                                          |
 
 जब `/solve` सक्षम हो, Telegram bot `/do` और `/continue` को सामान्य `/solve`
 aliases के रूप में भी स्वीकार करता है। `/claude`, `/codex`, `/opencode`,

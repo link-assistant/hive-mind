@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { exec as execCallback } from 'child_process';
 import { formatFailedLaunchMessage as defaultFormatFailedLaunchMessage } from './work-session-formatting.lib.mjs';
 import { safeEditMessageText } from './telegram-safe-reply.lib.mjs';
+import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
 
 const exec = promisify(execCallback);
 
@@ -102,7 +103,7 @@ function executeWithCommand(startScreenCmd, command, args, verbose = false) {
  * @returns {Function} executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation, tool, urlContext, sessionExtras)
  */
 export function buildExecuteAndUpdateMessage(deps) {
-  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
+  const { resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS = null, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage, formatFailedLaunchMessage = defaultFormatFailedLaunchMessage } = deps;
   return async function executeAndUpdateMessage(ctx, startingMessage, commandName, args, infoBlock, perCommandIsolation = null, tool = 'claude', urlContext = null, { showLimits = false, limitsAtStart = null, locale = null, commandAlias = null } = {}) {
     const { chat, message_id: msgId } = startingMessage;
     const messageThreadId = startingMessage.message_thread_id ?? ctx.message?.message_thread_id ?? null;
@@ -132,9 +133,10 @@ export function buildExecuteAndUpdateMessage(deps) {
       sessionInfo = { ...baseSessionInfo, isolationBackend: iso.backend, sessionId: session };
       trackSession(session, sessionInfo, VERBOSE);
       await safeEdit(formatStartingWorkSessionMessage({ sessionName: session, isolationBackend: iso.backend, infoBlock, locale }));
-      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE });
-      if (result.success && sessionInfo && (Number.isFinite(result.containerFilesystemStartBytes) || result.executionUuid)) {
+      result = await iso.runner.executeWithIsolation(commandName, args, { backend: iso.backend, sessionId: session, tool, verbose: VERBOSE, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, CONTAINER_RESOURCE_LIMITS) });
+      if (result.success && sessionInfo && (Number.isFinite(result.containerFilesystemStartBytes) || result.executionUuid || result.containerResourceLimits)) {
         if (Number.isFinite(result.containerFilesystemStartBytes)) sessionInfo.containerFilesystemStartBytes = result.containerFilesystemStartBytes;
+        if (result.containerResourceLimits) sessionInfo.containerResourceLimits = result.containerResourceLimits;
         // Issue #2154: `$ --list` identifies executions by start-command's own
         // UUID, not by the session name the bot shows. Keep both on the session
         // so the two views can be joined — in the reply, in the structured log

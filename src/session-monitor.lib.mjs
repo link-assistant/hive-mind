@@ -37,6 +37,7 @@ import { runKillRecoveryForCompletion } from './session-kill-resume.lib.mjs';
 // Issue #2189: the handled latch + the memoized last-tool-session-id read that keep a completed session from replaying its whole completion pipeline on every poll.
 import { isCompletionHandled, markCompletionHandled, resolveCachedLastToolSessionId } from './session-completion-state.lib.mjs';
 import { createSessionRegistryQueries } from './session-monitor.queries.lib.mjs';
+import { enforceContainerDiskLimitForSession as enforceContainerDiskLimit, formatContainerResourceLimitExceededSection } from './container-resource-monitor.lib.mjs';
 export { formatSessionCompletionMessage, getSessionCompletionExitCode } from './work-session-formatting.lib.mjs';
 export { DOCKER_TERMINAL_FOOTER_GRACE_MS } from './session-monitor.docker-terminal.lib.mjs';
 export { STALE_EXECUTING_MIN_AGE_MS, DOCKER_BACKEND_GONE_GRACE_MS } from './session-monitor.stale-executing.lib.mjs';
@@ -486,9 +487,19 @@ export function shouldRefreshDockerFilesystemSize(sessionInfo, { stillRunning = 
   if (sessionInfo?.isolationBackend !== 'docker') return false;
   // The completion report quotes this number, so it is always measured fresh.
   if (!stillRunning) return true;
+  // A configured disk limit is an enforcement control, not just a completion
+  // diagnostic, so measure it on every monitor tick (30 seconds by default).
+  if (Number.isFinite(sessionInfo?.containerResourceLimits?.diskBytes)) return true;
   const observedAt = Date.parse(sessionInfo?.containerFilesystemLastObservedAt || '');
   if (!Number.isFinite(observedAt)) return true;
   return now - observedAt >= intervalMs;
+}
+export { formatContainerResourceLimitExceededSection };
+export function enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedBytes, options = {}) {
+  return enforceContainerDiskLimit(sessionName, sessionInfo, observedBytes, {
+    ...options,
+    persistSnapshot: () => persistSessionSnapshot(sessionName, sessionInfo),
+  });
 }
 async function refreshDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose = false, sizeProvider = null } = {}) {
   const bytes = await getDockerContainerFilesystemSizeForSession(sessionName, sessionInfo, { verbose, sizeProvider });
@@ -800,6 +811,15 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
     } else if (sessionInfo?.isolationBackend === 'docker' && verbose) {
       console.log(`[VERBOSE] Session ${sessionName}: reusing the writable-layer size observed at ${sessionInfo.containerFilesystemLastObservedAt} (issue #2189: not re-walking the layer every poll)`);
     }
+    if (stillRunning && Number.isFinite(observedContainerFilesystemBytes)) {
+      const enforcement = await enforceContainerDiskLimitForSession(sessionName, sessionInfo, observedContainerFilesystemBytes, {
+        verbose,
+        killContainer: options.killDockerContainer || options.isolationRunner?.killDockerContainer,
+      });
+      // Let start-command observe the killed container and write its terminal
+      // status before the next monitor tick builds the completion report.
+      if (enforcement?.stopped) continue;
+    }
     if (!stillRunning) {
       console.log(`Session ${sessionName} has finished. Sending notification to chat ${sessionInfo.chatId}`);
       let dockerTaskContainerAction = null;
@@ -896,7 +916,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         try {
           const outcome = classifySessionOutcome({ exitCode: finalExitCode, status: resolvedStatus });
           const isResumableCommand = (sessionInfo?.command || 'solve') === 'solve';
-          if (outcome.killed && isResumableCommand) {
+          if (outcome.killed && isResumableCommand && !sessionInfo?.containerResourceLimitExceeded) {
             const logPath = statusResult?.logPath || sessionInfo?.logPath || null;
             // The id must be the AI TOOL's session id, not the isolation session
             //   id (sessionInfo.sessionId — wrong namespace for `solve --resume`).
@@ -940,6 +960,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           }
         }
         const dockerTaskContainerExtraSections = dockerTaskContainerAction?.extraSection ? [dockerTaskContainerAction.extraSection] : [];
+        const resourceLimitExtraSections = [formatContainerResourceLimitExceededSection(sessionInfo)].filter(Boolean);
         // Issue #2161: a blocked subscription/account explains every other
         // symptom of the run, so it goes first in the completion message.
         const subscriptionBlockedExtraSections = [];
@@ -975,7 +996,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
         // message is built so the Telegram report and the pull-request notice
         // below name the very same recovery session.
         let killRecovery = { resumed: false, sessionId: null, attempt: 0, maxAttempts: 0 };
-        if (killReport.killed) {
+        if (killReport.killed && !sessionInfo?.containerResourceLimitExceeded) {
           const recovered = await runKillRecoveryForCompletion({
             sessionName,
             sessionInfo,
@@ -1011,7 +1032,7 @@ export async function monitorSessions(bot, verbose = false, options = {}) {
           infoBlock: sessionInfo?.infoBlock || '',
           pullRequestUrl,
           pullRequestState,
-          extraSections: [...subscriptionBlockedExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
+          extraSections: [...subscriptionBlockedExtraSections, ...resourceLimitExtraSections, ...limitsExtraSections, ...killReport.sections, ...resumeExtraSections, ...diskExtraSections, ...dockerTaskContainerExtraSections],
         });
         if (killReport.killed || killReport.recovered) {
           const notice = await announceKillOnPullRequest({

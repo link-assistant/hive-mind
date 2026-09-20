@@ -195,12 +195,13 @@ const executeAndUpdateMessage = buildExecuteAndUpdateMessage({
       generateSessionId: () => 'direct-session-1860',
       executeWithIsolation: async (command, args, options) => {
         directIsolationCalls.push({ command, args, options });
-        return { success: true, output: 'session: direct-session-1860', containerFilesystemStartBytes: 123456 };
+        return { success: true, output: 'session: direct-session-1860', containerFilesystemStartBytes: 123456, containerResourceLimits: { cpuCores: 1, memoryBytes: 1024, diskBytes: 2048, requested: { cpu: '1', memory: '1KiB', disk: '2KiB' } } };
       },
     },
   }),
   ISOLATION_BACKEND: null,
   isolationRunner: null,
+  CONTAINER_RESOURCE_LIMITS: { cpu: '1', memory: '1KiB', disk: '2KiB' },
   VERBOSE: false,
   executeStartScreen: async () => {
     throw new Error('executeStartScreen should not run for isolated execution');
@@ -237,8 +238,10 @@ await executeAndUpdateMessage(
 assertEqual(directIsolationCalls.length, 1, 'direct isolated execution invokes the runner once');
 assertEqual(directIsolationCalls[0].options.backend, 'docker', 'direct isolated execution keeps docker backend');
 assertEqual(directIsolationCalls[0].options.tool, 'codex', 'direct isolated execution passes the selected tool');
+assertEqual(directIsolationCalls[0].options.containerResourceLimits.cpu, '1', 'direct isolated execution passes configured container limits');
 assertEqual(directTrackCalls[0].sessionInfo.tool, 'codex', 'direct tracked session stores the selected tool');
 assertEqual(directTrackCalls.at(-1).sessionInfo.containerFilesystemStartBytes, 123456, 'direct tracked session stores docker filesystem start size after launch');
+assertEqual(directTrackCalls.at(-1).sessionInfo.containerResourceLimits.diskBytes, 2048, 'direct tracked session stores resolved container limits');
 
 const queuedIsolationCalls = [];
 const queuedTrackCalls = [];

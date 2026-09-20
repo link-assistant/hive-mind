@@ -9,6 +9,8 @@
  * @see https://github.com/link-assistant/hive-mind/pull/390
  */
 
+import { selectContainerResourceLimitsForBackend } from './container-resource-limits.lib.mjs';
+
 const VALID_ISOLATION_BACKENDS = ['screen', 'tmux', 'docker'];
 
 /**
@@ -74,13 +76,13 @@ export async function resolveIsolation(perCommandIsolation, botIsolationBackend,
  * Create a queue execute callback that supports per-command isolation.
  * Falls back to the provided fallback callback when no isolation is active.
  */
-export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolationRunner, trackSession, fallbackCallback, verbose) {
+export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolationRunner, trackSession, fallbackCallback, verbose, containerResourceLimits = null) {
   return async item => {
     const iso = await resolveIsolation(item.perCommandIsolation, botIsolationBackend, botIsolationRunner, verbose);
     if (iso) {
       const sid = iso.runner.generateSessionId();
       const tool = item.tool || 'claude';
-      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose });
+      const r = await iso.runner.executeWithIsolation(item.command || 'solve', item.args, { backend: iso.backend, sessionId: sid, tool, verbose, containerResourceLimits: selectContainerResourceLimitsForBackend(iso.backend, containerResourceLimits) });
       if (r.success)
         trackSession(
           sid,
@@ -95,6 +97,7 @@ export function createIsolationAwareQueueCallback(botIsolationBackend, botIsolat
             isolationBackend: iso.backend,
             sessionId: sid,
             containerFilesystemStartBytes: Number.isFinite(r.containerFilesystemStartBytes) ? r.containerFilesystemStartBytes : null,
+            containerResourceLimits: r.containerResourceLimits || null,
             tool,
             infoBlock: item.infoBlock,
             args: Array.isArray(item.args) ? [...item.args] : undefined,

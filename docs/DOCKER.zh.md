@@ -193,6 +193,30 @@ docker pull "konard/hive-mind-dind:${TAG:-latest}"
 Telegram 完成消息会包含检查和清理命令。可通过
 `HIVE_MIND_KEEP_TASK_CONTAINER=always|on-failure|never` 覆盖策略（默认：`on-failure`）。
 
+#### Docker 任务资源限制
+
+从 Telegram 启动的 Docker 任务可以设置可选的每容器资源限制：
+
+```bash
+hive-telegram-bot --isolation docker \
+  --container-cpu 50% \
+  --container-memory 2GiB \
+  --container-disk 20GB
+```
+
+对应的环境变量为 `TELEGRAM_CONTAINER_CPU`、`TELEGRAM_CONTAINER_MEMORY` 和
+`TELEGRAM_CONTAINER_DISK`。CPU 值可以是固定核心数（如 `1.5`），也可以是宿主机逻辑 CPU
+数量的百分比。内存和磁盘接受十进制单位（`MB`、`GB`、`TB`）、二进制单位（`MiB`、
+`GiB`、`TiB`）或百分比。内存百分比以宿主机总内存为基准；磁盘百分比以任务启动时文件系统
+的可用空间为基准。
+
+系统不会推断任何限制：省略设置会保留原有的无限制行为。Docker 会在任务命令运行前、任务仍由
+启动闸门阻挡时应用 CPU 和内存限制。Docker 存储配额无法跨存储驱动可移植，因此 Hive Mind
+在每次会话监控轮询时（默认每 30 秒）针对容器可写层执行磁盘限制。用量超过限制时，容器会被
+停止，完成消息会报告实测用量和配置的限制。Docker daemon 必须已委派相应的 CPU 和内存
+cgroup controller；如果 Docker 无法应用请求的内核限制，Hive Mind 会在任务命令运行前移除
+或停止容器，并始终保持启动闸门关闭，同时报告启动失败，而不会让任务在没有限制的情况下静默运行。
+
 **手动回退。** 要立即为正在运行的容器播种（或当你无法更改部署时），把宿主镜像复制进内部 daemon：
 
 ```bash

@@ -74,6 +74,8 @@ const organizeEnabled = config.organize;
 const authEnabled = config.auth;
 // Isolation mode (experimental): uses `$` from start-command with specified backend
 const ISOLATION_BACKEND = (config.isolation || getenv('TELEGRAM_ISOLATION', '')).trim().toLowerCase();
+const { initializeTelegramContainerResourceLimits } = await import('./telegram-container-resource-limits.lib.mjs');
+const CONTAINER_RESOURCE_LIMITS = initializeTelegramContainerResourceLimits(config, ISOLATION_BACKEND);
 let isolationRunner = null;
 if (ISOLATION_BACKEND) {
   if (!['screen', 'tmux', 'docker'].includes(ISOLATION_BACKEND)) {
@@ -163,7 +165,8 @@ if (config.dryRun) {
 const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
-const { validateClaudeSubAgentModelName, validateModelName, buildModelOptionDescription } = await import('./models/index.mjs');
+const { buildModelOptionDescription } = await import('./models/index.mjs');
+const { injectLanguageIfMissing, validateModelInArgs } = await import('./telegram-command-args.lib.mjs');
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
@@ -261,52 +264,6 @@ function isForwarded(ctx) {
   return _isForwarded(ctx, { verbose: VERBOSE });
 }
 
-/**
- * Validates the model name in the args array and returns an error message if invalid
- * @param {string[]} args - Array of command arguments
- * @param {string} tool - The tool to validate against ('claude', 'opencode', 'codex', 'agent', or 'gemini')
- * @returns {string|null} Error message if invalid, null if valid or no model specified
- */
-function validateModelInArgs(args, tool = 'claude') {
-  // Find --model or -m flag and its value
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--model' || args[i] === '-m') {
-      if (i + 1 < args.length) {
-        const modelName = args[i + 1];
-        const validation = validateModelName(modelName, tool);
-        if (!validation.valid) {
-          return validation.message;
-        }
-      }
-    } else if (args[i].startsWith('--model=')) {
-      const modelName = args[i].substring('--model='.length);
-      const validation = validateModelName(modelName, tool);
-      if (!validation.valid) {
-        return validation.message;
-      }
-    } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {
-      const modelName = args[i] === '--sub-agent-model' ? args[i + 1] : args[i].substring('--sub-agent-model='.length);
-      if (!modelName) continue;
-      if (tool !== 'claude') return `--sub-agent-model is only supported with --tool claude (current tool: ${tool})`;
-      const validation = validateClaudeSubAgentModelName(modelName);
-      if (!validation.valid) return `Invalid --sub-agent-model: ${validation.message}`;
-    }
-  }
-  return null;
-}
-// Inject --language LOCALE into spawn args if no language flag is already present.
-// Issue #378: telegram bot resolves the user's effective locale and propagates
-// it to spawned solve/hive sessions so the AI tool replies in the same language.
-function injectLanguageIfMissing(args, locale) {
-  if (!locale || !args || !Array.isArray(args)) return args;
-  const langFlags = new Set(['--language', '--ui-language', '--work-language']);
-  for (const arg of args) {
-    const flag = arg.startsWith('--') ? arg.split('=')[0] : null;
-    if (flag && langFlags.has(flag)) return args;
-  }
-  return [...args, '--language', locale];
-}
-
 /** Validate GitHub URL for Telegram bot commands. Returns { valid, error?, parsed?, normalizedUrl? } */
 async function getCommandUrlArg(args, createYargsConfig, positionalNames) {
   const parsedUrl = createYargsConfig ? await getFirstParsedPositionalArg(args, yargs, createYargsConfig, positionalNames) : null;
@@ -343,7 +300,7 @@ async function validateGitHubUrl(args, options = {}) {
   return { valid: true, parsed, normalizedUrl: url, recoveryNotice };
 }
 
-const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
+const executeAndUpdateMessage = buildExecuteAndUpdateMessage({ resolveIsolation, ISOLATION_BACKEND, isolationRunner, CONTAINER_RESOURCE_LIMITS, VERBOSE, executeStartScreen, trackSession, untrackSession, AUTO_WATCH_MESSAGE, startAutoTerminalWatchForSession, bot, formatExecutingWorkSessionMessage, formatStartingWorkSessionMessage });
 bot.command('help', async ctx => {
   VERBOSE && console.log('[VERBOSE] /help command received');
 
@@ -765,7 +722,7 @@ async function handleSolveCommand(ctx) {
   } else {
     if (!solveQueue.executeCallback) {
       const _t = (s, i) => trackSession(s, i, VERBOSE);
-      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE);
+      solveQueue.executeCallback = createIsolationAwareQueueCallback(ISOLATION_BACKEND, isolationRunner, _t, createQueueExecuteCallback(executeStartScreen, _t), VERBOSE, CONTAINER_RESOURCE_LIMITS);
     }
     const queueItem = solveQueue.enqueue({ url: normalizedUrl, args: argsWithLocale, ctx, requester, infoBlock, commandAlias: solveCommandName, tool: solveTool, perCommandIsolation: effectiveSolveIsolation, urlContext: solveUrlContext, showLimits: solveShowLimits, limitsAtStart: solveLimitsAtStart, locale: solveLocale });
     const queueMessage = buildSolveQueuedMessage({ locale: solveLocale, tool: solveTool, position: toolQueuedCount + 1, infoBlock, reason: check.reason ? escapeMarkdown(check.reason) : '' }); // tool-specific position (#1551)

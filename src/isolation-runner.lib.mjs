@@ -954,11 +954,8 @@ export async function killDockerContainer(containerName, verbose = false) {
   }
 }
 
-/**
- * Finish the pre-command start gate without ever opening it after a resource
- * update failure. Removing (or at least killing) the still-gated container
- * prevents the gate timeout from eventually running the task without limits.
- */
+/** Finish the pre-command gate without opening it after a resource update failure.
+ * Removing (or killing) the gated container prevents an unlimited task launch. */
 export async function finalizeDockerContainerStartGate(containerName, { resourceLimitError = null, verbose = false, releaseGate = releaseDockerContainerStartGate, removeContainer = removeDockerContainer, killContainer = killDockerContainer } = {}) {
   if (!resourceLimitError) {
     return { released: await releaseGate(containerName, verbose), removed: false, killed: false, error: null };

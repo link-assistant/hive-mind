@@ -1,5 +1,5 @@
 /**
- * Idle-only refresh of the agentic CLIs (issue #2146, PR #2147 review).
+ * Idle-only refresh of agentic and operational CLIs (issues #2146 and #2264).
  *
  * The maintainer's review closed with:
  *
@@ -9,9 +9,9 @@
  *
  * This module implements the first option: while the host has no active task,
  * compare each CLI's installed version against the registry and reinstall only
- * the ones that moved. The second option is deliberately not taken — updating
- * inside a task's container would change the toolchain mid-run and make the
- * task's own logs unreproducible.
+ * the ones that moved. Issue #2264 extends the same safe idle window to the
+ * operational utilities baked into the image. Build-time `@latest` cannot keep
+ * a long-lived container current.
  *
  * Two packages are excluded on purpose:
  *
@@ -44,7 +44,8 @@ const DEFAULT_INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
 export const DEFAULT_CLI_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 /**
- * The CLIs Hive Mind drives, in the same order the Dockerfile installs them.
+ * The CLIs Hive Mind drives and the operational utilities its tasks invoke, in
+ * the same order the Dockerfile installs them.
  *
  * `installer: 'self'` is for Claude Code, which ships a native binary through
  * its own installer script; `claude update` is the supported refresh path and
@@ -58,6 +59,12 @@ export const AGENTIC_CLI_TARGETS = Object.freeze([
   { id: 'qwen', package: '@qwen-code/qwen-code', binary: 'qwen', installer: 'bun' },
   { id: 'copilot', package: '@github/copilot', binary: 'copilot', installer: 'bun' },
   { id: 'opencode', package: 'opencode-ai', binary: 'opencode', installer: 'bun' },
+  { id: 'claude-profiles', package: '@link-assistant/claude-profiles', binary: 'claude-profiles', installer: 'bun' },
+  { id: 'gh-setup-git-identity', package: 'gh-setup-git-identity', binary: 'gh-setup-git-identity', installer: 'bun' },
+  { id: 'gh-pull-all', package: 'gh-pull-all', binary: 'gh-pull-all', installer: 'bun' },
+  { id: 'gh-load-issue', package: 'gh-load-issue', binary: 'gh-load-issue', installer: 'bun' },
+  { id: 'gh-load-pull-request', package: 'gh-load-pull-request', binary: 'gh-load-pull-request', installer: 'bun' },
+  { id: 'gh-upload-log', package: 'gh-upload-log', binary: 'gh-upload-log', installer: 'bun' },
 ]);
 
 /** Auto-update is on by default; operators can disable it or narrow it to a subset. */

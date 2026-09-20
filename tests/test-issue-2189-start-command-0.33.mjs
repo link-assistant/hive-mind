@@ -5,7 +5,7 @@
  *
  * The incident in #2189 produced three upstream issues against
  * link-foundation/start; all three are closed as completed and released in
- * `start-command@0.33.0`, which the Hive Mind images now pin:
+ * `start-command@0.33.0`, which the Hive Mind images pin at or above:
  *
  *   - start#162 — `--attach` / `--resume <uuid>` / `--resume-all` re-enter an
  *     existing execution instead of forcing a fresh isolated run.
@@ -24,7 +24,7 @@
  *      upgraded.
  *   3. The local log-marker classification still stands on its own, so the
  *      verdict does not regress on an older `$` binary.
- *   4. Both images pin `start-command@0.33.0`.
+ *   4. Both images pin a current `start-command` that includes 0.33.0.
  *
  * @hive-mind-test-suite default
  *
@@ -185,7 +185,7 @@ console.log('\n4. Image pins\n');
 for (const file of ['Dockerfile', 'Dockerfile.dind']) {
   const text = await fs.readFile(path.join(repoRoot, file), 'utf8');
   const pins = [...text.matchAll(/start-command@(\d+\.\d+\.\d+)/g)].map(match => match[1]);
-  assert(pins.length > 0 && pins.every(version => version === '0.33.0'), `${file} installs start-command@0.33.0 (found ${JSON.stringify(pins)})`);
+  assert(pins.length > 0 && pins.every(version => version === '0.34.0'), `${file} installs current start-command@0.34.0, which includes the 0.33.0 fixes (found ${JSON.stringify(pins)})`);
 }
 
 printSummary('Issue #2189 — start-command 0.33.0 adoption');

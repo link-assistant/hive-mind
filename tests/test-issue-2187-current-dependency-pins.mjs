@@ -19,18 +19,18 @@ const read = relativePath => fs.readFileSync(path.join(repoRoot, relativePath), 
 const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const expected = {
-  agent: '0.26.2',
+  agent: '0.26.3',
   box: '2.10.2',
   bun: '1.4.2',
-  eslint: '10.10.0',
-  formalAi: '0.349.2',
-  jscpd: '5.2.0',
+  eslint: '10.11.0',
+  formalAi: '0.351.0',
+  jscpd: '5.3.0',
   lintStaged: '17.5.1',
   node: '24.21.0',
-  sentry: '10.74.0',
+  sentry: '10.75.0',
   sentryProfiler: '2.4.4',
-  startCommand: '0.33.0',
-  useM: '8.15.1',
+  startCommand: '0.34.0',
+  useM: '8.16.0',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];

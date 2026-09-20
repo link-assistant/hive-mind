@@ -127,15 +127,15 @@ If the container cannot be started, or a task container cannot be attached to th
 
 An update never replaces the image blindly. It pulls, compares digests, and — following the Formal AI persisted-memory upgrade contract ([formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)) — runs a side-effect-free `memory upgrade-status` preflight, then `memory migrate` with a byte-exact backup and a receipt, then boots the new image and requires `/health` to report compatible memory. Anything that fails after the migration restores the backup named in the receipt and keeps the previous image. See [the issue #2146 case study](case-studies/issue-2146/README.md).
 
-#### Idle agentic CLI updates
+#### Idle CLI updates
 
-While the host runs no task, the bot compares each installed agentic CLI against the version published on npm and reinstalls only the ones that moved. `@link-assistant/hive-mind` is excluded, because replacing the package that owns the running process mid-flight leaves a half-swapped bot, and so is `start-command`, whose exact version the image pins deliberately.
+While the host runs no task, the bot compares each installed agentic CLI and operational utility against the version published on npm and reinstalls only the ones that moved. The utilities are `@link-assistant/claude-profiles`, `gh-setup-git-identity`, `gh-pull-all`, `gh-load-issue`, `gh-load-pull-request`, and `gh-upload-log`. `@link-assistant/hive-mind` is excluded, because replacing the package that owns the running process mid-flight leaves a half-swapped bot, and so is `start-command`, whose exact version the image pins deliberately.
 
-| Environment Variable                   | Default   | Description                                                                                             |
-| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`       | Set to `0` to leave the CLIs to the image build.                                                        |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _(unset)_ | Comma-separated allow-list of ids: `claude`, `codex`, `agent`, `gemini`, `qwen`, `copilot`, `opencode`. |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _(unset)_ | Comma-separated deny-list using the same ids.                                                           |
+| Environment Variable                   | Default   | Description                                                                                      |
+| -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
+| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`       | Set to `0` to leave the CLIs to the image build.                                                 |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _(unset)_ | Comma-separated allow-list of agentic and operational target ids; the defaults are listed above. |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _(unset)_ | Comma-separated deny-list using the same ids.                                                    |
 
 `formal-ai` remains opt-in. The default models do not change until the coding ladder described in [the issue #2059 case study](case-studies/issue-2059/capability-gate.md) demonstrates reliable code edits and complete issue-to-PR runs.
 

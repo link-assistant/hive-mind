@@ -86,7 +86,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Detect changes
+      - name: Verify dependency freshness and detect changes
         id: changes
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -101,7 +101,9 @@ jobs:
           # provides it in every job, and overriding it with an expression can
           # only ever replace a guaranteed value with an empty one.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/detect-code-changes.mjs
+        run: |
+          node scripts/check-dependency-freshness.mjs
+          node scripts/detect-code-changes.mjs
   # === VERSION CHANGE CHECK ===
   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
   # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
@@ -472,7 +474,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
-          version: v3.14.0
+          version: v4.3.0
       - name: Get package version
         id: package-version
         run: |
@@ -876,7 +878,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
-          version: v3.14.0
+          version: v4.3.0
       - name: Release Helm chart
         run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
       - name: Upload chart to release
@@ -1236,7 +1238,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
-          version: v3.14.0
+          version: v4.3.0
       - name: Release Helm chart
         run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
       - name: Upload chart to release

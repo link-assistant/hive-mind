@@ -39,7 +39,7 @@ import { assert as check, printSummary, getFailCount } from './test-helpers.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.join(__dirname, '..');
-const CURRENT_AGENT_IMAGE_VERSION = '0.26.2';
+const CURRENT_AGENT_IMAGE_VERSION = '0.26.3';
 
 const { agentCliPrunesOrphanSnapshots, MIN_AGENT_FORMAL_AI_VERSION, MIN_AGENT_LIVE_INPUT_VERSION, MIN_AGENT_SNAPSHOT_HYGIENE_VERSION, validateAgentConnection } = await import('../src/agent.lib.mjs');
 

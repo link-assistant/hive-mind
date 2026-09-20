@@ -1,0 +1,40 @@
+version: 2
+
+# Keep supported ecosystems in one reviewable update. The release workflow's
+# dependency-freshness job covers use-m pins and setup-action inputs that
+# Dependabot cannot update by itself.
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: daily
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+
+  - package-ecosystem: github-actions
+    directory: /
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+
+  - package-ecosystem: docker
+    directories:
+      - /
+      - /coolify
+      - /experiments/solve-dockerize
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+
+  - package-ecosystem: docker-compose
+    directories:
+      - /
+      - /coolify
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies
+
+  - package-ecosystem: helm
+    directory: /helm/hive-mind
+    patterns: ['*']
+    multi-ecosystem-group: all-dependencies

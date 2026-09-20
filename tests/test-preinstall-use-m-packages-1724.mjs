@@ -48,9 +48,9 @@ const test = (name, fn) => {
 };
 
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
-  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-0.18.0');
-  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.21.0');
-  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.13.0');
+  assert.equal(aliasForPackage('command-stream'), 'command-stream-v-0.24.1');
+  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.28.2');
+  assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.20.0');
 });
 
 await test('isRetryableNpmError detects ENOTEMPTY and friends', () => {
@@ -72,7 +72,7 @@ await test('installWithRetry disables package bin links so versioned aliases can
   let command = '';
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-0.18.0',
+    alias: 'command-stream-v-0.24.1',
     globalRoot: '/tmp/nonexistent-root',
     runner: async value => {
       calls++;
@@ -82,14 +82,14 @@ await test('installWithRetry disables package bin links so versioned aliases can
     sleeper: async () => {},
   });
   assert.deepEqual({ ok: result.ok, attempt: result.attempt, calls }, { ok: true, attempt: 1, calls: 1 });
-  assert.match(command, /npm install -g --no-bin-links command-stream-v-0\.18\.0@npm:command-stream@0\.18\.0/);
+  assert.match(command, /npm install -g --no-bin-links command-stream-v-0\.24\.1@npm:command-stream@0\.24\.1/);
 });
 
 await test('installWithRetry retries on ENOTEMPTY then succeeds', async () => {
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-0.18.0',
+    alias: 'command-stream-v-0.24.1',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -127,7 +127,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
   let calls = 0;
   const result = await installWithRetry({
     packageName: 'command-stream',
-    alias: 'command-stream-v-0.18.0',
+    alias: 'command-stream-v-0.24.1',
     globalRoot: '/tmp/nonexistent-root',
     runner: async () => {
       calls++;
@@ -146,7 +146,7 @@ await test('installWithRetry aborts immediately on non-retryable error', async (
 await test('installWithRetry treats package-present-on-disk as recovered success', async () => {
   const tmp = mkdtempSync(join(tmpdir(), 'preinstall-1724-'));
   try {
-    const alias = 'command-stream-v-0.18.0';
+    const alias = 'command-stream-v-0.24.1';
     mkdirSync(join(tmp, alias));
     writeFileSync(join(tmp, alias, 'package.json'), JSON.stringify({ name: 'command-stream', version: '1.0.0' }));
     let calls = 0;

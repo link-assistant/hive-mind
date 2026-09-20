@@ -1,5 +1,16 @@
 # @link-assistant/hive-mind
 
+## 2.31.0
+
+### Minor Changes
+
+- 4a66219: Treat terminal tool failures as failed solution sessions, keep their pull requests in draft, and prevent later readiness or auto-merge paths from overriding that failure.
+- 0bf063e: Report repository-wide solves with no open issues as successful no-work outcomes, and let Telegram answer them directly without starting a work session.
+- 19bf99f: Prevent successful sessions from replaying stale subscription errors, describe inactive tool access without claiming an account block, and keep Telegram completion overflow in its originating forum topic.
+- 2399d94: Enforce repository-wide dependency freshness in CI, add coordinated Dependabot updates, and refresh safe operational CLIs while long-lived containers are idle.
+- ba12d5a: Unblock automated release pull requests when the default branch requires the Pipeline Status check
+- 7b519c6: Add optional fixed or host-relative CPU, RAM, and writable-layer disk limits for Docker-isolated Telegram tasks.
+
 ## 2.30.0
 
 ### Minor Changes

@@ -60,6 +60,10 @@ The investigation includes:
    annotation lines, gate-coverage audit, online-source links, and the complete
    upstream report body. The local default suite passed all 495 selected test
    files; the live GitHub integration suite passed all four assertions.
+9. The post-push candidate run list and complete logs for Workflows
+   `35528498944`, Broken Link Checker `35528498960`, Security `35528498958`,
+   and Checks and release `35528499102`. All four ran on `1e1de488` and
+   succeeded; `final-ci-annotation-lines.txt` is empty.
 
 The raw `.log` files are gzip-compressed in `ci-logs/` after collection to keep
 the repository reasonably sized without discarding any line. The adjacent
@@ -81,6 +85,7 @@ readable without expanding 45,000-line logs.
 | 2026-09-20 investigation | Current `origin/main` was merged into the task branch (`8c4e0614`), resolving the dependency-freshness failure while retaining the guard. A failing regression was committed first (`dcf215b1`), followed by the implementation (`ba12d5a3`). |
 | 2026-09-20 upstream | The identical template defect was reported as [link-foundation/js-ai-driven-development-pipeline-template#192](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/192), with four reproductions, workarounds, and a code-level fix plan. |
 | 2026-09-20 verification | Dependency installation completed with zero vulnerabilities; all 495 default-suite files and the one GitHub integration file passed. ESLint, Prettier, duplication detection, secret scanning, extracted-module, and line-limit checks also exited successfully. The integration fixture is preserved by its existing test contract at [konard/test-feedback-lines-2eb45eaf](https://github.com/konard/test-feedback-lines-2eb45eaf). |
+| 2026-09-20 18:15-18:35 | The pushed candidate `1e1de488` passed all four PR workflows. Checks and release completed all test, Docker/container, policy, and terminal `Pipeline Status` jobs successfully. See `final-ci-runs-1e1de488.json` and `ci-logs/final-run-*.log.gz`. |
 
 ## Requirements inventory and disposition
 
@@ -350,7 +355,10 @@ publication-safety requirements, and a regression-test plan.
 | Live GitHub integration suite | `github-integration-test.log.gz`: 4/4 assertions and the selected integration file passed |
 | Repository-wide static checks | `npm-lint.log.gz`, `npm-format-check.log.gz`, `npm-duplication.log.gz`, `npm-secretlint.log.gz` all exited 0 |
 | Focused structural checks | `extracted-modules-test.log.gz`, `line-limits.log.gz`; workflow ends at 1,348 lines |
+| Live PR candidate CI | `final-ci-runs-1e1de488.json`; all four workflows succeeded on the candidate head |
+| Complete live PR candidate logs | `ci-logs/final-run-35528498944.log.gz`, `final-run-35528498960.log.gz`, `final-run-35528498958.log.gz`, and `final-run-35528499102.log.gz` |
 
-The post-push live PR CI run list and any non-passing run logs are added to this
-directory after the final branch SHA is available and summarized in the PR
-description.
+The following evidence-only commit archives those successful runs without
+changing the implementation. Its own live status is verified and summarized
+in the PR description; any non-passing final-head run would be downloaded and
+analyzed before the PR is handed off.

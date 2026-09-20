@@ -19,9 +19,7 @@ on:
         required: true
         type: choice
         default: 'instant'
-        options:
-          - instant
-          - changeset-pr
+        options: [instant, changeset-pr, validate-pr]
       bump_type:
         description: 'Manual release type'
         required: true
@@ -517,6 +515,7 @@ jobs:
       published_version: ${{ steps.publish.outputs.published_version }}
     # Permissions required for npm OIDC trusted publishing
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       id-token: write
@@ -899,6 +898,7 @@ jobs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       id-token: write
@@ -913,7 +913,6 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Install dependencies
         run: node scripts/npm-install-with-retry.mjs install
-
       - name: Update npm for OIDC trusted publishing
         run: node scripts/setup-npm.mjs
       - name: Sanitize npm user config

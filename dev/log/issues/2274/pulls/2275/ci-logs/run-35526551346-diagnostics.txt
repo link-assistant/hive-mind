@@ -1,0 +1,124 @@
+2271:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9739886Z Dependency freshness failed: 2 stale, 0 unresolved.
+2272:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9871794Z ##[error]Process completed with exit code 1.
+2587:Release Preflight / Probe publishing credentials	UNKNOWN STEP	2026-09-20T17:39:42.0393364Z **5 verified, 0 warning(s), 0 failure(s).**
+2589:Release Preflight / Probe publishing credentials	UNKNOWN STEP	2026-09-20T17:39:42.0394103Z Output: failures=0
+2842:Pipeline Status	Fail the run when a required job was cancelled or failed	﻿2026-09-20T17:40:04.0293754Z ##[group]Run bash scripts/check-pipeline-status.sh
+2843:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0294258Z ^[[36;1mbash scripts/check-pipeline-status.sh^[[0m
+2844:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344105Z shell: /usr/bin/bash -e {0}
+2845:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344386Z env:
+2846:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344616Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+2847:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344908Z   GIT_CONFIG_COUNT: 1
+2848:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0345145Z   GIT_CONFIG_KEY_0: init.defaultBranch
+2849:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0345430Z   GIT_CONFIG_VALUE_0: main
+2850:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0350515Z   NEEDS_JSON: {
+2851:Pipeline Status	Fail the run when a required job was cancelled or failed	  "detect-changes": {
+2852:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "failure",
+2853:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2854:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2855:Pipeline Status	Fail the run when a required job was cancelled or failed	  "version-check": {
+2856:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2857:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2858:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2859:Pipeline Status	Fail the run when a required job was cancelled or failed	  "changeset-check": {
+2860:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2861:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2862:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2863:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-compilation": {
+2864:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2865:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2866:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2867:Pipeline Status	Fail the run when a required job was cancelled or failed	  "lint": {
+2868:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2869:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2870:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2871:Pipeline Status	Fail the run when a required job was cancelled or failed	  "check-file-line-limits": {
+2872:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2873:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2874:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2875:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-suites": {
+2876:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2877:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2878:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2879:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-execution": {
+2880:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2881:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2882:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2883:Pipeline Status	Fail the run when a required job was cancelled or failed	  "memory-check-linux": {
+2884:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2885:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2886:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2887:Pipeline Status	Fail the run when a required job was cancelled or failed	  "validate-docs": {
+2888:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2889:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2890:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2891:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-pr-check": {
+2892:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2893:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2894:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2895:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-pr-check": {
+2896:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2897:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2898:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2899:Pipeline Status	Fail the run when a required job was cancelled or failed	  "release-preflight": {
+2900:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "success",
+2901:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2902:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2903:Pipeline Status	Fail the run when a required job was cancelled or failed	  "release": {
+2904:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2905:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2906:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2907:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish": {
+2908:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2909:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2910:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2911:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-merge": {
+2912:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2913:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2914:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2915:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind": {
+2916:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2917:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2918:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2919:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-merge": {
+2920:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2921:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2922:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2923:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-release": {
+2924:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2925:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2926:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2927:Pipeline Status	Fail the run when a required job was cancelled or failed	  "instant-release": {
+2928:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2929:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2930:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2931:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-instant": {
+2932:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2933:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2934:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2935:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-instant-merge": {
+2936:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2937:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2938:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2939:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-instant": {
+2940:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2941:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2942:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2943:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-instant-merge": {
+2944:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2945:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2946:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2947:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-release-instant": {
+2948:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2949:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2950:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2951:Pipeline Status	Fail the run when a required job was cancelled or failed	  "changeset-pr": {
+2952:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2953:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2954:Pipeline Status	Fail the run when a required job was cancelled or failed	  }
+2955:Pipeline Status	Fail the run when a required job was cancelled or failed	}
+2956:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0356030Z   IS_MAIN: false
+2957:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0356235Z ##[endgroup]
+2958:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1006001Z Failed jobs:    detect-changes
+2959:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1006436Z Cancelled jobs: <none>
+2960:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1022687Z ##[error]Pipeline failed. Failing jobs: detect-changes
+2961:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1033838Z ##[error]Process completed with exit code 1.

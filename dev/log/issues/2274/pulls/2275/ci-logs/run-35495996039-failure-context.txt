@@ -1,0 +1,69 @@
+44750-Release	UNKNOWN STEP	2026-09-20T07:15:56.0104148Z  5 files changed, 10 insertions(+), 13 deletions(-)
+44751-Release	UNKNOWN STEP	2026-09-20T07:15:56.0104951Z  delete mode 100644 .changeset/calm-repositories-rest.md
+44752-Release	UNKNOWN STEP	2026-09-20T07:15:56.0105711Z  delete mode 100644 .changeset/fresh-ravens-check.md
+44753:Release	UNKNOWN STEP	2026-09-20T07:15:57.1867441Z remote: error: GH013: Repository rule violations found for refs/heads/main.
+44754-Release	UNKNOWN STEP	2026-09-20T07:15:57.1869586Z remote: Review all repository rules at https://github.com/link-assistant/hive-mind/rules?ref=refs%2Fheads%2Fmain
+44755-Release	UNKNOWN STEP	2026-09-20T07:15:57.1870637Z remote:
+44756-Release	UNKNOWN STEP	2026-09-20T07:15:57.1871282Z remote: - Changes must be made through a pull request.
+44757-Release	UNKNOWN STEP	2026-09-20T07:15:57.1871922Z remote:
+44758:Release	UNKNOWN STEP	2026-09-20T07:15:57.1872865Z remote: - Required status check "Pipeline Status" is expected.
+44759-Release	UNKNOWN STEP	2026-09-20T07:15:57.1873549Z remote:
+44760-Release	UNKNOWN STEP	2026-09-20T07:15:57.1910240Z To https://github.com/link-assistant/hive-mind
+44761-Release	UNKNOWN STEP	2026-09-20T07:15:57.1911178Z  ! [remote rejected]   main -> main (push declined due to repository rule violations)
+--
+44775-Release	UNKNOWN STEP	2026-09-20T07:16:03.4447418Z Output written to /home/runner/work/_temp/_runner_file_commands/set_output_57b82a3b-b439-409d-a026-0b9e32436229
+44776-Release	UNKNOWN STEP	2026-09-20T07:16:05.7314237Z GraphQL: Repository rule violations found
+44777-Release	UNKNOWN STEP	2026-09-20T07:16:05.7315010Z
+44778:Release	UNKNOWN STEP	2026-09-20T07:16:05.7315634Z Required status check "Pipeline Status" is expected.
+44779-Release	UNKNOWN STEP	2026-09-20T07:16:05.7316066Z
+44780-Release	UNKNOWN STEP	2026-09-20T07:16:05.7316267Z  (mergePullRequest)
+44781-Release	UNKNOWN STEP	2026-09-20T07:16:05.7339422Z Merge attempt 1 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44782:Release	UNKNOWN STEP	2026-09-20T07:16:11.2590668Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44783-Release	UNKNOWN STEP	2026-09-20T07:16:11.2591714Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44784-Release	UNKNOWN STEP	2026-09-20T07:16:11.2592918Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44785-Release	UNKNOWN STEP	2026-09-20T07:16:11.2615457Z Merge attempt 2 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44786:Release	UNKNOWN STEP	2026-09-20T07:16:16.7328212Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44787-Release	UNKNOWN STEP	2026-09-20T07:16:16.7329093Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44788-Release	UNKNOWN STEP	2026-09-20T07:16:16.7329863Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44789-Release	UNKNOWN STEP	2026-09-20T07:16:16.7353068Z Merge attempt 3 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44790:Release	UNKNOWN STEP	2026-09-20T07:16:22.2108285Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44791-Release	UNKNOWN STEP	2026-09-20T07:16:22.2109659Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44792-Release	UNKNOWN STEP	2026-09-20T07:16:22.2110907Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44793-Release	UNKNOWN STEP	2026-09-20T07:16:22.2133037Z Merge attempt 4 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44794:Release	UNKNOWN STEP	2026-09-20T07:16:27.9498247Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44795-Release	UNKNOWN STEP	2026-09-20T07:16:27.9499652Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44796-Release	UNKNOWN STEP	2026-09-20T07:16:27.9501300Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44797-Release	UNKNOWN STEP	2026-09-20T07:16:27.9525596Z Merge attempt 5 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44798:Release	UNKNOWN STEP	2026-09-20T07:16:33.4660884Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44799-Release	UNKNOWN STEP	2026-09-20T07:16:33.4661743Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44800-Release	UNKNOWN STEP	2026-09-20T07:16:33.4662753Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44801-Release	UNKNOWN STEP	2026-09-20T07:16:33.4683156Z Merge attempt 6 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44802:Release	UNKNOWN STEP	2026-09-20T07:16:39.1278165Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44803-Release	UNKNOWN STEP	2026-09-20T07:16:39.1280232Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44804-Release	UNKNOWN STEP	2026-09-20T07:16:39.1281138Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44805-Release	UNKNOWN STEP	2026-09-20T07:16:39.1299958Z Merge attempt 7 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44806:Release	UNKNOWN STEP	2026-09-20T07:16:44.6279855Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44807-Release	UNKNOWN STEP	2026-09-20T07:16:44.6280895Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44808-Release	UNKNOWN STEP	2026-09-20T07:16:44.6281841Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44809-Release	UNKNOWN STEP	2026-09-20T07:16:44.6300433Z Merge attempt 8 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44810:Release	UNKNOWN STEP	2026-09-20T07:16:50.2097070Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44811-Release	UNKNOWN STEP	2026-09-20T07:16:50.2098058Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44812-Release	UNKNOWN STEP	2026-09-20T07:16:50.2098948Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44813-Release	UNKNOWN STEP	2026-09-20T07:16:50.2119011Z Merge attempt 9 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44814:Release	UNKNOWN STEP	2026-09-20T07:16:55.6658684Z X Pull request link-assistant/hive-mind#2272 is not mergeable: the base branch policy prohibits the merge.
+44815-Release	UNKNOWN STEP	2026-09-20T07:16:55.6659721Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44816-Release	UNKNOWN STEP	2026-09-20T07:16:55.6660654Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44817-Release	UNKNOWN STEP	2026-09-20T07:16:55.6689342Z Error: Command failed with exit code 1: gh pr merge https://github.com/link-assistant/hive-mind/pull/2272 --merge
+44818:Release	UNKNOWN STEP	2026-09-20T07:16:55.6782852Z ##[error]Process completed with exit code 1.
+44819-Release	UNKNOWN STEP	2026-09-20T07:16:55.6949205Z Post job cleanup.
+44820-Release	UNKNOWN STEP	2026-09-20T07:16:55.7830140Z [command]/usr/bin/git version
+44821-Release	UNKNOWN STEP	2026-09-20T07:16:55.7875408Z git version 2.55.0
+--
+45195-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9147484Z ##[endgroup]
+45196-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9796854Z Failed jobs:    release
+45197-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9797307Z Cancelled jobs: <none>
+45198:Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9813898Z ##[error]Pipeline failed. Failing jobs: release
+45199:Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9825313Z ##[error]Process completed with exit code 1.
+45200-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9967513Z Post job cleanup.
+45201-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:17.0837017Z [command]/usr/bin/git version
+45202-Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:17.0881507Z git version 2.55.0

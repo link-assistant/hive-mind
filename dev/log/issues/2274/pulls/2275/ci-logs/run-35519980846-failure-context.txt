@@ -1,0 +1,1088 @@
+24690-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4082040Z    🔧 How to fix:
+24691-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4095826Z
+24692-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4110361Z    Option 1: Use GitHub CLI to set identity from your account
+24693-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4133933Z      gh-setup-git-identity
+24694-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4134253Z
+24695-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4148112Z    Option 2: Set identity manually
+24696-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4162249Z      git config --global user.name "Your Name"
+24697-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4176254Z      git config --global user.email "you@example.com"
+24698-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4189355Z
+24699-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4203082Z    Option 3: Enable auto-repair (requires gh-setup-git-identity)
+24700-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4220229Z      solve <issue-url> --auto-gh-configuration-repair
+24701-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4234035Z
+24702:test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4250450Z    Related error: "fatal: empty ident name (for <>) not allowed"
+24703-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4264062Z
+24704-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4312983Z 📈 Resource usage (solve exit 1):
+24705-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4313519Z    CPU load: 1.27 0.36 0.13 (4 CPUs)
+24706-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4314013Z    Memory: 14.4 GB available / 15.6 GB total (1.2 GB used)
+24707-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4314657Z    Process RSS: 123 MB, V8 heap: 32 MB used of 4.2 GB limit (0.7%)
+24708-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4315129Z    Disk (/): 84.2 GB available / 144.3 GB total (41.6% used)
+24709-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4318831Z 📈 [RESOURCES] phase=solve_exit ts=2026-09-20T15%3A41%3A13.426Z load1=1.27 load5=0.36 load15=0.13 cpuCount=4 memTotalBytes=16766414848 memAvailableBytes=15507619840 memUsedBytes=1258795008 processRssBytes=129265664 processHeapUsedBytes=33232208 processHeapTotalBytes=60149760 processExternalBytes=4719762 processHeapLimitBytes=4496293888 processHeapUsedPercent=0.7391022212469756 diskPath=%2F diskTotalBytes=154894188544 diskAvailableBytes=90411487232 diskUsedBytes=64465924096 diskUsedPercent=41.6193303970778 mem=14.4%20GB%20available%20%2F%2015.6%20GB%20total heap=32%20MB%20used%20of%204.2%20GB%20limit%20(0.7%25) disk=84.2%20GB%20available%20%2F%20144.3%20GB%20total
+24710-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4329951Z
+24711-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4341338Z ❌ System checks failed
+24712-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4358808Z 📁 Full log file: /home/runner/work/hive-mind/hive-mind/solve-2026-09-20T15-41-13-145Z.log
+24713-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4379049Z
+24714-test-execution	UNKNOWN STEP	2026-09-20T15:41:13.4379513Z 💬 Notifying issue #1 about solver failure...
+--
+25077-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9438262Z   -j, --json             Output results as JSON       [boolean] [default: false]
+25078-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9439975Z   -q, --quiet            Suppress detailed output (only show final status)
+25079-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9440820Z                                                       [boolean] [default: false]
+25080-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9441693Z   -l, --log-file         Path to log file for output                    [string]
+25081-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9442678Z   -h, --help             Show help                                     [boolean]"
+25082-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:46.9443639Z ✅ PASSED
+25083-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:47.2731432Z Testing memory-check.mjs basic execution... ✅ PASSED
+25084-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:47.6089286Z Testing memory-check.mjs disk space check... ✅ PASSED
+25085-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:47.9332799Z Testing memory-check.mjs RAM check... ✅ PASSED
+25086-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:48.2912301Z Testing memory-check.mjs verbose output... ✅ PASSED
+25087-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:48.3175450Z Testing memory-check.mjs syntax check... ✅ PASSED
+25088-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:48.6553913Z Testing memory-check.mjs platform detection... ✅ PASSED
+25089:memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:48.9777047Z Testing memory-check.mjs exit code on success... ✅ PASSED
+25090-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3091317Z Testing memory-check.mjs execution... ✅ PASSED
+25091-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3091759Z
+25092-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3092068Z ==================================================
+25093-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3092675Z Test Results for memory-check.mjs:
+25094-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3093219Z   ✅ Passed: 10
+25095-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3093623Z   ❌ Failed: 0
+25096-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3093994Z   Platform: linux
+25097-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3094549Z ==================================================
+25098-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3160541Z ##[group]Run bash scripts/memory-check-smoke-test.sh
+25099-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3160985Z ^[[36;1mbash scripts/memory-check-smoke-test.sh^[[0m
+25100-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3198186Z shell: /usr/bin/bash -e {0}
+25101-memory-check-linux	UNKNOWN STEP	2026-09-20T15:40:49.3198454Z env:
+--
+27220-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4908624Z ℹ️ gh exec (gh api "repos/o/r/actions/runs?status=in_progress&per_page=100"): error is not retryable [transient=no]; propagating to caller.
+27221-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4909482Z ✅ getAllActiveRepoRuns propagates gh errors
+27222-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4911109Z
+27223-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4911379Z 8 passed, 0 failed
+27224-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4911622Z
+27225-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4984471Z
+27226-test-suites	UNKNOWN STEP	2026-09-20T15:41:18.4984889Z [72/493] tests/test-agent-commander-option.mjs
+27227-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.0221642Z agent-commander option tests passed
+27228-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.0325680Z
+27229-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.0326169Z [73/493] tests/test-agent-error-detection.mjs
+27230-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4675744Z Testing simplified agent error detection...
+27231-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4676546Z
+27232:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4676988Z Issue #886: Trust exit code, only detect explicit JSON errors
+27233-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4677445Z
+27234-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4677890Z Test 1: Bash command with shell warnings should NOT trigger error
+27235:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4682185Z   ✅ PASSED: Shell warnings in output ignored (trust exit code)
+27236-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4682650Z
+27237-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4683169Z Test 2: Tool output with "permission denied" text should NOT trigger error
+27238-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4684082Z   ✅ PASSED: Source code with error strings ignored
+27239-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4684476Z
+27240-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4684842Z Test 3: Explicit JSON error message should be detected
+27241-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4689164Z   ✅ PASSED: JSON error message correctly detected
+27242-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4689576Z
+27243-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4689895Z Test 4: step_error type should be detected
+27244-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4690582Z   ✅ PASSED: step_error type correctly detected
+27245-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4690844Z
+27246:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4691199Z Test 5: Non-JSON error text should NOT trigger error (trust exit code)
+27247:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4692186Z   ✅ PASSED: Non-JSON error text ignored (trust exit code)
+27248-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4692553Z
+27249:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4693052Z Test 6: Stack traces should NOT trigger error (trust exit code)
+27250:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4693600Z   ✅ PASSED: Stack traces ignored (trust exit code)
+27251-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4693901Z
+27252-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4694236Z Test 7: Clean output should not trigger errors
+27253-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4694734Z   ✅ PASSED: Clean output correctly passes
+27254-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4694941Z
+27255-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4695282Z Test 8: Error type without message field
+27256-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4696819Z   ✅ PASSED: Error type without message correctly detected
+27257-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4697267Z
+27258-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4697583Z Test 9: Mixed output with error message
+27259-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4698527Z   ✅ PASSED: Error detected in mixed output
+27260-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4699037Z
+27261:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4699619Z Test 10: Tool with failed status (handled by exit code, not output scan)
+27262:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4700267Z   ✅ PASSED: Failed tool status handled by exit code, not output scan
+27263-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4700617Z
+27264-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4701229Z --- Issue #1201 Tests ---
+27265-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4701418Z
+27266-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4701790Z Test 11: Error with "error" field (not "message") should capture error text
+27267-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4702331Z   ✅ PASSED: Error field correctly captured
+27268-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4702628Z
+27269-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4703335Z Test 12: Error event followed by more output (agent continued after error)
+27270-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4704239Z   ✅ PASSED: Error detected even when agent continues after it
+27271-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4704547Z
+27272-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4705223Z Test 13: Concatenated JSON objects without newlines (streaming edge case)
+27273-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4705753Z   Post-hoc detection result: detected=true
+27274-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4706301Z   ✅ PASSED: Post-hoc detection caught it (but streaming is still preferred)
+--
+27278-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4708255Z
+27279-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4708504Z Test 15: Combined detection (streaming + post-hoc fallback)
+27280-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4709089Z   ✅ PASSED: Combined detection works correctly
+27281-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4709339Z
+27282-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4709728Z --- Issue #1276 Tests ---
+27283-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4710020Z
+27284-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4710376Z Test 16: Status message should NOT trigger error
+27285-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4711203Z   ✅ PASSED: Status message correctly ignored
+27286-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4711582Z
+27287-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4712009Z Test 17: Agent recovers from error and completes successfully
+27288-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4713107Z   ✅ PASSED: Agent recovery correctly handled - error cleared after successful completion
+27289-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4713720Z
+27290:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4714060Z Test 18: Final error state should respect exit code
+27291-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4714818Z   Agent recovered from earlier error and completed successfully
+27292-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4716013Z   ✅ PASSED: Exit code 0 with recovery correctly treated as success
+27293-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4716730Z
+27294-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4717106Z Test 19: Error extraction should prefer "error" field
+27295-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4717956Z   ✅ PASSED: Error field correctly preferred over message field
+27296-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4718399Z
+27297:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4718747Z Test 20: Non-zero exit code should still be error
+27298:test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4719636Z   ✅ PASSED: Non-zero exit code correctly preserves error state
+27299-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4720082Z
+27300-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4720276Z --- Issue #1290 Tests ---
+27301-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4720538Z
+27302-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4721140Z Test 21: Fallback pattern match skipped when agent completed successfully (Issue #1290)
+27303-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4722276Z   ✅ PASSED: Fallback pattern matching correctly skipped for recovered agent
+27304-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4722768Z
+27305-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4723283Z Test 22: Fallback pattern match still runs when agent did not complete successfully
+27306-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4724144Z   ✅ PASSED: Fallback correctly runs for failed agent
+27307-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4724523Z
+27308-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4725008Z Test 23: Code output with "resets" should not trigger usage limit (Issue #1290)
+27309-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4726070Z   ✅ PASSED: "resets" false positive correctly prevented
+27310-test-suites	UNKNOWN STEP	2026-09-20T15:41:19.4726448Z
+--
+28798-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5966370Z ✅ Codex --thinking-budget caps the budget-derived effort at xhigh (max/ultra stay explicit)
+28799-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5967256Z ✅ Codex --thinking-budget 0 disables reasoning
+28800-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5967779Z ✅ Codex defaults to none reasoning when no thinking flags are set
+28801-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5982652Z ✅ Codex exec JSON parser extracts session, result text, usage, and collab calls from authoritative event types
+28802-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5984531Z ✅ Codex exec JSON parser does not mark cache write as available when CLI does not emit it
+28803-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.5998193Z ✅ Codex pricing uses OpenAI input, cached input, and output rates
+28804-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6001446Z ✅ Codex pricing applies long-context rates when peak prompt exceeds OpenAI threshold
+28805-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6139433Z ✅ Codex exec JSON parser captures optional nested cache write and reasoning fields when emitted
+28806-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6158246Z ✅ Codex exec parser turns compact diagnostics into sub-session usage rows
+28807-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6167759Z ✅ Codex exec JSON parser captures remaining supported item payloads
+28808-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6172264Z ✅ Codex error summary unwraps unsupported ChatGPT-account model errors
+28809-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6175641Z ✅ Codex error summary ignores non-fatal app-server stream lag item errors
+28810:test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6233548Z ✅ Codex command fails when JSON error events are emitted with exit code 0
+28811-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6254698Z ✅ Codex command succeeds when only non-fatal app-server stream lag item errors are emitted
+28812-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6273780Z ✅ Codex command parses compact diagnostics from stderr stream chunks
+28813-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6368622Z ✅ Codex retries the same model on capacity errors before falling back, then switches
+28814-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6396219Z ✅ Codex command retries stream disconnects by resuming the same session
+28815-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6422206Z ✅ OpenCode resume uses --session so fallback retries can stay on the same session
+28816-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6449553Z ✅ Agent resume uses --resume with --no-fork to preserve the same session
+28817-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6481451Z ✅ Agent live input uses stream-json stdin and parses Agent 0.24 idle events
+28818-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6483067Z ✅ Codex result model usage uses parsed token usage in shared budget-stats shape
+28819-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6483912Z
+28820-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6484156Z Passed: 71  Failed: 0
+28821-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6560080Z
+28822-test-suites	UNKNOWN STEP	2026-09-20T15:41:34.6560490Z [116/493] tests/test-configure-claude-bin.mjs
+--
+30035-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1873452Z ⚠️ test: transient error (attempt 1/3), retrying in 0.001s... [transient=yes category=network pattern="connection reset"]
+30036-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1892692Z ⚠️ test: transient error (attempt 2/3), retrying in 0.002s... [transient=yes category=network pattern="connection reset"]
+30037-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1916440Z   ✅ Throws after maxAttempts exhausted on transient error
+30038-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1916884Z
+30039-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1917229Z === 3. ghCmdRetry (command-stream based) ===
+30040-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1920007Z   ✅ Returns result on first success (code 0)
+30041-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1941659Z    [stderr] dial tcp: connection refused
+30042-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1951105Z ⚠️ test: transient error (attempt 1/3), retrying in 0.001s... [transient=yes category=network pattern="dial tcp"]
+30043-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1968753Z    [stderr] dial tcp: connection refused
+30044-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1976663Z ⚠️ test: transient error (attempt 2/3), retrying in 0.002s... [transient=yes category=network pattern="dial tcp"]
+30045-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.1996062Z   ✅ Retries on transient network error in stderr
+30046-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2005495Z    [stderr] HTTP 404: Not Found
+30047:test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2006487Z   ✅ Does NOT retry on non-transient error (exit code 1 with 404)
+30048-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2012283Z    [stderr] TLS handshake timeout
+30049-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2020248Z ⚠️ test: transient error (attempt 1/3), retrying in 0.001s... [transient=yes category=network pattern="tls handshake timeout"]
+30050-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2036533Z    [stderr] TLS handshake timeout
+30051-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2043485Z ⚠️ test: transient error (attempt 2/3), retrying in 0.002s... [transient=yes category=network pattern="tls handshake timeout"]
+30052-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2069774Z    [stderr] TLS handshake timeout
+30053-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2070667Z   ✅ Returns failed result after maxAttempts exhausted
+30054-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2079016Z ⚠️ test: transient error (attempt 1/3), retrying in 0.001s... [transient=yes category=network pattern="connection reset"]
+30055-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2089898Z   ✅ Transient error in stdout also triggers retry
+30056-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2090350Z
+30057-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2090667Z === 4. Exponential backoff timing ===
+30058-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2099239Z ⚠️ test: transient error (attempt 1/3), retrying in 0.05s... [transient=yes category=network pattern="connection refused"]
+30059-test-suites	UNKNOWN STEP	2026-09-20T15:41:54.2609143Z ⚠️ test: transient error (attempt 2/3), retrying in 0.1s... [transient=yes category=network pattern="connection refused"]
+--
+30730-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8696561Z Testing getToolIcon returns Agent icon... ✅ PASSED
+30731-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8697401Z Testing handler exposes new task handlers... ✅ PASSED
+30732-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8697757Z
+30733-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8697945Z === Testing Configuration Constants ===
+30734-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8698559Z
+30735-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8698830Z Testing CONFIG constants are defined... ✅ PASSED
+30736-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8699380Z Testing CONFIG constants have reasonable values... ✅ PASSED
+30737-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8699647Z
+30738-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8699870Z === Testing execFileAsync stdin piping (Issue #1532) ===
+30739-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8700117Z
+30740-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8739177Z Testing execFileAsync passes input to child stdin (Issue #1532)... ✅ PASSED
+30741-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8779171Z Testing execFileAsync works without input option... ✅ PASSED
+30742:test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8807999Z Testing execFileAsync rejects on non-zero exit code... ✅ PASSED
+30743-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8840952Z Testing execFileAsync handles large stdin input... ✅ PASSED
+30744-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8874459Z Testing execFileAsync handles JSON payload for gh api simulation (Issue #1532)... ✅ PASSED
+30745-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8875013Z
+30746-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8875584Z === Testing Issue #1576 Fixes ===
+30747-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8875839Z
+30748-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8876218Z Testing truncateMiddle shows line range instead of count... ✅ PASSED
+30749-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8903528Z Testing Session Complete renamed to Interactive session completed... ✅ PASSED
+30750-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8936441Z Testing Session Failed renamed to Interactive session failed... ✅ PASSED
+30751-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8963903Z Testing TodoWrite shows checked/total count... ✅ PASSED
+30752-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.8990880Z Testing Write tool displays as Change (expanded by default)... ✅ PASSED
+30753-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.9018116Z Testing Write tool diff contains line numbers... ✅ PASSED
+30754-test-suites	UNKNOWN STEP	2026-09-20T15:42:41.9047416Z Testing Task prompt is expanded by default... ✅ PASSED
+--
+31031-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0891163Z ✅ PASS: JSON WARN level (uppercase) — case-insensitive, should NOT be an error
+31032-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0891852Z ✅ PASS: JSON Warning level (mixed case) — case-insensitive, should NOT be an error
+31033-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0892184Z
+31034-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0892429Z 📋 Suite 2: Emoji-prefixed warnings (Issue #477)
+31035-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0892664Z
+31036-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0892961Z ✅ PASS: Emoji ⚠️ with "failed" keyword — should NOT be an error
+31037-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0893895Z ✅ PASS: Emoji ⚠ (alternative) with error keywords — should NOT be an error
+31038-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0894209Z
+31039-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0894452Z 📋 Suite 3: Real errors (must still be detected)
+31040-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0894684Z
+31041-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0894849Z ✅ PASS: Plain "Error:" prefix
+31042-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0895611Z ✅ PASS: npm error code
+31043:test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0896243Z ✅ PASS: Command failed with exit code
+31044-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0896678Z ✅ PASS: "command not found" — Issue #1165
+31045-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0897116Z ✅ PASS: Lowercase "error" keyword
+31046-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0897296Z
+31047-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0897438Z 📋 Suite 4: Edge cases
+31048-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0897586Z
+31049-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0897805Z ✅ PASS: Empty string — should NOT be an error
+31050-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0898237Z ✅ PASS: Whitespace-only — should NOT be an error
+31051-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0898858Z ✅ PASS: Invalid JSON starting with { — falls through to keyword matching, "failed" present
+31052-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0899582Z ✅ PASS: Invalid JSON starting with { — no error keywords, should NOT be an error
+31053-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0900335Z ✅ PASS: Leading whitespace before ⚠️ — trim() normalizes it, should NOT be an error
+31054-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0900908Z ✅ PASS: Benign message with no error keywords
+31055-test-suites	UNKNOWN STEP	2026-09-20T15:42:58.0901583Z ✅ PASS: Message containing "error" as substring of another word — e.g. "errored" — should be detected
+--
+31172-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4379616Z ============================================================
+31173-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4380121Z Total tests: 16
+31174-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4380499Z Passed: 16
+31175-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4380827Z Failed: 0
+31176-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4396706Z
+31177-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.4397265Z [179/493] tests/test-issue-1670-screen-status-monitoring.mjs
+31178-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8340530Z Testing issue #1670: screen status monitoring
+31179-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8341346Z ============================================================
+31180-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8341749Z
+31181-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8341973Z   $ --status parser:
+31182-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8345420Z   ✅ PASS: JSON status exists
+31183-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8346356Z   ✅ PASS: JSON status parses executed
+31184:test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8347153Z   ✅ PASS: JSON status parses non-zero exit code
+31185-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8348022Z   ✅ PASS: Executed status does not fall back to screen -ls
+31186-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8359739Z   ✅ PASS: Text status exists
+31187-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8360431Z   ✅ PASS: Text status parses UUID
+31188-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8361090Z   ✅ PASS: Text status parses executing
+31189-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8361803Z   ✅ PASS: Text status parses currentTime
+31190-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8362174Z
+31191-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8362370Z   Active session refresh:
+31192-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8370866Z   ✅ PASS: Completed isolation session does not block duplicate URL
+31193-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8371914Z   ✅ PASS: Completed isolation session stays tracked for completion notification
+31194-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8374359Z   ✅ PASS: Executing isolation session blocks duplicate URL
+31195-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8375502Z   ✅ PASS: Executing duplicate result includes session name
+31196-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8376615Z   ✅ PASS: Only executing isolation sessions are counted
+--
+31204-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8386211Z   ✅ PASS: Formatted status shows max claude processing count
+31205-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8387946Z   ✅ PASS: Formatted status shows max codex processing count
+31206-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8400559Z
+31207-test-suites	UNKNOWN STEP	2026-09-20T15:42:59.8400835Z   Telegram message formatting:
+31208-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0910337Z [telegram-send] s1 safeEditMessageText → chat=42 message=100 parse_mode=Markdown chars=150 bytes=156 text="⏳ Executing...\n\n📊 Session: `issue-1670-format-session`\n🔒 Isolation: `screen`\n\nRequested by: @tester\nURL: https://github.com/example/repo/issues/1670"
+31209-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0911809Z [telegram-send] s1 safeEditMessageText ✓ delivered
+31210-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0912332Z   ✅ PASS: Executing message uses in-progress hourglass status
+31211-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0912863Z   ✅ PASS: Executing message does not duplicate the status line
+31212-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0913327Z   ✅ PASS: Executing message omits the update footer
+31213-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0913863Z   ✅ PASS: Executing message no longer references command name (issue #1684)
+31214-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0914366Z   ✅ PASS: Executing message includes session id
+31215-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0914802Z   ✅ PASS: Executing message includes isolation backend
+31216:test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0916768Z   ✅ PASS: Completion message treats non-zero exit code as failed
+31217-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0918012Z   ✅ PASS: Completion message uses start/end times from status output
+31218-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0918820Z   ✅ PASS: Completion message omits transient update footer
+31219-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0919329Z   ✅ PASS: Completion message omits old footer (issue #1684)
+31220:test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0919832Z   ✅ PASS: Completion message treats zero exit code as completed
+31221-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0920368Z   ✅ PASS: Successful completion uses status timestamps for duration
+31222-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0920650Z
+31223-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0920840Z ============================================================
+31224-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0921219Z Results: 32 passed, 0 failed, 32 total
+31225-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.0921595Z ============================================================
+31226-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.1262865Z
+31227-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.1263648Z [180/493] tests/test-issue-1680-session-monitoring.mjs
+31228-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.5172967Z Testing issue #1680: in-memory screen isolation monitoring
+31229-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.5173516Z ============================================================
+31230-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.5177179Z   ✅ PASS: Session monitor keeps Telegram task state in memory
+31231-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.5178495Z   ✅ PASS: Session monitor does not expose a JSON session store path
+31232-test-suites	UNKNOWN STEP	2026-09-20T15:43:00.5179600Z   ✅ PASS: Tracked screen-isolated session is stored in memory
+--
+32861-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.2926290Z
+32862-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.2926746Z [236/493] tests/test-issue-1927-completion-labeling.mjs
+32863-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3285652Z Testing issue #1927: killed-session completion labeling
+32864-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3288068Z ============================================================
+32865-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3290221Z   ✅ PASS: exit 137 → killed
+32866-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3290930Z   ✅ PASS: exit 137 → failed (a kill is a failure)
+32867-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3291747Z   ✅ PASS: exit 137 → SIGKILL signal
+32868-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3292476Z   ✅ PASS: exit 143 → killed via SIGTERM
+32869-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3295947Z   ✅ PASS: exit 1 → failed
+32870-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3306264Z   ✅ PASS: exit 1 → NOT killed (no signal)
+32871-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3306933Z   ✅ PASS: exit 1 → no signal
+32872-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3307511Z   ✅ PASS: exit 0 → success (not failed, not killed)
+32873:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3308057Z   ✅ PASS: status "killed" with no exit code → killed
+32874-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3308527Z   ✅ PASS: status "oom-killed" → killed
+32875-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3308957Z   ✅ PASS: explicit exitCode 137 wins
+32876-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3309387Z   ✅ PASS: falls back to statusResult.exitCode
+32877-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3309878Z   ✅ PASS: a failure status with no code synthesizes exit 1
+32878-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3310363Z   ✅ PASS: a success status with no code stays null
+32879-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3310912Z   ✅ PASS: explicit exitCode 0 is preserved (not treated as missing)
+32880-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3311577Z   ✅ PASS: OOM-killed message starts with ❌ (never the ✅ success badge)
+32881-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3312130Z   ✅ PASS: OOM-killed message says "Work session killed"
+32882-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3312586Z   ✅ PASS: OOM-killed message names the SIGKILL signal
+32883:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3313053Z   ✅ PASS: OOM-killed message shows the real exit code 137
+32884-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3313776Z   ✅ PASS: OOM-killed message NEVER says "finished successfully"
+32885:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3314814Z   ✅ PASS: SIGTERM message shows ❌ + SIGTERM + exit code 143
+32886-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3315644Z   ✅ PASS: status-only kill starts with ❌
+32887-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3316535Z   ✅ PASS: status-only kill says "Work session killed"
+32888:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3317302Z   ✅ PASS: status-only kill suppresses the misleading "(exit code: 1)" sentinel
+32889-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3317799Z   ✅ PASS: plain failure starts with ❌
+32890:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3318195Z   ✅ PASS: plain failure shows "failed (exit code: 1)"
+32891-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3318608Z   ✅ PASS: plain failure is NOT labeled killed
+32892-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3318972Z   ✅ PASS: success starts with ✅
+32893-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3319330Z   ✅ PASS: success says "finished successfully"
+32894-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3319746Z   ✅ PASS: completion message includes the session name
+32895-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3319982Z
+32896-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3320172Z ============================================================
+32897-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3320534Z Results: 30 passed, 0 failed, 30 total
+32898-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3320899Z ============================================================
+32899-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3335690Z
+32900-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.3336397Z [237/493] tests/test-issue-1927-killed-detection.mjs
+32901-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.7149883Z Testing issue #1927: killed-session detection (the regression)
+32902-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.7150707Z ============================================================
+32903-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.7262829Z   ✅ PASS: footer reader is called with the start-command log path
+32904-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.7265182Z Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+32905:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9725620Z [telegram-send] s1 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=391 bytes=413 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `a1b2c3d4-0000-4000-8000-000000000001`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM avai"… (+91 chars)
+32906-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9729101Z [telegram-send] s1 safeEditMessageText ✓ delivered
+32907-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9729954Z   ✅ PASS: Scenario 1: the log footer is consulted for an executing session
+32908-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9730919Z   ✅ PASS: Scenario 1: the bot reports completion (edits the original message)
+32909-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9732023Z   ✅ PASS: Scenario 1: the report says "Work session killed" (NOT a silent vanish)
+32910-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9732654Z   ✅ PASS: Scenario 1: the report names SIGKILL and exit 137
+32911-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9733219Z   ✅ PASS: Scenario 1: the killed session is removed from tracking
+32912-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9733794Z   ✅ PASS: Scenario 2: liveness probe targets the session backend
+32913-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9734490Z Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+32914-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9835668Z [telegram-send] s2 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=367 bytes=387 text="❌ *Work session killed*\n\n⏱️ Duration: 2m 30s\n📊 Session: `a1b2c3d4-0000-4000-8000-000000000001`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: unknown — no resource marker, cgroup counter or kernel OOM report was available\n• host memory now — 14.4 GB of 15.6 GB RAM available (8.1% used)\n• `/pr"… (+67 chars)
+32915-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9838309Z [telegram-send] s2 safeEditMessageText ✓ delivered
+32916-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9838883Z   ✅ PASS: Scenario 2: the backend-liveness probe runs (no footer available)
+32917-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9839463Z   ✅ PASS: Scenario 2: the bot reports completion
+32918-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9840291Z   ✅ PASS: Scenario 2: a vanished backend is reported as killed
+32919:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9841301Z   ✅ PASS: Scenario 2: no misleading "(exit code: 1)" when the real code is unknown
+32920-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9842282Z   ✅ PASS: Scenario 2: the killed session is removed from tracking
+32921-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9843380Z   ✅ PASS: Scenario 3: a freshly-launched session is NOT liveness-probed (age gate)
+32922-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9844332Z   ✅ PASS: Scenario 3: no false completion is sent
+32923-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9844987Z   ✅ PASS: Scenario 3: the session stays tracked (still running)
+32924-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9845943Z   ✅ PASS: Scenario 4: a live session is not reported complete
+32925-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9846630Z   ✅ PASS: Scenario 4: the live session stays tracked
+32926-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9847240Z Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+32927:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9941123Z [telegram-send] s3 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=391 bytes=413 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `a1b2c3d4-0000-4000-8000-000000000001`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM avai"… (+91 chars)
+32928-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9943074Z [telegram-send] s3 safeEditMessageText ✓ delivered
+32929-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9943836Z   ✅ PASS: Scenario 5: completion is reported
+32930:test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9944839Z   ✅ PASS: Scenario 5: a nulled exit code is recovered from the footer and labeled a 137 kill
+32931-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9946499Z   ✅ PASS: Scenario 5: the session is removed from tracking
+32932-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9947299Z   ✅ PASS: Scenario 6: liveness fallback targets the session backend
+32933-test-suites	UNKNOWN STEP	2026-09-20T15:43:33.9948445Z Session a1b2c3d4-0000-4000-8000-000000000001 has finished. Sending notification to chat 555
+32934:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0061870Z [telegram-send] s4 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=391 bytes=413 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 0s\n📊 Session: `a1b2c3d4-0000-4000-8000-000000000001`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM avai"… (+91 chars)
+32935-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0064115Z [telegram-send] s4 safeEditMessageText ✓ delivered
+32936-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0064747Z   ✅ PASS: Scenario 6: the backend liveness fallback runs when the status record is gone
+32937-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0066404Z   ✅ PASS: Scenario 6: a session killed while the bot was down is reported on resume
+32938-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0067551Z   ✅ PASS: Scenario 6: the real 137 is recovered from the persisted log footer
+32939-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0068488Z   ✅ PASS: Scenario 6: the session is removed from tracking
+32940-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0068910Z
+32941-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0069226Z ============================================================
+32942-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0069684Z Results: 25 passed, 0 failed, 25 total
+32943-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0070059Z ============================================================
+32944-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0161854Z
+32945-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0162267Z [238/493] tests/test-issue-1927-log-footer.mjs
+32946-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0679178Z Testing issue #1927: execution-log footer parsing
+32947-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0681263Z ============================================================
+32948-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0684334Z   ✅ PASS: parseSessionExitFooter detects a finished footer
+32949:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0685570Z   ✅ PASS: parseSessionExitFooter reads exit code 137 (SIGKILL/OOM)
+32950-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0686655Z   ✅ PASS: parseSessionExitFooter captures the Finished timestamp
+32951:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0688028Z   ✅ PASS: parseSessionExitFooter reads exit code 0
+32952-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0689008Z   ✅ PASS: parseSessionExitFooter handles CRLF line endings (exit 143)
+32953-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0690191Z   ✅ PASS: parseSessionExitFooter returns the LAST footer when several are present
+32954-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0691533Z   ✅ PASS: parseSessionExitFooter ignores a mid-stream "Exit Code:" without the = separator
+32955-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0692573Z   ✅ PASS: parseSessionExitFooter parses the -1 sentinel
+32956-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0693356Z   ✅ PASS: parseSessionExitFooter("") is not finished
+32957-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0694166Z   ✅ PASS: parseSessionExitFooter(null) is not finished
+32958-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0694994Z   ✅ PASS: parseSessionExitFooter(undefined) is not finished
+32959-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0696096Z   ✅ PASS: readSessionExitFromLog reads exit 137 from a real file
+32960-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0697712Z   ✅ PASS: readSessionExitFromLog finds the footer in the tail of a 200KB log
+32961-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0699134Z   ✅ PASS: readSessionExitFromLog with a tiny tailBytes does not see a far-away footer
+32962-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0700467Z   ✅ PASS: readSessionExitFromLog on a missing file returns {finished:false}
+32963-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0701599Z   ✅ PASS: readSessionExitFromLog on an empty file returns {finished:false}
+32964-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0702301Z   ✅ PASS: readSessionExitFromLog(null) returns {finished:false}
+32965-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0703326Z   ✅ PASS: checkBackendSessionAlive returns null for an unknown backend (no false kill)
+32966-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0703945Z
+32967-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0704260Z ============================================================
+32968-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0704800Z Results: 18 passed, 0 failed, 18 total
+32969-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0705460Z ============================================================
+32970-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0745873Z
+32971-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.0746380Z [239/493] tests/test-issue-1927-resume-notification.mjs
+32972-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.4662997Z Testing issue #1927: resume command in killed-session notification
+32973-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.4664289Z ============================================================
+32974-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.4780777Z Session sess-1 has finished. Sending notification to chat 555
+32975:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7271096Z [telegram-send] s1 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=534 bytes=560 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `sess-1`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.3 GB of 15.6 GB RAM available (8.1% used)\n• `/proc/pre"… (+234 chars)
+32976-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7274318Z [telegram-send] s1 safeEditMessageText ✓ delivered
+32977-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7275437Z   ✅ PASS: killed /solve is reported as killed
+32978-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7276280Z   ✅ PASS: killed /solve message includes a Resume section
+32979-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7277153Z   ✅ PASS: resume command names the LAST session id
+32980-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7278047Z   ✅ PASS: resume command does NOT name the first session id
+32981-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7279107Z   ✅ PASS: resume command is a runnable solve --resume invocation
+32982-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7280061Z Session sess-1 has finished. Sending notification to chat 555
+32983:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7406681Z [telegram-send] s2 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=561 bytes=587 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `sess-1`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM available (8.1% used)\n• `/proc/pre"… (+261 chars)
+32984-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7409275Z [telegram-send] s2 safeEditMessageText ✓ delivered
+32985-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7409811Z   ✅ PASS: resume command reuses the original persisted args
+32986-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7410382Z   ✅ PASS: resume command appends --resume <lastId> to the original args
+32987-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7410946Z Session sess-1 has finished. Sending notification to chat 555
+32988-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7452378Z [telegram-send] s3 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=99 bytes=109 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 5m\n📊 Session: `sess-1`\n🔒 Isolation: `screen`"
+32989-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7454364Z [telegram-send] s3 safeEditMessageText ✓ delivered
+32990-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7455567Z   ✅ PASS: a successful session gets NO resume section
+32991-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7456656Z Session sess-iso-uuid-not-a-tool-id has finished. Sending notification to chat 555
+32992:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7567251Z [telegram-send] s4 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=382 bytes=404 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `sess-iso-uuid-not-a-tool-id`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM available (8."… (+82 chars)
+32993-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7569656Z [telegram-send] s4 safeEditMessageText ✓ delivered
+32994-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7570265Z   ✅ PASS: killed /solve without a tool session id is still reported as killed
+32995-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7571012Z   ✅ PASS: no resume section when only the isolation session id is known (avoids a bogus --resume id)
+32996-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7571659Z   ✅ PASS: the isolation session id is never used as a --resume id
+32997-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7572176Z Session sess-1 has finished. Sending notification to chat 555
+32998:test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7684875Z [telegram-send] s5 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=361 bytes=383 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `sess-1`\n🔒 Isolation: `screen`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM available (8.1% used)\n• `/proc/pre"… (+61 chars)
+32999-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7688103Z [telegram-send] s5 safeEditMessageText ✓ delivered
+33000-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7691763Z   ✅ PASS: killed /hive is still reported as killed
+33001-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7692562Z   ✅ PASS: killed /hive gets NO resume section
+33002-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7692976Z
+33003-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7693397Z ============================================================
+33004-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7694089Z Results: 13 passed, 0 failed, 13 total
+33005-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7694757Z ============================================================
+33006-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7772057Z
+33007-test-suites	UNKNOWN STEP	2026-09-20T15:43:34.7772509Z [240/493] tests/test-issue-1927-resume.mjs
+33008-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.1601721Z Testing issue #1927: resume tracked sessions after restart
+33009-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.1602448Z ============================================================
+33010-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.1612341Z   ✅ PASS: run #1 tracks the session in memory
+--
+33157-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5192216Z   ✅ PASS: persist stamps persistedAt from the injected clock
+33158-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5193008Z   ✅ PASS: load returns both sessions
+33159-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5193652Z   ✅ PASS: load rehydrates startTime to a Date
+33160-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5194290Z   ✅ PASS: load round-trips logPath
+33161-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5194763Z   ✅ PASS: load round-trips docker filesystem start size
+33162-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5195499Z   ✅ PASS: load round-trips last observed docker filesystem size
+33163-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5196042Z   ✅ PASS: load round-trips last docker filesystem observation time
+33164-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5197916Z   ✅ PASS: remove deletes the session from the snapshot
+33165-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5198660Z   ✅ PASS: remove leaves other sessions intact
+33166-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5199422Z   ✅ PASS: events log has 3 entries (2 track + 1 complete)
+33167-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5200120Z   ✅ PASS: first event is the uuid-1 track
+33168-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5200548Z   ✅ PASS: track event carries a timestamp (req #3)
+33169:test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5201336Z   ✅ PASS: complete event records the terminal status and exit code 137
+33170-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5202344Z   ✅ PASS: complete event carries the end timestamp
+33171-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5202916Z   ✅ PASS: a redundant remove still appends an audit event (never truncates)
+33172-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5205053Z   ✅ PASS: load() on a corrupt snapshot returns [] (never throws)
+33173-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5209040Z   ✅ PASS: persist recovers from a corrupt snapshot
+33174-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5212170Z   ✅ PASS: store disables itself when the state dir cannot be created
+33175-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5213092Z   ✅ PASS: a disabled store loads nothing instead of throwing
+33176-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5213973Z   ✅ PASS: persist("") is a no-op (no empty session name persisted)
+33177-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5214930Z
+33178-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5215451Z ============================================================
+33179-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5216101Z Results: 35 passed, 0 failed, 35 total
+33180-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5216632Z ============================================================
+33181-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5248751Z
+33182-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.5249207Z [244/493] tests/test-issue-1927-terminal-watch-kill.mjs
+33183-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9250049Z Testing issue #1927: /terminal_watch kill detection
+33184-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9250928Z ============================================================
+33185-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9251358Z
+33186-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9251994Z   reconcileWatchCompletion — footer is authoritative:
+33187-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9257549Z   ✅ PASS: executing status + exit-137 footer is reported completed
+33188-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9259013Z   ✅ PASS: corrected status is "killed" for exit 137
+33189:test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9259979Z   ✅ PASS: corrected exit code is recovered from the footer
+33190-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9261001Z   ✅ PASS: executing status + exit-143 footer corrects to "terminated"
+33191-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9262131Z   ✅ PASS: executing status + exit-0 footer corrects to "executed"
+33192-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9263175Z   ✅ PASS: executing status with no footer is still running
+33193-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9264112Z   ✅ PASS: status is left untouched while still running
+33194-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9265945Z   ✅ PASS: a terminal status is reported completed without needing a footer
+33195-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9267194Z   ✅ PASS: footer still completes the watch when the status payload is absent
+33196-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9267775Z
+33197-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9268471Z   formatTerminalWatchMessage — killed completion is surfaced, not a ✅:
+33198-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9269588Z   ✅ PASS: a killed completion renders the ❌ failure marker
+33199-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9270577Z   ✅ PASS: the failure title still contains "Terminal watch complete"
+33200-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9271553Z   ✅ PASS: the killed status is shown on the Status line
+33201-test-suites	UNKNOWN STEP	2026-09-20T15:43:35.9272239Z   ✅ PASS: a successful completion keeps the ✅ success title
+--
+33300-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4121321Z   PASS: an existing host git identity is detected and mounted (no repair attempted)
+33301-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4122355Z   PASS: no repair runs when the host already has a git identity
+33302-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4123311Z   PASS: the repair probe is not invoked when an identity already exists
+33303-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4124460Z   PASS: a missing host git identity is derived from the gh account so it becomes mountable
+33304-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4125768Z   PASS: the preflight records that it repaired the identity
+33305-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4126543Z   PASS: a successful self-heal emits no warning
+33306-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4127284Z   PASS: an unrepairable missing identity is reported absent
+33307-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4128129Z   PASS: an unrepairable missing identity emits exactly one warning
+33308-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4128941Z   PASS: the warning names the exact downstream failure
+33309-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4129870Z   PASS: hostHasMountableGitIdentity sees the XDG ~/.config/git directory
+33310-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4130979Z   PASS: hostHasMountableGitIdentity is false when no git identity exists
+33311-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4131571Z
+33312:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4132081Z --- Unknown docker exit code detection (issue #1939, problem 1) ---
+33313:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4132977Z   PASS: the -1 sentinel is treated as an unknown exit code
+33314:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4133764Z   PASS: a missing exit code is treated as unknown
+33315:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4134417Z   PASS: an undefined exit code is treated as unknown
+33316:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4135319Z   PASS: a real success exit code (0) is a known result
+33317:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4135954Z   PASS: a real failure exit code (127) is a known result
+33318-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4136317Z
+33319-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4136925Z --- session-monitor cross-checks a live container on an ambiguous docker status (problem 1) ---
+33320-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4138213Z   PASS: a docker "executed"/-1 status whose container is still running is reported running (no premature completion)
+33321-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4139633Z   PASS: a docker "executed"/-1 status whose container has exited is reported finished
+33322:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4140743Z   PASS: a docker terminal status with a real exit code is trusted without cross-checking the container
+33323:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4141637Z   PASS: the real captured exit code is preserved
+33324-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4142540Z   PASS: a screen terminal status is still trusted directly (docker cross-check does not apply)
+33325-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4143239Z
+33326-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4143450Z Result: 25 passed, 0 failed
+33327-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4223393Z
+33328-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.4224102Z [248/493] tests/test-issue-1941-meaningless-error-fragment.test.mjs
+33329-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5543605Z
+33330-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5548076Z 📋 isMeaningfulErrorText Tests
+33331-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5550506Z
+33332-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5567367Z ✅ rejects a lone closing brace (the reported fragment)
+33333-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5568590Z ✅ rejects a lone opening brace (the issue title fragment)
+33334-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5569703Z ✅ rejects pure JSON-structural punctuation
+33335-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5570850Z ✅ rejects empty / whitespace / non-string values
+33336-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5572006Z ✅ accepts real error text (contains letters/digits)
+33337-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5572964Z ✅ accepts non-ASCII (Cyrillic) error text
+33338-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5573512Z
+33339-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5574074Z 📋 buildToolErrorMessage Tests
+33340-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5574681Z
+33341-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5575401Z ✅ keeps a meaningful lastMessage
+33342-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5576627Z ✅ collapses whitespace in a meaningful lastMessage
+33343-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5578111Z ✅ labels a CTRL+C interrupt (exit 130) when the fragment is junk
+33344:test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5579667Z ✅ uses the generic fallback for junk with a non-interrupt exit code
+33345-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5581077Z ✅ uses the fallback when lastMessage is empty
+33346-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5581938Z
+33347-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5582725Z 📋 extractToolErrorCore guard Tests
+33348-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5583515Z
+33349-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5584362Z ✅ rejects a lone "}" fragment as the core error
+33350-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5586332Z ✅ rejects a lone "{" fragment as the core error
+33351-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5593166Z ✅ rejects punctuation-only fragments via toolResult.result fallback
+33352-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5594263Z ✅ still returns genuine error text
+33353-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5594773Z
+33354-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5595744Z 📋 formatToolExecutionFailure end-to-end (the reported bug)
+33355-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5596459Z
+33356-test-suites	UNKNOWN STEP	2026-09-20T15:43:37.5597281Z ✅ the reported shape no longer produces "CLAUDE execution failed with }"
+--
+33552-test-suites	UNKNOWN STEP	2026-09-20T15:43:40.3661335Z [260/493] tests/test-issue-1978-sub-agent-model.mjs
+33553-test-suites	UNKNOWN STEP	2026-09-20T15:43:40.8748276Z issue #1978 sub-agent model regression tests passed
+33554-test-suites	UNKNOWN STEP	2026-09-20T15:43:40.8915339Z
+33555-test-suites	UNKNOWN STEP	2026-09-20T15:43:40.8916049Z [261/493] tests/test-issue-1979-docker-container-reaping.mjs
+33556-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2659348Z Testing issue #1979: docker task-container reaping
+33557-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2659887Z ============================================================
+33558-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2661499Z   ✅ PASS: default keep policy is on-failure
+33559-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2662380Z   ✅ PASS: keep policy is case-insensitive
+33560-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2663293Z   ✅ PASS: invalid keep policy falls back to on-failure
+33561-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2664528Z   ✅ PASS: non-docker sessions never trigger docker cleanup
+33562-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2667126Z   ✅ PASS: ambiguous docker completion keeps the container by default
+33563-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2668502Z   ✅ PASS: ambiguous kept container message includes manual cleanup
+33564:test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2670028Z   ✅ PASS: executed docker status without an exit code is removed after liveness checks pass
+33565-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.2685735Z Session 1979-executed-0 has finished. Sending notification to chat 12345
+33566-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4970747Z [telegram-send] s1 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=140 bytes=152 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 3m\n📊 Session: `1979-executed-0`\n🆔 Execution: `1979-executed-0`\n🔒 Isolation: `docker`"
+33567-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4972100Z [telegram-send] s1 safeEditMessageText ✓ delivered
+33568-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4973466Z   ✅ PASS: successful docker task removes the container by default
+33569-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4974155Z   ✅ PASS: cleanup targets the session UUID container name
+33570-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4975394Z   ✅ PASS: successful default cleanup does not show keep instructions
+33571-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4976168Z   ✅ PASS: successful docker session is untracked after cleanup attempt
+33572-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.4976960Z Session 1979-failed-2 has finished. Sending notification to chat 12345
+33573:test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5084423Z [telegram-send] s2 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=370 bytes=382 text="❌ *Work session failed (exit code: 2)*\n\n⏱️ Duration: 3m\n📊 Session: `1979-failed-2`\n🆔 Execution: `1979-failed-2`\n🔒 Isolation: `docker`\n\n*Docker container kept*\nContainer: `1979-failed-2`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=on-failure`\nInspect: `docker start -ai 1979-failed-2`\nShell: `docker exe"… (+70 chars)
+33574-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5087889Z [telegram-send] s2 safeEditMessageText ✓ delivered
+33575-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5088674Z   ✅ PASS: failed docker task is kept by default
+33576-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5089674Z   ✅ PASS: failed docker task completion message says the container was kept
+33577-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5090795Z   ✅ PASS: failed docker task message includes cleanup command
+33578-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5091792Z   ✅ PASS: failed docker session is still completed in the monitor
+33579-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5092800Z Session 1979-failed-2 has finished. Sending notification to chat 12345
+33580:test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5114786Z [telegram-send] s3 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=136 bytes=148 text="❌ *Work session failed (exit code: 2)*\n\n⏱️ Duration: 3m\n📊 Session: `1979-failed-2`\n🆔 Execution: `1979-failed-2`\n🔒 Isolation: `docker`"
+33581-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5117214Z [telegram-send] s3 safeEditMessageText ✓ delivered
+33582-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5118255Z   ✅ PASS: HIVE_MIND_KEEP_TASK_CONTAINER=never removes failed containers too
+33583-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5119216Z   ✅ PASS: never policy suppresses keep instructions
+33584-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5120141Z Session 1979-executed-0 has finished. Sending notification to chat 12345
+33585-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5152407Z [telegram-send] s4 safeEditMessageText → chat=12345 message=67890 parse_mode=Markdown chars=378 bytes=390 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 3m\n📊 Session: `1979-executed-0`\n🆔 Execution: `1979-executed-0`\n🔒 Isolation: `docker`\n\n*Docker container kept*\nContainer: `1979-executed-0`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=always`\nInspect: `docker start -ai 1979-executed-0`\nShell: `docker"… (+78 chars)
+33586-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5155570Z [telegram-send] s4 safeEditMessageText ✓ delivered
+33587-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5156498Z   ✅ PASS: HIVE_MIND_KEEP_TASK_CONTAINER=always keeps successful containers
+33588-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5157499Z   ✅ PASS: always policy surfaces keep instructions for successful containers
+33589-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5158020Z
+33590-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5158336Z ============================================================
+33591-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5158925Z Results: 19 passed, 0 failed, 19 total
+33592-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5159549Z ============================================================
+33593-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5242259Z
+33594-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5242785Z [262/493] tests/test-issue-1980-docker-cleanup.mjs
+33595-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5590384Z PASS: parseDockerPsJsonLines filters UUID-named task containers and parses state
+33596-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5601790Z PASS: default docker-isolation cleanup removes successful exited containers and keeps failed ones
+33597:test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5605601Z PASS: docker ps exit status wins over stale unknown session exit code
+33598-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5609148Z PASS: all mode removes finished containers but protects running and non-terminal containers
+33599-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5612641Z PASS: none mode disables docker-isolation cleanup without hiding discovered containers
+33600-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5617118Z PASS: normalizes docker-isolation cleanup mode aliases
+33601-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5621232Z PASS: docker container summary includes session and cleanup context
+33602-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5625541Z PASS: findStartCommandBinary suppresses command-stream stdout mirroring
+33603-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5626749Z
+33604-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5627245Z 8 passed, 0 failed
+33605-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5662662Z
+33606-test-suites	UNKNOWN STEP	2026-09-20T15:43:41.5663186Z [263/493] tests/test-issue-1981-disk-defaults.mjs
+33607-test-suites	UNKNOWN STEP	2026-09-20T15:43:42.0597515Z
+33608-test-suites	UNKNOWN STEP	2026-09-20T15:43:42.0598149Z Issue #1981 default safety checks
+33609-test-suites	UNKNOWN STEP	2026-09-20T15:43:42.0598486Z
+--
+33825-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7485291Z PASS same-user fork divergence guidance recommends the guarded flag only after a zero-unique-commit check
+33826-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7488378Z PASS different-user safe fork divergence guidance asks an administrator to rerun with the guarded flag
+33827-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7489904Z PASS different-user fork divergence guidance lists the exact commits that would be lost and asks an administrator
+33828-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7491852Z PASS fork divergence reason preserves inspected repository data for the failure block
+33829-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7503707Z PASS pre-exit notification uses the explicit action section instead of regenerating generic fork guidance
+33830-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7541864Z
+33831-test-suites	UNKNOWN STEP	2026-09-20T15:43:46.7542353Z [274/493] tests/test-issue-2015-oom-killed-status.mjs
+33832-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.1550520Z Testing issue #2015: oomKilled status terminates Telegram sessions
+33833-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.1551128Z ========================================================================
+33834-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.2206961Z   ✅ PASS: links-notation $ --status parses oomKilled true
+33835-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.2207527Z   ✅ PASS: JSON $ --status parses oomKilled true
+33836-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.2224777Z Session 1e9e7513-edd7-43a2-b143-169cfd794af6 has finished. Sending notification to chat 1001
+33837:test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4584206Z [telegram-send] s1 safeEditMessageText → chat=1001 message=2002 parse_mode=Markdown chars=846 bytes=951 text="❌ *Рабочий сеанс остановлен: killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Длительность: 1h 25m 25s\n📊 Сеанс: `1e9e7513-edd7-43a2-b143-169cfd794af6`\n🆔 Запуск: `1e9e7513-edd7-43a2-b143-169cfd794af6`\n🔒 Изоляция: `docker`\n\n🔎 *Диагностика завершения*\nПричина: out of memory\n• c"… (+546 chars)
+33838-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4587582Z [telegram-send] s1 safeEditMessageText ✓ delivered
+33839-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4588707Z   ✅ PASS: oomKilled true is verified against a backend liveness probe (issue #2134)
+33840-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4589922Z   ✅ PASS: Telegram message is completed when oomKilled true is present
+33841-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4590966Z   ✅ PASS: killed completion uses the requested locale
+33842-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4591913Z   ✅ PASS: killed completion does not leak the raw i18n key
+33843-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4592860Z   ✅ PASS: OOM completion names the SIGKILL signal
+33844:test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4593835Z   ✅ PASS: OOM completion reports synthesized exit code 137
+33845-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4594773Z   ✅ PASS: OOM-killed session is removed from active tracking
+33846-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4596050Z   ✅ PASS: docker backend-gone probe targets the session container
+33847-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4597053Z   ✅ PASS: docker stale-executing state is probed after the age gate
+33848-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4598015Z   ✅ PASS: docker backend-gone alone is not reported as killed immediately
+33849-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4598943Z   ✅ PASS: docker backend-gone grace keeps the session tracked
+33850-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4599914Z   ✅ PASS: docker backend-gone grace records the first missing-backend timestamp
+33851-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4601082Z Session 5ff719b9-9d2d-4479-b124-c4b8bda61dd0 has finished. Sending notification to chat 1001
+33852-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4728685Z [telegram-send] s2 safeEditMessageText → chat=1001 message=2003 parse_mode=Markdown chars=693 bytes=713 text="❌ *Work session killed*\n\n⏱️ Duration: 2m 30s\n📊 Session: `5ff719b9-9d2d-4479-b124-c4b8bda61dd0`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: unknown — no resource marker, cgroup counter or kernel OOM report was available\n• host memory now — 14.3 GB of 15.6 GB RAM available (8.2% used)\n• `/pr"… (+393 chars)
+33853-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4732043Z [telegram-send] s2 safeEditMessageText ✓ delivered
+33854-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4733018Z   ✅ PASS: docker backend-gone still reports killed after the grace period expires
+33855-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4734045Z   ✅ PASS: expired docker backend-gone grace uses the killed completion copy
+33856-test-suites	UNKNOWN STEP	2026-09-20T15:43:47.4735293Z   ✅ PASS: expired docker backend-gone session is removed from active tracking
+--
+34027-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8446637Z   ✅ PASS: queued Telegram work retains the /codex alias while waiting
+34028-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8449613Z   ✅ PASS: screen queue execution passes the /codex alias to session tracking
+34029-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8450925Z   ✅ PASS: screen queue execution persists the original solve arguments
+34030-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8454600Z   ✅ PASS: isolated queue execution passes the /codex alias to session tracking
+34031-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8456102Z   ✅ PASS: isolated queue execution persists the original solve arguments
+34032-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8457331Z   ✅ PASS: durable session state preserves the Telegram alias across bot restarts
+34033-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8458907Z   ✅ PASS: resume guidance uses the actual /solve Telegram alias
+34034-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8459936Z   ✅ PASS: resume guidance uses the actual /claude Telegram alias
+34035-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8460887Z   ✅ PASS: resume guidance uses the actual /codex Telegram alias
+34036-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8477498Z   ✅ PASS: finds the last real thread id even when it is more than 256 KiB from EOF
+34037-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8479079Z   ✅ PASS: finds a thread marker split across backward scan chunks
+34038-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.8875984Z Session isolation-session has finished. Sending notification to chat 555
+34039:test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9154891Z [telegram-send] s3 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=836 bytes=862 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `isolation-session`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM available (7.8% used)\n•"… (+536 chars)
+34040-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9158802Z [telegram-send] s3 safeEditMessageText ✓ delivered
+34041-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9159783Z   ✅ PASS: resume instruction uses the thread id from this task log
+34042-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9160822Z   ✅ PASS: resume instruction never borrows a UUID log from another task
+34043-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9161852Z   ✅ PASS: Telegram resume instruction reuses the actual /codex alias
+34044-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9162923Z   ✅ PASS: Telegram resume instruction does not suggest a terminal solve command
+34045-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9452290Z Session isolation-session has finished. Sending notification to chat 555
+34046:test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9586787Z [telegram-send] s4 safeEditMessageText → chat=555 message=777 parse_mode=Markdown chars=622 bytes=644 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 5m\n📊 Session: `isolation-session`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: forced kill — no resource exhaustion was observed\n• host memory now — 14.4 GB of 15.6 GB RAM available (7.8% used)\n•"… (+322 chars)
+34047-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9589841Z [telegram-send] s4 safeEditMessageText ✓ delivered
+34048-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9590920Z   ✅ PASS: does not offer resume when this task log has no tool thread id
+34049-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9593304Z   ✅ PASS: does not use an unrelated UUID fallback when this task has no marker
+34050-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9593738Z
+34051-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9593989Z ============================================================
+34052-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9594431Z Results: 18 passed, 0 failed, 18 total
+34053-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9594852Z ============================================================
+34054-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9663792Z
+34055-test-suites	UNKNOWN STEP	2026-09-20T15:43:57.9664276Z [297/493] tests/test-issue-2115-working-session-summary-usage.mjs
+34056-test-suites	UNKNOWN STEP	2026-09-20T15:43:58.4689780Z Issue #2115 / #2132 working-session summary usage tests passed
+34057-test-suites	UNKNOWN STEP	2026-09-20T15:43:58.4798651Z
+34058-test-suites	UNKNOWN STEP	2026-09-20T15:43:58.4799205Z [298/493] tests/test-issue-2117-exit-path-resilience.mjs
+--
+34060-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3608909Z   ✅ PASS: Broken exit diagnostics cannot turn a successful exit into a failure
+34061-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3613485Z   ✅ PASS: solve does not install a second pair of racing process-error handlers
+34062-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3614699Z   ✅ PASS: Other consumers keep the generic process-error handlers by default
+34063-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3616854Z   ✅ PASS: No exit-code override survives in the exit path: a reported failure is always a real failure
+34064-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3622568Z   ✅ PASS: Post-run housekeeping failures cannot prevent the final successful exit
+34065-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3623594Z   ✅ PASS: Every failed housekeeping step remains visible for investigation
+34066-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3626096Z
+34067-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3626525Z ============================================================
+34068-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3626943Z Results: 7 passed, 0 failed, 7 total
+34069-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3627326Z ============================================================
+34070-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3666458Z
+34071-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.3666982Z [299/493] tests/test-issue-2117-false-terminal-exit-code.mjs
+34072:test-suites	UNKNOWN STEP	2026-09-20T15:43:59.7699192Z Testing issue #2117: a fabricated terminal exit code must not fail a successful session
+34073-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.7700214Z ========================================================================
+34074-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8325313Z   ✅ PASS: an echoed foreign "Exit Code: 1" is not parsed as this session’s footer
+34075-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8326645Z   ✅ PASS: the real anchored footer is still parsed after foreign "Exit Code:" text
+34076-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8331533Z   ✅ PASS: a session whose footer is written is reported finished
+34077:test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8332559Z   ✅ PASS: the anchored log footer overrides the fabricated status exit code
+34078:test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8334062Z   ✅ PASS: the corrected status reflects the footer exit code
+34079-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8335403Z   ✅ PASS: a genuine failure corroborated by the footer is reported immediately
+34080-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8336461Z   ✅ PASS: a corroborated non-zero exit is classified as failed
+34081-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8337726Z   ✅ PASS: an uncorroborated docker terminal failure is not reported as finished right away
+34082-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8338883Z   ✅ PASS: the first uncorroborated terminal failure sighting is recorded
+34083-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8339853Z   ✅ PASS: the deferral holds while the grace period has not expired
+34084-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8340905Z   ✅ PASS: a failure that never gets a footer is reported once the grace period expires
+34085-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8341994Z   ✅ PASS: the deferral marker is cleared when the footer resolves the session
+34086-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8343029Z   ✅ PASS: a terminal success without a footer is still reported immediately
+34087-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8344127Z   ✅ PASS: non-docker terminal failures are unaffected by the docker-only deferral
+34088-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8345535Z   ✅ PASS: a docker failure whose reported end time predates the grace period is not deferred
+34089-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8346547Z   ✅ PASS: no deferral marker is recorded for an old terminal record
+34090-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8347110Z   ✅ PASS: a docker failure reported as having just ended is still deferred
+34091-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8356222Z   ✅ PASS: no failure notification is sent while the terminal failure is uncorroborated
+34092-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8357239Z   ✅ PASS: the session stays tracked during the deferral
+34093-test-suites	UNKNOWN STEP	2026-09-20T15:43:59.8358291Z Session f5d5c5b7-cf3a-4f6f-9a6f-3f1d9c0b2117 has finished. Sending notification to chat 1001
+34094-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0643115Z [telegram-send] s1 safeEditMessageText → chat=1001 message=2002 parse_mode=Markdown chars=130 bytes=140 text="✅ *Work session finished successfully*\n\n⏱️ Duration: 24m\n📊 Session: `f5d5c5b7-cf3a-4f6f-9a6f-3f1d9c0b2117`\n🔒 Isolation: `docker`"
+34095-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0645584Z [telegram-send] s1 safeEditMessageText ✓ delivered
+34096-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0861985Z   ✅ PASS: the session is completed once the footer corroborates the outcome
+34097-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0863367Z   ✅ PASS: the completion message does not report a failure (got: ✅ *Work session finished successfully*)
+34098:test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0864503Z   ✅ PASS: the fabricated exit code 1 never reaches the user
+34099-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0865488Z   ✅ PASS: the completion message reports success
+34100-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0866200Z   ✅ PASS: the completed session is untracked
+34101-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0866585Z
+34102-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0866944Z ========================================================================
+34103-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0867607Z Results: 24 passed, 0 failed, 24 total
+34104-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0868276Z ========================================================================
+34105-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0974844Z
+34106-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.0975857Z [300/493] tests/test-issue-2117-merged-pr-exit.mjs
+34107-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.4971336Z   ✅ PASS: Merged PR plus non-zero exit is reported as a partial success
+34108-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.4972620Z   ✅ PASS: Message explicitly confirms the completed goal
+34109-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.4973886Z   ✅ PASS: Message keeps the runner failure visible without inventing its exact timing
+34110-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.4975401Z   ✅ PASS: Message does not contradict the merged pull request
+34111-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5326861Z   ✅ PASS: Split outcome headline respects the session locale
+34112-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5327976Z   ✅ PASS: New localization keys never leak into the notification
+34113-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5335652Z [VERBOSE] Retrieved 1 active session(s)
+34114-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5336605Z [VERBOSE] Checking 1 active session(s)...
+34115-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5429234Z Session issue-2117-monitor has finished. Sending notification to chat 2117
+34116-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5435231Z   ✅ PASS: PR state lookup receives the resolved pull request URL
+34117-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5438080Z [VERBOSE] Completion evidence for issue-2117-monitor: exitCode=1, status=failed, pullRequest=https://github.com/link-assistant/hive-mind/pull/2118, merged=true, mergedAt=2026-07-30T06:38:12.000Z, logPath=/tmp/issue-2117-monitor.log
+34118-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5458457Z [VERBOSE] log-bounded-read: could not read /tmp/issue-2117-monitor.log: ENOENT: no such file or directory, open '/tmp/issue-2117-monitor.log'
+34119-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.5463584Z [VERBOSE] log-bounded-read: could not read /tmp/issue-2117-monitor.log: ENOENT: no such file or directory, open '/tmp/issue-2117-monitor.log'
+34120:test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7804302Z [telegram-send] s1 safeEditMessageText → chat=2117 message=2118 parse_mode=Markdown chars=658 bytes=676 text="⚠️ *Pull request merged, but the work session exited with code: 1*\n\n⏱️ Duration: 23m 58s\n📊 Session: `issue-2117-monitor`\n🔒 Isolation: `docker`\n\nIssue: https://github.com/link-assistant/hive-mind/issues/2117\nPull request: https://github.com/link-assistant/hive-mind/pull/2118\n\n✅ The requested pull request was merged successfully.\n⚠️ The runner also failed; its exit code is preserved for investigation.\n\n*Docker container kept*\nContainer: `issue-2117-monitor`\nPolicy: `HIVE_MIND_KEEP_TASK_CONTAINER=on-failure`\nInspect: `docker start -ai issue-2117-monitor`\nShell: `docker exec -it issue-2117-monitor sh`\nRemove when done: `docker rm -f issue-2117-monitor`"
+34121-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7809586Z [telegram-send] s1 safeEditMessageText ✓ delivered
+34122-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7810511Z [VERBOSE] Session issue-2117-monitor removed from tracking (exit: 1, status: failed)
+34123-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7811395Z   ✅ PASS: Monitor emits one completion update
+34124-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7812141Z   ✅ PASS: Monitor forwards merged PR evidence to the formatter
+34125-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7812907Z   ✅ PASS: Monitor still includes the pull request URL
+34126-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7813276Z
+34127-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7813581Z ============================================================
+34128-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7814179Z Results: 10 passed, 0 failed, 10 total
+34129-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7814853Z ============================================================
+34130-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7917098Z
+34131-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.7917639Z [301/493] tests/test-issue-2130-formal-ai-runtime.mjs
+34132-test-suites	UNKNOWN STEP	2026-09-20T15:44:00.8422547Z ✔ parseShellEnvExports reads the export lines Formal AI writes into .profile (2.028798ms)
+--
+34303-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5405262Z   ✅ PASS: the recovery session is tracked so it reports its own completion
+34304-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5406224Z   ✅ PASS: the recovery session carries the attempt counter forward
+34305-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5407042Z   ✅ PASS: the killed session records the attempt it consumed
+34306-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5408058Z   ✅ PASS: the recovery session does not inherit the previous OOM observation
+34307-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5408849Z   ✅ PASS: a missing isolation runner is reported, not thrown
+34308-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5409779Z   ✅ PASS: a recovery session that cannot start is reported, not thrown
+34309-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5410573Z   ✅ PASS: the Telegram section names the recovery attempt
+34310-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5411092Z   ✅ PASS: no recovery section is rendered when nothing was restarted
+34311-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5411572Z   ✅ PASS: the recovery section is localised for ru
+34312-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5412002Z   ✅ PASS: the recovery section is localised for zh
+34313-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5412414Z   ✅ PASS: the recovery section is localised for hi
+34314-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5413540Z Session 30920087-c181-47f0-bc75-66a78402d400 has finished. Sending notification to chat 4242
+34315:test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5634562Z [telegram-send] s2 safeEditMessageText → chat=4242 message=77 parse_mode=Markdown chars=1219 bytes=1253 text="❌ *Work session killed — out of memory or forced kill (SIGKILL) (exit code: 137)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `30920087-c181-47f0-bc75-66a78402d400`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — 784 MB of 11.6 GB RAM available (93.4% used)\n• last session memory reading — "… (+919 chars)
+34316-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5637995Z [telegram-send] s2 safeEditMessageText ✓ delivered
+34317-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5639156Z   ✅ PASS: a killed session under --on-session-kill=resume starts exactly one recovery session
+34318-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5640171Z   ✅ PASS: Telegram names the recovery working session
+34319-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5640948Z   ✅ PASS: Telegram says a new working session was started
+34320-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5641841Z   ✅ PASS: the pull request receives the killed-session notice as well
+34321-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5642321Z
+34322-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5642683Z ==============================================================================
+34323-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5643367Z Results: 87 passed, 0 failed, 87 total
+34324-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5644075Z ==============================================================================
+34325-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5750956Z
+34326-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.5751430Z [305/493] tests/test-issue-2135-log-explosion.mjs
+34327-test-suites	UNKNOWN STEP	2026-09-20T15:44:02.9700143Z ✔ getPullRequestChangeStats reads the diff without mirroring it to stdout (2.370363ms)
+--
+35676-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9473539Z   ✅ PASS: docker-snapshot mode is read (got docker-snapshot)
+35677-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9474295Z   ✅ PASS: the new session name is read, so the bot can track the container that now holds the work
+35678-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9474919Z   ✅ PASS: the previous session name is read
+35679-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9475614Z   ✅ PASS: the snapshot image is read
+35680-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9478945Z   ✅ PASS: links notation (the `$` default output format) parses
+35681-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9486480Z   ✅ PASS: `--output-format text` parses too
+35682-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9487180Z   ✅ PASS: empty output yields nulls, not a throw
+35683-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9488094Z   ✅ PASS: unparseable output yields nulls, not a throw
+35684-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9488463Z
+35685-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9488641Z 2. Parsing `$ --resume-all` output
+35686-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9488898Z
+35687-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9489282Z   ✅ PASS: both executions are read (got 2)
+35688:test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9489847Z   ✅ PASS: a live container is reported as re-attached with no exit code
+35689:test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9491490Z   ✅ PASS: a session that died unsupervised is reconciled with its exit code — the limbo state issue #2189 reported
+35690-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9492358Z   ✅ PASS: empty output yields an empty list
+35691-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9498952Z   ✅ PASS: unparseable output yields an empty list, never a throw — startup must not be blocked
+35692-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9499816Z   ✅ PASS: a bare array is accepted as well
+35693-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9500038Z
+35694-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9500186Z 3. Unsupported-verb detection
+35695-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9500374Z
+35696-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9500684Z   ✅ PASS: 0.32.1's exact refusal is recognized as an unsupported verb
+35697-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9501195Z   ✅ PASS: other argument parsers are recognized too
+35698-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9501714Z   ✅ PASS: a real refusal is NOT mistaken for an unsupported verb
+35699-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9502273Z   ✅ PASS: an unknown execution is NOT mistaken for an unsupported verb
+35700-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9502579Z
+35701-test-suites	UNKNOWN STEP	2026-09-20T15:44:30.9502749Z 4. Wrapper behaviour against a stub `$`
+--
+35708-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2402030Z   ✅ PASS: `--resume-all` degrades the same way on an older `$`
+35709-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2402802Z   ✅ PASS: no executions are invented when the verb is unsupported
+35710-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2557272Z   ✅ PASS: a still-running session is not resumed
+35711-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2558349Z   ✅ PASS: a real refusal is reported as a refusal, not as a missing feature
+35712-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2560060Z   ✅ PASS: the upstream reason reaches the caller (got Error: Session "hive-solve-1" is still running. Use `$ --attach u-1` to re-enter it, or `$ --stop u-1` first.)
+35713-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2560774Z
+35714-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2561117Z 5. Missing `$`
+35715-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2561278Z
+35716-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2610090Z   ✅ PASS: a missing `$` is reported, not thrown
+35717-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2661185Z   ✅ PASS: `--resume-all` with no `$` returns an empty reconciliation
+35718-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2662070Z   ✅ PASS: resuming without an identifier is rejected up front
+35719-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2662511Z
+35720:test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2662722Z 6. `$ --stop` exit code
+35721-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2663007Z
+35722-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2819047Z   ✅ PASS: a refused `$ --stop` is reported as a failure, not as a stop that happened
+35723-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2820575Z   ✅ PASS: the upstream reason reaches the operator (got Error: No execution found with UUID or session name: u-9)
+35724-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2981706Z   ✅ PASS: a successful `$ --stop` still reports success
+35725-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2997146Z
+35726-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2997199Z
+35727-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2997607Z Results: 35 passed, 0 failed, 35 total
+35728-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.2998062Z
+35729-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.3056876Z
+35730-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.3057430Z [340/493] tests/test-issue-2189-same-container-resume.mjs
+35731-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.6931414Z Testing issue #2189: a killed session is resumed in its own container
+35732-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.6932441Z ==============================================================================
+--
+35803-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.7484489Z
+35804-test-suites	UNKNOWN STEP	2026-09-20T15:44:31.7485287Z [342/493] tests/test-issue-2189-session-recovery-latch.mjs
+35805-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1319399Z Testing issue #2189: a killed session is resumed by default and reported exactly once
+35806-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1320245Z ==============================================================================
+35807-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1489029Z   ✅ PASS: a killed session is resumed by default, not merely offered
+35808-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1489849Z   ✅ PASS: --on-session-kill=report still opts out of automatic recovery
+35809-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1490394Z   ✅ PASS: the environment variable can opt out too
+35810-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1494693Z   ✅ PASS: the default plan for a killed /solve is to start a recovery session
+35811-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1496197Z   ✅ PASS: a session stopped by a user is never auto-resumed, even under the new default
+35812-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1497080Z   ✅ PASS: a fresh session is not yet handled
+35813-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1497678Z   ✅ PASS: a missing session is not handled
+35814-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1498552Z   ✅ PASS: the first delivered notification latches the session
+35815:test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1499111Z   ✅ PASS: the latch records when, with what exit code and status
+35816-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1499743Z   ✅ PASS: the latched session reports as handled
+35817-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1500732Z   ✅ PASS: a second notification attempt is refused
+35818-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1501538Z   ✅ PASS: the refused attempt does not rewrite the latch
+35819-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1502135Z   ✅ PASS: latching a missing session is a no-op, not a throw
+35820-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1502776Z   ✅ PASS: the first resolution scans the log
+35821-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1503427Z   ✅ PASS: the id is cached in the session record
+35822-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1503996Z   ✅ PASS: a second consumer reuses the cache instead of re-scanning the log
+35823-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1504498Z   ✅ PASS: a log without a marker resolves to no id
+35824-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1505468Z   ✅ PASS: a fruitless scan is remembered as such
+35825-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1506224Z   ✅ PASS: a fruitless multi-gigabyte scan is never repeated
+35826-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1506991Z   ✅ PASS: a read error is reported, not thrown
+35827-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1507516Z   ✅ PASS: a read error is not cached, so a later poll can still find the id
+--
+35830-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1509187Z   ✅ PASS: a running docker session never measured before is measured now
+35831-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1509753Z   ✅ PASS: a 27 GB writable layer is not re-walked on every 30 s poll
+35832-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1510301Z   ✅ PASS: the measurement is refreshed once the throttle window elapses
+35833-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1510830Z   ✅ PASS: completionNotifiedAt survives the session snapshot
+35834-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1511315Z   ✅ PASS: completionExitCode survives the session snapshot
+35835-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1511776Z   ✅ PASS: completionStatus survives the session snapshot
+35836-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1512261Z   ✅ PASS: lastToolSessionId survives the session snapshot
+35837-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1512741Z   ✅ PASS: a reloaded session is still handled after a restart
+35838-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1513409Z   ✅ PASS: the recovery bookkeeping is persisted, so recovery cannot restart once per bot launch forever
+35839-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1514458Z   ✅ PASS: a user stop survives a restart, so resume-by-default never relaunches cancelled work
+35840-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1515400Z   ✅ PASS: the resolved pull request is persisted, so it is not looked up again
+35841-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.1603464Z Session 0ea1c630-cfdf-477e-8528-29d175a7fe64 has finished. Sending notification to chat 100
+35842:test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4020367Z [telegram-send] s1 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=1300 bytes=1330 text="❌ *Work session crashed — segmentation fault (SIGSEGV) (exit code: 139)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `0ea1c630-cfdf-477e-8528-29d175a7fe64`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — the Node.js/V8 runtime hit its own heap limit, not the machine's: `FATAL ERROR: Reache"… (+1000 chars)
+35843-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4022600Z [telegram-send] s1 safeEditMessageText ✓ delivered message_id=200
+35844-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4023737Z   ✅ PASS: the killed session is resumed by the bot itself, with no flag set (defect 1)
+35845-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4024697Z   ✅ PASS: the user is notified exactly once
+35846-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4025758Z   ✅ PASS: the notification names the working session that took over
+35847-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4026756Z   ✅ PASS: the delivered notification is latched into the durable snapshot
+35848:test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4027812Z   ✅ PASS: the latched snapshot carries the exit code the user was told about
+35849-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4029032Z   ✅ PASS: the last tool session id is cached in the same snapshot, so no later poll re-scans the log
+35850-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4030025Z   ✅ PASS: the resolved pull request is cached too
+35851-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4030888Z   ✅ PASS: the linked pull request is resolved once for the completion
+35852-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4032009Z   ✅ PASS: a session that was already reported is never reported again (issue #2189 comment)
+35853-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4033102Z   ✅ PASS: no status probe is issued for an already-reported session
+35854-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4033643Z   ✅ PASS: no log read and no pull request lookup happen again
+35855-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4034270Z   ✅ PASS: the 27 GB writable layer is not walked again
+35856-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4035390Z   ✅ PASS: no pull request comment and no log upload are repeated
+35857-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4036274Z   ✅ PASS: the already-reported session reaches its terminal state instead of being re-detected every poll
+35858-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4037238Z   ✅ PASS: the terminal session is removed from the durable store
+35859-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4037906Z Session 0ea1c630-cfdf-477e-8528-29d175a7fe64 has finished. Sending notification to chat 100
+35860:test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4197739Z [telegram-send] s2 safeEditMessageText → chat=100 message=200 parse_mode=Markdown chars=1184 bytes=1212 text="❌ *Work session crashed — segmentation fault (SIGSEGV) (exit code: 139)*\n\n⏱️ Duration: 2m 30s\n📊 Session: `0ea1c630-cfdf-477e-8528-29d175a7fe64`\n🔒 Isolation: `docker`\n\n🔎 *Kill diagnostics*\nCause: out of memory — the Node.js/V8 runtime hit its own heap limit, not the machine's: `FATAL ERROR: Reache"… (+884 chars)
+35861-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4200761Z [telegram-send] s2 safeEditMessageText ✓ delivered message_id=200
+35862-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4201476Z   ✅ PASS: without the latch the very same completion runs again — the loop this fix removes
+35863-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4201868Z
+35864-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4202103Z ==============================================================================
+35865-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4202508Z Results: 50 passed, 0 failed, 50 total
+35866-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4202925Z ==============================================================================
+35867-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4290802Z
+35868-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.4291307Z [343/493] tests/test-issue-2189-start-command-0.33.mjs
+35869-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8108583Z ================================================================================
+35870-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8110032Z Issue #2189 — consuming start-command 0.33.0 (start#162, #164, #165)
+35871-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8110925Z ================================================================================
+35872-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8111336Z
+--
+35892-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8139679Z   ✅ PASS: `$ --list` carries the 0.33.0 hints
+35893-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8140236Z   ✅ PASS: an execution without the hints reports null, not false
+35894-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8140508Z
+35895-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8140705Z 2. describeKillCause consumes the upstream hints
+35896-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8140940Z
+35897-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8149007Z   ✅ PASS: the upstream hint alone classifies the kill as out-of-memory (got out-of-memory)
+35898-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8151648Z   ✅ PASS: the summary names the mechanism, not just "out of memory" (out of memory — start-command reported memory exhaustion (v8-heap-limit): `FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory`)
+35899-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8153486Z   ✅ PASS: the summary quotes the evidence line `$` found
+35900-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8154260Z   ✅ PASS: the incident wording ("forced kill") is gone
+35901-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8155220Z   ✅ PASS: the evidence list records where the finding came from
+35902-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8156326Z   ✅ PASS: a non-memory exitReason does not manufacture an OOM verdict (got forced-kill)
+35903-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8156928Z   ✅ PASS: the non-memory hint is still surfaced as evidence
+35904:test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8157451Z   ✅ PASS: exit code 0 is never upgraded to out-of-memory (got unknown)
+35905-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8157941Z   ✅ PASS: a clean exit does not even report the hint
+35906-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8158538Z   ✅ PASS: `memory-exhaustion (kernel-oom-killer)` is classified as out-of-memory by prefix
+35907-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8159492Z   ✅ PASS: `memory-exhaustion (go-runtime)` is classified as out-of-memory by prefix
+35908-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8160216Z   ✅ PASS: `memory-exhaustion (allocation-failure)` is classified as out-of-memory by prefix
+35909-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8160956Z   ✅ PASS: `memory-exhaustion (some-future-runtime)` is classified as out-of-memory by prefix
+35910-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8161646Z   ✅ PASS: the local scan alone still classifies the self-abort (got out-of-memory)
+35911-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8161985Z
+35912-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8162240Z 3. The completion path forwards `$ --status` to the diagnosis
+35913-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8162518Z
+35914-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8228207Z   ✅ PASS: a killed session with only upstream evidence is reported as out-of-memory (got out-of-memory)
+35915-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8229397Z   ✅ PASS: the Telegram/PR section names the mechanism
+35916-test-suites	UNKNOWN STEP	2026-09-20T15:44:32.8229703Z
+--
+36168-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2450235Z   PASS: with the daemon message as the reason
+36169-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2450783Z   PASS: stopping the watcher ends its docker wait
+36170-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2451577Z   PASS: and a stopped watcher does not revoke: the caller took over the lease
+36171-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2452185Z   PASS: which is what it reports
+36172-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2453298Z [router-isolation] Could not start 'docker wait task-f', the token will be revoked by the next maintenance tick instead: docker missing
+36173-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2454783Z   PASS: a docker wait that could not run says nothing about the container, so the maintenance tick keeps the job
+36174-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2455850Z   PASS: and the watcher reports that it did not release
+36175-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2456433Z   PASS: an external router issues no per-task token, so there is nothing to watch
+36176-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2457030Z   PASS: and without a container name there is nothing to wait on
+36177-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2457967Z   PASS: a spawn that throws is reported and leaves the token to the maintenance tick
+36178-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2458349Z
+36179-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2458675Z === issue #2190: a routed task authenticates with its router token only ===
+36180:test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2459136Z   PASS: a security violation has its own exit code
+36181-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2459613Z   PASS: distinct from the disk-space code, so operators can tell them apart
+36182-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2460095Z   PASS: the guard is off for a task run without the router
+36183-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2460518Z   PASS: and off when no router token was handed to the task
+36184-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2460908Z   PASS: on for a task that holds a router token
+36185-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2461355Z   PASS: and an operator may switch it off with HIVE_MIND_ROUTER_AUTH_GUARD=0
+36186-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2461813Z   PASS: the check interval defaults to one second
+36187-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2462314Z   PASS: and can be tuned
+36188-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2462754Z   PASS: but a value below 100 ms, which would just burn CPU, falls back to the default
+36189-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2463328Z   PASS: starting the guard without the router yields an inactive handle
+36190-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2463755Z   PASS: whose check never finds anything
+36191-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2468228Z   PASS: a clean routed Claude home passes
+36192-test-suites	UNKNOWN STEP	2026-09-20T15:44:33.2468745Z   PASS: and the guard did look at something
+--
+36998-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.2763446Z
+36999-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.2763997Z [364/493] tests/test-issue-2254-codex-skill-catalog-boundary.mjs
+37000-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.4081695Z ✅ issue #2254: the full Codex skill catalog is provenance-checked before every solve
+37001-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.4126471Z
+37002-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.4132670Z [365/493] tests/test-issue-2266-repository-no-work.mjs
+37003-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9002026Z ✔ Telegram preflight classifies an empty repository as no-work (1.633884ms)
+37004-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9003322Z ✔ pull requests returned by the Issues API do not count as repository work (0.393361ms)
+37005-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9004200Z ✔ an open issue keeps the normal repository solve path active (0.389904ms)
+37006-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9005023Z ✔ issue and pull request targets do not perform a repository query (0.867591ms)
+37007-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9006135Z ✔ Telegram sends the localized no-work response as a reply to the command (0.48438ms)
+37008-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9006970Z ✔ Telegram preflight failures fall through to the normal solve path (0.310947ms)
+37009-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9008605Z ✔ Telegram answers no-work before reserving queue capacity or starting a session (1.6205ms)
+37010:test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9017626Z ✔ the CLI converts the race-safe no-work result into exit code 0 (0.610824ms)
+37011-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9583612Z ✔ the direct Telegram no-work message is available in every supported locale (56.34187ms)
+37012-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9589145Z ℹ tests 9
+37013-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9589616Z ℹ suites 0
+37014-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9590089Z ℹ pass 9
+37015-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9590408Z ℹ fail 0
+37016-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9590641Z ℹ cancelled 0
+37017-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9590885Z ℹ skipped 0
+37018-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9591106Z ℹ todo 0
+37019-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9591359Z ℹ duration_ms 67.177757
+37020-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9707712Z
+37021-test-suites	UNKNOWN STEP	2026-09-20T15:44:39.9708180Z [366/493] tests/test-issue-467-terminal-watch.mjs
+37022-test-suites	UNKNOWN STEP	2026-09-20T15:44:40.3552116Z ================================================================================
+--
+37451-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9214992Z   -j, --json             Output results as JSON       [boolean] [default: false]
+37452-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9216494Z   -q, --quiet            Suppress detailed output (only show final status)
+37453-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9217284Z                                                       [boolean] [default: false]
+37454-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9218030Z   -l, --log-file         Path to log file for output                    [string]
+37455-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9218837Z   -h, --help             Show help                                     [boolean]"
+37456-test-suites	UNKNOWN STEP	2026-09-20T15:44:44.9219646Z ✅ PASSED
+37457-test-suites	UNKNOWN STEP	2026-09-20T15:44:45.2438873Z Testing memory-check.mjs basic execution... ✅ PASSED
+37458-test-suites	UNKNOWN STEP	2026-09-20T15:44:45.5672422Z Testing memory-check.mjs disk space check... ✅ PASSED
+37459-test-suites	UNKNOWN STEP	2026-09-20T15:44:45.8806408Z Testing memory-check.mjs RAM check... ✅ PASSED
+37460-test-suites	UNKNOWN STEP	2026-09-20T15:44:46.1969729Z Testing memory-check.mjs verbose output... ✅ PASSED
+37461-test-suites	UNKNOWN STEP	2026-09-20T15:44:46.2215509Z Testing memory-check.mjs syntax check... ✅ PASSED
+37462-test-suites	UNKNOWN STEP	2026-09-20T15:44:46.5346361Z Testing memory-check.mjs platform detection... ✅ PASSED
+37463:test-suites	UNKNOWN STEP	2026-09-20T15:44:46.8492660Z Testing memory-check.mjs exit code on success... ✅ PASSED
+37464-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1650061Z Testing memory-check.mjs execution... ✅ PASSED
+37465-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1650513Z
+37466-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1650808Z ==================================================
+37467-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1651428Z Test Results for memory-check.mjs:
+37468-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1654373Z   ✅ Passed: 10
+37469-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1654832Z   ❌ Failed: 0
+37470-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1655470Z   Platform: linux
+37471-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1656006Z ==================================================
+37472-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1684554Z
+37473-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.1684997Z [380/493] tests/test-merge-auto-resolve-1805.mjs
+37474-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.6601592Z
+37475-test-suites	UNKNOWN STEP	2026-09-20T15:44:47.6602629Z 📋 Issue #1805: --auto-resolve and clickable PR links
+--
+38924-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.8994650Z 9 passed, 0 failed
+38925-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9011878Z
+38926-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9012168Z [412/493] tests/test-publish-to-npm-2028.mjs
+38927-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9311424Z ✅ analyzePublishResult: exit 0 + failure text => NOT ok (the #2028 bug)
+38928-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9313629Z ✅ analyzePublishResult: non-zero exit => NOT ok
+38929-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9314471Z ✅ analyzePublishResult: exit 0 + clean output => ok
+38930-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9320840Z ✅ publishWithRetry: verifies on npm and does NOT falsely succeed
+38931-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9321933Z ✅ publishWithRetry: succeeds when publish works and npm confirms
+38932-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9324740Z ✅ publishWithRetry: retries a transient (sigstore) failure
+38933-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9327340Z ✅ publishWithRetry: fast-fails a non-retryable auth error
+38934-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9330328Z ✅ runPublishFlow: skips publish when version already on npm
+38935-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9333392Z ✅ runPublishFlow: sets published=false on a masked failure
+38936:test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9334802Z ✅ isVersionPublished: maps exit code to boolean
+38937-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9335409Z
+38938-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9335896Z 10 passed, 0 failed
+38939-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9360642Z
+38940-test-suites	UNKNOWN STEP	2026-09-20T15:44:57.9361070Z [413/493] tests/test-queue-compact-display-1891.mjs
+38941-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3871258Z ============================================================
+38942-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3871783Z Tests: Issue #1891 - Compact /queue display
+38943-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3872250Z ============================================================
+38944-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3872496Z
+38945-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3872992Z 📋 formatQueueExecutingItems / formatQueuePendingItems
+38946-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3873289Z
+38947-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3876659Z   ✅ PASS: executing line starts with a bullet
+38948-test-suites	UNKNOWN STEP	2026-09-20T15:44:58.3878068Z   ✅ PASS: executing line uses the ▶️ marker
+--
+44833-Release	UNKNOWN STEP	2026-09-20T15:47:51.8424941Z Merge attempt 7 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44834-Release	UNKNOWN STEP	2026-09-20T15:47:57.3126136Z X Pull request link-assistant/hive-mind#2273 is not mergeable: the base branch policy prohibits the merge.
+44835-Release	UNKNOWN STEP	2026-09-20T15:47:57.3127421Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44836-Release	UNKNOWN STEP	2026-09-20T15:47:57.3128384Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44837-Release	UNKNOWN STEP	2026-09-20T15:47:57.3148216Z Merge attempt 8 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44838-Release	UNKNOWN STEP	2026-09-20T15:48:02.8724594Z X Pull request link-assistant/hive-mind#2273 is not mergeable: the base branch policy prohibits the merge.
+44839-Release	UNKNOWN STEP	2026-09-20T15:48:02.8725965Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44840-Release	UNKNOWN STEP	2026-09-20T15:48:02.8726827Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44841-Release	UNKNOWN STEP	2026-09-20T15:48:02.8748036Z Merge attempt 9 of 10 did not succeed yet; GitHub may still be computing mergeability. Retrying...
+44842-Release	UNKNOWN STEP	2026-09-20T15:48:08.3188019Z X Pull request link-assistant/hive-mind#2273 is not mergeable: the base branch policy prohibits the merge.
+44843-Release	UNKNOWN STEP	2026-09-20T15:48:08.3189994Z To have the pull request merged after all the requirements have been met, add the `--auto` flag.
+44844-Release	UNKNOWN STEP	2026-09-20T15:48:08.3191498Z To use administrator privileges to immediately merge the pull request, add the `--admin` flag.
+44845:Release	UNKNOWN STEP	2026-09-20T15:48:08.3212121Z Error: Command failed with exit code 1: gh pr merge https://github.com/link-assistant/hive-mind/pull/2273 --merge
+44846:Release	UNKNOWN STEP	2026-09-20T15:48:08.3304143Z ##[error]Process completed with exit code 1.
+44847-Release	UNKNOWN STEP	2026-09-20T15:48:08.3469081Z Post job cleanup.
+44848-Release	UNKNOWN STEP	2026-09-20T15:48:08.4356976Z [command]/usr/bin/git version
+44849-Release	UNKNOWN STEP	2026-09-20T15:48:08.4390109Z git version 2.55.0
+44850-Release	UNKNOWN STEP	2026-09-20T15:48:08.4436625Z Temporarily overriding HOME='/home/runner/work/_temp/d31a9d0b-1439-47ee-bd0c-1242d58dec35' before making global git config changes
+44851-Release	UNKNOWN STEP	2026-09-20T15:48:08.4438151Z Adding repository directory to the temporary git global config as a safe directory
+44852-Release	UNKNOWN STEP	2026-09-20T15:48:08.4443663Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+44853-Release	UNKNOWN STEP	2026-09-20T15:48:08.4480012Z Removing SSH command configuration
+44854-Release	UNKNOWN STEP	2026-09-20T15:48:08.4487529Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+44855-Release	UNKNOWN STEP	2026-09-20T15:48:08.4531805Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+44856-Release	UNKNOWN STEP	2026-09-20T15:48:08.4800984Z Removing HTTP extra header
+44857-Release	UNKNOWN STEP	2026-09-20T15:48:08.4808273Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+44858-Release	UNKNOWN STEP	2026-09-20T15:48:08.4855598Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+--
+45208-Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+45209-Pipeline Status	UNKNOWN STEP	    "outputs": {}
+45210-Pipeline Status	UNKNOWN STEP	  },
+45211-Pipeline Status	UNKNOWN STEP	  "changeset-pr": {
+45212-Pipeline Status	UNKNOWN STEP	    "result": "skipped",
+45213-Pipeline Status	UNKNOWN STEP	    "outputs": {}
+45214-Pipeline Status	UNKNOWN STEP	  }
+45215-Pipeline Status	UNKNOWN STEP	}
+45216-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.4126631Z   IS_MAIN: true
+45217-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.4126911Z ##[endgroup]
+45218-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5185299Z Failed jobs:    release
+45219-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5185725Z Cancelled jobs: <none>
+45220:Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5201165Z ##[error]Pipeline failed. Failing jobs: release
+45221:Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5210455Z ##[error]Process completed with exit code 1.
+45222-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5334141Z Post job cleanup.
+45223-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6018188Z [command]/usr/bin/git version
+45224-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6061435Z git version 2.55.0
+45225-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6092479Z Temporarily overriding HOME='/home/runner/work/_temp/49b4326c-f5ff-4627-8f17-ab2c00feb8ac' before making global git config changes
+45226-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6093763Z Adding repository directory to the temporary git global config as a safe directory
+45227-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6097033Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+45228-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6445317Z Removing SSH command configuration
+45229-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6452191Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+45230-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6490290Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+45231-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6711461Z Removing HTTP extra header
+45232-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6717017Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+45233-Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.6749705Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"

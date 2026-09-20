@@ -1,0 +1,31 @@
+
+### run-35492495204.log.gz
+44834:Release	UNKNOWN STEP	2026-09-20T05:56:53.4665845Z ##[error]Process completed with exit code 1.
+45214:Pipeline Status	UNKNOWN STEP	2026-09-20T05:58:04.0036129Z ##[error]Pipeline failed. Failing jobs: release
+45215:Pipeline Status	UNKNOWN STEP	2026-09-20T05:58:04.0043712Z ##[error]Process completed with exit code 1.
+
+### run-35495996039.log.gz
+44818:Release	UNKNOWN STEP	2026-09-20T07:16:55.6782852Z ##[error]Process completed with exit code 1.
+45198:Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9813898Z ##[error]Pipeline failed. Failing jobs: release
+45199:Pipeline Status	UNKNOWN STEP	2026-09-20T07:17:16.9825313Z ##[error]Process completed with exit code 1.
+
+### run-35519980669.log.gz
+
+### run-35519980723.log.gz
+
+### run-35519980846.log.gz
+44846:Release	UNKNOWN STEP	2026-09-20T15:48:08.3304143Z ##[error]Process completed with exit code 1.
+45220:Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5201165Z ##[error]Pipeline failed. Failing jobs: release
+45221:Pipeline Status	UNKNOWN STEP	2026-09-20T15:48:29.5210455Z ##[error]Process completed with exit code 1.
+
+### run-35526551243.log.gz
+
+### run-35526551346.log.gz
+2272:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9871794Z ##[error]Process completed with exit code 1.
+2960:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1022687Z ##[error]Pipeline failed. Failing jobs: detect-changes
+2961:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1033838Z ##[error]Process completed with exit code 1.
+
+### run-35526569064.log.gz
+44857:Release	Version packages and commit to main	2026-09-20T17:48:07.3957727Z ##[error]Process completed with exit code 1.
+45235:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7772670Z ##[error]Pipeline failed. Failing jobs: release
+45236:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:48:30.7781238Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,4 @@
+194:Check Links	UNKNOWN STEP	2026-09-20T15:35:52.4503187Z   args: --verbose --no-progress --cache --max-cache-age 1d --max-retries 3 --timeout 30 --exclude-path docs/case-studies --exclude-path dev/log --exclude-path experiments/issue-2102/corpus --exclude-path tests/fixtures './**/*.md' './**/*.html'
+315:Check Links	UNKNOWN STEP	2026-09-20T15:35:52.8978195Z   INPUT_ARGS: --verbose --no-progress --cache --max-cache-age 1d --max-retries 3 --timeout 30 --exclude-path docs/case-studies --exclude-path dev/log --exclude-path experiments/issue-2102/corpus --exclude-path tests/fixtures './**/*.md' './**/*.html'
+325:Check Links	UNKNOWN STEP	2026-09-20T15:35:53.1410853Z   [WARN] ./**/*.html: No files found for this input source
+346:Check Links	UNKNOWN STEP	2026-09-20T15:35:59.1927013Z | ⏳ Timeouts    | 0     |

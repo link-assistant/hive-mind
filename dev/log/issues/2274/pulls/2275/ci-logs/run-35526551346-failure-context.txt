@@ -1,0 +1,191 @@
+2239-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1335163Z   git switch -c <new-branch-name>
+2240-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1335419Z
+2241-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1335585Z Or undo this operation with:
+2242-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1335833Z
+2243-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1335959Z   git switch -
+2244-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1336155Z
+2245-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1336483Z Turn off this advice by setting config variable advice.detachedHead to false
+2246-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1336946Z
+2247-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1337481Z HEAD is now at e619da33 Merge 02146eec377c320d468d697dc32e7e77aa959da6 into 95f2d69470a20c915aad5bd051f1c3e86a053bc5
+2248-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1425622Z ##[endgroup]
+2249-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1481729Z [command]/usr/bin/git log -1 --format=%H
+2250-detect-changes	Run actions/checkout@v7	2026-09-20T17:39:36.1516265Z e619da33bb2f798365ad1d2ba4f7b1a98399a69e
+2251:detect-changes	Verify dependency freshness and detect changes	﻿2026-09-20T17:39:36.1747264Z ##[group]Run node scripts/check-dependency-freshness.mjs
+2252:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1747790Z ^[[36;1mnode scripts/check-dependency-freshness.mjs^[[0m
+2253:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1748162Z ^[[36;1mnode scripts/detect-code-changes.mjs^[[0m
+2254:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1793946Z shell: /usr/bin/bash -e {0}
+2255:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1794239Z env:
+2256:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1794793Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+2257:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1795104Z   GIT_CONFIG_COUNT: 1
+2258:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1795353Z   GIT_CONFIG_KEY_0: init.defaultBranch
+2259:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1795634Z   GIT_CONFIG_VALUE_0: main
+2260:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1795880Z   GITHUB_EVENT_NAME: pull_request
+2261:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1796146Z   GITHUB_EVENT_ACTION: opened
+2262:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1796451Z   GITHUB_BASE_SHA: 95f2d69470a20c915aad5bd051f1c3e86a053bc5
+2263:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1796834Z   GITHUB_HEAD_SHA: 02146eec377c320d468d697dc32e7e77aa959da6
+2264:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1797158Z   GITHUB_BEFORE_SHA:
+2265:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1797374Z   GITHUB_AFTER_SHA:
+2266:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1800156Z   GITHUB_TOKEN: ***
+2267:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.1800442Z ##[endgroup]
+2268:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9737877Z STALE Dockerfile:298: @link-assistant/agent 0.26.3 -> 0.26.5 (exact)
+2269:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9738603Z Dependency freshness: 146/148 declarations current
+2270:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9739269Z STALE Dockerfile.dind:313: @link-assistant/agent 0.26.3 -> 0.26.5 (exact)
+2271:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9739886Z Dependency freshness failed: 2 stale, 0 unresolved.
+2272:detect-changes	Verify dependency freshness and detect changes	2026-09-20T17:39:36.9871794Z ##[error]Process completed with exit code 1.
+2273-detect-changes	Post Run actions/checkout@v7	﻿2026-09-20T17:39:37.0022026Z Post job cleanup.
+2274-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.0899346Z [command]/usr/bin/git version
+2275-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.0942685Z git version 2.55.0
+2276-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.0978874Z Temporarily overriding HOME='/home/runner/work/_temp/ed453499-e07f-4f3d-bd25-4c6692218bcc' before making global git config changes
+2277-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.0980128Z Adding repository directory to the temporary git global config as a safe directory
+2278-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.0986371Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2279-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1022223Z Removing SSH command configuration
+2280-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1029183Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2281-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1067254Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2282-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1405112Z Removing HTTP extra header
+2283-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1406349Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2284-detect-changes	Post Run actions/checkout@v7	2026-09-20T17:39:37.1438727Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+--
+2830-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.0611065Z npm: 11.19.0
+2831-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.0611280Z yarn: 1.22.22
+2832-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.0612299Z ##[endgroup]
+2833-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.0618454Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+2834-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.0641030Z [command]/opt/hostedtoolcache/node/24.20.0/x64/bin/npm config get cache
+2835-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.2047425Z /home/runner/.npm
+2836-Pipeline Status	Setup Node.js	2026-09-20T17:40:03.4660587Z Cache hit for: node-cache-Linux-x64-npm-bce1565bb7fd6453d8528cb49ef58f223b6b0ea9f3ed6bfe0e2d613eff199047
+2837-Pipeline Status	Setup Node.js	2026-09-20T17:40:04.0000750Z Received 3869 of 3869 (100.0%), 0.0 MBs/sec
+2838-Pipeline Status	Setup Node.js	2026-09-20T17:40:04.0001718Z Cache Size: ~0 MB (3869 B)
+2839-Pipeline Status	Setup Node.js	2026-09-20T17:40:04.0037628Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ef54b700-cc36-4b0c-b885-6929bd8a5b62/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+2840-Pipeline Status	Setup Node.js	2026-09-20T17:40:04.0111982Z Cache restored successfully
+2841-Pipeline Status	Setup Node.js	2026-09-20T17:40:04.0117568Z Cache restored from key: node-cache-Linux-x64-npm-bce1565bb7fd6453d8528cb49ef58f223b6b0ea9f3ed6bfe0e2d613eff199047
+2842:Pipeline Status	Fail the run when a required job was cancelled or failed	﻿2026-09-20T17:40:04.0293754Z ##[group]Run bash scripts/check-pipeline-status.sh
+2843:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0294258Z ^[[36;1mbash scripts/check-pipeline-status.sh^[[0m
+2844:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344105Z shell: /usr/bin/bash -e {0}
+2845:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344386Z env:
+2846:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344616Z   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+2847:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0344908Z   GIT_CONFIG_COUNT: 1
+2848:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0345145Z   GIT_CONFIG_KEY_0: init.defaultBranch
+2849:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0345430Z   GIT_CONFIG_VALUE_0: main
+2850:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0350515Z   NEEDS_JSON: {
+2851:Pipeline Status	Fail the run when a required job was cancelled or failed	  "detect-changes": {
+2852:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "failure",
+2853:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2854:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2855:Pipeline Status	Fail the run when a required job was cancelled or failed	  "version-check": {
+2856:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2857:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2858:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2859:Pipeline Status	Fail the run when a required job was cancelled or failed	  "changeset-check": {
+2860:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2861:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2862:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2863:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-compilation": {
+2864:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2865:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2866:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2867:Pipeline Status	Fail the run when a required job was cancelled or failed	  "lint": {
+2868:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2869:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2870:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2871:Pipeline Status	Fail the run when a required job was cancelled or failed	  "check-file-line-limits": {
+2872:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2873:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2874:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2875:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-suites": {
+2876:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2877:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2878:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2879:Pipeline Status	Fail the run when a required job was cancelled or failed	  "test-execution": {
+2880:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2881:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2882:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2883:Pipeline Status	Fail the run when a required job was cancelled or failed	  "memory-check-linux": {
+2884:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2885:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2886:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2887:Pipeline Status	Fail the run when a required job was cancelled or failed	  "validate-docs": {
+2888:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2889:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2890:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2891:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-pr-check": {
+2892:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2893:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2894:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2895:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-pr-check": {
+2896:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2897:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2898:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2899:Pipeline Status	Fail the run when a required job was cancelled or failed	  "release-preflight": {
+2900:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "success",
+2901:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2902:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2903:Pipeline Status	Fail the run when a required job was cancelled or failed	  "release": {
+2904:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2905:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2906:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2907:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish": {
+2908:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2909:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2910:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2911:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-merge": {
+2912:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2913:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2914:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2915:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind": {
+2916:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2917:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2918:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2919:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-merge": {
+2920:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2921:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2922:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2923:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-release": {
+2924:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2925:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2926:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2927:Pipeline Status	Fail the run when a required job was cancelled or failed	  "instant-release": {
+2928:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2929:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2930:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2931:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-instant": {
+2932:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2933:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2934:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2935:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-instant-merge": {
+2936:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2937:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2938:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2939:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-instant": {
+2940:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2941:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2942:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2943:Pipeline Status	Fail the run when a required job was cancelled or failed	  "docker-publish-dind-instant-merge": {
+2944:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2945:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2946:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2947:Pipeline Status	Fail the run when a required job was cancelled or failed	  "helm-release-instant": {
+2948:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2949:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2950:Pipeline Status	Fail the run when a required job was cancelled or failed	  },
+2951:Pipeline Status	Fail the run when a required job was cancelled or failed	  "changeset-pr": {
+2952:Pipeline Status	Fail the run when a required job was cancelled or failed	    "result": "skipped",
+2953:Pipeline Status	Fail the run when a required job was cancelled or failed	    "outputs": {}
+2954:Pipeline Status	Fail the run when a required job was cancelled or failed	  }
+2955:Pipeline Status	Fail the run when a required job was cancelled or failed	}
+2956:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0356030Z   IS_MAIN: false
+2957:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.0356235Z ##[endgroup]
+2958:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1006001Z Failed jobs:    detect-changes
+2959:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1006436Z Cancelled jobs: <none>
+2960:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1022687Z ##[error]Pipeline failed. Failing jobs: detect-changes
+2961:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-20T17:40:04.1033838Z ##[error]Process completed with exit code 1.
+2962-Pipeline Status	Post Run actions/checkout@v7	﻿2026-09-20T17:40:04.1185805Z Post job cleanup.
+2963-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2015685Z [command]/usr/bin/git version
+2964-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2058915Z git version 2.55.0
+2965-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2095630Z Temporarily overriding HOME='/home/runner/work/_temp/757544db-2f6b-43da-a552-ae43b6d319f4' before making global git config changes
+2966-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2097171Z Adding repository directory to the temporary git global config as a safe directory
+2967-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2100800Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+2968-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2133240Z Removing SSH command configuration
+2969-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2140356Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2970-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2178224Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2971-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2436704Z Removing HTTP extra header
+2972-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2444989Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2973-Pipeline Status	Post Run actions/checkout@v7	2026-09-20T17:40:04.2483277Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"

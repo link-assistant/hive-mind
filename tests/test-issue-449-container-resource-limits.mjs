@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 
 import { applyDockerContainerResourceLimits, buildDockerUpdateArgs, detectContainerDiskLimitBreach, normalizeContainerResourceLimits, resolveContainerResourceLimits, selectContainerResourceLimitsForBackend } from '../src/container-resource-limits.lib.mjs';
-import { finalizeDockerContainerStartGate } from '../src/isolation-runner.lib.mjs';
+import { buildStartCommandArgs, finalizeDockerContainerStartGate } from '../src/isolation-runner.lib.mjs';
 import { initializeTelegramContainerResourceLimits, resolveTelegramContainerResourceLimits } from '../src/telegram-container-resource-limits.lib.mjs';
 
 let passed = 0;
@@ -109,6 +109,17 @@ await test('limits are applied while the Docker start gate is closed', async () 
   assert.equal(result.success, true);
   assert.deepEqual(calls, [['update', '--cpus', '2', '--memory', String(2 * 1024 ** 3), '--memory-swap', String(2 * 1024 ** 3), 'session-449']]);
   assert.equal(result.resolved.diskBytes, 5_000_000_000);
+});
+
+await test('a resource-limited start gate cannot time out into an unlimited task', () => {
+  const startArgs = buildStartCommandArgs('solve', ['https://github.com/o/r/issues/449'], {
+    backend: 'docker',
+    sessionId: 'session-449-fail-closed',
+    containerResourceLimits: { cpu: '1' },
+  });
+  const gatedCommand = startArgs.at(-1);
+  assert.match(gatedCommand, /while \[ ! -e "\$gate" \]; do/, 'the limited task waits until the parent explicitly releases it');
+  assert.doesNotMatch(gatedCommand, /-lt 300/, 'the limited task has no timeout that could bypass failed enforcement');
 });
 
 await test('a failed resource update destroys the gated container without releasing user code', async () => {

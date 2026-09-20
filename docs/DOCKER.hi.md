@@ -222,8 +222,8 @@ storage quotas सभी storage drivers पर portable नहीं हैं,
 (default रूप से 30 seconds) container के writable layer के विरुद्ध disk setting लागू करता है। Usage limit
 से अधिक होने पर container रोक दिया जाता है और completion message measured usage और configured limit बताता
 है। Docker daemon में संबंधित CPU और memory cgroup controllers delegated होने चाहिए; यदि Docker requested
-kernel limit लागू नहीं कर सकता, तो Hive Mind task command चलने से पहले container हटा देता है और task को
-बिना limit के चुपचाप चलाने के बजाय launch failure report करता है।
+kernel limit लागू नहीं कर सकता, तो Hive Mind start gate बंद रखता है, जहाँ संभव हो container हटाता या रोकता
+है, और task को बिना limit के चुपचाप चलाने के बजाय launch failure report करता है।
 
 **Manual fallback.** पहले से चल रहे container को तुरंत seed करने के लिए (या जब आप deployment नहीं बदल
 सकते), host image को inner daemon में copy करें:

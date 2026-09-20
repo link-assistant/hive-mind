@@ -60,7 +60,7 @@ const DEFAULT_HOST_DOCKER_SOCK = '/var/run/host-docker.sock';
 const DOCKER_ISOLATION_SHELL = 'sh';
 // Free-space floor (GiB) below which the preflight warns that an impending isolation-image pull may fail with `no space left on device`. The Hive Mind isolation images are well over 30 GB extracted, so a host/nested daemon with less headroom than this cannot safely pull one. Diagnostic only — never blocks startup. See issue #1914.
 const DOCKER_ISOLATION_LOW_DISK_GIB = 40;
-// Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. The parent releases the gate immediately after `docker inspect --size`; the fallback keeps the task from hanging forever if the parent exits at the wrong time.
+// Docker-only start gate used to capture the container writable-layer baseline before the task command begins cloning or generating files. Unlimited tasks retain a timeout fallback so a parent exit cannot strand them. Resource-limited tasks fail closed and require an explicit release: a timeout could otherwise start user code after limit enforcement and container cleanup both failed.
 const DOCKER_START_GATE_WAIT_TENTHS = 300;
 function normalizeTool(tool) {
   return String(tool || 'claude')
@@ -78,9 +78,10 @@ function buildShellCommand(command, args = []) {
 function buildDockerStartGatePath(sessionId) {
   return sessionId ? `/tmp/hive-mind-disk-baseline-${sessionId}` : null;
 }
-function buildDockerStartGatedCommand(taskCommand, sessionId) {
+function buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed = false } = {}) {
   const gatePath = buildDockerStartGatePath(sessionId);
   if (!gatePath) return taskCommand;
+  if (failClosed) return `gate=${shellQuote(gatePath)}; while [ ! -e "$gate" ]; do sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
   return `gate=${shellQuote(gatePath)}; i=0; while [ ! -e "$gate" ] && [ "$i" -lt ${DOCKER_START_GATE_WAIT_TENTHS} ]; do i=$((i+1)); sleep 0.1; done; rm -f "$gate"; exec ${taskCommand}`;
 }
 function shouldRunPrivilegedDockerIsolation(image, env = process.env) {
@@ -321,7 +322,8 @@ export function buildDockerIsolationStartArgs(command, args = [], options = {}) 
     startArgs.push('--volume', `${mount.source}:${mount.target}${mount.readOnly ? ':ro' : ''}`);
   }
   const taskCommand = buildShellCommand(command, args);
-  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId));
+  const failClosedStartGate = hasContainerResourceLimits(options.containerResourceLimits);
+  startArgs.push('--detached', '--session', sessionId, '--', buildDockerStartGatedCommand(taskCommand, sessionId, { failClosed: failClosedStartGate }));
   return startArgs;
 }
 export function buildStartCommandArgs(command, args = [], options = {}) {

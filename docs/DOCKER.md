@@ -302,9 +302,9 @@ container's writable layer on each session-monitor tick (30 seconds by default).
 When usage exceeds the limit, the container is stopped and the completion
 message reports the measured usage and configured limit. The Docker daemon must
 have the relevant CPU and memory cgroup controllers delegated; if Docker cannot
-apply a requested kernel limit, Hive Mind removes the container before its task
-command runs and reports the launch failure instead of silently running it
-unlimited.
+apply a requested kernel limit, Hive Mind keeps the start gate closed, removes
+or stops the container where possible, and reports the launch failure instead
+of silently running the task unlimited.
 
 **Manual fallback.** To seed an already-running container immediately (or when
 you cannot change the deployment), copy the host image into the inner daemon:

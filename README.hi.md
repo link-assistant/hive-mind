@@ -357,7 +357,7 @@ review --repo owner/repo --pr 456
 solve <issue-url> [options]
 ```
 
-> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले, अधिकतम 100 — GitHub की प्रति parent sub-issue सीमा), उन्हें GitHub native sub-issues के रूप में सूचीबद्ध करने वाला एक संयुक्त issue बनाता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
+> **📦 Repository mode**: issue URL की जगह repository URL दें — solve उस repository के सभी open issues इकट्ठा करता है (सबसे पुराने पहले, अधिकतम 100 — GitHub की प्रति parent sub-issue सीमा), उन्हें GitHub native sub-issues के रूप में सूचीबद्ध करने वाला एक संयुक्त issue बनाता है, और उसी issue को हल करता है — ताकि एक ही pull request उन सबको एक साथ बंद कर सके। यह `--deep-analysis` और `--ensure-all-sub-issues-addressed` को भी चालू कर देता है। कोई open issue न होने पर CLI बिना कुछ बनाए सफलतापूर्वक समाप्त होता है; Telegram बिना work session शुरू किए सीधे no-work परिणाम बताता है। देखें [docs/CONFIGURATION.md](./docs/CONFIGURATION.md#solve-options)।
 
 **सबसे अधिक उपयोग किए जाने वाले विकल्प:**
 

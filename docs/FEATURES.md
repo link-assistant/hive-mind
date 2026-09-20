@@ -136,7 +136,7 @@ All these are preinstalled, but Hive Mind can decide to install more if needed t
 - Filter by labels or process all issues
 - Auto-fork for repos without write access
 - Continuous monitoring with configurable intervals
-- Repository mode: pass a repository URL to `solve` to combine every open issue into one issue with GitHub native sub-issues and close them all with a single pull request
+- Repository mode: pass a repository URL to `solve` to combine every open issue into one issue with GitHub native sub-issues and close them all with a single pull request; an empty repository is reported as a successful no-op without starting Telegram work
 
 ### 9. Human Oversight Where It Matters
 

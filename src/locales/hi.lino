@@ -665,6 +665,10 @@ hi
           be
             github
               url "पहला argument GitHub URL होना चाहिए"
+    repository
+      no
+        open
+          issues "ℹ️ *कुछ करने की आवश्यकता नहीं*\n\n`{{repository}}` में कोई open issue नहीं है। कोई work session शुरू नहीं किया गया।"
     work
       session
         starting "🔄 शुरू हो रहा है..."

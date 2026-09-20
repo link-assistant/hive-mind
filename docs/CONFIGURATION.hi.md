@@ -127,15 +127,15 @@ Telegram bot deployment में Formal AI लगातार नहीं च�
 
 Update कभी आँख मूँदकर image नहीं बदलता। वह pull करता है, digests की तुलना करता है और Formal AI के persisted-memory upgrade contract ([formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)) का पालन करता है: पहले side-effect-free `memory upgrade-status` preflight, फिर byte-exact backup और receipt के साथ `memory migrate`, फिर नए image को boot करके `/health` से memory compatibility की पुष्टि। Migration के बाद कोई भी विफलता receipt के अनुसार backup restore करती है और पुराना image बनाए रखती है। विवरण [issue #2146 case study](case-studies/issue-2146/README.md) में हैं।
 
-#### Idle agentic CLI updates
+#### Idle CLI updates
 
-जब host पर कोई task नहीं चल रहा होता, bot प्रत्येक installed agentic CLI की तुलना npm पर published version से करता है और केवल बदले हुए CLI दोबारा install करता है। `@link-assistant/hive-mind` इससे बाहर है, क्योंकि चालू process को धारण करने वाला package बीच में बदलने पर आधा-बदला हुआ bot बचता है; `start-command` भी बाहर है, क्योंकि image जानबूझकर उसका सटीक version pin करता है।
+जब host पर कोई task नहीं चल रहा होता, bot प्रत्येक installed agentic CLI और operational utility की तुलना npm पर published version से करता है और केवल बदले हुए targets दोबारा install करता है। Utilities हैं: `@link-assistant/claude-profiles`, `gh-setup-git-identity`, `gh-pull-all`, `gh-load-issue`, `gh-load-pull-request`, और `gh-upload-log`। `@link-assistant/hive-mind` इससे बाहर है, क्योंकि चालू process को धारण करने वाला package बीच में बदलने पर आधा-बदला हुआ bot बचता है; `start-command` भी बाहर है, क्योंकि image जानबूझकर उसका सटीक version pin करता है।
 
-| Environment Variable                   | डिफ़ॉल्ट | विवरण                                                                                            |
-| -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
-| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`      | `0` करने पर CLI versions पूरी तरह image build तय करता है।                                        |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _unset_  | Comma-separated allow list: `claude`, `codex`, `agent`, `gemini`, `qwen`, `copilot`, `opencode`। |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _unset_  | उन्हीं identifiers की comma-separated exclude list।                                              |
+| Environment Variable                   | डिफ़ॉल्ट | विवरण                                                                                     |
+| -------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`      | `0` करने पर CLI versions पूरी तरह image build तय करता है।                                 |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _unset_  | Agentic और operational target ids की comma-separated allow list; default targets ऊपर हैं। |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _unset_  | उन्हीं identifiers की comma-separated exclude list।                                       |
 
 `formal-ai` अभी opt-in है। [Issue #2059 case study](case-studies/issue-2059/capability-gate.md) की coding ladder द्वारा reliable code edits और पूरा issue-to-PR flow सिद्ध होने तक default models नहीं बदलते।
 

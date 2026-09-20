@@ -8,16 +8,19 @@
  * characters. For example:
  * https://github.com/konard/test-hello-world-019fb330-00e1-73b9-955e-f357a1600d5b/pull/2
  *
- * Root cause: `command-stream` shell-escapes every interpolated value, quoting
- * it when it contains characters the shell would otherwise split on (a space is
- * enough). Writing `$`gh pr edit ... --title "${title}"`` therefore produces
- * `--title "'Implement Hello World in Scala'"`, and the extra quotes end up
- * inside the title. Values without spaces slipped through unnoticed, which is
- * why this survived so long.
+ * Root cause at the time: `command-stream` shell-escaped every interpolated
+ * value without accounting for the surrounding shell quote context. Writing
+ * `$`gh pr edit ... --title "${title}"`` therefore produced `--title
+ * "'Implement Hello World in Scala'"`, and the extra quotes ended up inside the
+ * title. Values without spaces slipped through unnoticed, which is why this
+ * survived so long.
  *
- * The fix is to never wrap a placeholder in quotes: interpolate bare, and when
- * the quotes belong to an inner language (jq, GraphQL) build that expression in
- * JS and interpolate the finished string as one argument.
+ * command-stream 0.20.0 made interpolations aware of their shell quote context,
+ * so quoted and bare placeholders now preserve the same exact argument. Hive
+ * Mind keeps bare interpolation as its convention because it also works with
+ * older command-stream releases and avoids nested-language ambiguity. When the
+ * quotes belong to an inner language (jq, GraphQL), build that expression in JS
+ * and interpolate the finished string as one argument.
  *
  * @hive-mind-test-suite default
  */
@@ -36,13 +39,13 @@ const $ = $raw({ mirror: false, capture: true });
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-// --- the behaviour that caused the bug --------------------------------------
-// This is the executable version of the root cause: it must keep holding, or
-// the static guard below is guarding against the wrong thing.
+// --- current dependency behaviour ------------------------------------------
+// command-stream 0.20.0 fixed the historical nested-quote leak. Keep executable
+// coverage for both forms so a dependency update cannot silently regress argv.
 const title = 'Implement Hello World in Scala';
 
 const doubleQuoted = await $`echo "${title}"`;
-assert.equal(doubleQuoted.stdout.toString().trim(), `'${title}'`, 'wrapping a placeholder in double quotes leaks literal quotes - exactly the published PR title');
+assert.equal(doubleQuoted.stdout.toString().trim(), title, 'quoted interpolation respects the surrounding shell quote context');
 
 const bare = await $`echo ${title}`;
 assert.equal(bare.stdout.toString().trim(), title, 'a bare placeholder passes the value through unchanged');
@@ -57,7 +60,8 @@ assert.equal(listed.code, 0, 'a bare placeholder handles paths containing spaces
 assert.ok(listed.stdout.toString().includes('hive-mind-2119 quoting probe.txt'));
 
 const listedQuoted = await $`ls -1 "${spacedPath}"`;
-assert.notEqual(listedQuoted.code, 0, 'the same path wrapped in quotes is not found - the leaked quotes become part of the name');
+assert.equal(listedQuoted.code, 0, 'quoted interpolation preserves a path containing spaces');
+assert.ok(listedQuoted.stdout.toString().includes('hive-mind-2119 quoting probe.txt'));
 await $`rm -f ${spacedPath}`;
 
 // --- the codebase must not reintroduce the pattern --------------------------
@@ -88,7 +92,7 @@ for (const file of sourceFiles) {
   }
 }
 
-assert.deepEqual(offenders, [], `command-stream already escapes interpolated values; remove the quotes around these placeholders (or build the jq/GraphQL expression in JS):\n${offenders.join('\n')}`);
+assert.deepEqual(offenders, [], `use Hive Mind's bare-interpolation convention (or build the jq/GraphQL expression in JS):\n${offenders.join('\n')}`);
 
 // The specific site from the issue must use the bare form.
 const resultsSource = await readFile(path.join(repoRoot, 'src', 'solve.results.lib.mjs'), 'utf8');

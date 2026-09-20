@@ -126,7 +126,7 @@ docker run --rm --network link-assistant-formal-ai \
 - 如果容器无法启动或接入失败，任务会被停止，而不是改用其他模型继续（[issue #2146](https://github.com/link-assistant/hive-mind/issues/2146)）。
 - 内存保存在 `hive-mind-formal-ai-memory` 卷中，该卷永远不会被删除——容器停止时不会，镜像更换时也不会。
 
-在没有租约期间，镜像会通过 pull `HIVE_MIND_FORMAL_AI_UPDATE_TAG` 并比较摘要来刷新。新摘要只会经由 Formal AI 的持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）被采纳：先执行 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像，其 `/health` 必须报告内存兼容。迁移之后的任何失败都会恢复回执中记录的备份并保留原镜像。已安装的 agentic CLI（`claude`、`codex`、`agent`、`gemini`、`qwen`、`copilot`、`opencode`）在相同的空闲条件下刷新。两者的环境变量见 [Configuration](CONFIGURATION.zh.md)。
+在没有租约期间，镜像会通过 pull `HIVE_MIND_FORMAL_AI_UPDATE_TAG` 并比较摘要来刷新。新摘要只会经由 Formal AI 的持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）被采纳：先执行 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像，其 `/health` 必须报告内存兼容。迁移之后的任何失败都会恢复回执中记录的备份并保留原镜像。已安装的 agentic CLI 和运维工具（`claude-profiles`、`gh-setup-git-identity`、`gh-pull-all`、`gh-load-issue`、`gh-load-pull-request`、`gh-upload-log`）在相同的空闲条件下刷新。两者的环境变量见 [Configuration](CONFIGURATION.zh.md)。
 
 #### 宿主镜像透传（避免重复下载数 GB 镜像）
 

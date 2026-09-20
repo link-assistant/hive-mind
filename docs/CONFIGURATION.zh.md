@@ -127,15 +127,15 @@ Telegram 机器人部署不会让 Formal AI 常驻运行。请求 `--model forma
 
 更新绝不会盲目替换镜像。它会执行 pull、比较摘要，并遵循 Formal AI 持久化内存升级契约（[formal-ai#982](https://github.com/link-assistant/formal-ai/issues/982)）：先运行无副作用的 `memory upgrade-status` 预检，再执行带逐字节备份与回执的 `memory migrate`，然后启动新镜像并要求 `/health` 报告内存兼容。迁移之后的任何失败都会按回执恢复备份并保留原镜像。详见 [issue #2146 案例研究](case-studies/issue-2146/README.md)。
 
-#### 空闲时的 agentic CLI 更新
+#### 空闲时的 CLI 更新
 
-当宿主机没有运行中的任务时，机器人会把已安装的各个 agentic CLI 与 npm 上发布的版本比较，仅重新安装发生变化的那些。`@link-assistant/hive-mind` 被排除在外，因为中途替换持有当前进程的包会留下一个替换到一半的机器人；`start-command` 同样被排除，因为镜像有意固定了它的确切版本。
+当宿主机没有运行中的任务时，机器人会把已安装的各个 agentic CLI 和运维工具与 npm 上发布的版本比较，仅重新安装发生变化的那些。运维工具包括 `@link-assistant/claude-profiles`、`gh-setup-git-identity`、`gh-pull-all`、`gh-load-issue`、`gh-load-pull-request` 和 `gh-upload-log`。`@link-assistant/hive-mind` 被排除在外，因为中途替换持有当前进程的包会留下一个替换到一半的机器人；`start-command` 同样被排除，因为镜像有意固定了它的确切版本。
 
-| 环境变量                               | 默认值   | 说明                                                                                        |
-| -------------------------------------- | -------- | ------------------------------------------------------------------------------------------- |
-| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`      | 设为 `0` 则完全交由镜像构建决定 CLI 版本。                                                  |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _未设置_ | 以逗号分隔的允许列表：`claude`、`codex`、`agent`、`gemini`、`qwen`、`copilot`、`opencode`。 |
-| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _未设置_ | 使用相同标识符的逗号分隔排除列表。                                                          |
+| 环境变量                               | 默认值   | 说明                                                      |
+| -------------------------------------- | -------- | --------------------------------------------------------- |
+| `HIVE_MIND_AGENTIC_CLI_AUTO_UPDATE`    | `1`      | 设为 `0` 则完全交由镜像构建决定 CLI 版本。                |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY`    | _未设置_ | 以逗号分隔的 agentic 和运维目标允许列表；默认目标见上文。 |
+| `HIVE_MIND_AGENTIC_CLI_UPDATE_EXCLUDE` | _未设置_ | 使用相同标识符的逗号分隔排除列表。                        |
 
 `formal-ai` 仍须显式启用。在 [issue #2059 案例研究](case-studies/issue-2059/capability-gate.md)中的编码阶梯证明其能够可靠编辑代码并完整完成 issue 到 PR 的流程之前，默认模型不会改变。
 

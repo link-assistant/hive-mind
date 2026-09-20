@@ -1,5 +1,5 @@
 /**
- * Idle-only refresh of the agentic CLIs (issue #2146, PR #2147 review).
+ * Idle-only refresh of agentic and operational CLIs (issues #2146 and #2264).
  *
  * The maintainer's review closed with:
  *
@@ -9,9 +9,9 @@
  *
  * This module implements the first option: while the host has no active task,
  * compare each CLI's installed version against the registry and reinstall only
- * the ones that moved. The second option is deliberately not taken — updating
- * inside a task's container would change the toolchain mid-run and make the
- * task's own logs unreproducible.
+ * the ones that moved. Issue #2264 extends the same safe idle window to the
+ * operational utilities baked into the image. Build-time `@latest` cannot keep
+ * a long-lived container current.
  *
  * Two packages are excluded on purpose:
  *
@@ -44,7 +44,8 @@ const DEFAULT_INSTALL_TIMEOUT_MS = 15 * 60 * 1000;
 export const DEFAULT_CLI_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 /**
- * The CLIs Hive Mind drives, in the same order the Dockerfile installs them.
+ * The CLIs Hive Mind drives and the operational utilities its tasks invoke, in
+ * the same order the Dockerfile installs them.
  *
  * `installer: 'self'` is for Claude Code, which ships a native binary through
  * its own installer script; `claude update` is the supported refresh path and
@@ -58,6 +59,12 @@ export const AGENTIC_CLI_TARGETS = Object.freeze([
   { id: 'qwen', package: '@qwen-code/qwen-code', binary: 'qwen', installer: 'bun' },
   { id: 'copilot', package: '@github/copilot', binary: 'copilot', installer: 'bun' },
   { id: 'opencode', package: 'opencode-ai', binary: 'opencode', installer: 'bun' },
+  { id: 'claude-profiles', package: '@link-assistant/claude-profiles', binary: 'claude-profiles', installer: 'bun' },
+  { id: 'gh-setup-git-identity', package: 'gh-setup-git-identity', binary: 'gh-setup-git-identity', installer: 'bun' },
+  { id: 'gh-pull-all', package: 'gh-pull-all', binary: 'gh-pull-all', installer: 'bun' },
+  { id: 'gh-load-issue', package: 'gh-load-issue', binary: 'gh-load-issue', installer: 'bun' },
+  { id: 'gh-load-pull-request', package: 'gh-load-pull-request', binary: 'gh-load-pull-request', installer: 'bun' },
+  { id: 'gh-upload-log', package: 'gh-upload-log', binary: 'gh-upload-log', installer: 'bun' },
 ]);
 
 /** Auto-update is on by default; operators can disable it or narrow it to a subset. */
@@ -94,6 +101,26 @@ export const listAgenticCliUpdateTargets = (env = process.env, { only: requested
 /** First semantic version in a CLI's `--version` output, which is rarely bare. */
 export const parseCliVersion = text => String(text ?? '').match(/\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/)?.[0] ?? null;
 
+/**
+ * Read one package from `bun pm ls -g` output.
+ *
+ * Operational utilities are not guaranteed to have a working `--version`
+ * command. In particular, gh-load-issue@0.3.2 was published without the Bun
+ * shebang that exists on its main branch, so the OS hands it to `/bin/sh`.
+ * Bun's install inventory remains authoritative even when the executable is
+ * temporarily broken upstream.
+ */
+export const parseBunGlobalPackageVersion = (text, packageName) => {
+  const marker = `${packageName}@`;
+  for (const line of String(text ?? '').split('\n')) {
+    const markerIndex = line.lastIndexOf(marker);
+    if (markerIndex < 0) continue;
+    const version = parseCliVersion(line.slice(markerIndex + marker.length));
+    if (version) return version;
+  }
+  return null;
+};
+
 export const resolveAgenticCliStatePath = (env = process.env) => path.join(resolveBotStateDir(env), STATE_FILE_NAME);
 
 /** Read the refresh journal. A missing or corrupt file is an empty journal, never a throw. */
@@ -116,14 +143,23 @@ export const writeAgenticCliState = (state, { env = process.env, fsImpl = fs } =
   return state;
 };
 
-/** Installed version of one CLI, or null when the binary is absent or mute. */
+/** Installed version of one CLI, or null when neither its binary nor Bun inventory can identify it. */
 export const readInstalledCliVersion = async (target, { run = execFileAsync, timeoutMs = DEFAULT_COMMAND_TIMEOUT_MS } = {}) => {
   try {
     const result = await run(target.binary, ['--version'], { encoding: 'utf8', timeout: timeoutMs });
-    return parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
+    const version = parseCliVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`);
+    if (version) return version;
   } catch {
-    return null;
+    // A broken entry point is exactly why the package-manager fallback exists.
   }
+
+  try {
+    const result = await run('bun', ['pm', 'ls', '-g'], { encoding: 'utf8', timeout: timeoutMs });
+    return parseBunGlobalPackageVersion(`${result?.stdout ?? ''}${result?.stderr ?? ''}`, target.package);
+  } catch {
+    // Missing Bun or an unreadable global inventory means the CLI is absent.
+  }
+  return null;
 };
 
 /** Latest version the npm registry publishes for one CLI, or null when unreachable. */
@@ -209,8 +245,9 @@ export const updateAgenticClisWhenIdle = async ({ env = process.env, fsImpl = fs
           continue;
         }
 
-        // Trust the binary, not the installer's exit code: a package can install
-        // and still fail to link its bin.
+        // Verify the installed package rather than trusting the installer's exit
+        // code. Prefer the executable, with Bun inventory as the fallback used
+        // for temporarily broken upstream entry points.
         const after = await readInstalledCliVersion(target, { run });
         if (after === latest) {
           updated.push({ id: target.id, from: installed, to: after });
@@ -235,6 +272,7 @@ export default {
   installAgenticCli,
   isAgenticCliAutoUpdateEnabled,
   listAgenticCliUpdateTargets,
+  parseBunGlobalPackageVersion,
   parseCliVersion,
   readAgenticCliState,
   readInstalledCliVersion,

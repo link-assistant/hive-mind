@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747140909",
+    "html_url": "https://github.com/link-foundation/gh-upload-log/pull/41#issuecomment-5747140909",
+    "issue_url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/41",
+    "id": 5747140909,
+    "node_id": "IC_kwDOQU1fXM8AAAABVo5pLQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-20T02:47:27Z",
+    "updated_at": "2026-09-20T02:47:27Z",
+    "body": "<!-- hive-mind:working-session-summary -->\n## Working session summary\n\nImplemented and finalized [PR #41: fix: publish relative-path support to npm](https://github.com/link-foundation/gh-upload-log/pull/41). It is ready for review, mergeable, and all checks pass on commit `b8342cf`.\n\nRoot cause: the relative-path fix already existed, but failed npm releases left users on `0.8.2`. The release scripts treated nonzero command results as success. The fix now:\n\n- Validates npm setup and publish exit codes.\n- Uses Node 24 and npm `^11.5.1`, matching [npm trusted-publishing requirements](https://docs.npmjs.com/trusted-publishers/).\n- Retries failed publishes without creating false-success releases.\n- Reports the real package version from `package.json`.\n- Adds regression tests and a patch changeset.\n\nVerification:\n\n- 106 local tests passed.\n- Lint, formatting, and file-size checks passed.\n- Bare and `./` paths verified with a 40.29 MB log.\n- CI passed on Linux, macOS, and Windows.\n\n<details>\n<summary>Rest of the working session summary (147 characters)</summary>\n\n```text\n- Working tree is clean and synchronized with `main`.\n\nThe corrected npm release will occur after merge through the protected `main` OIDC workflow.\n```\n\n</details>\n\n---\n*This summary was automatically extracted from the AI working session output.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747140909/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747141757",
+    "html_url": "https://github.com/link-foundation/gh-upload-log/pull/41#issuecomment-5747141757",
+    "issue_url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/41",
+    "id": 5747141757,
+    "node_id": "IC_kwDOQU1fXM8AAAABVo5sfQ",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-20T02:47:39Z",
+    "updated_at": "2026-09-20T02:47:39Z",
+    "body": "## 🤖 Solution Draft Log\nThis log file contains the complete execution trace of the AI solution draft process.\n\n### 💰 **Cost estimation:**\n- Model: GPT-5.6 Sol\n- Provider: OpenAI\n- Public pricing estimate: $5.831235\n\n### 📊 **Context and tokens usage:**\n- 177.6K / 200K (89%) input tokens, 31.0K / 128K (24%) output tokens\n\nTotal: (177.6K + 4.4M cached) input tokens, 31.0K output tokens, $5.831235 cost\n\n### 🤖 **Models used:**\n- Tool: OpenAI Codex\n- Requested: `gpt-5.6-sol`\n- Thinking level: xhigh (~31999 tokens)\n- **Model: GPT-5.6 Sol** (`gpt-5.6-sol`)\n\n### 📎 **Log file uploaded as Gist** (2275KB)\n- [View complete solution draft log](https://gist.githubusercontent.com/konard/74d399fd28003f3ae8a27867c060b988/raw/33d56cf0aba2a2205c8c905cc51c3825e9076c76/tmp-hive-mind-log-upload-mIf7RS-sanitized.log.txt)\n\n---\n*Now working session is ended, feel free to review and add any feedback on the solution draft.*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747141757/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  },
+  {
+    "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747152658",
+    "html_url": "https://github.com/link-foundation/gh-upload-log/pull/41#issuecomment-5747152658",
+    "issue_url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/41",
+    "id": 5747152658,
+    "node_id": "IC_kwDOQU1fXM8AAAABVo6XEg",
+    "user": { "login": "konard", "id": 1431904, "node_id": "MDQ6VXNlcjE0MzE5MDQ=", "avatar_url": "https://avatars.githubusercontent.com/u/1431904?v=4", "gravatar_id": "", "url": "https://api.github.com/users/konard", "html_url": "https://github.com/konard", "followers_url": "https://api.github.com/users/konard/followers", "following_url": "https://api.github.com/users/konard/following{/other_user}", "gists_url": "https://api.github.com/users/konard/gists{/gist_id}", "starred_url": "https://api.github.com/users/konard/starred{/owner}{/repo}", "subscriptions_url": "https://api.github.com/users/konard/subscriptions", "organizations_url": "https://api.github.com/users/konard/orgs", "repos_url": "https://api.github.com/users/konard/repos", "events_url": "https://api.github.com/users/konard/events{/privacy}", "received_events_url": "https://api.github.com/users/konard/received_events", "type": "User", "user_view_type": "public", "site_admin": false },
+    "created_at": "2026-09-20T02:50:12Z",
+    "updated_at": "2026-09-20T02:50:12Z",
+    "body": "## 🎉 Auto-merged\n\nThis pull request has been automatically merged by hive-mind.\n- All CI checks have passed\n\n---\n*Auto-merged by hive-mind with --auto-merge flag*",
+    "author_association": "MEMBER",
+    "reactions": { "url": "https://api.github.com/repos/link-foundation/gh-upload-log/issues/comments/5747152658/reactions", "total_count": 0, "+1": 0, "-1": 0, "laugh": 0, "hooray": 0, "confused": 0, "heart": 0, "rocket": 0, "eyes": 0 },
+    "performed_via_github_app": null,
+    "minimized": null
+  }
+]

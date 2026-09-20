@@ -1,0 +1,123 @@
+[
+  {
+    "_id": "gh-upload-log@0.9.1",
+    "_rev": "15-1565b7921b333a9d79d28733ce633aa7",
+    "name": "gh-upload-log",
+    "dist-tags": {
+      "latest": "0.9.1"
+    },
+    "versions": ["0.1.0", "0.2.0", "0.3.0", "0.3.1", "0.4.0", "0.4.1", "0.5.0", "0.6.0", "0.6.1", "0.7.0", "0.7.1", "0.8.0", "0.8.1", "0.8.2", "0.9.1"],
+    "time": {
+      "created": "2025-11-16T20:09:19.802Z",
+      "modified": "2026-09-20T02:52:05.015Z",
+      "0.1.0": "2025-11-16T20:09:20.001Z",
+      "0.2.0": "2025-12-25T08:53:51.909Z",
+      "0.3.0": "2025-12-25T11:05:47.930Z",
+      "0.3.1": "2025-12-25T12:13:00.569Z",
+      "0.4.0": "2025-12-25T14:31:03.745Z",
+      "0.4.1": "2025-12-26T19:48:54.011Z",
+      "0.5.0": "2026-01-06T23:52:32.267Z",
+      "0.6.0": "2026-01-27T12:33:50.413Z",
+      "0.6.1": "2026-03-28T21:55:32.449Z",
+      "0.7.0": "2026-03-28T22:21:48.457Z",
+      "0.7.1": "2026-04-24T11:08:48.614Z",
+      "0.8.0": "2026-04-25T08:36:19.742Z",
+      "0.8.1": "2026-06-12T08:06:44.696Z",
+      "0.8.2": "2026-06-22T09:43:03.203Z",
+      "0.9.1": "2026-09-20T02:52:04.675Z"
+    },
+    "bugs": {
+      "url": "https://github.com/link-foundation/gh-upload-log/issues"
+    },
+    "author": "Link Foundation",
+    "license": "Unlicense",
+    "homepage": "https://github.com/link-foundation/gh-upload-log#readme",
+    "keywords": ["github", "gist", "log", "upload", "cli"],
+    "repository": {
+      "url": "git+https://github.com/link-foundation/gh-upload-log.git",
+      "type": "git"
+    },
+    "description": "A tool to upload log files to GitHub as Gists or repositories",
+    "maintainers": ["konard <drakonard@gmail.com>"],
+    "readmeFilename": "README.md",
+    "_contentLength": 61547,
+    "bin": {
+      "gh-upload-log": "src/cli.js"
+    },
+    "dist": {
+      "shasum": "420266b276e981d5a8aa2bfc68a185ef453ef0bc",
+      "tarball": "https://registry.npmjs.org/gh-upload-log/-/gh-upload-log-0.9.1.tgz",
+      "fileCount": 118,
+      "integrity": "sha512-Z+aCyjH6h9GWdu/XzHXCVR3ZeSBvHNjuMAmkVh+Zvtnu0CWkuNG2RtTQM0LvvHuwRtQlXdWGopbb/kMVd7Pltw==",
+      "signatures": [
+        {
+          "sig": "MEQCIH6lhLWO2mpiqIwxjetiQxi5vZurYOv9XhhbGNtZQ07SAiBALRqZC7LOos1mvoboeV5yyPSq5xVdY7m7ou61qd+GfQ==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+          "sig": "MEUCICJydDtH/AQD7MQA2t4rAvGQpguw+IvC0zV6GZ5QjJEQAiEA/5sj5+9nN0gg2bNDdQveYEh6+VqjRL3sqEspqjJ4NFY="
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/gh-upload-log@0.9.1",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 657453
+    },
+    "main": "src/index.js",
+    "type": "module",
+    "engines": {
+      "bun": ">=1.0.0"
+    },
+    "gitHead": "f33dd06b65f7b9b6276a3f64de92aa8d86cb7502",
+    "scripts": {
+      "lint": "eslint .",
+      "test": "bun test",
+      "check": "bun run lint && bun run format:check && bun run check:file-size",
+      "format": "prettier --write .",
+      "prepare": "husky || true",
+      "lint:fix": "eslint . --fix",
+      "changeset": "changeset",
+      "format:check": "prettier --check .",
+      "check:file-size": "bun scripts/check-file-size.mjs",
+      "changeset:status": "changeset status --since=origin/main",
+      "changeset:publish": "changeset publish",
+      "changeset:version": "bun scripts/changeset-version.mjs"
+    },
+    "version": "0.9.1",
+    "_npmUser": "GitHub Actions <npm-oidc-no-reply@github.com>",
+    "_npmVersion": "11.19.1",
+    "directories": {},
+    "lint-staged": {
+      "*.md": ["prettier --write", "prettier --check"],
+      "*.{js,mjs,cjs}": ["eslint --fix --max-warnings 0", "prettier --write", "prettier --check"]
+    },
+    "_nodeVersion": "24.20.0",
+    "dependencies": {
+      "use-m": "^8.13.7",
+      "yargs": "^17.7.2",
+      "log-lazy": "^1.0.4",
+      "command-stream": "^0.7.1",
+      "lino-arguments": "^0.3.0"
+    },
+    "_hasShrinkwrap": false,
+    "devDependencies": {
+      "husky": "^9.1.7",
+      "eslint": "^9.38.0",
+      "prettier": "^3.6.2",
+      "lint-staged": "^16.2.6",
+      "test-anywhere": "^0.8.48",
+      "@changesets/cli": "^2.29.7",
+      "eslint-config-prettier": "^10.1.8",
+      "eslint-plugin-prettier": "^5.5.4",
+      "@changesets/changelog-github": "^0.5.1"
+    },
+    "_npmOperationalInternal": {
+      "host": "s3://npm-registry-packages-npm-production",
+      "tmp": "tmp/gh-upload-log_0.9.1_1789872724550_0.20039150460367483"
+    }
+  }
+]

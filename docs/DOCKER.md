@@ -188,9 +188,10 @@ only through the Formal AI persisted-memory upgrade contract
 `memory upgrade-status` preflight, `memory migrate` with a byte-exact backup and
 a receipt, then a boot of the new image whose `/health` must report the memory
 as compatible. Any failure after the migration restores the backup named in the
-receipt and keeps the previous image. Installed agentic CLIs (`claude`, `codex`,
-`agent`, `gemini`, `qwen`, `copilot`, `opencode`) are refreshed on the same idle
-condition. The environment variables for both are documented in
+receipt and keeps the previous image. Installed agentic CLIs and operational
+utilities (`claude-profiles`, `gh-setup-git-identity`, `gh-pull-all`,
+`gh-load-issue`, `gh-load-pull-request`, `gh-upload-log`) are refreshed on the
+same idle condition. The environment variables for both are documented in
 [Configuration](CONFIGURATION.md#41-docker-isolation-settings).
 
 #### Host-image passthrough (avoid re-downloading multi-GB images)

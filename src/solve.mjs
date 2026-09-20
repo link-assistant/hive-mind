@@ -161,6 +161,11 @@ if (!issueUrl) {
   const { resolveRepositoryModeTarget } = await import('./solve.repository-mode.run.lib.mjs');
   const repositoryMode = await resolveRepositoryModeTarget({ url: issueUrl, log });
   if (repositoryMode.handled) {
+    // Issue #2266: an empty repository is a normal, successful terminal state.
+    // Exit 0 so callers do not turn "nothing to do" into a task failure.
+    if (repositoryMode.noWork) {
+      await safeExit(0, repositoryMode.message || 'Repository has no open issues. Nothing to do.');
+    }
     if (repositoryMode.error) {
       await log(`Error: ${repositoryMode.error}`, { level: 'error' });
       await safeExit(1, 'Repository mode failed');

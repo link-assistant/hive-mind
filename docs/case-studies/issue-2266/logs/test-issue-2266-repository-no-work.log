@@ -1,0 +1,17 @@
+✔ Telegram preflight classifies an empty repository as no-work (2.713956ms)
+✔ pull requests returned by the Issues API do not count as repository work (0.796193ms)
+✔ an open issue keeps the normal repository solve path active (1.084631ms)
+✔ issue and pull request targets do not perform a repository query (1.462094ms)
+✔ Telegram sends the localized no-work response as a reply to the command (0.822913ms)
+✔ Telegram preflight failures fall through to the normal solve path (0.567647ms)
+✔ Telegram answers no-work before reserving queue capacity or starting a session (15.373637ms)
+✔ the CLI converts the race-safe no-work result into exit code 0 (2.170123ms)
+✔ the direct Telegram no-work message is available in every supported locale (178.940918ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1853.760984

@@ -275,11 +275,14 @@ test('resolve leaves issue and pull request URLs untouched', async () => {
   assert.equal(calls.length, 0);
 });
 
-test('resolve reports a repository with no open issues instead of creating an empty issue', async () => {
+test('issue #2266: resolve treats a repository with no open issues as successful no-work', async () => {
   const { run, calls } = makeFakeRun([issueEntry(1, { pullRequest: true })]);
   const result = await resolveRepositoryModeTarget({ url: 'https://github.com/o/r', run, attachOptions: NO_THROTTLE });
   assert.equal(result.handled, true);
-  assert.match(result.error, /no open issues/);
+  assert.equal(result.error, undefined);
+  assert.equal(result.noWork, true);
+  assert.match(result.message, /no open issues/i);
+  assert.match(result.message, /nothing to do/i);
   assert.equal(calls.filter(call => call[1] === 'issue').length, 0);
 });
 

@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.31.0
+
+### Minor Changes
+
+- 2399d94: Enforce repository-wide dependency freshness in CI, add coordinated Dependabot updates, and refresh safe operational CLIs while long-lived containers are idle.
+
 ## 2.30.0
 
 ### Minor Changes

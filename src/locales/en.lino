@@ -665,6 +665,10 @@ en
           be
             github
               url "First argument must be a GitHub URL"
+    repository
+      no
+        open
+          issues "ℹ️ *Nothing to do*\n\n`{{repository}}` has no open issues. No work session was started."
     work
       session
         starting "🔄 Starting..."

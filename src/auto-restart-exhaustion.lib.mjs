@@ -24,6 +24,7 @@
 
 import { commitUncommittedChangesOnCriticalError } from './critical-error-commit.lib.mjs';
 import { formatAutoRestartLabel, formatAutoRestartLimit, getAutoRestartIterationsUsed } from './auto-restart-budget.lib.mjs';
+import { ensurePullRequestStaysDraftAfterFailure } from './pr-draft-state.lib.mjs';
 import { AUTO_RESTART_MARKER, postTrackedComment } from './tool-comments.lib.mjs';
 import { reportError } from './sentry.lib.mjs';
 
@@ -79,9 +80,16 @@ export const failOnAutoRestartBudgetExhausted = async ({ owner, repo, prNumber, 
   await log(formatAligned('', 'Remaining blocker:', blocker, 2), { level: 'error' });
   await log('');
 
+  // Issue #2263: exhaustion is terminal failure, not successful completion.
+  // Restore draft before preservation/reporting and make it a monotonic veto.
+  if (prNumber) {
+    await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $, log, formatAligned, reason: `auto-restart limit ${label} reached` });
+  }
+
   // Fail recovery: the work that kept triggering restarts lives in a temporary
   // clone that is about to be discarded. Commit and push it so the result is
-  // visible in the PR instead of vanishing with the clone.
+  // visible in the PR instead of vanishing with the clone. The failure veto
+  // above ensures this evidence commit cannot be mistaken for success (#2263).
   const preserved = await commitUncommittedChangesOnCriticalError({
     tempDir,
     branchName,

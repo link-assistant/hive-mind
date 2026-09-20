@@ -929,7 +929,7 @@ try {
   }
   // Skip failure exit if limit reached with auto-resume (continues to showSessionSummary/autoContinueWhenLimitResets)
   const shouldSkipFailureExitForAutoLimitContinue = limitReached && argv.autoResumeOnLimitReset;
-  if (!success && !shouldSkipFailureExitForAutoLimitContinue) {
+  if ((!success || errorDuringExecution) && !shouldSkipFailureExitForAutoLimitContinue) {
     // Issue #942: show all three resume options on failure for richer guidance.   1. Interactive claude  - opens Claude Code interactively (claude only)   2. Autonomous claude   - one-shot claude --resume w/ --dangerously-skip-permissions -p (claude only)   3. Solve resume        - re-enters solve.mjs with --resume, preserving tool/model/dir
     const toolForFailure = argv.tool || 'claude';
     // Issue #1845: surface the core error instead of just "<TOOL> execution failed" (terminal + comment).
@@ -943,6 +943,11 @@ try {
     // the rendered message is re-classified here, so the whole failure surface is
     // covered by one chokepoint.
     const subscriptionInfo = toolResult?.subscriptionError || detectSubscriptionError({ message: extractToolErrorCore({ toolResult }) || toolFailureMessage, tool: toolForFailure });
+    // Issue #2263: record failure before recovery so later safety nets cannot mark the PR ready.
+    if (prNumber) {
+      const { ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
+      await ensurePullRequestStaysDraftAfterFailure({ owner, repo, prNumber, $, log, formatAligned, reason: toolFailureMessage, reportError });
+    }
     if (sessionId) {
       await log('');
       await log('💡 To continue this session:');

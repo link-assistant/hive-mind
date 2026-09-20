@@ -53,7 +53,7 @@ const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-
 // still a draft". Restore "ready for review" once and retry instead of failing
 // (or, in the watch loop, retrying forever).
 const { classifyMergeError, MERGE_ERROR_CATEGORIES } = await import('./merge-error-classification.lib.mjs');
-const { ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsReady, getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 const { reportError } = await import('./sentry.lib.mjs');
 
 /**
@@ -110,6 +110,15 @@ export const attemptAutoMerge = async params => {
 
   await log('');
   await log(formatAligned('🔀', 'AUTO-MERGE:', 'Checking if PR can be merged...'));
+
+  // Issue #2263: never turn a deliberate failure draft back into a successful
+  // merge. This check precedes CI/mergeability probes and the #2182 draft
+  // self-healing path, so a later failure always wins over earlier readiness.
+  const readinessVeto = getPullRequestLeftInDraft({ owner, repo, prNumber });
+  if (readinessVeto?.kind === 'failure') {
+    await log(formatAligned('❌', 'AUTO-MERGE STOPPED:', readinessVeto.reason || 'The solution session failed or verification did not succeed', 2), { level: 'error' });
+    return { success: false, reason: 'solution_session_failed', error: readinessVeto.reason };
+  }
 
   const terminalState = await checkGitHubTerminalState({
     owner,

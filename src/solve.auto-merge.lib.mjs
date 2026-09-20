@@ -100,6 +100,10 @@ const { handleBillingLimitBlocker } = await import('./billing-limit-stop.lib.mjs
 const { stopWhenSessionRepeated } = await import('./session-progress.lib.mjs');
 // Issue #2119: an empty pull request must not be reported as ready to merge.
 const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import('./pull-request-changes.lib.mjs');
+// Issue #2263: a terminal session failure is a run-wide readiness veto. The
+// monitoring loop must not heal that deliberate draft or publish a later
+// "Ready to merge" comment merely because CI is absent/green.
+const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
@@ -168,6 +172,13 @@ export const watchUntilMergeable = async params => {
     await log(formatAligned('', 'Streaming-first:', '--auto-input-until-mergeable was active; this loop is the fallback', 2));
   }
   await log('');
+
+  const readinessVeto = getPullRequestLeftInDraft({ owner, repo, prNumber });
+  if (readinessVeto?.kind === 'failure') {
+    await log(formatAligned('❌', 'MONITORING STOPPED:', `The solution session failed: ${readinessVeto.reason || 'verification did not succeed'}`, 2), { level: 'error' });
+    return { success: false, reason: 'solution_session_failed', latestSessionId, latestAnthropicCost };
+  }
+
   await log('Press Ctrl+C to stop watching manually');
   await log('');
   // Issue #1567: Wait for initial cooldown before first check.

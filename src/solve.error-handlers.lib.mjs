@@ -22,6 +22,18 @@ export const handleFailure = async options => {
   const { error, errorType, shouldAttachLogs, argv, global, owner, repo, log, getLogFile, attachLogToGitHub, cleanErrorMessage, sanitizeLogContent, cleanupContext, $ } = options;
   const disableIssueCreation = isErrorIssueAutoCreationDisabled(argv);
 
+  // Issue #2263: exceptions and unhandled rejections are terminal solution
+  // failures too. A prior ready conversion must not survive them.
+  const failurePrNumber = global.createdPR?.number;
+  if (failurePrNumber && typeof $ === 'function') {
+    try {
+      const { ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
+      await ensurePullRequestStaysDraftAfterFailure({ owner: global.owner || owner, repo: global.repo || repo, prNumber: failurePrNumber, $, log, reason: `${errorType || 'execution'} error` });
+    } catch (draftError) {
+      await log(`  ⚠️  Could not restore draft state after failure: ${draftError.message}`, { verbose: true });
+    }
+  }
+
   // Issue #1845 / #1834: "On all failures we automatically commit uncommitted changes by default."
   // Exceptions, unhandled rejections and main-execution errors exit here WITHOUT passing through the
   // tool-failure auto-commit chokepoint in solve.mjs, so preserve (commit + push) any work the agent

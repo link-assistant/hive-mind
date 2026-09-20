@@ -39,7 +39,7 @@ const { ensureAiToolScratchIgnored, filterAiToolScratchFromStatus } = await impo
 const { RESOURCE_PHASE_RESTART_AFTER, RESOURCE_PHASE_RESTART_BEFORE, recordResourceSnapshot } = await import('./solve.resource-diagnostics.lib.mjs');
 const { classifyFormalAiToolResult } = await import('./formal-ai.lib.mjs');
 // Issue #2123: shared draft/ready transitions for working sessions.
-const { ensurePullRequestIsDraft, ensurePullRequestIsReady } = await import('./pr-draft-state.lib.mjs');
+const { ensurePullRequestIsDraft, ensurePullRequestIsReady, ensurePullRequestStaysDraftAfterFailure } = await import('./pr-draft-state.lib.mjs');
 // Issue #2247 (H3): fingerprint each restart session so an identical repeat can be detected.
 const { captureSessionOutcome } = await import('./session-progress.lib.mjs');
 
@@ -221,11 +221,12 @@ export const executeToolIteration = async params => {
   const { cascadePlaywrightMcpDisable } = await import('./playwright-mcp.lib.mjs');
   await cascadePlaywrightMcpDisable(argv, log);
 
-  // Issue #2182: the ready conversion below lives in `finally` on purpose. When the AI
-  // tool throws (crash, API error, aborted process) the iteration is still over, and a
-  // pull request left in draft can never be merged by --auto-merge.
+  // Issue #2182: the terminal state transition below lives in `finally` so an
+  // iteration can never leak an outstanding draft obligation. Issue #2263:
+  // failure is not completion — it must turn that obligation into a deliberate
+  // failure draft rather than converting corrupted/unverified work to ready.
+  let toolResult = null;
   try {
-    let toolResult;
     if (argv.useAgentCommander) {
       const agentCommanderLib = await import('./agent-commander.lib.mjs');
       await agentCommanderLib.resolvePlaywrightMcpForAgentCommander({ argv, log, tool: argv.tool || 'claude' });
@@ -544,23 +545,31 @@ export const executeToolIteration = async params => {
 
     return toolResult;
   } finally {
-    // Issue #2182: the iteration drafted the pull request above, so it must also
-    // undo that when the AI session finishes — exactly like endWorkSession() does
-    // for the primary session. Without this the pull request stayed a draft after
-    // the last restart iteration and --auto-merge retried `gh pr merge` every
-    // 120 seconds for 4d 12h ("Pull Request is still a draft"), because a draft
-    // PR still reports mergeable=MERGEABLE / mergeStateStatus=CLEAN.
     if (prNumber) {
-      await ensurePullRequestIsReady({
-        owner,
-        repo,
-        prNumber,
-        $,
-        log,
-        formatAligned,
-        reason: 'restart iteration finished',
-        reportError,
-      });
+      if (toolResult?.success === true && toolResult?.errorDuringExecution !== true) {
+        await ensurePullRequestIsReady({
+          owner,
+          repo,
+          prNumber,
+          $,
+          log,
+          formatAligned,
+          reason: 'restart iteration finished successfully',
+          requireChanges: true,
+          reportError,
+        });
+      } else {
+        await ensurePullRequestStaysDraftAfterFailure({
+          owner,
+          repo,
+          prNumber,
+          $,
+          log,
+          formatAligned,
+          reason: toolResult?.errorInfo?.message || 'restart iteration failed or verification did not succeed',
+          reportError,
+        });
+      }
     }
   }
 };

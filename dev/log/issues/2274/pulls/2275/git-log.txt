@@ -1,0 +1,287 @@
+commit 02146eec377c320d468d697dc32e7e77aa959da6 (HEAD -> issue-2274-beb53fa7caf4, origin/issue-2274-beb53fa7caf4)
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T17:39:02+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T17:39:02+00:00
+
+    Initial commit with task details
+
+    Adding .gitkeep for PR creation (default mode).
+    This file will be removed when the task is complete.
+
+    Issue: https://github.com/link-assistant/hive-mind/issues/2274
+
+commit 95f2d69470a20c915aad5bd051f1c3e86a053bc5 (origin/main, origin/HEAD, main)
+Merge: 8d75789c 80de1141
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-20T22:33:56+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-20T22:33:56+07:00
+
+    Merge pull request #2270 from link-assistant/issue-2267-20a15e625307
+
+    fix: avoid stale inactive-subscription alerts
+
+commit 80de1141ee359e64ed4cba87cc374bc102864b48 (origin/issue-2267-20a15e625307)
+Merge: 3aced708 8d75789c
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T07:10:45+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T07:10:45+00:00
+
+    Merge remote-tracking branch 'origin/main' into issue-2267-20a15e625307
+
+commit 8d75789c7713fff6064c4a9df7d6b8ef2395ae13
+Merge: 6944a4bb bf1a7fb7
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-20T14:06:42+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-20T14:06:42+07:00
+
+    Merge pull request #2269 from link-assistant/issue-2266-f1c36241f365
+
+    fix(solve): report empty repositories as no-work
+
+commit bf1a7fb79cddbf53d8b4865dd04bd52bed566dd8 (origin/issue-2266-f1c36241f365)
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:52:36+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:52:36+00:00
+
+    docs: archive issue 2266 investigation
+
+commit 0bf063e3be7b9eca23baadf04ffaf78be56fbcac
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:51:45+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:51:45+00:00
+
+    fix(solve): report empty repositories as no-work
+
+commit 3aced7084a12ecc8c206dc0e98ce7e64ef4929d6
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:39:14+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:39:14+00:00
+
+    test: account for npm 12 blocked link scripts
+
+commit 6aab57c032c40a3679a809e91bf96db4d687860d
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:23:56+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:23:56+00:00
+
+    fix: neutralize inactive access wording in all locales
+
+commit 8510da4feb7ce09f002c28d21f5e94a63ff89f0f
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:21:55+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:21:55+00:00
+
+    chore: remove pull request placeholder
+
+commit 19bf99fdf2e840cff7ba71a98a57122c15fc775e
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:21:50+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:21:50+00:00
+
+    chore: add inactive subscription fix changeset
+
+commit 1e6b52799ee583bf3526d0e853e5cda4e93163d6
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:17:18+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:17:18+00:00
+
+    fix: keep Telegram completion overflow in topic
+
+commit a1eb6b8bd5167c395082c02a345762735cf99c2f
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:14:20+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:14:20+00:00
+
+    fix: avoid stale cross-tool subscription alerts
+
+commit a1fff8d23964f60804eef3b75132d3baa8cadbad
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T06:01:47+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T06:01:47+00:00
+
+    Initial commit with task details
+
+    Adding .gitkeep for PR creation (default mode).
+    This file will be removed when the task is complete.
+
+    Issue: https://github.com/link-assistant/hive-mind/issues/2267
+
+commit 16f2ec66882c480456a2b4d6186440393d330a14
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T05:56:03+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T05:56:03+00:00
+
+    Initial commit with task details
+
+    Adding .gitkeep for PR creation (default mode).
+    This file will be removed when the task is complete.
+
+    Issue: https://github.com/link-assistant/hive-mind/issues/2266
+
+commit 6944a4bbfee789d21d916415bf8deb20ab12f658
+Merge: 158f82ac 88550346
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-20T12:45:46+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-20T12:45:46+07:00
+
+    Merge pull request #2265 from link-assistant/issue-2264-0a04b3d4fcdc
+
+    Enforce dependency freshness across CI and running containers
+
+commit 88550346859ac2929613d3b7e38a1e44f3e5ecb8 (origin/issue-2264-0a04b3d4fcdc)
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T04:29:37+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T04:29:37+00:00
+
+    docs: record merge enforcement verification
+
+commit f88e432a57aa5d83b92ac8413fb92324f72cf065
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T04:02:55+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T04:02:55+00:00
+
+    fix: align Dependabot cadence with freshness gate
+
+commit 6fb797a948c62eb2ecebc0749a642ceb32db699a
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T03:58:53+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T03:58:53+00:00
+
+    fix: detect versions of broken operational CLIs
+
+commit 2e35597259e054ce110ea6e9534eaf71d2a0cd29
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T03:27:44+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T03:27:44+00:00
+
+    Revert "Initial commit with task details"
+
+    This reverts commit 53d4ce42675b3aeb47e87fa57564d728af3a3d10.
+
+commit fb946d473b25ef382876b466919a53bb4aca8d49
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T03:23:34+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T03:23:34+00:00
+
+    docs: record dependency freshness investigation
+
+commit 2399d9483a3085c81082eb6c428eee7baeea3b24
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T03:23:12+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T03:23:12+00:00
+
+    feat: enforce dependency freshness
+
+commit 53d4ce42675b3aeb47e87fa57564d728af3a3d10
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-20T02:37:48+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-20T02:37:48+00:00
+
+    Initial commit with task details
+
+    Adding .gitkeep for PR creation (default mode).
+    This file will be removed when the task is complete.
+
+    Issue: https://github.com/link-assistant/hive-mind/issues/2264
+
+commit 158f82aca6d6ada95004328df59464a0f591e53d
+Merge: 50820484 915ebdf5
+Author:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+AuthorDate: 2026-09-15T21:29:11+00:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-15T21:29:11+00:00
+
+    Merge pull request #2262 from link-assistant/release/v2.30.0-35024921159
+
+    2.30.0
+
+commit 915ebdf586fe3a09023e46c89b4e5d7992d586a2 (origin/release/v2.30.0-35024921159)
+Author:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+AuthorDate: 2026-09-15T21:28:59+00:00
+Commit:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+CommitDate: 2026-09-15T21:28:59+00:00
+
+    2.30.0
+
+commit 508204846b45e3e6d56dad236c739eea597cebda
+Merge: 4f776822 676ff4fe
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-16T04:19:11+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-16T04:19:11+07:00
+
+    Merge pull request #2257 from link-assistant/issue-2256-23701b48075f
+
+    feat(telegram): add safe open-issue organization workflow
+
+commit 4f776822b8c6cc13777f4bc88d76212d905a7b7f
+Merge: d4dcfd10 50939f22
+Author:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+AuthorDate: 2026-09-15T19:40:16+00:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-15T19:40:16+00:00
+
+    Merge pull request #2261 from link-assistant/release/v2.29.3-35013947631
+
+    2.29.3
+
+commit 50939f22b7c6d4fb959b10ba218ab1bffac230cc (origin/release/v2.29.3-35013947631)
+Author:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+AuthorDate: 2026-09-15T19:40:03+00:00
+Commit:     github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+CommitDate: 2026-09-15T19:40:03+00:00
+
+    2.29.3
+
+commit d4dcfd10cc72d4b29ff3971604b6c55c94a0bb00
+Merge: 11292d34 326fff6a
+Author:     Konstantin Diachenko <drakonard@gmail.com>
+AuthorDate: 2026-09-16T02:29:33+07:00
+Commit:     GitHub <noreply@github.com>
+CommitDate: 2026-09-16T02:29:33+07:00
+
+    Merge pull request #2260 from link-assistant/issue-2259-3703d460ba05
+
+    fix(codex): probe MCP servers in the task environment
+
+commit 326fff6adc07d5a29523362964e1222f7e7345b1 (origin/issue-2259-3703d460ba05)
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-15T18:57:49+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-15T18:57:49+00:00
+
+    Revert "Initial commit with task details"
+
+    This reverts commit 9de06905039d631ccbbff3920a0ab1aa2a415a43.
+
+commit 5a1103dfad6107789406854cb2c4ee481b0470e3
+Author:     konard <drakonard@gmail.com>
+AuthorDate: 2026-09-15T18:45:52+00:00
+Commit:     konard <drakonard@gmail.com>
+CommitDate: 2026-09-15T18:45:52+00:00
+
+    fix(codex): probe MCP servers in the execution environment
+
+    Issue #2259. Pass the already-resolved Codex environment to the Playwright MCP disable probe and run codex mcp list under that environment. Formal AI's MCP-free task home therefore produces no orphan disable-only table, while ordinary configured servers still receive session-scoped overrides. Preserve the legacy log-only helper call shape.

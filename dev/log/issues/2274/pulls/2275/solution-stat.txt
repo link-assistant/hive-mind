@@ -1,0 +1,11 @@
+ .changeset/quiet-checks-release.md          |  5 ++
+ .github/workflows/release-preflight.yml     |  3 +-
+ .github/workflows/release.yml               |  7 +--
+ docs/CI-CD-BEST-PRACTICES.hi.md             |  1 +
+ docs/CI-CD-BEST-PRACTICES.md                |  1 +
+ docs/CI-CD-BEST-PRACTICES.ru.md             |  1 +
+ docs/CI-CD-BEST-PRACTICES.zh.md             |  1 +
+ scripts/release-pull-request.lib.mjs        | 38 +++++++++++-
+ tests/release-pull-request-2175.test.mjs    |  9 +++
+ tests/release-required-checks-2274.test.mjs | 93 +++++++++++++++++++++++++++++
+ 10 files changed, 153 insertions(+), 6 deletions(-)

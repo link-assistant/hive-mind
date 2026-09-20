@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { AGENTIC_CLI_TARGETS, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
+import { AGENTIC_CLI_TARGETS, parseBunGlobalPackageVersion, updateAgenticClisWhenIdle } from '../src/agentic-cli-updater.lib.mjs';
 import { assessVersionPin, checkDependencyRecords, collectDependencyRecords, parseGitHubActionPins, parseNpmPackagePins, resolveGitHubLatest } from '../scripts/dependency-freshness.lib.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '..');
@@ -166,6 +166,32 @@ for (const packageName of ['@link-assistant/claude-profiles', 'gh-setup-git-iden
   const result = await updateAgenticClisWhenIdle({ env, run, force: true, getActiveTasksImpl: async () => [] });
   assert.deepEqual(result.updated, [{ id: 'gh-upload-log', from: '0.1.0', to: '0.9.1' }]);
   assert.equal(commands.includes('bun install -g gh-upload-log@latest'), true);
+  fs.rmSync(stateDir, { recursive: true, force: true });
+}
+
+assert.equal(parseBunGlobalPackageVersion('/home/box/.bun/install/global node_modules\n├── @link-assistant/claude-profiles@1.2.3\n└── gh-load-issue@0.3.2\n', 'gh-load-issue'), '0.3.2', 'Bun global metadata identifies an operational CLI even when its executable is broken');
+
+{
+  const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hive-broken-cli-refresh-'));
+  const env = { HIVE_MIND_STATE_DIR: stateDir, HIVE_MIND_AGENTIC_CLI_UPDATE_ONLY: 'gh-load-issue' };
+  let installed = '0.3.2';
+  const commands = [];
+  const run = async (command, args) => {
+    commands.push([command, ...args].join(' '));
+    if (command === 'gh-load-issue') throw new Error('/bin/sh: import: not found');
+    if (command === 'bun' && args.join(' ') === 'pm ls -g') return { stdout: `└── gh-load-issue@${installed}\n` };
+    if (command === 'npm') return { stdout: '0.3.3\n' };
+    if (command === 'bun' && args[0] === 'install') {
+      installed = '0.3.3';
+      return { stdout: 'installed' };
+    }
+    throw new Error(`unexpected command: ${command} ${args.join(' ')}`);
+  };
+
+  const result = await updateAgenticClisWhenIdle({ env, run, force: true, getActiveTasksImpl: async () => [] });
+  assert.deepEqual(result.updated, [{ id: 'gh-load-issue', from: '0.3.2', to: '0.3.3' }]);
+  assert.equal(commands.includes('bun pm ls -g'), true, 'a failed --version probe falls back to Bun package metadata');
+  assert.equal(commands.includes('bun install -g gh-load-issue@latest'), true);
   fs.rmSync(stateDir, { recursive: true, force: true });
 }
 

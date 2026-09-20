@@ -1,0 +1,16 @@
+{
+  "number": 18,
+  "title": "npm 0.3.2 executable cannot start because polyglot shell line runs `//`",
+  "state": "OPEN",
+  "url": "https://github.com/link-foundation/gh-load-issue/issues/18",
+  "author": "konard",
+  "createdAt": "2026-09-20T03:35:49Z",
+  "updatedAt": "2026-09-20T03:35:49Z",
+  "closedAt": null,
+  "comments": [],
+  "publishedVersion": "0.3.2",
+  "publishedAt": "2025-12-26T22:20:50.711Z",
+  "publishedGitHead": "560e2ff4222e6c2ecd64c69d3b206447d84e3154",
+  "mainShebangFixCommit": "dabcb4568458b5bb9f45d42be72db31d1ea7e43e",
+  "mainShebangFixCommittedAt": "2025-12-27T09:49:34Z"
+}

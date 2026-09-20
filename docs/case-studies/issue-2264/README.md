@@ -37,18 +37,23 @@ The upstream publication problem was fixed concurrently by
 and npm published 0.9.1 on 2026-09-20. A second false-success defect discovered
 in that successful release was reported as
 [gh-upload-log issue #43](https://github.com/link-foundation/gh-upload-log/issues/43).
+A real executable probe also found that npm's current `gh-load-issue` artifact
+cannot start; the source fix is on its main branch but remains unpublished. That
+was reported as
+[gh-load-issue issue #18](https://github.com/link-foundation/gh-load-issue/issues/18),
+and prompted a package-manager metadata fallback in the idle updater.
 
 ## Requirements and disposition
 
-| ID  | Requirement reconstructed from #2264                                                                        | Disposition                                                                                                                                                                                                                                                                                               |
-| --- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | Prevent a PR from merging while a newer dependency/tool version is available.                               | `scripts/check-dependency-freshness.mjs` checks every supported declaration before `detect-changes`; the terminal workflow status observes that job and the active main ruleset requires the terminal status. Resolution errors fail closed.                                                              |
-| R2  | Dynamically update dependencies in already-running Hive Mind containers where safe.                         | The idle updater now covers six operational utilities in addition to the agentic CLIs. It keeps the existing active-task guard, lock, interval, allow-list, deny-list, and per-target failure isolation.                                                                                                  |
-| R3  | Bring all dependency surfaces current, with special attention to Link Foundation/Link Assistant components. | npm, runtime `use-m`, Docker, Formal AI, Helm, workflow-action, loader, and internal CLI pins were audited and updated. The final inventory is 148/148 current.                                                                                                                                           |
-| R4  | Reduce local workarounds and report reusable defects to upstream projects.                                  | The `gh-upload-log` release failure was diagnosed from archived logs and reported in #42; it was closed as a duplicate after PR #41 shipped the same fix. The remaining release-note false success was reported in #43 with reproduction, workaround direction, root cause, and regression-test proposal. |
-| R5  | Preserve all related logs and data in `docs/case-studies/issue-2264`.                                       | Issue/PR API payloads, registry metadata, workflow metadata, compressed full logs, dependency scans, reports, and ruleset snapshots are stored in `data/` and indexed below.                                                                                                                              |
-| R6  | Reconstruct the timeline, root causes, alternatives, and evidence using online research.                    | This document records the reconstruction, maps each conclusion to evidence, and cites the primary GitHub/npm documentation used for the design.                                                                                                                                                           |
-| R7  | Apply the requirement to the whole codebase rather than the reported utility alone.                         | The scanner covers package manifests, all workflow YAML, all production Dockerfiles, runtime pins, bootstrap URLs, base images, embedded tool versions, and setup inputs. Dependabot covers every supported manifest ecosystem and runtime updating covers every safe globally installed utility.         |
+| ID  | Requirement reconstructed from #2264                                                                        | Disposition                                                                                                                                                                                                                                                                                       |
+| --- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Prevent a PR from merging while a newer dependency/tool version is available.                               | `scripts/check-dependency-freshness.mjs` checks every supported declaration before `detect-changes`; the terminal workflow status observes that job and the active main ruleset requires the terminal status. Resolution errors fail closed.                                                      |
+| R2  | Dynamically update dependencies in already-running Hive Mind containers where safe.                         | The idle updater now covers six operational utilities in addition to the agentic CLIs. It keeps the existing active-task guard, lock, interval, allow-list, deny-list, and per-target failure isolation.                                                                                          |
+| R3  | Bring all dependency surfaces current, with special attention to Link Foundation/Link Assistant components. | npm, runtime `use-m`, Docker, Formal AI, Helm, workflow-action, loader, and internal CLI pins were audited and updated. The final inventory is 148/148 current.                                                                                                                                   |
+| R4  | Reduce local workarounds and report reusable defects to upstream projects.                                  | The `gh-upload-log` release failure was diagnosed from archived logs and reported in #42; it was closed as a duplicate after PR #41 shipped the same fix. The release-note false success was reported in #43. The unpublished `gh-load-issue` entry-point fix was reported in gh-load-issue#18.   |
+| R5  | Preserve all related logs and data in `docs/case-studies/issue-2264`.                                       | Issue/PR API payloads, registry metadata, workflow metadata, compressed full logs, dependency scans, reports, and ruleset snapshots are stored in `data/` and indexed below.                                                                                                                      |
+| R6  | Reconstruct the timeline, root causes, alternatives, and evidence using online research.                    | This document records the reconstruction, maps each conclusion to evidence, and cites the primary GitHub/npm documentation used for the design.                                                                                                                                                   |
+| R7  | Apply the requirement to the whole codebase rather than the reported utility alone.                         | The scanner covers package manifests, all workflow YAML, all production Dockerfiles, runtime pins, bootstrap URLs, base images, embedded tool versions, and setup inputs. Dependabot covers every supported manifest ecosystem and runtime updating covers every safe globally installed utility. |
 
 ## Timeline
 
@@ -67,6 +72,8 @@ All times are UTC.
 | 2026-09-20 02:57       | Upstream issue #42 is filed from this investigation with the archived 0.9.0 failure and exit-status reproduction.                                                                                     |
 | 2026-09-20 03:08       | #42 is closed as resolved/duplicate of the concurrently merged PR #41.                                                                                                                                |
 | 2026-09-20 03:13       | Review of the successful 0.9.1 log finds the formatter print an error followed by success; upstream issue #43 is filed.                                                                               |
+| 2026-09-20 03:35       | A real operational-CLI probe finds the published `gh-load-issue@0.3.2` entry point cannot start; upstream issue #18 is filed.                                                                         |
+| 2026-09-20             | The `command-stream` 0.24.1 update activates its quote-context-aware interpolation fix; the issue #2119 regression is updated to prove both quoted and bare forms preserve exact arguments.           |
 | 2026-09-20             | Hive Mind's 148-declaration inventory is brought current, the CI/Dependabot/runtime layers are implemented, and regression coverage is added.                                                         |
 
 ## What was stale
@@ -94,6 +101,14 @@ maintainers advance the ref in place; `rust:1.98-slim-bookworm` is checked at
 minor precision because Docker resolves its patch; exact declarations are
 checked exactly. Node deliberately stays on the selected supported 24 LTS line
 rather than interpreting a newer nonselected major as a patch update.
+
+The `command-stream` update also removed a local behavioral limitation. Version
+0.18.0 required Hive Mind's issue #2119 workaround because an interpolation
+inside shell quotes leaked literal quote characters. Version 0.20.0 introduced
+quote-context-aware interpolation, and 0.24.1 retains it. The regression now
+executes quoted and bare placeholders with spaces and requires both to preserve
+the exact argument. Source keeps the bare form as a simple repository convention
+that remains compatible with older releases.
 
 ## Root-cause analysis
 
@@ -201,7 +216,10 @@ Each target is compared with npm and reinstalled through Bun only when its
 installed version differs. A target failure is reported without making the
 other targets unsafe. The established `HIVE_MIND_AGENTIC_CLI_*` names remain
 for compatibility; their documentation now states that they control agentic
-and operational target IDs.
+and operational target IDs. Version detection first trusts the executable, then
+falls back to `bun pm ls -g`. The fallback matters for an upstream entry point
+that is installed but temporarily cannot execute: it keeps the package visible
+to freshness maintenance instead of misclassifying it as absent.
 
 ## Alternatives considered
 
@@ -259,6 +277,8 @@ and operational target IDs.
 | `data/gh-upload-log-issue-43*.json`                             | Residual formatter false-success report and comments.                            |
 | `upstream-gh-upload-log-report.md`                              | Reproduction/root-cause report submitted as #42, plus resolution.                |
 | `upstream-gh-upload-log-format-report.md`                       | Reproduction/root-cause report submitted as #43.                                 |
+| `data/gh-load-issue-issue-18.json`                              | Metadata for the published-entry-point defect and source/publish timestamps.     |
+| `upstream-gh-load-issue-report.md`                              | Reproduction/root-cause report submitted as gh-load-issue#18.                    |
 
 The workflow logs exceed 1,500 lines, so they are kept compressed and were
 reviewed in bounded chunks. The JSON metadata preserves job IDs, timestamps,
@@ -270,7 +290,10 @@ The regression test uses a mocked registry to prove stale/current/error
 classification without depending on the network. It also inventories the real
 repository, asserts Dependabot coverage and workflow wiring, and simulates a
 running container moving `gh-upload-log` from the misleading 0.1.0 report to
-the now-published 0.9.1.
+the now-published 0.9.1. A second simulation proves a broken executable remains
+discoverable through Bun's installed-package inventory and can still be
+updated. The issue #2119 test also exercises the corrected `command-stream`
+quote-context behavior discovered during the full dependency-suite run.
 
 The live check requires an authenticated `GITHUB_TOKEN` in CI so 148
 declarations do not consume the small anonymous API quota. Registry/API errors
@@ -282,6 +305,10 @@ after a check and before a merge. Dependabot's daily scan and the next workflow
 run bound that window; rerunning required checks immediately before merge gives
 the strongest available result without introducing a registry webhook service.
 
-Upstream issue #43 remains open. It does not block npm 0.9.1 consumption or the
-relative-path fix, but release notes may remain unformatted until that helper
-checks the child result and uses one pinned runtime/export shape.
+Upstream issues #43 and gh-load-issue#18 remain open. The first does not block
+npm 0.9.1 consumption or the relative-path fix, but release notes may remain
+unformatted until that helper checks the child result and uses one pinned
+runtime/export shape. The second leaves `gh-load-issue@0.3.2` unusable as a
+consumer executable until its already-merged Bun shebang is published. Hive
+Mind's metadata fallback can still detect and refresh that package, but it does
+not pretend to repair the upstream executable.

@@ -278,7 +278,7 @@ RUN bun install -g @openai/codex && \
 # (see docs/case-studies/issue-2189, issue #2189).
 # 0.34.0 persists the terminal state and post-mortem of detached Docker
 # executions, so status queries stop inventing a new finish time on each read.
-# `@link-assistant/agent` is pinned to current 0.26.3. Version 0.26.1 stopped the
+# `@link-assistant/agent` is pinned to current 0.26.5. Version 0.26.1 stopped the
 # unbounded snapshot leak of issue #2186. Up to 0.26.0 `Snapshot.track()` built a
 # standalone git object store per project — keyed on the worktree's root commit,
 # with no `objects/info/alternates` and no garbage collection — so a harness that
@@ -295,7 +295,7 @@ RUN echo "Installing @link-assistant/hive-mind@${HIVE_MIND_VERSION}" && \
       test "$(hive --version)" = "${HIVE_MIND_VERSION}"; \
     fi && \
     bun install -g @link-assistant/claude-profiles && \
-    bun install -g @link-assistant/agent@0.26.3 && \
+    bun install -g @link-assistant/agent@0.26.5 && \
     bun install -g start-command@0.34.0 && \
     bun install -g gh-setup-git-identity && \
     bun install -g gh-pull-all && \

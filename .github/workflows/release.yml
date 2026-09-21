@@ -19,7 +19,7 @@ on:
         required: true
         type: choice
         default: 'instant'
-        options: [instant, changeset-pr, validate-pr]
+        options: [instant, changeset-pr]
       bump_type:
         description: 'Manual release type'
         required: true
@@ -515,7 +515,6 @@ jobs:
       published_version: ${{ steps.publish.outputs.published_version }}
     # Permissions required for npm OIDC trusted publishing
     permissions:
-      actions: write
       contents: write
       pull-requests: write
       id-token: write
@@ -551,10 +550,12 @@ jobs:
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
-        # GH_TOKEN is required for the pull-request fallback used when a
-        # repository ruleset blocks the direct push to main (issue #2175).
+        # An independent actor must create the fallback PR so its pull_request
+        # checks run without approval and can satisfy the main ruleset. GitHub's
+        # built-in token cannot do this (issues #2274 and #2279).
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
+          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -898,7 +899,6 @@ jobs:
       published: ${{ steps.publish.outputs.published }}
       published_version: ${{ steps.publish.outputs.published_version }}
     permissions:
-      actions: write
       contents: write
       pull-requests: write
       id-token: write
@@ -921,10 +921,11 @@ jobs:
         run: node scripts/sanitize-npm-userconfig.mjs
       - name: Version packages and commit to main
         id: version
-        # GH_TOKEN is required for the pull-request fallback used when a
-        # repository ruleset blocks the direct push to main (issue #2175).
+        # This secret holds a dedicated PAT; a future App integration can wire
+        # its short-lived token to GH_TOKEN. Never use built-in GITHUB_TOKEN.
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
+          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).

@@ -28,6 +28,14 @@
  *     force-pushed and never deleted; the name is made unique per run instead.
  *   - `allowed_merge_methods` is `["merge"]`, so the merge must use `--merge`.
  *
+ * A third constraint was exposed by issue #2279: checks created by a
+ * `workflow_dispatch` run are not evaluated as pull-request required checks.
+ * The PR must be created with an independent PAT or custom GitHub App token so
+ * ordinary `pull_request` checks run without approval. The workflow supplies
+ * a dedicated PAT as GH_TOKEN and an explicit non-secret configured flag; a
+ * future App integration can supply its short-lived token the same way. This
+ * module fails before creating an orphan branch when the flag is false.
+ *
  * Uses only Node built-ins so it has no dependency on node_modules state.
  */
 
@@ -35,7 +43,8 @@ import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs
 
 const DEFAULT_MERGE_ATTEMPTS = 10;
 const DEFAULT_MERGE_DELAY_MS = 5000;
-const DEFAULT_VALIDATION_WORKFLOW = 'release.yml';
+const DEFAULT_CHECK_DISCOVERY_ATTEMPTS = 30;
+const DEFAULT_CHECK_DISCOVERY_DELAY_MS = 2000;
 
 /**
  * Default publication sanitizer.
@@ -108,36 +117,45 @@ export async function findOpenPullRequest({ runner, head, base, verbose = false,
 }
 
 /**
- * Explicitly validate an automation-created pull request head.
+ * Wait for checks that GitHub associates with a pull request.
  *
- * GitHub leaves pull_request runs created by GITHUB_TOKEN in action_required.
- * A required status check therefore never appears, no matter how many times
- * the merge is retried. workflow_dispatch is the documented exception: it
- * always starts a run. `validate-pr` keeps that run on the ordinary check path
- * and prevents either manual release job from publishing.
+ * GitHub may need a few seconds after PR creation before `gh pr checks` sees
+ * the first check. Once checks exist, `--watch` blocks until they finish and
+ * `--fail-fast` propagates a real CI failure immediately. Only the specific
+ * initial "no checks reported" response is retried.
  *
  * @param {object} opts
  * @param {(command: string, args: string[], opts?: object) => Promise<{code:number, stdout?:string, stderr?:string}>} opts.runner
- * @param {string} opts.head
- * @param {string} [opts.workflow]
+ * @param {string} opts.url
+ * @param {number} [opts.maxDiscoveryAttempts]
+ * @param {number} [opts.discoveryDelayMs]
+ * @param {(ms:number)=>Promise<void>} [opts.sleeper]
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
- * @returns {Promise<{runId: string, url: string}>}
+ * @returns {Promise<{passed: true, attempt: number}>}
  */
-export async function dispatchPullRequestValidation({ runner, head, workflow = DEFAULT_VALIDATION_WORKFLOW, logger = console, verbose = false }) {
-  const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
-  const dispatched = await strict('gh', ['workflow', 'run', workflow, '--ref', head, '--raw-field', 'release_mode=validate-pr', '--raw-field', 'bump_type=patch']);
-  const output = `${dispatched.stdout || ''}\n${dispatched.stderr || ''}`;
-  const match = output.match(/https:\/\/github\.com\/[^\s]+\/actions\/runs\/(\d+)/);
-  if (!match) {
-    throw new Error(`GitHub did not return the validation run URL after dispatching ${workflow} for ${head}`);
+export async function waitForPullRequestChecks({ runner, url, maxDiscoveryAttempts = DEFAULT_CHECK_DISCOVERY_ATTEMPTS, discoveryDelayMs = DEFAULT_CHECK_DISCOVERY_DELAY_MS, sleeper, logger = console, verbose = false }) {
+  const wait = sleeper ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const args = ['pr', 'checks', url, '--watch', '--fail-fast', '--interval', '10'];
+
+  for (let attempt = 1; attempt <= maxDiscoveryAttempts; attempt++) {
+    const result = await runner('gh', args, { verbose, logger });
+    if (result.code === 0) {
+      logger.log(`Pull request checks succeeded for ${url}.`);
+      return { passed: true, attempt };
+    }
+
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
+    const checksNotVisibleYet = output.includes('no checks reported');
+    if (!checksNotVisibleYet || attempt === maxDiscoveryAttempts) {
+      throw new CommandFailedError('gh', args, result);
+    }
+
+    logger.log(`No pull request checks are visible yet (attempt ${attempt} of ${maxDiscoveryAttempts}); retrying discovery...`);
+    await wait(discoveryDelayMs);
   }
 
-  const [url, runId] = match;
-  logger.log(`Waiting for release pull request validation run ${url}...`);
-  await strict('gh', ['run', 'watch', runId, '--exit-status', '--compact']);
-  logger.log(`Release pull request validation run ${url} succeeded.`);
-  return { runId, url };
+  throw new Error(`Pull request check discovery exhausted unexpectedly for ${url}`);
 }
 
 /**
@@ -169,10 +187,13 @@ export async function mergePullRequestWithRetry({ runner, url, maxAttempts = DEF
     if (last.code === 0) {
       return { merged: true, attempt };
     }
-    if (attempt === maxAttempts) {
+    const output = `${last.stdout || ''}\n${last.stderr || ''}`.toLowerCase();
+    const repositoryPolicyFailure = output.includes('base branch policy') || output.includes('required status check') || output.includes('review is required');
+    const mergeabilityPending = !repositoryPolicyFailure && (output.includes('not mergeable') || output.includes('mergeable state'));
+    if (!mergeabilityPending || attempt === maxAttempts) {
       break;
     }
-    logger.log(`Merge attempt ${attempt} of ${maxAttempts} did not succeed yet; GitHub may still be computing mergeability. Retrying...`);
+    logger.log(`Mergeability is still pending (attempt ${attempt} of ${maxAttempts}); retrying...`);
     await wait(delayMs);
   }
 
@@ -196,10 +217,14 @@ export async function mergePullRequestWithRetry({ runner, url, maxAttempts = DEF
  * @param {boolean} [opts.verbose]
  * @param {(key: string, value: string) => void} [opts.output]
  * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication]
- * @param {string} [opts.validationWorkflow]
+ * @param {boolean} [opts.releasePullRequestTokenConfigured]
  * @returns {Promise<{landed: true, head: string, url: string}>}
  */
-export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer, validationWorkflow = DEFAULT_VALIDATION_WORKFLOW }) {
+export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer, releasePullRequestTokenConfigured = process.env.RELEASE_PULL_REQUEST_TOKEN_CONFIGURED === 'true' }) {
+  if (!releasePullRequestTokenConfigured) {
+    throw new Error('A repository rule requires a release pull request, but RELEASE_PULL_REQUEST_TOKEN is not configured. Configure a fine-grained PAT in that Actions secret, or wire a custom GitHub App installation token to GH_TOKEN, so the PR can trigger eligible pull_request checks; GITHUB_TOKEN and workflow_dispatch checks cannot satisfy this ruleset.');
+  }
+
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
   const head = releaseBranchName({ version, runId });
 
@@ -222,7 +247,7 @@ export async function landViaPullRequest({ runner = runCommand, version, branch 
     output('release_pull_request', url);
   }
 
-  await dispatchPullRequestValidation({ runner, head, workflow: validationWorkflow, logger, verbose });
+  await waitForPullRequestChecks({ runner, url, sleeper, logger, verbose });
   await mergePullRequestWithRetry({ runner, url, sleeper, logger, verbose });
   logger.log(`Pull request ${url} merged into ${branch}.`);
 

@@ -2,4 +2,4 @@
 '@link-assistant/hive-mind': patch
 ---
 
-Unblock automated release pull requests when the default branch requires the Pipeline Status check
+Make protected-branch release pull requests wait for eligible PR checks created by an independent automation token, and refresh the yargs runtime pin.

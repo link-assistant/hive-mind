@@ -56,6 +56,33 @@ const silent = { log() {}, error() {} };
   );
 }
 
+// GitHub can briefly report no checks immediately after PR creation. Retry
+// only that discovery race; the next call watches the now-visible checks.
+{
+  let checkCalls = 0;
+  const sleeps = [];
+  await landViaPullRequest({
+    runner: async (command, args = []) => {
+      const call = [command, ...args].join(' ');
+      if (call.startsWith('gh pr list')) return { code: 0, stdout: '', stderr: '' };
+      if (call.startsWith('gh pr create')) return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/10001\n', stderr: '' };
+      if (call.startsWith('gh pr checks')) {
+        checkCalls += 1;
+        return checkCalls === 1 ? { code: 1, stdout: '', stderr: "no checks reported on the 'release/v2.31.0-check-race' branch" } : { code: 0, stdout: 'Pipeline Status\tpass\n', stderr: '' };
+      }
+      return { code: 0, stdout: '', stderr: '' };
+    },
+    version: '2.31.0',
+    runId: 'check-race',
+    releasePullRequestTokenConfigured: true,
+    sleeper: async ms => sleeps.push(ms),
+    logger: silent,
+    sanitizeForPublication: async text => text,
+  });
+  assert.equal(checkCalls, 2, 'a short check-discovery race is retried');
+  assert.deepEqual(sleeps, [2000], 'check discovery uses the bounded retry delay');
+}
+
 // Falling back to GITHUB_TOKEN creates action-required runs and another
 // permanently blocked PR. Refuse before pushing an orphan release branch.
 {

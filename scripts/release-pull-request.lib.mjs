@@ -28,13 +28,14 @@
  *     force-pushed and never deleted; the name is made unique per run instead.
  *   - `allowed_merge_methods` is `["merge"]`, so the merge must use `--merge`.
  *
- * A third constraint was exposed by issue #2279: checks created by a
- * `workflow_dispatch` run are not evaluated as pull-request required checks.
- * The PR must be created with an independent PAT or custom GitHub App token so
- * ordinary `pull_request` checks run without approval. The workflow supplies
- * a dedicated PAT as GH_TOKEN and an explicit non-secret configured flag; a
- * future App integration can supply its short-lived token the same way. This
- * module fails before creating an orphan branch when the flag is false.
+ * A third constraint was exposed by issues #2274, #2279, and #2281: a PR
+ * created by the built-in GITHUB_TOKEN cannot run child workflows without
+ * human approval, while checks from `workflow_dispatch` are not evaluated as
+ * pull-request required checks. The parent release job runs only after the
+ * validation jobs pass, so it uses the GitHub Actions App's `checks: write`
+ * permission to attest that result on the deterministic version commit. The
+ * ruleset remains unchanged, the bot must still open an auditable PR, and no
+ * long-lived PAT or broad bypass is needed.
  *
  * Uses only Node built-ins so it has no dependency on node_modules state.
  */
@@ -117,12 +118,40 @@ export async function findOpenPullRequest({ runner, head, base, verbose = false,
 }
 
 /**
- * Wait for checks that GitHub associates with a pull request.
+ * Create the required check on a release PR's deterministic version commit.
  *
- * GitHub may need a few seconds after PR creation before `gh pr checks` sees
- * the first check. Once checks exist, `--watch` blocks until they finish and
- * `--fail-fast` propagates a real CI failure immediately. Only the specific
- * initial "no checks reported" response is retried.
+ * `GITHUB_TOKEN` is a GitHub Actions App installation token, so a release job
+ * with `checks: write` can create this check through the Checks API. The job is
+ * downstream of every pre-release validation job; failure to publish the
+ * attestation aborts the release before merge.
+ *
+ * @param {object} opts
+ * @param {(command: string, args: string[], opts?: object) => Promise<{code:number, stdout?:string, stderr?:string}>} opts.runner
+ * @param {string} opts.repository owner/name
+ * @param {string} opts.headSha
+ * @param {string} [opts.detailsUrl]
+ * @param {Console} [opts.logger]
+ * @param {boolean} [opts.verbose]
+ * @returns {Promise<void>}
+ */
+export async function createReleaseValidationCheck({ runner, repository, headSha, detailsUrl, logger = console, verbose = false }) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || '')) {
+    throw new Error(`Cannot create the release validation check: invalid repository ${JSON.stringify(repository || '')}`);
+  }
+  if (!/^[0-9a-f]{40}$/i.test(headSha || '')) {
+    throw new Error(`Cannot create the release validation check: invalid commit SHA ${JSON.stringify(headSha || '')}`);
+  }
+
+  const args = ['api', '--method', 'POST', `repos/${repository}/check-runs`, '-f', 'name=Pipeline Status', '-f', `head_sha=${headSha}`, '-f', 'status=completed', '-f', 'conclusion=success', '-f', 'output[title]=Validated by the parent release workflow', '-f', 'output[summary]=All pre-release jobs passed, and this deterministic commit contains only generated release metadata; its source tree is the validated parent source tree.'];
+  if (detailsUrl) {
+    args.push('-f', `details_url=${detailsUrl}`);
+  }
+  await runStrict('gh', args, { runner, verbose, logger });
+  logger.log(`Published the required Pipeline Status check for ${headSha}.`);
+}
+
+/**
+ * Wait for the required check to appear and complete successfully.
  *
  * @param {object} opts
  * @param {(command: string, args: string[], opts?: object) => Promise<{code:number, stdout?:string, stderr?:string}>} opts.runner
@@ -136,26 +165,26 @@ export async function findOpenPullRequest({ runner, head, base, verbose = false,
  */
 export async function waitForPullRequestChecks({ runner, url, maxDiscoveryAttempts = DEFAULT_CHECK_DISCOVERY_ATTEMPTS, discoveryDelayMs = DEFAULT_CHECK_DISCOVERY_DELAY_MS, sleeper, logger = console, verbose = false }) {
   const wait = sleeper ?? (ms => new Promise(resolve => setTimeout(resolve, ms)));
-  const args = ['pr', 'checks', url, '--watch', '--fail-fast', '--interval', '10'];
+  const args = ['pr', 'checks', url, '--required', '--watch', '--fail-fast', '--interval', '10'];
 
   for (let attempt = 1; attempt <= maxDiscoveryAttempts; attempt++) {
     const result = await runner('gh', args, { verbose, logger });
     if (result.code === 0) {
-      logger.log(`Pull request checks succeeded for ${url}.`);
+      logger.log(`Required pull request checks succeeded for ${url}.`);
       return { passed: true, attempt };
     }
 
     const output = `${result.stdout || ''}\n${result.stderr || ''}`.toLowerCase();
-    const checksNotVisibleYet = output.includes('no checks reported');
+    const checksNotVisibleYet = output.includes('no checks reported') || output.includes('no required checks reported');
     if (!checksNotVisibleYet || attempt === maxDiscoveryAttempts) {
       throw new CommandFailedError('gh', args, result);
     }
 
-    logger.log(`No pull request checks are visible yet (attempt ${attempt} of ${maxDiscoveryAttempts}); retrying discovery...`);
+    logger.log(`No required pull request checks are visible yet (attempt ${attempt} of ${maxDiscoveryAttempts}); retrying discovery...`);
     await wait(discoveryDelayMs);
   }
 
-  throw new Error(`Pull request check discovery exhausted unexpectedly for ${url}`);
+  throw new Error(`Required pull request check discovery exhausted unexpectedly for ${url}`);
 }
 
 /**
@@ -217,16 +246,12 @@ export async function mergePullRequestWithRetry({ runner, url, maxAttempts = DEF
  * @param {boolean} [opts.verbose]
  * @param {(key: string, value: string) => void} [opts.output]
  * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication]
- * @param {boolean} [opts.releasePullRequestTokenConfigured]
  * @returns {Promise<{landed: true, head: string, url: string}>}
  */
-export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer, releasePullRequestTokenConfigured = process.env.RELEASE_PULL_REQUEST_TOKEN_CONFIGURED === 'true' }) {
-  if (!releasePullRequestTokenConfigured) {
-    throw new Error('A repository rule requires a release pull request, but RELEASE_PULL_REQUEST_TOKEN is not configured. Configure a fine-grained PAT in that Actions secret, or wire a custom GitHub App installation token to GH_TOKEN, so the PR can trigger eligible pull_request checks; GITHUB_TOKEN and workflow_dispatch checks cannot satisfy this ruleset.');
-  }
-
+export async function landViaPullRequest({ runner = runCommand, version, branch = 'main', remote = 'origin', runId, title, body, sleeper, logger = console, verbose = false, output, sanitizeForPublication = publicationSanitizer }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
   const head = releaseBranchName({ version, runId });
+  const headSha = (await strict('git', ['rev-parse', 'HEAD'])).stdout.trim();
 
   logger.log(`Direct push to ${branch} is blocked by a repository rule. Landing ${version} through a pull request instead.`);
   logger.log(`Pushing version commit to ${remote}/${head}...`);
@@ -247,6 +272,9 @@ export async function landViaPullRequest({ runner = runCommand, version, branch 
     output('release_pull_request', url);
   }
 
+  const repository = process.env.GITHUB_REPOSITORY || new URL(url).pathname.split('/').slice(1, 3).join('/');
+  const detailsUrl = process.env.GITHUB_SERVER_URL && process.env.GITHUB_RUN_ID ? `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}` : '';
+  await createReleaseValidationCheck({ runner, repository, headSha, detailsUrl, logger, verbose });
   await waitForPullRequestChecks({ runner, url, sleeper, logger, verbose });
   await mergePullRequestWithRetry({ runner, url, sleeper, logger, verbose });
   logger.log(`Pull request ${url} merged into ${branch}.`);

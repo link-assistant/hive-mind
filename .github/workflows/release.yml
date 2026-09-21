@@ -506,7 +506,7 @@ jobs:
   # === RELEASE - only runs on main after tests pass ===
   release:
     name: Release
-    needs: [detect-changes, release-preflight, lint, test-suites, test-execution, memory-check-linux]
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -517,6 +517,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -550,12 +551,11 @@ jobs:
       - name: Version packages and commit to main
         if: steps.check_changesets.outputs.has_changesets == 'true'
         id: version
-        # An independent actor must create the fallback PR so its pull_request
-        # checks run without approval and can satisfy the main ruleset. GitHub's
-        # built-in token cannot do this (issues #2274 and #2279).
+        # The parent workflow has passed every pre-release validation job. Its
+        # built-in token attests that result on the deterministic version PR
+        # through the Checks API; no long-lived PAT is needed (#2281).
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
-          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/version-and-commit.mjs --mode changeset
       - name: Publish to npm
         # Run if version was committed, OR a previous attempt already committed
@@ -890,9 +890,9 @@ jobs:
   # === MANUAL INSTANT RELEASE ===
   instant-release:
     name: Instant Release
-    needs: [release-preflight]
+    needs: [detect-changes, version-check, changeset-check, test-compilation, lint, check-file-line-limits, test-suites, test-execution, memory-check-linux, validate-docs, docker-pr-check, helm-pr-check, release-preflight]
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
-    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
@@ -901,6 +901,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: write
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -921,11 +922,10 @@ jobs:
         run: node scripts/sanitize-npm-userconfig.mjs
       - name: Version packages and commit to main
         id: version
-        # This secret holds a dedicated PAT; a future App integration can wire
-        # its short-lived token to GH_TOKEN. Never use built-in GITHUB_TOKEN.
+        # The built-in GitHub Actions App token publishes the required check on
+        # the deterministic version PR after parent validation passes (#2281).
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
-          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Read through the environment, never interpolated into the script:
           # `description` is free-form text from whoever dispatched the run
           # (zizmor template-injection).

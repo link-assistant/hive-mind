@@ -111,13 +111,13 @@ const silent = { log() {}, error() {} };
   const runner = async (command, args = []) => {
     const key = [command, ...args].join(' ');
     calls.push(key);
+    if (key === 'git rev-parse HEAD') return { code: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
     if (key.startsWith('gh pr list')) {
       return { code: 0, stdout: '\n', stderr: '' };
     }
     if (key.startsWith('gh pr create')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/9999\n', stderr: '' };
     }
-    if (key.startsWith('gh pr checks')) return { code: 0, stdout: 'Pipeline Status\tpass\n', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
 
@@ -125,7 +125,6 @@ const silent = { log() {}, error() {} };
     runner,
     version: '2.13.5',
     runId: '32589574378',
-    releasePullRequestTokenConfigured: true,
     sleeper: async () => {},
     // The real default lazily imports the secretlint-backed sanitizer; the body
     // is composed of literals, so identity keeps this test hermetic.
@@ -156,14 +155,14 @@ const silent = { log() {}, error() {} };
   const runner = async (command, args = []) => {
     const key = [command, ...args].join(' ');
     calls.push(key);
+    if (key === 'git rev-parse HEAD') return { code: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
     if (key.startsWith('gh pr list')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/42\n', stderr: '' };
     }
-    if (key.startsWith('gh pr checks')) return { code: 0, stdout: 'Pipeline Status\tpass\n', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
 
-  const result = await landViaPullRequest({ runner, version: '2.13.5', runId: '7', releasePullRequestTokenConfigured: true, sleeper: async () => {}, logger: silent, sanitizeForPublication: async text => text });
+  const result = await landViaPullRequest({ runner, version: '2.13.5', runId: '7', sleeper: async () => {}, logger: silent, sanitizeForPublication: async text => text });
   assert.equal(result.url, 'https://github.com/link-assistant/hive-mind/pull/42');
   assert.ok(!calls.some(call => call.startsWith('gh pr create')), 're-running the release must not open a second pull request for the same branch');
 }
@@ -184,7 +183,7 @@ function createHarness({ pushResult, version = '2.13.5' }) {
       return { code: 0, stdout: ' M package.json\n', stderr: '' };
     }
     if (key.startsWith('git rev-parse')) {
-      return { code: 0, stdout: 'abc123\n', stderr: '' };
+      return { code: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
     }
     if (key.startsWith('gh pr list')) {
       return { code: 0, stdout: '', stderr: '' };
@@ -192,7 +191,6 @@ function createHarness({ pushResult, version = '2.13.5' }) {
     if (key.startsWith('gh pr create')) {
       return { code: 0, stdout: 'https://github.com/link-assistant/hive-mind/pull/1234\n', stderr: '' };
     }
-    if (key.startsWith('gh pr checks')) return { code: 0, stdout: 'Pipeline Status\tpass\n', stderr: '' };
     return { code: 0, stdout: '', stderr: '' };
   };
 
@@ -212,7 +210,6 @@ function createHarness({ pushResult, version = '2.13.5' }) {
         sleeper: async () => {},
         logger: silent,
         sanitizeForPublication: async text => text,
-        releasePullRequestTokenConfigured: true,
       }),
   };
 }

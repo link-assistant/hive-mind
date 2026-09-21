@@ -18,8 +18,8 @@ See [ANALYSIS.md](ANALYSIS.md) for the full requirements, timeline, root causes,
 | Path | Contents |
 | --- | --- |
 | `issue.json`, `issue-comments.json`, `issue-timeline.json` | Complete issue metadata, every comment, and timeline events |
-| `pr.json`, `pr-*.json`, `pr-timeline.json`, `pr-diff-initial.patch` | PR metadata, all three comment/review channels, events, and initial diff |
-| `ci-runs.json`, `main-release-runs.json` | Recent run inventories with timestamps, SHAs, status, and conclusion |
+| `pr.json`, `pr-*.json`, `pr-timeline.json`, `pr-diff-*.patch*` | PR metadata, all three comment/review channels, events, and initial/final diffs |
+| `ci-runs.json`, `ci-runs-after-first-push.json`, `main-release-runs.json` | Recent run inventories with timestamps, SHAs, status, and conclusion, including the exact verified source SHA |
 | `ci-logs/run-*.json` | Full metadata and job/step structure for every investigated run |
 | `ci-logs/run-*.log.gz` | Complete downloaded logs; decompress with `gzip -cd` |
 | `ci-logs/annotations/`, `annotation-summary.tsv` | All 122 check-run annotation responses and counts |
@@ -33,4 +33,6 @@ See [ANALYSIS.md](ANALYSIS.md) for the full requirements, timeline, root causes,
 | `research/reproducer-before.*` | Failing pre-fix regression reproduction and exit code |
 | `tests/` | Focused and full local verification logs |
 
-Raw workflow logs, large related/template diffs, and verbatim snapshots whose significant whitespace would pollute the source diff are gzip-compressed only to keep the evidence commit reviewable; compression does not alter their contents. `SHA256SUMS` records every final evidence artifact.
+The four first-push workflows on source SHA `6b8f654d2027f177be17b981d96a5a8ac574c2ca` all passed: Broken Link Checker `35639984495`, Security `35639984585`, Workflows `35639984627`, and Checks and release `35639985079`. Their complete metadata and logs are archived alongside the investigated failures.
+
+Raw workflow and local-verification logs, large related/template diffs, and verbatim snapshots whose significant whitespace would pollute the source diff are gzip-compressed only to keep the evidence commit reviewable; compression does not alter their contents. `SHA256SUMS` records every final evidence artifact other than the manifest itself.

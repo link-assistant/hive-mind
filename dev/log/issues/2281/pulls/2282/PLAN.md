@@ -13,5 +13,5 @@
 - [x] Implement the complete fix across all affected locations and update the required release trigger.
 - [x] Run focused tests, then the repository's documented local CI checks; inspect the local diff for regressions.
 - [x] Write the evidence index, timeline, root-cause analysis, options, and verification report in this folder.
-- [ ] Commit useful atomic steps, merge the current default branch, re-run checks, push only `issue-2281-32df5fb7315a`.
-- [ ] Update PR 2282 title/body with reproduction, tests, and visual evidence if applicable; verify current CI and mark ready.
+- [x] Commit useful atomic steps, verify the current default branch is already an ancestor, re-run checks, and push only `issue-2281-32df5fb7315a`.
+- [x] Update PR 2282 title/body with reproduction and tests (screenshots are not applicable); verify current CI and mark ready.

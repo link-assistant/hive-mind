@@ -72,6 +72,8 @@ No issue or PR image was present, so there was no attachment to download or visu
 | 2026-09-21 16:47–16:48 | Initial PR run 35627852498 | Freshness gate finds three stale exact requirements and stops in `detect-changes`; terminal gate correctly propagates it. |
 | 2026-09-21 investigation | Ruleset bypass experiment is attempted from an exact snapshot | GitHub returns HTTP 422: the GitHub Actions integration is not eligible as a bypass actor for this repository/owner. Before/after snapshots are identical. |
 | 2026-09-21 solution | Check-attested built-in-token fallback implemented | Keeps the PR/ruleset boundary, verifies metadata-only transformation, publishes a required check on the exact head, waits, then merges. |
+| 2026-09-21 18:41–19:00 | Source-change SHA `6b8f654d` runs through PR CI | All four workflows pass. The 500-file suite and 16-minute Docker validation pass, and the terminal `Pipeline Status` reports success. |
+| 2026-09-21 finalization | PR 2282 title/body are replaced and the draft is promoted | GitHub reports the PR mergeable with a clean merge state; all three PR feedback endpoints remain empty. |
 
 ## Run and annotation audit
 
@@ -161,12 +163,12 @@ No new debug mode was necessary because downloaded logs, check annotations, rule
 
 ### Reproduction
 
-- `research/reproducer-before.log`: the issue-2281 regression test fails against the pre-fix helper because `RELEASE_PULL_REQUEST_TOKEN` is missing; exit code is recorded separately as 1.
+- `research/reproducer-before.log.gz`: the issue-2281 regression test fails against the pre-fix helper because `RELEASE_PULL_REQUEST_TOKEN` is missing; exit code is recorded separately as 1.
 - `ci-logs/run-35627852498.log.gz`: the real pre-fix freshness gate reports 145/148 current and names all three stale requirements.
 
 ### Focused checks
 
-`tests/targeted-release-tests.log` covers:
+`tests/targeted-release-tests.log.gz` covers:
 
 - built-in-token PR/check/watch/merge order;
 - required-check discovery race;
@@ -184,7 +186,16 @@ Local verification completed successfully:
 - formatting, ESLint, duplication, secret scan, package-manager declaration, all-module syntax, file-line limits, and `git diff --check`;
 - execution smoke tests, memory checks, documentation validation and translation parity, Docker release-order contract, Helm chart structure, and the high-severity lockfile audit.
 
-Command output is retained under `tests/`. Commit SHAs, fresh CI run IDs, and conclusions are added after push. The final review also verifies a clean worktree, current `origin/main`, all three PR feedback endpoints, and the PR diff.
+Command output is retained under `tests/`. The implementation/evidence source SHA was `6b8f654d2027f177be17b981d96a5a8ac574c2ca`; current `origin/main` (`3439a922e42050b62502731fd4cf8f4f40030b46`) was already its ancestor, so no merge commit was necessary.
+
+| Remote workflow | Run | Source SHA | Conclusion |
+| --- | --- | --- | --- |
+| Broken Link Checker | [35639984495](https://github.com/link-assistant/hive-mind/actions/runs/35639984495) | `6b8f654d2027f177be17b981d96a5a8ac574c2ca` | Success |
+| Security | [35639984585](https://github.com/link-assistant/hive-mind/actions/runs/35639984585) | `6b8f654d2027f177be17b981d96a5a8ac574c2ca` | Success |
+| Workflows | [35639984627](https://github.com/link-assistant/hive-mind/actions/runs/35639984627) | `6b8f654d2027f177be17b981d96a5a8ac574c2ca` | Success |
+| Checks and release | [35639985079](https://github.com/link-assistant/hive-mind/actions/runs/35639985079) | `6b8f654d2027f177be17b981d96a5a8ac574c2ca` | Success |
+
+The final feedback refresh found zero conversation comments, zero inline review comments, and zero reviews. The PR diff was reread after CI; no requested feature was removed and no unrelated behavior change was found. GitHub reported `MERGEABLE` / `CLEAN`, and PR 2282 was marked ready for review. The complete first-push logs and job metadata are in `ci-logs/`; the evidence-only final commit is verified separately at handoff so recording its run IDs cannot create an infinite commit/CI loop.
 
 ## Residual risk and operational proof
 

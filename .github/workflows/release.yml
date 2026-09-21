@@ -61,7 +61,7 @@ env: # Force Node.js 24 for actions without native support. See issue #1417.
 jobs:
   # === DETECT CHANGES ===
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     # `actions: read` on top of the workflow-wide `contents: read`: the detector
     # asks the Actions API whether the previous head of this PR ever finished a
@@ -107,7 +107,7 @@ jobs:
   # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
   version-check:
     name: Check for Manual Version Changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
@@ -124,7 +124,7 @@ jobs:
   # Docs-only PRs (./docs folder, markdown files) don't require changesets
   changeset-check:
     name: Check for Changesets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [detect-changes]
     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
@@ -162,7 +162,7 @@ jobs:
   # These checks run quickly (~7-21 seconds each) and should pass before long-running tests
   # === COMPILATION & SYNTAX CHECKS ===
   test-compilation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
@@ -193,7 +193,7 @@ jobs:
   # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
   # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [detect-changes]
     if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
@@ -250,7 +250,7 @@ jobs:
   # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
   # See docs/case-studies/issue-1141 for why this is critical.
   check-file-line-limits:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
@@ -273,7 +273,7 @@ jobs:
 
   # === UNIT TESTS ===
   test-suites:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
@@ -305,7 +305,7 @@ jobs:
         run: node scripts/run-tests.mjs --suite github-integration
   # === EXECUTION TESTS ===
   test-execution:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
@@ -357,7 +357,7 @@ jobs:
 
   # === MEMORY CHECKS - LINUX ===
   memory-check-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     if: |
@@ -385,7 +385,7 @@ jobs:
         run: bash scripts/memory-check-smoke-test.sh
   # === DOCUMENTATION VALIDATION (FAST) ===
   validate-docs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [detect-changes, changeset-check]
     # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
@@ -410,7 +410,7 @@ jobs:
           node tests/test-docs-language-sync.mjs
   # === DOCKER PR CHECK ===
   docker-pr-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
     # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
@@ -459,7 +459,7 @@ jobs:
         run: bash scripts/docker-pr-verify-containers.sh
   # === HELM PR CHECK (FAST) ===
   helm-pr-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [detect-changes, changeset-check]
     # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
@@ -508,7 +508,7 @@ jobs:
     name: Release
     needs: [detect-changes, release-preflight, lint, test-suites, test-execution, memory-check-linux]
     if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
@@ -607,7 +607,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             cache_suffix: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
@@ -680,7 +680,7 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -742,7 +742,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             cache_suffix: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
@@ -807,7 +807,7 @@ jobs:
     name: Docker Publish DinD (Merge)
     needs: [release, docker-publish-dind]
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -862,7 +862,7 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: write
@@ -893,7 +893,7 @@ jobs:
     needs: [release-preflight]
     # Issue #2221: a manual release publishes too, so it waits on the same proof.
     if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     outputs:
       published: ${{ steps.publish.outputs.published }}
@@ -971,7 +971,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             cache_suffix: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
@@ -1041,7 +1041,7 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -1102,7 +1102,7 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: ubuntu-24.04
             cache_suffix: amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
@@ -1167,7 +1167,7 @@ jobs:
     name: Docker Publish DinD Instant (Merge)
     needs: [instant-release, docker-publish-dind-instant]
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -1223,7 +1223,7 @@ jobs:
     # Use !cancelled() instead of always() to allow concurrency cancellation.
     # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
     if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: write
@@ -1252,7 +1252,7 @@ jobs:
   changeset-pr:
     name: Create Changeset PR
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
@@ -1303,7 +1303,7 @@ jobs:
   # timed-out main run cannot finish without a failing status.
   pipeline-status:
     name: Pipeline Status
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     concurrency:
       group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status

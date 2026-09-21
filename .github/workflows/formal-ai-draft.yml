@@ -37,7 +37,7 @@ permissions:
 jobs:
   draft:
     name: Formal AI draft
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # One attempt is a full working session. 90 minutes is the ceiling at which
     # a hung session is cheaper to kill and re-attempt than to wait out; solve's
     # own restart loop is disabled for this run, so nothing legitimately runs

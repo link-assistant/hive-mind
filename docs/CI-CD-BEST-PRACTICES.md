@@ -31,6 +31,11 @@ We provide ready-to-use templates for multiple languages with all best practices
 
 ## Key CI/CD Principles
 
+> **Pin hosted runner operating systems.** Mutable aliases such as
+> `ubuntu-latest` can switch major OS versions without a repository diff and
+> emit migration notices. Use an explicit supported label such as
+> `ubuntu-24.04`, then upgrade in a dedicated compatibility PR.
+
 ### 1. Run Checks Only on Relevant File Changes
 
 **Only trigger checks when relevant files change.** This dramatically reduces CI costs and run times.
@@ -40,7 +45,7 @@ Use a `detect-changes` job at the start of your workflow to determine which file
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -250,7 +255,7 @@ Automated release workflows ensure:
 - **Validated releases only** - All checks must pass before publishing
 - **Dual trigger modes** - Both automatic (on merge) and manual (workflow dispatch)
 - **A rule-blocked push is not a failed release** - When a repository ruleset requires that changes arrive through a pull request, the release job opens one for its version bump instead of dying on the rejection. That path, and the rebase-and-retry path for a lost race, are two different recoveries for two rejections that print the same word (see principle 10)
-- **A fallback PR must create its required checks** - Pull requests opened by `GITHUB_TOKEN` leave their ordinary `pull_request` runs awaiting approval, so retrying a merge cannot make a missing required check appear. Explicitly dispatch a non-publishing validation mode on the generated head, wait for its terminal status, and only then merge. Keep the dispatch permission on the release job and keep validation incapable of publishing.
+- **A fallback PR must create eligible required checks** - Pull requests opened by `GITHUB_TOKEN` leave ordinary `pull_request` runs awaiting approval, while checks from `workflow_dispatch` are not evaluated for pull-request rulesets. Open or update the fallback PR with a dedicated least-privilege PAT or custom GitHub App token, wait for its PR-associated checks, and only then merge. Fail before creating the branch when that independent credential is absent.
 
 **Prohibit manual version changes** in PRs — all version bumps should be managed by the CI release workflow:
 
@@ -359,7 +364,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +430,7 @@ Put a `preflight` job first and make every publishing job `needs:` it.
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # so the probe can confirm OIDC works before `npm publish` needs it

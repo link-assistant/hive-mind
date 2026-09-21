@@ -31,6 +31,12 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 ## मुख्य CI/CD सिद्धांत
 
+> **Hosted runner के operating system को pin करें।** `ubuntu-latest` जैसे
+> बदलने वाले aliases repository diff के बिना मुख्य OS version बदल सकते हैं और
+> migration notices उत्पन्न करते हैं। `ubuntu-24.04` जैसे स्पष्ट supported
+> label का उपयोग करें, फिर compatibility की जाँच करने वाले अलग PR में upgrade
+> करें।
+
 ### 1. केवल संबंधित फ़ाइल परिवर्तनों पर ही Checks चलाएं
 
 **केवल तभी checks trigger करें जब संबंधित फ़ाइलें बदलें।** यह CI लागत और run times को नाटकीय रूप से कम करता है।
@@ -40,7 +46,7 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -250,7 +256,7 @@ Automated release workflows सुनिश्चित करते हैं:
 - **केवल validated releases** - Publishing से पहले सभी checks pass होने चाहिए
 - **Dual trigger modes** - Automatic (on merge) और manual (workflow dispatch) दोनों
 - **Rule से रुका हुआ push विफल release नहीं है** - जब repository ruleset यह माँगता है कि बदलाव pull request से आएँ, तब release job अस्वीकृति पर मरने के बजाय अपने version bump के लिए एक PR खोलता है। यह रास्ता और हारी हुई दौड़ का rebase-and-retry रास्ता, एक ही शब्द छापने वाली दो अस्वीकृतियों के दो अलग recovery हैं (देखें सिद्धांत 10)
-- **Fallback PR को अपने required checks बनाने चाहिए** - `GITHUB_TOKEN` से खोले गए pull request के सामान्य `pull_request` runs approval की प्रतीक्षा में रहते हैं, इसलिए merge retry से अनुपस्थित required check प्रकट नहीं होगा। Generated head पर non-publishing validation mode को स्पष्ट रूप से dispatch करें, उसके terminal status की प्रतीक्षा करें, और तभी merge करें। Dispatch permission केवल release job पर रखें और validation mode को publish करने में असमर्थ रखें।
+- **Fallback PR को योग्य required checks बनाने चाहिए** - `GITHUB_TOKEN` से खोले गए pull request के सामान्य `pull_request` runs approval की प्रतीक्षा में रहते हैं, जबकि `workflow_dispatch` के checks pull-request ruleset में मान्य नहीं होते। Fallback PR को अलग, न्यूनतम-अधिकार वाले PAT या custom GitHub App token से खोलें या update करें, उससे जुड़े PR checks की प्रतीक्षा करें, और तभी merge करें। स्वतंत्र credential न होने पर branch बनाने से पहले fail करें।
 
 **PRs में manual version changes prohibit करें** — सभी version bumps CI release workflow द्वारा प्रबंधित होने चाहिए:
 
@@ -359,7 +365,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +431,7 @@ merge-manifest:
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # ताकि probe `npm publish` की ज़रूरत पड़ने से पहले ही OIDC की पुष्टि कर ले

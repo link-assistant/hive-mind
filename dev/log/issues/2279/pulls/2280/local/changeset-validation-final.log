@@ -1,0 +1,9 @@
+Validating changesets added by this PR...
+Comparing b439b710ea5863e5e9fbd77cbf0e94d45751fd0b...3d470bcedd666bfc206e736f6ef69fb63c301fca
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - eligible-release-pr-checks.md
+Validating changeset: .changeset/eligible-release-pr-checks.md
+Changeset validation passed
+   Type: patch
+   Description: Make protected-branch release pull requests wait for eligible PR checks created by an independent automation token, and refresh the yargs runtime pin.

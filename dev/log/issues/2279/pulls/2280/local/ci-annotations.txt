@@ -1,0 +1,12 @@
+dev/log/issues/2279/pulls/2280/ci-logs/main-checks-and-release-35536130313.log:48354:Release	UNKNOWN STEP	2026-09-20T20:55:35.0238807Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/main-checks-and-release-35536130313.log:48733:Pipeline Status	UNKNOWN STEP	2026-09-20T20:55:58.3117528Z ##[error]Pipeline failed. Failing jobs: release
+dev/log/issues/2279/pulls/2280/ci-logs/main-checks-and-release-35536130313.log:48734:Pipeline Status	UNKNOWN STEP	2026-09-20T20:55:58.3128305Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/pr-checks-and-release-35571181990.log:2273:detect-changes	Verify dependency freshness and detect changes	2026-09-21T07:04:24.8607245Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/pr-checks-and-release-35571181990.log:2962:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-21T07:04:52.7966223Z ##[error]Pipeline failed. Failing jobs: detect-changes
+dev/log/issues/2279/pulls/2280/ci-logs/pr-checks-and-release-35571181990.log:2963:Pipeline Status	Fail the run when a required job was cancelled or failed	2026-09-21T07:04:52.7976040Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/earlier-main-checks-and-release-35526569064.log:44857:Release	UNKNOWN STEP	2026-09-20T17:48:07.3957760Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/earlier-main-checks-and-release-35526569064.log:45235:Pipeline Status	UNKNOWN STEP	2026-09-20T17:48:30.7772687Z ##[error]Pipeline failed. Failing jobs: release
+dev/log/issues/2279/pulls/2280/ci-logs/earlier-main-checks-and-release-35526569064.log:45236:Pipeline Status	UNKNOWN STEP	2026-09-20T17:48:30.7781250Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/previous-main-checks-and-release-35530498148.log:48783:Release	UNKNOWN STEP	2026-09-20T19:11:55.9813069Z ##[error]Process completed with exit code 1.
+dev/log/issues/2279/pulls/2280/ci-logs/previous-main-checks-and-release-35530498148.log:49163:Pipeline Status	UNKNOWN STEP	2026-09-20T19:12:20.2835577Z ##[error]Pipeline failed. Failing jobs: release
+dev/log/issues/2279/pulls/2280/ci-logs/previous-main-checks-and-release-35530498148.log:49164:Pipeline Status	UNKNOWN STEP	2026-09-20T19:12:20.2846794Z ##[error]Process completed with exit code 1.

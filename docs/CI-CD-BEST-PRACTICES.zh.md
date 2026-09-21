@@ -31,6 +31,10 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 
 ## 关键 CI/CD 原则
 
+> **固定托管运行器的操作系统版本。** `ubuntu-latest` 等可变别名可能在仓库
+> 没有任何变更的情况下切换操作系统主版本，并产生迁移通知。请使用
+> `ubuntu-24.04` 等明确且受支持的标签，再通过专门的兼容性 PR 完成升级。
+
 ### 1. 仅对相关文件变更运行检查
 
 **仅在相关文件发生变更时触发检查。** 这可以大幅降低 CI 成本和运行时间。
@@ -40,7 +44,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -250,7 +254,7 @@ changeset-check:
 - **仅验证通过的发布** - 所有检查必须在发布前通过
 - **双触发模式** - 自动（合并时）和手动（工作流调度）
 - **被规则拒绝不等于发布失败** - 当仓库规则集要求变更必须经由拉取请求时，发布任务应为其版本升级开一个 PR，而不是死在这次拒绝上。该路径与竞争失败时的 rebase 重试路径，是对两种打印同一个词的拒绝的两种不同恢复方式（参见原则 10）
-- **回退 PR 必须创建所需检查** - 由 `GITHUB_TOKEN` 打开的拉取请求会使普通 `pull_request` 运行等待批准，因此重复合并无法让缺失的必需检查出现。应在生成的 head 上显式调度一个不会发布的验证模式，等待其终态成功后再合并。调度权限只授予 release job，并确保验证模式无法发布。
+- **回退 PR 必须创建有效的必需检查** - 由 `GITHUB_TOKEN` 打开的拉取请求会使普通 `pull_request` 运行等待批准，而 `workflow_dispatch` 产生的检查不会被拉取请求 ruleset 认可。请使用专用的最小权限 PAT 或自定义 GitHub App 令牌创建或更新回退 PR，等待与该 PR 关联的检查完成后再合并。如果未配置独立凭据，应在创建分支之前失败。
 
 **禁止在 PR 中手动更改版本** — 所有版本升级应由 CI 发布工作流管理：
 
@@ -359,7 +363,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +429,7 @@ merge-manifest:
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # 这样探测就能在 `npm publish` 需要之前确认 OIDC 可用

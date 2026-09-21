@@ -1,0 +1,3 @@
+Command: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12
+Exit status: 0
+Result: all workflow files passed actionlint 1.7.12.

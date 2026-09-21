@@ -1,0 +1,13 @@
+Temporary integration repository:
+https://github.com/konard/test-feedback-lines-caa1fc89
+
+Cleanup attempt:
+gh repo delete konard/test-feedback-lines-caa1fc89 --yes
+
+Result:
+HTTP 403: Must have admin rights to Repository.
+This API operation needs the "delete_repo" scope.
+
+The exact test-only repository was intentionally left intact because the
+authenticated token cannot delete repositories and its permissions were not
+expanded during this investigation.

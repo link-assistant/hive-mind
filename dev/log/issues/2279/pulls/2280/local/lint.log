@@ -1,0 +1,8 @@
+npm notice run @link-assistant/hive-mind@2.30.0 lint
+npm notice run eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}'
+
+/tmp/gh-issue-solver-1789974192765/scripts/release-pull-request.lib.mjs
+  224:21  warning  Replace `⏎······'A·repository·rule·requires·a·release·pull·request,·but·RELEASE_PULL_REQUEST_TOKEN·is·not·configured.·Configure·a·PAT·or·custom·GitHub·App·token·in·that·Actions·secret·so·the·PR·can·trigger·eligible·pull_request·checks;·GITHUB_TOKEN·and·workflow_dispatch·checks·cannot·satisfy·this·ruleset.'⏎····` with `'A·repository·rule·requires·a·release·pull·request,·but·RELEASE_PULL_REQUEST_TOKEN·is·not·configured.·Configure·a·PAT·or·custom·GitHub·App·token·in·that·Actions·secret·so·the·PR·can·trigger·eligible·pull_request·checks;·GITHUB_TOKEN·and·workflow_dispatch·checks·cannot·satisfy·this·ruleset.'`  prettier/prettier
+
+✖ 1 problem (0 errors, 1 warning)
+  0 errors and 1 warning potentially fixable with the `--fix` option.

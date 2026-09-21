@@ -1,0 +1,20 @@
+42bc753518685fd2762292e62c16a17a24eedad4 2026-09-21T07:16:33+00:00 test: reproduce ineligible release PR checks
+c93b18860cbfa0c69c578c9fc0cdb98068aec9e2 2026-09-21T07:03:43+00:00 Initial commit with task details
+b439b710ea5863e5e9fbd77cbf0e94d45751fd0b 2026-09-21T03:37:12+07:00 Merge pull request #544 from link-assistant/issue-449-c15e8bd6
+c8161648588e702b786ef36030c3ea253bdd2a1b 2026-09-20T20:04:32+00:00 fix: keep limited Docker starts fail closed
+f24117e2a109c1386b49f5ba06dabf386f29090b 2026-09-20T19:43:02+00:00 Merge remote-tracking branch 'origin/main' into issue-449-c15e8bd6
+47685c50c7acaa52fbd496b264c8d7d9dcdfe225 2026-09-20T19:28:32+00:00 fix: preserve Docker task limits during recovery
+9847edd6302f386f8a7552899d30ca84470aa5b2 2026-09-20T19:28:25+00:00 refactor: restore Telegram entrypoint line-limit headroom
+26fef4165187a0a111279999f3a991c51d8f0609 2026-09-21T01:53:15+07:00 Merge pull request #2275 from link-assistant/issue-2274-beb53fa7caf4
+63f2f24f2a84d819ee7ce8f339d21e20024a2f9e 2026-09-20T18:38:27+00:00 docs(ci): record passing PR verification
+1e1de488356dd076a4a62132b78336d1cef00c80 2026-09-20T18:14:23+00:00 docs(ci): archive issue 2274 investigation
+3888b16d2e940bac3aac85e461ebff29f6e8eb1d 2026-09-20T18:13:42+00:00 chore: remove pull request placeholder
+ba12d5a329439d07c58d27ec978823a801f48282 2026-09-20T17:58:03+00:00 fix(release): validate ruleset fallback PRs
+8e94a9c94c7218bef0638c6b8da0c01858c57f4c 2026-09-21T01:10:24+07:00 Merge branch 'main' into issue-449-c15e8bd6
+dcf215b1814c49dd8e4a56e7a6f27c52c2eda4b9 2026-09-20T17:45:51+00:00 test(release): reproduce required-check deadlock
+8c4e0614d73706db1eb8eb53940925c798903c0f 2026-09-20T17:44:17+00:00 Merge remote-tracking branch 'origin/main' into issue-2274-beb53fa7caf4
+19933d4f819031ee32f985a35c62a5f5f660b51a 2026-09-21T00:39:34+07:00 Merge pull request #2271 from link-assistant/issue-2263-96644000662c
+02146eec377c320d468d697dc32e7e77aa959da6 2026-09-20T17:39:02+00:00 Initial commit with task details
+3252a950efb0f58a64daf1bfacfd390a6619d6b9 2026-09-20T17:14:02+00:00 test(solve): make failed recovery fixture hermetic
+39a62136148008a9aad4367ad2bc1b483c2f5ada 2026-09-20T16:47:50+00:00 chore(deps): refresh agent image pin
+736b444207220bd1c099c80f2218ee3f12483e49 2026-09-20T16:40:18+00:00 fix(solve): keep recovered failures in draft

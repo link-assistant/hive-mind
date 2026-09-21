@@ -120,9 +120,10 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
  * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication] injectable for tests
+ * @param {boolean} [opts.releasePullRequestTokenConfigured]
  * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
  */
-export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication }) {
+export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication, releasePullRequestTokenConfigured = process.env.RELEASE_PULL_REQUEST_TOKEN_CONFIGURED === 'true' }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
@@ -217,7 +218,7 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
     if (!isBlockedByRepositoryRule(error)) {
       throw error;
     }
-    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication });
+    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication, releasePullRequestTokenConfigured });
   }
 
   logger.log(`Version bump committed and pushed to ${branch}`);

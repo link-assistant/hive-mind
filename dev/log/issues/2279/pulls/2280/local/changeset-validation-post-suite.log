@@ -1,0 +1,9 @@
+Validating changesets added by this PR...
+Comparing b439b710ea5863e5e9fbd77cbf0e94d45751fd0b...0e2ae8038813af2b9e440f50a22fd38610b8ce8e
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - eligible-release-pr-checks.md
+Validating changeset: .changeset/eligible-release-pr-checks.md
+Changeset validation passed
+   Type: patch
+   Description: Make protected-branch release pull requests wait for eligible PR checks created by an independent automation token, pin CI to Ubuntu 24.04, and refresh the yargs, command-stream, and use-m runtime dependencies.

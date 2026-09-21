@@ -37,7 +37,7 @@ const RETRYABLE_RM_CODES = new Set(['EBUSY', 'EMFILE', 'ENFILE', 'ENOTEMPTY', 'E
 // dependency reproducible; explicit versions and subpaths remain untouched.
 export const USE_M_PACKAGE_VERSIONS = Object.freeze({
   '@dotenvx/dotenvx': '2.28.2',
-  'command-stream': '0.24.1',
+  'command-stream': '0.25.0',
   getenv: '2.0.0',
   'links-notation': '0.20.0',
   'lino-arguments': '0.3.0',

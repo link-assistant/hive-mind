@@ -1,6 +1,6 @@
 # Full CI/CD template comparison
 
-Compared on 2026-09-21 against `link-foundation/js-ai-driven-development-pipeline-template` head `f2cd4d8623557241fa4127a57a77461751a2f734`. The raw full tree is `research/template-file-tree.txt`; `research/template-github.diff` and `research/template-scripts.diff` preserve complete directory comparisons rather than a hand-selected subset.
+Compared on 2026-09-21 against `link-foundation/js-ai-driven-development-pipeline-template` head `f2cd4d8623557241fa4127a57a77461751a2f734`. The raw full tree is `research/template-file-tree.txt`; `research/template-github.diff.gz` and `research/template-scripts.diff.gz` preserve complete directory comparisons rather than a hand-selected subset.
 
 ## File-tree disposition
 

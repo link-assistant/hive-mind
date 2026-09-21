@@ -33,4 +33,4 @@ See [ANALYSIS.md](ANALYSIS.md) for the full requirements, timeline, root causes,
 | `research/reproducer-before.*` | Failing pre-fix regression reproduction and exit code |
 | `tests/` | Focused and full local verification logs |
 
-Raw workflow logs and the two large related PR diffs are gzip-compressed only to keep the evidence commit reviewable; compression does not alter their contents. `SHA256SUMS` records every final evidence artifact.
+Raw workflow logs, large related/template diffs, and verbatim snapshots whose significant whitespace would pollute the source diff are gzip-compressed only to keep the evidence commit reviewable; compression does not alter their contents. `SHA256SUMS` records every final evidence artifact.

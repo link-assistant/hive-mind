@@ -42,7 +42,7 @@ export const USE_M_PACKAGE_VERSIONS = Object.freeze({
   'links-notation': '0.20.0',
   'lino-arguments': '0.3.0',
   telegraf: '4.16.3',
-  yargs: '18.1.0',
+  yargs: '18.2.0',
   zx: '8.8.5',
 });
 

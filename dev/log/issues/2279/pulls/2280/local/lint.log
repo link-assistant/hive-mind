@@ -6,4 +6,3 @@ npm notice run eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslin
 
 ✖ 1 problem (0 errors, 1 warning)
   0 errors and 1 warning potentially fixable with the `--fix` option.
-

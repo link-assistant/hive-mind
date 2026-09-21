@@ -1,0 +1,511 @@
+Check Links	UNKNOWN STEP	﻿2026-09-20T20:37:22.9609551Z Current runner version: '2.337.0'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9634685Z ##[group]Runner Image Provisioner
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9635548Z Hosted Compute Agent
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9636131Z Version: 20260828.587
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9636889Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9637633Z Build Date: 2026-08-28T16:44:25Z
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9638344Z Worker ID: {8a1a136d-7252-4250-bb7b-c127682f416a}
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9639069Z Azure Region: westus
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9639637Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9641544Z ##[group]Operating System
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9642239Z Ubuntu
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9642814Z 24.04.5
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9643545Z LTS
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9644080Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9644731Z ##[group]Runner Image
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9645344Z Image: ubuntu-24.04
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9645905Z Version: 20260907.300.1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9647227Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9649003Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9650092Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9651231Z ##[group]GITHUB_TOKEN Permissions
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9653571Z Contents: read
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9654292Z Metadata: read
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9654964Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9656960Z Secret source: Actions
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9658015Z Cache mode: write
+Check Links	UNKNOWN STEP	2026-09-20T20:37:22.9659001Z Prepare workflow directory
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.0056577Z Prepare all required actions
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.0106528Z Getting action download info
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.4206964Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.5440357Z Download action repository 'lycheeverse/lychee-action@v2' (SHA:e7477775783ea5526144ba13e8db5eec57747ce8)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.8758689Z Complete job name: Check Links
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9512635Z ##[group]Run actions/checkout@v7
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9513863Z with:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9514361Z   repository: link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9518399Z   token: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9518836Z   ssh-strict: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9519269Z   ssh-user: git
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9519720Z   persist-credentials: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9520205Z   clean: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9520650Z   sparse-checkout-cone-mode: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9521179Z   fetch-depth: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9521605Z   fetch-tags: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9522042Z   show-progress: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9522483Z   lfs: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9522903Z   submodules: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9523489Z   set-safe-directory: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9524011Z   allow-unsafe-pr-checkout: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9524818Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9525233Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9525724Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9526312Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:23.9526796Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0577396Z Syncing repository: link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0580164Z ##[group]Getting Git version info
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0581352Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0613306Z [command]/usr/bin/git version
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0726353Z git version 2.55.0
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0760470Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0771759Z Temporarily overriding HOME='/home/runner/work/_temp/41b75bfd-3bbd-476f-9d08-f45df9a381b3' before making global git config changes
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0774966Z Adding repository directory to the temporary git global config as a safe directory
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0780266Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0834653Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0838272Z ##[group]Determining repository object format
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0839873Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0840989Z ##[group]Initializing the repository
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0844146Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0949500Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.0961978Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1007519Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1008836Z ##[group]Disabling automatic garbage collection
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1010948Z [command]/usr/bin/git config --local gc.auto 0
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1042172Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1043927Z ##[group]Setting up auth
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1044985Z Removing SSH command configuration
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1048429Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1085919Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1433213Z Removing HTTP extra header
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1441331Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1484388Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1711336Z Removing includeIf entries pointing to credentials config files
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1717123Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1765220Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.1987997Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2027737Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2063038Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2102354Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2139353Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2170148Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2171562Z ##[group]Fetching the repository
+Check Links	UNKNOWN STEP	2026-09-20T20:37:24.2178196Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +b439b710ea5863e5e9fbd77cbf0e94d45751fd0b:refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8008427Z From https://github.com/link-assistant/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8009941Z  * [new ref]         b439b710ea5863e5e9fbd77cbf0e94d45751fd0b -> origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8019591Z [command]/usr/bin/git branch --list --remote origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8052690Z   origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8061966Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8087640Z b439b710ea5863e5e9fbd77cbf0e94d45751fd0b
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8094731Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8096876Z ##[group]Determining the checkout info
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8099687Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8101564Z [command]/usr/bin/git sparse-checkout disable
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8159391Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8194697Z ##[group]Checking out the ref
+Check Links	UNKNOWN STEP	2026-09-20T20:37:38.8198492Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.8670441Z Updating files:  22% (1490/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.8955587Z Updating files:  23% (1513/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.9144260Z Updating files:  24% (1579/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.9331280Z Updating files:  25% (1645/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.9528746Z Updating files:  26% (1711/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:39.9791166Z Updating files:  27% (1776/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.0291921Z Updating files:  28% (1842/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.0676567Z Updating files:  29% (1908/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.0779992Z Updating files:  30% (1974/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.0883649Z Updating files:  31% (2039/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.1542317Z Updating files:  32% (2105/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.2490000Z Updating files:  33% (2171/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.2673866Z Updating files:  34% (2237/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.3330146Z Updating files:  35% (2302/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.4380601Z Updating files:  36% (2368/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.5258045Z Updating files:  37% (2434/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.5743133Z Updating files:  38% (2500/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.6280256Z Updating files:  39% (2566/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.6661212Z Updating files:  40% (2631/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.6922921Z Updating files:  41% (2697/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.7383869Z Updating files:  42% (2763/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.8114431Z Updating files:  43% (2829/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.8178726Z Updating files:  44% (2894/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.8499537Z Updating files:  45% (2960/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.8836489Z Updating files:  45% (2979/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.9100526Z Updating files:  46% (3026/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.9249521Z Updating files:  47% (3092/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.9409189Z Updating files:  48% (3157/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.9791542Z Updating files:  49% (3223/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:40.9982073Z Updating files:  50% (3289/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.0022404Z Updating files:  51% (3355/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.0159706Z Updating files:  52% (3421/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.1289563Z Updating files:  53% (3486/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.1473824Z Updating files:  54% (3552/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2110147Z Updating files:  55% (3618/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2164307Z Updating files:  56% (3684/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2268929Z Updating files:  57% (3749/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2568426Z Updating files:  58% (3815/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2704257Z Updating files:  59% (3881/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.2992063Z Updating files:  60% (3947/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.3077589Z Updating files:  61% (4012/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.3178678Z Updating files:  62% (4078/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.3276412Z Updating files:  63% (4144/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.3390429Z Updating files:  64% (4210/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.3419659Z Updating files:  65% (4276/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.4260075Z Updating files:  66% (4341/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.4360030Z Updating files:  67% (4407/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.6331838Z Updating files:  68% (4473/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.6554564Z Updating files:  69% (4539/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.6916170Z Updating files:  70% (4604/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7175435Z Updating files:  71% (4670/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7259907Z Updating files:  72% (4736/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7291282Z Updating files:  73% (4802/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7332402Z Updating files:  74% (4867/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7363943Z Updating files:  75% (4933/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7399467Z Updating files:  76% (4999/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7452751Z Updating files:  77% (5065/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7486533Z Updating files:  78% (5131/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7520885Z Updating files:  79% (5196/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7557440Z Updating files:  80% (5262/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7591227Z Updating files:  81% (5328/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7628294Z Updating files:  82% (5394/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7661725Z Updating files:  83% (5459/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7696223Z Updating files:  84% (5525/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7737106Z Updating files:  85% (5591/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7789930Z Updating files:  86% (5657/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7849898Z Updating files:  87% (5722/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7916837Z Updating files:  88% (5788/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.7979100Z Updating files:  89% (5854/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8045697Z Updating files:  90% (5920/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8104184Z Updating files:  91% (5986/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8150465Z Updating files:  92% (6051/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8203408Z Updating files:  93% (6117/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8259078Z Updating files:  94% (6183/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8296745Z Updating files:  95% (6249/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8304139Z Updating files:  95% (6304/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8351005Z Updating files:  96% (6314/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8407083Z Updating files:  97% (6380/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8455455Z Updating files:  98% (6446/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8513557Z Updating files:  99% (6512/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8514349Z Updating files: 100% (6577/6577)
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8517121Z Updating files: 100% (6577/6577), done.
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8712460Z Reset branch 'main'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8736431Z branch 'main' set up to track 'origin/main'.
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.8821139Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9432700Z [command]/usr/bin/git log -1 --format=%H
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9433535Z b439b710ea5863e5e9fbd77cbf0e94d45751fd0b
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9711671Z ##[group]Run lycheeverse/lychee-action@v2
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9711980Z with:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9712889Z   args: --verbose --no-progress --cache --max-cache-age 1d --max-retries 3 --timeout 30 --exclude-path docs/case-studies --exclude-path dev/log --exclude-path experiments/issue-2102/corpus --exclude-path tests/fixtures './**/*.md' './**/*.html'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9714210Z   fail: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9714414Z   output: lychee/out.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9714633Z   jobSummary: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9714841Z   debug: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9715034Z   failIfEmpty: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9715244Z   format: markdown
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9715448Z   lycheeVersion: v0.24.2
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9715689Z   checkbox: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9718336Z   token: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9718543Z   workingDirectory: .
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9718757Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9718941Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9719179Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9719475Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9722109Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9722316Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9779147Z ##[start-action display=Set up environment;id=lychee.__run]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9816440Z ##[group]Run # Install into $RUNNER_TEMP (not $HOME) so the install path is stable
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9817061Z ^[[36;1m# Install into $RUNNER_TEMP (not $HOME) so the install path is stable^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9817594Z ^[[36;1m# across composite steps. On some runners $HOME is overridden per step^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9818096Z ^[[36;1m# (e.g. actions/checkout temporarily sets it), which made the PATH^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9818567Z ^[[36;1m# entry from one step and the install in another step diverge.^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9819015Z ^[[36;1mecho "$RUNNER_TEMP/lychee/bin" >> "$GITHUB_PATH"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9819367Z ^[[36;1mmkdir -p "$RUNNER_TEMP/lychee/bin"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9865589Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9865973Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9866165Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9866404Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9866684Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9869373Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:41.9869596Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0844382Z ##[end-action id=lychee.__run;outcome=success;conclusion=success;duration_ms=106]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0850000Z ##[start-action display=Download and extract lychee in temp directory;id=lychee.lychee-setup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0873865Z ##[group]Run # Create a temporary directory for downloads and extraction
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0874395Z ^[[36;1m# Create a temporary directory for downloads and extraction^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0875000Z ^[[36;1mTEMP_DIR="${RUNNER_TEMP}/lychee-download"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0875363Z ^[[36;1mrm -rf "${TEMP_DIR}" && mkdir -p "${TEMP_DIR}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0875702Z ^[[36;1mcd "${TEMP_DIR}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0875927Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0876138Z ^[[36;1mARCH=$(uname -m)^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0876446Z ^[[36;1m# Determine filename and download URL based on version^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0876851Z ^[[36;1mif [[ "${LYCHEE_VERSION}" =~ ^v0\.0|^v0\.1[0-5]\. ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0877306Z ^[[36;1m  FILENAME="lychee-${LYCHEE_VERSION}-${ARCH}-unknown-linux-gnu.tar.gz"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0877995Z ^[[36;1m  DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0878524Z ^[[36;1melse^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0878818Z ^[[36;1m  FILENAME="lychee-${ARCH}-unknown-linux-gnu.tar.gz"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0879209Z ^[[36;1m  if [[ "${LYCHEE_VERSION}" == 'nightly' ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0879734Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/nightly/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0880275Z ^[[36;1m  elif [[ "${LYCHEE_VERSION}" == 'latest' ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0880965Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/latest/download/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0881447Z ^[[36;1m  else^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0881922Z ^[[36;1m    DOWNLOAD_URL="https://github.com/lycheeverse/lychee/releases/download/lychee-${LYCHEE_VERSION}/${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0882483Z ^[[36;1m  fi^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0882678Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0882864Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0883097Z ^[[36;1mecho "Downloading from: ${DOWNLOAD_URL}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0883760Z ^[[36;1mcurl -sfLO "${DOWNLOAD_URL}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0884057Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0884310Z ^[[36;1mecho "Extracting ${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0884593Z ^[[36;1mtar -xvzf "${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0884853Z ^[[36;1mrm -rv "${FILENAME}"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0885097Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0885376Z ^[[36;1m# Detect if lychee binary is in a subfolder within the tar.gz^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0885800Z ^[[36;1mif ! [[ -f "${TEMP_DIR}/lychee" ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0886220Z ^[[36;1m  TEMP_DIR="$(echo "${TEMP_DIR}"/lychee-*)"  # need `echo` to evaluate glob^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0886606Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0886827Z ^[[36;1mif ! [[ -f "${TEMP_DIR}/lychee" ]]; then^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0887280Z ^[[36;1m  echo "Cannot find lychee binary in $TEMP_DIR. Did the archive structure change?" >&2^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0887731Z ^[[36;1m  exit 1^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0887927Z ^[[36;1mfi^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0888108Z ^[[36;1m^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0888348Z ^[[36;1m# Output temp directory for use in later steps^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0888718Z ^[[36;1mecho "temp_dir=${TEMP_DIR}" >> $GITHUB_OUTPUT^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0928533Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0928893Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0929089Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0929339Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0929623Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0932379Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0932620Z   LYCHEE_VERSION: v0.24.2
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.0932852Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.1322873Z Downloading from: https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7770316Z Extracting lychee-x86_64-unknown-linux-gnu.tar.gz
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7797991Z lychee-x86_64-unknown-linux-gnu/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7798774Z lychee-x86_64-unknown-linux-gnu/README.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7799580Z lychee-x86_64-unknown-linux-gnu/docs/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7800416Z lychee-x86_64-unknown-linux-gnu/docs/lychee.1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7801331Z lychee-x86_64-unknown-linux-gnu/docs/TROUBLESHOOTING.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7802270Z lychee-x86_64-unknown-linux-gnu/docs/PRE_COMMIT.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7803804Z lychee-x86_64-unknown-linux-gnu/complete/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7804754Z lychee-x86_64-unknown-linux-gnu/complete/_lychee.ps1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7805645Z lychee-x86_64-unknown-linux-gnu/complete/lychee.elv
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7806568Z lychee-x86_64-unknown-linux-gnu/complete/lychee.fish
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7807479Z lychee-x86_64-unknown-linux-gnu/complete/lychee.bash
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7808426Z lychee-x86_64-unknown-linux-gnu/complete/_lychee
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.7809261Z lychee-x86_64-unknown-linux-gnu/lychee
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9273057Z removed 'lychee-x86_64-unknown-linux-gnu.tar.gz'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9304719Z ##[end-action id=lychee.lychee-setup;outcome=success;conclusion=success;duration_ms=845]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9310111Z ##[start-action display=Install lychee;id=lychee.__run_2]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9367389Z ##[group]Run # Install lychee from the temporary directory
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9367965Z ^[[36;1m# Install lychee from the temporary directory^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9368611Z ^[[36;1minstall -t "$RUNNER_TEMP/lychee/bin" -D "/home/runner/work/_temp/lychee-download/lychee-x86_64-unknown-linux-gnu/lychee"^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9406897Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9407245Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9407620Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9407910Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9408192Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9410946Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:42.9411171Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0564533Z ##[end-action id=lychee.__run_2;outcome=success;conclusion=success;duration_ms=125]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0572580Z ##[start-action display=Run Lychee;id=lychee.run-lychee]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0594778Z ##[group]Run /home/runner/work/_actions/lycheeverse/lychee-action/v2/entrypoint.sh
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0595340Z ^[[36;1m/home/runner/work/_actions/lycheeverse/lychee-action/v2/entrypoint.sh^[[0m
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0631029Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0631396Z env:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0631592Z   GIT_CONFIG_COUNT: 1
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0631829Z   GIT_CONFIG_KEY_0: init.defaultBranch
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0632113Z   GIT_CONFIG_VALUE_0: main
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0635107Z   GITHUB_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0637782Z   INPUT_TOKEN: ***
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0638724Z   INPUT_ARGS: --verbose --no-progress --cache --max-cache-age 1d --max-retries 3 --timeout 30 --exclude-path docs/case-studies --exclude-path dev/log --exclude-path experiments/issue-2102/corpus --exclude-path tests/fixtures './**/*.md' './**/*.html'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0639730Z   INPUT_DEBUG: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0639943Z   INPUT_FAIL: false
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0640166Z   INPUT_FAILIFEMPTY: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0640400Z   INPUT_FORMAT: markdown
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0640627Z   INPUT_JOBSUMMARY: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0640852Z   INPUT_CHECKBOX: true
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0641075Z   INPUT_OUTPUT: lychee/out.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0641558Z   SUMMARY_URL: https://github.com/link-assistant/hive-mind/actions/runs/35536130229#summary-106145380809
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.0642060Z ##[endgroup]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2876486Z   [WARN] ./**/*.html: No files found for this input source
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2947496Z [EXCLUDED] https://npmjs.com/@link-assistant/hive-mind (at 1:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2949466Z [EXCLUDED] https://github.com/link-assistant/hive-mind/stargazers (at 3:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2968739Z [EXCLUDED] https://npmjs.com/@link-assistant/hive-mind (at 1:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2973129Z [EXCLUDED] https://github.com/link-assistant/hive-mind/stargazers (at 3:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2982184Z [EXCLUDED] https://npmjs.com/@link-assistant/hive-mind (at 1:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.2989244Z [EXCLUDED] https://github.com/link-assistant/hive-mind/stargazers (at 3:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.3040704Z [EXCLUDED] https://npmjs.com/@link-assistant/hive-mind (at 1:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.3042051Z [EXCLUDED] https://github.com/link-assistant/hive-mind/stargazers (at 3:1) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:43.3043671Z [EXCLUDED] https://github.com/40Think/AgogeDigitalTwin/issues/1 (at 279:28) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:46.4412261Z [EXCLUDED] https://claude.ai/code (at 250:3) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:46.4846431Z [EXCLUDED] https://claude.ai/code (at 250:3) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:46.6856227Z [EXCLUDED] https://claude.ai/code (at 250:3) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:46.6941814Z [EXCLUDED] https://claude.ai/code (at 250:3) | This is due to your 'exclude' values
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6933856Z # Summary
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6934105Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6934258Z | Status         | Count |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6934705Z |----------------|-------|
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6935325Z | 🔍 Total       | 1548  |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6935745Z | 🔗 Unique      | 573   |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6936165Z | ✅ Successful  | 1535  |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6936571Z | ⏳ Timeouts    | 0     |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6937258Z | 🔀 Redirected  | 57    |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6937721Z | 👻 Excluded    | 13    |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6938160Z | ❓ Unknown     | 0     |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6938581Z | 🚫 Errors      | 0     |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6939015Z | ⛔ Unsupported | 0     |
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6939404Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6939557Z ## Redirects per input
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6939784Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6940203Z ### Redirects in case-studies/issue-661-session-resume-cost-optimization/README.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6940789Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6941606Z * https://docs.claude.com/en/docs/build-with-claude/prompt-caching --[302]--> https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6942555Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6942723Z ### Redirects in coolify/README.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6943040Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6943527Z * https://console.anthropic.com/ --[301]--> https://platform.claude.com/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6944445Z * https://discord.gg/coolify --[301]--> https://discord.com/invite/coolify
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6944996Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6945234Z ### Redirects in docs/BRANCH_PROTECTION_POLICY.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6945628Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6948136Z * https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks --[301]--> https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6950408Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6950634Z ### Redirects in docs/BRANCH_PROTECTION_POLICY.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6951018Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6952236Z * https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks --[301]--> https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6953796Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6953957Z ### Redirects in docs/BRANCH_PROTECTION_POLICY.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6954188Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6955304Z * https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks --[301]--> https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6956503Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6956635Z ### Redirects in docs/BRANCH_PROTECTION_POLICY.zh.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6956858Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6957950Z * https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks --[301]--> https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6959428Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6959615Z ### Redirects in docs/CREDENTIAL-SANITIZATION.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6959840Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6960341Z * https://api.slack.com/concepts/token-types --[302]--> https://docs.slack.dev/authentication/tokens --[301]--> https://docs.slack.dev/authentication/tokens/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6960905Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6961034Z ### Redirects in docs/CREDENTIAL-SANITIZATION.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6961251Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6961724Z * https://api.slack.com/concepts/token-types --[302]--> https://docs.slack.dev/authentication/tokens --[301]--> https://docs.slack.dev/authentication/tokens/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6962282Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6962409Z ### Redirects in docs/CREDENTIAL-SANITIZATION.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6962628Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6963089Z * https://api.slack.com/concepts/token-types --[302]--> https://docs.slack.dev/authentication/tokens --[301]--> https://docs.slack.dev/authentication/tokens/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6963920Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6964057Z ### Redirects in docs/CREDENTIAL-SANITIZATION.zh.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6964268Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6964868Z * https://api.slack.com/concepts/token-types --[302]--> https://docs.slack.dev/authentication/tokens --[301]--> https://docs.slack.dev/authentication/tokens/
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6965435Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6965724Z ### Redirects in docs/dependencies-research/command-stream-issues/issue-17-technical-analysis.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6966116Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6966716Z * https://docs.github.com/en/actions/learn-github-actions/environment-variables --[301]--> https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6967680Z * https://unpkg.com/command-stream --[302]--> https://unpkg.com/command-stream@0.24.1/src/$.mjs
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6968037Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6968307Z ### Redirects in docs/DEPENDENCY-UPDATE-BEST-PRACTICES.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6968566Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6969316Z * https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference --[301]--> https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6970142Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6970293Z ### Redirects in docs/DEPENDENCY-UPDATE-BEST-PRACTICES.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6970540Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6971262Z * https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference --[301]--> https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6972083Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6972246Z ### Redirects in docs/DEPENDENCY-UPDATE-BEST-PRACTICES.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6972498Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6973222Z * https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference --[301]--> https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6974285Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6974449Z ### Redirects in docs/DEPENDENCY-UPDATE-BEST-PRACTICES.zh.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6974697Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6975419Z * https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference --[301]--> https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6976239Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6976337Z ### Redirects in docs/FREE_MODELS.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6976525Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6976910Z * https://kilo.ai/docs/advanced-usage/free-and-budget-models --[308]--> https://kilo.ai/docs/getting-started/using-kilo-for-free
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6977386Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6977484Z ### Redirects in docs/FREE_MODELS.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6977652Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6978564Z * https://kilo.ai/docs/advanced-usage/free-and-budget-models --[308]--> https://kilo.ai/docs/getting-started/using-kilo-for-free
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6979227Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6979330Z ### Redirects in docs/FREE_MODELS.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6979519Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6979899Z * https://kilo.ai/docs/advanced-usage/free-and-budget-models --[308]--> https://kilo.ai/docs/getting-started/using-kilo-for-free
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6980375Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6980476Z ### Redirects in docs/OPENROUTER.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6980658Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6981032Z * https://openrouter.ai/activity --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Factivity
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6982052Z * https://openrouter.ai/credits --[308]--> https://openrouter.ai/settings/credits --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fsettings%2Fcredits
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6982909Z * https://openrouter.ai/docs --[308]--> https://openrouter.ai/docs/quickstart
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6984058Z * https://openrouter.ai/keys --[307]--> https://openrouter.ai/workspaces/default/keys --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fworkspaces%2Fdefault%2Fkeys
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6984756Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6984854Z ### Redirects in docs/OPENROUTER.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6985032Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6985517Z * https://openrouter.ai/activity --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Factivity
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6986526Z * https://openrouter.ai/credits --[308]--> https://openrouter.ai/settings/credits --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fsettings%2Fcredits
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6987371Z * https://openrouter.ai/docs --[308]--> https://openrouter.ai/docs/quickstart
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6988259Z * https://openrouter.ai/keys --[307]--> https://openrouter.ai/workspaces/default/keys --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fworkspaces%2Fdefault%2Fkeys
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6988938Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6989039Z ### Redirects in docs/OPENROUTER.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6989231Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6989577Z * https://openrouter.ai/activity --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Factivity
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6990576Z * https://openrouter.ai/credits --[308]--> https://openrouter.ai/settings/credits --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fsettings%2Fcredits
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6991413Z * https://openrouter.ai/docs --[308]--> https://openrouter.ai/docs/quickstart
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6992297Z * https://openrouter.ai/keys --[307]--> https://openrouter.ai/workspaces/default/keys --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fworkspaces%2Fdefault%2Fkeys
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6992977Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6993075Z ### Redirects in docs/OPENROUTER.zh.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6993260Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6993863Z * https://openrouter.ai/activity --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Factivity
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6994520Z * https://openrouter.ai/docs --[308]--> https://openrouter.ai/docs/quickstart
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6995409Z * https://openrouter.ai/keys --[307]--> https://openrouter.ai/workspaces/default/keys --[307]--> https://openrouter.ai/sign-in?redirect_url=https%3A%2F%2Fopenrouter.ai%2Fworkspaces%2Fdefault%2Fkeys
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6996084Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6996183Z ### Redirects in README.hi.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6996342Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.6997176Z * https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind --[302]--> https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fcodespaces%2Fnew%3Fhide_repo_select%3Dtrue%26ref%3Dmain%26repo%3Dlink-assistant%2Fhive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7000601Z * https://github.com/user-attachments/assets/1d91e911-9ba4-456e-a00a-14cdd60d9a0a --[302]--> https://github-production-user-asset-6210df.s3.amazonaws.com/1431904/404991709-1d91e911-9ba4-456e-a00a-14cdd60d9a0a.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260920%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260920T203743Z&X-Amz-Expires=300&X-Amz-Signature=ca8cb3a937d958fb22c33d98ea78b261695c6f0aec7ad8ec55192ac3594d1d23&X-Amz-SignedHeaders=host&response-content-type=image%2Fjpeg
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7002662Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7002766Z ### Redirects in README.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7002912Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7004045Z * https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind --[302]--> https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fcodespaces%2Fnew%3Fhide_repo_select%3Dtrue%26ref%3Dmain%26repo%3Dlink-assistant%2Fhive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7006804Z * https://github.com/user-attachments/assets/1d91e911-9ba4-456e-a00a-14cdd60d9a0a --[302]--> https://github-production-user-asset-6210df.s3.amazonaws.com/1431904/404991709-1d91e911-9ba4-456e-a00a-14cdd60d9a0a.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260920%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260920T203743Z&X-Amz-Expires=300&X-Amz-Signature=ca8cb3a937d958fb22c33d98ea78b261695c6f0aec7ad8ec55192ac3594d1d23&X-Amz-SignedHeaders=host&response-content-type=image%2Fjpeg
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7008704Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7008802Z ### Redirects in README.ru.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7009091Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7009915Z * https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind --[302]--> https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fcodespaces%2Fnew%3Fhide_repo_select%3Dtrue%26ref%3Dmain%26repo%3Dlink-assistant%2Fhive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7012599Z * https://github.com/user-attachments/assets/1d91e911-9ba4-456e-a00a-14cdd60d9a0a --[302]--> https://github-production-user-asset-6210df.s3.amazonaws.com/1431904/404991709-1d91e911-9ba4-456e-a00a-14cdd60d9a0a.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260920%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260920T203743Z&X-Amz-Expires=300&X-Amz-Signature=ca8cb3a937d958fb22c33d98ea78b261695c6f0aec7ad8ec55192ac3594d1d23&X-Amz-SignedHeaders=host&response-content-type=image%2Fjpeg
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7014756Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7014851Z ### Redirects in README.zh.md
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7015014Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7015833Z * https://github.com/codespaces/new?hide_repo_select=true&ref=main&repo=link-assistant/hive-mind --[302]--> https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fcodespaces%2Fnew%3Fhide_repo_select%3Dtrue%26ref%3Dmain%26repo%3Dlink-assistant%2Fhive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7018551Z * https://github.com/user-attachments/assets/1d91e911-9ba4-456e-a00a-14cdd60d9a0a --[302]--> https://github-production-user-asset-6210df.s3.amazonaws.com/1431904/404991709-1d91e911-9ba4-456e-a00a-14cdd60d9a0a.jpeg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260920%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260920T203743Z&X-Amz-Expires=300&X-Amz-Signature=ca8cb3a937d958fb22c33d98ea78b261695c6f0aec7ad8ec55192ac3594d1d23&X-Amz-SignedHeaders=host&response-content-type=image%2Fjpeg
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7020451Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7020455Z 
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7295669Z ##[notice]Summary report available at: https://github.com/link-assistant/hive-mind/actions/runs/35536130229#summary-106145380809
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7783863Z ##[end-action id=lychee.run-lychee;outcome=success;conclusion=success;duration_ms=5721]
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.7969728Z Post job cleanup.
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.8804519Z [command]/usr/bin/git version
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.8894028Z git version 2.55.0
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.8903884Z Temporarily overriding HOME='/home/runner/work/_temp/08cdf108-f266-4098-b105-962e520dd10c' before making global git config changes
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.8905525Z Adding repository directory to the temporary git global config as a safe directory
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.8909908Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9422295Z Removing SSH command configuration
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9429251Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9485388Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9669716Z Removing HTTP extra header
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9675911Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9719021Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9959818Z Removing includeIf entries pointing to credentials config files
+Check Links	UNKNOWN STEP	2026-09-20T20:37:48.9965988Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1223063Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1224695Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1233439Z includeif.gitdir:/github/workspace/.git.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1235006Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1247627Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1267855Z /home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.1278688Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-2ddbf308\-a58d\-42cf\-86c9\-e5bfd908819f\.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2353831Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2397689Z /home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2421573Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-2ddbf308\-a58d\-42cf\-86c9\-e5bfd908819f\.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2751614Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2786771Z /github/runner_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2796862Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-2ddbf308\-a58d\-42cf\-86c9\-e5bfd908819f\.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2914008Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2941321Z /github/runner_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.2951590Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-2ddbf308\-a58d\-42cf\-86c9\-e5bfd908819f\.config
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.3285624Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.3522717Z Removing credentials config '/home/runner/work/_temp/git-credentials-2ddbf308-a58d-42cf-86c9-e5bfd908819f.config'
+Check Links	UNKNOWN STEP	2026-09-20T20:37:49.3660634Z Cleaning up orphan processes

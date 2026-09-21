@@ -1,0 +1,84 @@
+Running 1 github-integration test file(s)...
+
+[1/1] tests/test-feedback-lines-integration.mjs
+🧪 Integration Test: Feedback Lines with Real Repository
+=======================================================
+
+📦 Step 1: Creating test repository with comments...
+📦 Creating test repository: test-feedback-lines-caa1fc89
+   ✅ Repository created: https://github.com/konard/test-feedback-lines-caa1fc89
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in /tmp/test-feedback-lines-caa1fc89-init/.git/
+ℹ️ gh exec (gh auth setup-git): error is not retryable [transient=no]; propagating to caller.
+   ⚠️  gh auth setup-git had issues (may work anyway)
+[master (root-commit) 628e2a5] Initial commit
+ 1 file changed, 3 insertions(+)
+ create mode 100644 README.md
+To https://github.com/konard/test-feedback-lines-caa1fc89.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+   ✅ Repository initialized with initial commit
+   ✅ Test issue created
+Switched to a new branch 'test-branch'
+[test-branch 485fc78] Add testing section
+ 1 file changed, 3 insertions(+)
+remote: 
+remote: Create a pull request for 'test-branch' on GitHub by visiting:        
+remote:      https://github.com/konard/test-feedback-lines-caa1fc89/pull/new/test-branch        
+remote: 
+To https://github.com/konard/test-feedback-lines-caa1fc89.git
+ * [new branch]      test-branch -> test-branch
+branch 'test-branch' set up to track 'origin/test-branch'.
+   ✅ Test PR created
+   ✅ PR number: 2
+   ✅ Test comments added
+[test-branch 04b4b87] Add documentation section
+ 1 file changed, 3 insertions(+)
+To https://github.com/konard/test-feedback-lines-caa1fc89.git
+   485fc78..04b4b87  test-branch -> test-branch
+   ✅ Baseline commit created
+   ✅ New comments added after baseline commit
+✅ Test repository setup complete\n
+🚀 Step 2: Testing solve.mjs feedback detection...
+🔍 Testing solve.mjs with PR: https://github.com/konard/test-feedback-lines-caa1fc89/pull/2
+   📝 Running: node solve.mjs "https://github.com/konard/test-feedback-lines-caa1fc89/pull/2" --dry-run --verbose --skip-tool-connection-check
+   📋 Analyzing solve.mjs output...
+   📊 Feedback lines detected: YES
+   📊 Comment count included: YES
+   📊 Feedback in system prompt: N/A (not shown in dry-run)
+   📊 Feedback in user prompt: YES (CORRECT)
+   📊 Feedback after prompt start: YES
+   📄 Full output saved: /tmp/feedback-lines-integration-report-1789976608362.txt
+✅ solve.mjs testing complete\n
+🧪 Step 3: Running integration tests...\n
+🔬 Test 1: Feedback lines should be detected in PR with new comments
+   ✅ PASS
+
+🔬 Test 2: Feedback lines should NOT appear in system prompt
+   ✅ PASS
+
+🔬 Test 3: Feedback lines should appear in user prompt
+   ✅ PASS
+
+🔬 Test 4: Comment counting should work with real repository data
+   ✅ PASS
+
+\n🧹 Cleaning up test resources...
+   📦 Test repository preserved for review: https://github.com/konard/test-feedback-lines-caa1fc89
+   ℹ️  Please manually delete the repository after review
+   ✅ Temporary files cleaned up
+\n📊 Integration Test Results:
+   Passed: 4/4
+   🎉 ALL INTEGRATION TESTS PASSED!
+   ✅ Feedback lines feature works with real repository data
+
+All 1 selected test file(s) passed.

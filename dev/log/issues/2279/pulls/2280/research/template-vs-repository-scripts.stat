@@ -1,0 +1,87 @@
+ .../bootstrap-dependencies.mjs => dev/null}        |  93 ---
+ .../scripts/changeset-version.mjs => dev/null}     |  74 ---
+ .../scripts/check-changesets.mjs => dev/null}      | 128 ----
+ .../null => scripts/check-dependency-freshness.mjs |  17 +
+ .../scripts/check-docker-build.mjs => dev/null}    | 103 ----
+ .../scripts/check-docker-publish.mjs => dev/null}  | 143 -----
+ .../scripts => scripts}/check-file-line-limits.sh  | 132 ++---
+ .../scripts => scripts}/check-mjs-syntax.sh        |  32 +-
+ /dev/null => scripts/check-package-manager.lib.mjs | 151 +++++
+ .../scripts => scripts}/check-package-manager.mjs  | 135 +----
+ .../scripts => scripts}/check-pipeline-status.sh   | 170 +-----
+ /dev/null => scripts/check-release-needed.lib.mjs  |  96 +++
+ .../scripts => scripts}/check-release-needed.mjs   | 127 +---
+ .../scripts/check-required-docs.sh => dev/null}    | 115 ----
+ .../null}                                          | 185 ------
+ .../scripts => scripts}/check-version.mjs          |  16 +-
+ .../scripts => scripts}/check-web-archive.mjs      | 119 +---
+ .../scripts => scripts}/create-github-release.mjs  | 365 +++---------
+ /dev/null => scripts/create-manifest-list.sh       |  83 +++
+ .../create-manual-changeset.mjs                    |  54 +-
+ .../scripts/debug-print.mjs => dev/null}           | 113 ----
+ /dev/null => scripts/dependency-freshness.lib.mjs  | 234 ++++++++
+ .../scripts => scripts}/detect-code-changes.mjs    | 644 ++++++++++++---------
+ /dev/null => scripts/docker-pr-build.sh            |  63 ++
+ .../null => scripts/docker-pr-verify-containers.sh |  52 ++
+ /dev/null => scripts/formal-ai-draft.lib.mjs       | 292 ++++++++++
+ /dev/null => scripts/formal-ai-draft.mjs           | 139 +++++
+ .../scripts => scripts}/format-github-release.mjs  |  69 +--
+ .../format-release-notes-helpers.mjs => dev/null}  |  17 -
+ .../scripts => scripts}/format-release-notes.mjs   | 255 ++++----
+ /dev/null => scripts/free-disk-space.mjs           |  76 +++
+ .../scripts/github-actions-log.mjs => dev/null}    |  38 --
+ /dev/null => scripts/helm-release.lib.mjs          | 179 ++++++
+ /dev/null => scripts/helm-release.mjs              |  64 ++
+ .../scripts/install-git-hooks.mjs => dev/null}     |  36 --
+ .../scripts => scripts}/instant-version-bump.mjs   | 102 +---
+ .../scripts/js-paths.mjs => dev/null}              | 177 ------
+ .../scripts/land-via-pull-request.mjs => dev/null} | 242 --------
+ .../scripts/lint-changed-lines.mjs => dev/null}    | 111 ----
+ .../scripts/lint.mjs => dev/null}                  | 105 ----
+ /dev/null => scripts/memory-check-smoke-test.sh    |  54 ++
+ .../scripts => scripts}/merge-changesets.mjs       | 263 +++------
+ /dev/null => scripts/npm-install-with-retry.mjs    | 113 ++++
+ .../scripts/npm-registry.mjs => dev/null}          | 100 ----
+ .../scripts/package-info.mjs => dev/null}          |  97 ----
+ /dev/null => scripts/preflight-credentials.lib.mjs | 221 +++++++
+ /dev/null => scripts/preflight-credentials.mjs     |  69 +++
+ .../scripts/preflight-credentials.sh => dev/null}  | 275 ---------
+ /dev/null => scripts/preinstall-use-m-packages.mjs | 126 ++++
+ .../preload-dind-isolation-image.mjs               | 143 +++++
+ .../publish-failure-classifier.mjs                 | 102 +++-
+ .../scripts/publish-retry.mjs => dev/null}         | 216 -------
+ .../scripts => scripts}/publish-to-npm.mjs         | 539 +++++++++--------
+ .../push-failure-classifier.mjs => dev/null}       |  92 ---
+ .../push-main-with-rebase-retry.mjs => dev/null}   | 187 ------
+ .../read-job-cancel-in-progress.sh => dev/null}    |  94 ---
+ .../scripts/recheck-broken-links.mjs => dev/null}  | 320 ----------
+ /dev/null => scripts/registry-probe.lib.mjs        | 353 +++++++++++
+ .../scripts/release-naming.mjs => dev/null}        |  74 ---
+ /dev/null => scripts/release-pull-request.lib.mjs  | 259 +++++++++
+ /dev/null => scripts/run-command.lib.mjs           | 109 ++++
+ .../scripts/run-command.mjs => dev/null}           |  85 ---
+ /dev/null => scripts/run-tests.mjs                 | 270 +++++++++
+ .../run-with-budget-warning.sh => dev/null}        | 286 ---------
+ .../sanitize-npm-userconfig.mjs                    | 125 ++--
+ .../scripts => scripts}/setup-npm.mjs              | 369 +++++-------
+ /dev/null => scripts/shell-lint.lib.mjs            | 125 ++++
+ .../scripts => scripts}/simulate-fresh-merge.sh    |  44 +-
+ .../scripts/smoke-test-package.mjs => dev/null}    | 541 -----------------
+ /dev/null => scripts/test-auto-fork-option.sh      |  97 ++++
+ /dev/null => scripts/test-global-commands.sh       |  72 +++
+ .../test-hive-dry-run-integration.sh               |  27 +
+ .../null => scripts/test-telegram-bot-execution.sh |  29 +
+ .../scripts/update-preview-images.mjs => dev/null} | 343 -----------
+ /dev/null => scripts/upload-release-assets.sh      |  36 ++
+ /dev/null => scripts/upload-sourcemaps.mjs         | 108 ++++
+ .../scripts/use-module.mjs => dev/null}            | 300 ----------
+ .../scripts => scripts}/validate-changeset.mjs     | 248 +++-----
+ /dev/null => scripts/verify-chart-yaml.sh          |  35 ++
+ /dev/null => scripts/verify-dind-exec-defaults.sh  |  51 ++
+ /dev/null => scripts/verify-docker-image.sh        | 477 +++++++++++++++
+ /dev/null => scripts/verify-log-file-contents.sh   |  75 +++
+ /dev/null => scripts/version-and-commit.lib.mjs    | 227 ++++++++
+ .../scripts => scripts}/version-and-commit.mjs     | 273 ++-------
+ .../scripts => scripts}/wait-for-npm.mjs           | 410 +++----------
+ /dev/null => scripts/workflow-lint.lib.mjs         | 157 +++++
+ 86 files changed, 6318 insertions(+), 7644 deletions(-)

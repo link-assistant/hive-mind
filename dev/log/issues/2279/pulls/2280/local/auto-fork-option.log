@@ -1,0 +1,113 @@
+Testing --auto-fork option...
+
+Checking that --auto-fork is a documented option...
+PASS: solve.mjs documents --auto-fork
+PASS: hive.mjs documents --auto-fork
+
+Testing solve.mjs with --auto-fork and --dry-run...
+📁 Log file: /tmp/gh-issue-solver-1789974192765/solve-2026-09-21T07-34-52-818Z.log
+   (All output will be logged here)
+
+🚀 solve v2.30.0
+🔧 Raw command executed:
+   /home/box/.nvm/versions/node/v24.21.0/bin/node /tmp/gh-issue-solver-1789974192765/src/solve.mjs https://github.com/test/repo/issues/1 --auto-fork --dry-run --skip-tool-check
+
+🧭 Execution context: docker container (indicators: /.dockerenv) — per-task disk usage is scoped to this container.
+📈 Resource usage (solve start):
+   CPU load: 1.85 2.38 2.05 (6 CPUs)
+   Memory: 8.8 GB available / 11.7 GB total (2.9 GB used)
+   Process RSS: 111 MB, V8 heap: 28 MB used of 2.2 GB limit (1.3%)
+   Disk (/): 106.4 GB available / 192.7 GB total (44.8% used)
+📈 [RESOURCES] phase=solve_start ts=2026-09-21T07%3A34%3A53.290Z load1=1.85 load5=2.38 load15=2.05 cpuCount=6 memTotalBytes=12541489152 memAvailableBytes=9472647168 memUsedBytes=3068841984 processRssBytes=116846592 processHeapUsedBytes=29635968 processHeapTotalBytes=58331136 processExternalBytes=4619008 processHeapLimitBytes=2348810240 processHeapUsedPercent=1.2617438180106026 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=114258132992 diskUsedBytes=92625371136 diskUsedPercent=44.76812237002117 mem=8.8%20GB%20available%20%2F%2011.7%20GB%20total heap=28%20MB%20used%20of%202.2%20GB%20limit%20(1.3%25) disk=106.4%20GB%20available%20%2F%20192.7%20GB%20total
+💾 Disk space check: 108966MB available (10240MB required) ✅
+🧠 Memory check: 9362MB available, swap: 4095MB (416MB used), total: 13041MB (256MB required) ✅
+🔍 --auto-accept-invite: Checking for pending invitation to test/repo...
+ℹ️  --auto-accept-invite: No pending invitation found for test/repo or organization test
+🔍 Checking repository access for auto-fork...
+gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}⚠️  Auto-fork: Could not check permissions, enabling fork mode for public repository
+test
+gh: Not Found (HTTP 404)
+   [stderr] gh: Not Found (HTTP 404)
+
+❌ Repository 'test/repo' is not accessible.
+
+💡 Please check:
+• Repository may be private — ensure the bot has been granted access
+• The repository name is spelled correctly
+• The repository has not been deleted, transferred, or never existed
+
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/repos/repos#get-a-repository","status":"404"}📈 Resource usage (solve exit 1):
+   CPU load: 1.94 2.39 2.05 (6 CPUs)
+   Memory: 8.8 GB available / 11.7 GB total (2.9 GB used)
+   Process RSS: 119 MB, V8 heap: 29 MB used of 2.2 GB limit (1.3%)
+   Disk (/): 106.4 GB available / 192.7 GB total (44.8% used)
+📈 [RESOURCES] phase=solve_exit ts=2026-09-21T07%3A34%3A56.557Z load1=1.94 load5=2.39 load15=2.05 cpuCount=6 memTotalBytes=12541489152 memAvailableBytes=9474789376 memUsedBytes=3066699776 processRssBytes=125235200 processHeapUsedBytes=29982168 processHeapTotalBytes=61358080 processExternalBytes=4938648 processHeapLimitBytes=2348810240 processHeapUsedPercent=1.2764831951686313 diskPath=%2F diskTotalBytes=206900281344 diskAvailableBytes=114257973248 diskUsedBytes=92625530880 diskUsedPercent=44.76819957822938 mem=8.8%20GB%20available%20%2F%2011.7%20GB%20total heap=29%20MB%20used%20of%202.2%20GB%20limit%20(1.3%25) disk=106.4%20GB%20available%20%2F%20192.7%20GB%20total
+
+❌ GitHub entity not found (repo)
+📁 Full log file: /tmp/gh-issue-solver-1789974192765/solve-2026-09-21T07-34-52-818Z.log
+
+💬 Notifying issue #1 about solver failure...
+gh: Not Found (HTTP 404)
+  ⚠️  Could not post solver failure comment: gh: Not Found (HTTP 404)
+
+{"message":"Not Found","documentation_url":"https://docs.github.com/rest/issues/comments#create-an-issue-comment","status":"404"}PASS: solve.mjs acts on --auto-fork
+
+Testing hive.mjs with --auto-fork and --dry-run...
+🐝 Hive Mind - AI-powered issue solver
+   Initializing...
+   Loading dependencies (this may take a moment)...
+📁 Log file: /tmp/gh-issue-solver-1789974192765/hive-2026-09-21T07-35-00-067Z.log
+   (All output will be logged here)
+🎯 Monitoring Configuration:
+   📍 Target: Repository - test/repo
+   🏷️  Tag: "help wanted"
+   🔄 Concurrency: 2 parallel workers
+   📊 Pull Requests per Issue: 1
+   🤖 Model: opus
+   🍴 Auto-Fork: ENABLED (will auto-fork public repos without write access)
+   🔄 Auto-Continue: ENABLED (will work on issues with existing PRs)
+   🚀 Mode: Single run
+   🔢 Max Issues: 1
+   🧪 DRY RUN MODE - No actual processing
+
+
+🚀 Starting Hive Mind monitoring system...
+
+👷 Starting 2 workers...
+
+🔄 Monitoring iteration 1 at 2026-09-21T07:35:00.247Z
+
+🔍 Fetching issues with label "help wanted"...
+   🧪 Dry-run mode: Skipping actual issue fetching
+   ℹ️  No new issues to add (all already processed or in queue)
+
+📊 Current Status:
+   📋 Queued: 0
+   ⚙️  Processing: 0
+   ✅ Completed: 0
+   ❌ Failed: 0
+   📁 Hive log file: /tmp/gh-issue-solver-1789974192765/hive-2026-09-21T07-35-00-067Z.log
+
+🏁 Single run mode - waiting for queue to empty...
+
+✅ All issues processed!
+   Completed: 0
+   Failed: 0
+   📁 Full log file: /tmp/gh-issue-solver-1789974192765/hive-2026-09-21T07-35-00-067Z.log
+
+👋 Hive Mind monitoring stopped
+   📁 Full log file: /tmp/gh-issue-solver-1789974192765/hive-2026-09-21T07-35-00-067Z.log
+PASS: hive.mjs acts on --auto-fork
+
+Testing deprecated start-screen.mjs accepts --auto-fork without opening a screen...
+Error: GNU Screen is not installed or not in PATH.
+Please install it using your package manager:
+  Ubuntu/Debian: sudo apt-get install screen
+  macOS: brew install screen
+  RHEL/CentOS: sudo yum install screen
+PASS: start-screen.mjs reports screen is unavailable rather than failing on the flag
+
+All --auto-fork option tests passed

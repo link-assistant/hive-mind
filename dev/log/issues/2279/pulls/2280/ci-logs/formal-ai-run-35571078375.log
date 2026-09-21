@@ -1,0 +1,283 @@
+Formal AI draft	Set up job	﻿2026-09-21T07:02:38.9479963Z Current runner version: '2.337.0'
+Formal AI draft	Set up job	2026-09-21T07:02:38.9506640Z ##[group]Runner Image Provisioner
+Formal AI draft	Set up job	2026-09-21T07:02:38.9507834Z Hosted Compute Agent
+Formal AI draft	Set up job	2026-09-21T07:02:38.9508543Z Version: 20260828.587
+Formal AI draft	Set up job	2026-09-21T07:02:38.9509191Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Formal AI draft	Set up job	2026-09-21T07:02:38.9510002Z Build Date: 2026-08-28T16:44:25Z
+Formal AI draft	Set up job	2026-09-21T07:02:38.9510795Z Worker ID: {b441893b-001e-4f1b-9cd2-80e9182a6e37}
+Formal AI draft	Set up job	2026-09-21T07:02:38.9511506Z Azure Region: westus
+Formal AI draft	Set up job	2026-09-21T07:02:38.9512144Z ##[endgroup]
+Formal AI draft	Set up job	2026-09-21T07:02:38.9513765Z ##[group]Operating System
+Formal AI draft	Set up job	2026-09-21T07:02:38.9514482Z Ubuntu
+Formal AI draft	Set up job	2026-09-21T07:02:38.9515063Z 24.04.5
+Formal AI draft	Set up job	2026-09-21T07:02:38.9515581Z LTS
+Formal AI draft	Set up job	2026-09-21T07:02:38.9516148Z ##[endgroup]
+Formal AI draft	Set up job	2026-09-21T07:02:38.9516703Z ##[group]Runner Image
+Formal AI draft	Set up job	2026-09-21T07:02:38.9517299Z Image: ubuntu-24.04
+Formal AI draft	Set up job	2026-09-21T07:02:38.9518321Z Version: 20260907.300.1
+Formal AI draft	Set up job	2026-09-21T07:02:38.9519419Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260907.300/images/ubuntu/Ubuntu2404-Readme.md
+Formal AI draft	Set up job	2026-09-21T07:02:38.9521208Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260907.300
+Formal AI draft	Set up job	2026-09-21T07:02:38.9522263Z ##[endgroup]
+Formal AI draft	Set up job	2026-09-21T07:02:38.9523486Z ##[group]GITHUB_TOKEN Permissions
+Formal AI draft	Set up job	2026-09-21T07:02:38.9525470Z Contents: read
+Formal AI draft	Set up job	2026-09-21T07:02:38.9526128Z Issues: read
+Formal AI draft	Set up job	2026-09-21T07:02:38.9526677Z Metadata: read
+Formal AI draft	Set up job	2026-09-21T07:02:38.9527284Z ##[endgroup]
+Formal AI draft	Set up job	2026-09-21T07:02:38.9529883Z Secret source: Actions
+Formal AI draft	Set up job	2026-09-21T07:02:38.9531024Z Cache mode: read
+Formal AI draft	Set up job	2026-09-21T07:02:38.9531874Z Prepare workflow directory
+Formal AI draft	Set up job	2026-09-21T07:02:38.9912743Z Prepare all required actions
+Formal AI draft	Set up job	2026-09-21T07:02:38.9985365Z Getting action download info
+Formal AI draft	Set up job	2026-09-21T07:02:39.3589085Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Formal AI draft	Set up job	2026-09-21T07:02:39.4619940Z Download action repository 'actions/setup-node@v7' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+Formal AI draft	Set up job	2026-09-21T07:02:39.5872739Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+Formal AI draft	Set up job	2026-09-21T07:02:39.7720667Z Complete job name: Formal AI draft
+Formal AI draft	Checkout repository	﻿2026-09-21T07:02:39.8506267Z ##[group]Run actions/checkout@v7
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8507231Z with:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8508030Z   persist-credentials: false
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8508647Z   repository: link-assistant/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8512386Z   token: ***
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8512820Z   ssh-strict: true
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8513268Z   ssh-user: git
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8513694Z   clean: true
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8514144Z   sparse-checkout-cone-mode: true
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8514714Z   fetch-depth: 1
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8515142Z   fetch-tags: false
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8515583Z   show-progress: true
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8516035Z   lfs: false
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8516443Z   submodules: false
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8516884Z   set-safe-directory: true
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8517565Z   allow-unsafe-pr-checkout: false
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.8518378Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9582126Z Syncing repository: link-assistant/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9585030Z ##[group]Getting Git version info
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9586218Z Working directory is '/home/runner/work/hive-mind/hive-mind'
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9588194Z [command]/usr/bin/git version
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9676349Z git version 2.55.0
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9702677Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9715362Z Temporarily overriding HOME='/home/runner/work/_temp/9e6df40e-5d50-427e-b94c-a4a1ed54752a' before making global git config changes
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9718070Z Adding repository directory to the temporary git global config as a safe directory
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9729198Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9776635Z Deleting the contents of '/home/runner/work/hive-mind/hive-mind'
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9780932Z ##[group]Determining repository object format
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9782617Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9783912Z ##[group]Initializing the repository
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9788789Z [command]/usr/bin/git init /home/runner/work/hive-mind/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9926367Z hint: Using 'master' as the name for the initial branch. This default branch name
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9928672Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9930505Z hint: to use in all of your new repositories, which will suppress this warning,
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9931300Z hint: call:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9931802Z hint:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9932442Z hint: 	git config --global init.defaultBranch <name>
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9933106Z hint:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9933704Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9934665Z hint: 'development'. The just-created branch can be renamed via this command:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9935410Z hint:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9935833Z hint: 	git branch -m <name>
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9936311Z hint:
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9937232Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9939508Z Initialized empty Git repository in /home/runner/work/hive-mind/hive-mind/.git/
+Formal AI draft	Checkout repository	2026-09-21T07:02:39.9950160Z [command]/usr/bin/git remote add origin https://github.com/link-assistant/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0010823Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0011654Z ##[group]Disabling automatic garbage collection
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0015721Z [command]/usr/bin/git config --local gc.auto 0
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0073593Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0074908Z ##[group]Setting up auth
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0075822Z Removing SSH command configuration
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0084550Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0131961Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0595413Z Removing HTTP extra header
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0603022Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0643413Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0897182Z Removing includeIf entries pointing to credentials config files
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0902987Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.0948720Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1180691Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1222515Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path /home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1258800Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1298534Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1333356Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1364953Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1365778Z ##[group]Fetching the repository
+Formal AI draft	Checkout repository	2026-09-21T07:02:40.1372698Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +b439b710ea5863e5e9fbd77cbf0e94d45751fd0b:refs/remotes/origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5519368Z From https://github.com/link-assistant/hive-mind
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5521881Z  * [new ref]         b439b710ea5863e5e9fbd77cbf0e94d45751fd0b -> origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5528777Z [command]/usr/bin/git branch --list --remote origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5560191Z   origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5569587Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5599196Z b439b710ea5863e5e9fbd77cbf0e94d45751fd0b
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5604336Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5605640Z ##[group]Determining the checkout info
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5607648Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5610357Z [command]/usr/bin/git sparse-checkout disable
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5666819Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5702700Z ##[group]Checking out the ref
+Formal AI draft	Checkout repository	2026-09-21T07:02:52.5705164Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.6165852Z Updating files:  22% (1490/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.6451657Z Updating files:  23% (1513/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.6640470Z Updating files:  24% (1579/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.6828936Z Updating files:  25% (1645/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.7031419Z Updating files:  26% (1711/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.7295097Z Updating files:  27% (1776/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.7805626Z Updating files:  28% (1842/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.8190246Z Updating files:  29% (1908/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.8298483Z Updating files:  30% (1974/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.8402301Z Updating files:  31% (2039/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:53.9067983Z Updating files:  32% (2105/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.0029329Z Updating files:  33% (2171/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.0220840Z Updating files:  34% (2237/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.0893228Z Updating files:  35% (2302/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.1991051Z Updating files:  36% (2368/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.2918845Z Updating files:  37% (2434/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.3385929Z Updating files:  38% (2500/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.3920499Z Updating files:  39% (2566/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.4302425Z Updating files:  40% (2631/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.4562754Z Updating files:  41% (2697/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.4996344Z Updating files:  42% (2763/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.5659319Z Updating files:  43% (2829/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.5724161Z Updating files:  44% (2894/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.5827981Z Updating files:  45% (2960/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.6400093Z Updating files:  45% (2961/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.6665042Z Updating files:  46% (3026/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.6815635Z Updating files:  47% (3092/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.6976827Z Updating files:  48% (3157/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.7362823Z Updating files:  49% (3223/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.7550087Z Updating files:  50% (3289/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.7591496Z Updating files:  51% (3355/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.7727901Z Updating files:  52% (3421/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.8821794Z Updating files:  53% (3486/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.9007603Z Updating files:  54% (3552/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.9663456Z Updating files:  55% (3618/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.9711348Z Updating files:  56% (3684/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:54.9819677Z Updating files:  57% (3749/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0124815Z Updating files:  58% (3815/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0285073Z Updating files:  59% (3881/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0528881Z Updating files:  60% (3947/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0616514Z Updating files:  61% (4012/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0688150Z Updating files:  62% (4078/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0767030Z Updating files:  63% (4144/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0901298Z Updating files:  64% (4210/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.0928630Z Updating files:  65% (4276/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.1800884Z Updating files:  66% (4341/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.1892530Z Updating files:  67% (4407/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.3929486Z Updating files:  68% (4473/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4156293Z Updating files:  69% (4539/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4515692Z Updating files:  70% (4604/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4783721Z Updating files:  71% (4670/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4869019Z Updating files:  72% (4736/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4900458Z Updating files:  73% (4802/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4939990Z Updating files:  74% (4867/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.4971601Z Updating files:  75% (4933/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5006866Z Updating files:  76% (4999/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5060671Z Updating files:  77% (5065/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5093621Z Updating files:  78% (5131/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5127979Z Updating files:  79% (5196/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5164442Z Updating files:  80% (5262/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5198263Z Updating files:  81% (5328/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5233264Z Updating files:  82% (5394/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5267007Z Updating files:  83% (5459/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5301710Z Updating files:  84% (5525/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5344884Z Updating files:  85% (5591/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5397202Z Updating files:  86% (5657/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5463591Z Updating files:  87% (5722/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5536360Z Updating files:  88% (5788/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5598462Z Updating files:  89% (5854/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5665598Z Updating files:  90% (5920/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5724296Z Updating files:  91% (5986/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5770677Z Updating files:  92% (6051/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5809066Z Updating files:  93% (6117/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5833775Z Updating files:  93% (6156/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5900092Z Updating files:  94% (6183/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5948676Z Updating files:  95% (6249/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.5996689Z Updating files:  96% (6314/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6053128Z Updating files:  97% (6380/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6101918Z Updating files:  98% (6446/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6151432Z Updating files:  99% (6512/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6152035Z Updating files: 100% (6577/6577)
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6152450Z Updating files: 100% (6577/6577), done.
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6407961Z Switched to a new branch 'main'
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6408846Z branch 'main' set up to track 'origin/main'.
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6425434Z ##[endgroup]
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6743528Z [command]/usr/bin/git log -1 --format=%H
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6780244Z b439b710ea5863e5e9fbd77cbf0e94d45751fd0b
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6790695Z ##[group]Removing auth
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6791155Z Removing SSH command configuration
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6796848Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.6843139Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7145699Z Removing HTTP extra header
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7150239Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7187066Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7428678Z Removing includeIf entries pointing to credentials config files
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7431204Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7461471Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7462318Z includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7463104Z includeif.gitdir:/github/workspace/.git.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7463911Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7471405Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7498439Z /home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.7508795Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-c76b6903\-c0eb\-449b\-9573\-177c04e71e1c\.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8328560Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8362251Z /home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8398932Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/hive-mind/hive-mind/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-c76b6903\-c0eb\-449b\-9573\-177c04e71e1c\.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8429791Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8459873Z /github/runner_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8468575Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-c76b6903\-c0eb\-449b\-9573\-177c04e71e1c\.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8792744Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8824593Z /github/runner_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8836299Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-c76b6903\-c0eb\-449b\-9573\-177c04e71e1c\.config
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.8875763Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.9121004Z Removing credentials config '/home/runner/work/_temp/git-credentials-c76b6903-c0eb-449b-9573-177c04e71e1c.config'
+Formal AI draft	Checkout repository	2026-09-21T07:02:55.9130079Z ##[endgroup]
+Formal AI draft	Setup Node.js	﻿2026-09-21T07:02:55.9426814Z ##[group]Run actions/setup-node@v7
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9427297Z with:
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9428004Z   node-version: 24.x
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9428381Z   check-latest: false
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9433112Z   token: ***
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9433487Z   package-manager-cache: true
+Formal AI draft	Setup Node.js	2026-09-21T07:02:55.9433909Z ##[endgroup]
+Formal AI draft	Setup Node.js	2026-09-21T07:02:56.1501256Z Found in cache @ /opt/hostedtoolcache/node/24.20.0/x64
+Formal AI draft	Setup Node.js	2026-09-21T07:02:56.1503089Z ##[group]Environment details
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.6993684Z node: v24.20.0
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.6994020Z npm: 11.19.0
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.6994257Z yarn: 1.22.22
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.6995847Z ##[endgroup]
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.7001119Z Detected npm as the package manager from package.json's packageManager field. Auto caching has been enabled for npm. If you want to disable it, set package-manager-cache input to false
+Formal AI draft	Setup Node.js	2026-09-21T07:02:59.7021732Z [command]/opt/hostedtoolcache/node/24.20.0/x64/bin/npm config get cache
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.0164026Z /home/runner/.npm
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.2840592Z Cache hit for: node-cache-Linux-x64-npm-bce1565bb7fd6453d8528cb49ef58f223b6b0ea9f3ed6bfe0e2d613eff199047
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.8400319Z Received 3869 of 3869 (100.0%), 0.0 MBs/sec
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.8401252Z Cache Size: ~0 MB (3869 B)
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.8439921Z [command]/usr/bin/tar -xf /home/runner/work/_temp/0d4b9850-6fa6-4f48-adb3-0c423d8019ee/cache.tzst -P -C /home/runner/work/hive-mind/hive-mind --use-compress-program unzstd
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.8507091Z Cache restored successfully
+Formal AI draft	Setup Node.js	2026-09-21T07:03:00.8512075Z Cache restored from key: node-cache-Linux-x64-npm-bce1565bb7fd6453d8528cb49ef58f223b6b0ea9f3ed6bfe0e2d613eff199047
+Formal AI draft	Decide whether to attempt a draft	﻿2026-09-21T07:03:00.8669424Z ##[group]Run node scripts/formal-ai-draft.mjs --decide
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8669933Z ^[[36;1mnode scripts/formal-ai-draft.mjs --decide^[[0m
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8761397Z shell: /usr/bin/bash -e {0}
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8761728Z env:
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8761974Z   FORMAL_AI_DRAFT_ISSUE: 
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8762265Z   FORMAL_AI_DRAFT_TOKEN: 
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8765352Z   GH_TOKEN: ***
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.8765609Z ##[endgroup]
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.9307011Z Formal AI draft: skipping — no draft token is configured. A pull request opened with GITHUB_TOKEN does not trigger `pull_request` workflows, so its checks would never run and the draft could not be "red until a later run succeeds" — see docs/FORMAL-AI-DRAFTS.md
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.9309414Z should_run=false
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.9309806Z decision_code=no-draft-token
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.9311973Z decision_reason=no draft token is configured. A pull request opened with GITHUB_TOKEN does not trigger `pull_request` workflows, so its checks would never run and the draft could not be "red until a later run succeeds" — see docs/FORMAL-AI-DRAFTS.md
+Formal AI draft	Decide whether to attempt a draft	2026-09-21T07:03:00.9313705Z issue_number=2279
+Formal AI draft	Post Setup Node.js	﻿2026-09-21T07:03:00.9509699Z Post job cleanup.
+Formal AI draft	Post Setup Node.js	2026-09-21T07:03:01.0655411Z Cache hit occurred on the primary key node-cache-Linux-x64-npm-bce1565bb7fd6453d8528cb49ef58f223b6b0ea9f3ed6bfe0e2d613eff199047, not saving cache.
+Formal AI draft	Post Checkout repository	﻿2026-09-21T07:03:01.0811344Z Post job cleanup.
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1665088Z [command]/usr/bin/git version
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1718781Z git version 2.55.0
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1761273Z Temporarily overriding HOME='/home/runner/work/_temp/d94075b3-0995-4cd0-9e06-dbbd5d80e54c' before making global git config changes
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1763081Z Adding repository directory to the temporary git global config as a safe directory
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1798449Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hive-mind/hive-mind
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1810685Z Removing SSH command configuration
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1818443Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.1871379Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2117081Z Removing HTTP extra header
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2124695Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2162968Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2446241Z Removing includeIf entries pointing to credentials config files
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2456530Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Formal AI draft	Post Checkout repository	2026-09-21T07:03:01.2496695Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Formal AI draft	Complete job	﻿2026-09-21T07:03:01.2956057Z Cleaning up orphan processes

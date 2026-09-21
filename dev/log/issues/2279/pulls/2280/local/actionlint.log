@@ -1,0 +1,21 @@
+Unable to find image 'rhysd/actionlint:1.7.12' locally
+1.7.12: Pulling from rhysd/actionlint
+589002ba0eae: Pulling fs layer
+c09af8888d6a: Pulling fs layer
+4ccd7d76ca98: Pulling fs layer
+b6b4b7b0e257: Pulling fs layer
+b6b4b7b0e257: Waiting
+589002ba0eae: Verifying Checksum
+589002ba0eae: Download complete
+c09af8888d6a: Verifying Checksum
+c09af8888d6a: Download complete
+4ccd7d76ca98: Verifying Checksum
+4ccd7d76ca98: Download complete
+b6b4b7b0e257: Verifying Checksum
+b6b4b7b0e257: Download complete
+589002ba0eae: Pull complete
+c09af8888d6a: Pull complete
+4ccd7d76ca98: Pull complete
+b6b4b7b0e257: Pull complete
+Digest: sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
+Status: Downloaded newer image for rhysd/actionlint:1.7.12

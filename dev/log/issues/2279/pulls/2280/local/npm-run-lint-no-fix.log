@@ -1,0 +1,3 @@
+npm notice run @link-assistant/hive-mind@2.30.0 lint
+npm notice run eslint 'src/**/*.{js,mjs,cjs}' 'scripts/**/*.{js,mjs,cjs}' 'eslint-rules/**/*.{js,mjs,cjs}' 'tests/**/*.{js,mjs,cjs}' --no-fix
+sh: 1: eslint: not found

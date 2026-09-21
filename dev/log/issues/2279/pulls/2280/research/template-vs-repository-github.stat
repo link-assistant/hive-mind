@@ -1,0 +1,14 @@
+ .../publish-dockerhub/action.yml => dev/null}      |   66 -
+ .../actions/setup-buildx-resilient/action.yml      |   12 +-
+ /dev/null => .github/codeql/codeql-config.yml      |   12 +
+ /dev/null => .github/dependabot.yml                |   52 +
+ .../workflows/cleanup-test-repos.yml               |   70 +
+ .../.github/workflows/example-app.yml => dev/null} |  372 -----
+ /dev/null => .github/workflows/formal-ai-draft.yml |   99 ++
+ .../.github => .github}/workflows/links.yml        |  103 +-
+ .../workflows/release-preflight.yml                |   70 +
+ .../.github => .github}/workflows/release.yml      | 1715 ++++++++++++--------
+ .../.github => .github}/workflows/security.yml     |   72 +-
+ .../.github => .github}/workflows/workflows.yml    |  114 +-
+ .../.github => .github}/zizmor.yml                 |   38 +-
+ 13 files changed, 1404 insertions(+), 1391 deletions(-)

@@ -28,7 +28,10 @@ not merge.
 - Suppress the intentional legacy-entry-point deprecation only in the
   auto-fork compatibility test, while retaining the dedicated deprecation
   regression.
-- Update all four CI/CD best-practice translations and the release changeset.
+- Pin all 35 active Linux jobs and matrix entries to Ubuntu 24.04 after fresh
+  CI warned that `ubuntu-latest` will migrate to Ubuntu 26 in October 2026.
+- Update all four CI/CD best-practice translations and add the required patch
+  changeset.
 
 ## Reproduction and verification
 
@@ -40,9 +43,11 @@ PR-associated checks.
 
 Verified locally:
 
-- complete default suite: 498/498 test files passed;
+- complete default suite: 499/499 test files passed;
 - live GitHub integration suite: 4/4 assertions passed;
 - focused #2175, #2274, and #2279 release regressions;
+- changeset validation against the exact PR base/head and the active-workflow
+  runner-image regression;
 - actionlint, dependency freshness, status gate, Changesets guards, syntax,
   line limits, ESLint, Prettier, duplication, secretlint, and compatibility
   checks.
@@ -61,3 +66,5 @@ be wired to the same step-local `GH_TOKEN` interface.
 The matching defect in the upstream pipeline template is documented with a
 minimal reproduction, workarounds, and corrected implementation plan in
 [link-foundation/js-ai-driven-development-pipeline-template#192](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/192#issuecomment-5756981358).
+The template's 33 mutable Ubuntu aliases are separately reported in
+[template issue #193](https://github.com/link-foundation/js-ai-driven-development-pipeline-template/issues/193).

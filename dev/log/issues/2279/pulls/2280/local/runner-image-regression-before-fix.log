@@ -1,0 +1,130 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: active workflows must pin Ubuntu 24.04 instead of the migrating ubuntu-latest alias:
+.github/workflows/cleanup-test-repos.yml:26: runs-on: ubuntu-latest
+.github/workflows/formal-ai-draft.yml:40: runs-on: ubuntu-latest
+.github/workflows/links.yml:37: runs-on: ubuntu-latest
+.github/workflows/release-preflight.yml:38: runs-on: ubuntu-latest
+.github/workflows/release.yml:64: runs-on: ubuntu-latest
+.github/workflows/release.yml:110: runs-on: ubuntu-latest
+.github/workflows/release.yml:127: runs-on: ubuntu-latest
+.github/workflows/release.yml:165: runs-on: ubuntu-latest
+.github/workflows/release.yml:196: runs-on: ubuntu-latest
+.github/workflows/release.yml:253: runs-on: ubuntu-latest
+.github/workflows/release.yml:276: runs-on: ubuntu-latest
+.github/workflows/release.yml:308: runs-on: ubuntu-latest
+.github/workflows/release.yml:360: runs-on: ubuntu-latest
+.github/workflows/release.yml:388: runs-on: ubuntu-latest
+.github/workflows/release.yml:413: runs-on: ubuntu-latest
+.github/workflows/release.yml:462: runs-on: ubuntu-latest
+.github/workflows/release.yml:511: runs-on: ubuntu-latest
+.github/workflows/release.yml:610: runner: ubuntu-latest
+.github/workflows/release.yml:683: runs-on: ubuntu-latest
+.github/workflows/release.yml:745: runner: ubuntu-latest
+.github/workflows/release.yml:810: runs-on: ubuntu-latest
+.github/workflows/release.yml:865: runs-on: ubuntu-latest
+.github/workflows/release.yml:896: runs-on: ubuntu-latest
+.github/workflows/release.yml:974: runner: ubuntu-latest
+.github/workflows/release.yml:1044: runs-on: ubuntu-latest
+.github/workflows/release.yml:1105: runner: ubuntu-latest
+.github/workflows/release.yml:1170: runs-on: ubuntu-latest
+.github/workflows/release.yml:1226: runs-on: ubuntu-latest
+.github/workflows/release.yml:1255: runs-on: ubuntu-latest
+.github/workflows/release.yml:1306: runs-on: ubuntu-latest
+.github/workflows/security.yml:26: runs-on: ubuntu-latest
+.github/workflows/security.yml:57: runs-on: ubuntu-latest
+.github/workflows/security.yml:82: runs-on: ubuntu-latest
+.github/workflows/workflows.yml:31: runs-on: ubuntu-latest
+.github/workflows/workflows.yml:52: runs-on: ubuntu-latest
++ actual - expected
+
++ [
++   '.github/workflows/cleanup-test-repos.yml:26: runs-on: ubuntu-latest',
++   '.github/workflows/formal-ai-draft.yml:40: runs-on: ubuntu-latest',
++   '.github/workflows/links.yml:37: runs-on: ubuntu-latest',
++   '.github/workflows/release-preflight.yml:38: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:64: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:110: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:127: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:165: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:196: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:253: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:276: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:308: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:360: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:388: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:413: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:462: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:511: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:610: runner: ubuntu-latest',
++   '.github/workflows/release.yml:683: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:745: runner: ubuntu-latest',
++   '.github/workflows/release.yml:810: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:865: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:896: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:974: runner: ubuntu-latest',
++   '.github/workflows/release.yml:1044: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:1105: runner: ubuntu-latest',
++   '.github/workflows/release.yml:1170: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:1226: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:1255: runs-on: ubuntu-latest',
++   '.github/workflows/release.yml:1306: runs-on: ubuntu-latest',
++   '.github/workflows/security.yml:26: runs-on: ubuntu-latest',
++   '.github/workflows/security.yml:57: runs-on: ubuntu-latest',
++   '.github/workflows/security.yml:82: runs-on: ubuntu-latest',
++   '.github/workflows/workflows.yml:31: runs-on: ubuntu-latest',
++   '.github/workflows/workflows.yml:52: runs-on: ubuntu-latest'
++ ]
+- []
+
+    at file:///tmp/gh-issue-solver-1789974192765/tests/ci-runner-image-2279.test.mjs:27:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    '.github/workflows/cleanup-test-repos.yml:26: runs-on: ubuntu-latest',
+    '.github/workflows/formal-ai-draft.yml:40: runs-on: ubuntu-latest',
+    '.github/workflows/links.yml:37: runs-on: ubuntu-latest',
+    '.github/workflows/release-preflight.yml:38: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:64: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:110: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:127: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:165: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:196: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:253: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:276: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:308: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:360: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:388: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:413: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:462: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:511: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:610: runner: ubuntu-latest',
+    '.github/workflows/release.yml:683: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:745: runner: ubuntu-latest',
+    '.github/workflows/release.yml:810: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:865: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:896: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:974: runner: ubuntu-latest',
+    '.github/workflows/release.yml:1044: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:1105: runner: ubuntu-latest',
+    '.github/workflows/release.yml:1170: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:1226: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:1255: runs-on: ubuntu-latest',
+    '.github/workflows/release.yml:1306: runs-on: ubuntu-latest',
+    '.github/workflows/security.yml:26: runs-on: ubuntu-latest',
+    '.github/workflows/security.yml:57: runs-on: ubuntu-latest',
+    '.github/workflows/security.yml:82: runs-on: ubuntu-latest',
+    '.github/workflows/workflows.yml:31: runs-on: ubuntu-latest',
+    '.github/workflows/workflows.yml:52: runs-on: ubuntu-latest'
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

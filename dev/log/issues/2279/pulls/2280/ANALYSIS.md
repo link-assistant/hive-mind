@@ -66,6 +66,14 @@ That declaration is refreshed.
 7. A regression test was committed before the implementation. Against the old
    code it failed because no `gh pr checks <PR> --watch` call occurred; its
    output is `local/regression-before-fix.log`.
+8. Candidate SHA `091c3d58` started four fresh PR workflows at 07:50:41. Three
+   passed, but Checks and release run 35574886442 correctly rejected the PR
+   because it modified an existing changeset instead of adding exactly one new
+   changeset. That run also surfaced GitHub's new `ubuntu-latest` migration
+   warning on every Linux job.
+9. The existing changeset was restored and a new patch changeset added. A
+   second regression demonstrated all 35 mutable runner aliases across seven
+   active workflows before they were pinned to `ubuntu-24.04`.
 
 ## Complete requirement inventory
 
@@ -76,7 +84,7 @@ That declaration is refreshed.
 | Follow `docs/CI-CD-BEST-PRACTICES.md` | The implementation preserves PR/ruleset enforcement, fail-closed behavior, explicit secret handling, terminal status propagation, and updates the newly learned rule in all four language variants. |
 | Reconstruct sequence and identify actual root causes | Timeline and problem-by-problem analysis are in this document and are supported by immutable run/PR/ruleset evidence. |
 | Reproduce before fixing | `tests/release-required-checks-2279.test.mjs` failed on the obsolete dispatch design before the fix commit. |
-| Apply the fix everywhere | Both automatic changeset and instant release jobs use the independent token; shared helper/runtime plumbing, prior regression tests, preflight, changeset, and all translated best-practice docs were updated. |
+| Apply the fix everywhere | Both automatic changeset and instant release jobs use the independent token; shared helper/runtime plumbing, prior regression tests, preflight, a new changeset, and all translated best-practice docs were updated. All 35 active Linux runner aliases were also pinned. |
 | Add debug/verbose mode only if evidence is insufficient | Not needed: complete production logs and API state expose the root cause. Existing runner/helper `verbose=false` support remains available and default-off. |
 | Research existing libraries/components | Official GitHub App-token action, GitHub CLI PR-check watcher, and `peter-evans/create-pull-request` are assessed in `research/online-sources.md`. |
 | Report the shared defect upstream | Existing template issue #192 is the correct report; the prepared correction includes production repros, workarounds, and a concrete code plan. Its posted URL is captured in `github/`. |
@@ -157,18 +165,49 @@ yargs 18.1.0 -> 18.2.0`.
 **Fix:** update the declaration to 18.2.0. The local dependency freshness gate
 then passes; registry metadata is captured in research.
 
-### 6. Plain-text warning audit
+### 6. Plain-text warning audit and intentional deprecation
 
-GitHub emitted no `##[warning]` annotations in the collected runs. Broad text
-matching initially found many false positives: warning-focused test names and
-assertions, CodeQL's printed command-schema description of an unused deprecated
-option, and the preflight's `0 warning(s)` summary. One genuine but intentional
-runtime deprecation banner did appear when the execution job invoked the legacy
+The initially linked runs emitted no `##[warning]` annotations. Broad text
+matching found many false positives: warning-focused test names and assertions,
+CodeQL's printed command-schema description of an unused deprecated option, and
+the preflight's `0 warning(s)` summary. One genuine but intentional runtime
+deprecation banner did appear when the execution job invoked the legacy
 `start-screen.mjs` entry point solely to verify `--auto-fork` compatibility.
 That invocation now sets the product's documented
 `HIVE_MIND_SUPPRESS_DEPRECATIONS=1` flag and asserts that the banner stays out of
 the compatibility-test log; the dedicated deprecation regression continues to
 verify the banner itself in isolation.
+
+### 7. The candidate changed an existing changeset instead of adding one
+
+**Observed:** run 35574886442 reported `Found 0 changeset file(s) added by this
+PR` and skipped all dependent test jobs. The repository's validator deliberately
+counts only added files so each PR carries exactly one independently releasable
+entry.
+
+**Root cause:** the initial implementation amended
+`.changeset/quiet-checks-release.md`, which already exists on `main`; changing
+its description does not satisfy the added-file contract.
+
+**Fix:** restore that file byte-for-byte and add
+`.changeset/eligible-release-pr-checks.md`. The validator passes locally with
+the exact base and candidate SHAs and reports one patch changeset.
+
+### 8. Mutable Ubuntu runner aliases emitted a real warning
+
+**Observed:** every Linux job in the candidate run warned that `ubuntu-latest`
+will migrate to Ubuntu 26 beginning 2026-10-19. GitHub's runner-images notice
+warns that software, libraries, compilers, kernels, and prebuilt binaries differ
+between the Ubuntu 24.04 and 26.04 images.
+
+**Root cause:** seven active workflow files contained 35 mutable
+`ubuntu-latest` aliases. The configuration therefore allowed GitHub to change
+the CI operating system without a reviewed repository change.
+
+**Fix:** pin all 35 active jobs and matrix entries to the currently used,
+supported `ubuntu-24.04` label. Historical case-study snapshots and archived
+evidence were deliberately not rewritten. A regression scans every active
+workflow and fails if the mutable alias returns.
 
 ## Options considered
 
@@ -182,6 +221,9 @@ verify the banner itself in isolation.
 | Use a custom GitHub App installation token | Preferred follow-up: short lived, repository scoped, and independently attributable, but it requires administrator provisioning beyond a code-only PR. |
 | Adopt `peter-evans/create-pull-request` | Not needed for this fix; it solves branch/PR lifecycle that this repository already implements, and still requires the same external token. |
 | Add merge queue | Not a root-cause fix; it needs a `merge_group` trigger and still cannot turn an ineligible dispatch check into a PR check. |
+| Accept or suppress the Ubuntu migration warning | Rejected: it announces a real unreviewed execution-environment change. |
+| Move immediately to Ubuntu 26.04 | Rejected for this corrective PR: it expands the change into an operating-system migration without dedicated compatibility evidence. |
+| Pin Ubuntu 24.04 | Selected: it preserves the environment used by the investigated runs and follows GitHub's documented mitigation. |
 
 ## Complete template comparison
 
@@ -214,6 +256,11 @@ issue #192 already reports the defect, so the correct action is to append the
 new evidence and replace its invalid suggested solution rather than file a
 duplicate.
 
+The template also contains 33 mutable `ubuntu-latest` aliases across five
+active workflow files. No existing issue covered the newly announced Ubuntu 26
+migration, so upstream issue #193 reports it separately with the production
+annotation, minimal reproduction, workarounds, and an implementation/test plan.
+
 No template component supplies an alternative that would make a manually
 dispatched workflow eligible. The reusable external components found online
 all converge on the chosen external-token strategy.
@@ -230,8 +277,10 @@ all converge on the chosen external-token strategy.
 | Dependency freshness | Confirm all exact declarations current | `local/dependency-freshness.log` |
 | actionlint, syntax, line limits | Workflow/syntax/static limits | corresponding `local/*.log` files |
 | Auto-fork compatibility script | Preserve legacy flag coverage without leaking its intentional deprecation warning into CI | `local/auto-fork-option.log` |
+| Runner-image regression | Reject mutable Ubuntu aliases in every active workflow | `tests/ci-runner-image-2279.test.mjs` and final local suite log |
+| Changeset validation | Require one newly added patch changeset against the exact PR base/head | `local/changeset-validation-final.log` |
 | format, ESLint, duplication, secretlint | Repository lint gates | corresponding `local/*.log` files |
-| Complete default suite | All 498 repository default test files | `local/npm-test.log.gz` |
+| Complete default suite | All 499 repository default test files | `local/npm-test.log.gz` |
 | GitHub integration suite | Live integration regressions | `local/github-integration.log` |
 | Current-head GitHub Actions | Authoritative merge-candidate validation | final run list and downloaded non-passing logs in this bundle |
 
@@ -249,10 +298,13 @@ all converge on the chosen external-token strategy.
   repository. Cleanup of the exact test-only repository was attempted, but the
   authenticated token lacks `delete_repo`; the URL and 403 are recorded in
   `local/integration-cleanup.txt` for administrator cleanup.
+- Cross-repository reports: the release credential/check correction is posted
+  at template issue #192 comment 5756981358; the runner migration warning is
+  reported at template issue #193.
 
 ## Pre-push verification result
 
-- The complete default suite passed all 498 selected test files.
+- The complete default suite passed all 499 selected test files.
 - The live GitHub integration suite passed all four assertions.
 - Focused #2175, #2274, and #2279 release regressions passed.
 - actionlint, dependency freshness, status-gate, Changesets guards, shell and

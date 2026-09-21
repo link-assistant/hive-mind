@@ -60,6 +60,21 @@ GitHub and GitHub CLI behavior.
 
 - npm registry metadata captured in `npm-yargs-18.2.0.json` confirms that the
   exact declaration `yargs 18.1.0` was stale when the prepared PR first ran.
+
+## GitHub-hosted runner image migration
+
+- GitHub's official
+  [`ubuntu-latest` Ubuntu 26 migration announcement](https://github.com/actions/runner-images/issues/14748)
+  schedules rollout from 2026-10-19 through 2026-11-19, identifies software and
+  system-level differences, and explicitly recommends `ubuntu-24.04` when a
+  workflow must remain on the current image.
+- The official
+  [runner selection documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)
+  lists `ubuntu-24.04` as a supported standard hosted-runner label.
+- The official
+  [runner-images repository](https://github.com/actions/runner-images#latest-migration-process)
+  explains that `-latest` migrations are gradual and that explicit version
+  labels prevent an unwanted operating-system migration.
   The repository's own freshness checker is the authoritative reproduction.
 
 ## Template comparison

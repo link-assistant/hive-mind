@@ -1,0 +1,313 @@
+{
+  "jobCount": 34,
+  "jobsWithAnnotations": 13,
+  "annotations": [
+    {
+      "runId": 35574886241,
+      "jobId": 106254385759,
+      "jobName": "Check Links",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 271,
+          "start_column": null,
+          "end_line": 271,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "Summary report available at: https://github.com/link-assistant/hive-mind/actions/runs/35574886241#summary-106254385759",
+          "raw_details": ""
+        },
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886245,
+      "jobId": 106254385510,
+      "jobName": "Dependency Review",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886245,
+      "jobId": 106254385703,
+      "jobName": "CodeQL (actions)",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886245,
+      "jobId": 106254385758,
+      "jobName": "Audit npm lock",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886245,
+      "jobId": 106254385943,
+      "jobName": "CodeQL (javascript-typescript)",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886257,
+      "jobId": 106254385556,
+      "jobName": "actionlint",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886257,
+      "jobId": 106254385834,
+      "jobName": "zizmor",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254386594,
+      "jobName": "detect-changes",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254387084,
+      "jobName": "Release Preflight / Probe publishing credentials",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254495447,
+      "jobName": "Check for Changesets",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 26,
+          "start_column": null,
+          "end_line": 26,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "",
+          "message": "Process completed with exit code 1.",
+          "raw_details": ""
+        },
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 25,
+          "start_column": null,
+          "end_line": 25,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "",
+          "message": "No changeset found in this PR. Please add a changeset by running 'npm run changeset' and commit the result.",
+          "raw_details": ""
+        },
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254495498,
+      "jobName": "Check for Manual Version Changes",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254495559,
+      "jobName": "lint",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    },
+    {
+      "runId": 35574886442,
+      "jobId": 106254909775,
+      "jobName": "Pipeline Status",
+      "annotations": [
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 128,
+          "start_column": null,
+          "end_line": 128,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "",
+          "message": "Process completed with exit code 1.",
+          "raw_details": ""
+        },
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 127,
+          "start_column": null,
+          "end_line": 127,
+          "end_column": null,
+          "annotation_level": "failure",
+          "title": "",
+          "message": "Pipeline failed. Failing jobs: changeset-check",
+          "raw_details": ""
+        },
+        {
+          "path": ".github",
+          "blob_href": "https://github.com/link-assistant/hive-mind/blob/091c3d58318bf41a3acd17d260bdc1d538a85006/.github",
+          "start_line": 1,
+          "start_column": null,
+          "end_line": 1,
+          "end_column": null,
+          "annotation_level": "notice",
+          "title": "",
+          "message": "\"The ubuntu-latest label will migrate to Ubuntu 26 beginning October 19, 2026. For more information, see https://github.com/actions/runner-images/issues/14748\"",
+          "raw_details": ""
+        }
+      ]
+    }
+  ]
+}

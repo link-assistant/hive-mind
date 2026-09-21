@@ -60,6 +60,25 @@ GitHub and GitHub CLI behavior.
 
 - npm registry metadata captured in `npm-yargs-18.2.0.json` confirms that the
   exact declaration `yargs 18.1.0` was stale when the prepared PR first ran.
+- npm registry metadata in `npm-command-stream-0.25.0.json` records that
+  command-stream `0.25.0` was published at 2026-09-21T08:19:52.469Z, after the
+  prior green run's detector queried the registry and before the failing
+  auto-restart run began.
+- The upstream primary-source compare and commit payloads are retained as
+  `github-command-stream-0.24.1-to-0.25.0-compare.json` and
+  `github-command-stream-cancellable-child-handles.json`. They show that the
+  JavaScript release adds cancellable child-process handles while preserving
+  the existing execution API. GitHub had no release or tag object for 0.25.0
+  at investigation time; the two captured 404 responses document that npm and
+  commit history were the available authoritative sources.
+- npm metadata in `npm-use-m-8.16.1.json` timestamps use-m `8.16.1` at
+  2026-09-21T08:55:10.606Z, after the first corrected freshness run and while
+  the complete local suite was running. The authoritative upstream comparison
+  `github-use-m-8.16.0-to-8.16.1-compare.json.gz` shows the patch adds resilient
+  latest-version resolution across malformed registry responses, transient
+  network failures, and package-manager fallbacks. GitHub had no release or
+  tag object for 8.16.1 at investigation time; the captured 404 payloads retain
+  that negative evidence.
 
 ## GitHub-hosted runner image migration
 

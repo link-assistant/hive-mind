@@ -1,0 +1,10 @@
+[preinstall-use-m] global root: /home/box/.nvm/versions/node/v24.21.0/lib/node_modules
+[preinstall-use-m] ✅ installed @dotenvx/dotenvx@2.28.2 as dotenvx-dotenvx-v-2.28.2 (attempt 1)
+[preinstall-use-m] ✅ installed command-stream@0.25.0 as command-stream-v-0.25.0 (attempt 1)
+[preinstall-use-m] ✅ installed getenv@2.0.0 as getenv-v-2.0.0 (attempt 1)
+[preinstall-use-m] ✅ installed links-notation@0.20.0 as links-notation-v-0.20.0 (attempt 1)
+[preinstall-use-m] ✅ installed lino-arguments@0.3.0 as lino-arguments-v-0.3.0 (attempt 1)
+[preinstall-use-m] ✅ installed telegraf@4.16.3 as telegraf-v-4.16.3 (attempt 1)
+[preinstall-use-m] ✅ installed yargs@18.2.0 as yargs-v-18.2.0 (attempt 1)
+[preinstall-use-m] ✅ installed zx@8.8.5 as zx-v-8.8.5 (attempt 1)
+[preinstall-use-m] ✅ all 8 pinned use-m packages pre-installed

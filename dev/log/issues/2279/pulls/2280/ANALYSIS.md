@@ -19,7 +19,13 @@ GitHub were still calculating mergeability.
 
 The prepared PR also exposed one independent, valid freshness failure:
 `src/use-with-retry.lib.mjs` pinned yargs `18.1.0` while npm had `18.2.0`.
-That declaration is refreshed.
+That declaration is refreshed. During finalization, npm published
+command-stream `0.25.0`; the auto-restart run correctly found the newly stale
+`0.24.1` runtime pin. The declaration and every live pin assertion are now
+updated to `0.25.0` as well. While the complete local suite was running, npm
+then published use-m `8.16.1`; a second freshness run found both immutable
+bootstrap URLs at `8.16.0`. Those URLs and their live pin contract now use
+`8.16.1`, and an authenticated final check reports all 148 declarations current.
 
 ## Evidence scope
 
@@ -74,6 +80,20 @@ That declaration is refreshed.
 9. The existing changeset was restored and a new patch changeset added. A
    second regression demonstrated all 35 mutable runner aliases across seven
    active workflows before they were pinned to `ubuntu-24.04`.
+10. Run 35577092521 started at 08:17:01 for SHA `bd84aadf`; its dependency
+    detector queried npm at 08:17:19 and the complete run passed. npm published
+    command-stream `0.25.0` at 08:19:52, after that query, so this green result
+    was accurate at execution time rather than stale or flaky.
+11. Run 35578963756 started at 08:38:34 for SHA `0e2ae803`. Its detector found
+    the now-stale exact `command-stream 0.24.1 -> 0.25.0` declaration and failed;
+    `Pipeline Status` then correctly propagated `detect-changes` as the only
+    failing job. The intervening commit only removed `.gitkeep` metadata and
+    did not cause the dependency change.
+12. The command-stream fix passed a local 148/148 freshness check. npm then
+    published use-m `8.16.1` at 08:55:10 while the complete 499-file suite was
+    still running. A later finalization check correctly found both immutable
+    use-m bootstrap URLs at `8.16.0`; refreshing them and their contract test to
+    `8.16.1` restored the authenticated 148/148 result.
 
 ## Complete requirement inventory
 
@@ -209,6 +229,45 @@ supported `ubuntu-24.04` label. Historical case-study snapshots and archived
 evidence were deliberately not rewritten. A regression scans every active
 workflow and fails if the mutable alias returns.
 
+### 9. Auto-restart dependency freshness failure was a true positive
+
+**Observed:** run 35578963756 reported 147/148 declarations current and
+`src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: command-stream 0.24.1 ->
+0.25.0`. `Pipeline Status` named only `detect-changes` as failing. The previous
+run's detector had passed roughly two minutes before the new package existed.
+
+**Root cause:** command-stream `0.25.0` was published between the previous
+green run's registry query and the auto-restart run. The repository deliberately
+tracks exact current versions for packages dynamically loaded by `use-m`, so
+the freshness gate correctly rejected the old pin.
+
+**Fix:** update the production pin and all live alias/specifier assertions to
+`0.25.0`. Upstream npm metadata and the exact `0.24.1...0.25.0` GitHub compare
+are retained in `research/`. The upstream delta adds cancellable child-process
+handles without removing the existing API; focused preinstall and retry suites
+exercise pinning, generated install commands, failure recovery, and namespace
+normalization. Historical case-study records remain unchanged.
+
+### 10. A second publication made both use-m bootstrap URLs stale
+
+**Observed:** after the command-stream update had passed freshness, a later
+local run reported both `src/use-m-bootstrap.lib.mjs` declarations at use-m
+`8.16.0 -> 8.16.1`. npm metadata timestamps `8.16.1` at 08:55:10 UTC, during
+the complete local test run and after the earlier successful registry query.
+
+**Root cause:** this was another real-time registry publication, not a flaky
+comparison or an unrelated code regression. The checker also encountered the
+unauthenticated GitHub API limit locally; rerunning with the same authenticated
+API access used by CI separated that environmental error from the two genuine
+npm mismatches.
+
+**Fix:** update both independent, immutable CDN URLs and the live dependency-pin
+contract to `8.16.1`. The upstream `8.16.0...8.16.1` comparison is retained in
+`research/` as deterministic gzip; it shows a backward-compatible patch that
+makes latest npm version resolution resilient to transient response and network
+failures. The bootstrap and current-pin tests pass, followed by an authenticated
+148/148 freshness run.
+
 ## Options considered
 
 | Option | Decision |
@@ -275,13 +334,16 @@ all converge on the chosen external-token strategy.
 | #2175 release helper suite | Existing rule fallback plus permanent-policy classification | `local/node-tests-release-pull-request-2175-test-mjs.log` |
 | Version/release regressions | Preserve prior versioning and Changesets guards | corresponding `local/*.log` files |
 | Dependency freshness | Confirm all exact declarations current | `local/dependency-freshness.log` |
+| Auto-restart dependency freshness | Reproduce command-stream 0.24.1 as stale, capture the later use-m 8.16.0 mismatch, then confirm all 148 declarations current | `local/dependency-freshness-current-before-fix.log`, `local/dependency-freshness-use-m-before-fix.log`, and `local/dependency-freshness-current-after-fix.log` |
+| Runtime pin regressions | Confirm command-stream alias/install/specifier behavior at 0.25.0 | `local/test-preinstall-use-m-packages-current.log` and `local/test-use-with-retry-current.log` |
+| Bootstrap pin regressions | Confirm both CDN URLs use use-m 8.16.1 and preserve primary/fallback loading | `local/test-current-dependency-pins-auto-restart-1.log` and `local/test-use-m-bootstrap-auto-restart-1.log` |
 | actionlint, syntax, line limits | Workflow/syntax/static limits | corresponding `local/*.log` files |
 | Auto-fork compatibility script | Preserve legacy flag coverage without leaking its intentional deprecation warning into CI | `local/auto-fork-option.log` |
 | Runner-image regression | Reject mutable Ubuntu aliases in every active workflow | `tests/ci-runner-image-2279.test.mjs` and final local suite log |
-| Changeset validation | Require one newly added patch changeset against the exact PR base/head | `local/changeset-validation-final.log` |
-| format, ESLint, duplication, secretlint | Repository lint gates | corresponding `local/*.log` files |
-| Complete default suite | All 499 repository default test files | `local/npm-test.log.gz` |
-| GitHub integration suite | Live integration regressions | `local/github-integration.log` |
+| Changeset validation | Require one newly added patch changeset against the exact PR base/head | `local/changeset-validation-post-suite.log` |
+| format, ESLint, duplication, secretlint | Repository lint gates | corresponding `local/*auto-restart-final*` and `local/*post-suite*` logs |
+| Complete default suite | All 499 repository default test files | `local/npm-test-auto-restart-final.log.gz` |
+| GitHub integration suite | Live integration regressions | `local/github-integration-auto-restart-final.log.gz` |
 | Current-head GitHub Actions | Authoritative merge-candidate validation | final run list and downloaded non-passing logs in this bundle |
 
 ## Residual constraints
@@ -297,7 +359,10 @@ all converge on the chosen external-token strategy.
 - The live integration harness intentionally preserved its generated fixture
   repository. Cleanup of the exact test-only repository was attempted, but the
   authenticated token lacks `delete_repo`; the URL and 403 are recorded in
-  `local/integration-cleanup.txt` for administrator cleanup.
+  `local/integration-cleanup.txt` for administrator cleanup. The final rerun
+  likewise preserved `https://github.com/konard/test-feedback-lines-f39a7bc1`
+  as its review fixture; its URL is retained in the compressed final
+  integration log.
 - Cross-repository reports: the release credential/check correction is posted
   at template issue #192 comment 5756981358; the runner migration warning is
   reported at template issue #193.
@@ -306,6 +371,10 @@ all converge on the chosen external-token strategy.
 
 - The complete default suite passed all 499 selected test files.
 - The live GitHub integration suite passed all four assertions.
+- The final authenticated dependency check passed all 148 declarations after
+  the command-stream 0.25.0 and use-m 8.16.1 refreshes.
+- The post-suite secret scan passed after raw upstream payloads and synthetic
+  credential-bearing test output were preserved as deterministic gzip files.
 - Focused #2175, #2274, and #2279 release regressions passed.
 - actionlint, dependency freshness, status-gate, Changesets guards, shell and
   JavaScript syntax, line limits, ESLint, Prettier, duplication, secretlint,

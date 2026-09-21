@@ -75,11 +75,16 @@ echo ""
 echo "Testing deprecated start-screen.mjs accepts --auto-fork without opening a screen..."
 NODE_BIN="${NODE_BIN:-$(command -v node)}"
 NO_SCREEN_PATH="$(dirname "${NODE_BIN}")"
-PATH="${NO_SCREEN_PATH}" "${NODE_BIN}" ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork --dry-run 2>&1 | tee start_screen_auto_fork.log || true
+PATH="${NO_SCREEN_PATH}" HIVE_MIND_SUPPRESS_DEPRECATIONS=1 "${NODE_BIN}" ./src/start-screen.mjs solve https://github.com/test/repo/issues/1 --auto-fork --dry-run 2>&1 | tee start_screen_auto_fork.log || true
 assert_log_matches "start-screen.mjs reports screen is unavailable rather than failing on the flag" "(GNU Screen is not installed|screen.*not.*installed)" "start_screen_auto_fork.log"
 
 if grep -q "Unknown option" start_screen_auto_fork.log; then
   echo "FAIL: start-screen.mjs rejected --auto-fork as an unknown option"
+  failed=1
+fi
+
+if grep -q "start-screen is deprecated" start_screen_auto_fork.log; then
+  echo "FAIL: CI compatibility coverage emitted an intentional deprecation warning"
   failed=1
 fi
 

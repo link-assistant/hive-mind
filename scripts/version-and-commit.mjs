@@ -127,7 +127,6 @@ try {
     output: setOutput,
     countChangesets,
     verbose: isVerbose(),
-    releasePullRequestTokenConfigured: process.env.RELEASE_PULL_REQUEST_TOKEN_CONFIGURED === 'true',
   });
 } catch (error) {
   console.error('Error:', error.message);

@@ -1,0 +1,100 @@
+f2cd4d8623557241fa4127a57a77461751a2f734	2026-09-21T15:56:39+07:00	Merge pull request #195 from link-foundation/issue-194-1b92d4ad5049
+1f5be7344f5476512cfe1aa98b145b29766888f7	2026-09-21T08:50:13+00:00	fix: unblock protected release PRs and pin Ubuntu 24.04
+6efeda141481329c6d855e4dc3c5944b6f1505c5	2026-09-21T08:30:54+00:00	Initial commit with task details
+e4f23d74e6679c24b584980977c74ab631f41576	2026-09-15T23:23:56+07:00	Merge pull request #191 from link-foundation/issue-190-f965a60d7b29
+48de88ec4cb986a12b953a73c5a5a4381442a26b	2026-09-15T12:39:49+00:00	fix: support pipeline gate on macOS bash
+ae46caf3a618458afa46b206e74e5fbf832f4fa5	2026-09-15T12:34:21+00:00	chore: refresh example app audit resolution
+ce6a9a4a06c4998336bee6e11eb22ae5e0f7c438	2026-09-15T12:30:59+00:00	chore: record pipeline hardening release
+59c2bb887dbaee53963b686b2bb2dc33b460b171	2026-09-15T12:30:49+00:00	fix: make pipeline verdicts fail closed
+15fddaf536b52d9183a0240953e70f1a90179ffd	2026-09-15T12:30:35+00:00	fix: bracket contributor-authored workflow logs
+d47130dcd5523e91fcb9d8a7ef4bfe8149cd0c1f	2026-09-15T12:30:01+00:00	fix: contain budgeted process trees
+e1db014c29737aecd1307e65a4732dc253114b74	2026-09-15T12:03:09+00:00	Initial commit with task details
+c3a6d23b693972a70097430f01e69fcee5a51ad2	2026-09-09T03:40:50+07:00	Merge pull request #183 from link-foundation/fix-all-open-pipeline-issues
+e44f5104df132158a348850d6db39a381d5c2373	2026-09-09T03:35:21+07:00	fix: read re-check env vars at execution time, not import time
+979b106fe7ae89dce6c30a32e3950d1347b5b78f	2026-09-09T03:01:39+07:00	Fix cross-runtime test fixtures: Deno permissions and Windows line endings
+375142addc560f9394564c7da9b0212eb7a6e3f5	2026-09-09T02:46:32+07:00	Classify pull requests by the whole push, not the last commit
+9ae302d0158bd95befffa6a6549edfb86c88814e	2026-09-09T02:31:19+07:00	Add changeset for the pipeline fixes
+f1a7f248d3a2c3782f2743e37e25315936d55e7f	2026-09-09T02:28:13+07:00	Make the husky install verifiable and the jscpd gate measurable
+f9870e943e361506d066131e96cbb4aa755354f3	2026-09-09T02:14:47+07:00	Harden CI scripts against transient and stuck failures
+8ddb4feade60099e53c6a965690dcedaa3792ab9	2026-09-09T01:58:23+07:00	Add a terminal status gate to every workflow and teach it supersedes
+09904a419c5fdc1e55c0dcd0abc618556df94606	2026-09-09T01:47:32+07:00	Harden release scripts: errexit, staged-format gate, package manager guard
+deeae75d2cbf3cdadd741f4bf0b5706a220227d3	2026-09-09T01:28:12+07:00	Make gate scope derive from what the gates inspect
+09b8ab2229a11463a6bb4db5ba6df7f0b107f606	2026-09-09T01:12:16+07:00	Re-check unanswered links outside lychee and track link-check inputs
+c30bab5988b40806ced407f9a54ef46c9777242b	2026-09-09T00:52:04+07:00	Harden pipeline credentials, pins, preflight, and budget invariant
+338fafa7b428637a18fe06a114d446a5cfb23ae7	2026-09-05T09:54:55+00:00	0.11.30
+3900bb66fc6def466600b8527365e8f3e829e032	2026-09-05T16:53:00+07:00	Merge pull request #163 from link-foundation/issue-158-7619a697816a
+a04396551601f3d37567d107134644f94c6f2fc8	2026-09-05T09:48:21+00:00	tests: merge duplicated publishWithRetry describe block
+cd40863fd2a5377a6bb98cfc4cbf715e62087eeb	2026-09-05T09:47:15+00:00	Merge remote-tracking branch 'origin/main' into issue-158-7619a697816a
+352802e8acb865504d8782ac822471de475c119e	2026-09-05T09:45:50+00:00	0.11.29
+c4dfbcfb063418ec8400762e75a5957a7ca4082c	2026-09-05T16:44:12+07:00	Merge pull request #162 from link-foundation/issue-161-f004cfb4f490
+8b129f9df288237e1f6a40a50c9ce2a95d23401a	2026-09-05T09:39:28+00:00	publish-retry: recognise E409 previously-staged-version as already published
+c592f2c1648e25c7e8c1a774edce86112a5179d3	2026-09-05T09:38:41+00:00	Skip the stalled-server check where listening is not permitted
+3b5d3ec22db5fbd9a60f7a16d1e605b8896a38c5	2026-09-05T09:36:45+00:00	Initial commit with task details
+0cd60b8410195ee8c05055bc942a1dcceea9eeb5	2026-09-05T09:34:24+00:00	Bound the use-m CDN load and report its failure from the scripts
+d9985a6799fc83926b9588779e1c494c0c1bc4e8	2026-09-05T09:22:21+00:00	Initial commit with task details
+7ae16b0edef2f52ad657a839767f05ef4d4143f2	2026-09-03T20:04:47+00:00	0.11.28
+0d0b19862d95fe2a385ff6b67d813aef8f00263a	2026-09-04T03:02:55+07:00	Merge pull request #153 from link-foundation/issue-151-0a075b5892ef
+a1161c00dc2d86d7af3acfec42290061ca4e454f	2026-09-03T19:56:48+00:00	Keep CI green: permission-safe env reads, Windows skip, audit fix
+8518cbe28a51730634df5074ab5741c268f6153c	2026-09-03T19:46:52+00:00	Load use-m modules through a CommonJS interop shim
+74be0b6646786cfdbd360105670fbbeee5fb9c64	2026-09-03T19:38:41+00:00	Initial commit with task details
+481d9f403bb5adb138c9dfacc5870b802c3e7c89	2026-09-02T14:48:09+07:00	Merge pull request #152 from link-foundation/issue-151-f2ab47a41470
+9eb855a804c80dcbdd4ab41b6f0b0532caaf7464	2026-09-02T07:41:29+00:00	Initial commit with task details
+3ea8329d105cc186c4d7ed5823f9bbfac111c252	2026-08-29T04:11:37+07:00	Merge pull request #150 from link-foundation/issue-149-6b50a07807b0
+945536f61f233320f4bd9cc406a716efa862cad5	2026-08-28T21:06:30+00:00	Tolerate restricted environment access when writing step outputs
+90fb9d16ba666762ea5f4df2bc27f3b351afbfa8	2026-08-28T21:03:42+00:00	Distinguish an unreachable npm registry from an unpublished version
+e76d93e9191673d3502a864dc16ff2656dbb220b	2026-08-28T20:58:13+00:00	Initial commit with task details
+22e0dfb166283f8dbb3005849455592fee9d0854	2026-08-28T18:36:48+07:00	Merge pull request #148 from link-foundation/issue-144-4cf472d6da14
+aa361d37aeb4b2e6333bfadc07ad23e0cfc6a61b	2026-08-28T11:31:00+00:00	Merge remote-tracking branch 'origin/main' into issue-144-4cf472d6da14
+6e80d0366aa6091ba3ac7fed2ded84573a8a751f	2026-08-28T18:29:09+07:00	Merge pull request #147 from link-foundation/issue-145-6c9d54b15524
+7e4e2dc786ad27c2af1cbbb2ce3ae2c886865a5a	2026-08-28T11:23:44+00:00	Merge remote-tracking branch 'origin/main' into issue-144-4cf472d6da14
+64fc905eb07db6b5884795528756d3cf450ec4fe	2026-08-28T11:13:56+00:00	Merge remote-tracking branch 'origin/main' into issue-145-6c9d54b15524
+752c869ec1d87b5da8ed796cfdd85adb4889e97f	2026-08-28T18:12:12+07:00	Merge pull request #146 from link-foundation/issue-143-32a1a75b2e75
+1dd0983c8244e3a675654fc12b3b195b9457d588	2026-08-28T11:09:02+00:00	fix: attribute bot release commits with the 41898282+ e-mail prefix
+ea0c426c3acc6f93df4dfd265f0bbd62ce58fe74	2026-08-28T11:08:24+00:00	ci: lint workflows with actionlint and zizmor, fix their findings
+372cc1f230b4b3327e8a1704f54e4ff58b53994f	2026-08-28T11:06:21+00:00	chore: wire the pull-request fallback into the release and preview jobs
+19f0f043f7610158891d00556db27bb67102dae9	2026-08-28T11:06:19+00:00	Initial commit with task details
+3caf4da02decb17eb71dad1380a85fb0832940bc	2026-08-28T11:05:58+00:00	fix: land the push through a pull request when a ruleset declines it
+52e94e56e1accb27c7ceb433afbaa1091c295e23	2026-08-28T11:00:48+00:00	Initial commit with task details
+9d4d0d524f9775ba0ebddcf2cd7570e1ef512d08	2026-08-28T10:55:01+00:00	Initial commit with task details
+3c8ea474077d656caa85bac41672219495861b06	2026-08-28T17:37:43+07:00	Merge pull request #142 from link-foundation/issue-141-71671ce6c096
+401020c3cb80ca56ad4b75650ee50c7adc5b9ccc	2026-08-22T19:04:24+00:00	fix: avoid hand-rolled regex escaping in detect-code-changes (CodeQL js/incomplete-sanitization)
+f1451f7125b8bef3dafc06acdb33a54faf0e0ca2	2026-08-22T18:58:23+00:00	fix: match detect-code-changes ignore list in the multi-language layout
+cab7f454d430e782ca52f926615d5ea25fc6201c	2026-08-22T18:54:00+00:00	Initial commit with task details
+d2d878bfd41a041e4ce0328a1127ae2dfaec8f85	2026-08-20T12:11:33+07:00	Merge pull request #140 from link-foundation/issue-137-9e84180cc245
+f33093a452b96ecb49ad11a8fcfa75094d45df93	2026-08-20T05:05:58+00:00	Merge origin/main into issue-137-9e84180cc245
+d200d287d41f11c3e24f1498d4569917a432163f	2026-08-20T12:02:53+07:00	Merge pull request #139 from link-foundation/issue-138-1d5c5c2dace7
+3b206b33003947058c5ecc5a9eca024a447578dd	2026-08-20T04:59:51+00:00	ci: give long steps an execution budget so overruns fail instead of cancel
+d33d501b124c8481799d4dc1f91ecb403baacdfd	2026-08-20T04:57:32+00:00	test(links): skip the CLI fixture under Deno
+90b40f2f52469f41a41fa437da74a675c0ae0d2c	2026-08-20T04:54:16+00:00	fix(links): fail web archive check on non-HTTP lychee errors
+f9835e140f326180b3e3bbd6c5d8de5031ee4ac0	2026-08-20T04:51:30+00:00	Initial commit with task details
+027fc5c9a7ec7bc3fd4c0c910165abac3df8c054	2026-08-20T04:45:43+00:00	Initial commit with task details
+d95000cdfb9c82ab842f551d206b3b87844db183	2026-08-16T07:12:14+07:00	Merge pull request #136 from link-foundation/issue-133-00428f7f7023
+844652aa0d411fecdc7d30d1aed25f73db2ed5e9	2026-08-16T00:07:18+00:00	chore: add download warning changeset
+506340c6c64ff5d910c4130b1536acbe3294f4ac	2026-08-16T00:05:37+00:00	ci: suppress download-artifact DEP0005 warning
+58db76cc3e95948d046264bf599ead9a4b606f58	2026-08-16T00:02:31+00:00	Initial commit with task details
+3e8876513d298d5d94c8e389e9dd5424e9e641a3	2026-08-16T07:01:42+07:00	Merge pull request #135 from link-foundation/issue-134-f1d9961b5769
+ca3e409950480e612bdf100e7f700b390e844967	2026-08-15T23:56:46+00:00	fix(example): replace vulnerable Electron toolchain
+79b529e5b4993b11c0e8b06c2e086ddf74361d60	2026-08-15T23:45:07+00:00	ci(security): audit every npm lock
+b6969def7407ecc3bbb0b716effe4e7e747acb68	2026-08-15T23:37:41+00:00	Initial commit with task details
+77b8f1b520fde96f9a65a0fd7b5e5a5c9d1046d3	2026-08-12T15:07:24+07:00	Merge pull request #132 from link-foundation/issue-127-69ba4b8740e4
+cee16080909863bc02d998ae8744c5cfd40e0bca	2026-08-12T08:01:59+00:00	fix: fail checks for archived dead links
+d2c91d55984ede274bb15b5247ed5cc2889ebfa9	2026-08-12T07:57:40+00:00	Initial commit with task details
+d910b4874f21e8cdbeab567609bd12c98888dbbc	2026-08-12T14:47:37+07:00	Merge pull request #131 from link-foundation/issue-128-8c3460cd1b90
+7284f3f06e2a30345729ad58d9fd4c091928acb4	2026-08-12T14:43:05+07:00	Merge pull request #130 from link-foundation/issue-129-9393ba78da85
+3f1678de77465e7316b62f37efe7de1d4ff8898b	2026-08-12T07:42:31+00:00	fix: ignore redirects in broken link report
+2911e5591407c525f4314f419aeee0a93089ddeb	2026-08-12T07:37:34+00:00	ci: publish multi-arch Docker images
+b0b622f2f6253c25f01371c329fff023fea1286a	2026-08-12T07:36:19+00:00	Initial commit with task details
+47678b3eeccb873367b255c9817a22631034aabe	2026-08-12T07:30:55+00:00	Initial commit with task details
+9af528fb034643c03b4354e5273a8a20d830ee02	2026-08-09T00:45:06+00:00	0.11.27
+f0c5ec16b13695c5bce5d18c006ed2ea22c5029c	2026-08-09T06:12:56+05:30	Merge pull request #125 from link-foundation/issue-123-694cc3367d40
+b426287966ca8039e8f84540ce66dd093a1942b9	2026-08-09T00:36:29+00:00	Merge remote-tracking branch 'origin/main' into issue-123-694cc3367d40
+b6f00cc7a2bc6c69b06afc22309edfea927948fd	2026-08-09T00:35:44+00:00	0.11.26
+ddb80421987b2f4311b55bf5fab86a0b34d1f035	2026-08-09T00:35:36+00:00	Merge remote-tracking branch 'origin/main' into issue-123-694cc3367d40
+88701940916cdeb817d8dd0fbe613c50509086f5	2026-08-09T06:03:48+05:30	Merge pull request #124 from link-foundation/issue-122-20f6aa469ba4
+fc11c4cc1bcf0788e5222f7214765f64595d110f	2026-08-09T00:32:59+00:00	test(ci): require status gate runtime
+7b10ab2012ac3d02f2b3e5c7dccf603915646828	2026-08-09T00:31:20+00:00	chore: remove task branch marker
+53519f1d04819254f7cbdb4f26ea3d95e77d015d	2026-08-09T00:30:31+00:00	fix(ci): expose timeout cancellations
+42be26a950f9336ba0c793d0b369cfbdbedd3545	2026-08-09T00:28:21+00:00	ci(security): update dependency review to v5
+328d858b37dfeed46e1e20105912a377b8f7abd0	2026-08-09T00:24:01+00:00	ci(security): add CodeQL and dependency review
+100673087bb3cd671477f660d9b49f6ed6272c72	2026-08-09T00:23:21+00:00	Initial commit with task details
+b6b894a27dbbf7d6084702a79e1fee5b633c3056	2026-08-09T00:18:26+00:00	Initial commit with task details

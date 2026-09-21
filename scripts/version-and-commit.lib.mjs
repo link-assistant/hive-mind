@@ -34,6 +34,23 @@ import { CommandFailedError, runCommand, runStrict } from './run-command.lib.mjs
 
 const DEFAULT_PUSH_ATTEMPTS = 5;
 const DEFAULT_PUSH_DELAY_MS = 3000;
+const RELEASE_METADATA_FILES = new Set(['package.json', 'package-lock.json', 'CHANGELOG.md']);
+
+/**
+ * Prove that a generated version commit did not change the source tree that the
+ * parent workflow validated. Changesets may consume Markdown files and update
+ * the package metadata, lockfile, and changelog; anything else must fail closed
+ * before the commit is pushed or attested as successful.
+ *
+ * @param {string[]} paths
+ * @returns {void}
+ */
+export function assertReleaseMetadataOnly(paths) {
+  const unexpected = paths.filter(path => path && !RELEASE_METADATA_FILES.has(path) && !/^\.changeset\/[^/]+\.md$/.test(path));
+  if (unexpected.length > 0) {
+    throw new Error(`Refusing to publish a release commit with unvalidated source changes: ${unexpected.join(', ')}`);
+  }
+}
 
 /**
  * Read the package version from disk.
@@ -120,10 +137,9 @@ export async function pushWithRebaseRetry({ runner = runCommand, branch = 'main'
  * @param {Console} [opts.logger]
  * @param {boolean} [opts.verbose]
  * @param {(text: string) => Promise<string>} [opts.sanitizeForPublication] injectable for tests
- * @param {boolean} [opts.releasePullRequestTokenConfigured]
  * @returns {Promise<{versionCommitted: boolean, newVersion?: string, alreadyReleased?: boolean}>}
  */
-export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication, releasePullRequestTokenConfigured = process.env.RELEASE_PULL_REQUEST_TOKEN_CONFIGURED === 'true' }) {
+export async function versionAndCommit({ mode, bumpType, description, runner = runCommand, output, readVersion = readPackageVersion, countChangesets, branch = 'main', remote = 'origin', runId = process.env.GITHUB_RUN_ID, sleeper, logger = console, verbose = false, sanitizeForPublication }) {
   const strict = (command, args) => runStrict(command, args, { runner, verbose, logger });
 
   await strict('git', ['config', 'user.name', 'github-actions[bot]']);
@@ -207,6 +223,12 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
   await strict('git', ['add', '-A']);
   await strict('git', ['commit', '-m', newVersion]);
 
+  const committedPaths = (await strict('git', ['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'])).stdout
+    .split('\n')
+    .map(path => path.trim())
+    .filter(Boolean);
+  assertReleaseMetadataOnly(committedPaths);
+
   // Only after this resolves has the bump actually reached main. Reporting
   // success before the push landed is the F4 regression.
   try {
@@ -218,7 +240,7 @@ export async function versionAndCommit({ mode, bumpType, description, runner = r
     if (!isBlockedByRepositoryRule(error)) {
       throw error;
     }
-    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication, releasePullRequestTokenConfigured });
+    await landViaPullRequest({ runner, version: newVersion, branch, remote, runId, sleeper, logger, verbose, output, sanitizeForPublication });
   }
 
   logger.log(`Version bump committed and pushed to ${branch}`);

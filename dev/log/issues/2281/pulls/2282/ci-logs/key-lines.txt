@@ -1,0 +1,41 @@
+Issue 2281 causal log index (line numbers refer to the decompressed .log files)
+
+run-35627852498.log (initial PR, 2026-09-21)
+  2269  Dependency freshness: 145/148 declarations current
+  2270  STALE @sentry/node ^10.75.0 -> 10.75.1
+  2271  STALE @sentry/profiling-node ^10.75.0 -> 10.75.1
+  2272  STALE jscpd ^5.3.0 -> 5.3.1
+  2273  Dependency freshness failed: 3 stale, 0 unresolved
+  2959  Failed jobs: detect-changes
+  2961  Pipeline failed. Failing jobs: detect-changes
+
+run-35587213311.log (cited main failure, 2026-09-21)
+  45290 GH_TOKEN is empty
+  45291 RELEASE_PULL_REQUEST_TOKEN_CONFIGURED is false
+  45355 GH013: Repository rule violations
+  45358 Changes must be made through a pull request
+  45360 Required status check "Pipeline Status" is expected
+  45365 helper aborts because RELEASE_PULL_REQUEST_TOKEN is not configured
+  45744 Failed jobs: release
+  45746 Pipeline failed. Failing jobs: release
+
+run-34792591319.log (last green release, 2026-09-14)
+  43259 GH013 direct-push rejection
+  43270 fallback branch pushed
+  43277 release PR 2250 created with the built-in token
+  43281 release PR merged
+  43322 npm package 2.29.0 verified
+  65612 Pipeline succeeded
+
+run-34882269478.log (next historical release, independent npm incident)
+  43242 GH013 direct-push rejection
+  43258 release PR 2253 created
+  43262 release PR merged
+  43302 changeset publish reported success for 2.29.1
+  43310-43379 registry verification repeatedly returned E404 and failed closed
+  43757 Pipeline failed because release failed
+
+Interpretation: the terminal Pipeline Status gate propagated each real upstream
+failure. It did not create a false negative. The npm run is retained because it
+is the first run after the last green release, but its fail-closed registry
+verification is separate from the protected-PR regression in issue 2281.

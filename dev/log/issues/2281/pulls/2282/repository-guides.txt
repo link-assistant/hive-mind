@@ -1,0 +1,17 @@
+./.changeset/README.md
+./README.hi.md
+./README.md
+./README.ru.md
+./README.zh.md
+./case-studies/issue-661-session-resume-cost-optimization/README.md
+./coolify/README.md
+./docs/CONTRIBUTING.hi.md
+./docs/CONTRIBUTING.md
+./docs/CONTRIBUTING.ru.md
+./docs/CONTRIBUTING.zh.md
+./experiments/issue-2130/README.md
+./experiments/issue-2136/README.md
+./experiments/issue-2144/README.md
+./experiments/issue-2236/README.md
+./package.json
+./src/contributing-guidelines.lib.mjs

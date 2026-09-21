@@ -1,0 +1,2542 @@
+Only in /tmp/hive-mind-template.pdTDWG/template/.github/actions: publish-dockerhub
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/actions/setup-buildx-resilient/action.yml .github/actions/setup-buildx-resilient/action.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/actions/setup-buildx-resilient/action.yml	2026-09-21 16:52:39.579758631 +0000
++++ .github/actions/setup-buildx-resilient/action.yml	2026-09-21 16:47:06.009808994 +0000
+@@ -6,8 +6,12 @@
+   (mirror.gcr.io by default) before re-tagging the image to its canonical
+   reference. Booting the docker-container driver otherwise pulls moby/buildkit
+   straight from Docker Hub, and a transient registry timeout there fails the
+-  whole publish job (see issue #75, and the upstream investigations in
+-  link-foundation/box issues #97 and #100). Seeding the image locally first
++  whole publish job. Ported from the pipeline template, where it was written
++  for link-foundation/js-ai-driven-development-pipeline-template#75 and the
++  upstream investigations in link-foundation/box#97 and #100; this repository
++  publishes eight Docker images per release from the same bare
++  docker/setup-buildx-action, so it had eight copies of that failure mode.
++  Seeding the image locally first
+   means the boot reuses the cached image instead of hitting the registry, and
+   the mirror fallback keeps the seed working even during a full Docker Hub
+   registry outage.
+@@ -80,8 +84,8 @@
+         fi
+ 
+         # 2) Registry-mirror fallback. When Docker Hub's registry endpoint is
+-        #    fully unreachable (issue #75 / box #100: registry-1.docker.io timed
+-        #    out for ~2.5 minutes), the canonical pull above cannot recover no
++        #    fully unreachable (box#100: registry-1.docker.io timed out for
++        #    ~2.5 minutes), the canonical pull above cannot recover no
+         #    matter how many times it retries. mirror.gcr.io is a pull-through
+         #    cache of Docker Hub on independent infrastructure, so it usually
+         #    still serves the image. We pull from there and re-tag to the
+Only in .github: codeql
+Only in .github: dependabot.yml
+Only in .github/workflows: cleanup-test-repos.yml
+Only in /tmp/hive-mind-template.pdTDWG/template/.github/workflows: example-app.yml
+Only in .github/workflows: formal-ai-draft.yml
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/workflows/links.yml .github/workflows/links.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/workflows/links.yml	2026-09-21 16:52:39.581758613 +0000
++++ .github/workflows/links.yml	2026-09-21 16:47:06.010808985 +0000
+@@ -7,25 +7,17 @@
+     paths:
+       - '**.md'
+       - '**.html'
+-      - '.github/workflows/links.yml'
+       - '.lycheeignore'
+       - 'scripts/check-web-archive.mjs'
+-      - 'scripts/recheck-broken-links.mjs'
+-      - 'tests/fixtures/lychee-report.md'
+-      - 'tests/links-workflow.test.js'
+-      - 'tests/recheck-broken-links.test.js'
++      - '.github/workflows/links.yml'
+   pull_request:
+     types: [opened, synchronize, reopened]
+     paths:
+       - '**.md'
+       - '**.html'
+-      - '.github/workflows/links.yml'
+       - '.lycheeignore'
+       - 'scripts/check-web-archive.mjs'
+-      - 'scripts/recheck-broken-links.mjs'
+-      - 'tests/fixtures/lychee-report.md'
+-      - 'tests/links-workflow.test.js'
+-      - 'tests/recheck-broken-links.test.js'
++      - '.github/workflows/links.yml'
+   workflow_dispatch:
+ 
+ # Least-privilege default; jobs escalate individually when needed.
+@@ -52,22 +44,25 @@
+     permissions:
+       contents: read
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
++      - uses: actions/checkout@v7
+ 
+       - name: Check links with lychee
+         id: lychee
+         uses: lycheeverse/lychee-action@v2
+         with:
+-          # Check all Markdown and HTML files
+-          # Exclude case-studies directory - these are research documents from
+-          # external repos with references to files and issues that don't exist
+-          # in this repository (similar exclusion pattern as eslint.config.js)
+-          # Exclude the Vite source HTML because its root-relative app asset
+-          # URLs are only valid when served by Vite.
+-          # Exclude tests/fixtures - the captured lychee reports there contain
+-          # deliberately broken links used as parser test input.
++          # Check all Markdown and HTML files.
++          #
++          # Exclusions (kept in sync with EXCLUDED_PREFIXES in
++          # tests/doc-links-2198.test.mjs, which enforces the same list):
++          #   docs/case-studies      - research notes copied from other repos;
++          #                            they reference files and issues that
++          #                            only exist there.
++          #   dev/log                - per-issue evidence archives, same story.
++          #   experiments/.../corpus - fixture text captured verbatim from
++          #                            third-party output.
++          #   tests/fixtures         - the captured lychee report there holds
++          #                            deliberately broken links used as
++          #                            parser test input.
+           args: >-
+             --verbose
+             --no-progress
+@@ -76,11 +71,13 @@
+             --max-retries 3
+             --timeout 30
+             --exclude-path docs/case-studies
+-            --exclude-path examples/universal-app/index.html
++            --exclude-path dev/log
++            --exclude-path experiments/issue-2102/corpus
+             --exclude-path tests/fixtures
+             './**/*.md'
+             './**/*.html'
+-          # Don't fail the workflow immediately - we want to check web archive first
++          # Don't fail the workflow immediately - we want to check the web
++          # archive first, so the report can suggest replacements.
+           fail: false
+           # Output file for broken links report (used by check-web-archive.mjs)
+           output: lychee/out.md
+@@ -89,36 +86,15 @@
+         env:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+ 
+-      - name: Re-check links that never got an answer
+-        # --max-retries never retries a failure during the connect phase
+-        # (lycheeverse/lychee#2297), so a healthy URL behind a connection
+-        # reset is reported broken without one retry. Ask those URLs again
+-        # outside lychee. A failure carrying a status code is a host's
+-        # answer and stays final.
+-        if: steps.lychee.outputs.exit_code != 0
+-        id: recheck
+-        run: node scripts/recheck-broken-links.mjs
+-        env:
+-          LYCHEE_OUTPUT: lychee/out.md
+-          RECOVERED_OUTPUT: lychee/recovered.txt
+-
+       - name: Check broken links against Web Archive
+-        # `!= 'true'`, never `== 'false'`: a skipped re-check leaves the
+-        # output empty, and only the != form fails safe.
+-        if: >-
+-          steps.lychee.outputs.exit_code != 0 &&
+-          steps.recheck.outputs.all_recovered != 'true'
++        if: steps.lychee.outputs.exit_code != 0
+         id: webarchive
+         run: node scripts/check-web-archive.mjs
+         env:
+           LYCHEE_OUTPUT: lychee/out.md
+-          RECOVERED_URLS: lychee/recovered.txt
+ 
+       - name: Fail if broken links were found
+-        if: >-
+-          !cancelled() &&
+-          steps.lychee.outputs.exit_code != 0 &&
+-          steps.recheck.outputs.all_recovered != 'true'
++        if: always() && steps.lychee.outputs.exit_code != 0
+         run: |
+           echo "::error::Broken live links were detected."
+           echo ""
+@@ -137,38 +113,3 @@
+           echo ""
+           echo "Report location: lychee/out.md (available as a workflow artifact if configured)."
+           exit 1
+-
+-  # Terminal status gate: runs even when the jobs above fail or are
+-  # cancelled, and turns a `timeout-minutes` kill (reported as cancelled)
+-  # into a red run. needs is derived and checked by the status-gate-coverage
+-  # job in workflows.yml.
+-  pipeline-status:
+-    name: Pipeline Status
+-    runs-on: ubuntu-24.04
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+-      cancel-in-progress: true
+-    # A status function is required: without one the gate inherits the
+-    # implicit "every dependency succeeded" condition and is skipped in
+-    # exactly the runs it exists to report.
+-    if: >-
+-      !cancelled()
+-    needs:
+-      - link-checker
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Setup Node.js
+-        uses: actions/setup-node@v6
+-        with:
+-          node-version: '24.x'
+-
+-      - name: Fail the run when a required job was cancelled or failed
+-        env:
+-          NEEDS_JSON: ${{ toJSON(needs) }}
+-          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+-        run: bash scripts/check-pipeline-status.sh
+Only in .github/workflows: release-preflight.yml
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/workflows/release.yml .github/workflows/release.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/workflows/release.yml	2026-09-21 16:52:39.581758613 +0000
++++ .github/workflows/release.yml	2026-09-21 16:47:06.011808976 +0000
+@@ -6,6 +6,9 @@
+       - main
+   pull_request:
+     types: [opened, synchronize, reopened]
++    # Do not use workflow-level path filters here. The detect-changes job must
++    # run for every PR update so non-code-only changes still produce completed
++    # checks while expensive jobs are skipped by job-level conditions.
+   # Manual release support - consolidated here to work with npm trusted publishing
+   # npm only allows ONE workflow file as trusted publisher, so all publishing
+   # must go through this workflow (release.yml)
+@@ -16,9 +19,7 @@
+         required: true
+         type: choice
+         default: 'instant'
+-        options:
+-          - instant
+-          - changeset-pr
++        options: [instant, changeset-pr]
+       bump_type:
+         description: 'Manual release type'
+         required: true
+@@ -31,931 +32,1256 @@
+         description: 'Manual release description (optional)'
+         required: false
+         type: string
+-
+-# Least-privilege default for the highest-value token in the repository.
+-# Every job starts read-only; the publishing jobs escalate individually.
++# Least privilege by default (zizmor excessive-permissions): `read-all` also
++# grants read access to actions, packages, security events and more. Every job
++# that needs to write declares its own `permissions:` block below.
+ permissions:
+   contents: read
+-
+-# Provide Git config to actions/checkout itself; checkout runs git init before
+-# any workflow step can configure Git.
+-env:
++# Concurrency: Only one workflow run per branch at a time.
++# - main (releases): QUEUE. A run on main publishes to npm and then pushes the
++#   version bump back to main. Cancelling it in between leaves the registry ahead
++#   of the repository — the same split-brain state as issues #2082/F4 and #2082/F5,
++#   reached by a different route. A newer release waits; it is never lost.
++# - Other branches: CANCEL. Nothing is published from a PR run, so a superseded
++#   run is only spending runners.
++# This is the inverse of the original policy, which cancelled on main and queued
++# everywhere else. See tests/ci-workflow-cancellation-2082.test.mjs.
++#
++# IMPORTANT: jobs must use !cancelled() rather than always() in `if:`, or they keep
++# running after a cancellation and defeat the policy above. Enforced by the same test.
++# See: docs/case-studies/issue-1274/README.md and docs/case-studies/issue-1278/README.md
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++env: # Force Node.js 24 for actions without native support. See issue #1417.
++  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+   GIT_CONFIG_COUNT: '1'
+   GIT_CONFIG_KEY_0: init.defaultBranch
+   GIT_CONFIG_VALUE_0: main
+-
+ jobs:
+-  # === DETECT CHANGES - determines which jobs should run ===
++  # === DETECT CHANGES ===
+   detect-changes:
+-    name: Detect Changes
+     runs-on: ubuntu-24.04
+-    # Typical run: ~6s. Cap at 5min so a hung detection step
+-    # surfaces quickly instead of stalling the whole pipeline.
+-    timeout-minutes: 5
+-    # Job-level permissions replace the workflow defaults for this job.
++    timeout-minutes: 10
++    # `actions: read` on top of the workflow-wide `contents: read`: the detector
++    # asks the Actions API whether the previous head of this PR ever finished a
++    # successful run of this workflow before it trusts an incremental diff
++    # (issue #2198). Without the scope the lookup answers 403 and the detector
++    # falls back to the full PR diff -- safe, but needlessly expensive.
+     permissions:
+       contents: read
+-      # The detector asks the Actions API whether the previous head of the
+-      # branch already passed this workflow, so a docs-only push can trust
+-      # its incremental range.
+       actions: read
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-detect-changes
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    if: github.event_name != 'workflow_dispatch'
+     outputs:
+-      js-changed: ${{ steps.changes.outputs.js-changed }}
+-      docs-changed: ${{ steps.changes.outputs.docs-changed }}
+-      any-code-changed: ${{ steps.changes.outputs.any-code-changed }}
++      mjs-changed: ${{ steps.changes.outputs.mjs }}
++      package-changed: ${{ steps.changes.outputs.package }}
++      docs-changed: ${{ steps.changes.outputs.docs }}
++      workflow-changed: ${{ steps.changes.outputs.workflow }}
++      docker-changed: ${{ steps.changes.outputs.docker }}
++      any-code-changed: ${{ steps.changes.outputs.code }}
++      helm-changed: ${{ steps.changes.outputs.helm }}
++
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+           fetch-depth: 0
+-          persist-credentials: false
+-
+-      - name: Detect changes
++      - name: Verify dependency freshness and detect changes
+         id: changes
+         env:
++          GITHUB_EVENT_NAME: ${{ github.event_name }}
++          GITHUB_EVENT_ACTION: ${{ github.event.action }}
+           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
++          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+           GITHUB_BEFORE_SHA: ${{ github.event.before }}
+           GITHUB_AFTER_SHA: ${{ github.event.after }}
++          # Issue #2198: the token the run lookup needs, to ask whether the
++          # previous PR head ever finished a successful run of this workflow.
++          # GITHUB_WORKFLOW_REF is deliberately *not* set here: the runner
++          # provides it in every job, and overriding it with an expression can
++          # only ever replace a guaranteed value with an empty one.
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-          GITHUB_WORKFLOW_REF: ${{ github.workflow_ref }}
+-        run: node scripts/detect-code-changes.mjs
+-
+-  # === FAST CHECKS - run before slow tests for fastest feedback ===
+-  # See: hive-mind CI/CD best practices principle #5 (fast-fail job ordering)
+-
+-  # Syntax check all .mjs files with node --check (~7s)
+-  test-compilation:
+-    name: Test Compilation
+-    runs-on: ubuntu-24.04
+-    # Typical run: <10s. Tight cap fails fast on syntax-check hangs.
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test-compilation
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    needs: [detect-changes]
+-    if: |
+-      needs.detect-changes.outputs.js-changed == 'true'
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Check .mjs syntax
+-        run: bash scripts/check-mjs-syntax.sh
+-
+-  # Enforce 1500-line limit on .mjs files and release.yml
+-  check-file-line-limits:
+-    name: Check File Line Limits
+-    runs-on: ubuntu-24.04
+-    # Typical run: <10s. This job only walks tracked files and counts lines.
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-check-file-line-limits
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    needs: [detect-changes]
+-    if: |
+-      needs.detect-changes.outputs.docs-changed == 'true' ||
+-      needs.detect-changes.outputs.any-code-changed == 'true'
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          fetch-depth: 0
+-          persist-credentials: false
+-
+-      - name: Simulate fresh merge with base branch (PR only)
+-        if: github.event_name == 'pull_request'
+-        env:
+-          BASE_REF: ${{ github.base_ref }}
+-        run: bash scripts/simulate-fresh-merge.sh
+-
+-      # Enforces the 1500-line limit on JavaScript (.js/.mjs/.cjs) and
+-      # Markdown (.md) files plus release.yml. This is the single source
+-      # of truth for the line limit; validate-docs no longer re-checks it.
+-      - name: Check file line limits
+-        run: bash scripts/check-file-line-limits.sh
+-
++        run: |
++          node scripts/check-dependency-freshness.mjs
++          node scripts/detect-code-changes.mjs
+   # === VERSION CHANGE CHECK ===
+   # Prohibit manual version changes in package.json - versions should only be changed by CI/CD
++  # Only runs when code or package.json changed (Issue #1436: skip for unrelated file changes)
+   version-check:
+     name: Check for Manual Version Changes
+     runs-on: ubuntu-24.04
+-    # Typical run: ~6s. Read-only package.json diff inspection.
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-version-check
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    if: github.event_name == 'pull_request'
++    timeout-minutes: 10
++    needs: [detect-changes]
++    if: github.event_name == 'pull_request' && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true')
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+           fetch-depth: 0
+-          persist-credentials: false
+-
+       - name: Check for version changes in package.json
+         env:
+           GITHUB_HEAD_REF: ${{ github.head_ref }}
+           GITHUB_BASE_REF: ${{ github.base_ref }}
+         run: node scripts/check-version.mjs
+-
+   # === CHANGESET CHECK - only runs on PRs with code changes ===
+   # Docs-only PRs (./docs folder, markdown files) don't require changesets
+   changeset-check:
+     name: Check for Changesets
+     runs-on: ubuntu-24.04
+-    # Typical run: <30s including npm install. 10min covers cold runners.
+     timeout-minutes: 10
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-changeset-check
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+     needs: [detect-changes]
+     if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+           fetch-depth: 0
+-          persist-credentials: false
+-
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+           node-version: '24.x'
+ 
+       - name: Install dependencies
+-        run: npm install
+-
++        run: node scripts/npm-install-with-retry.mjs install
+       - name: Check for changesets
+         env:
+           # Pass PR context to the validation script
+           GITHUB_BASE_REF: ${{ github.base_ref }}
+           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+-          GITHUB_HEAD_REF: ${{ github.head_ref }}
+           GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
++          # Read through the environment, never interpolated into the script:
++          # a branch name is attacker-controlled on a fork PR.
++          GITHUB_HEAD_REF: ${{ github.head_ref }}
+         run: |
+           # Skip changeset check for automated version PRs
+           if [[ "$GITHUB_HEAD_REF" == "changeset-release/"* ]]; then
+             echo "Skipping changeset check for automated release PR"
+             exit 0
+           fi
+-
+           # Run changeset validation script
+           # This validates that exactly ONE changeset was ADDED by this PR
+           # Pre-existing changesets from other merged PRs are ignored
+           node scripts/validate-changeset.mjs
++  # === FAST CHECKS (FAIL FAST) ===
++  # These checks run quickly (~7-21 seconds each) and should pass before long-running tests
++  # === COMPILATION & SYNTAX CHECKS ===
++  test-compilation:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 15
++    needs: [detect-changes, changeset-check]
++    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
++    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
+ 
+-  # === LINT AND FORMAT CHECK ===
++      - name: Setup Node.js
++        uses: actions/setup-node@v7
++        with:
++          node-version: 24.x
++      - name: Test solve.mjs compilation
++        run: |
++          echo "Testing solve.mjs compilation..."
++          timeout 30s node --check src/solve.mjs
++          echo "solve.mjs compiles successfully"
++      - name: Test hive.mjs compilation
++        run: |
++          echo "Testing hive.mjs compilation..."
++          timeout 30s node --check src/hive.mjs
++          echo "hive.mjs compiles successfully"
++      - name: Check Node.js syntax for all .mjs files
++        run: bash scripts/check-mjs-syntax.sh
++  # === ESLINT CODE QUALITY CHECK ===
+   # Lint runs independently of changeset-check - it's a fast check that should always run
+-  # See: https://github.com/link-assistant/hive-mind/pull/1024 for why this dependency was removed
+-  # IMPORTANT: ESLint includes max-lines rule (1500 lines) to ensure files stay maintainable
+-  # See docs/case-studies/issue-23 for why fresh merge simulation is critical
++  # See: docs/case-studies/issue-1023 for why this dependency was removed
++  # IMPORTANT: ESLint now includes max-lines rule (1500 lines) to synchronize with check-file-line-limits
++  # See docs/case-studies/issue-1141 for why fresh merge simulation is critical
+   lint:
+-    name: Lint and Format Check
+     runs-on: ubuntu-24.04
+-    # Typical run: <1min including install, ESLint, Prettier, jscpd,
+-    # and secretlint. 10min protects against a hung lint plugin.
+-    timeout-minutes: 10
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-lint
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
++    timeout-minutes: 15
+     needs: [detect-changes]
+-    if: |
+-      !cancelled() &&
+-      (
+-        github.event_name == 'workflow_dispatch' ||
+-        needs.detect-changes.outputs.docs-changed == 'true' ||
+-        needs.detect-changes.outputs.any-code-changed == 'true'
+-      )
++    if: needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.docs-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true'
+     steps:
+-      - uses: actions/checkout@v6
++      - name: Checkout repository
++        uses: actions/checkout@v7
+         with:
+           # For PRs, fetch enough history to merge with base branch
+           fetch-depth: 0
+-          persist-credentials: false
+ 
+       - name: Simulate fresh merge with base branch (PR only)
+         if: github.event_name == 'pull_request'
+         env:
+           BASE_REF: ${{ github.base_ref }}
+         run: bash scripts/simulate-fresh-merge.sh
+-
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+-          node-version: '24.x'
+-
++          node-version: 24.x
++      # Issue #2198: a lockfile for another package manager at the root makes
++      # `changeset version` shell out to a package manager the runner does not
++      # have. Checked before install so it fails in seconds.
++      - name: Check package manager declaration and lockfiles
++        run: node scripts/check-package-manager.mjs
+       - name: Install dependencies
+-        run: npm install
+-
++        run: node scripts/npm-install-with-retry.mjs ci
++      - name: Run Prettier format check
++        run: |
++          echo "Running Prettier format check..."
++          npm run format:check
++          echo "Prettier format check passed"
+       - name: Run ESLint
+-        run: npm run lint
+-
+-      - name: Check formatting
+-        run: npm run format:check
+-
+-      - name: Check code duplication
+-        run: npm run check:duplication
++        run: |
++          echo "Running ESLint code quality checks..."
++          npm run lint
++          echo "ESLint checks passed"
+ 
+-      - name: Check for secrets
+-        run: npx --yes -p secretlint -p @secretlint/secretlint-rule-preset-recommend secretlint "**/*"
+-
+-  # Test matrix: 3 runtimes (Node.js, Bun, Deno) x 3 OS (Ubuntu, macOS, Windows)
+-  # IMPORTANT: Tests must validate the ACTUAL merge result, not a stale merge preview.
+-  # See docs/case-studies/issue-23 for why this is critical.
+-  # Fast-fail: slow test matrix only runs after fast checks pass (hive-mind principle #5)
+-  test:
+-    name: Test (${{ matrix.runtime }} on ${{ matrix.os }})
+-    runs-on: ${{ matrix.os }}
+-    # Typical run: <1min per runtime/OS on warm runners, with Windows
+-    # sometimes slower on cold starts. Each test step owns an explicit
+-    # budget below (see scripts/run-with-budget-warning.sh); this cap is
+-    # only the backstop behind those budgets, sized so the budgets always
+-    # expire first. A job killed by timeout-minutes reports *cancelled*,
+-    # which hides the failure -- see docs/CI-TIMEOUT-BUDGETS.md.
+-    timeout-minutes: 15
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-test-${{ matrix.runtime }}-${{ matrix.os }}
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    needs:
+-      [
+-        detect-changes,
+-        changeset-check,
+-        test-compilation,
+-        lint,
+-        check-file-line-limits,
+-      ]
+-    # Use !cancelled() instead of always() so cancellation propagates correctly (hive-mind issue #1278)
+-    # Run for relevant code/package/workflow changes, or for an instant manual
+-    # release. Skipped fast checks count as non-failures only after one of
+-    # those positive gates passes.
+-    if: |
+-      !cancelled() &&
+-      (
+-        needs.detect-changes.outputs.any-code-changed == 'true' ||
+-        (
+-          github.event_name == 'workflow_dispatch' &&
+-          github.event.inputs.release_mode == 'instant'
+-        )
+-      ) &&
+-      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
+-      (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
+-      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
+-      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped')
+-    strategy:
+-      fail-fast: false
+-      matrix:
+-        os: [ubuntu-24.04, macos-latest, windows-latest]
+-        runtime: [node, bun, deno]
++      - name: Run code duplication check
++        run: |
++          echo "Running jscpd code duplication detection..."
++          npm run check:duplication
++          echo "Code duplication check passed"
++
++      # Issue #2198: secretlint shipped as a devDependency for the log
++      # sanitizer but no job ever ran it, so a committed credential would
++      # have passed CI unnoticed. Fail-closed; .secretlintignore lists the
++      # few fixture files that hold fake secrets on purpose.
++      - name: Run secret scan
++        run: |
++          echo "Running secretlint credential scan..."
++          npm run check:secrets
++          echo "Secret scan passed"
++  # === FILE LINE LIMIT CHECK ===
++  # IMPORTANT: This check must validate the ACTUAL merge result, not a stale merge preview.
++  # See docs/case-studies/issue-1141 for why this is critical.
++  check-file-line-limits:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 10
++    needs: [detect-changes, changeset-check]
++    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
++    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.mjs-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+     steps:
+-      - uses: actions/checkout@v6
++      - name: Checkout repository
++        uses: actions/checkout@v7
+         with:
+           # For PRs, fetch enough history to merge with base branch
+           fetch-depth: 0
+-          persist-credentials: false
+-
+       - name: Simulate fresh merge with base branch (PR only)
+         if: github.event_name == 'pull_request'
+         env:
+           BASE_REF: ${{ github.base_ref }}
+-        shell: bash
+         run: bash scripts/simulate-fresh-merge.sh
++      - name: Check file line limits (.mjs files and release.yml)
++        run: bash scripts/check-file-line-limits.sh
++  # === LONG-RUNNING CHECKS ===
++  # These checks take significant time (30s to 4+ minutes) and only run after all fast checks pass
+ 
+-      - name: Setup Node.js
+-        if: matrix.runtime == 'node'
+-        uses: actions/setup-node@v6
+-        with:
+-          node-version: '24.x'
+-
+-      - name: Install dependencies (Node.js)
+-        if: matrix.runtime == 'node'
+-        run: npm install
+-
+-      - name: Run tests (Node.js)
+-        if: matrix.runtime == 'node'
+-        shell: bash
+-        run: bash scripts/run-with-budget-warning.sh 300 "Node.js test suite" npm test
+-
+-      - name: Setup Bun
+-        if: matrix.runtime == 'bun'
+-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+-        with:
+-          bun-version: latest
+-
+-      - name: Install dependencies (Bun)
+-        if: matrix.runtime == 'bun'
+-        run: bun install
+-
+-      - name: Run tests (Bun)
+-        if: matrix.runtime == 'bun'
+-        shell: bash
+-        # --timeout caps an *individual* test at 30s, matching Node's
+-        # --test-timeout budget while leaving headroom for cold runners.
+-        # It is a per-test bound and does not bound the suite: 25 tests of
+-        # 29s each pass every per-test check. The suite budget below is
+-        # what bounds the whole run.
+-        run: bash scripts/run-with-budget-warning.sh 200 "Bun test suite" bun test --timeout 30000
+-
+-      - name: Setup Deno
+-        if: matrix.runtime == 'deno'
+-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+-        with:
+-          deno-version: v2.x
+-
+-      - name: Run tests (Deno)
+-        if: matrix.runtime == 'deno'
+-        shell: bash
+-        run: bash scripts/run-with-budget-warning.sh 100 "Deno test suite" deno test --allow-read
+-
+-  # === DOCKER IMAGE BUILD CHECK (pull requests) ===
+-  # Builds the Dockerfile without pushing so a broken image fails the pull
+-  # request instead of surfacing only after publish (issue #106).
+-  # push: false + load: true keeps this working for fork pull requests,
+-  # which have no registry credentials. Skipped when no Dockerfile exists.
+-  docker-build:
+-    name: Docker Image Build Check
++  # === UNIT TESTS ===
++  test-suites:
+     runs-on: ubuntu-24.04
+-    # Typical run: a few minutes with a warm GHA layer cache. 30min covers
+-    # a cold, uncached build without allowing a 6h hang.
+     timeout-minutes: 30
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-docker-build
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    needs: [detect-changes]
+-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.any-code-changed == 'true'
+-    permissions:
+-      contents: read
+-    env:
+-      DOCKER_CONTEXT: ${{ vars.DOCKER_CONTEXT }}
+-      DOCKERFILE: ${{ vars.DOCKERFILE }}
++    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
++    if: |
++      !cancelled() &&
++      !contains(needs.*.result, 'failure') &&
++      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
++      needs.test-compilation.result == 'success' &&
++      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
++      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
++      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
++      - name: Use Node.js 24.x
++        uses: actions/setup-node@v7
+         with:
+-          persist-credentials: false
++          node-version: 24.x
++      - name: Install dependencies
++        run: node scripts/npm-install-with-retry.mjs install
++      - name: Pre-install use-m packages (issue #1724)
++        run: node scripts/preinstall-use-m-packages.mjs
++      - name: Run default test suite
++        run: npm test
++
++      - name: Run GitHub integration test suite
++        env:
++          GITHUB_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN || secrets.GITHUB_TOKEN }}
++          TEST_GITHUB_USERNAME: ${{ secrets.TEST_GITHUB_USERNAME }}
++          TEST_GITHUB_USER_TOKEN: ${{ secrets.TEST_GITHUB_USER_TOKEN }}
++        run: node scripts/run-tests.mjs --suite github-integration
++  # === EXECUTION TESTS ===
++  test-execution:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 20
++    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
++    if: |
++      !cancelled() &&
++      !contains(needs.*.result, 'failure') &&
++      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
++      needs.test-compilation.result == 'success' &&
++      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
++      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
++      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
++    steps:
++      - uses: actions/checkout@v7
++      - name: Use Node.js 24.x
++        uses: actions/setup-node@v7
++        with:
++          node-version: 24.x
++      - name: Install dependencies
++        run: node scripts/npm-install-with-retry.mjs install
++      - name: Pre-install use-m packages (issue #1724)
++        run: node scripts/preinstall-use-m-packages.mjs
+ 
+-      - name: Check Docker build configuration
+-        id: docker_config
+-        run: node scripts/check-docker-build.mjs
++      - name: Test solve.mjs execution
++        run: |
++          echo "Testing solve.mjs basic execution..."
++          timeout 10s ./src/solve.mjs --help
++          echo "solve.mjs executes without critical errors"
++          timeout 10s ./src/solve.mjs --version
++      - name: Verify log files contain version and command (Issue #517)
++        run: bash scripts/verify-log-file-contents.sh
++      - name: Test hive.mjs execution
++        run: |
++          echo "Testing hive.mjs basic execution..."
++          timeout 10s ./src/hive.mjs --help
++          echo "hive.mjs executes without critical errors"
++          timeout 10s ./src/hive.mjs --version
++      - name: Test telegram-bot.mjs execution
++        run: bash scripts/test-telegram-bot-execution.sh
+ 
+-      - name: Set up Docker Buildx (resilient)
+-        if: steps.docker_config.outputs.enabled == 'true'
+-        uses: ./.github/actions/setup-buildx-resilient
++      - name: Test memory-check.mjs execution
++        run: |
++          ./src/memory-check.mjs --help
++          ./src/memory-check.mjs --min-memory 10 --min-disk-space 100 --json
++      - name: Test global command installation
++        run: bash scripts/test-global-commands.sh
++      - name: Test hive dry-run integration
++        run: bash scripts/test-hive-dry-run-integration.sh
++      - name: Test --auto-fork option
++        run: bash scripts/test-auto-fork-option.sh
+ 
+-      - name: Build Docker image (no push)
+-        if: steps.docker_config.outputs.enabled == 'true'
+-        # A `uses:` step cannot be wrapped by run-with-budget-warning.sh, so
+-        # it declares its deadline with a step-level timeout-minutes: an
+-        # exhausted step budget fails the step, while an exhausted job cap
+-        # only cancels the job.
+-        timeout-minutes: 20
+-        uses: docker/build-push-action@v7
++  # === MEMORY CHECKS - LINUX ===
++  memory-check-linux:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 20
++    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
++    if: |
++      !cancelled() &&
++      !contains(needs.*.result, 'failure') &&
++      (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
++      needs.test-compilation.result == 'success' &&
++      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
++      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
++      (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
++    steps:
++      - uses: actions/checkout@v7
++      - name: Use Node.js 24.x
++        uses: actions/setup-node@v7
+         with:
+-          context: ${{ steps.docker_config.outputs.context }}
+-          file: ${{ steps.docker_config.outputs.dockerfile }}
+-          push: false
+-          load: true
+-          tags: pr-check:${{ github.sha }}
+-          # Scoped so this build cannot overwrite or be overwritten by the
+-          # unscoped default `buildkit` scope: the GitHub Actions cache is a
+-          # 10 GB repository-wide pool with LRU eviction, and unscoped
+-          # mode=max exports of every intermediate layer crowd out the caches
+-          # the rest of the pipeline reads.
+-          cache-from: type=gha,scope=docker-image
+-          cache-to: type=gha,mode=max,scope=docker-image
+-
+-  # === DOCUMENTATION VALIDATION ===
+-  # Validate documentation files when docs change (hive-mind principle #12)
++          node-version: 24.x
++      - name: Install dependencies
++        run: node scripts/npm-install-with-retry.mjs install
++      - name: Run memory-check tests
++        run: node tests/test-memory-check.mjs
++      # Issue #2198: the runner resource dump and the pass/fail threshold
++      # probes moved to scripts/ to keep this workflow under the line-limit
++      # warning threshold. Same commands, same order.
++      - name: Smoke-test memory-check on this runner
++        run: bash scripts/memory-check-smoke-test.sh
++  # === DOCUMENTATION VALIDATION (FAST) ===
+   validate-docs:
+-    name: Validate Documentation
+     runs-on: ubuntu-24.04
+-    # Typical run: <10s. Pure shell checks over documentation files.
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-validate-docs
+-      cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    needs: [detect-changes]
+-    if: |
+-      needs.detect-changes.outputs.docs-changed == 'true'
++    timeout-minutes: 15
++    needs: [detect-changes, changeset-check]
++    # Run if: push event, OR changeset-check succeeded, OR changeset-check was skipped (docs-only PR)
++    if: ${{ !cancelled() && (github.event_name == 'push' || needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && needs.detect-changes.outputs.docs-changed == 'true' }}
++
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+-          persist-credentials: false
++          fetch-depth: 0
++      - name: Use Node.js 24.x
++        uses: actions/setup-node@v7
++        with:
++          node-version: 24.x
++      - name: Validate documentation files
++        env:
++          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
++          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
++          GITHUB_BEFORE_SHA: ${{ github.event.before }}
++          GITHUB_AFTER_SHA: ${{ github.event.after }}
++        run: |
++          node tests/docs-validation.mjs
++          node tests/test-docs-language-sync.mjs
++  # === DOCKER PR CHECK ===
++  docker-pr-check:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 30
++    needs: [detect-changes, changeset-check, test-compilation, lint, check-file-line-limits]
++    # Run if: changeset-check succeeded OR was skipped (docs-only PR), and required checks passed
++    if: |
++      !cancelled() &&
++      !contains(needs.*.result, 'failure') &&
++      github.event_name == 'pull_request' &&
++      (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') &&
++      (needs.test-compilation.result == 'success' || needs.test-compilation.result == 'skipped') &&
++      (needs.lint.result == 'success' || needs.lint.result == 'skipped') &&
++      (needs.check-file-line-limits.result == 'success' || needs.check-file-line-limits.result == 'skipped') &&
++      (needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true')
++    env:
++      REGISTRY: docker.io
++      IMAGE_NAME: konard/hive-mind
++      DIND_IMAGE_NAME: konard/hive-mind-dind
+ 
+-      # Documentation line limits (1500 lines, matching the architecture
+-      # limit) are enforced by the check-file-line-limits job, which scans
+-      # every .md file. This job validates that the required documents
+-      # exist AND still carry the sections readers depend on -- a deleted
+-      # section is an ordinary diff hunk, and is exactly what review skims
+-      # past. The requirement table lives in
+-      # scripts/check-required-docs.sh; `--list` prints it for tests and
+-      # reviewers.
+-      - name: Check required documentation sections
+-        run: bash scripts/check-required-docs.sh
+-
+-  # Principle 16 of the shared CI/CD best practices: prove the release
+-  # credentials can write before the expensive jobs spend their minutes
+-  # (issues #176, #181). A non-empty secret proves nothing -- an expired
+-  # token is non-empty -- and a login proves authentication, not
+-  # authorisation, so scripts/preflight-credentials.sh probes with an
+-  # attempted write: a refused credential fails the run seconds in instead
+-  # of surfacing as a registry error after the matrix.
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Setup Node.js
++        uses: actions/setup-node@v7
++        with:
++          node-version: 24.x
++      - name: Verify Docker release-order contract
++        run: |
++          echo "Statically verifying: release Docker publish waits for npm availability"
++          echo "and passes the exact published version into Docker builds."
++          node tests/test-docker-release-order.mjs
++      - name: Free up disk space
++        run: node scripts/free-disk-space.mjs
++      - name: Show Box base image versions
++        run: |
++          # Matches the base wherever it is hosted: the pins moved to
++          # ghcr.io/link-foundation in issue #2187, and a registry-hardcoded
++          # grep would print an empty version instead of failing.
++          BOX_BASE=$(sed -n 's|^FROM \(.*/box:[^[:space:]]*\).*|\1|p' Dockerfile)
++          BOX_DIND_BASE=$(sed -n 's|^FROM \(.*/box-dind:[^[:space:]]*\).*|\1|p' Dockerfile.dind)
++          echo "Box base image: ${BOX_BASE:?no box base image found in Dockerfile}"
++          echo "Box DinD base image: ${BOX_DIND_BASE:?no box-dind base image found in Dockerfile.dind}"
++          echo "This pinned version ensures stable, reproducible builds."
++      - name: Build Docker images and check build logs
++        run: bash scripts/docker-pr-build.sh
++
++      - name: Verify system & development tools in running containers
++        run: bash scripts/docker-pr-verify-containers.sh
++  # === HELM PR CHECK (FAST) ===
++  helm-pr-check:
++    runs-on: ubuntu-24.04
++    timeout-minutes: 20
++    needs: [detect-changes, changeset-check]
++    # Only runs when helm chart, package.json, or workflow files changed (Issue #1436)
++    if: ${{ !cancelled() && github.event_name == 'pull_request' && (needs.changeset-check.result == 'success' || needs.changeset-check.result == 'skipped') && (needs.detect-changes.outputs.helm-changed == 'true' || needs.detect-changes.outputs.package-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
++        with:
++          fetch-depth: 0
++      - name: Install Helm
++        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
++        with:
++          version: v4.3.0
++      - name: Get package version
++        id: package-version
++        run: |
++          VERSION=$(node -p "require('./package.json').version")
++          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
++          echo "Package version: $VERSION"
++      - name: Lint Helm chart
++        run: |
++          echo "Linting Helm chart..."
++          helm lint helm/hive-mind
++          echo "Helm chart validation passed"
++
++      - name: Verify Chart.yaml structure
++        run: bash scripts/verify-chart-yaml.sh
++  # === RELEASE PREFLIGHT - prove the release can be published before building it ===
++  # Issue #2221. A push to main exists to produce a release, so the credentials
++  # that release needs are proven before anything is built or published. The
++  # steps live in .github/workflows/release-preflight.yml; pull requests get a
++  # report, main and workflow_dispatch fail fast.
+   release-preflight:
+     name: Release Preflight
+-    runs-on: ubuntu-24.04
+-    timeout-minutes: 5
++    # !cancelled() so concurrency cancellation still works.
++    if: ${{ !cancelled() }}
+     permissions:
+       contents: read
+-      # The runner injects ACTIONS_ID_TOKEN_REQUEST_URL only when the job may
+-      # mint OIDC tokens. npm publishes with provenance, so its absence --
+-      # mirrored in the publishing jobs' permission envelope -- is itself the
+-      # finding.
+       id-token: write
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Probe every release credential
+-        env:
+-          # Release mode (push to main, manual instant release) fails the run
+-          # on a refused credential. Report mode (pull requests -- a fork has
+-          # no publishing secrets) runs the same probes and annotates without
+-          # blocking.
+-          PREFLIGHT_MODE: >-
+-            ${{
+-              (
+-                (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+-                (github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant')
+-              ) && 'release' || 'report'
+-            }}
+-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+-          DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+-          DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+-        run: bash scripts/preflight-credentials.sh
+-
+-  # Release - only runs on main after tests pass (for push events)
++    uses: ./.github/workflows/release-preflight.yml
++    secrets:
++      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
++      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
++  # === RELEASE - only runs on main after tests pass ===
+   release:
+     name: Release
+-    needs: [lint, test, release-preflight]
+-    # Typical run is well under 10min. 30min gives npm and GitHub
+-    # release APIs room for retries without allowing a 6h hang.
+-    timeout-minutes: 30
+-    concurrency:
+-      group: main-writer-${{ github.repository }}-main
+-      cancel-in-progress: false
+-    # Use !cancelled() instead of always() so cancellation propagates correctly (hive-mind issue #1278)
+-    # This is needed because lint/test jobs have a transitive dependency on changeset-check
+-    if: |
+-      !cancelled() &&
+-      github.ref == 'refs/heads/main' &&
+-      github.event_name == 'push' &&
+-      needs.release-preflight.result == 'success' &&
+-      needs.lint.result == 'success' &&
+-      needs.test.result == 'success'
++    needs: [detect-changes, release-preflight, lint, test-suites, test-execution, memory-check-linux]
++    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && github.event_name == 'push' && !contains(needs.*.result, 'failure') && needs.release-preflight.result == 'success' && (needs.lint.result == 'success' || needs.lint.result == 'skipped') && (needs.test-suites.result == 'success' || needs.test-suites.result == 'skipped') && (needs.test-execution.result == 'success' || needs.test-execution.result == 'skipped') && (needs.memory-check-linux.result == 'success' || needs.memory-check-linux.result == 'skipped') && (needs.detect-changes.outputs.any-code-changed == 'true' || needs.detect-changes.outputs.docker-changed == 'true' || needs.detect-changes.outputs.workflow-changed == 'true') }}
+     runs-on: ubuntu-24.04
++    timeout-minutes: 30
++    outputs:
++      published: ${{ steps.publish.outputs.published }}
++      published_version: ${{ steps.publish.outputs.published_version }}
+     # Permissions required for npm OIDC trusted publishing
+     permissions:
+       contents: write
++      pull-requests: write
+       id-token: write
+-    outputs:
+-      published: ${{ steps.publish.outputs.published }}
+-      published_version: ${{ steps.publish.outputs.published_version }}
+     steps:
+-      # One of two checkouts in this workflow that keep credentials in
+-      # .git/config: scripts/version-and-commit.mjs runs
+-      # `git push origin main` to publish the version bump, which needs the
+-      # token wired into the remote. Every other checkout in this
+-      # repository sets persist-credentials: false.
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+-          persist-credentials: true
+           fetch-depth: 0
+-
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+           node-version: '24.x'
+           registry-url: 'https://registry.npmjs.org'
+-
+-      - name: Remove deprecated npm auth config
+-        run: node scripts/sanitize-npm-userconfig.mjs
+-
+-      # Fail-closed before the install step: changesets 3.x shells out to the
+-      # detected package manager, and a foreign lockfile at the root
+-      # (deno.lock is here for the Deno test leg) outranks package-lock.json
+-      # in package-manager-detector's probe order unless package.json
+-      # declares the manager. The requirement table lives in the script.
+-      - name: Check package manager declaration and lockfiles
+-        run: node scripts/check-package-manager.mjs
+-
+       - name: Install dependencies
+-        run: bash scripts/run-with-budget-warning.sh 240 "Release dependency install" npm install
+-
++        run: node scripts/npm-install-with-retry.mjs install
+       - name: Update npm for OIDC trusted publishing
+         run: node scripts/setup-npm.mjs
++      - name: Sanitize npm user config
++        # Remove the deprecated always-auth entry setup-node writes, which npm 11
++        # warns about on every command (issue #2028).
++        run: node scripts/sanitize-npm-userconfig.mjs
+ 
+-      - name: Check for changesets
++      - name: Check whether a release is needed
+         id: check_changesets
+-        run: node scripts/check-changesets.mjs
+-
+-      - name: Check if release is needed
+-        id: check_release
+-        env:
+-          HAS_CHANGESETS: ${{ steps.check_changesets.outputs.has_changesets }}
++        # Also detects the self-healing case: no changesets, but package.json's
++        # version is not on npm yet (a previous run bumped and failed to
++        # publish). See scripts/check-release-needed.lib.mjs, issue #2175.
+         run: node scripts/check-release-needed.mjs
+-
+-      - name: Merge multiple changesets
++      - name: Harmonize changeset bump types
+         if: steps.check_changesets.outputs.has_changesets == 'true' && steps.check_changesets.outputs.changeset_count > 1
+         run: |
+-          echo "Multiple changesets detected, merging..."
++          echo "Multiple changesets detected, harmonizing bump types..."
+           node scripts/merge-changesets.mjs
+-
+       - name: Version packages and commit to main
+         if: steps.check_changesets.outputs.has_changesets == 'true'
+         id: version
++        # An independent actor must create the fallback PR so its pull_request
++        # checks run without approval and can satisfy the main ruleset. GitHub's
++        # built-in token cannot do this (issues #2274 and #2279).
+         env:
+-          # A separately provisioned actor opens the fallback PR so GitHub runs
+-          # its ordinary pull_request checks (issues #143 and #192).
+-          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
++          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
++          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
+         run: node scripts/version-and-commit.mjs --mode changeset
+-
+       - name: Publish to npm
+-        # Run if version was committed, if a previous attempt already committed (for re-runs),
+-        # or if check-release-needed detected an unpublished version (self-healing, issue #36)
+-        if: >-
+-          steps.version.outputs.version_committed == 'true' ||
+-          steps.version.outputs.already_released == 'true' ||
+-          (steps.check_release.outputs.should_release == 'true' && steps.check_release.outputs.skip_bump == 'true')
++        # Run if version was committed, OR a previous attempt already committed
++        # (re-runs), OR package.json's version is missing from npm (issue #2175).
++        if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true' || steps.check_changesets.outputs.skip_bump == 'true'
++        id: publish_npm
++        run: node scripts/publish-to-npm.mjs --should-pull
++      - name: Set publish outputs
++        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
++        # It runs after npm publish and reads the script's outputs to pass them along
+         id: publish
+-        # Optional NPM_TOKEN bootstrap fallback. OIDC trusted publishing is the
+-        # steady-state mechanism, but it cannot create a brand-new package (the
+-        # first publish returns E404 because a trusted publisher can only be
+-        # configured for a package that already exists). When NPM_TOKEN is set,
+-        # the first publish succeeds; once the package exists and a trusted
+-        # publisher is configured, OIDC takes over and the token can be removed.
+-        # See issue #77.
+-        env:
+-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+-        run: bash scripts/run-with-budget-warning.sh 420 "npm publish" node scripts/publish-to-npm.mjs --should-pull
+-
+-      - name: Smoke-test published npm package
+-        if: steps.publish.outputs.published == 'true'
+-        env:
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-        run: bash scripts/run-with-budget-warning.sh 300 "npm package smoke test" node scripts/smoke-test-package.mjs --package-version "$PACKAGE_VERSION"
++        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
++        run: |
++          echo "published=true" >> "$GITHUB_OUTPUT"
++          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
++          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+ 
+       - name: Create GitHub Release
+         if: steps.publish.outputs.published == 'true'
+         env:
+           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-          REPOSITORY: ${{ github.repository }}
+-        run: node scripts/create-github-release.mjs --release-version "$PACKAGE_VERSION" --repository "$REPOSITORY"
+-
++        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+       - name: Format GitHub release notes
+         if: steps.publish.outputs.published == 'true'
+         env:
+           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-          REPOSITORY: ${{ github.repository }}
+-          COMMIT_SHA: ${{ github.sha }}
+-        run: node scripts/format-github-release.mjs --release-version "$PACKAGE_VERSION" --repository "$REPOSITORY" --commit-sha "$COMMIT_SHA"
+-
+-  # Manual Instant Release - triggered via workflow_dispatch with instant mode
+-  # This job is in release.yml because npm trusted publishing
+-  # only allows one workflow file to be registered as a trusted publisher
+-  instant-release:
+-    name: Instant Release
+-    # Publishing must wait for both quality gates and require explicit success.
+-    needs: [lint, test, release-preflight]
+-    if: |
+-      !cancelled() &&
+-      github.event_name == 'workflow_dispatch' &&
+-      github.event.inputs.release_mode == 'instant' &&
+-      needs.release-preflight.result == 'success' &&
+-      needs.lint.result == 'success' &&
+-      needs.test.result == 'success'
++        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
++      - name: Post-publish - Upload Source Maps to Sentry
++        if: steps.publish.outputs.published == 'true'
++        env:
++          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
++        run: |
++          echo "Uploading source maps to Sentry for published packages..."
++          chmod +x scripts/upload-sourcemaps.mjs
++          node scripts/upload-sourcemaps.mjs
++  # === DOCKER PUBLISH ===
++  # Multi-platform builds using native runners (no QEMU). See: docs/case-studies/issue-982/
++  # ARM64 may be slow: actions/runner-images#11790, actions/partner-runner-images#101
++  # See also: docs/case-studies/issue-998/README.md
++  docker-publish:
++    name: Docker Publish (${{ matrix.platform }})
++    needs: [release]
++    # !cancelled() allows concurrency cancellation. See: docs/case-studies/issue-1278/
++    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
++    # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
++    timeout-minutes: 60
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - platform: linux/amd64
++            runner: ubuntu-24.04
++            cache_suffix: amd64
++          - platform: linux/arm64
++            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
++            cache_suffix: arm64
++    runs-on: ${{ matrix.runner }}
++    permissions:
++      contents: read
++      packages: write
++    env:
++      REGISTRY: docker.io
++      IMAGE_NAME: konard/hive-mind
++    outputs:
++      digest-amd64: ${{ steps.build.outputs.digest }}
++      digest-arm64: ${{ steps.build.outputs.digest }}
++
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Free up disk space
++        run: node scripts/free-disk-space.mjs
++      - name: Wait for NPM package availability
++        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          # Set version label to actual release version, not Git ref "main" (issue #1419)
++          labels: |
++            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
++
++      - name: Build and push by digest
++        id: build
++        uses: docker/build-push-action@v7
++        with:
++          context: .
++          file: ./Dockerfile
++          platforms: ${{ matrix.platform }}
++          labels: ${{ steps.meta.outputs.labels }}
++          build-args: |
++            HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
++          # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
++          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
++          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
++          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
++      - name: Export digest
++        run: |
++          mkdir -p /tmp/digests
++          digest="${{ steps.build.outputs.digest }}"
++          touch "/tmp/digests/${digest#sha256:}"
++          echo "Digest for ${{ matrix.platform }}: $digest"
++      - name: Upload digest
++        uses: actions/upload-artifact@v7
++        with:
++          name: hive-mind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
++          path: /tmp/digests/*
++          if-no-files-found: error
++          retention-days: 1
++  # Merge multi-platform manifests after all platform builds complete
++  docker-publish-merge:
++    name: Docker Publish (Merge)
++    needs: [release, docker-publish]
++    # Use !cancelled() instead of always() to allow concurrency cancellation.
++    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
++    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish.result == 'success' && needs.release.outputs.published == 'true'"
+     runs-on: ubuntu-24.04
+-    # Same publish envelope as the automated release path.
+     timeout-minutes: 30
+-    concurrency:
+-      group: main-writer-${{ github.repository }}-main
+-      cancel-in-progress: false
+-    # Permissions required for npm OIDC trusted publishing
++    permissions:
++      contents: read
++      packages: write
++    env:
++      IMAGE_NAME: konard/hive-mind
++    steps:
++      # First step: this job builds nothing, but it needs the working tree for
++      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
++      # -- a local composite action has to be on disk before it is referenced.
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Download digests
++        uses: actions/download-artifact@v8
++        with:
++          path: /tmp/digests
++          pattern: hive-mind-digests-*
++          merge-multiple: true
++
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          tags: |
++            type=raw,value=${{ needs.release.outputs.published_version }}
++            type=raw,value=latest
++          # Set version label to actual release version, not Git ref "main" (issue #1419)
++          labels: |
++            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
++      - name: Create manifest list and push
++        env:
++          DIGESTS_DIR: /tmp/digests
++        run: bash scripts/create-manifest-list.sh
++      - name: Inspect image
++        run: |
++          echo "Inspecting multi-platform image..."
++          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
++
++      - name: Verify published image
++        run: |
++          echo "Docker image published successfully"
++          echo "Image: ${{ env.IMAGE_NAME }}"
++          echo "Tags: ${{ steps.meta.outputs.tags }}"
++  docker-publish-dind:
++    name: Docker Publish DinD (${{ matrix.platform }})
++    needs: [release]
++    if: "!cancelled() && needs.release.result == 'success' && needs.release.outputs.published == 'true'"
++    timeout-minutes: 60
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - platform: linux/amd64
++            runner: ubuntu-24.04
++            cache_suffix: amd64
++          - platform: linux/arm64
++            runner: ubuntu-24.04-arm
++            cache_suffix: arm64
++    runs-on: ${{ matrix.runner }}
++    permissions:
++      contents: read
++      packages: write
++    env:
++      REGISTRY: docker.io
++      IMAGE_NAME: konard/hive-mind-dind
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Free up disk space
++        run: node scripts/free-disk-space.mjs
++      - name: Wait for NPM package availability
++        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.release.outputs.published_version }}"
++
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          labels: |
++            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
++      - name: Build and push by digest
++        id: build
++        uses: docker/build-push-action@v7
++        with:
++          context: .
++          file: ./Dockerfile.dind
++          platforms: ${{ matrix.platform }}
++          labels: ${{ steps.meta.outputs.labels }}
++          build-args: |
++            HIVE_MIND_VERSION=${{ needs.release.outputs.published_version }}
++          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
++          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
++          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
++      - name: Export digest
++        run: |
++          mkdir -p /tmp/digests
++          digest="${{ steps.build.outputs.digest }}"
++          touch "/tmp/digests/${digest#sha256:}"
++          echo "Digest for ${{ matrix.platform }}: $digest"
++      - name: Upload digest
++        uses: actions/upload-artifact@v7
++        with:
++          name: hive-mind-dind-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
++          path: /tmp/digests/*
++          if-no-files-found: error
++          retention-days: 1
++
++  docker-publish-dind-merge:
++    name: Docker Publish DinD (Merge)
++    needs: [release, docker-publish-dind]
++    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-dind.result == 'success' && needs.release.outputs.published == 'true'"
++    runs-on: ubuntu-24.04
++    timeout-minutes: 30
++    permissions:
++      contents: read
++      packages: write
++    env:
++      IMAGE_NAME: konard/hive-mind-dind
++    steps:
++      # First step: this job builds nothing, but it needs the working tree for
++      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
++      # -- a local composite action has to be on disk before it is referenced.
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Download digests
++        uses: actions/download-artifact@v8
++        with:
++          path: /tmp/digests
++          pattern: hive-mind-dind-digests-*
++          merge-multiple: true
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          tags: |
++            type=raw,value=${{ needs.release.outputs.published_version }}
++            type=raw,value=latest
++          labels: |
++            org.opencontainers.image.version=${{ needs.release.outputs.published_version }}
++
++      - name: Create manifest list and push
++        env:
++          DIGESTS_DIR: /tmp/digests
++        run: bash scripts/create-manifest-list.sh
++      - name: Inspect image
++        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.release.outputs.published_version }}
++      - name: Verify published image
++        run: |
++          echo "Docker DinD image published successfully"
++          echo "Image: ${{ env.IMAGE_NAME }}"
++          echo "Tags: ${{ steps.meta.outputs.tags }}"
++  # === HELM CHART RELEASE ===
++  helm-release:
++    name: Helm Release
++    needs: [release, docker-publish-merge, docker-publish-dind-merge]
++    # Use !cancelled() instead of always() to allow concurrency cancellation.
++    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
++    if: "!cancelled() && needs.release.result == 'success' && needs.docker-publish-merge.result == 'success' && needs.docker-publish-dind-merge.result == 'success' && needs.release.outputs.published == 'true'"
++    runs-on: ubuntu-24.04
++    timeout-minutes: 20
+     permissions:
+       contents: write
++      packages: write
++      pages: write
+       id-token: write
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
++        with:
++          fetch-depth: 0
++
++      - name: Install Helm
++        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
++        with:
++          version: v4.3.0
++      - name: Release Helm chart
++        run: node scripts/helm-release.mjs --release-version "${{ needs.release.outputs.published_version }}"
++      - name: Upload chart to release
++        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
++        # Node 20 action and makes every run emit a deprecation warning (#2175).
++        env:
++          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: bash scripts/upload-release-assets.sh "v${{ needs.release.outputs.published_version }}" .helm-packages/*.tgz
++  # === MANUAL INSTANT RELEASE ===
++  instant-release:
++    name: Instant Release
++    needs: [release-preflight]
++    # Issue #2221: a manual release publishes too, so it waits on the same proof.
++    if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'instant' && needs.release-preflight.result == 'success' }}
++    runs-on: ubuntu-24.04
++    timeout-minutes: 30
+     outputs:
+       published: ${{ steps.publish.outputs.published }}
+       published_version: ${{ steps.publish.outputs.published_version }}
++    permissions:
++      contents: write
++      pull-requests: write
++      id-token: write
+     steps:
+-      # The second checkout in this workflow that keeps credentials in
+-      # .git/config: scripts/version-and-commit.mjs pushes the version
+-      # commit to main, which needs the token wired into the remote.
+-      # Every other checkout in this repository sets
+-      # persist-credentials: false.
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+-          persist-credentials: true
+           fetch-depth: 0
+-
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+           node-version: '24.x'
+           registry-url: 'https://registry.npmjs.org'
+-
+-      - name: Remove deprecated npm auth config
+-        run: node scripts/sanitize-npm-userconfig.mjs
+-
+       - name: Install dependencies
+-        run: npm install
+-
++        run: node scripts/npm-install-with-retry.mjs install
+       - name: Update npm for OIDC trusted publishing
+         run: node scripts/setup-npm.mjs
+-
++      - name: Sanitize npm user config
++        # Remove the deprecated always-auth entry setup-node writes, which npm 11
++        # warns about on every command (issue #2028).
++        run: node scripts/sanitize-npm-userconfig.mjs
+       - name: Version packages and commit to main
+         id: version
++        # This secret holds a dedicated PAT; a future App integration can wire
++        # its short-lived token to GH_TOKEN. Never use built-in GITHUB_TOKEN.
+         env:
++          GH_TOKEN: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN }}
++          RELEASE_PULL_REQUEST_TOKEN_CONFIGURED: ${{ secrets.RELEASE_PULL_REQUEST_TOKEN != '' }}
++          # Read through the environment, never interpolated into the script:
++          # `description` is free-form text from whoever dispatched the run
++          # (zizmor template-injection).
+           BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+           RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+-          # See the release job above (issues #143 and #192).
+-          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+         run: node scripts/version-and-commit.mjs --mode instant --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
+-
+       - name: Publish to npm
+-        # Run if version was committed OR if a previous attempt already committed (for re-runs)
+         if: steps.version.outputs.version_committed == 'true' || steps.version.outputs.already_released == 'true'
+-        id: publish
+-        # Optional NPM_TOKEN bootstrap fallback; OIDC trusted publishing is used
+-        # when the secret is unset. See the release job above for details (#77).
+-        env:
+-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
++        id: publish_npm
+         run: node scripts/publish-to-npm.mjs
+-
+-      - name: Smoke-test published npm package
+-        if: steps.publish.outputs.published == 'true'
+-        env:
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-        run: node scripts/smoke-test-package.mjs --package-version "$PACKAGE_VERSION"
+-
++      - name: Set publish outputs
++        # This step explicitly sets the outputs using shell (more reliable than Node.js appendFileSync)
++        id: publish
++        if: steps.publish_npm.outputs.published == 'true' || steps.publish_npm.outputs.already_published == 'true'
++        run: |
++          echo "published=true" >> "$GITHUB_OUTPUT"
++          echo "published_version=${{ steps.publish_npm.outputs.published_version }}" >> "$GITHUB_OUTPUT"
++          echo "Docker publish will be triggered with version: ${{ steps.publish_npm.outputs.published_version }}"
+       - name: Create GitHub Release
+         if: steps.publish.outputs.published == 'true'
+         env:
+           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-          REPOSITORY: ${{ github.repository }}
+-        run: node scripts/create-github-release.mjs --release-version "$PACKAGE_VERSION" --repository "$REPOSITORY"
++        run: node scripts/create-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}"
+ 
+       - name: Format GitHub release notes
+         if: steps.publish.outputs.published == 'true'
+         env:
+           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+-          PACKAGE_VERSION: ${{ steps.publish.outputs.published_version }}
+-          REPOSITORY: ${{ github.repository }}
+-          COMMIT_SHA: ${{ github.sha }}
+-        run: node scripts/format-github-release.mjs --release-version "$PACKAGE_VERSION" --repository "$REPOSITORY" --commit-sha "$COMMIT_SHA"
+-
+-  # Optional Docker Hub publishing for packages that also ship Docker images.
+-  # Set vars.DOCKERHUB_IMAGE to enable this path, then configure
+-  # vars.DOCKERHUB_USERNAME and secrets.DOCKERHUB_TOKEN.
+-  docker-publish-config:
+-    name: Configure Docker Hub Publish
+-    needs: [release, instant-release, release-preflight]
+-    timeout-minutes: 10
+-    concurrency:
+-      group: main-writer-${{ github.repository }}-main
+-      cancel-in-progress: false
+-    if: |
+-      !cancelled() &&
+-      needs.release-preflight.result == 'success' &&
+-      (
+-        (needs.release.result == 'success' && needs.release.outputs.published == 'true') ||
+-        (needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true')
+-      )
+-    runs-on: ubuntu-24.04
++        run: node scripts/format-github-release.mjs --release-version "${{ steps.publish.outputs.published_version }}" --repository "${{ github.repository }}" --commit-sha "${{ github.sha }}"
++  # === DOCKER PUBLISH FOR INSTANT RELEASE ===
++  # Same multi-platform setup as docker-publish above (native runners, no QEMU).
++  # See: docs/case-studies/issue-982/README.md and docs/case-studies/issue-998/README.md
++  docker-publish-instant:
++    name: Docker Publish Instant (${{ matrix.platform }})
++    needs: [instant-release]
++    # Use !cancelled() instead of always() to allow concurrency cancellation.
++    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
++    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
++    # Timeout 60 min: arm64 can take 26+ min. See: docs/case-studies/issue-1415/README.md
++    timeout-minutes: 60
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - platform: linux/amd64
++            runner: ubuntu-24.04
++            cache_suffix: amd64
++          - platform: linux/arm64
++            runner: ubuntu-24.04-arm # Native ARM64, no QEMU. See: docs/case-studies/issue-998/
++            cache_suffix: arm64
++    runs-on: ${{ matrix.runner }}
+     permissions:
+       contents: read
+-    outputs:
+-      context: ${{ steps.docker_config.outputs.context }}
+-      dockerfile: ${{ steps.docker_config.outputs.dockerfile }}
+-      enabled: ${{ steps.docker_config.outputs.enabled }}
+-      image: ${{ steps.docker_config.outputs.image }}
+-      version: ${{ steps.release_version.outputs.version }}
++      packages: write
+     env:
+-      DOCKER_CONTEXT: ${{ vars.DOCKER_CONTEXT }}
+-      DOCKERFILE: ${{ vars.DOCKERFILE }}
+-      DOCKERHUB_IMAGE: ${{ vars.DOCKERHUB_IMAGE }}
+-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+-      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+-      RELEASE_VERSION: ${{ needs.release.outputs.published_version || needs.instant-release.outputs.published_version }}
++      REGISTRY: docker.io
++      IMAGE_NAME: konard/hive-mind
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Check Docker publish configuration
+-        id: docker_config
+-        run: node scripts/check-docker-publish.mjs
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Free up disk space
++        run: node scripts/free-disk-space.mjs
++      - name: Wait for NPM package availability
++        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
+ 
+-      - name: Export release version
+-        id: release_version
+-        env:
+-          VERSION: ${{ env.RELEASE_VERSION }}
+-        run: echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+-
+-      - name: Wait for npm package availability before Docker publish
+-        if: steps.docker_config.outputs.enabled == 'true'
+-        env:
+-          VERSION: ${{ env.RELEASE_VERSION }}
+-        run: node scripts/wait-for-npm.mjs --release-version "${VERSION}"
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          # Set version label to actual release version, not Git ref "main" (issue #1419)
++          labels: |
++            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
++      - name: Build and push by digest
++        id: build
++        uses: docker/build-push-action@v7
++        with:
++          context: .
++          file: ./Dockerfile
++          platforms: ${{ matrix.platform }}
++          labels: ${{ steps.meta.outputs.labels }}
++          build-args: |
++            HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
++          # Registry cache for faster parallel export. See: docs/case-studies/issue-1415/README.md
++          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }}
++          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
++          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
++      - name: Export digest
++        run: |
++          mkdir -p /tmp/digests
++          digest="${{ steps.build.outputs.digest }}"
++          touch "/tmp/digests/${digest#sha256:}"
++          echo "Digest for ${{ matrix.platform }}: $digest"
+ 
+-  # Build each architecture on a native runner. Each build is pushed by digest;
+-  # docker-publish combines those immutable digests into the release tags.
+-  docker-publish-build:
+-    name: Build Docker Image (${{ matrix.platform }})
+-    needs: [docker-publish-config]
+-    if: needs.docker-publish-config.outputs.enabled == 'true'
++      - name: Upload digest
++        uses: actions/upload-artifact@v7
++        with:
++          name: hive-mind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
++          path: /tmp/digests/*
++          if-no-files-found: error
++          retention-days: 1
++  # Merge multi-platform manifests after all platform builds complete (instant release)
++  docker-publish-instant-merge:
++    name: Docker Publish Instant (Merge)
++    needs: [instant-release, docker-publish-instant]
++    # Use !cancelled() instead of always() to allow concurrency cancellation.
++    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
++    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
++    runs-on: ubuntu-24.04
+     timeout-minutes: 30
++    permissions:
++      contents: read
++      packages: write
++    env:
++      IMAGE_NAME: konard/hive-mind
++    steps:
++      # First step: this job builds nothing, but it needs the working tree for
++      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
++      # -- a local composite action has to be on disk before it is referenced.
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Download digests
++        uses: actions/download-artifact@v8
++        with:
++          path: /tmp/digests
++          pattern: hive-mind-instant-digests-*
++          merge-multiple: true
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          tags: |
++            type=raw,value=${{ needs.instant-release.outputs.published_version }}
++            type=raw,value=latest
++          # Set version label to actual release version, not Git ref "main" (issue #1419)
++          labels: |
++            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
++      - name: Create manifest list and push
++        env:
++          DIGESTS_DIR: /tmp/digests
++        run: bash scripts/create-manifest-list.sh
++      - name: Inspect image
++        run: |
++          echo "Inspecting multi-platform image..."
++          docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
++      - name: Verify published image
++        run: |
++          echo "Docker image published successfully"
++          echo "Image: ${{ env.IMAGE_NAME }}"
++          echo "Tags: ${{ steps.meta.outputs.tags }}"
++  docker-publish-dind-instant:
++    name: Docker Publish DinD Instant (${{ matrix.platform }})
++    needs: [instant-release]
++    if: "!cancelled() && needs.instant-release.result == 'success' && needs.instant-release.outputs.published == 'true'"
++    timeout-minutes: 60
+     strategy:
+       fail-fast: false
+       matrix:
+         include:
+           - platform: linux/amd64
+             runner: ubuntu-24.04
++            cache_suffix: amd64
+           - platform: linux/arm64
+             runner: ubuntu-24.04-arm
++            cache_suffix: arm64
+     runs-on: ${{ matrix.runner }}
+     permissions:
+       contents: read
++      packages: write
++    env:
++      REGISTRY: docker.io
++      IMAGE_NAME: konard/hive-mind-dind
++
+     steps:
+-      - uses: actions/checkout@v6
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Free up disk space
++        run: node scripts/free-disk-space.mjs
++      - name: Wait for NPM package availability
++        run: node scripts/wait-for-npm.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
++      - name: Set up Docker Buildx (resilient)
++        uses: ./.github/actions/setup-buildx-resilient
++      - name: Log in to Docker Hub
++        uses: docker/login-action@v4
+         with:
+-          persist-credentials: false
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          labels: |
++            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
+ 
+-      - name: Build and push platform image by digest
++      - name: Build and push by digest
+         id: build
+-        # Step-level budget below the job's timeout-minutes backstop; see
+-        # docs/CI-TIMEOUT-BUDGETS.md.
+-        timeout-minutes: 20
+-        uses: ./.github/actions/publish-dockerhub
+-        with:
+-          context: ${{ needs.docker-publish-config.outputs.context }}
+-          file: ${{ needs.docker-publish-config.outputs.dockerfile }}
+-          image: ${{ needs.docker-publish-config.outputs.image }}
+-          platform: ${{ matrix.platform }}
+-          token: ${{ secrets.DOCKERHUB_TOKEN }}
+-          username: ${{ vars.DOCKERHUB_USERNAME }}
+-          version: ${{ needs.docker-publish-config.outputs.version }}
+-
+-      - name: Export image digest
+-        env:
+-          DIGEST: ${{ steps.build.outputs.digest }}
++        uses: docker/build-push-action@v7
++        with:
++          context: .
++          file: ./Dockerfile.dind
++          platforms: ${{ matrix.platform }}
++          labels: ${{ steps.meta.outputs.labels }}
++          build-args: |
++            HIVE_MIND_VERSION=${{ needs.instant-release.outputs.published_version }}
++          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }}
++          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache-dind-${{ matrix.cache_suffix }},mode=max,image-manifest=true,ignore-error=true
++          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
++      - name: Export digest
+         run: |
+           mkdir -p /tmp/digests
+-          touch "/tmp/digests/${DIGEST#sha256:}"
+-
+-      - name: Upload image digest
++          digest="${{ steps.build.outputs.digest }}"
++          touch "/tmp/digests/${digest#sha256:}"
++          echo "Digest for ${{ matrix.platform }}: $digest"
++      - name: Upload digest
+         uses: actions/upload-artifact@v7
+         with:
+-          name: docker-digest-${{ strategy.job-index }}
++          name: hive-mind-dind-instant-digests-${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
+           path: /tmp/digests/*
+           if-no-files-found: error
+           retention-days: 1
+-
+-  docker-publish:
+-    name: Optional Docker Hub Publish
+-    needs: [docker-publish-config, docker-publish-build]
+-    if: needs.docker-publish-build.result == 'success'
+-    timeout-minutes: 30
+-    concurrency:
+-      group: main-writer-${{ github.repository }}-main
+-      cancel-in-progress: false
++  docker-publish-dind-instant-merge:
++    name: Docker Publish DinD Instant (Merge)
++    needs: [instant-release, docker-publish-dind-instant]
++    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-dind-instant.result == 'success' && needs.instant-release.outputs.published == 'true'"
+     runs-on: ubuntu-24.04
++    timeout-minutes: 30
+     permissions:
+       contents: read
++      packages: write
++    env:
++      IMAGE_NAME: konard/hive-mind-dind
++
+     steps:
+-      - uses: actions/checkout@v6
++      # First step: this job builds nothing, but it needs the working tree for
++      # scripts/create-manifest-list.sh and for ./.github/actions/setup-buildx-resilient
++      # -- a local composite action has to be on disk before it is referenced.
++      - name: Checkout repository
++        uses: actions/checkout@v7
++      - name: Download digests
++        uses: actions/download-artifact@v8
+         with:
+-          persist-credentials: false
+-
++          path: /tmp/digests
++          pattern: hive-mind-dind-instant-digests-*
++          merge-multiple: true
+       - name: Set up Docker Buildx (resilient)
+         uses: ./.github/actions/setup-buildx-resilient
+-
+       - name: Log in to Docker Hub
+         uses: docker/login-action@v4
+         with:
+-          username: ${{ vars.DOCKERHUB_USERNAME }}
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
+           password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - name: Extract metadata (tags, labels) for Docker
++        id: meta
++        uses: docker/metadata-action@v6
++        with:
++          images: ${{ env.IMAGE_NAME }}
++          tags: |
++            type=raw,value=${{ needs.instant-release.outputs.published_version }}
++            type=raw,value=latest
++          labels: |
++            org.opencontainers.image.version=${{ needs.instant-release.outputs.published_version }}
++      - name: Create manifest list and push
++        env:
++          DIGESTS_DIR: /tmp/digests
++        run: bash scripts/create-manifest-list.sh
++      - name: Inspect image
++        run: docker buildx imagetools inspect ${{ env.IMAGE_NAME }}:${{ needs.instant-release.outputs.published_version }}
+ 
+-      - name: Download image digests
+-        uses: actions/download-artifact@v8
+-        env:
+-          NODE_OPTIONS: --disable-warning=DEP0005
++      - name: Verify published image
++        run: |
++          echo "Docker DinD image published successfully"
++          echo "Image: ${{ env.IMAGE_NAME }}"
++          echo "Tags: ${{ steps.meta.outputs.tags }}"
++  # === HELM CHART RELEASE FOR INSTANT RELEASE ===
++  helm-release-instant:
++    name: Helm Release (Instant)
++    needs: [instant-release, docker-publish-instant-merge, docker-publish-dind-instant-merge]
++    # Use !cancelled() instead of always() to allow concurrency cancellation.
++    # See: docs/case-studies/issue-1278/README.md for why this change was necessary.
++    if: "!cancelled() && needs.instant-release.result == 'success' && needs.docker-publish-instant-merge.result == 'success' && needs.docker-publish-dind-instant-merge.result == 'success' && needs.instant-release.outputs.published == 'true'"
++    runs-on: ubuntu-24.04
++    timeout-minutes: 20
++    permissions:
++      contents: write
++      packages: write
++      pages: write
++      id-token: write
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v7
+         with:
+-          path: /tmp/digests
+-          pattern: docker-digest-*
+-          merge-multiple: true
+-
+-      - name: Create multi-architecture manifest
+-        working-directory: /tmp/digests
++          fetch-depth: 0
++      - name: Install Helm
++        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
++        with:
++          version: v4.3.0
++      - name: Release Helm chart
++        run: node scripts/helm-release.mjs --release-version "${{ needs.instant-release.outputs.published_version }}"
++      - name: Upload chart to release
++        # Uses the gh CLI rather than softprops/action-gh-release@v2, which is a
++        # Node 20 action and makes every run emit a deprecation warning (#2175).
+         env:
+-          IMAGE: ${{ needs.docker-publish-config.outputs.image }}
+-          VERSION: ${{ needs.docker-publish-config.outputs.version }}
+-        run: |
+-          # One argument per digest. An array keeps the expansion explicit
+-          # instead of relying on word splitting of a command substitution.
+-          mapfile -t digests < <(printf "${IMAGE}@sha256:%s\n" *)
+-          if [[ "${#digests[@]}" -ne 2 ]]; then
+-            echo "Expected 2 platform digests, found ${#digests[@]}." >&2
+-            exit 1
+-          fi
+-          docker buildx imagetools create \
+-            --tag "${IMAGE}:latest" \
+-            --tag "${IMAGE}:${VERSION}" \
+-            "${digests[@]}"
+-
+-      - name: Verify published multi-architecture manifests
+-        env:
+-          IMAGE: ${{ needs.docker-publish-config.outputs.image }}
+-          VERSION: ${{ needs.docker-publish-config.outputs.version }}
+-        run: |
+-          for tag in latest "${VERSION}"; do
+-            if ! manifest="$(docker buildx imagetools inspect "${IMAGE}:${tag}")"; then
+-              echo "Unable to read back published manifest ${IMAGE}:${tag}" >&2
+-              exit 1
+-            fi
+-            for platform in linux/amd64 linux/arm64; do
+-              if ! grep -Eq "Platform:[[:space:]]+${platform}" <<<"${manifest}"; then
+-                echo "Published manifest ${IMAGE}:${tag} is missing ${platform}" >&2
+-                exit 1
+-              fi
+-            done
+-          done
++          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
++        run: bash scripts/upload-release-assets.sh "v${{ needs.instant-release.outputs.published_version }}" .helm-packages/*.tgz
+ 
+-  # Manual Changeset PR - creates a pull request with the changeset for review
++  # === MANUAL CHANGESET PR ===
+   changeset-pr:
+     name: Create Changeset PR
+-    # PR creation does not publish, but it must still pass the fast lint gate.
+-    needs: [lint]
+-    if: |
+-      !cancelled() &&
+-      github.event_name == 'workflow_dispatch' &&
+-      github.event.inputs.release_mode == 'changeset-pr' &&
+-      needs.lint.result == 'success'
++    if: github.event_name == 'workflow_dispatch' && github.event.inputs.release_mode == 'changeset-pr'
+     runs-on: ubuntu-24.04
+-    # PR creation only: install, create a changeset, format, and open a PR.
+-    timeout-minutes: 10
+-    concurrency:
+-      group: main-writer-${{ github.repository }}-main
+-      cancel-in-progress: false
++    timeout-minutes: 15
+     permissions:
+-      contents: read
++      contents: write
++      pull-requests: write
+     steps:
+-      # peter-evans/create-pull-request receives the dedicated token directly;
+-      # dependency installation does not need a credential in .git/config.
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+-          persist-credentials: false
+           fetch-depth: 0
+-
+-      - name: Require release pull-request token
+-        env:
+-          RELEASE_PR_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+-        run: |
+-          if [[ -z "$RELEASE_PR_TOKEN" ]]; then
+-            echo "::error::RELEASE_PR_TOKEN is required to create a changeset pull request."
+-            exit 1
+-          fi
+-
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+           node-version: '24.x'
+-
+       - name: Install dependencies
+-        run: npm install
+-
++        run: node scripts/npm-install-with-retry.mjs install
+       - name: Create changeset file
++        # Same reasoning as the instant-release job: dispatch inputs reach the
++        # script through the environment, not through string interpolation.
+         env:
+           BUMP_TYPE: ${{ github.event.inputs.bump_type }}
+           RELEASE_DESCRIPTION: ${{ github.event.inputs.description }}
+         run: node scripts/create-manual-changeset.mjs --bump-type "$BUMP_TYPE" --description "$RELEASE_DESCRIPTION"
+-
+       - name: Format changeset with Prettier
+         run: |
+-          # Run Prettier on the changeset file to ensure it matches project style
+-          npx prettier --write ".changeset/*.md" || true
+-
++          npx prettier --write ".changeset/*.md"
+           echo "Formatted changeset files"
+-
+       - name: Create Pull Request
+         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+         with:
+-          # The built-in token suppresses pull_request workflows; use the same
+-          # dedicated automation actor as the release fallback (issue #192).
+-          token: ${{ secrets.RELEASE_PR_TOKEN }}
++          token: ${{ secrets.GITHUB_TOKEN }}
+           commit-message: 'chore: add changeset for manual ${{ github.event.inputs.bump_type }} release'
+           branch: changeset-manual-release-${{ github.run_id }}
+           delete-branch: true
+@@ -964,21 +1290,17 @@
+             ## Manual Release Request
+ 
+             This PR was created by a manual workflow trigger to prepare a **${{ github.event.inputs.bump_type }}** release.
+-
+             ### Release Details
+             - **Type:** ${{ github.event.inputs.bump_type }}
+             - **Description:** ${{ github.event.inputs.description || 'Manual release' }}
+             - **Triggered by:** @${{ github.actor }}
+-
+             ### Next Steps
+             1. Review the changeset in this PR
+             2. Merge this PR to main
+             3. The automated release workflow will create a version PR
+             4. Merge the version PR to publish to npm and create a GitHub release
+-
+-  # GitHub reports jobs killed by timeout-minutes as cancelled rather than
+-  # failed. Observe every job and excuse only cancellations that the tested
+-  # workflow explicitly permits when a newer commit supersedes this run.
++  # GitHub classifies timeout-minutes as cancellation. Observe every job so a
++  # timed-out main run cannot finish without a failing status.
+   pipeline-status:
+     name: Pipeline Status
+     runs-on: ubuntu-24.04
+@@ -986,38 +1308,42 @@
+     concurrency:
+       group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+       cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+-    if: >-
+-      !cancelled()
++    if: always()
+     needs:
+       - detect-changes
+-      - test-compilation
+-      - check-file-line-limits
+       - version-check
+       - changeset-check
++      - test-compilation
+       - lint
+-      - test
+-      - docker-build
+-      - docker-publish-config
+-      - docker-publish-build
++      - check-file-line-limits
++      - test-suites
++      - test-execution
++      - memory-check-linux
+       - validate-docs
++      - docker-pr-check
++      - helm-pr-check
+       - release-preflight
+       - release
+-      - instant-release
+       - docker-publish
++      - docker-publish-merge
++      - docker-publish-dind
++      - docker-publish-dind-merge
++      - helm-release
++      - instant-release
++      - docker-publish-instant
++      - docker-publish-instant-merge
++      - docker-publish-dind-instant
++      - docker-publish-dind-instant-merge
++      - helm-release-instant
+       - changeset-pr
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
++      - uses: actions/checkout@v7
+       - name: Setup Node.js
+-        uses: actions/setup-node@v6
++        uses: actions/setup-node@v7
+         with:
+           node-version: '24.x'
+-
+       - name: Fail the run when a required job was cancelled or failed
+         env:
+           NEEDS_JSON: ${{ toJSON(needs) }}
+-          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
++          IS_MAIN: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+         run: bash scripts/check-pipeline-status.sh
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/workflows/security.yml .github/workflows/security.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/workflows/security.yml	2026-09-21 16:52:39.581758613 +0000
++++ .github/workflows/security.yml	2026-09-21 16:47:06.011808976 +0000
+@@ -37,14 +37,13 @@
+       matrix:
+         language: [javascript-typescript, actions]
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
++      - uses: actions/checkout@v7
+ 
+       - name: Initialize CodeQL
+         uses: github/codeql-action/init@v4
+         with:
+           languages: ${{ matrix.language }}
++          config-file: ./.github/codeql/codeql-config.yml
+ 
+       - name: Autobuild
+         uses: github/codeql-action/autobuild@v4
+@@ -64,9 +63,7 @@
+       contents: read
+       pull-requests: write
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
++      - uses: actions/checkout@v7
+ 
+       - name: Review dependency changes
+         uses: actions/dependency-review-action@v5
+@@ -74,63 +71,28 @@
+           fail-on-severity: high
+           comment-summary-in-pr: on-failure
+ 
++  # Issue #2198: neither of the jobs above audits the dependency tree we ship.
++  # CodeQL analyses our source; dependency-review only runs on pull requests and
++  # only inspects the dependencies a PR *changes*, so an advisory published for a
++  # long-pinned package is invisible to it forever. Ported from the pipeline
++  # template's security.yml, without its workspace matrix -- package-lock.json is
++  # the only lockfile in this repository.
+   npm-audit:
+-    name: Audit npm lock (${{ matrix.directory }})
++    name: Audit npm lock
+     runs-on: ubuntu-24.04
+     timeout-minutes: 10
+     concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit-${{ matrix.directory }}
++      group: check-${{ github.workflow }}-${{ github.ref }}-npm-audit
+       cancel-in-progress: true
+-    strategy:
+-      fail-fast: false
+-      matrix:
+-        directory: ['.', examples/universal-app]
+     steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
++      - uses: actions/checkout@v7
+ 
+-      - uses: actions/setup-node@v6
++      - uses: actions/setup-node@v7
+         with:
+-          node-version: 24
++          node-version: 24.x
+ 
++      # --package-lock-only audits the lockfile as committed, without installing:
++      # the job reports on what a consumer would get, and cannot be turned green
++      # by a resolution that only happens on this runner.
+       - name: Audit current lock
+-        working-directory: ${{ matrix.directory }}
+         run: npm audit --package-lock-only --audit-level=high
+-
+-  # Terminal status gate: runs even when the jobs above fail or are
+-  # cancelled, and turns a `timeout-minutes` kill (reported as cancelled)
+-  # into a red run. needs is derived and checked by the status-gate-coverage
+-  # job in workflows.yml.
+-  pipeline-status:
+-    name: Pipeline Status
+-    runs-on: ubuntu-24.04
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+-      cancel-in-progress: true
+-    # A status function is required: without one the gate inherits the
+-    # implicit "every dependency succeeded" condition and is skipped in
+-    # exactly the runs it exists to report.
+-    if: >-
+-      !cancelled()
+-    needs:
+-      - codeql
+-      - dependency-review
+-      - npm-audit
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Setup Node.js
+-        uses: actions/setup-node@v6
+-        with:
+-          node-version: '24.x'
+-
+-      - name: Fail the run when a required job was cancelled or failed
+-        env:
+-          NEEDS_JSON: ${{ toJSON(needs) }}
+-          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+-        run: bash scripts/check-pipeline-status.sh
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/workflows/workflows.yml .github/workflows/workflows.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/workflows/workflows.yml	2026-09-21 16:52:39.581758613 +0000
++++ .github/workflows/workflows.yml	2026-09-21 16:47:06.011808976 +0000
+@@ -34,7 +34,7 @@
+       group: check-${{ github.workflow }}-${{ github.ref }}-actionlint
+       cancel-in-progress: true
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+           persist-credentials: false
+ 
+@@ -43,43 +43,10 @@
+       # PATH silently skips the shell checks and exits 0 - worth knowing when
+       # reproducing a failure locally:
+       #   docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+-      # Pinned by digest because a mutable tag of a repository we do not
+-      # control is arbitrary code execution in any job that holds
+-      # credentials (the same reasoning as the `'*': hash-pin` policy in
+-      # .github/zizmor.yml). Re-resolve when bumping:
+-      #   docker pull rhysd/actionlint:<tag> &&
+-      #   docker inspect --format='{{index .RepoDigests 0}}' rhysd/actionlint:<tag>
+-      - uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # v1.7.12
++      - uses: docker://rhysd/actionlint:1.7.12
+         with:
+           args: -color
+ 
+-  # The terminal status job of release.yml keys branch protection; its
+-  # needs list is hand-maintained, so a job left out of it could fail while
+-  # the gate reports success. This derives the requirement from the
+-  # workflow itself.
+-  status-gate-coverage:
+-    name: Status Gate Coverage
+-    runs-on: ubuntu-24.04
+-    timeout-minutes: 10
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-status-gate-coverage
+-      cancel-in-progress: true
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Check the status gate covers every job
+-        # Every workflow here runs a hand-maintained pipeline-status gate;
+-        # this derives each requirement from the workflow itself.
+-        run: >-
+-          node scripts/check-status-gate-covers-all-jobs.mjs
+-          .github/workflows/release.yml
+-          .github/workflows/links.yml
+-          .github/workflows/security.yml
+-          .github/workflows/workflows.yml
+-          .github/workflows/example-app.yml
+-
+   zizmor:
+     name: zizmor
+     runs-on: ubuntu-24.04
+@@ -88,82 +55,15 @@
+       group: check-${{ github.workflow }}-${{ github.ref }}-zizmor
+       cancel-in-progress: true
+     steps:
+-      - uses: actions/checkout@v6
++      - uses: actions/checkout@v7
+         with:
+           persist-credentials: false
+ 
+-      # Annotations instead of SARIF: forks of this template do not necessarily
+-      # have code scanning enabled, and the job should fail loudly either way.
+-      #
+-      # Named `version` rather than left at the default, because the action's
+-      # `latest` entry is its own frozen table (v0.6.2 -> zizmor 1.29.0), not
+-      # the latest zizmor. Naming it keeps the next bump a visible line in the
+-      # diff rather than a side effect of bumping the action, and documents
+-      # exactly which analyser reproduces a finding:
+-      #   pipx run zizmor==1.29.0 --config .github/zizmor.yml \
+-      #     --min-confidence low --persona regular .github/workflows
+-      - uses: zizmorcore/zizmor-action@v0.6.2
++      # Annotations instead of SARIF: code scanning is not enabled on every
++      # fork of this repository, and the job should fail loudly either way.
++      - uses: zizmorcore/zizmor-action@v0.6.4
+         with:
+           advanced-security: false
+           annotations: true
+           config: .github/zizmor.yml
+-          # Low, not medium: the artipacked audit reports at Low confidence,
+-          # and a floor above the finding hides every checkout that forgets
+-          # persist-credentials: false. tests/checkout-credentials.test.js
+-          # pins the same invariant in-repo, so the floor only needs to catch
+-          # the workflows the test cannot see.
+-          min-confidence: low
+-          version: 1.29.0
+-
+-      # The job above runs `--persona regular`, which is the right default:
+-      # pedantic surfaces dozens of stylistic findings. But the audits that
+-      # cover container image references (`unpinned-images` among them) are
+-      # Pedantic-only, so the `'*': hash-pin` policy declared in
+-      # .github/zizmor.yml is not enforced against `uses: docker://` or
+-      # `container:` references by the run above. Narrowing this second pass
+-      # to high severity *and* high confidence keeps that enforcement without
+-      # importing the noise. Measured: after the digest pins below it reports
+-      # nothing, and stays silent until someone reintroduces a mutable image.
+-      - name: Audit for pedantic-only high-severity findings
+-        timeout-minutes: 10
+-        run: |
+-          pipx run zizmor==1.30.0 --config .github/zizmor.yml \
+-            --persona pedantic --min-severity high --min-confidence high \
+-            .github/workflows .github/actions
+-
+-  # Terminal status gate: runs even when the jobs above fail or are
+-  # cancelled, and turns a `timeout-minutes` kill (reported as cancelled)
+-  # into a red run. needs is derived and checked by the
+-  # status-gate-coverage job above.
+-  pipeline-status:
+-    name: Pipeline Status
+-    runs-on: ubuntu-24.04
+-    timeout-minutes: 5
+-    concurrency:
+-      group: check-${{ github.workflow }}-${{ github.ref }}-pipeline-status
+-      cancel-in-progress: true
+-    # A status function is required: without one the gate inherits the
+-    # implicit "every dependency succeeded" condition and is skipped in
+-    # exactly the runs it exists to report.
+-    if: >-
+-      !cancelled()
+-    needs:
+-      - actionlint
+-      - status-gate-coverage
+-      - zizmor
+-    steps:
+-      - uses: actions/checkout@v6
+-        with:
+-          persist-credentials: false
+-
+-      - name: Setup Node.js
+-        uses: actions/setup-node@v6
+-        with:
+-          node-version: '24.x'
+-
+-      - name: Fail the run when a required job was cancelled or failed
+-        env:
+-          NEEDS_JSON: ${{ toJSON(needs) }}
+-          RUN_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+-          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+-        run: bash scripts/check-pipeline-status.sh
++          min-confidence: medium
+diff -ru '--exclude=.git' /tmp/hive-mind-template.pdTDWG/template/.github/zizmor.yml .github/zizmor.yml
+--- /tmp/hive-mind-template.pdTDWG/template/.github/zizmor.yml	2026-09-21 16:52:39.581758613 +0000
++++ .github/zizmor.yml	2026-09-21 16:47:06.011808976 +0000
+@@ -1,10 +1,33 @@
+ # zizmor configuration — https://docs.zizmor.sh/configuration/
+ rules:
++  # Issue #2264 intentionally opts version updates out of GitHub's default
++  # three-day cooldown. The merge gate compares against the newest stable
++  # release immediately, so delaying the update PR would leave every unrelated
++  # PR blocked without an automated remediation. Security still comes from
++  # review plus the full CI suite, rather than an age-only policy.
++  dependabot-cooldown:
++    ignore:
++      - dependabot.yml
++  # Issue #2198: zizmor's `self-repository` audit (v1.30.0) asks for GitHub's
++  # `uses: $/...` form, shipped 2026-07-30, instead of `uses: ./...`. actionlint
++  # does not parse `$/` yet -- v1.7.12 is the newest release and support is
++  # still open upstream (rhysd/actionlint#711, rhysd/actionlint#732) -- so the
++  # two gates in workflows.yml contradict each other: satisfying zizmor makes
++  # actionlint fail with "invalid format because ref is missing", eight times.
++  #
++  # `./` is the form that both the runner and actionlint accept today, so the
++  # audit is ignored for this file, not the finding worked around. The four
++  # merge jobs check out before referencing the action (asserted by
++  # tests/setup-buildx-resilient.test.mjs), which covers the runtime-filesystem
++  # concern behind the audit. Drop this block once actionlint understands `$/`.
++  self-repository:
++    ignore:
++      - release.yml
+   unpinned-uses:
+     config:
+       policies:
+         # These publishers are trusted at tag granularity: their release tags
+-        # are the reference this template is meant to read at a glance.
++        # are the reference a reader is meant to recognise at a glance.
+         # Everything else must be pinned to a full commit hash.
+         actions/*: ref-pin
+         github/*: ref-pin
+@@ -14,16 +37,3 @@
+         zizmorcore/*: ref-pin
+         changesets/*: ref-pin
+         '*': hash-pin
+-  # zizmor >= 1.30.0 asks for GitHub's `uses: $/...` self-repository syntax
+-  # (shipped 2026-07-30) instead of `uses: ./...`. actionlint does not parse
+-  # `$/` yet -- v1.7.12 is the newest release and support is still open
+-  # upstream (rhysd/actionlint#711, rhysd/actionlint#732) -- so the two jobs
+-  # in workflows.yml contradict each other: satisfying zizmor makes
+-  # actionlint fail with "invalid format because ref is missing".
+-  #
+-  # Drop this block once actionlint understands `$/`.
+-  self-repository:
+-    ignore:
+-      - release.yml
+-      - example-app.yml
+-      - action.yml

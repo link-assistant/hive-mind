@@ -1,0 +1,1 @@
+{"message":"Validation Failed","errors":["Actor GitHub Actions integration must be part of the ruleset source or owner organization"],"documentation_url":"https://docs.github.com/rest/repos/rules#update-a-repository-ruleset","status":"422"}

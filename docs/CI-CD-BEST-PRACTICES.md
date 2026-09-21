@@ -31,6 +31,11 @@ We provide ready-to-use templates for multiple languages with all best practices
 
 ## Key CI/CD Principles
 
+> **Pin hosted runner operating systems.** Mutable aliases such as
+> `ubuntu-latest` can switch major OS versions without a repository diff and
+> emit migration notices. Use an explicit supported label such as
+> `ubuntu-24.04`, then upgrade in a dedicated compatibility PR.
+
 ### 1. Run Checks Only on Relevant File Changes
 
 **Only trigger checks when relevant files change.** This dramatically reduces CI costs and run times.
@@ -40,7 +45,7 @@ Use a `detect-changes` job at the start of your workflow to determine which file
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -359,7 +364,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +430,7 @@ Put a `preflight` job first and make every publishing job `needs:` it.
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # so the probe can confirm OIDC works before `npm publish` needs it

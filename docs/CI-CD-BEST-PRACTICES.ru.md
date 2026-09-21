@@ -31,6 +31,12 @@ AI-решатель задач Hive Mind инструктирован обращ
 
 ## Ключевые принципы CI/CD
 
+> **Закрепляйте версию ОС hosted runner.** Изменяемые псевдонимы вроде
+> `ubuntu-latest` могут переключить основную версию ОС без изменения в
+> репозитории и создают уведомления о миграции. Используйте явную поддерживаемую
+> метку, например `ubuntu-24.04`, а обновление выполняйте отдельным PR с
+> проверкой совместимости.
+
 ### 1. Запускать проверки только при изменениях релевантных файлов
 
 **Запускайте проверки только при изменении релевантных файлов.** Это существенно снижает расходы на CI и время выполнения.
@@ -40,7 +46,7 @@ AI-решатель задач Hive Mind инструктирован обращ
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -359,7 +365,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +431,7 @@ merge-manifest:
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # чтобы проба подтвердила работу OIDC до того, как он понадобится `npm publish`

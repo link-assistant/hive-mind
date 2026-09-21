@@ -31,6 +31,12 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 
 ## मुख्य CI/CD सिद्धांत
 
+> **Hosted runner के operating system को pin करें।** `ubuntu-latest` जैसे
+> बदलने वाले aliases repository diff के बिना मुख्य OS version बदल सकते हैं और
+> migration notices उत्पन्न करते हैं। `ubuntu-24.04` जैसे स्पष्ट supported
+> label का उपयोग करें, फिर compatibility की जाँच करने वाले अलग PR में upgrade
+> करें।
+
 ### 1. केवल संबंधित फ़ाइल परिवर्तनों पर ही Checks चलाएं
 
 **केवल तभी checks trigger करें जब संबंधित फ़ाइलें बदलें।** यह CI लागत और run times को नाटकीय रूप से कम करता है।
@@ -40,7 +46,7 @@ Hive Mind का AI issue solver प्रत्येक pull request में
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -359,7 +365,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +431,7 @@ merge-manifest:
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # ताकि probe `npm publish` की ज़रूरत पड़ने से पहले ही OIDC की पुष्टि कर ले

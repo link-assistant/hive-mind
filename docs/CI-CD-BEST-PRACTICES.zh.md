@@ -31,6 +31,10 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 
 ## 关键 CI/CD 原则
 
+> **固定托管运行器的操作系统版本。** `ubuntu-latest` 等可变别名可能在仓库
+> 没有任何变更的情况下切换操作系统主版本，并产生迁移通知。请使用
+> `ubuntu-24.04` 等明确且受支持的标签，再通过专门的兼容性 PR 完成升级。
+
 ### 1. 仅对相关文件变更运行检查
 
 **仅在相关文件发生变更时触发检查。** 这可以大幅降低 CI 成本和运行时间。
@@ -40,7 +44,7 @@ Hive Mind 的 AI issue 求解器被指示关注每个 pull request 中的 CI/CD 
 ```yaml
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       code-changed: ${{ steps.changes.outputs.code }}
       docs-changed: ${{ steps.changes.outputs.docs }}
@@ -359,7 +363,7 @@ build-image:
     matrix:
       include:
         - platform: linux/amd64
-          runner: ubuntu-latest
+          runner: ubuntu-24.04
         - platform: linux/arm64
           runner: ubuntu-24.04-arm
   runs-on: ${{ matrix.runner }}
@@ -425,7 +429,7 @@ merge-manifest:
 
 ```yaml
 release-preflight:
-  runs-on: ubuntu-latest
+  runs-on: ubuntu-24.04
   permissions:
     contents: read
     id-token: write # 这样探测就能在 `npm publish` 需要之前确认 OIDC 可用

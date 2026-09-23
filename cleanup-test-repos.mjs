@@ -38,6 +38,7 @@ const forceMode = args.includes('--force') || args.includes('-f');
 const dryRun = args.includes('--dry-run') || args.includes('-n');
 const includeArchived = args.includes('--include-archived');
 const skipArchived = !includeArchived;
+const hasEnvironmentToken = Boolean(process.env.GH_TOKEN || process.env.GITHUB_TOKEN);
 
 console.log('🧹 Test Repository Cleanup Tool');
 console.log('================================\n');
@@ -58,40 +59,21 @@ try {
   // Import child_process once
   const { execSync, spawnSync } = await import('child_process');
 
-  // Check GitHub authentication and permissions
-  console.log('🔐 Checking GitHub permissions...');
+  // Verify authentication. Do not infer permissions from `gh auth status`:
+  // environment and fine-grained PATs do not expose classic OAuth scope text.
+  console.log('🔐 Checking GitHub authentication...');
   try {
-    const authStatus = execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
-
-    // Check if we have delete_repo scope
-    if (!authStatus.includes('delete_repo')) {
-      console.log('⚠️  Warning: Missing "delete_repo" permission');
-      console.log('');
-      console.log('To delete repositories, you need to grant the delete_repo scope:');
-      console.log('  gh auth refresh -h github.com -s delete_repo');
-      console.log('');
-      if (!forceMode && !dryRun) {
-        console.log('Continue anyway? Type "yes" to continue, or Ctrl+C to cancel:');
-
-        try {
-          const answer = await readConfirmationLine({ prompt: '> ' });
-
-          if (!isConfirmationYes(answer)) {
-            console.log('\n❌ Cancelled');
-            process.exit(0);
-          }
-        } catch (e) {
-          console.log('\n\n❌ Cancelled');
-          process.exit(0);
-        }
-      }
-    }
+    execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
   } catch (authError) {
     // gh auth status returns non-zero if not authenticated
     console.log('❌ Not authenticated with GitHub');
     console.log('');
-    console.log('Please authenticate first:');
-    console.log('  gh auth login');
+    if (hasEnvironmentToken) {
+      console.log('Replace GH_TOKEN/GITHUB_TOKEN with a valid token, then try again.');
+    } else {
+      console.log('Please authenticate first:');
+      console.log('  gh auth login');
+    }
     process.exit(1);
   }
 
@@ -260,8 +242,13 @@ try {
         console.log('');
         console.log('❌ Cannot delete repositories without proper permissions.');
         console.log('');
-        console.log('To fix this, run:');
-        console.log('  gh auth refresh -h github.com -s delete_repo');
+        if (hasEnvironmentToken) {
+          console.log('Replace GH_TOKEN/GITHUB_TOKEN with a classic PAT that has delete_repo');
+          console.log('or a fine-grained PAT that has repository Administration: write.');
+        } else {
+          console.log('To fix this, run:');
+          console.log('  gh auth refresh -h github.com -s delete_repo');
+        }
         console.log('');
         console.log('Then run this script again.');
         break; // Stop trying to delete more repos

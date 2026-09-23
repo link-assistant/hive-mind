@@ -41,8 +41,14 @@ const DEFAULT_RETRY_DELAY_MS = 10000; // 10 seconds
 // through a CDN, so a version can be absent from `npm view` for seconds after
 // `npm publish` returns success (npm/cli#3424, #9043, #593). Issue #2082,
 // finding F5: verifying once, 0.3s after publishing, produced a false negative.
-// ~2+4+8+16+30+30 = 90s of polling before giving up.
-const DEFAULT_VERIFY_ATTEMPTS = 7;
+// npm's public metadata is cacheable for five minutes. Runs 34882269478,
+// 34956086702, 35013947631, 35024921159 and 35644890960 all received a
+// successful publish response 157-309 seconds before npm recorded the version
+// in its public metadata. Seven checks (~90s) therefore produced repeatable
+// false negatives. Fifteen checks span the full cache horizon with enough
+// margin for the observed 309-second case:
+// ~2+4+8+16+(10*30) = 330s before the final check.
+const DEFAULT_VERIFY_ATTEMPTS = 15;
 const DEFAULT_VERIFY_DELAY_MS = 2000;
 const DEFAULT_VERIFY_MAX_DELAY_MS = 30000;
 

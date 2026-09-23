@@ -493,7 +493,7 @@ This command:
 
 1. **Detects the repository's languages** using the GitHub Linguist API (`GET /repos/{owner}/{repo}/languages`), ordered by the number of bytes per language.
 2. **Selects the matching CI/CD templates** from the table above, sorted so the template for the most-used language comes first.
-3. **Inspects the latest default-branch commit** and collects its CI/CD runs (falling back to the most recent runs on the default branch when the latest commit has none).
+3. **Inspects the latest default-branch run of every active workflow** by enumerating the workflow inventory, reading each workflow's time-ordered runs, and validating `head_branch` locally (GitHub's workflow-specific branch index can lag). This catches a failed required workflow on an earlier commit even when a busy workflow fills GitHub's 1,000-result combined-history window or the latest commit has unrelated passing runs, without permanently reporting a deleted workflow's last failure. If an inventory or per-workflow query fails, it falls back to paginated combined branch history; the exact latest-commit query is used only when branch history has no active runs.
 4. **Creates a remediation issue** that lists the failing runs, the detected languages, the recommended templates, and a link back to this document. The issue is created as a **Bug** (with a `bug` label) and its title and text are taken from the [standard remediation template](https://github.com/link-assistant/web-capture/issues/139).
 5. **Hands the issue off to `/solve --development-log --deep-analysis --auto-merge`**, which iterates until the fixes are merged. Every option `fix` does not consume itself (for example `--tool`, `--model`, `--think`) is forwarded to `/solve`.
 

@@ -57,9 +57,10 @@ export async function commandOutput(run, command, args) {
  * Fetch JSON from a `gh api` endpoint, returning `fallback` and warning when
  * the call fails. `label` completes the sentence "Could not <label>".
  */
-async function ghJson({ run, warn, endpoint, jq = null, label, fallback }) {
+async function ghJson({ run, warn, endpoint, jq = null, label, fallback, paginate = false }) {
   try {
     const args = ['api', endpoint];
+    if (paginate) args.push('--paginate', '--slurp');
     if (jq) args.push('--jq', jq);
     const output = await commandOutput(run, 'gh', args);
     return output ? JSON.parse(output) : fallback;
@@ -97,33 +98,124 @@ export async function getLatestCommit(repository, branch, run, warn) {
   });
 }
 
-// `workflow_id`, `created_at` and `run_attempt` are what let
-// `dedupeRunsByWorkflow` keep the latest run of each workflow (issue #2125).
-const RUNS_JQ = '[.workflow_runs[] | {id: .id, name: .name, workflow_id: .workflow_id, path: .path, status: .status, conclusion: .conclusion, html_url: .html_url, head_sha: .head_sha, created_at: .created_at, run_attempt: .run_attempt}]';
-
 function asArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+// `gh api --paginate --slurp` wraps the response object from every page in an
+// array. GitHub caps filtered workflow-run searches at 1,000 results, but this
+// avoids silently inspecting only the first 100. Mocks may return the already
+// flattened array, so accept both shapes.
+function normalizeWorkflowRuns(value) {
+  const pages = asArray(value);
+  const runs = pages.some(page => Array.isArray(page?.workflow_runs)) ? pages.flatMap(page => asArray(page?.workflow_runs)) : pages;
+  return runs.map(item => ({
+    id: item.id,
+    name: item.name,
+    workflow_id: item.workflow_id,
+    path: item.path,
+    status: item.status,
+    conclusion: item.conclusion,
+    html_url: item.html_url,
+    head_branch: item.head_branch,
+    head_sha: item.head_sha,
+    event: item.event,
+    created_at: item.created_at,
+    run_attempt: item.run_attempt,
+  }));
+}
+
+/** Workflows GitHub currently considers active in the repository. */
+export async function getActiveWorkflows(repository, run, warn) {
+  const pages = await ghJson({
+    run,
+    warn,
+    endpoint: `repos/${repository.fullName}/actions/workflows?per_page=100`,
+    label: 'fetch active CI/CD workflows',
+    fallback: null,
+    paginate: true,
+  });
+  if (!Array.isArray(pages)) return null;
+  return asArray(pages)
+    .flatMap(page => asArray(page?.workflows))
+    .filter(workflow => workflow?.state === 'active')
+    .map(workflow => ({ id: workflow.id, name: workflow.name, path: workflow.path, state: workflow.state }));
+}
+
+/**
+ * Latest default-branch run of every active workflow.
+ *
+ * GitHub caps a filtered combined run search at 1,000 results. A noisy
+ * workflow (Dependabot in issue #2286) can crowd a quieter required workflow
+ * out of that window, while offset pages can shift as new runs arrive.
+ *
+ * The workflow-specific `branch=` search is also eventually consistent: it
+ * returned run 35013947631 while the unfiltered endpoint already returned the
+ * newer main run 35644890960. Read each workflow's time-ordered runs and apply
+ * the branch check locally. Usually page one is enough; continue only until a
+ * default-branch run is found. The server-side filter is a last resort after
+ * GitHub's 1,000-result search boundary.
+ */
+export async function getLatestRunsForWorkflows(repository, branch, workflows, run, warn) {
+  if (!branch || !Array.isArray(workflows) || workflows.length === 0) return [];
+  const pageSize = 100;
+  const maxPages = 10;
+  const responses = await Promise.all(
+    workflows.map(async workflow => {
+      for (let page = 1; page <= maxPages; page += 1) {
+        const response = await ghJson({
+          run,
+          warn,
+          endpoint: `repos/${repository.fullName}/actions/workflows/${workflow.id}/runs?per_page=${pageSize}&page=${page}`,
+          label: `fetch ${workflow.name || workflow.id} runs while finding branch ${branch}`,
+          fallback: null,
+        });
+        if (response == null) return null;
+        const pageRuns = normalizeWorkflowRuns([response]);
+        const branchRun = pageRuns.find(item => item.head_branch === branch);
+        if (branchRun) return branchRun;
+        if (pageRuns.length < pageSize) return undefined;
+      }
+
+      // If one workflow produced more than 1,000 newer runs on other branches,
+      // its possibly stale branch index is still better than omitting it.
+      const response = await ghJson({
+        run,
+        warn,
+        endpoint: `repos/${repository.fullName}/actions/workflows/${workflow.id}/runs?branch=${encodeURIComponent(branch)}&per_page=1`,
+        label: `fetch the latest indexed ${workflow.name || workflow.id} run for branch ${branch}`,
+        fallback: null,
+      });
+      if (response == null) return null;
+      return normalizeWorkflowRuns([response]).find(item => item.head_branch === branch);
+    })
+  );
+  // Returning the successful subset would look authoritative while silently
+  // omitting a workflow. Let the caller use the combined-history fallback if
+  // any individual query failed.
+  if (responses.some(response => response === null)) return null;
+  return responses.filter(Boolean).sort((a, b) => (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
 }
 
 /** Actions runs triggered by a specific commit. */
 export async function getRunsForCommit(repository, sha, run, warn) {
   if (!sha) return [];
-  const runs = await ghJson({ run, warn, endpoint: `repos/${repository.fullName}/actions/runs?head_sha=${sha}&per_page=100`, jq: RUNS_JQ, label: 'fetch CI/CD runs', fallback: [] });
-  return asArray(runs);
+  const pages = await ghJson({ run, warn, endpoint: `repos/${repository.fullName}/actions/runs?head_sha=${sha}&per_page=100`, label: 'fetch CI/CD runs', fallback: [], paginate: true });
+  return normalizeWorkflowRuns(pages);
 }
 
-/** Most recent Actions runs on a branch (fallback when a commit has none). */
+/** Recent Actions runs on a branch (the primary CI/CD health source). */
 export async function getRecentBranchRuns(repository, branch, run, warn) {
   if (!branch) return [];
-  const runs = await ghJson({
+  const pages = await ghJson({
     run,
     warn,
     endpoint: `repos/${repository.fullName}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`,
-    jq: RUNS_JQ,
     label: `fetch recent CI/CD runs for branch ${branch}`,
     fallback: [],
+    paginate: true,
   });
-  return asArray(runs);
+  return normalizeWorkflowRuns(pages);
 }
 
 /**

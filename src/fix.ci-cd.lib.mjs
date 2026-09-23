@@ -3,7 +3,7 @@
  *
  * `/fix --ci-cd <repository>` automatically:
  *   1. detects the languages used in the target repository,
- *   2. inspects the latest default-branch commit and its CI/CD runs,
+ *   2. inspects recent default-branch CI/CD runs and the latest commit,
  *   3. creates a remediation issue (mirroring the `/task` issue-creation flow)
  *      that links the language-appropriate CI/CD pipeline templates and the
  *      CI/CD best-practices guide, and
@@ -233,9 +233,8 @@ function compareRunRecency(a, b) {
 /**
  * Keep only the most recent run per workflow (issue #2125).
  *
- * When `/fix --ci-cd` falls back to "recent runs on the default branch" the
- * GitHub API returns every run of every workflow across many commits, so the
- * generated issue listed the same two workflows twenty times. One row per
+ * The combined-history fallback returns every run of every workflow across
+ * many commits, so it can list the same workflows repeatedly. One row per
  * workflow — its latest run — is what makes the table actionable.
  *
  * Order of the surviving rows follows the input (the API returns newest first).
@@ -263,7 +262,7 @@ export function countDuplicateRuns(runs) {
  * Render the CI/CD runs section from the GitHub Actions API payload.
  *
  * Runs are deduplicated per workflow (issue #2125). Pass `includeCommit: true`
- * when the rows may come from different commits (the default-branch fallback)
+ * when the rows may come from different commits (the default-branch query)
  * so it stays visible which commit each run belongs to.
  */
 export function buildRunsSection(runs, { emptyMessage, includeCommit = false } = {}) {
@@ -390,23 +389,24 @@ export const CI_CD_ISSUE_LABELS = Object.freeze(['bug']);
 /**
  * Build the full Markdown body of the auto-generated remediation issue.
  *
- * The body mirrors the template issue's own description: the CI/CD runs of the
- * latest default-branch commit first, then the standard prompt. The data `/fix`
+ * The body mirrors the template issue's own description: recent default-branch
+ * CI/CD runs first, then the standard prompt. The data `/fix`
  * collected to build it (commit, languages, template ranking) follows as a
  * collapsed context block so it stays available without displacing the prompt.
  */
 export function buildCiCdIssueBody({ repository, defaultBranch, commit, runs, languages, runsSource = 'commit', omittedOptions = FIX_FORWARDED_SOLVE_OPTIONS }) {
   const { sortedTemplates } = mapLanguagesToTemplates(languages);
-  // One row per workflow: the branch fallback returns every run of every
-  // workflow across many commits (issue #2125).
+  // One row per workflow, including when the combined-history fallback returns
+  // multiple runs across many commits (issue #2125).
   const uniqueRuns = dedupeRunsByWorkflow(runs);
   const { total, failing } = summarizeRunFailures(uniqueRuns);
 
   const commitLine = commit?.sha ? `\`${shortSha(commit.sha)}\`${commit.url ? ` ([commit](${commit.url}))` : ''}${commit.message ? ` — ${String(commit.message).split('\n')[0]}` : ''}` : 'unknown';
 
-  // When the exact latest commit produced no runs (common for release/tag
-  // commits), `/fix` falls back to the most recent runs on the default branch
-  // so the issue stays actionable. Label the source honestly.
+  // Branch history is the primary source so a failed workflow on the preceding
+  // commit cannot be hidden by unrelated successful runs on the latest one.
+  // The exact-commit query remains a fallback for repositories whose branch
+  // query returns no runs. Label the source honestly.
   const runsHeading = runsSource === 'branch' ? `Recent CI/CD runs on \`${defaultBranch || 'default branch'}\`` : 'Latest default-branch CI/CD runs';
   const runsEmptyMessage = runsSource === 'branch' ? `No recent CI/CD runs were found on \`${defaultBranch || 'the default branch'}\`.` : 'No CI/CD runs were found for the latest default-branch commit.';
 

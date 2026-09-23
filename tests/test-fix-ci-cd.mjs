@@ -280,7 +280,7 @@ await test('summarizeRunFailures counts one run per workflow (issue #2125)', () 
   assert.deepEqual(summarizeRunFailures(runs), { total: 1, failing: 0 });
 });
 
-await test('prepareCiCdIssue deduplicates the default-branch fallback runs (issue #2125)', async () => {
+await test('prepareCiCdIssue deduplicates recent default-branch runs (issue #2125)', async () => {
   const repository = parseFixRepository('owner/repo');
   const logs = [];
   const branchRuns = [
@@ -293,9 +293,12 @@ await test('prepareCiCdIssue deduplicates the default-branch fallback runs (issu
     if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
     if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
     if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'abcdef1234567890', message: '0.25.4', url: 'https://github.com/owner/repo/commit/abcdef1234567890' }), stderr: '' };
-    // Release commit: no runs for the exact sha, so /fix falls back to branch runs.
+    // Exercise the paginated combined-history fallback when workflow inventory
+    // is unavailable; it must still deduplicate one row per workflow.
+    if (endpoint.includes('actions/workflows?')) return { code: 1, stdout: '', stderr: 'inventory unavailable' };
+    // The exact-SHA response remains as a fallback if the branch query is empty.
     if (endpoint.includes('actions/runs?head_sha=')) return { code: 0, stdout: '[]', stderr: '' };
-    if (endpoint.includes('actions/runs?branch=')) return { code: 0, stdout: JSON.stringify(branchRuns), stderr: '' };
+    if (endpoint.includes('actions/runs?branch=')) return { code: 0, stdout: JSON.stringify([{ workflow_runs: branchRuns }]), stderr: '' };
     return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
   };
 
@@ -308,6 +311,236 @@ await test('prepareCiCdIssue deduplicates the default-branch fallback runs (issu
   assert.match(prepared.body, /Recent CI\/CD runs on `main`/);
   assert.match(prepared.body, /\*\*CI\/CD runs found:\*\* 2 \(2 not passing\)/);
   assert.ok(!prepared.body.includes('actions/runs/2'), 'the older JS run must not be listed again');
+});
+
+await test('prepareCiCdIssue includes failed workflows from the preceding commit (issue #2286)', async () => {
+  // The merge commit that opened #2286 had two successful auxiliary workflows.
+  // Because the exact-SHA lookup was non-empty, the old fallback never fetched
+  // the failed Checks and release run on the commit immediately before it.
+  const repository = parseFixRepository('owner/repo');
+  const latestSha = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  const failedSha = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+  const exactRuns = [
+    { id: 3, name: 'Dependabot Updates', workflow_id: 3, status: 'completed', conclusion: 'success', created_at: '2026-09-21T19:40:00Z', head_sha: latestSha },
+    { id: 2, name: 'Formal AI Draft', workflow_id: 2, status: 'completed', conclusion: 'success', created_at: '2026-09-21T19:39:00Z', head_sha: latestSha },
+  ];
+  const branchRuns = [...exactRuns, { id: 1, name: 'Checks and release', workflow_id: 1, status: 'completed', conclusion: 'failure', created_at: '2026-09-21T19:27:06Z', head_branch: 'main', head_sha: failedSha, html_url: 'https://github.com/owner/repo/actions/runs/1' }].map(item => ({ head_branch: 'main', ...item }));
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: latestSha, message: 'Merge release', url: `https://github.com/owner/repo/commit/${latestSha}` }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) return { code: 0, stdout: JSON.stringify([{ workflows: [1, 2, 3].map(id => ({ id, state: 'active' })) }]), stderr: '' };
+    const workflowMatch = endpoint.match(/actions\/workflows\/(\d+)\/runs\?/);
+    if (workflowMatch) return { code: 0, stdout: JSON.stringify({ workflow_runs: branchRuns.filter(item => item.workflow_id === Number(workflowMatch[1])) }), stderr: '' };
+    if (endpoint.includes('actions/runs?head_sha=')) return { code: 0, stdout: JSON.stringify(exactRuns), stderr: '' };
+    if (endpoint.includes('actions/runs?branch=')) return { code: 0, stdout: JSON.stringify(branchRuns), stderr: '' };
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+
+  assert.equal(prepared.runsSource, 'branch', 'repository health must come from recent branch runs, not only the newest SHA');
+  assert.equal(prepared.runs.length, 3);
+  assert.equal(prepared.runs.find(item => item.workflow_id === 1)?.conclusion, 'failure');
+  assert.match(prepared.body, /actions\/runs\/1/, 'the omitted failed release run must be included in the generated issue');
+  assert.match(prepared.body, /\*\*CI\/CD runs found:\*\* 3 \(1 not passing\)/);
+  const workflowCalls = calls.filter(call => call.args[1]?.includes('/actions/workflows/') && call.args[1]?.includes('/runs?'));
+  assert.equal(workflowCalls.length, 3, 'the latest run of every active workflow must be fetched even when the latest commit already has runs');
+  assert.ok(
+    workflowCalls.every(call => call.args[1].includes('per_page=100') && !call.args[1].includes('branch=')),
+    'per-workflow queries validate the default branch locally instead of trusting GitHub branch-search freshness'
+  );
+});
+
+await test('prepareCiCdIssue cannot crowd out a quiet workflow behind 1,000 busy-workflow runs (issue #2286)', async () => {
+  // GitHub caps filtered workflow-run searches at 1,000 results. Dependabot
+  // can occupy much of that window, and offset pagination can move while new
+  // runs arrive. Querying the latest run of each active workflow directly is
+  // the only way to prove that a quieter required workflow was inspected.
+  const repository = parseFixRepository('owner/repo');
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'latest', message: 'Latest change' }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) return { code: 0, stdout: JSON.stringify([{ workflows: [1, 2].map(id => ({ id, state: 'active' })) }]), stderr: '' };
+    if (endpoint.includes('actions/workflows/1/runs?')) {
+      return { code: 0, stdout: JSON.stringify({ workflow_runs: [{ id: 10, workflow_id: 1, name: 'Quiet required workflow', head_branch: 'main', status: 'completed', conclusion: 'failure', created_at: '2026-09-21T19:27:06Z' }] }), stderr: '' };
+    }
+    if (endpoint.includes('actions/workflows/2/runs?')) {
+      return { code: 0, stdout: JSON.stringify({ workflow_runs: [{ id: 20, workflow_id: 2, name: 'Busy workflow', head_branch: 'main', status: 'completed', conclusion: 'success', created_at: '2026-09-23T14:33:33Z' }] }), stderr: '' };
+    }
+    // Reproduce the capped combined query: only the busy workflow survived.
+    if (endpoint.includes('actions/runs?branch=')) {
+      return { code: 0, stdout: JSON.stringify([{ workflow_runs: [{ id: 20, workflow_id: 2, name: 'Busy workflow', status: 'completed', conclusion: 'success', created_at: '2026-09-23T14:33:33Z' }] }]), stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+
+  assert.deepEqual(
+    prepared.runs.map(item => item.workflow_id),
+    [2, 1],
+    'the latest run of every active workflow must be collected even when the combined history is capped'
+  );
+  assert.equal(prepared.runs.find(item => item.workflow_id === 1)?.conclusion, 'failure');
+  assert.equal(calls.filter(call => call.args[1]?.includes('/actions/workflows/') && call.args[1]?.includes('/runs?')).length, 2);
+});
+
+await test('prepareCiCdIssue verifies default-branch recency outside GitHub branch search (issue #2286)', async () => {
+  // GitHub's workflow-specific `branch=main` search returned run 35013947631
+  // while the same endpoint without that server-side filter returned newer main
+  // run 35644890960. Select the branch locally from the workflow's time-ordered
+  // runs so a stale search index cannot reintroduce the original omission.
+  const repository = parseFixRepository('owner/repo');
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'latest', message: 'Latest change' }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) return { code: 0, stdout: JSON.stringify([{ workflows: [{ id: 1, state: 'active' }] }]), stderr: '' };
+    if (endpoint.includes('actions/workflows/1/runs?branch=main')) {
+      return { code: 0, stdout: JSON.stringify({ workflow_runs: [{ id: 35013947631, workflow_id: 1, name: 'Checks and release', head_branch: 'main', conclusion: 'failure', created_at: '2026-09-15T19:29:37Z' }] }), stderr: '' };
+    }
+    if (endpoint.includes('actions/workflows/1/runs?')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          workflow_runs: [
+            { id: 35870842395, workflow_id: 1, name: 'Checks and release', head_branch: 'issue-2286', conclusion: 'failure', created_at: '2026-09-23T13:58:43Z' },
+            { id: 35644890960, workflow_id: 1, name: 'Checks and release', head_branch: 'main', conclusion: 'failure', created_at: '2026-09-21T19:27:06Z' },
+          ],
+        }),
+        stderr: '',
+      };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+
+  assert.equal(prepared.runs[0]?.id, 35644890960, 'local branch selection must retain the newest default-branch run');
+  assert.ok(
+    calls.some(call => call.args[1]?.includes('actions/workflows/1/runs?') && !call.args[1].includes('branch=')),
+    'the collector must not trust the stale server-side branch filter as its primary source'
+  );
+});
+
+await test('prepareCiCdIssue scans later workflow pages for the default branch (issue #2286)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'latest', message: 'Latest change' }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) return { code: 0, stdout: JSON.stringify([{ workflows: [{ id: 1, state: 'active' }] }]), stderr: '' };
+    if (endpoint.includes('actions/workflows/1/runs?') && endpoint.includes('&page=1')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify({
+          workflow_runs: Array.from({ length: 100 }, (_, index) => ({ id: 1000 - index, workflow_id: 1, name: 'Busy workflow', head_branch: `feature-${index}`, conclusion: 'success', created_at: '2026-09-23T14:00:00Z' })),
+        }),
+        stderr: '',
+      };
+    }
+    if (endpoint.includes('actions/workflows/1/runs?') && endpoint.includes('&page=2')) {
+      return { code: 0, stdout: JSON.stringify({ workflow_runs: [{ id: 899, workflow_id: 1, name: 'Busy workflow', head_branch: 'main', conclusion: 'failure', created_at: '2026-09-20T14:00:00Z' }] }), stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+
+  assert.equal(prepared.runs[0]?.id, 899);
+  assert.ok(
+    calls.some(call => call.args[1]?.includes('actions/workflows/1/runs?') && call.args[1]?.includes('&page=2')),
+    'a full page without the default branch must advance to the next page'
+  );
+});
+
+await test('prepareCiCdIssue falls back rather than accepting partial per-workflow results (issue #2286)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const calls = [];
+  const run = async (command, args) => {
+    calls.push({ command, args });
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'latest', message: 'Latest change' }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) return { code: 0, stdout: JSON.stringify([{ workflows: [1, 2].map(id => ({ id, state: 'active' })) }]), stderr: '' };
+    if (endpoint.includes('actions/workflows/1/runs?')) return { code: 1, stdout: '', stderr: 'temporary API failure' };
+    if (endpoint.includes('actions/workflows/2/runs?')) {
+      return { code: 0, stdout: JSON.stringify({ workflow_runs: [{ id: 20, workflow_id: 2, name: 'Successful workflow', head_branch: 'main', conclusion: 'success', created_at: '2026-09-23T14:00:00Z' }] }), stderr: '' };
+    }
+    if (endpoint.includes('actions/runs?branch=')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify([
+          {
+            workflow_runs: [
+              { id: 20, workflow_id: 2, name: 'Successful workflow', conclusion: 'success', created_at: '2026-09-23T14:00:00Z' },
+              { id: 10, workflow_id: 1, name: 'Failed required workflow', conclusion: 'failure', created_at: '2026-09-23T13:00:00Z' },
+            ],
+          },
+        ]),
+        stderr: '',
+      };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run, warn: () => {} });
+
+  assert.equal(prepared.runs.length, 2, 'a failed per-workflow query must not silently omit that workflow');
+  assert.equal(prepared.runs.find(item => item.workflow_id === 1)?.conclusion, 'failure');
+  assert.ok(
+    calls.some(call => call.args[1]?.includes('actions/runs?branch=')),
+    'partial results must trigger the combined-history fallback'
+  );
+});
+
+await test('prepareCiCdIssue excludes deleted workflows from branch history (issue #2286)', async () => {
+  const repository = parseFixRepository('owner/repo');
+  const run = async (command, args) => {
+    const endpoint = args[1] || '';
+    if (endpoint.endsWith('/languages')) return { code: 0, stdout: JSON.stringify({ JavaScript: 900 }), stderr: '' };
+    if (endpoint === 'repos/owner/repo') return { code: 0, stdout: 'main\n', stderr: '' };
+    if (endpoint === 'repos/owner/repo/commits/main') return { code: 0, stdout: JSON.stringify({ sha: 'abcdef1234567890', message: 'Latest change' }), stderr: '' };
+    if (endpoint.includes('actions/workflows?')) {
+      return { code: 0, stdout: JSON.stringify([{ workflows: [{ id: 1, name: 'Checks and release', path: '.github/workflows/release.yml', state: 'active' }] }]), stderr: '' };
+    }
+    if (endpoint.includes('actions/workflows/1/runs?')) {
+      return {
+        code: 0,
+        stdout: JSON.stringify({ workflow_runs: [{ id: 2, name: 'Checks and release', workflow_id: 1, head_branch: 'main', status: 'completed', conclusion: 'failure', created_at: '2026-09-21T19:27:06Z' }] }),
+        stderr: '',
+      };
+    }
+    if (endpoint.includes('actions/runs?branch=')) {
+      return { code: 0, stdout: JSON.stringify([{ workflow_runs: [{ id: 1, name: 'Deleted legacy workflow', workflow_id: 99, status: 'completed', conclusion: 'failure', created_at: '2025-12-11T21:36:26Z' }] }]), stderr: '' };
+    }
+    return { code: 1, stdout: '', stderr: `Unexpected command: ${command} ${args.join(' ')}` };
+  };
+
+  const prepared = await prepareCiCdIssue({ repository, run });
+
+  assert.deepEqual(
+    prepared.runs.map(item => item.name),
+    ['Checks and release'],
+    'a deleted workflow must not remain a permanent false-positive failure'
+  );
+  assert.equal(prepared.inactiveWorkflowRuns, 0);
+  assert.doesNotMatch(prepared.body, /Deleted legacy workflow/);
 });
 
 await test('buildRunsSection honors a custom empty message', () => {
@@ -390,10 +623,13 @@ await test('shared CI/CD issue service collects context and creates the same typ
         stderr: '',
       };
     }
-    if (args[0] === 'api' && endpoint.includes('actions/runs?head_sha=')) {
+    if (args[0] === 'api' && endpoint.includes('actions/workflows?')) {
+      return { code: 0, stdout: JSON.stringify([{ workflows: [{ id: 1, state: 'active' }] }]), stderr: '' };
+    }
+    if (args[0] === 'api' && endpoint.includes('actions/workflows/1/runs?')) {
       return {
         code: 0,
-        stdout: JSON.stringify([{ name: 'CI', status: 'completed', conclusion: 'failure', html_url: 'https://github.com/owner/repo/actions/runs/1' }]),
+        stdout: JSON.stringify({ workflow_runs: [{ name: 'CI', workflow_id: 1, head_branch: 'main', status: 'completed', conclusion: 'failure', html_url: 'https://github.com/owner/repo/actions/runs/1' }] }),
         stderr: '',
       };
     }
@@ -405,9 +641,9 @@ await test('shared CI/CD issue service collects context and creates the same typ
 
   const prepared = await prepareCiCdIssue({ repository, run });
   assert.equal(prepared.defaultBranch, 'main');
-  assert.equal(prepared.runsSource, 'commit');
+  assert.equal(prepared.runsSource, 'branch');
   assert.equal(prepared.title, CI_CD_ISSUE_TITLE);
-  assert.match(prepared.body, /Latest default-branch CI\/CD runs/);
+  assert.match(prepared.body, /Recent CI\/CD runs on `main`/);
   assert.match(prepared.body, /js-ai-driven-development-pipeline-template/);
 
   const issue = await createCiCdIssue({ repository, prepared, run });

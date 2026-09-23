@@ -1,0 +1,6 @@
+npm notice run @link-assistant/hive-mind@2.31.0 npx
+npm notice run 'prettier' --write tests/test-fix-ci-cd.mjs tests/test-preinstall-use-m-packages-1724.mjs tests/test-use-with-retry.mjs tests/test-issue-2187-current-dependency-pins.mjs
+tests/test-fix-ci-cd.mjs 581ms
+tests/test-preinstall-use-m-packages-1724.mjs 44ms (unchanged)
+tests/test-use-with-retry.mjs 115ms (unchanged)
+tests/test-issue-2187-current-dependency-pins.mjs 53ms (unchanged)

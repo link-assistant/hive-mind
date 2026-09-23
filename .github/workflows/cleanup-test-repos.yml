@@ -26,6 +26,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
+      # Provision this secret with delete_repo (classic PAT) or repository
+      # Administration: write (fine-grained PAT). GitHub CLI consumes GH_TOKEN
+      # directly; scope elevation only applies to stored interactive credentials.
       GH_TOKEN: ${{ secrets.TEST_GITHUB_USER_REPO_DELETION_TOKEN }}
 
     steps:
@@ -37,13 +40,12 @@ jobs:
         with:
           node-version: 24.x
 
-      - name: Configure GitHub CLI authentication
+      - name: Verify GitHub CLI authentication
         run: |
           echo "Checking GitHub authentication status..."
           gh auth status
-          echo ""
-          echo "Refreshing GitHub token with delete_repo scope..."
-          gh auth refresh -h github.com -s delete_repo
+          authenticated_user="$(gh api user --jq '.login')"
+          echo "Authenticated as ${authenticated_user}"
 
       - name: Run cleanup script
         run: |

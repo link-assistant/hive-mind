@@ -1,0 +1,4 @@
+npm notice run @link-assistant/hive-mind@2.31.0 npx
+npm notice run 'prettier' --write docs/case-studies/issue-1914/README.md tests/test-issue-2187-current-dependency-pins.mjs
+docs/case-studies/issue-1914/README.md 585ms
+tests/test-issue-2187-current-dependency-pins.mjs 79ms (unchanged)

@@ -1,0 +1,87 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: automation must not start an interactive login or try to mutate an environment-provided token
+    at file:///tmp/gh-issue-solver-1790171864587/tests/cleanup-workflow-auth-2286.test.mjs:19:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 'name: Cleanup Test Repositories\n' +
+    '\n' +
+    'on:\n' +
+    '  workflow_dispatch:\n' +
+    '    inputs:\n' +
+    '      dry_run:\n' +
+    "        description: 'Dry run mode - shows what would be deleted without actually deleting'\n" +
+    '        required: false\n' +
+    '        type: boolean\n' +
+    '        default: false\n' +
+    '\n' +
+    '# Least privilege by default (zizmor excessive-permissions): `read-all` also\n' +
+    '# grants read access to actions, packages, security events and more. This\n' +
+    '# workflow only needs to check out the repository; every deletion it performs\n' +
+    '# goes through TEST_GITHUB_USER_REPO_DELETION_TOKEN, not GITHUB_TOKEN.\n' +
+    'permissions:\n' +
+    '  contents: read\n' +
+    '\n' +
+    'env:\n' +
+    "  GIT_CONFIG_COUNT: '1'\n" +
+    '  GIT_CONFIG_KEY_0: init.defaultBranch\n' +
+    '  GIT_CONFIG_VALUE_0: main\n' +
+    '\n' +
+    'jobs:\n' +
+    '  cleanup:\n' +
+    '    runs-on: ubuntu-24.04\n' +
+    '    timeout-minutes: 15\n' +
+    '    env:\n' +
+    '      GH_TOKEN: ${{ secrets.TEST_GITHUB_USER_REPO_DELETION_TOKEN }}\n' +
+    '\n' +
+    '    steps:\n' +
+    '      - name: Checkout repository\n' +
+    '        uses: actions/checkout@v7\n' +
+    '\n' +
+    '      - name: Setup Node.js\n' +
+    '        uses: actions/setup-node@v7\n' +
+    '        with:\n' +
+    '          node-version: 24.x\n' +
+    '\n' +
+    '      - name: Configure GitHub CLI authentication\n' +
+    '        run: |\n' +
+    '          echo "Checking GitHub authentication status..."\n' +
+    '          gh auth status\n' +
+    '          echo ""\n' +
+    '          echo "Refreshing GitHub token with delete_repo scope..."\n' +
+    '          gh auth refresh -h github.com -s delete_repo\n' +
+    '\n' +
+    '      - name: Run cleanup script\n' +
+    '        run: |\n' +
+    '          echo "Starting test repository cleanup..."\n' +
+    '          echo ""\n' +
+    '\n' +
+    '          if [ "${{ inputs.dry_run }}" = "true" ]; then\n' +
+    '            echo "Running in DRY RUN mode..."\n' +
+    '            ./cleanup-test-repos.mjs --skip-archived --dry-run\n' +
+    '          else\n' +
+    '            echo "Running in FORCE mode (will delete repositories)..."\n' +
+    '            ./cleanup-test-repos.mjs --skip-archived --force\n' +
+    '          fi\n' +
+    '\n' +
+    '      - name: Summary\n' +
+    '        if: always()\n' +
+    '        run: |\n' +
+    '          echo ""\n' +
+    '          echo "Cleanup workflow completed!"\n' +
+    '          if [ "${{ inputs.dry_run }}" = "true" ]; then\n' +
+    '            echo "Mode: DRY RUN (no repositories were deleted)"\n' +
+    '          else\n' +
+    '            echo "Mode: FORCE (repositories were deleted)"\n' +
+    '          fi\n',
+  expected: /gh auth (?:login|refresh)\b/,
+  operator: 'doesNotMatch',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

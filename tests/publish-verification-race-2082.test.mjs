@@ -105,6 +105,20 @@ const run = harness =>
   assert.ok(harness.viewCount > 1, 'verification must be polled with backoff rather than checked once');
 }
 
+{
+  // Issue #2286, run 35644890960: Changesets reported success at 19:36:53,
+  // the seven-check (~90 second) verifier stopped at 19:38:25, and npm's
+  // package metadata records the publication at 19:41:01. A release may take
+  // more than four minutes to become readable, so the default window must span
+  // the registry's five-minute cache horizon without ever republishing.
+  const harness = createRunner({ viewFailures: 14 });
+  const result = await run(harness);
+
+  assert.equal(result.ok, true, 'a publish still propagating after four minutes must not be reported as failed');
+  assert.equal(harness.publishCount, 1, 'extending verification must never repeat a successful publish');
+  assert.equal(harness.viewCount, 15, 'the default polling window must extend beyond the observed 309-second delay');
+}
+
 // --- 2. A publish that reported success is never re-run --------------------
 
 {

@@ -1,0 +1,13 @@
+HTTP/2 200
+date: Wed, 23 Sep 2026 14:38:42 GMT
+content-type: application/json
+content-length: 2005850
+cf-ray: a3fa4b664f18dcb4-FRA
+cf-cache-status: REVALIDATED
+accept-ranges: bytes
+access-control-allow-origin: *
+cache-control: public, max-age=300
+etag: "6ce2ad047d96844ddba170218d8b0190"
+last-modified: Mon, 21 Sep 2026 19:41:03 GMT
+server: cloudflare
+vary: accept-encoding, accept

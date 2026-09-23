@@ -1,0 +1,40 @@
+PASS: CI_CD_TEMPLATES includes the PHP template (issue #1733)
+PASS: parseFixRepository accepts repo URLs and shorthand, rejects issues
+PASS: normalizeLanguages sorts by bytes descending
+PASS: mapLanguagesToTemplates sorts templates by detected bytes
+PASS: mapLanguagesToTemplates merges JavaScript and TypeScript into one template
+PASS: mapLanguagesToTemplates reports unmatched languages
+PASS: buildTemplatesSection prioritizes most-used language and falls back when none match
+PASS: summarizeRunFailures counts only completed non-passing runs
+PASS: buildRunsSection renders a table or a no-runs message
+PASS: buildCiCdIssueTitle is the web-capture#139 title verbatim (issue #1733)
+PASS: buildStandardPrompt omits the retired and solve-provided paragraphs
+PASS: buildStandardPrompt never restores the legacy case-study paragraph
+PASS: standard prompt has no development-log-controlled fallback paragraph
+PASS: buildStandardPrompt never restores the legacy paragraph for partial option sets
+PASS: buildStandardPrompt lists templates sorted by detected languages
+PASS: buildCiCdIssueBody contains all required sections and best-practices link
+PASS: buildCiCdIssueBody omits the parts /fix re-provides via solve options (issue #1733)
+PASS: buildCiCdIssueBody uses a branch-fallback heading when runsSource is branch
+PASS: dedupeRunsByWorkflow keeps the latest run per workflow (issue #2125)
+PASS: buildRunsSection collapses duplicate workflow runs and can show commits (issue #2125)
+PASS: summarizeRunFailures counts one run per workflow (issue #2125)
+⚠️  Could not fetch active CI/CD workflows: inventory unavailable
+PASS: prepareCiCdIssue deduplicates recent default-branch runs (issue #2125)
+PASS: prepareCiCdIssue includes failed workflows from the preceding commit (issue #2286)
+PASS: prepareCiCdIssue cannot crowd out a quiet workflow behind 1,000 busy-workflow runs (issue #2286)
+PASS: prepareCiCdIssue verifies default-branch recency outside GitHub branch search (issue #2286)
+PASS: prepareCiCdIssue falls back rather than accepting partial per-workflow results (issue #2286)
+PASS: prepareCiCdIssue excludes deleted workflows from branch history (issue #2286)
+PASS: buildRunsSection honors a custom empty message
+PASS: partitionFixArgs extracts repo + flags and forwards the rest to solve
+PASS: partitionFixArgs honors --dry-run and --no-solve without forwarding them
+PASS: buildSolveArgs prepends issue URL and enables the three /fix options (issue #1733)
+PASS: buildSolveArgs never duplicates an option the caller already passed
+PASS: CI_CD_ISSUE_TYPE is a Bug type /solve recognizes (makes the omission lossless)
+PASS: buildCreateIssueArgs passes the issue type and labels to gh
+PASS: shared CI/CD issue service collects context and creates the same typed issue
+PASS: createTaskIssue retries without type/labels when the repo rejects them
+PASS: createTaskIssue surfaces the error when no optional metadata was used
+
+37 passed, 0 failed

@@ -1,0 +1,4 @@
+npm notice run @link-assistant/hive-mind@2.31.0 npx
+npm notice run 'prettier' --check docs/case-studies/issue-1914/README.md
+Checking formatting...
+All matched files use Prettier code style!

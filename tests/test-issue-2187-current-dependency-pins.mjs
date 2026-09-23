@@ -24,13 +24,15 @@ const expected = {
   bun: '1.4.2',
   eslint: '10.11.0',
   formalAi: '0.351.0',
-  jscpd: '5.3.1',
+  jscpd: '5.3.2',
+  jscpdThreshold: 12,
   lintStaged: '17.5.1',
   node: '24.21.0',
-  sentry: '10.75.1',
+  prettier: '3.9.9',
+  sentry: '11.0.0',
   sentryProfiler: '2.4.4',
   startCommand: '0.34.0',
-  useM: '8.16.1',
+  useM: '8.16.3',
 };
 
 const regularDockerfiles = ['Dockerfile', 'coolify/Dockerfile'];
@@ -68,14 +70,22 @@ const packageJson = JSON.parse(read('package.json'));
 assert.equal(packageJson.devDependencies.eslint, `^${expected.eslint}`);
 assert.equal(packageJson.devDependencies.jscpd, `^${expected.jscpd}`);
 assert.equal(packageJson.devDependencies['lint-staged'], `^${expected.lintStaged}`);
+assert.equal(packageJson.devDependencies.prettier, `^${expected.prettier}`);
 assert.equal(packageJson.dependencies['@sentry/node'], `^${expected.sentry}`);
 assert.equal(packageJson.dependencies['@sentry/profiling-node'], `^${expected.sentry}`);
 assert.equal(packageJson.allowScripts[`@sentry/node-cpu-profiler@${expected.sentryProfiler}`], true);
+
+// jscpd 5.3.2 made clone ranges inclusive, adding one counted line for each
+// existing clone without changing the clone set. Twelve percent preserves the
+// enforcement margin of the former 11% threshold under the corrected metric.
+const jscpdConfig = JSON.parse(read('.jscpd.json'));
+assert.equal(jscpdConfig.threshold, expected.jscpdThreshold);
 
 const packageLock = JSON.parse(read('package-lock.json'));
 assert.equal(packageLock.packages['node_modules/eslint']?.version, expected.eslint);
 assert.equal(packageLock.packages['node_modules/jscpd']?.version, expected.jscpd);
 assert.equal(packageLock.packages['node_modules/lint-staged']?.version, expected.lintStaged);
+assert.equal(packageLock.packages['node_modules/prettier']?.version, expected.prettier);
 assert.equal(packageLock.packages['node_modules/@sentry/node']?.version, expected.sentry);
 assert.equal(packageLock.packages['node_modules/@sentry/profiling-node']?.version, expected.sentry);
 assert.equal(packageLock.packages['node_modules/@sentry/node-cpu-profiler']?.version, expected.sentryProfiler);

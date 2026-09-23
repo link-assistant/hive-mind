@@ -49,7 +49,7 @@ const test = (name, fn) => {
 
 await test('aliasForPackage strips @ and replaces / for scoped names', () => {
   assert.equal(aliasForPackage('command-stream'), 'command-stream-v-0.25.0');
-  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.28.2');
+  assert.equal(aliasForPackage('@dotenvx/dotenvx'), 'dotenvx-dotenvx-v-2.30.0');
   assert.equal(aliasForPackage('links-notation'), 'links-notation-v-0.20.0');
 });
 

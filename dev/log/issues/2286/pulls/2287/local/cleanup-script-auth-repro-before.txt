@@ -1,0 +1,283 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: the cleanup script must not infer PAT permissions from human-readable auth status output
+    at file:///tmp/gh-issue-solver-1790171864587/tests/cleanup-workflow-auth-2286.test.mjs:27:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '#!/usr/bin/env node\n' +
+    '/**\n' +
+    ' * Cleanup script for test repositories created by create-test-repo.mjs\n' +
+    ' * This script will find and delete all repositories matching the pattern: test-hello-world-{UUIDv7}\n' +
+    ' *\n' +
+    " * Only repositories with valid UUIDv7 identifiers are matched to ensure we don't accidentally\n" +
+    " * delete repositories that happen to have similar names but weren't created by our script.\n" +
+    ' *\n' +
+    ' * UUIDv7 validation includes:\n' +
+    ' * - Correct version (7) and variant bits\n' +
+    ' * - Valid timestamp range (2020-2030)\n' +
+    ' *\n' +
+    ' * Usage:\n' +
+    ' *   ./cleanup-test-repos.mjs                    # Interactive mode - asks for confirmation\n' +
+    ' *   ./cleanup-test-repos.mjs --force            # Force mode - deletes without confirmation\n' +
+    ' *   ./cleanup-test-repos.mjs --dry-run          # Dry run - shows what would be deleted\n' +
+    ' *   ./cleanup-test-repos.mjs --include-archived # Include archived repositories (delete them too)\n' +
+    ' *   ./cleanup-test-repos.mjs --force --include-archived  # Combine flags\n' +
+    ' *\n' +
+    ' * Note: Archived repositories are preserved by default. Use --include-archived to delete them.\n' +
+    ' */\n' +
+    '\n' +
+    "import { isConfirmationYes, readConfirmationLine } from './src/confirmation.lib.mjs';\n" +
+    "import { ensureUseM } from './src/use-m-bootstrap.lib.mjs';\n" +
+    '\n' +
+    '// Use use-m to dynamically import modules for cross-runtime compatibility.\n' +
+    '// Issue #2113: bootstrap through the shared helper so this utility inherits the\n' +
+    '// same corrupt/incomplete-alias recovery as the rest of the codebase instead of\n' +
+    '// crashing on a partially installed global package.\n' +
+    'const use = await ensureUseM();\n' +
+    '\n' +
+    '// Use command-stream for consistent $ behavior across runtimes\n' +
+    "const { $ } = await use('command-stream');\n" +
+    '\n' +
+    '// Parse command line arguments\n' +
+    'const args = process.argv.slice(2);\n' +
+    "const forceMode = args.includes('--force') || args.includes('-f');\n" +
+    "const dryRun = args.includes('--dry-run') || args.includes('-n');\n" +
+    "const includeArchived = args.includes('--include-archived');\n" +
+    'const skipArchived = !includeArchived;\n' +
+    '\n' +
+    "console.log('🧹 Test Repository Cleanup Tool');\n" +
+    "console.log('================================\\n');\n" +
+    '\n' +
+    'if (dryRun) {\n' +
+    "  console.log('📝 DRY RUN MODE - No repositories will be deleted\\n');\n" +
+    '} else if (forceMode) {\n' +
+    "  console.log('⚠️  FORCE MODE - Repositories will be deleted without confirmation\\n');\n" +
+    '}\n' +
+    '\n' +
+    'if (includeArchived) {\n' +
+    "  console.log('⚠️  INCLUDE ARCHIVED MODE - Archived repositories will also be deleted\\n');\n" +
+    '} else {\n' +
+    "  console.log('🔒 Archived repositories will be preserved (use --include-archived to delete them)\\n');\n" +
+    '}\n' +
+    '\n' +
+    'try {\n' +
+    '  // Import child_process once\n' +
+    "  const { execSync, spawnSync } = await import('child_process');\n" +
+    '\n' +
+    '  // Check GitHub authentication and permissions\n' +
+    "  console.log('🔐 Checking GitHub permissions...');\n" +
+    '  try {\n' +
+    "    const authStatus = execSync('gh auth status', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });\n" +
+    '\n' +
+    '    // Check if we have delete_repo scope\n' +
+    "    if (!authStatus.includes('delete_repo')) {\n" +
+    `      console.log('⚠️  Warning: Missing "delete_repo" permission');\n` +
+    "      console.log('');\n" +
+    "      console.log('To delete repositories, you need to grant the delete_repo scope:');\n" +
+    "      console.log('  gh auth refresh -h github.com -s delete_repo');\n" +
+    "      console.log('');\n" +
+    '      if (!forceMode && !dryRun) {\n' +
+    `        console.log('Continue anyway? Type "yes" to continue, or Ctrl+C to cancel:');\n` +
+    '\n' +
+    '        try {\n' +
+    "          const answer = await readConfirmationLine({ prompt: '> ' });\n" +
+    '\n' +
+    '          if (!isConfirmationYes(answer)) {\n' +
+    "            console.log('\\n❌ Cancelled');\n" +
+    '            process.exit(0);\n' +
+    '          }\n' +
+    '        } catch (e) {\n' +
+    "          console.log('\\n\\n❌ Cancelled');\n" +
+    '          process.exit(0);\n' +
+    '        }\n' +
+    '      }\n' +
+    '    }\n' +
+    '  } catch (authError) {\n' +
+    '    // gh auth status returns non-zero if not authenticated\n' +
+    "    console.log('❌ Not authenticated with GitHub');\n" +
+    "    console.log('');\n" +
+    "    console.log('Please authenticate first:');\n" +
+    "    console.log('  gh auth login');\n" +
+    '    process.exit(1);\n' +
+    '  }\n' +
+    '\n' +
+    '  // Get current GitHub user\n' +
+    "  const githubUser = execSync('gh api user --jq .login', { encoding: 'utf8' }).trim();\n" +
+    '  console.log(`👤 User: ${githubUser}`);\n' +
+    '\n' +
+    '  // List all repositories for the user — paginate via GraphQL to fetch everything\n' +
+    "  process.stdout.write('🔍 Searching for test repositories... ');\n" +
+    '\n' +
+    '  const repos = [];\n' +
+    '  let endCursor = null;\n' +
+    '  let hasNextPage = true;\n' +
+    '  const query = `query($login: String!, $after: String) { repositoryOwner(login: $login) { repositories(first: 100, after: $after, ownerAffiliations: OWNER) { pageInfo { hasNextPage endCursor } nodes { name url createdAt isPrivate isArchived } } } }`;\n' +
+    '\n' +
+    '  while (hasNextPage) {\n' +
+    "    const afterArgs = endCursor ? ['-f', `after=${endCursor}`] : [];\n" +
+    "    const ghArgs = ['api', 'graphql', '-f', `login=${githubUser}`, ...afterArgs, '-f', `query=${query}`];\n" +
+    "    const result = spawnSync('gh', ghArgs, {\n" +
+    "      encoding: 'utf8',\n" +
+    '      maxBuffer: 50 * 1024 * 1024,\n' +
+    '    });\n' +
+    '    if (result.status !== 0) {\n' +
+    '      throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);\n' +
+    '    }\n' +
+    '    const data = JSON.parse(result.stdout);\n' +
+    '    const page = data.data.repositoryOwner.repositories;\n' +
+    '    repos.push(...page.nodes);\n' +
+    '    hasNextPage = page.pageInfo.hasNextPage;\n' +
+    '    endCursor = page.pageInfo.endCursor;\n' +
+    '  }\n' +
+    '\n' +
+    '  // Filter for test repositories matching the pattern with valid UUIDv7\n' +
+    '  const allTestRepos = repos.filter(repo => {\n' +
+    '    const matchFeedbackLines = repo.name.match(/^test-feedback-lines-([0-9a-z]+)$/);\n' +
+    '\n' +
+    '    if (matchFeedbackLines) {\n' +
+    '      return true;\n' +
+    '    }\n' +
+    '\n' +
+    '    // Check basic pattern first\n' +
+    '    const match = repo.name.match(/^test-hello-world-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);\n' +
+    '    if (!match) return false;\n' +
+    '\n' +
+    '    const uuid = match[1];\n' +
+    '\n' +
+    '    // Validate UUIDv7 format\n' +
+    '    // UUIDv7 has version 7 in the 13th hex position (xxxxxxxx-xxxx-7xxx-xxxx-xxxxxxxxxxxx)\n' +
+    '    // and variant bits (8, 9, a, or b) in the 17th position (xxxxxxxx-xxxx-7xxx-[89ab]xxx-xxxxxxxxxxxx)\n' +
+    '    const uuidv7Pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;\n' +
+    '    if (!uuidv7Pattern.test(uuid)) return false;\n' +
+    '\n' +
+    '    return true;\n' +
+    '  });\n' +
+    '\n' +
+    '  // Filter out archived repos if --skip-archived flag is set\n' +
+    '  let testRepos = allTestRepos;\n' +
+    '  let skippedArchivedCount = 0;\n' +
+    '\n' +
+    '  if (skipArchived) {\n' +
+    '    const archivedRepos = allTestRepos.filter(repo => repo.isArchived);\n' +
+    '    skippedArchivedCount = archivedRepos.length;\n' +
+    '    testRepos = allTestRepos.filter(repo => !repo.isArchived);\n' +
+    '\n' +
+    '    if (skippedArchivedCount > 0) {\n' +
+    '      console.log(`📦 Skipping ${skippedArchivedCount} archived repositories`);\n' +
+    '      archivedRepos.forEach((repo, index) => {\n' +
+    '        console.log(`  - ${repo.name} (archived)`);\n' +
+    '      });\n' +
+    "      console.log('');\n" +
+    '    }\n' +
+    '  }\n' +
+    '\n' +
+    '  if (testRepos.length === 0) {\n' +
+    "    console.log('none found ✅');\n" +
+    "    console.log('');\n" +
+    "    console.log('Nothing to clean up!');\n" +
+    '    process.exit(0);\n' +
+    '  }\n' +
+    '\n' +
+    '  // Display found repositories\n' +
+    '  console.log(`found ${testRepos.length}`);\n' +
+    "  console.log('');\n" +
+    '  console.log(`📦 Test repositories:\\n`);\n' +
+    '\n' +
+    '  testRepos.forEach((repo, index) => {\n' +
+    '    const createdDate = new Date(repo.createdAt);\n' +
+    '    const ageInDays = Math.floor((Date.now() - createdDate) / (1000 * 60 * 60 * 24));\n' +
+    "    const ageText = ageInDays === 0 ? 'today' : ageInDays === 1 ? 'yesterday' : `${ageInDays} days ago`;\n" +
+    '\n' +
+    "    const archivedText = repo.isArchived ? ' [ARCHIVED]' : '';\n" +
+    '    console.log(`  ${(index + 1).toString().padStart(2)}. ${repo.url} (${ageText})${archivedText}`);\n' +
+    '  });\n' +
+    '\n' +
+    "  console.log('');\n" +
+    '\n' +
+    '  if (dryRun) {\n' +
+    "    console.log('✅ DRY RUN COMPLETE');\n" +
+    '    console.log(`Would delete ${testRepos.length} repositories`);\n' +
+    '    if (skipArchived && skippedArchivedCount > 0) {\n' +
+    '      console.log(`Would preserve ${skippedArchivedCount} archived repositories`);\n' +
+    '    }\n' +
+    "    console.log('');\n" +
+    "    console.log('To actually delete:');\n" +
+    "    console.log('  ./cleanup-test-repos.mjs                      # With confirmation (preserves archived)');\n" +
+    "    console.log('  ./cleanup-test-repos.mjs --force              # Without confirmation');\n" +
+    "    console.log('  ./cleanup-test-repos.mjs --include-archived   # Also delete archived repos');\n" +
+    '    process.exit(0);\n' +
+    '  }\n' +
+    '\n' +
+    '  // Ask for confirmation if not in force mode\n' +
+    '  if (!forceMode) {\n' +
+    '    console.log(`⚠️  This will permanently delete ${testRepos.length} repositories!`);\n' +
+    "    console.log('');\n" +
+    `    console.log('Type "yes" to confirm, or Ctrl+C to cancel:');\n` +
+    '\n' +
+    '    try {\n' +
+    "      const answer = await readConfirmationLine({ prompt: '> ' });\n" +
+    '\n' +
+    '      if (!isConfirmationYes(answer)) {\n' +
+    "        console.log('\\n❌ Cancelled');\n" +
+    '        process.exit(0);\n' +
+    '      }\n' +
+    '    } catch (e) {\n' +
+    "      console.log('\\n\\n❌ Cancelled');\n" +
+    '      process.exit(0);\n' +
+    '    }\n' +
+    '  }\n' +
+    '\n' +
+    '  // Delete repositories\n' +
+    "  console.log('\\n🗑️  Deleting repositories...\\n');\n" +
+    '\n' +
+    '  let deletedCount = 0;\n' +
+    '  let failedCount = 0;\n' +
+    '  let permissionError = false;\n' +
+    '\n' +
+    '  for (const repo of testRepos) {\n' +
+    '    process.stdout.write(`  Deleting ${repo.name}... `);\n' +
+    '\n' +
+    '    try {\n' +
+    '      // Use gh repo delete with --yes flag to skip confirmation\n' +
+    "      // Don't suppress stderr - we need to see errors\n" +
+    '      await $`gh repo delete ${githubUser}/${repo.name} --yes`;\n' +
+    "      console.log('✅');\n" +
+    '      deletedCount++;\n' +
+    '    } catch (error) {\n' +
+    "      console.log('❌');\n" +
+    '      failedCount++;\n' +
+    '\n' +
+    '      // Show the actual error from gh command\n' +
+    "      let errorMsg = '';\n" +
+    '      if (error.stderr) {\n' +
+    '        errorMsg = error.stderr.toString().trim();\n' +
+    '      } else if (error.stdout) {\n' +
+    '        errorMsg = error.stdout.toString().trim();\n' +
+    '      } else if (error.message) {\n' +
+    '        errorMsg = error.message;\n' +
+    '      } else {\n' +
+    "        errorMsg = 'Unknown error occurred';\n" +
+    '      }\n' +
+    '\n' +
+    "      // Check if it's a permission error\n" +
+    "      if (errorMsg.includes('delete_repo') || errorMsg.includes('403')) {\n" +
+    '        permissionError = true;\n' +
+    '        console.log(`    Error: Missing delete_repo permission`);\n' +
+    "        console.log('');\n" +
+    "        console.log('❌ Cannot delete repositories without proper permissions.');\n" +
+    "        console.log('');\n" +
+    "        console.log('To fix this, run:');\n" +
+    "        console.log('  gh auth refresh -h github.com -s delete_repo');\n" +
+    "        console.log('');\n" +
+    "        console.log('Then run this script a"... 1273 more characters,
+  expected: /authStatus\.includes\(['"]delete_repo['"]\)/,
+  operator: 'doesNotMatch',
+  diff: 'simple'
+}
+
+Node.js v24.21.0

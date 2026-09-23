@@ -1,0 +1,9 @@
+Dependency freshness: 141/148 declarations current
+STALE package.json#dependencies: @sentry/node ^10.75.1 -> 11.0.0 (exact)
+STALE package.json#dependencies: @sentry/profiling-node ^10.75.1 -> 11.0.0 (exact)
+STALE package.json#devDependencies: jscpd ^5.3.1 -> 5.3.2 (exact)
+STALE package.json#devDependencies: prettier ^3.9.8 -> 3.9.9 (exact)
+STALE src/use-m-bootstrap.lib.mjs:24: use-m 8.16.1 -> 8.16.3 (exact)
+STALE src/use-m-bootstrap.lib.mjs:8: use-m 8.16.1 -> 8.16.3 (exact)
+STALE src/use-with-retry.lib.mjs#USE_M_PACKAGE_VERSIONS: @dotenvx/dotenvx 2.28.2 -> 2.30.0 (exact)
+Dependency freshness failed: 7 stale, 0 unresolved.

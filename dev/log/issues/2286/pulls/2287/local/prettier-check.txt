@@ -1,0 +1,5 @@
+npm notice run @link-assistant/hive-mind@2.31.0 format:check
+npm notice run prettier --check "**/*.{js,mjs,json,md}" --ignore-path .prettierignore
+Checking formatting...
+[warn] docs/case-studies/issue-1914/README.md
+[warn] Code style issues found in the above file. Run Prettier with --write to fix.

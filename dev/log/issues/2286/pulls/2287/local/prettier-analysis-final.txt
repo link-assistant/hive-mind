@@ -1,0 +1,2 @@
+npm notice run @link-assistant/hive-mind@2.31.0 npx
+npm notice run 'prettier' --write dev/log/issues/2286/pulls/2287/ANALYSIS.md

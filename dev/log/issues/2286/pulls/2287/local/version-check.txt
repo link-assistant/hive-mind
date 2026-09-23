@@ -1,0 +1,3 @@
+Checking for manual version changes in package.json...
+
+No manual version changes detected - check passed

@@ -1,0 +1,9 @@
+Validating changesets added by this PR...
+Comparing b9fc7ac207c92eb52314406057d0fdcdc6180005...46a06129d27806dc6c724b960877cd59e07999de
+Found 1 changeset file(s) added by this PR
+Added changesets:
+  - fix-ci-release-observation.md
+Validating changeset: .changeset/fix-ci-release-observation.md
+Changeset validation passed
+   Type: patch
+   Description: Prevent false-negative npm releases during five-minute registry propagation, make `/fix --ci-cd` inspect every active workflow, repair cleanup-workflow token authentication, and refresh CI-enforced dependency pins.

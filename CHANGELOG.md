@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.31.1
+
+### Patch Changes
+
+- 0f3f8d6: Prevent false-negative npm releases during five-minute registry propagation, make `/fix --ci-cd` inspect every active workflow, repair cleanup-workflow token authentication, and refresh CI-enforced dependency pins.
+
 ## 2.31.0
 
 ### Minor Changes

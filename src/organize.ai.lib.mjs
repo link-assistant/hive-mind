@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { ORGANIZE_PLAN_SCHEMA } from './organize.prompts.lib.mjs';
 
 export const ORGANIZE_TOOLS = Object.freeze(['claude', 'agent', 'codex', 'opencode', 'gemini', 'qwen']);
@@ -160,10 +161,11 @@ export function parseOrganizationClassifierOutput(output) {
 export async function runOrganizationClassifier({ prompts, tool = 'claude', model = null, think = null, run = runProcess }) {
   const normalizedTool = String(tool || 'claude').toLowerCase();
   if (!ORGANIZE_TOOLS.includes(normalizedTool)) throw new Error(`Unsupported organization tool "${normalizedTool}". Supported tools: ${ORGANIZE_TOOLS.join(', ')}`);
-  const { getDefaultModelForTool, mapModelForTool, validateToolModelCompatibility } = await import('./models/index.mjs');
-  const selectedModel = model || getDefaultModelForTool(normalizedTool);
-  validateToolModelCompatibility(normalizedTool, selectedModel);
-  const mappedModel = mapModelForTool(normalizedTool, selectedModel);
+  const { resolveRuntimeDefaultModel, validateRuntimeModelName } = await import('./models/index.mjs');
+  const selectedModel = model || (await resolveRuntimeDefaultModel(normalizedTool));
+  const validation = await validateRuntimeModelName(selectedModel, normalizedTool);
+  if (!validation.valid) throw new Error(validation.message);
+  const mappedModel = normalizedTool === 'claude' ? await resolveClaudeModelForExecution(selectedModel) : validation.mappedModel;
 
   const tempDir = await mkdtemp(join(tmpdir(), 'hive-organize-'));
   try {

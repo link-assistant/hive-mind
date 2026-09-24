@@ -230,8 +230,8 @@ if (!(await validateContinueOnlyOnFeedback(argv, isPrUrl, isIssueUrl))) {
 }
 // Validate model name EARLY - always runs regardless of --skip-tool-connection-check
 const tool = argv.tool || 'claude';
-await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
-if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
+if (argv.fallbackModel) await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
 argv.originalModel ||= argv.model;
 // Validate --plan-model if provided (Issue #1223)
 if (argv.planModel) {
@@ -239,7 +239,7 @@ if (argv.planModel) {
     await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
     await safeExit(1, '--plan-model requires --tool claude');
   }
-  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+  await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit, { useRouter: argv.useRouter === true });
 }
 if (argv.subAgentModel) await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);
 // Perform all system checks (skip tool connection check in dry-run or when --skip-tool-connection-check; model validation always runs)

@@ -286,14 +286,14 @@ test('resolveDefaultFallbackModel resolves gpt-6-astra', () => {
 // ============================================================
 // Section 8: Defaults are deliberately unchanged
 // ============================================================
-console.log('\n=== 8. Defaults Unchanged (cost safety) ===');
+console.log('\n=== 8. Defaults ===');
 
 test('the claude default stays opus (Fable 5.1 is $10/$50 vs Opus 5 $5/$25)', () => {
   assert.strictEqual(defaultModels.claude, 'opus');
 });
 
-test('the codex default stays gpt-5.6-sol (GPT-6 Astra is preview-gated)', () => {
-  assert.strictEqual(defaultModels.codex, 'gpt-5.6-sol');
+test('the codex default advances to gpt-6-sol while GPT-6 Astra stays preview-only', () => {
+  assert.strictEqual(defaultModels.codex, 'gpt-6-sol');
 });
 
 // ============================================================

@@ -326,16 +326,16 @@ if (isRunningDirectly) {
     }
     // Validate model names EARLY (simple string check, always runs)
     const tool = argv.tool || 'claude';
-    await validateAndExitOnInvalidModel(argv.model, tool, safeExit);
+    await validateAndExitOnInvalidModel(argv.model, tool, safeExit, { useRouter: argv.useRouter === true });
     if (argv.fallbackModel) {
-      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit);
+      await validateAndExitOnInvalidModel(argv.fallbackModel, tool, safeExit, { useRouter: argv.useRouter === true });
     }
     if (argv.planModel) {
       if (tool !== 'claude') {
         await log(`❌ --plan-model is only supported with --tool claude (current tool: ${tool})`, { level: 'error' });
         await safeExit(1, '--plan-model requires --tool claude');
       }
-      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit);
+      await validateAndExitOnInvalidModel(argv.planModel, tool, safeExit, { useRouter: argv.useRouter === true });
     }
     if (argv.subAgentModel) {
       await validateAndExitOnInvalidClaudeSubAgentModel(argv.subAgentModel, tool, safeExit);

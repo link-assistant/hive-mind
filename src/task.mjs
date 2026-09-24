@@ -6,8 +6,8 @@ import { spawn } from 'child_process';
 import { describeChildExit } from './child-exit.lib.mjs';
 import { promises as fs } from 'fs';
 import { buildStartAgentArgs, resolveStartAgentCommand } from './task.agent-command.lib.mjs';
-import { getDefaultTaskModel, parseTaskArguments } from './task.config.lib.mjs';
-import { validateModelName } from './models/index.mjs';
+import { parseTaskArguments } from './task.config.lib.mjs';
+import { resolveRuntimeDefaultModel, validateRuntimeModelName } from './models/index.mjs';
 import { appendOrReplaceParentSplitSection, buildAddSubIssueApiArgs, buildIssueRestIdApiArgs, buildTaskSplitPrompt, buildTaskSplitSystemPrompt, extractTaskSplitJson, formatChildIssueBody, normalizeSplitTasks, parseCreatedIssueUrl, parseTaskIssueUrl } from './task.split.lib.mjs';
 import { setupStdioLogInterceptor } from './lib.mjs';
 import { sanitizeCredentialText } from './credential-sanitization-core.lib.mjs';
@@ -67,8 +67,8 @@ await initI18n({
 });
 
 const taskInput = argv['task-input'] || argv.taskInput || argv._[0];
-const selectedModel = argv.model || getDefaultTaskModel(argv.tool);
-const modelValidation = validateModelName(selectedModel, argv.tool);
+const selectedModel = argv.model || (await resolveRuntimeDefaultModel(argv.tool));
+const modelValidation = await validateRuntimeModelName(selectedModel, argv.tool, { useRouter: argv.useRouter === true });
 if (!modelValidation.valid) {
   console.error(modelValidation.message);
   process.exit(1);

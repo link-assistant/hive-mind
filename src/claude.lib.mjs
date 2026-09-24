@@ -36,7 +36,7 @@ import { formatRouterAuthViolation, startRouterAuthGuard } from './router-auth-g
 import { createThinkingBlockRecovery } from './claude.thinking-block-recovery.lib.mjs'; // Issue #1834 (PR #1835 feedback)
 import { buildMissingClaudeResultMessage, collectClaudeStreamEventFacts, getClaudeMessageContent, shouldFailClaudeStreamWithoutResult, updateTerminalToolResult } from './claude.stream-events.lib.mjs';
 import { createRepeatedToolCallBreaker, explainFailureWithToolHistory } from './repeated-tool-call-breaker.lib.mjs'; // Issue #2247 (H4/H10)
-import { formatNumber, mapModelToId, checkModelVisionCapability } from './claude.model-utils.lib.mjs';
+import { formatNumber, mapModelToId, checkModelVisionCapability, resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 import { renameLogToSessionId } from './session-log-rename.lib.mjs'; // Issue #2160
 import { showResumeCommand } from './claude.resume-output.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs'; // Issue #2141
@@ -297,16 +297,17 @@ export const executeClaudeCommand = async params => {
     const bidirectionalHandler = await setupBidirectionalHandler({ argv, owner, repo, prNumber, issueNumber, tempDir, $, log });
     const progressMonitor = await initProgressMonitoring(argv, { owner, repo, prNumber, $, log }); // works with or without --interactive-mode
     let execCommand;
-    const mappedModel = mapModelToId(argv.model);
+    const useRouter = argv.useRouter === true || /^(1|true|yes|on)$/i.test(String(process.env.HIVE_MIND_USE_ROUTER || ''));
+    const mappedModel = await resolveClaudeModelForExecution(argv.model, { useRouter });
     // Issue #2130: Formal AI runs the native CLI against a local Formal AI server (no argv wrapper).
     const toolInvocation = await resolveFormalAiToolExecution({ tool: 'claude', model: argv.model, toolPath: claudePath, workdir: tempDir, log, verbose: argv.verbose, prepareOnly: isPrepareOnly(argv) });
-    const resolvedPlanModel = argv.planModel ? mapModelToId(argv.planModel) : undefined; // Issue #1223
+    const resolvedPlanModel = argv.planModel ? await resolveClaudeModelForExecution(argv.planModel, { useRouter }) : undefined; // Issue #1223
     const resolvedSubAgentModel = argv.subAgentModel ? mapClaudeSubAgentModelToEnvValue(argv.subAgentModel) : undefined; // Issue #1978
     const effectiveModel = resolvedPlanModel ? 'opusplan' : mappedModel;
     const resolvedExecutionModel = resolvedPlanModel ? mappedModel : undefined;
     // Issue #1949: Let Claude Code's `--fallback-model` handle transient overloads and retry
     // the primary each turn. Only for plain `--model` runs with a distinct fallback.
-    const mappedFallbackModel = argv.fallbackModel ? mapModelToId(argv.fallbackModel) : undefined;
+    const mappedFallbackModel = argv.fallbackModel ? await resolveClaudeModelForExecution(argv.fallbackModel, { useRouter }) : undefined;
     const useClaudeFallbackModel = !resolvedPlanModel && mappedFallbackModel && mappedFallbackModel !== effectiveModel;
     let claudeArgs = `--output-format stream-json --verbose --dangerously-skip-permissions --model ${effectiveModel}`;
     if (useClaudeFallbackModel) claudeArgs += ` --fallback-model ${mappedFallbackModel}`;

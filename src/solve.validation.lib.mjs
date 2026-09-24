@@ -394,7 +394,7 @@ export const performSystemChecks = async (minDiskSpace = 10240, skipToolConnecti
       }
     } else {
       // Validate Claude CLI connection (default)
-      const isClaudeConnected = await validateClaudeConnection(model);
+      const isClaudeConnected = await validateClaudeConnection(model, { useRouter: argv.useRouter === true });
       if (!isClaudeConnected) {
         await log('❌ Cannot proceed without Claude CLI connection', { level: 'error' });
         return false;

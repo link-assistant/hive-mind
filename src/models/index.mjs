@@ -76,12 +76,30 @@ export const getDefaultModelForTool = tool => {
   return defaultModels[tool] || defaultModels.claude;
 };
 let cachedInstalledCodexModelsPromise = null;
-// Issue #2027: With gpt-5.6-sol as the preferred default, the fallback chain is only
-// consulted when Sol is absent from the local catalog. Issue #2037 (review): order by
-// intelligence / size tier (closest first), not by generation — the flagship sibling
-// `gpt-5.6-terra` is closer to Sol than the previous-generation `gpt-5.5`, which in turn
-// is a larger, more capable model than the smaller GPT-5.6 `luna` tier.
-const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'openai.gpt-5.6-sol', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+// Issue #2290: the preferred default is discovered from the installed Codex
+// catalogue. This chain is only consulted when that catalogue exposes no Sol
+// model at all, and remains ordered by capability rather than release number.
+const CODEX_DEFAULT_FALLBACK_CHAIN = ['gpt-5.6-terra', 'openai.gpt-5.6-terra', 'gpt-5.5', 'openai.gpt-5.5', 'gpt-6-luna', 'openai.gpt-6-luna', 'gpt-5.4', 'openai.gpt-5.4', 'gpt-5.2', 'gpt-5.6-luna', 'openai.gpt-5.6-luna', 'gpt-5.5-mini', 'gpt-5.4-mini', 'gpt-5.3-codex', 'gpt-5.3-codex-spark', 'gpt-5.2-codex', 'gpt-5.5-nano', 'gpt-5.4-nano'];
+
+const CODEX_SOL_PATTERN = /^(?:(openai)[/.])?gpt-(\d+(?:\.\d+)*)-sol$/i;
+
+const compareNumericVersions = (left, right) => {
+  const leftParts = String(left).split('.').map(Number);
+  const rightParts = String(right).split('.').map(Number);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return 0;
+};
+
+/** The newest Sol ID advertised by a Codex catalogue, without a bundled allowlist. */
+export const selectLatestCodexSolModel = (models = []) =>
+  [...new Set(Array.isArray(models) ? models.filter(model => typeof model === 'string') : [])]
+    .map(model => ({ model, match: model.match(CODEX_SOL_PATTERN) }))
+    .filter(candidate => candidate.match)
+    .sort((left, right) => compareNumericVersions(right.match[2], left.match[2]) || Number(Boolean(left.match[1])) - Number(Boolean(right.match[1])))[0]?.model ?? null;
 
 export const getInstalledCodexModels = async () => {
   if (!cachedInstalledCodexModelsPromise) {
@@ -117,9 +135,8 @@ export const resolveRuntimeDefaultModel = async (tool, options = {}) => {
     return preferredDefault;
   }
 
-  if (availableCodexModels.includes(preferredDefault)) {
-    return preferredDefault;
-  }
+  const latestSol = selectLatestCodexSolModel(availableCodexModels);
+  if (latestSol) return latestSol;
 
   return CODEX_DEFAULT_FALLBACK_CHAIN.find(model => availableCodexModels.includes(model)) || preferredDefault;
 };
@@ -208,7 +225,7 @@ export const getValidModelsForTool = tool => {
 export const primaryModelNames = {
   claude: ['opus', 'sonnet', 'haiku', 'opusplan', 'fable', FORMAL_AI_MODEL_ALIAS],
   opencode: ['grok', 'gpt4o', FORMAL_AI_MODEL_ALIAS],
-  codex: ['gpt-5.6-sol', 'gpt-6-astra', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex-spark', FORMAL_AI_MODEL_ALIAS],
+  codex: ['gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra', 'gpt-5.6-sol', 'gpt-5.5', 'gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4', 'gpt-5.4-mini', FORMAL_AI_MODEL_ALIAS],
   agent: ['nemotron-3-super-free', 'minimax-m2.5-free', 'big-pickle', 'gpt-5-nano', 'glm-5-free', 'deepseek-r1-free', FORMAL_AI_MODEL_ALIAS],
   qwen: ['qwen3-coder-plus', 'qwen3-coder', 'qwen3-coder-flash', FORMAL_AI_MODEL_ALIAS],
   gemini: ['flash', 'pro', 'flash-lite', 'auto', FORMAL_AI_MODEL_ALIAS],
@@ -478,6 +495,80 @@ export const validateModelName = (model, tool = 'claude') => {
   };
 };
 
+const normalizeRuntimeModelIds = models => {
+  if (!Array.isArray(models)) return [];
+  return [...new Set(models.map(model => (typeof model === 'string' ? model : model?.id)).filter(model => typeof model === 'string' && model.length > 0))];
+};
+
+const listMergedLiveModelIds = merged => normalizeRuntimeModelIds([...(merged?.bundledAndLive ?? []), ...(merged?.liveOnly ?? [])]);
+
+const looksLikeDirectProviderModelId = (model, tool) => {
+  if (typeof model !== 'string' || model.length > 200 || !/^[a-z0-9][a-z0-9._:/-]*$/i.test(model)) return false;
+  const normalized = model.toLowerCase();
+  switch (tool) {
+    // Claude Code explicitly passes `claude-*` names through to Anthropic (and
+    // arbitrary gateway names through a custom base URL). Restricting this
+    // fallback to provider-shaped IDs preserves useful typo checks for aliases.
+    case 'claude':
+      return normalized.startsWith('claude-') || normalized.startsWith('anthropic/') || normalized.startsWith('anthropic.');
+    case 'agent':
+    case 'opencode':
+      return /^[a-z0-9._-]+\/[a-z0-9][a-z0-9._:-]*$/i.test(model);
+    case 'gemini':
+      return normalized.startsWith('gemini-');
+    case 'qwen':
+      return normalized.startsWith('qwen');
+    default:
+      // Codex has a local, authoritative catalogue. Do not turn every `gpt-*`
+      // typo into a late provider failure when `codex debug models` can decide.
+      return false;
+  }
+};
+
+/**
+ * Validate an exact model ID against the authoritative runtime catalogue.
+ *
+ * Static aliases are still handled first so their mappings and suggestions do
+ * not change. A new exact ID is accepted when the installed CLI/router reports
+ * it, even when Hive Mind was released before that model existed.
+ */
+export const validateRuntimeModelName = async (model, tool = 'claude', options = {}) => {
+  const staticValidation = validateModelName(model, tool);
+  if (staticValidation.valid) return { ...staticValidation, source: 'bundled' };
+
+  const toolName = String(tool || 'claude').toLowerCase();
+  const { baseModel, has1mSuffix } = parseModelWith1mSuffix(model);
+  let availableModels = options.availableModels;
+
+  if (availableModels === undefined) {
+    const discovered = [];
+    if (toolName === 'codex') discovered.push(...normalizeRuntimeModelIds(await getInstalledCodexModels()));
+
+    if (options.useRouter || options.loadCatalogue) {
+      try {
+        const getCatalogue = options.getCatalogue ?? (await import('../model-catalogue.lib.mjs')).getMergedModelCatalogue;
+        const merged = await getCatalogue({ tool: toolName, ...(options.catalogueOptions ?? {}) });
+        discovered.push(...listMergedLiveModelIds(merged));
+      } catch {
+        // Discovery is best-effort. The original validation error remains more
+        // useful than a Docker/network error from an optional catalogue source.
+      }
+    }
+    availableModels = discovered;
+  }
+
+  const exact = normalizeRuntimeModelIds(availableModels).find(candidate => candidate.toLowerCase() === String(baseModel).toLowerCase());
+  if (exact && !has1mSuffix) {
+    return { valid: true, mappedModel: exact, has1mSuffix: false, source: 'live' };
+  }
+
+  if (!has1mSuffix && looksLikeDirectProviderModelId(baseModel, toolName)) {
+    return { valid: true, mappedModel: baseModel, has1mSuffix: false, source: 'provider' };
+  }
+
+  return staticValidation;
+};
+
 export const CLAUDE_SUB_AGENT_MODEL_INHERIT = 'inherit';
 
 export const normalizeClaudeSubAgentModelName = model => {
@@ -541,8 +632,8 @@ export const mapClaudeSubAgentModelToEnvValue = model => {
  * @param {Function} exitFn - Function to call for exiting (default: process.exit)
  * @returns {Promise<boolean>} True if valid, exits process if invalid
  */
-export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exitFn = null) => {
-  const result = validateModelName(model, tool);
+export const validateAndExitOnInvalidModel = async (model, tool = 'claude', exitFn = null, options = {}) => {
+  const result = await validateRuntimeModelName(model, tool, options);
 
   if (!result.valid) {
     await log(`\u274C ${result.message}`, { level: 'error' });
@@ -907,6 +998,9 @@ export const defaultFallbackModels = {
     // Claude Mythos 5.1 (invite only) falls back to the generally available
     // Mythos-class model, which the `fable` alias now resolves to (Issue #2202).
     'claude-mythos-5-1': 'fable',
+    // Opus 5.5 is the current pinned Opus ID. The bare `opus` default is kept
+    // rolling for direct Claude Code runs (Issue #2290).
+    'claude-opus-5-5': 'opus-5',
     // Claude Opus 5 falls back to the prior Opus generation (Issue #2096).
     'claude-opus-5': 'opus-4-8',
     'claude-opus-4-8': 'opus-4-7',
@@ -915,6 +1009,11 @@ export const defaultFallbackModels = {
     'claude-sonnet-5': 'sonnet-4-6',
   },
   codex: {
+    'gpt-6-sol': 'gpt-5.6-sol',
+    'openai.gpt-6-sol': 'openai.gpt-5.6-sol',
+    'gpt-6-luna': 'gpt-5.6-sol',
+    'openai.gpt-6-luna': 'openai.gpt-5.6-sol',
+    'gpt-reserve': 'gpt-6-sol',
     // Issue #2037 (review): order fallbacks by *intelligence / size tier*, not by
     // generation. Within GPT-5.6, `sol` is the flagship and `terra` is the next tier
     // down; `luna` is a smaller/cheaper variant. When `gpt-5.6-sol` is at capacity the

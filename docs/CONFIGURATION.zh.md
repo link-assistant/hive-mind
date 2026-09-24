@@ -730,11 +730,11 @@ const dsn = sentry.dsn;
 
 某些选项根据所选 `--tool` 具有不同的默认值：
 
-| 选项             | `--tool claude` | `--tool agent/opencode/codex/gemini/qwen`                                                   |
-| ---------------- | --------------- | ------------------------------------------------------------------------------------------- |
-| `--model`        | `sonnet`        | `nemotron-3-super-free` / `grok-code-fast-1` / `gpt-5.6-sol` / `flash` / `qwen3-coder-plus` |
-| `--claude-file`  | `false`         | `false`                                                                                     |
-| `--gitkeep-file` | `true`          | `true`                                                                                      |
+| 选项             | `--tool claude` | `--tool agent/opencode/codex/gemini/qwen`                                                                             |
+| ---------------- | --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--model`        | `sonnet`        | `nemotron-3-super-free` / `grok-code-fast-1` / 最新的 `gpt-*-sol`（内置为 `gpt-6-sol`）/ `flash` / `qwen3-coder-plus` |
+| `--claude-file`  | `false`         | `false`                                                                                                               |
+| `--gitkeep-file` | `true`          | `true`                                                                                                                |
 
 **`--gitkeep-file` 默认值的原因：**
 

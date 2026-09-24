@@ -1,5 +1,11 @@
 # @link-assistant/hive-mind
 
+## 2.32.0
+
+### Minor Changes
+
+- dbd3980: Accept exact models discovered from live CLI and router catalogues, default Codex to the newest installed GPT Sol model, and preserve Claude's rolling Opus alias across execution paths.
+
 ## 2.31.1
 
 ### Patch Changes

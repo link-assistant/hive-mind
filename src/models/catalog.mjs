@@ -31,12 +31,14 @@ const formalAiProviderModelAliases = {
   [FORMAL_AI_PROVIDER_MODEL_ID]: FORMAL_AI_PROVIDER_MODEL_ID,
 };
 // Claude models (Anthropic API)
-// Updated for Opus 4.5/4.6/4.7/4.8/5, Sonnet 4.6/5, and Fable 5/5.1 / Mythos 5/5.1 support
-// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096, Issue #2202)
+// Updated for Opus 4.5/4.6/4.7/4.8/5/5.5, Sonnet 4.6/5, and Fable 5/5.1 / Mythos 5/5.1 support
+// (Issue #1221, Issue #1238, Issue #1329, Issue #1433, Issue #1620, Issue #1832, Issue #1875, Issue #2003, Issue #2096, Issue #2202, Issue #2290)
 export const claudeModels = {
   ...formalAiNativeModelAliases,
   sonnet: 'claude-sonnet-5', // Sonnet 5 (Issue #2003)
-  opus: 'claude-opus-5', // Opus 5 (default, Issue #2096)
+  // Compatibility mapping for metadata and validation. Execution preserves the
+  // vendor-managed rolling alias so the default advances beyond this snapshot.
+  opus: 'claude-opus-5', // Rolling default at execution time (Issue #2096, #2290)
   haiku: 'claude-haiku-4-5-20251001', // Haiku 4.5
   'haiku-3-5': 'claude-3-5-haiku-20241022', // Haiku 3.5
   'haiku-3': 'claude-3-haiku-20240307', // Haiku 3
@@ -60,6 +62,7 @@ export const claudeModels = {
   // Shorter version aliases (Issue #1221, Issue #1329 - PR comment feedback)
   'sonnet-5': 'claude-sonnet-5', // Sonnet 5 short alias (Issue #2003)
   'sonnet-4-6': 'claude-sonnet-4-6', // Sonnet 4.6 short alias (Issue #1329)
+  'opus-5-5': 'claude-opus-5-5', // Opus 5.5 pinned alias (Issue #2290)
   'opus-5': 'claude-opus-5', // Opus 5 short alias (Issue #2096)
   'opus-4-8': 'claude-opus-4-8', // Opus 4.8 short alias (Issue #1832)
   'opus-4-7': 'claude-opus-4-7', // Opus 4.7 short alias (backward compatibility)
@@ -68,6 +71,7 @@ export const claudeModels = {
   'sonnet-4-5': 'claude-sonnet-4-5-20250929', // Sonnet 4.5 short alias (backward compatibility)
   'haiku-4-5': 'claude-haiku-4-5-20251001', // Haiku 4.5 short alias
   // Version aliases for backward compatibility (Issue #1221, Issue #1329, Issue #1620, Issue #1832, Issue #2096)
+  'claude-opus-5-5': 'claude-opus-5-5', // Opus 5.5 (Issue #2290)
   'claude-opus-5': 'claude-opus-5', // Opus 5 (Issue #2096)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 (backward compatibility)
@@ -139,6 +143,11 @@ export const opencodeModels = {
 // Codex models (OpenAI API)
 export const codexModels = {
   ...formalAiNativeModelAliases,
+  // GPT-6 Sol is the current default, Luna is the smaller tier, and Reserve is
+  // exposed by the Codex CLI catalogue (Issue #2290).
+  'gpt-6-sol': 'gpt-6-sol',
+  'gpt-6-luna': 'gpt-6-luna',
+  'gpt-reserve': 'gpt-reserve',
   // GPT-6 Astra — the first GPT-6 model, limited preview from 2026-09-03 (Issue #2202)
   'gpt-6-astra': 'gpt-6-astra',
   gpt5: 'gpt-5',
@@ -254,10 +263,10 @@ export const geminiModels = {
 
 // Default model for each tool (Issue #1473: centralized to avoid scattered hardcoded defaults)
 export const defaultModels = {
-  claude: 'opus', // Issue #2033: Opus is the preferred default for Claude; sonnet remains available explicitly. Opus now maps to Opus 5 (Issue #2096)
+  claude: 'opus', // Rolling Claude Code alias; direct execution intentionally does not pin it to this catalogue snapshot (Issue #2290)
   agent: 'nemotron-3-super-free', // Issue #1563: changed from qwen3.6-plus-free (free promotion ended) per agent PR #243
   opencode: 'grok-code-fast-1',
-  codex: 'gpt-5.6-sol', // Issue #2027: GPT-5.6 Sol is the released Codex flagship; runtime falls back to gpt-5.5 when Sol is not in the local catalog
+  codex: 'gpt-6-sol', // Issue #2290: GPT-6 Sol is the Codex default; runtime discovers newer Sol generations and falls back against the installed catalogue
   qwen: 'qwen3-coder-plus',
   gemini: 'flash',
 };
@@ -283,11 +292,13 @@ export const MODELS_SUPPORTING_1M_CONTEXT = [
   'claude-sonnet-4-5-20250929',
   'claude-sonnet-4-5',
   'claude-opus-5', // Opus 5 — 1M context (Issue #2096)
+  'claude-opus-5-5', // Opus 5.5 — 1M context (Issue #2290)
   'sonnet', // Now maps to Sonnet 5 (Issue #2003)
   'sonnet-5', // Short alias (Issue #2003)
   'sonnet-4-6', // Short alias (Issue #1329)
   'opus', // Now maps to Opus 5 (Issue #2096)
   'opus-5', // Short alias (Issue #2096)
+  'opus-5-5', // Pinned Opus 5.5 alias (Issue #2290)
   'opus-4-8', // Short alias (Issue #1832)
   'opus-4-7', // Short alias (Issue #1620)
   'opus-4-6', // Short alias (Issue #1221 - PR comment feedback)
@@ -321,6 +332,7 @@ export const CLAUDE_MODELS = {
   'claude-mythos-5-1': 'claude-mythos-5-1', // Mythos 5.1 full ID (Issue #2202)
   'claude-fable-5': 'claude-fable-5', // Fable 5 full ID (Issue #1875)
   'claude-mythos-5': 'claude-mythos-5', // Mythos 5 full ID (Issue #1875)
+  'claude-opus-5-5': 'claude-opus-5-5', // Opus 5.5 full ID (Issue #2290)
   'claude-opus-5': 'claude-opus-5', // Opus 5 full ID (Issue #2096)
   'claude-opus-4-8': 'claude-opus-4-8', // Opus 4.8 full ID (Issue #1832)
   'claude-opus-4-7': 'claude-opus-4-7', // Opus 4.7 full ID (Issue #1620)
@@ -343,6 +355,9 @@ export const OPENCODE_MODELS = {
 
 export const CODEX_MODELS = {
   ...CODEX_MODEL_VARIANTS,
+  'gpt-6-sol': 'gpt-6-sol', // Issue #2290
+  'gpt-6-luna': 'gpt-6-luna', // Issue #2290
+  'gpt-reserve': 'gpt-reserve', // Issue #2290
   'gpt-6-astra': 'gpt-6-astra', // Issue #2202
   'gpt-5': 'gpt-5',
   'gpt-5.5': 'gpt-5.5',

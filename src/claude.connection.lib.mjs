@@ -9,10 +9,10 @@ import { timeouts, retryLimits, getThinkingLevelToTokens, getTokensToThinkingLev
 import { createTransientRetryBudget, waitWithCountdown } from './tool-retry.lib.mjs';
 import { buildAuthRemedyLines } from './formal-ai.lib.mjs';
 import { stringifyErrorValue } from './error-text.lib.mjs';
-import { mapModelToId } from './claude.model-utils.lib.mjs';
+import { resolveClaudeModelForExecution } from './claude.model-utils.lib.mjs';
 
-export const validateClaudeConnection = async (model = 'haiku') => {
-  const mappedModel = mapModelToId(model);
+export const validateClaudeConnection = async (model = 'haiku', { useRouter = false } = {}) => {
+  const mappedModel = await resolveClaudeModelForExecution(model, { useRouter });
   // Issue #2130: "run claude login" is wrong advice for a Formal-AI-served model.
   const authRemedyLines = buildAuthRemedyLines({ model, vendorRemedy: 'Please run: claude login' });
   // Issue #2169: a provider outage during validation used to abort the whole run after 3 quick

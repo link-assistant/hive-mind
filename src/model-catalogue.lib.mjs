@@ -300,9 +300,10 @@ export const loadModelCatalogue = async ({ tool = 'claude', env = process.env, f
  *
  * - **bundledAndLive** — shipped with this installation *and* reachable now.
  *   These are the ones `--model` accepts and that will work.
- * - **liveOnly** — a provider or the router knows them, this installation does
- *   not. This is the group the issue is about: a new model appears here the day
- *   it ships, without a release.
+ * - **liveOnly** — a provider, installed CLI, or router knows them, while the
+ *   bundled alias table does not. Exact IDs in this group are accepted by
+ *   runtime validation (issue #2290), so a new model is usable the day it ships
+ *   without a Hive Mind release.
  * - **bundledOnly** — shipped, but no live source confirmed them. Either no live
  *   source could be reached, or the model is retired.
  */

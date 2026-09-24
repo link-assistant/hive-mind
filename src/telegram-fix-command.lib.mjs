@@ -13,7 +13,7 @@ import { calculateLevenshteinDistance } from './option-suggestions.lib.mjs';
 import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { createYargsConfig as createSolveYargsConfig, detectMalformedFlags } from './solve.config.lib.mjs';
 import { parseArgsWithYargs } from './telegram-solve-command.lib.mjs';
-import { validateModelName } from './models/index.mjs';
+import { validateRuntimeModelName } from './models/index.mjs';
 import { FIX_MODES, parseFixRepository } from './fix.args.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { escapeMarkdown } from './telegram-markdown.lib.mjs';
@@ -57,10 +57,11 @@ export function getFixToolFromArgs(args) {
   return 'claude';
 }
 
-function validateFixModel(args) {
+async function validateFixModel(args) {
   const model = getModelFromArgs(args);
   if (!model) return null;
-  const validation = validateModelName(model, getFixToolFromArgs(args));
+  const useRouter = args.some(arg => arg === '--use-router' || arg === '--use-router=true');
+  const validation = await validateRuntimeModelName(model, getFixToolFromArgs(args), { useRouter });
   return validation.valid ? null : validation.message;
 }
 
@@ -213,7 +214,7 @@ export function registerFixCommand(bot, options) {
     const effectiveIsolation = overrideIsolation || perCommandIsolation;
     const mergedArgs = mergeArgsWithOverrides(filteredArgs, solveOverridesWithoutIsolation);
 
-    const modelError = validateFixModel(mergedArgs);
+    const modelError = await validateFixModel(mergedArgs);
     if (modelError) {
       await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
       return;

@@ -166,7 +166,7 @@ const { buildUserMention } = await import('./buildUserMention.lib.mjs');
 const { reportError, initializeSentry, addBreadcrumb } = await import('./sentry.lib.mjs');
 const { parseGitHubUrl, validateGitHubEntityExistence } = await import('./github.lib.mjs');
 const { buildModelOptionDescription } = await import('./models/index.mjs');
-const { injectLanguageIfMissing, validateModelInArgs } = await import('./telegram-command-args.lib.mjs');
+const { injectLanguageIfMissing, validateRuntimeModelInArgs } = await import('./telegram-command-args.lib.mjs');
 const { resolveIsolation, createIsolationAwareQueueCallback } = await import('./telegram-isolation.lib.mjs');
 const limitsLib = await import('./limits.lib.mjs');
 const { formatUsageMessage, formatCodexLimitsSection, getAllCachedLimits } = limitsLib;
@@ -621,7 +621,7 @@ async function handleSolveCommand(ctx) {
     }
   }
   // Validate model name with helpful error message (before yargs validation)
-  const modelError = validateModelInArgs(args, solveTool);
+  const modelError = await validateRuntimeModelInArgs(args, solveTool);
   if (modelError) {
     await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;
@@ -854,7 +854,7 @@ async function handleHiveCommand(ctx) {
   }
 
   // Validate model name with helpful error message (before yargs validation)
-  const hiveModelError = validateModelInArgs(args, hiveTool);
+  const hiveModelError = await validateRuntimeModelInArgs(args, hiveTool);
   if (hiveModelError) {
     await safeReply(ctx, `❌ ${escapeMarkdown(hiveModelError)}`, { reply_to_message_id: ctx.message.message_id });
     return;

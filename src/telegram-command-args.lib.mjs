@@ -4,7 +4,7 @@
  * Kept outside the entry point so the validation and locale propagation can be
  * exercised without booting Telegraf (issue #2198).
  */
-import { validateClaudeSubAgentModelName, validateModelName } from './models/index.mjs';
+import { validateClaudeSubAgentModelName, validateModelName, validateRuntimeModelName } from './models/index.mjs';
 
 /**
  * Validate model-related flags in an argument array.
@@ -22,6 +22,29 @@ export function validateModelInArgs(args, tool = 'claude') {
       }
     } else if (args[i].startsWith('--model=')) {
       const validation = validateModelName(args[i].substring('--model='.length), tool);
+      if (!validation.valid) return validation.message;
+    } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {
+      const modelName = args[i] === '--sub-agent-model' ? args[i + 1] : args[i].substring('--sub-agent-model='.length);
+      if (!modelName) continue;
+      if (tool !== 'claude') return `--sub-agent-model is only supported with --tool claude (current tool: ${tool})`;
+      const validation = validateClaudeSubAgentModelName(modelName);
+      if (!validation.valid) return `Invalid --sub-agent-model: ${validation.message}`;
+    }
+  }
+  return null;
+}
+
+/** Runtime-aware counterpart used before Telegram queues a work session. */
+export async function validateRuntimeModelInArgs(args, tool = 'claude') {
+  const useRouter = args.some(arg => arg === '--use-router' || arg === '--use-router=true');
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--model' || args[i] === '-m') {
+      if (i + 1 < args.length) {
+        const validation = await validateRuntimeModelName(args[i + 1], tool, { useRouter });
+        if (!validation.valid) return validation.message;
+      }
+    } else if (args[i].startsWith('--model=')) {
+      const validation = await validateRuntimeModelName(args[i].substring('--model='.length), tool, { useRouter });
       if (!validation.valid) return validation.message;
     } else if (args[i] === '--sub-agent-model' || args[i].startsWith('--sub-agent-model=')) {
       const modelName = args[i] === '--sub-agent-model' ? args[i + 1] : args[i].substring('--sub-agent-model='.length);

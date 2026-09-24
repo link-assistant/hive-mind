@@ -8,6 +8,7 @@
  */
 
 import { resolveCodexReasoningEffort } from './codex.options.lib.mjs';
+import { mapModelToId as mapClaudeModelToId } from './claude.model-utils.lib.mjs';
 import { mapClaudeSubAgentModelToEnvValue, mapModelForTool } from './models/index.mjs';
 import { buildCodexDisable1mContextConfigArgs, buildCodexSubSessionSizeConfigArgs, parseSubSessionSize } from './sub-session-size.lib.mjs';
 import { detectUsageLimit } from './usage-limit.lib.mjs';
@@ -123,7 +124,11 @@ export const isAgentCommanderAvailable = async () => {
 
 export const getAgentCommanderToolName = (argv = {}) => argv.tool || 'claude';
 
-const resolveAgentCommanderModel = (tool, model) => (model ? mapModelForTool(tool, model) : model);
+const resolveAgentCommanderModel = (tool, model) => {
+  if (!model) return model;
+  if (tool === 'claude') return mapClaudeModelToId(model, { preserveRollingAlias: true });
+  return mapModelForTool(tool, model);
+};
 
 export const buildAgentCommanderToolOptions = (argv = {}, tool = getAgentCommanderToolName(argv)) => {
   const options = tool === 'claude' ? buildClaudeToolOptions(argv) : tool === 'codex' ? buildCodexToolOptions(argv) : {};

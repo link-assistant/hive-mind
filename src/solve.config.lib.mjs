@@ -384,7 +384,7 @@ export const SOLVE_OPTION_DEFINITIONS = {
   },
   'fallback-model': {
     type: 'string',
-    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus (Opus 5); claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-5 -> opus-4-8; claude opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.6-luna -> gpt-5.5 -> gpt-5.4; all others unset.',
+    description: 'Fallback model to switch to on model capacity/overload errors (and, for Fable 5, on safety-classifier refusals). When supported, retries resume the same session with this model. An explicit value is pinned exactly; the built-in defaults form a chain that steps to the next-closest model on repeated capacity errors. Defaults: claude fable/claude-fable-5 -> opus; claude mythos-5/claude-mythos-5 -> fable; claude opus/opus-5 -> opus-4-8; claude opus-4-8 -> opus-4-7; claude opus-4-7 -> opus-4-6; codex gpt-6-sol -> gpt-5.6-sol -> gpt-5.6-terra -> gpt-5.5 -> gpt-5.4; all others unset.',
     default: undefined,
   },
   'sub-agent-model': {

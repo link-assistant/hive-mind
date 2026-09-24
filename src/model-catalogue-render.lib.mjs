@@ -20,7 +20,7 @@ export const TELEGRAM_MESSAGE_BUDGET = 3600;
 
 export const GROUP_TITLES = Object.freeze({
   bundledAndLive: { title: 'Bundled and live', note: 'shipped with this installation and confirmed reachable now' },
-  liveOnly: { title: 'Hot loaded', note: 'a live source has them, this installation does not — use with --model at your own risk' },
+  liveOnly: { title: 'Hot loaded', note: 'a live source has them — their exact IDs are accepted by --model' },
   bundledOnly: { title: 'Bundled only', note: 'shipped, but no live source confirmed them' },
 });
 

@@ -30,7 +30,7 @@ bundled with this installation.
 
 Models are grouped so it is obvious what each one is:
   Bundled and live   shipped here and confirmed reachable now
-  Hot loaded         a live source has it, this installation does not ship it
+  Hot loaded         a live source has it; its exact ID is accepted by --model
   Bundled only       shipped here, no live source confirmed it
 
 Options:

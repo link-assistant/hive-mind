@@ -1,5 +1,5 @@
 import { buildUserMention } from './buildUserMention.lib.mjs';
-import { validateModelName } from './models/index.mjs';
+import { validateRuntimeModelName } from './models/index.mjs';
 import { getLinoYargsFactory } from './cli-arguments.lib.mjs';
 import { getModelFromArgs } from './model-args.lib.mjs';
 import { createYargsConfig as createTaskYargsConfig } from './task.config.lib.mjs';
@@ -85,10 +85,11 @@ export function getTaskToolFromArgs(args) {
   return 'claude';
 }
 
-function validateTaskModel(args) {
+async function validateTaskModel(args) {
   const model = getModelFromArgs(args);
   if (!model) return null;
-  const validation = validateModelName(model, getTaskToolFromArgs(args));
+  const useRouter = args.some(arg => arg === '--use-router' || arg === '--use-router=true');
+  const validation = await validateRuntimeModelName(model, getTaskToolFromArgs(args), { useRouter });
   return validation.valid ? null : validation.message;
 }
 
@@ -280,7 +281,7 @@ export function registerTaskCommands(bot, options) {
       return;
     }
 
-    const modelError = validateTaskModel(filteredArgs);
+    const modelError = await validateTaskModel(filteredArgs);
     if (modelError) {
       await safeReply(ctx, `❌ ${escapeMarkdown(modelError)}`, { reply_to_message_id: ctx.message.message_id });
       return;

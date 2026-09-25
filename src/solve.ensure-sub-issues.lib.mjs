@@ -68,7 +68,7 @@ export const fetchSubIssues = async ({ owner, repo, issueNumber }) => {
   // Issue #2135: `mirror: false` — the payload is inspected here, not shown.
   const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/issues/${issueNumber}/sub_issues --paginate`;
   if (result.code !== 0) {
-    const output = (result.stderr || result.stdout || '').toString().trim();
+    const output = (result.stderr?.toString() || result.stdout?.toString() || '').toString().trim();
     throw new Error(output || `gh api sub_issues exited with code ${result.code}`);
   }
   const parsed = JSON.parse(result.stdout.toString() || '[]');
@@ -86,7 +86,7 @@ export const fetchPullRequestText = async ({ owner, repo, prNumber }) => {
   // Issue #2135: `mirror: false` — the body can be very large.
   const result = await $(QUIET_PROBE)`gh api repos/${owner}/${repo}/pulls/${prNumber}`;
   if (result.code !== 0) {
-    const output = (result.stderr || result.stdout || '').toString().trim();
+    const output = (result.stderr?.toString() || result.stdout?.toString() || '').toString().trim();
     throw new Error(output || `gh api pulls exited with code ${result.code}`);
   }
   const pr = JSON.parse(result.stdout.toString() || '{}');

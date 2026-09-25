@@ -769,7 +769,7 @@ export const watchUntilMergeable = async params => {
           if (pullResult.code === 0) {
             await log(formatAligned('🔄', 'Synced:', `Local branch ${effectiveBranch} updated from remote`));
           } else {
-            const pullOutput = `${pullResult.stdout || ''}${pullResult.stderr || ''}`.trim() || 'no output';
+            const pullOutput = `${pullResult.stdout?.toString() || ''}${pullResult.stderr?.toString() || ''}`.trim() || 'no output';
             const pullLeftLocalChanges = await checkForUncommittedChanges(tempDir, argv);
             if (pullLeftLocalChanges && /CONFLICT|MERGE_HEAD|unmerged|Automatic merge failed|not concluded your merge/i.test(pullOutput)) {
               await log(formatAligned('⚠️', 'Sync produced merge state:', 'Proceeding with AI restart to resolve it', 2));

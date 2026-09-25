@@ -122,12 +122,12 @@ export const setupRepository = async (argv, owner, repo) => {
       // Check if fork creation failed or if fork already exists
       if (forkResult.code !== 0) {
         await log(`${formatAligned('❌', 'Error:', 'Failed to create fork')}`);
-        await log(forkResult.stderr ? forkResult.stderr.toString() : 'Unknown error');
+        await log(forkResult.stderr?.toString() ? forkResult.stderr.toString() : 'Unknown error');
         process.exit(1);
       }
 
       // Check if the output indicates the fork already exists (from parallel worker)
-      const forkOutput = forkResult.stderr ? forkResult.stderr.toString() : '';
+      const forkOutput = forkResult.stderr?.toString() ? forkResult.stderr.toString() : '';
       if (forkOutput.includes('already exists')) {
         // Fork was created by another worker - treat as if fork already existed
         await log(`${formatAligned('ℹ️', 'Fork exists:', 'Already created by another worker')}`);

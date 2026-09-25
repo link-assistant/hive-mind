@@ -84,7 +84,7 @@ export async function removePlaceholderFromGitignore({ $, tempDir, fileName }) {
     }
 
     const verbose = await $({ cwd: tempDir, silent: true })`git check-ignore -v ${fileName}`;
-    const parsed = parseCheckIgnoreVerbose(verbose.stdout ? verbose.stdout.toString() : '');
+    const parsed = parseCheckIgnoreVerbose(verbose.stdout?.toString() ? verbose.stdout.toString() : '');
     if (!parsed) {
       return { removed: false, reason: 'could-not-locate-rule', modifiedFiles, stagedFiles };
     }
@@ -304,7 +304,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
     return { code: 0, ignored: false, action: 'added', stderr: '' };
   }
 
-  const stderr = addResult.stderr ? addResult.stderr.toString() : '';
+  const stderr = addResult.stderr?.toString() ? addResult.stderr.toString() : '';
 
   // Determine whether the add failed because the placeholder is git-ignored.
   // `git check-ignore` exits 0 when the path matches a .gitignore rule.
@@ -336,7 +336,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
       code: retry.code,
       ignored: true,
       action: 'removed-from-gitignore',
-      stderr: retry.stderr ? retry.stderr.toString() : '',
+      stderr: retry.stderr?.toString() ? retry.stderr.toString() : '',
       removal,
     };
   }
@@ -353,7 +353,7 @@ export async function addPlaceholderFileToGit({ $, tempDir, fileName, log, forma
       code: forcedResult.code,
       ignored: true,
       action: 'forced',
-      stderr: forcedResult.stderr ? forcedResult.stderr.toString() : '',
+      stderr: forcedResult.stderr?.toString() ? forcedResult.stderr.toString() : '',
     };
   }
 

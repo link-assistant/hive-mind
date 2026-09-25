@@ -223,7 +223,7 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     const result = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile, issueType, labels }));
     if (result.code === 0) return parseCreatedTaskIssueOutput(result.stdout);
 
-    const output = `${result.stderr || ''}${result.stdout || ''}`.trim();
+    const output = `${result.stderr?.toString() || ''}${result.stdout?.toString() || ''}`.trim();
     const usedOptionalMetadata = Boolean(issueType) || labels.length > 0;
     if (!usedOptionalMetadata) {
       throw new Error(output || `gh issue create exited with code ${result.code}`);
@@ -232,7 +232,7 @@ export async function createTaskIssue({ repository, title, body, issueType = nul
     await log?.(`⚠️  Could not create issue with type/labels (${output || `exit code ${result.code}`}); retrying without them`);
     const retry = await run('gh', buildCreateIssueArgs({ repository, title: sanitizedTitle, bodyFile }));
     if (retry.code !== 0) {
-      const retryOutput = `${retry.stderr || ''}${retry.stdout || ''}`.trim();
+      const retryOutput = `${retry.stderr?.toString() || ''}${retry.stdout?.toString() || ''}`.trim();
       throw new Error(retryOutput || `gh issue create exited with code ${retry.code}`);
     }
     return parseCreatedTaskIssueOutput(retry.stdout);

@@ -97,7 +97,7 @@ try {
       maxBuffer: 50 * 1024 * 1024,
     });
     if (result.status !== 0) {
-      throw new Error(`gh api graphql failed: ${result.stderr || result.stdout}`);
+      throw new Error(`gh api graphql failed: ${result.stderr?.toString() || result.stdout?.toString()}`);
     }
     const data = JSON.parse(result.stdout);
     const page = data.data.repositoryOwner.repositories;

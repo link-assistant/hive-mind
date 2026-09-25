@@ -142,7 +142,7 @@ export async function verifyBranchOnGitHub({ argv, tempDir, branchName, forkedRe
     await log('   This will cause PR creation to fail.');
 
     if (argv.verbose) {
-      await log(`   Branch check result: ${branchCheckResult.stdout || branchCheckResult.stderr || 'empty'}`);
+      await log(`   Branch check result: ${branchCheckResult.stdout?.toString() || branchCheckResult.stderr?.toString() || 'empty'}`);
 
       // Show all branches on GitHub
       const allBranchesResult = await $({
@@ -162,14 +162,14 @@ export async function verifyBranchOnGitHub({ argv, tempDir, branchName, forkedRe
     const explicitPushResult = await $`cd ${tempDir} && ${explicitPushCmd} 2>&1`;
     if (explicitPushResult.code === 0) {
       await log('   Explicit push completed');
-      if (argv.verbose && explicitPushResult.stdout) {
+      if (argv.verbose && explicitPushResult.stdout?.toString()) {
         await log(`   Output: ${explicitPushResult.stdout.toString().trim()}`);
       }
       // Wait a bit more for GitHub to process
       await new Promise(resolve => setTimeout(resolve, 3000));
     } else {
       await log('   ERROR: Cannot push to GitHub!');
-      await log(`   Error: ${explicitPushResult.stderr || explicitPushResult.stdout || 'Unknown'}`);
+      await log(`   Error: ${explicitPushResult.stderr?.toString() || explicitPushResult.stdout?.toString() || 'Unknown'}`);
       await log('   Force push is not allowed to preserve history');
     }
   }

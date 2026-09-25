@@ -68,6 +68,10 @@ rml-184: 42 solver session windows, 78 edits, 78 ignored (solver/bot), 0 externa
 (`konard` never edited either PR by hand. The rml-184 history also contains
 edits by `github-actions`, which are now ignored as bot edits.)
 
+Excerpts of the two #184 solve logs (the full logs are 40 MB and 26 MB) are
+in [`log-rml-184-run1-excerpt.txt`](./log-rml-184-run1-excerpt.txt) and
+[`log-rml-184-run2-excerpt.txt`](./log-rml-184-run2-excerpt.txt).
+
 ## Root causes
 
 1. **`updated_at` was treated as "content edited".** GitHub bumps `updated_at`

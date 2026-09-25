@@ -217,7 +217,7 @@ export const fetchContentEdits = async ({ owner, repo, number, $ }) => {
   try {
     const result = await ghWithRateLimitRetry(() => $`gh api graphql -f query=${CONTENT_EDITS_QUERY} -f owner=${owner} -f repo=${repo} -F number=${number}`, { label: 'fetchContentEdits' });
     if (result.code !== 0) {
-      return { ok: false, edits: [], error: (result.stderr || '').toString().trim() || `exit code ${result.code}` };
+      return { ok: false, edits: [], error: (result.stderr?.toString() || '').trim() || `exit code ${result.code}` };
     }
     const payload = JSON.parse(result.stdout.toString() || '{}');
     const node = payload?.data?.repository?.issueOrPullRequest;

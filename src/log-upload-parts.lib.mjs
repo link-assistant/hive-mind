@@ -131,7 +131,7 @@ export const describeUploadedLogParts = async ({ url, uploadedFile, failureMessa
   if (parts.length < 2) return { parts, failurePartIndex: null, failureLocated: false };
   const needles = buildFailureNeedles(failureMessages);
   if (needles.length === 0) return { parts, failurePartIndex: null, failureLocated: false };
-  let offset = -1;
+  let offset;
   try {
     offset = await findLastOccurrenceOffset({ file: uploadedFile, needles, fsImpl });
   } catch {

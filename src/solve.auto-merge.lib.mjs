@@ -104,6 +104,8 @@ const { buildEmptyPullRequestBlocker, getPullRequestChangeStats } = await import
 // monitoring loop must not heal that deliberate draft or publish a later
 // "Ready to merge" comment merely because CI is absent/green.
 const { getPullRequestLeftInDraft } = await import('./pr-draft-state.lib.mjs');
+// Issue #2293: every restart reason is posted and logged with verifiable evidence.
+const { buildAutoRestartCommentBody, buildCiEvidence, buildCommentEvidence, buildIssueEditEvidence, ciFailureSignature } = await import('./restart-evidence.lib.mjs');
 // Issue #1895: explicitly close linked issues after merging a PR into a
 // non-default branch, where GitHub does not auto-close them.
 const { ensureLinkedIssueClosedAfterMerge } = await import('./github-issue-auto-close.lib.mjs');
@@ -193,6 +195,8 @@ export const watchUntilMergeable = async params => {
   // restart/resume fallback can detect user edits to those surfaces and deliver
   // them as feedback to the next session. The first check seeds the baseline.
   let issueMetadataSnapshot = null;
+  let previousCiSignature = null;
+  let repeatedCiFailures = 0;
   while (true) {
     iteration++;
     const currentTime = new Date();
@@ -320,7 +324,10 @@ export const watchUntilMergeable = async params => {
       // Issue #2007: Detect issue title/description edits (user-owned feedback
       // surfaces) so the fallback resumes the AI with them. The first iteration
       // seeds the baseline and never reports a change.
-      const metadataCheck = await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
+      // Issue #2293: when there is no separate linked issue (issueNumber falls back
+      // to prNumber) the "issue" is the pull request itself, whose title and
+      // description the AI owns and rewrites - watching it restarts on the AI's own edits.
+      const metadataCheck = Number(issueNumber) === Number(prNumber) ? { changed: false, snapshot: null, changes: [] } : await checkForIssueMetadataChanges(owner, repo, issueNumber, issueMetadataSnapshot, argv.verbose, $);
       issueMetadataSnapshot = metadataCheck.snapshot || issueMetadataSnapshot;
       const hasIssueMetadataChanges = metadataCheck.changed === true;
       const issueMetadataChanges = metadataCheck.changes || [];
@@ -523,9 +530,11 @@ export const watchUntilMergeable = async params => {
       let shouldRestart = false;
       let restartReason = '';
       let feedbackLines = [];
+      const restartEvidence = [];
       // Reason 1: New comments from non-bot users
       if (hasNewComments) {
         shouldRestart = true;
+        restartEvidence.push(...buildCommentEvidence(comments));
         restartReason = `New comment(s) from non-bot user(s): ${comments.map(c => c.user?.login).join(', ')}`;
         feedbackLines.push('📬 New comments detected from non-bot users:');
         for (const comment of comments) {
@@ -548,6 +557,7 @@ export const watchUntilMergeable = async params => {
         shouldRestart = true;
         const changedFields = issueMetadataChanges.map(c => (c.field === 'title' ? 'title' : 'description')).join(' and ');
         restartReason = restartReason ? `${restartReason}; Issue ${changedFields} edited` : `Issue ${changedFields} edited`;
+        restartEvidence.push(...buildIssueEditEvidence(issueNumber, issueMetadataChanges, new Date()));
         feedbackLines.push(`✏️ The issue ${changedFields} was edited after the last session:`);
         for (const change of issueMetadataChanges) {
           const label = change.field === 'title' ? 'Issue title' : 'Issue description';
@@ -688,6 +698,10 @@ export const watchUntilMergeable = async params => {
       if (ciBlocker && !billingBlocker) {
         shouldRestart = true;
         restartReason = restartReason ? `${restartReason}; CI failures` : 'CI failures detected';
+        restartEvidence.push(...buildCiEvidence(ciBlocker));
+        const ciSignature = ciFailureSignature(ciBlocker);
+        repeatedCiFailures = ciSignature && ciSignature === previousCiSignature ? repeatedCiFailures + 1 : 1;
+        previousCiSignature = ciSignature;
         feedbackLines.push('❌ CI/CD checks are failing:');
         // Issue #1690: Surface the blocker message so AI sees structured failure context
         // (e.g. "CI/CD workflow file is invalid — no jobs were instantiated") even when
@@ -700,6 +714,7 @@ export const watchUntilMergeable = async params => {
         }
         feedbackLines.push('');
         feedbackLines.push('Please fix the failing CI checks.');
+        if (repeatedCiFailures > 1) feedbackLines.push(`⚠️ The same checks have failed ${repeatedCiFailures} restarts in a row - previous attempts did not fix them, so re-read the failing job logs and change approach.`);
       }
       // Reason 3: Merge conflicts or other merge issues
       const mergeBlocker = blockers.find(b => b.type === 'not_mergeable');
@@ -726,6 +741,7 @@ export const watchUntilMergeable = async params => {
         feedbackLines.push('1. COMMITTING them if they are part of the solution (git add + git commit + git push)');
         feedbackLines.push('2. REVERTING them if they are not needed (git checkout -- <file> or git clean -fd)');
       }
+      if (shouldRestart && !(ciBlocker && !billingBlocker)) [previousCiSignature, repeatedCiFailures] = [null, 0];
       if (shouldRestart) {
         // Issue #2119: the run-wide budget is exhausted (it may already have been
         // spent by the watch loop). Fail and auto-commit through the same shared
@@ -789,6 +805,7 @@ export const watchUntilMergeable = async params => {
         // Issue #2119: claim it from the run-wide shared budget.
         const restartCount = consumeAutoRestartIteration();
         await log(formatAligned('🔄', 'RESTART TRIGGERED:', restartReason));
+        for (const line of restartEvidence) await log(formatAligned('', 'Evidence:', line, 2));
         await log(formatAligned('', 'Restart iteration:', formatAutoRestartLabel(restartCount), 2));
         await log('');
         // Post a comment to PR about the restart after preflight succeeds, so every
@@ -798,7 +815,7 @@ export const watchUntilMergeable = async params => {
           // Issue #2119: the same `N/M` heading the uncommitted-changes loop posts.
           // "triggered (iteration N)" hid the limit and made one auto-restart
           // system look like two.
-          const commentBody = `## 🔄 ${AUTO_RESTART_MARKER} ${formatAutoRestartLabel(restartCount)}\n\n**Reason:** ${restartReason}\n\nStarting new session to address the issues.\n\n---\n*Auto-restart-until-mergeable mode is active. ${limitText}*`;
+          const commentBody = buildAutoRestartCommentBody({ marker: AUTO_RESTART_MARKER, label: formatAutoRestartLabel(restartCount), reason: restartReason, evidence: restartEvidence, limitText, repeatedCiFailures: ciBlocker && !billingBlocker ? repeatedCiFailures : 0 });
           // Issue #1625: Track so this doesn't falsely count as an AI-authored comment
           await postTrackedComment({ $, owner, repo, targetNumber: prNumber, body: commentBody });
           await log(formatAligned('', '💬 Posted auto-restart notification to PR', '', 2));

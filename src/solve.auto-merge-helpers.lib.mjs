@@ -942,7 +942,10 @@ export const getMergeBlockers = async (owner, repo, prNumber, verbose = false, c
         blockers.push({
           type: 'ci_failure',
           message: 'CI/CD checks are failing',
-          details: actionableFailedChecks.map(c => c.name),
+          // Issue #2293: name the failing check *and* where to read it, so the
+          // restart comment is verifiable ("CI failures detected" alone was not).
+          details: actionableFailedChecks.map(c => (c.html_url ? `${c.name} — ${c.html_url}` : c.name)),
+          checks: actionableFailedChecks.map(c => ({ name: c.name, conclusion: c.conclusion || null, html_url: c.html_url || null })),
         });
       }
     }
